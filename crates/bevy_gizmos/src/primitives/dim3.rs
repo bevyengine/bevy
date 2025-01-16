@@ -228,9 +228,11 @@ where
             return;
         }
 
-        let isometry = isometry.into();
-        let direction = primitive.direction.as_vec3();
-        self.line(isometry * direction, isometry * (-direction), color);
+        let isometry: Isometry3d = isometry.into();
+        let transformed = primitive
+            .rotated(isometry.rotation)
+            .offset(isometry.translation.into());
+        self.line(transformed.point1(), transformed.point1(), color);
     }
 }
 

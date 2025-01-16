@@ -359,22 +359,25 @@ impl Primitive3d for Line3d {}
     reflect(Serialize, Deserialize)
 )]
 pub struct Segment3d {
-    /// The direction of the line
-    pub direction: Dir3,
-    /// Half the length of the line segment. The segment extends by this amount in both
-    /// the given direction and its opposite direction
-    pub half_length: f32,
+    /// The first point of the segment
+    pub point1: Vec3,
+    /// The second point of the segment
+    pub point2: Vec3,
 }
 impl Primitive3d for Segment3d {}
 
 impl Segment3d {
+    /// Create a new `Segment3d` from it's points
+    #[inline(always)]
+    pub fn new(point1: Vec3, point2: Vec3) -> Self {
+        Self { point1, point2 }
+    }
+
     /// Create a new `Segment3d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Dir3, length: f32) -> Self {
-        Self {
-            direction,
-            half_length: length / 2.0,
-        }
+    pub fn from_direction_and_length(direction: Dir3, length: f32) -> Self {
+        let half_length = length / 2.;
+        Self::new(direction * -half_length, direction * -half_length)
     }
 
     /// Create a new `Segment3d` from its endpoints and compute its geometric center
@@ -384,26 +387,59 @@ impl Segment3d {
     /// Panics if `point1 == point2`
     #[inline(always)]
     pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
-        let diff = point2 - point1;
-        let length = diff.length();
+        let segment = Self::new(point1, point2);
 
-        (
-            // We are dividing by the length here, so the vector is normalized.
-            Self::new(Dir3::new_unchecked(diff / length), length),
-            (point1 + point2) / 2.,
-        )
+        (segment, segment.center())
     }
 
     /// Get the position of the first point on the line segment
     #[inline(always)]
     pub fn point1(&self) -> Vec3 {
-        *self.direction * -self.half_length
+        self.point1
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
     pub fn point2(&self) -> Vec3 {
-        *self.direction * self.half_length
+        self.point2
+    }
+
+    /// Get the center of the segment
+    #[inline(always)]
+    pub fn center(&self) -> Vec3 {
+        (self.point1() + self.point2()) / 2.
+    }
+
+    /// Get the length of the segment
+    #[inline(always)]
+    pub fn length(&self) -> f32 {
+        self.point1().distance(self.point2())
+    }
+
+    /// Get the segment offset by a vector
+    #[inline(always)]
+    pub fn offset(&self, offset: Vec3) -> Segment3d {
+        Self::new(self.point1() + offset, self.point2() + offset)
+    }
+
+    /// Get the segment rotated around it's center
+    #[inline(always)]
+    pub fn rotated(&self, rotation: Quat) -> Segment3d {
+        // We center the segment for the purpose of the rotation, then offset back to it's original position
+        let offset_from_origin = self.center();
+        let centered = self.centered();
+        let centered_rotated = Segment3d::new(
+            rotation.mul_vec3(centered.point1()),
+            rotation.mul_vec3(centered.point2()),
+        );
+        centered_rotated.offset(offset_from_origin)
+    }
+
+    /// Get the segment offset so that it's center is at the origin
+    #[inline(always)]
+    pub fn centered(&self) -> Segment3d {
+        let center = self.center();
+        self.offset(-center)
     }
 }
 

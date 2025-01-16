@@ -76,18 +76,12 @@ impl Bounded3d for Line3d {
 
 impl Bounded3d for Segment3d {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
-        let isometry = isometry.into();
-
-        // Rotate the segment by `rotation`
-        let direction = isometry.rotation * *self.direction;
-        let half_size = (self.half_length * direction).abs();
-
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_point_cloud(isometry, [self.point1(), self.point2()].iter().copied())
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         let isometry = isometry.into();
-        BoundingSphere::new(isometry.translation, self.half_length)
+        BoundingSphere::from_point_cloud(isometry, &[self.point1(), self.point2()])
     }
 }
 
