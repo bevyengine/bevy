@@ -50,7 +50,7 @@ impl<T: Specializable> Specialize<T> for () {
 impl<T: Specializable, V: Send + Sync + 'static> Specialize<T> for PhantomData<V> {
     type Key = ();
 
-    fn specialize(&self, _key: Self::Key, _descriptor: &mut <T as Specializable>::Descriptor) {}
+    fn specialize(&self, _key: Self::Key, _descriptor: &mut T::Descriptor) {}
 }
 
 pub trait HasBaseDescriptor<T: Specializable>: Specialize<T> {
