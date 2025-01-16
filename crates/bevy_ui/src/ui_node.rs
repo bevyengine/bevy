@@ -330,7 +330,8 @@ impl From<Vec2> for ScrollPosition {
     Transform,
     Visibility,
     VisibilityClass,
-    ZIndex
+    ZIndex,
+    ResolvedTargetCamera
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[component(on_add = view::add_visibility_class::<Node>)]

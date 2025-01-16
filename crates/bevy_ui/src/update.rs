@@ -138,11 +138,7 @@ fn update_clipping(
 
 pub fn resolve_target_camera_system(
     mut commands: Commands,
-    changed_root_nodes_query: Query<
-        (Entity, Option<&TargetCamera>),
-        (With<Node>, Changed<TargetCamera>),
-    >,
-    mut node_query: Query<&mut ResolvedTargetCamera>,
+    changed_root_nodes_query: Query<(Entity, Option<&TargetCamera>), With<Node>>,
     ui_root_nodes: UiRootNodes,
     ui_children: UiChildren,
     mut resolved_target_query: Query<&mut ResolvedTargetCamera>,
@@ -183,12 +179,12 @@ pub fn resolve_target_camera_system(
             continue;
         }
 
-        let target = node_query.get(parent).unwrap();
+        let target = resolved_target_query.get(parent).unwrap();
 
         update_children_target_camera(
             parent,
             target.0,
-            &mut node_query,
+            &mut resolved_target_query,
             &ui_children,
             &mut commands,
             &mut updated_entities,

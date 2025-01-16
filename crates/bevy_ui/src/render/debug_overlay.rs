@@ -1,7 +1,6 @@
 use crate::CalculatedClip;
 use crate::ComputedNode;
 use crate::DefaultUiCamera;
-use crate::TargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -66,7 +65,7 @@ pub fn extract_debug_overlay(
             &ViewVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            Option<&TargetCamera>,
+            &ResolvedTargetCamera,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,

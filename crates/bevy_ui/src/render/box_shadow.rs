@@ -3,8 +3,8 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
-    ResolvedBorderRadius, TargetCamera, TransparentUi, Val,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
+    ResolvedBorderRadius, ResolvedTargetCamera, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -236,7 +236,6 @@ pub struct ExtractedBoxShadows {
 pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
@@ -246,20 +245,14 @@ pub fn extract_shadows(
             &ViewVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ResolvedTargetCamera,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
-
     for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
-            continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 

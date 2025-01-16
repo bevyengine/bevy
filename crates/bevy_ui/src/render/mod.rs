@@ -9,8 +9,8 @@ mod debug_overlay;
 
 use crate::widget::ImageNode;
 use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
-    Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, Outline,
+    ResolvedBorderRadius, ResolvedTargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -279,7 +279,6 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -287,21 +286,16 @@ pub fn extract_uinode_background_colors(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ResolvedTargetCamera,
             &BackgroundColor,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
         &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
-            continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 
@@ -341,7 +335,6 @@ pub fn extract_uinode_images(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -349,19 +342,14 @@ pub fn extract_uinode_images(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ResolvedTargetCamera,
             &ImageNode,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
-            continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 
@@ -430,7 +418,6 @@ pub fn extract_uinode_images(
 pub fn extract_uinode_borders(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -439,14 +426,13 @@ pub fn extract_uinode_borders(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ResolvedTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
     let image = AssetId::<Image>::default();
-    let default_camera_entity = default_ui_camera.get();
     for (
         entity,
         node,
@@ -454,18 +440,11 @@ pub fn extract_uinode_borders(
         global_transform,
         view_visibility,
         maybe_clip,
-        maybe_camera,
+        camera,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
-        let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
-            .or(default_camera_entity)
-        else {
-            continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 
@@ -669,7 +648,6 @@ pub fn extract_ui_camera_view(
 pub fn extract_text_sections(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
@@ -678,7 +656,7 @@ pub fn extract_text_sections(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            &ResolvedTargetCamera,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,
@@ -689,7 +667,6 @@ pub fn extract_text_sections(
     let mut start = 0;
     let mut end = 1;
 
-    let default_ui_camera = default_ui_camera.get();
     for (
         entity,
         uinode,
@@ -701,16 +678,12 @@ pub fn extract_text_sections(
         text_layout_info,
     ) in &uinode_query
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera) else {
-            continue;
-        };
-
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !view_visibility.get() || uinode.is_empty() {
             continue;
         }
 
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 
