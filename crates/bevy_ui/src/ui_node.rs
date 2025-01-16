@@ -329,13 +329,9 @@ impl From<Vec2> for ScrollPosition {
     ScrollPosition,
     Transform,
     Visibility,
-    //VisibilityClass,
-    ZIndex,
-    // NoCpuCulling,
-    // NoFrustumCulling
+    ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
-//#[component(on_add = view::add_visibility_class::<Node>)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
