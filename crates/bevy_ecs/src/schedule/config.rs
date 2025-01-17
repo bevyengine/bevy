@@ -247,6 +247,12 @@ impl<T> NodeConfigs<T> {
 /// [`SystemParam`](crate::system::SystemParam)), or tuples thereof.
 /// It is a common entry point for system configurations.
 ///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If system configs need to be returned from a
+/// function or stored somewhere, use [`SystemConfigs`] instead of this trait.
+///
 /// # Examples
 ///
 /// ```
@@ -617,6 +623,12 @@ impl SystemSetConfig {
 pub type SystemSetConfigs = NodeConfigs<InternedSystemSet>;
 
 /// Types that can convert into a [`SystemSetConfigs`].
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If system set configs need to be returned from a
+/// function or stored somewhere, use [`SystemSetConfigs`] instead of this trait.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not describe a valid system set configuration",
     label = "invalid system set configuration"
