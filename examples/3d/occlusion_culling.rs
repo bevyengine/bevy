@@ -27,6 +27,7 @@ use bevy::{
         Render, RenderApp, RenderPlugin, RenderSet,
     },
 };
+use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
@@ -106,7 +107,6 @@ struct SavedIndirectParameters(Arc<Mutex<SavedIndirectParametersData>>);
 /// A CPU-side copy of the GPU buffer that stores the indirect draw parameters.
 ///
 /// This is needed so that we can display the number of meshes that were culled.
-#[derive(Default)]
 struct SavedIndirectParametersData {
     /// The CPU-side copy of the GPU buffer that stores the indirect draw
     /// parameters.
@@ -117,6 +117,20 @@ struct SavedIndirectParametersData {
     /// All we care about is the number of indirect draw parameters for a single
     /// view, so this is only one word in size.
     count: u32,
+    /// True if occlusion culling is supported at all; false if it's not.
+    occlusion_culling_supported: bool,
+}
+
+impl Default for SavedIndirectParametersData {
+    fn default() -> SavedIndirectParametersData {
+        SavedIndirectParametersData {
+            data: vec![],
+            count: 0,
+            // This gets set to false in `readback_indirect_buffers` if we don't
+            // support GPU preprocessing.
+            occlusion_culling_supported: true,
+        }
+    }
 }
 
 /// The demo's current settings.
@@ -470,42 +484,63 @@ fn update_status_text(
     // locking the data and therefore this will value will generally at least
     // one frame behind. This is fine; this app is just a demonstration after
     // all.
-    let rendered_object_count: u32 = {
+    let (rendered_object_count, occlusion_culling_supported): (u32, bool) = {
         let saved_indirect_parameters = saved_indirect_parameters.lock().unwrap();
-        saved_indirect_parameters
-            .data
-            .iter()
-            .take(saved_indirect_parameters.count as usize)
-            .map(|indirect_parameters| indirect_parameters.instance_count)
-            .sum()
+        (
+            saved_indirect_parameters
+                .data
+                .iter()
+                .take(saved_indirect_parameters.count as usize)
+                .map(|indirect_parameters| indirect_parameters.instance_count)
+                .sum(),
+            saved_indirect_parameters.occlusion_culling_supported,
+        )
     };
 
     // Change the text.
     for mut text in &mut texts {
-        text.0 = format!(
-            "Occlusion culling {} (Press Space to toggle)\n{}/{} meshes rendered",
-            if app_status.occlusion_culling {
-                "ON"
-            } else {
-                "OFF"
-            },
-            rendered_object_count,
-            total_mesh_count
-        );
+        if !occlusion_culling_supported {
+            text.0 = "Occlusion culling not supported on this platform".to_owned();
+        } else {
+            text.0 = format!(
+                "Occlusion culling {} (Press Space to toggle)\n{}/{} meshes rendered",
+                if app_status.occlusion_culling {
+                    "ON"
+                } else {
+                    "OFF"
+                },
+                rendered_object_count,
+                total_mesh_count
+            );
+        }
     }
 }
 
+/// A system that reads the indirect parameters back from the GPU so that we can
+/// report how many meshes were culled.
 fn readback_indirect_parameters(
-    mut indirect_parameters_mapping_buffers: ResMut<IndirectParametersStagingBuffers>,
+    mut indirect_parameters_staging_buffers: ResMut<IndirectParametersStagingBuffers>,
     saved_indirect_parameters: Res<SavedIndirectParameters>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
+    // If culling isn't supported on this platform, note that, and bail.
+    if gpu_preprocessing_support.max_supported_mode != GpuPreprocessingMode::Culling {
+        saved_indirect_parameters
+            .lock()
+            .unwrap()
+            .occlusion_culling_supported = false;
+        return;
+    }
+
+    // Grab the staging buffers.
     let (Some(data_buffer), Some(batch_sets_buffer)) = (
-        indirect_parameters_mapping_buffers.data.take(),
-        indirect_parameters_mapping_buffers.batch_sets.take(),
+        indirect_parameters_staging_buffers.data.take(),
+        indirect_parameters_staging_buffers.batch_sets.take(),
     ) else {
         return;
     };
 
+    // Read the GPU buffers back.
     let saved_indirect_parameters_0 = (**saved_indirect_parameters).clone();
     let saved_indirect_parameters_1 = (**saved_indirect_parameters).clone();
     readback_buffer::<IndirectParametersIndexed>(data_buffer, move |indirect_parameters| {

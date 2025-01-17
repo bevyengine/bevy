@@ -913,7 +913,14 @@ pub fn prepare_core_3d_transmission_textures(
 ///
 /// We need that flag to be set in order to read from the texture.
 fn configure_occlusion_culling_view_targets(
-    mut view_targets: Query<&mut Camera3d, (With<OcclusionCulling>, With<DepthPrepass>)>,
+    mut view_targets: Query<
+        &mut Camera3d,
+        (
+            With<OcclusionCulling>,
+            Without<NoIndirectDrawing>,
+            With<DepthPrepass>,
+        ),
+    >,
 ) {
     for mut camera_3d in &mut view_targets {
         let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);

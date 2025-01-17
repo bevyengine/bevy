@@ -2,11 +2,12 @@ use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
+    experimental::occlusion_culling::OcclusionCulling,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ExtractedView, ViewDepthTexture, ViewUniformOffset},
+    view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture, ViewUniformOffset},
 };
 use tracing::error;
 #[cfg(feature = "trace")]
@@ -63,6 +64,8 @@ impl ViewNode for LatePrepassNode {
         Option<&'static RenderSkyboxPrepassPipeline>,
         Option<&'static SkyboxPrepassBindGroup>,
         Option<&'static PreviousViewUniformOffset>,
+        Has<OcclusionCulling>,
+        Has<NoIndirectDrawing>,
     );
 
     fn run<'w>(
@@ -72,6 +75,13 @@ impl ViewNode for LatePrepassNode {
         query: QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        // We only need a late prepass if we have occlusion culling and indirect
+        // drawing.
+        let (_, _, _, _, _, _, _, _, _, occlusion_culling, no_indirect_drawing) = query;
+        if !occlusion_culling || no_indirect_drawing {
+            return Ok(());
+        }
+
         run_prepass(graph, render_context, query, world, "late prepass")
     }
 }
@@ -98,6 +108,8 @@ fn run_prepass<'w>(
         skybox_prepass_pipeline,
         skybox_prepass_bind_group,
         view_prev_uniform_offset,
+        _,
+        _,
     ): QueryItem<'w, <LatePrepassNode as ViewNode>::ViewQuery>,
     world: &'w World,
     label: &'static str,

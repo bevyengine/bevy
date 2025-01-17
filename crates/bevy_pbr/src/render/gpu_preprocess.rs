@@ -1707,15 +1707,18 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
             self.render_device.create_bind_group(
                 "preprocess_direct_bind_group",
                 &self.pipelines.direct_preprocess.bind_group_layout,
-                &BindGroupEntries::sequential((
-                    self.current_input_buffer.as_entire_binding(),
-                    self.previous_input_buffer.as_entire_binding(),
-                    BindingResource::Buffer(BufferBinding {
-                        buffer: work_item_buffer.buffer()?,
-                        offset: 0,
-                        size: work_item_buffer_size,
-                    }),
-                    self.data_buffer.as_entire_binding(),
+                &BindGroupEntries::with_indices((
+                    (3, self.current_input_buffer.as_entire_binding()),
+                    (4, self.previous_input_buffer.as_entire_binding()),
+                    (
+                        5,
+                        BindingResource::Buffer(BufferBinding {
+                            buffer: work_item_buffer.buffer()?,
+                            offset: 0,
+                            size: work_item_buffer_size,
+                        }),
+                    ),
+                    (6, self.data_buffer.as_entire_binding()),
                 )),
             ),
         ))

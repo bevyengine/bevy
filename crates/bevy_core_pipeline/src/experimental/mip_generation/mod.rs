@@ -13,6 +13,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    prelude::Without,
     query::{QueryItem, With},
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
@@ -34,7 +35,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice},
     texture::TextureCache,
-    view::{ExtractedView, ViewDepthTexture},
+    view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
     Render, RenderApp, RenderSet,
 };
 use bitflags::bitflags;
@@ -686,7 +687,14 @@ fn prepare_view_depth_pyramids(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     depth_pyramid_dummy_texture: Res<DepthPyramidDummyTexture>,
-    views: Query<(Entity, &ExtractedView), (With<OcclusionCulling>, With<DepthPrepass>)>,
+    views: Query<
+        (Entity, &ExtractedView),
+        (
+            With<OcclusionCulling>,
+            Without<NoIndirectDrawing>,
+            With<DepthPrepass>,
+        ),
+    >,
 ) {
     for (view_entity, view) in &views {
         commands.entity(view_entity).insert(ViewDepthPyramid::new(
