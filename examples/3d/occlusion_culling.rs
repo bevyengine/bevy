@@ -19,7 +19,10 @@ use bevy::{
     },
     prelude::*,
     render::{
-        batching::gpu_preprocessing::{IndirectParametersBuffers, IndirectParametersIndexed},
+        batching::gpu_preprocessing::{
+            GpuPreprocessingMode, GpuPreprocessingSupport, IndirectParametersBuffers,
+            IndirectParametersIndexed,
+        },
         experimental::occlusion_culling::OcclusionCulling,
         render_graph::{self, NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
@@ -27,7 +30,6 @@ use bevy::{
         Render, RenderApp, RenderPlugin, RenderSet,
     },
 };
-use bevy_render::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
