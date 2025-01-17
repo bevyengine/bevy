@@ -1277,10 +1277,10 @@ impl Segment2d {
         self.point1().distance(self.point2())
     }
 
-    /// Get the segment offset by a vector
+    /// Get the segment translated by the given vector
     #[inline(always)]
-    pub fn offset(&self, offset: Vec2) -> Segment2d {
-        Self::new(self.point1() + offset, self.point2() + offset)
+    pub fn translated(&self, translation: Vec2) -> Segment2d {
+        Self::new(self.point1() + translation, self.point2() + translation)
     }
 
     /// Compute a new segment, based on the original segment rotated around its center
