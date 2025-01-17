@@ -86,13 +86,13 @@ pub struct GpuMeshPreprocessPlugin {
     pub use_gpu_instance_buffer_builder: bool,
 }
 
-/// The render node for the mesh preprocessing pass.
+/// The render node for the first mesh preprocessing pass.
 ///
-/// This pass runs a compute shader to cull invisible meshes (if that wasn't
-/// done by the CPU), transforms them, and, if indirect drawing is on, populates
-/// indirect draw parameter metadata for the subsequent
-/// [`BuildIndirectParametersNode`].
-/// The render node for the mesh uniform building pass.
+/// This pass runs a compute shader to cull meshes outside the view frustum (if
+/// that wasn't done by the CPU), cull meshes that weren't visible last frame
+/// (if occlusion culling is on), transform them, and, if indirect drawing is
+/// on, populate indirect draw parameter metadata for the subsequent
+/// [`EarlyPrepassBuildIndirectParametersNode`].
 pub struct EarlyGpuPreprocessNode {
     view_query: QueryState<
         (
@@ -107,6 +107,13 @@ pub struct EarlyGpuPreprocessNode {
     main_view_query: QueryState<Read<ViewLightEntities>>,
 }
 
+/// The render node for the second mesh preprocessing pass.
+///
+/// This pass runs a compute shader to cull meshes outside the view frustum (if
+/// that wasn't done by the CPU), cull meshes that were neither visible last
+/// frame nor visible this frame (if occlusion culling is on), transform them,
+/// and, if indirect drawing is on, populate the indirect draw parameter
+/// metadata for the subsequent [`LatePrepassBuildIndirectParametersNode`].
 pub struct LateGpuPreprocessNode {
     view_query: QueryState<
         (Entity, Read<PreprocessBindGroups>, Read<ViewUniformOffset>),
@@ -119,12 +126,13 @@ pub struct LateGpuPreprocessNode {
     >,
 }
 
-/// The render node for the indirect parameter building pass.
+/// The render node for the part of the indirect parameter building pass that
+/// draws the meshes visible from the previous frame.
 ///
-/// This node runs a compute shader on the output of the [`GpuPreprocessNode`]
-/// in order to transform the [`IndirectParametersMetadata`] into
-/// properly-formatted [`IndirectParametersIndexed`] and
-/// [`IndirectParametersNonIndexed`].
+/// This node runs a compute shader on the output of the
+/// [`EarlyGpuPreprocessNode`] in order to transform the
+/// [`IndirectParametersMetadata`] into properly-formatted
+/// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct EarlyPrepassBuildIndirectParametersNode {
     view_query: QueryState<
         Read<PreprocessBindGroups>,
@@ -132,6 +140,14 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
     >,
 }
 
+/// The render node for the part of the indirect parameter building pass that
+/// draws the meshes that are potentially visible on this frame but weren't
+/// visible on the previous frame.
+///
+/// This node runs a compute shader on the output of the
+/// [`LateGpuPreprocessNode`] in order to transform the
+/// [`IndirectParametersMetadata`] into properly-formatted
+/// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct LatePrepassBuildIndirectParametersNode {
     view_query: QueryState<
         Read<PreprocessBindGroups>,
@@ -139,6 +155,14 @@ pub struct LatePrepassBuildIndirectParametersNode {
     >,
 }
 
+/// The render node for the part of the indirect parameter building pass that
+/// draws all meshes, both those that are newly-visible on this frame and those
+/// that were visible last frame.
+///
+/// This node runs a compute shader on the output of the
+/// [`EarlyGpuPreprocessNode`] and [`LateGpuPreprocessNode`] in order to
+/// transform the [`IndirectParametersMetadata`] into properly-formatted
+/// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct MainBuildIndirectParametersNode {
     view_query: QueryState<
         Read<PreprocessBindGroups>,
@@ -153,20 +177,46 @@ pub struct PreprocessPipelines {
     /// The pipeline used for CPU culling. This pipeline doesn't populate
     /// indirect parameter metadata.
     pub direct_preprocess: PreprocessPipeline,
+    /// The pipeline used for mesh preprocessing when GPU frustum culling is in
+    /// use, but occlusion culling isn't.
+    ///
+    /// This pipeline populates indirect parameter metadata.
     pub gpu_frustum_culling_preprocess: PreprocessPipeline,
-    /// The pipeline used for GPU culling. This pipeline populates indirect
-    /// parameter metadata.
+    /// The pipeline used for the first phase of occlusion culling.
+    ///
+    /// This pipeline culls, transforms meshes, and populates indirect parameter
+    /// metadata.
     pub early_gpu_occlusion_culling_preprocess: PreprocessPipeline,
+    /// The pipeline used for the second phase of occlusion culling.
+    ///
+    /// This pipeline culls, transforms meshes, and populates indirect parameter
+    /// metadata.
     pub late_gpu_occlusion_culling_preprocess: PreprocessPipeline,
+    /// The pipeline that builds indirect draw parameters for indexed meshes,
+    /// when frustum culling is enabled but occlusion culling *isn't* enabled.
     pub gpu_frustum_culling_build_indexed_indirect_params: BuildIndirectParametersPipeline,
+    /// The pipeline that builds indirect draw parameters for non-indexed
+    /// meshes, when frustum culling is enabled but occlusion culling *isn't*
+    /// enabled.
     pub gpu_frustum_culling_build_non_indexed_indirect_params: BuildIndirectParametersPipeline,
+    /// Compute shader pipelines for the early prepass phase that draws meshes
+    /// visible in the previous frame.
     pub early_phase: PreprocessPhasePipelines,
+    /// Compute shader pipelines for the late prepass phase that draws meshes
+    /// that weren't visible in the previous frame, but became visible this
+    /// frame.
     pub late_phase: PreprocessPhasePipelines,
+    /// Compute shader pipelines for the main color phase.
     pub main_phase: PreprocessPhasePipelines,
 }
 
+/// Compute shader pipelines for a specific phase: early, late, or main.
+///
+/// The distinction between these phases is relevant for occlusion culling.
 #[derive(Clone)]
 pub struct PreprocessPhasePipelines {
+    /// The pipeline that resets the indirect draw counts used in
+    /// `multi_draw_indirect_count` to 0 in preparation for a new pass.
     pub reset_indirect_batch_sets: ResetIndirectBatchSetsPipeline,
     /// The pipeline used for indexed indirect parameter building.
     ///
