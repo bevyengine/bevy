@@ -28,11 +28,6 @@
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 
 extern crate alloc;
 

@@ -199,7 +199,7 @@
 //! Mutate a field in a component.
 //!
 //! `params`:
-//! - `entity`: The ID of the entity to with the component to mutate.
+//! - `entity`: The ID of the entity with the component to mutate.
 //! - `component`: The component's [fully-qualified type name].
 //! - `path`: The path of the field within the component. See
 //!   [`GetPath`](bevy_reflect::GetPath#syntax) for more information on formatting this string.
@@ -317,12 +317,6 @@
 //! [the `serde` documentation]: https://serde.rs/
 //! [fully-qualified type names]: bevy_reflect::TypePath::type_path
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
-
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
