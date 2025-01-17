@@ -87,6 +87,14 @@ pub struct BrpGetParams {
     pub strict: bool,
 }
 
+/// `bevy/get_resource`: Retrieves the value of a given resource.
+pub struct BrpGetResourceParams {
+    /// The [full path] of the resource type being requested.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub resource: String,
+}
+
 /// `bevy/query`: Performs a query over components in the ECS, returning entities
 /// and component values that match.
 ///
@@ -153,6 +161,14 @@ pub struct BrpRemoveParams {
     pub components: Vec<String>,
 }
 
+/// `bevy/remove_resource`: Removes the given resource from the world.
+pub struct BrpRemoveResourceParams {
+    /// The [full path] of the resource type to remove.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub resource: String,
+}
+
 /// `bevy/insert`: Adds one or more components to an entity.
 ///
 /// The server responds with a null.
@@ -171,6 +187,18 @@ pub struct BrpInsertParams {
     ///
     /// [full type paths]: bevy_reflect::TypePath::type_path
     pub components: HashMap<String, Value>,
+}
+
+/// `bevy/insert_resource`: Inserts a resource into the world with a given
+/// value.
+pub struct BrpInsertResourceParams {
+    /// The [full path] of the resource type to insert.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub resource: String,
+
+    /// The serialized value of the resource to be inserted.
+    pub value: Value,
 }
 
 /// `bevy/reparent`: Assign a new parent to one or more entities.
