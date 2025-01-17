@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, NodeContext, RenderUiSystem,
     ResolvedBorderRadius, ResolvedTargetCamera, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
@@ -23,7 +23,6 @@ use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{
-    camera::Camera,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -236,7 +235,6 @@ pub struct ExtractedBoxShadows {
 pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
             Entity,
@@ -246,11 +244,13 @@ pub fn extract_shadows(
             &BoxShadow,
             Option<&CalculatedClip>,
             &ResolvedTargetCamera,
+            &NodeContext,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
+    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera, ctx) in
+        &box_shadow_query
     {
         let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
@@ -261,14 +261,7 @@ pub fn extract_shadows(
             continue;
         }
 
-        let ui_physical_viewport_size = camera_query
-            .get(extracted_camera_entity)
-            .ok()
-            .and_then(|(_, c)| {
-                c.physical_viewport_size()
-                    .map(|size| Vec2::new(size.x as f32, size.y as f32))
-            })
-            .unwrap_or(Vec2::ZERO);
+        let ui_physical_viewport_size = ctx.0.as_vec2();
 
         let scale_factor = uinode.inverse_scale_factor.recip();
 
