@@ -1299,14 +1299,14 @@ impl Segment2d {
             rotate_point(centered.point1(), rotation),
             rotate_point(centered.point2(), rotation),
         );
-        centered_rotated.offset(offset_from_origin)
+        centered_rotated.translated(offset_from_origin)
     }
 
     /// Get the segment with it's center is at the origin
     #[inline(always)]
     pub fn centered(&self) -> Segment2d {
         let center = self.center();
-        self.offset(-center)
+        self.translated(-center)
     }
 
     /// Get the segment with a new length
@@ -1316,7 +1316,7 @@ impl Segment2d {
         let centered = self.centered();
         let ratio = length / self.length();
         let segment = Segment2d::new(centered.point1() * ratio, centered.point2() * ratio);
-        segment.offset(offset_from_origin)
+        segment.translated(offset_from_origin)
     }
 }
 
