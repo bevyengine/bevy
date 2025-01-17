@@ -1,6 +1,7 @@
 use crate::CalculatedClip;
 use crate::ComputedNode;
 use crate::DefaultUiCamera;
+use crate::ResolvedTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -57,7 +58,6 @@ pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -74,18 +74,12 @@ pub fn extract_debug_overlay(
         return;
     }
 
-    let default_camera_entity = default_ui_camera.get();
-
     for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
-            continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 
