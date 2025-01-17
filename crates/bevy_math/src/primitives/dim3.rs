@@ -388,9 +388,7 @@ impl Segment3d {
     #[inline(always)]
     #[deprecated(since = "0.15.1", note = "Use the `new` constructor instead")]
     pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
-        let segment = Self::new(point1, point2);
-
-        (segment, segment.center())
+        (Self::new(point1, point2), (point1 + point2) / 2.)
     }
 
     /// Get the position of the first point on the line segment
