@@ -1,4 +1,4 @@
-//! This module provides [`Relationship`] functionality. See the [`Relationship`] trait for more info.
+//! This module provides functionality to link entities to each other using specialized components called "relationships". See the [`Relationship`] trait for more info.
 
 mod related_methods;
 mod relationship_query;
