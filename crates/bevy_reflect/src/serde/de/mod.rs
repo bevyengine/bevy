@@ -762,7 +762,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
 
-        assert!(<Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).is_none());
+        assert!(<Foo as FromReflect>::from_reflect(dynamic_output.as_partial_reflect()).is_err());
     }
 
     #[cfg(feature = "functions")]

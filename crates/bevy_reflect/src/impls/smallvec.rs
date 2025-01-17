@@ -4,10 +4,10 @@ use core::any::Any;
 use smallvec::{Array as SmallArray, SmallVec};
 
 use crate::{
-    self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromType,
-    Generics, GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect, Reflect,
-    ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo,
-    TypePath, TypeRegistration, Typed,
+    self as bevy_reflect, utility::GenericTypeInfoCell, ApplyError, FromReflect, FromReflectError,
+    FromType, Generics, GetTypeRegistration, List, ListInfo, ListIter, MaybeTyped, PartialReflect,
+    Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    TypeParamInfo, TypePath, TypeRegistration, Typed,
 };
 
 impl<T: SmallArray + TypePath + Send + Sync> List for SmallVec<T>
@@ -32,7 +32,7 @@ where
 
     fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
         let value = value.try_take::<T::Item>().unwrap_or_else(|value| {
-            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|_| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
                     value.reflect_type_path()
@@ -48,7 +48,7 @@ where
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
         let value = value.try_take::<T::Item>().unwrap_or_else(|value| {
-            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as SmallArray>::Item::from_reflect(&*value).unwrap_or_else(|_| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
                     value.reflect_type_path()
@@ -198,8 +198,8 @@ impl<T: SmallArray + TypePath + Send + Sync> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect + MaybeTyped + TypePath,
 {
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
-        let ref_list = reflect.reflect_ref().as_list().ok()?;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError> {
+        let ref_list = reflect.reflect_ref().as_list()?;
 
         let mut new_list = Self::with_capacity(ref_list.len());
 
@@ -207,7 +207,7 @@ where
             new_list.push(<T as SmallArray>::Item::from_reflect(field)?);
         }
 
-        Some(new_list)
+        Ok(new_list)
     }
 }
 

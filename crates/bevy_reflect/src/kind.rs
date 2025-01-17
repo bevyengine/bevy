@@ -131,7 +131,7 @@ macro_rules! impl_reflect_kind_conversions {
 /// Caused when a type was expected to be of a certain [kind], but was not.
 ///
 /// [kind]: ReflectKind
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 #[error("kind mismatch: expected {expected:?}, received {received:?}")]
 pub struct ReflectKindMismatchError {
     pub expected: ReflectKind,
