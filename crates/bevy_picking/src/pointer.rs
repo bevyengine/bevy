@@ -34,6 +34,10 @@ pub enum PointerId {
     Mouse,
     /// A touch input, usually numbered by window touch events from `winit`.
     Touch(u64),
+    /// An emulated pointer linked to the focused entity.
+    ///
+    /// Generally triggered by the `Enter` key or an `A` input on a gamepad.
+    Focus,
     /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software
     /// controlled cursor.
     #[reflect(ignore)]
@@ -197,13 +201,15 @@ impl PointerLocation {
 /// The location of a pointer, including the current [`NormalizedRenderTarget`], and the x/y
 /// position of the pointer on this render target.
 ///
+/// This is stored as a [`PointerLocation`] component on the pointer entity.
+///
 /// Note that:
 /// - a pointer can move freely between render targets
 /// - a pointer is not associated with a [`Camera`] because multiple cameras can target the same
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
 ///   specific `Camera`, if any.
-#[derive(Debug, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Debug, PartialEq)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Debug, PartialEq)]
 pub struct Location {
     /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
     pub target: NormalizedRenderTarget,
@@ -240,6 +246,8 @@ impl Location {
 }
 
 /// Types of actions that can be taken by pointers.
+///
+/// These are sent as the payload of [`PointerInput`] events.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum PointerAction {
     /// A button has been pressed on the pointer.
@@ -259,13 +267,25 @@ pub enum PointerAction {
 }
 
 /// An input event effecting a pointer.
+///
+/// These events are generated from user input in the [`PointerInputPlugin`](crate::input::PointerInputPlugin)
+/// and are read by the [`PointerInput::receive`] system
+/// to modify the state of existing pointer entities.
 #[derive(Event, Debug, Clone, Reflect)]
 pub struct PointerInput {
     /// The id of the pointer.
+    ///
+    /// Used to identify which pointer entity to update.
+    /// If no match is found, the event is ignored: no new pointer entity is created.
     pub pointer_id: PointerId,
-    /// The location of the pointer. For [[`PointerAction::Moved`]], this is the location after the movement.
+    /// The location of the pointer. For [`PointerAction::Moved`], this is the location after the movement.
+    ///
+    /// Defines exactly where, on the [`NormalizedRenderTarget`] that the pointer event came from,
+    /// the event occurred.
     pub location: Location,
     /// The action that the event describes.
+    ///
+    /// This is the action that the pointer took, such as pressing a button or moving.
     pub action: PointerAction,
 }
 
@@ -302,6 +322,8 @@ impl PointerInput {
     }
 
     /// Updates pointer entities according to the input events.
+    ///
+    /// Entities are matched by their [`PointerId`]. If no match is found, the event is ignored.
     pub fn receive(
         mut events: EventReader<PointerInput>,
         mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,

@@ -12,13 +12,13 @@ use bevy::{
         },
         InputDispatchPlugin, InputFocus, InputFocusVisible,
     },
-    math::{CompassOctant, FloatOrd},
+    math::CompassOctant,
     picking::{
-        backend::HitData,
-        pointer::{Location, PointerId},
+        pointer::{PointerAction, PointerId, PressDirection},
+        PickSet,
     },
     prelude::*,
-    render::camera::NormalizedRenderTarget,
+    ui::picking_backend::EmulateNodePointerEvents,
     utils::{HashMap, HashSet},
 };
 
@@ -39,13 +39,21 @@ fn main() {
         // Input is generally handled during PreUpdate
         // We're turning inputs into actions first, then using those actions to determine navigation
         .add_systems(PreUpdate, (process_inputs, navigate).chain())
+        // We're simulating pointer clicks on the focused button
+        // and are running this system at the same time as the other pointer input systems
+        .add_systems(
+            First,
+            (
+                move_pointer_to_focused_element,
+                interact_with_focused_button,
+            )
+                .in_set(PickSet::Input),
+        )
         .add_systems(
             Update,
             (
                 // We need to show which button is currently focused
                 highlight_focused_element,
-                // Pressing the "Interact" button while we have a focused element should simulate a click
-                interact_with_focused_button,
                 // We're doing a tiny animation when the button is interacted with,
                 // so we need a timer and a polling mechanism to reset it
                 reset_button_after_interaction,
@@ -350,6 +358,26 @@ fn navigate(action_state: Res<ActionState>, mut directional_navigation: Directio
     }
 }
 
+// We need to update the location of the focused element
+// so that our virtual pointer presses are sent to the correct location.
+//
+// Doing this in an ordinary system (rather than just on navigation change) ensures that it is
+// initialized correctly, and is updated if the focused element moves or is scaled for any reason.
+fn move_pointer_to_focused_element(
+    input_focus: Res<InputFocus>,
+    mut emulate_pointer_events: EmulateNodePointerEvents,
+) {
+    if let Some(focused_entity) = input_focus.0 {
+        emulate_pointer_events
+            .emulate_pointer(
+                PointerId::Focus,
+                PointerAction::Moved { delta: Vec2::ZERO },
+                focused_entity,
+            )
+            .unwrap_or_else(|e| warn!("Failed to move pointer: {e}"));
+    }
+}
+
 fn highlight_focused_element(
     input_focus: Res<InputFocus>,
     // While this isn't strictly needed for the example,
@@ -368,46 +396,42 @@ fn highlight_focused_element(
     }
 }
 
-// By sending a Pointer<Pressed> trigger rather than directly handling button-like interactions,
-// we can unify our handling of pointer and keyboard/gamepad interactions
+// We're emulating a pointer event sent to the focused button,
+// which will be picked up just like any mouse or touch input!
 fn interact_with_focused_button(
     action_state: Res<ActionState>,
     input_focus: Res<InputFocus>,
-    mut commands: Commands,
+    mut emulate_pointer_events: EmulateNodePointerEvents,
 ) {
     if action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Select)
     {
         if let Some(focused_entity) = input_focus.0 {
-            commands.trigger_targets(
-                Pointer::<Pressed> {
-                    target: focused_entity,
-                    // We're pretending that we're a mouse
-                    pointer_id: PointerId::Mouse,
-                    // This field isn't used, so we're just setting it to a placeholder value
-                    pointer_location: Location {
-                        target: NormalizedRenderTarget::Image(
-                            bevy_render::camera::ImageRenderTarget {
-                                handle: Handle::default(),
-                                scale_factor: FloatOrd(1.0),
-                            },
-                        ),
-                        position: Vec2::ZERO,
-                    },
-                    event: Pressed {
+            emulate_pointer_events
+                .emulate_pointer(
+                    PointerId::Focus,
+                    PointerAction::Pressed {
+                        direction: PressDirection::Pressed,
                         button: PointerButton::Primary,
-                        // This field isn't used, so we're just setting it to a placeholder value
-                        hit: HitData {
-                            camera: Entity::PLACEHOLDER,
-                            depth: 0.0,
-                            position: None,
-                            normal: None,
-                        },
                     },
-                },
-                focused_entity,
-            );
+                    focused_entity,
+                )
+                .unwrap_or_else(|e| warn!("Failed to press pointer: {e}"));
+        }
+    } else {
+        // If the button was not pressed, we simulate a release event
+        if let Some(focused_entity) = input_focus.0 {
+            emulate_pointer_events
+                .emulate_pointer(
+                    PointerId::Focus,
+                    PointerAction::Pressed {
+                        direction: PressDirection::Released,
+                        button: PointerButton::Primary,
+                    },
+                    focused_entity,
+                )
+                .unwrap_or_else(|e| warn!("Failed to release pointer: {e}"));
         }
     }
 }

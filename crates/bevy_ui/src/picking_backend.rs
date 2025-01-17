@@ -23,14 +23,18 @@
 
 use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
-use bevy_ecs::{prelude::*, query::QueryData};
-use bevy_math::{Rect, Vec2};
+use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam};
+use bevy_math::{Rect, Vec2, Vec3Swizzles};
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
-use bevy_picking::backend::prelude::*;
+use bevy_picking::{
+    backend::prelude::*,
+    pointer::{Location, PointerAction, PointerInput},
+};
+use thiserror::Error;
 
 /// A plugin that adds picking support for UI nodes.
 #[derive(Clone)]
@@ -58,6 +62,9 @@ pub struct NodeQuery {
 ///
 /// Bevy's [`UiStack`] orders all nodes in the order they will be rendered, which is the same order
 /// we need for determining picking.
+///
+/// Like all picking backends, this system reads the [`PointerId`] and [`PointerLocation`] components,
+/// and produces [`PointerHits`] events.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
@@ -217,4 +224,113 @@ pub fn ui_picking(
 
         output.send(PointerHits::new(*pointer, picks, order));
     }
+}
+
+/// A [`SystemParam`] for realistically simulating/mocking pointer events on UI nodes.
+#[derive(SystemParam)]
+pub struct EmulateNodePointerEvents<'w, 's> {
+    /// Looks up information about the node that the pointer event should be simulated on.
+    pub node_query: Query<'w, 's, (&'static GlobalTransform, Option<&'static TargetCamera>)>,
+    /// Tries to find the default UI camera
+    pub default_ui_camera: DefaultUiCamera<'w, 's>,
+    /// Tries to find a primary window entity.
+    pub primary_window_query: Query<'w, 's, Entity, With<PrimaryWindow>>,
+    /// Looks up the required camera information.
+    pub camera_query: Query<'w, 's, &'static Camera>,
+    /// Writes the pointer events to the world.
+    pub pointer_input_events: EventWriter<'w, PointerInput>,
+}
+
+impl<'w, 's> EmulateNodePointerEvents<'w, 's> {
+    /// Simulate a [`Pointer`](bevy_picking::events::Pointer) event,
+    /// at the origin of the provided UI node entity.
+    ///
+    /// The entity that represents the [`PointerId`] provided should already exist,
+    /// as this method does not create it.
+    ///
+    /// Under the hood, this generates [`PointerInput`] events,
+    /// which is read by the [`PointerInput::receive`] system to modify existing pointer entities,
+    /// and ultimately then processed into UI events by the [`ui_picking`] system.
+    ///
+    /// When using [`UiPlugin`](crate::UiPlugin), that system runs in the [`PreUpdate`] schedule,
+    /// under the [`PickSet::Backend`] set.
+    /// To ensure that these events are seen at the right time,
+    /// you should generally call this method in systems scheduled during [`First`],
+    /// as part of the [`PickSet::Input`] system set.
+    ///
+    /// # Warning
+    ///
+    /// If the node is not pickable, or is blocked by a higher node,
+    /// these events may not have any effect, even if sent correctly!
+    pub fn emulate_pointer(
+        &mut self,
+        pointer_id: PointerId,
+        pointer_action: PointerAction,
+        entity: Entity,
+    ) -> Result<(), SimulatedNodePointerError> {
+        // Look up the node we're trying to send a pointer event to
+        let Ok((global_transform, maybe_target_camera)) = self.node_query.get(entity) else {
+            return Err(SimulatedNodePointerError::NodeNotFound(entity));
+        };
+
+        // Figure out which camera this node is associated with
+        let camera_entity = match maybe_target_camera {
+            Some(explicit_target_camera) => explicit_target_camera.entity(),
+            // Fall back to the default UI camera
+            None => match self.default_ui_camera.get() {
+                Some(default_camera_entity) => default_camera_entity,
+                None => return Err(SimulatedNodePointerError::NoCameraFound),
+            },
+        };
+
+        // Find the primary window, needed to normalize the render target
+        // If we find 0 or 2+ primary windows, treat it as if none were found
+        let maybe_primary_window_entity = self.primary_window_query.get_single().ok();
+
+        // Generate the correct render target for the pointer
+        let Ok(camera) = self.camera_query.get(camera_entity) else {
+            return Err(SimulatedNodePointerError::NoCameraFound);
+        };
+
+        let Some(target) = camera.target.normalize(maybe_primary_window_entity) else {
+            return Err(SimulatedNodePointerError::CouldNotComputeRenderTarget);
+        };
+
+        // Calculate the pointer position in the render target
+        // For UI nodes, their final position is stored on their global transform,
+        // in pixels, with the origin at the top-left corner of the camera's viewport.
+        let position = global_transform.translation().xy();
+
+        let pointer_location = Location { target, position };
+
+        self.pointer_input_events.send(PointerInput {
+            pointer_id,
+            location: pointer_location,
+            action: pointer_action,
+        });
+
+        Ok(())
+    }
+}
+
+/// An error returned by [`EmulateNodePointerEvents`].
+#[derive(Debug, PartialEq, Clone, Error)]
+pub enum SimulatedNodePointerError {
+    /// The entity provided could not be found.
+    ///
+    /// It must have a [`GlobalTransform`] component,
+    /// and should have a [`Node`] component.
+    #[error("The entity {0:?} could not be found.")]
+    NodeNotFound(Entity),
+    /// The camera associated with the node could not be found.
+    ///
+    /// Did you forget to spawn a camera entity with the [`Camera`] component?
+    ///
+    /// The [`TargetCamera`] component can be used to associate a camera with a node,
+    /// but if it is not present, the [`DefaultUiCamera`] will be used.
+    #[error("No camera could be found for the node.")]
+    NoCameraFound,
+    /// The [`NormalizedRenderTarget`](bevy_render::camera::NormalizedRenderTarget) could not be computed.
+    #[error("Could not compute the normalized render target for the camera.")]
+    CouldNotComputeRenderTarget,
 }

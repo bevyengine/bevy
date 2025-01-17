@@ -79,7 +79,7 @@ impl Default for PointerInputPlugin {
 impl Plugin for PointerInputPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(*self)
-            .add_systems(Startup, spawn_mouse_pointer)
+            .add_systems(Startup, (spawn_mouse_pointer, spawn_focus_pointer))
             .add_systems(
                 First,
                 (
@@ -101,6 +101,11 @@ impl Plugin for PointerInputPlugin {
 /// Spawns the default mouse pointer.
 pub fn spawn_mouse_pointer(mut commands: Commands) {
     commands.spawn(PointerId::Mouse);
+}
+
+/// Spawns the default focus pointer.
+pub fn spawn_focus_pointer(mut commands: Commands) {
+    commands.spawn(PointerId::Focus);
 }
 
 /// Sends mouse pointer events to be processed by the core plugin
