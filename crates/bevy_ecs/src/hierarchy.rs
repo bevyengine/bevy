@@ -1,7 +1,10 @@
-// TODO: REMOVE THIS
-#![allow(missing_docs)]
-
-//! Parent-Child relationships for entities.
+//! The canonical "parent-child" [`Relationship`] for entities, driven by
+//! the [`Parent`] [`Relationship`] and the [`Children`] [`RelationshipSources`].
+//!
+//! See [`Parent`] for a full description of the relationship and how to use it.
+//!
+//! [`Relationship`]: crate::relationship::Relationship
+//! [`RelationshipSources`]: crate::relationship::RelationshipSources
 
 use crate as bevy_ecs;
 use crate::bundle::Bundle;
@@ -21,10 +24,74 @@ use crate::{
 use alloc::{format, string::String, vec::Vec};
 use bevy_ecs_macros::VisitEntitiesMut;
 use bevy_reflect::Reflect;
+use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
 use log::warn;
 
+/// A [`Relationship`](crate::relationship::Relationship) component that creates the canonical
+/// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
+/// the [`Children`] [`RelationshipSources`](crate::relationship::RelationshipSources).
+///
+/// This relationship should be used for things like:
+///
+/// 1. Organizing entities in a scene
+/// 2. Propagating configuration or data inherited from a parent, such as "visibility" or "world-space global transforms".
+/// 3. Ensuring a hierarchy is despawned when an entity is despawned.
+/// 4.
+///
+/// [`Parent`] contains a single "target" [`Entity`]. When [`Parent`] is inserted on a "source" entity,
+/// the "target" entity will automatically (and immediately, via a component hook) have a [`Children`]
+/// component inserted, and the "source" entity will be added to that [`Children`] instance.
+///
+/// If the [`Parent`] component is replaced with a different "target" entity, the old target's [`Children`]
+/// will be automatically (and immediately, via a component hook) be updated to reflect that change.
+///
+/// Likewise, when the [`Parent`] component is removed, the "source" entity will be removed from the old
+/// target's [`Children`]. If this results in [`Children`] being empty, [`Children`] will be automatically removed.
+///
+/// When a parent is despawned, all children (and their descendants) will _also_ be despawned.
+///
+/// You can create parent-child relationships in a variety of ways. The most direct way is to insert a [`Parent`] component:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::new();
+/// let root = world.spawn_empty().id();
+/// let child1 = world.spawn(Parent(root)).id();
+/// let child2 = world.spawn(Parent(root)).id();
+/// let grandchild = world.spawn(Parent(child1)).id();
+///
+/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
+/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+///
+/// world.entity_mut(child2).remove::<Parent>();
+/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1]);
+///
+/// world.entity_mut(root).despawn();
+/// assert!(world.get_entity(root).is_err());
+/// assert!(world.get_entity(child1).is_err());
+/// assert!(world.get_entity(grandchild).is_err());
+/// ```
+///
+/// However if you are spawning many children, you might want to use the [`EntityWorldMut::with_children`] helper instead:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::new();
+/// let mut child1 = Entity::PLACEHOLDER;
+/// let mut child2 = Entity::PLACEHOLDER;
+/// let mut grandchild = Entity::PLACEHOLDER;
+/// let root = world.spawn_empty().with_children(|p| {
+///     child1 = p.spawn_empty().with_children(|p| {
+///         grandchild = p.spawn_empty().id();
+///     }).id();
+///     child2 = p.spawn_empty().id();
+/// }).id();
+///
+/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
+/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// ```
 #[derive(Component, Clone, Reflect, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
 #[reflect(
     Component,
@@ -39,8 +106,18 @@ use log::warn;
 pub struct Parent(pub Entity);
 
 impl Parent {
+    /// Returns the "target" entity.
     pub fn get(&self) -> Entity {
         self.0
+    }
+}
+
+impl Deref for Parent {
+    type Target = Entity;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
@@ -55,7 +132,12 @@ impl FromWorld for Parent {
     }
 }
 
-#[derive(Component, Default, Reflect, VisitEntitiesMut)]
+/// A [`RelationshipSources`](crate::relationship::RelationshipSources) collection component that is populated
+/// with entities that "target" this entity with the [`Parent`] [`Relationship`](crate::relationship::Relationship) component.
+///
+/// Together, these components form the "canonical parent-child hierarchy". See the [`Parent`] component for all full
+/// description of this relationship and instructions on how to use it.
+#[derive(Component, Default, Reflect, VisitEntitiesMut, Debug, PartialEq, Eq)]
 #[relationship_sources(relationship = Parent, despawn_descendants)]
 #[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct Children(Vec<Entity>);
@@ -71,7 +153,7 @@ impl<'a> IntoIterator for &'a Children {
     }
 }
 
-impl core::ops::Deref for Children {
+impl Deref for Children {
     type Target = [Entity];
 
     fn deref(&self) -> &Self::Target {
@@ -79,7 +161,10 @@ impl core::ops::Deref for Children {
     }
 }
 
+/// A type alias over [`RelatedSpawner`] used to spawn child entities containing a [`Parent`] relationship.
 pub type ChildSpawner<'w> = RelatedSpawner<'w, Parent>;
+
+/// A type alias over [`RelatedSpawnerCommands`] used to spawn child entities containing a [`Parent`] relationship.
 pub type ChildSpawnerCommands<'w> = RelatedSpawnerCommands<'w, Parent>;
 
 impl<'w> EntityWorldMut<'w> {
@@ -112,12 +197,14 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes the [`Parent`] component, if it exists.
     #[deprecated(since = "0.16.0", note = "Use entity_mut.remove::<Parent>()")]
     pub fn remove_parent(&mut self) -> &mut Self {
         self.remove::<Parent>();
         self
     }
 
+    /// Inserts the [`Parent`] component with the given `parent` entity, if it exists.
     #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(Parent(entity))")]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
         self.insert(Parent(parent));
@@ -156,12 +243,14 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
+    /// Removes the [`Parent`] component, if it exists.
     #[deprecated(since = "0.16.0", note = "Use entity_commands.remove::<Parent>()")]
     pub fn remove_parent(&mut self) -> &mut Self {
         self.remove::<Parent>();
         self
     }
 
+    /// Inserts the [`Parent`] component with the given `parent` entity, if it exists.
     #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(Parent(entity))")]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
         self.insert(Parent(parent));
@@ -169,6 +258,8 @@ impl<'a> EntityCommands<'a> {
     }
 }
 
+/// An "on_insert" component hook that when run, will validate that the parent of a given entity
+/// contains component `C`. This will print a warning if the parent does not contain `C`.
 pub fn validate_parent_has_component<C: Component>(
     world: DeferredWorld,
     entity: Entity,
