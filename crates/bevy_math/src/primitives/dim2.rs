@@ -1229,7 +1229,7 @@ pub struct Segment2d {
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
-    /// Create a new `Segment2d` from the two points composing it
+    /// Create a new `Segment2d` from its endpoints
     #[inline(always)]
     pub fn new(point1: Vec2, point2: Vec2) -> Self {
         Self { point1, point2 }
