@@ -6,6 +6,8 @@
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
 
+extern crate alloc;
+
 pub mod auto_exposure;
 pub mod blit;
 pub mod bloom;
