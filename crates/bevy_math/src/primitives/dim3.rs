@@ -377,7 +377,7 @@ impl Segment3d {
     #[inline(always)]
     pub fn from_direction_and_length(direction: Dir3, length: f32) -> Self {
         let half_length = length / 2.;
-        Self::new(direction * -half_length, direction * -half_length)
+        Self::new(direction * -half_length, direction * half_length)
     }
 
     /// Create a new `Segment3d` from its endpoints and compute its geometric center
