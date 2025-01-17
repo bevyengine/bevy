@@ -415,30 +415,41 @@ impl Segment3d {
         self.point1().distance(self.point2())
     }
 
-    /// Get the segment offset by a vector
+    /// Get the segment translated by a vector
     #[inline(always)]
-    pub fn offset(&self, offset: Vec3) -> Segment3d {
-        Self::new(self.point1() + offset, self.point2() + offset)
+    pub fn translated(&self, translation: Vec3) -> Segment3d {
+        Self::new(self.point1() + translation, self.point2() + translation)
     }
 
     /// Get the segment rotated around it's center
     #[inline(always)]
     pub fn rotated(&self, rotation: Quat) -> Segment3d {
-        // We center the segment for the purpose of the rotation, then offset back to it's original position
-        let offset_from_origin = self.center();
-        let centered = self.centered();
-        let centered_rotated = Segment3d::new(
-            rotation.mul_vec3(centered.point1()),
-            rotation.mul_vec3(centered.point2()),
-        );
-        centered_rotated.offset(offset_from_origin)
+        Segment3d::new(
+            rotation.mul_vec3(self.point1()),
+            rotation.mul_vec3(self.point2()),
+        )
+    }
+
+    /// Compute a new segment, based on the original segment rotated around a given point
+    #[inline(always)]
+    pub fn rotated_around(&self, rotation: Quat, point: Vec3) -> Segment3d {
+        // We offset our segment so that our segment is rotated as if from the origin, then we can apply the offset back
+        let offset = self.translated(-point);
+        let rotated = offset.rotated(rotation);
+        rotated.translated(point)
+    }
+
+    /// Compute a new segment, based on the original segment rotated around its center
+    #[inline(always)]
+    pub fn rotated_around_center(&self, rotation: Quat) -> Segment3d {
+        self.rotated_around(rotation, self.center())
     }
 
     /// Get the segment offset so that it's center is at the origin
     #[inline(always)]
     pub fn centered(&self) -> Segment3d {
         let center = self.center();
-        self.offset(-center)
+        self.translated(-center)
     }
 }
 
