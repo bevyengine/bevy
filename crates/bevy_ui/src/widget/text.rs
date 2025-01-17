@@ -1,29 +1,27 @@
 use crate::{
     ComputedNode, ContentSize, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
-    ResolvedTargetCamera, UiScale,
+    NodeScaleFactor,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::{Entity, EntityHashMap},
+    entity::Entity,
     prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, Res, ResMut},
+    system::{Query, Res, ResMut},
     world::{Mut, Ref},
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::Camera;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
 use tracing::error;
 
@@ -242,11 +240,7 @@ fn create_text_measure<'a>(
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    mut scale_factors_buffer: Local<EntityHashMap<f32>>,
-    mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
-    ui_scale: Res<UiScale>,
     mut text_query: Query<
         (
             Entity,
@@ -254,7 +248,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            &ResolvedTargetCamera,
+            Ref<NodeScaleFactor>,
         ),
         With<Node>,
     >,
@@ -262,26 +256,9 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    scale_factors_buffer.clear();
-
-    for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
-        let Some(camera_entity) = maybe_camera.get() else {
-            continue;
-        };
-
-        let scale_factor = match scale_factors_buffer.entry(camera_entity) {
-            Entry::Occupied(entry) => *entry.get(),
-            Entry::Vacant(entry) => *entry.insert(
-                camera_query
-                    .get(camera_entity)
-                    .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
-                    .unwrap_or(1.0)
-                    * ui_scale.0,
-            ),
-        };
+    for (entity, block, content_size, text_flags, computed, scale_factor) in &mut text_query {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-        if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
+        if scale_factor.is_changed()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
@@ -289,7 +266,7 @@ pub fn measure_text_system(
             create_text_measure(
                 entity,
                 &fonts,
-                scale_factor.into(),
+                scale_factor.0.into(),
                 text_reader.iter(entity),
                 block,
                 &mut text_pipeline,
@@ -300,7 +277,6 @@ pub fn measure_text_system(
             );
         }
     }
-    core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
 #[inline]
