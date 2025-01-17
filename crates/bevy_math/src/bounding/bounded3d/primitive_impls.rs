@@ -1,7 +1,7 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
 use crate::{
-    bounding::{Bounded2d, BoundingCircle},
+    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     ops,
     primitives::{
         Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
@@ -81,7 +81,8 @@ impl Bounded3d for Segment3d {
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         let isometry = isometry.into();
-        BoundingSphere::from_point_cloud(isometry, &[self.point1(), self.point2()])
+        let local_sphere = BoundingSphere::new(self.center(), self.length() / 2.);
+        local_sphere.transformed_by(isometry.translation, isometry.rotation)
     }
 }
 
