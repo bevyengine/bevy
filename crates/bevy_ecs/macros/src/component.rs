@@ -537,6 +537,7 @@ fn derive_relationship(
                 self.0
             }
 
+            #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self(entity)
             }
@@ -586,15 +587,18 @@ fn derive_relationship_sources(
             type Relationship = #relationship;
             type Collection = #collection;
 
+            #[inline]
             fn collection(&self) -> &Self::Collection {
                 &self.0
             }
 
-            fn collection_mut(&mut self) -> &mut Self::Collection {
+            #[inline]
+            fn collection_mut_risky(&mut self) -> &mut Self::Collection {
                 &mut self.0
             }
 
-            fn from_collection(collection: Self::Collection) -> Self {
+            #[inline]
+            fn from_collection_risky(collection: Self::Collection) -> Self {
                 Self(collection)
             }
         }

@@ -59,10 +59,6 @@ use log::warn;
 /// #[relationship_sources(relationship = Parent, despawn_descendants)]
 /// pub struct Children(Vec<Entity>);
 /// ```
-///
-// NOTE: The "deprecated" state is used to prevent users from mutating the internal RelationshipSource collection.
-// These internals are allowed to modify the internal RelationshipSource collection.
-#[allow(deprecated)]
 pub trait Relationship: Component + Sized {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
     /// entities that relate to the "target".
@@ -89,11 +85,11 @@ pub trait Relationship: Component + Sized {
             if let Some(mut relationship_sources) =
                 parent_entity.get_mut::<Self::RelationshipSources>()
             {
-                relationship_sources.collection_mut().add(entity);
+                relationship_sources.collection_mut_risky().add(entity);
             } else {
                 let mut sources =
                     <Self::RelationshipSources as RelationshipSources>::with_capacity(1);
-                sources.collection_mut().add(entity);
+                sources.collection_mut_risky().add(entity);
                 world.commands().entity(parent).insert(sources);
             }
         } else {
@@ -114,7 +110,7 @@ pub trait Relationship: Component + Sized {
             if let Some(mut relationship_sources) =
                 parent_entity.get_mut::<Self::RelationshipSources>()
             {
-                relationship_sources.collection_mut().remove(entity);
+                relationship_sources.collection_mut_risky().remove(entity);
                 if relationship_sources.len() == 0 {
                     if let Some(mut entity) = world.commands().get_entity(parent) {
                         entity.remove::<Self::RelationshipSources>();
@@ -127,10 +123,6 @@ pub trait Relationship: Component + Sized {
 
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
-///
-// The "deprecated" state is used to prevent users from mutating the internal RelationshipSource collection.
-// These internals are allowed to modify the internal RelationshipSource collection.
-#[allow(deprecated)]
 pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
     /// The [`Relationship`] that populates this [`RelationshipSources`] collection.
     type Relationship: Relationship<RelationshipSources = Self>;
@@ -144,16 +136,14 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
     /// # Warning
     /// This should generally not be called by user code, as modifying the internal collection could invalidate the relationship.
     /// This uses the "deprecated" state to warn users about this.
-    #[deprecated = "Modifying the internal RelationshipSource collection should only be done by internals as it can invalidate relationships."]
-    fn collection_mut(&mut self) -> &mut Self::Collection;
+    fn collection_mut_risky(&mut self) -> &mut Self::Collection;
 
     /// Creates a new [`RelationshipSources`] from the given [`RelationshipSources::Collection`].
     ///
     /// # Warning
     /// This should generally not be called by user code, as constructing the internal collection could invalidate the relationship.
     /// This uses the "deprecated" state to warn users about this.
-    #[deprecated = "Creating a relationship source manually should only be done by internals as it can invalidate relationships."]
-    fn from_collection(collection: Self::Collection) -> Self;
+    fn from_collection_risky(collection: Self::Collection) -> Self;
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipSources`] connection.
     // note: think of this as "on_drop"
@@ -208,7 +198,7 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
     fn with_capacity(capacity: usize) -> Self {
         let collection =
             <Self::Collection as RelationshipSourceCollection>::with_capacity(capacity);
-        Self::from_collection(collection)
+        Self::from_collection_risky(collection)
     }
 
     /// Iterates the entities stored in this collection.
