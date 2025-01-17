@@ -1267,6 +1267,7 @@ impl Segment2d {
 
     /// Get the segment's center
     #[inline(always)]
+    #[doc(alias = "midpoint")]
     pub fn center(&self) -> Vec2 {
         (self.point1() + self.point2()) / 2.
     }

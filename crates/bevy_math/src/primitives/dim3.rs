@@ -405,6 +405,7 @@ impl Segment3d {
 
     /// Get the center of the segment
     #[inline(always)]
+    #[doc(alias = "midpoint")]
     pub fn center(&self) -> Vec3 {
         (self.point1() + self.point2()) / 2.
     }
