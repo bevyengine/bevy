@@ -171,8 +171,23 @@ where
     /// corresponding buffer data input uniform in this list.
     pub previous_input_buffer: InstanceInputUniformBuffer<BDI>,
 
+    /// A buffer that holds the number of indexed meshes that weren't visible in
+    /// the previous frame, when GPU occlusion culling is in use.
+    ///
+    /// There's one set of [`LatePreprocessWorkItemIndirectParameters`] per
+    /// view. Bevy uses this value to determine how many threads to dispatch to
+    /// check meshes that weren't visible next frame to see if they became newly
+    /// visible this frame.
     pub late_indexed_indirect_parameters_buffer:
         RawBufferVec<LatePreprocessWorkItemIndirectParameters>,
+
+    /// A buffer that holds the number of non-indexed meshes that weren't
+    /// visible in the previous frame, when GPU occlusion culling is in use.
+    ///
+    /// There's one set of [`LatePreprocessWorkItemIndirectParameters`] per
+    /// view. Bevy uses this value to determine how many threads to dispatch to
+    /// check meshes that weren't visible next frame to see if they became newly
+    /// visible this frame.
     pub late_non_indexed_indirect_parameters_buffer:
         RawBufferVec<LatePreprocessWorkItemIndirectParameters>,
 }
@@ -277,14 +292,19 @@ where
         }
     }
 
+    /// Returns the number of instances in this buffer.
     pub fn len(&self) -> usize {
         self.buffer.len()
     }
 
+    /// Returns true if this buffer has no instances or false if it contains any
+    /// instances.
     pub fn is_empty(&self) -> bool {
         self.buffer.is_empty()
     }
 
+    /// Consumes this [`InstanceInputUniformBuffer`] and returns the raw buffer
+    /// ready to be uploaded to the GPU.
     pub fn into_buffer(self) -> RawBufferVec<BDI> {
         self.buffer
     }
@@ -317,26 +337,56 @@ pub enum PreprocessWorkItemBuffers {
         indexed: BufferVec<PreprocessWorkItem>,
         /// The buffer of work items corresponding to non-indexed meshes.
         non_indexed: BufferVec<PreprocessWorkItem>,
+        /// The work item buffers we use when GPU occlusion culling is in use.
         gpu_occlusion_culling: Option<GpuOcclusionCullingWorkItemBuffers>,
     },
 }
 
+/// The work item buffers we use when GPU occlusion culling is in use.
 pub struct GpuOcclusionCullingWorkItemBuffers {
+    /// The buffer of work items corresponding to indexed meshes.
     pub late_indexed: UninitBufferVec<PreprocessWorkItem>,
+    /// The buffer of work items corresponding to non-indexed meshes.
     pub late_non_indexed: UninitBufferVec<PreprocessWorkItem>,
+    /// The offset into the
+    /// [`BatchedInstanceBuffers::late_indexed_indirect_parameters_buffer`]
+    /// where this view's indirect dispatch counts for indexed meshes live.
     pub late_indirect_parameters_indexed_offset: u32,
+    /// The offset into the
+    /// [`BatchedInstanceBuffers::late_non_indexed_indirect_parameters_buffer`]
+    /// where this view's indirect dispatch counts for non-indexed meshes live.
     pub late_indirect_parameters_non_indexed_offset: u32,
 }
 
+/// A GPU-side data structure that stores the number of workgroups to dispatch
+/// for the second phase of GPU occlusion culling.
+///
+/// The late mesh preprocessing phase checks meshes that weren't visible frame
+/// to determine if they're potentially visible this frame.
 #[derive(Clone, Copy, ShaderType, Pod, Zeroable)]
 #[repr(C)]
 pub struct LatePreprocessWorkItemIndirectParameters {
+    /// The number of workgroups to dispatch.
+    ///
+    /// This will be equal to `work_item_count / 64`, rounded *up*.
     dispatch_x: u32,
+    /// The number of workgroups along the abstract Y axis to dispatch: always
+    /// 1.
     dispatch_y: u32,
+    /// The number of workgroups along the abstract Z axis to dispatch: always
+    /// 1.
     dispatch_z: u32,
+    /// The actual number of work items.
+    ///
+    /// The GPU indirect dispatch doesn't read this, but it's used internally to
+    /// determine the actual number of work items that exist in the late
+    /// preprocessing work item buffer.
     work_item_count: u32,
+    /// Padding to a multiple of 64 bytes, needed on some GPUs.
     pad_a: UVec4,
+    /// Padding to a multiple of 64 bytes, needed on some GPUs.
     pad_b: UVec4,
+    /// Padding to a multiple of 64 bytes, needed on some GPUs.
     pad_c: UVec4,
 }
 
@@ -354,6 +404,14 @@ impl Default for LatePreprocessWorkItemIndirectParameters {
     }
 }
 
+/// Returns the set of work item buffers for the given view, first creating it
+/// if necessary.
+///
+/// Bevy uses work item buffers to tell the mesh preprocessing compute shader
+/// which meshes are to be drawn.
+///
+/// You may need to call this function if you're implementing your own custom
+/// render phases. See the `specialized_mesh_pipeline` example.
 pub fn get_or_create_work_item_buffer<'a, I>(
     work_item_buffers: &'a mut EntityHashMap<TypeIdMap<PreprocessWorkItemBuffers>>,
     view: Entity,
