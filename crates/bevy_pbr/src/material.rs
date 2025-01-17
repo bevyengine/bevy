@@ -33,7 +33,7 @@ use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::TemporalJitter,
     extract_resource::ExtractResource,
-    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::{self, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
@@ -275,7 +275,8 @@ where
             .add_systems(
                 PostUpdate,
                 mark_meshes_as_changed_if_their_materials_changed::<M>
-                    .ambiguous_with(visibility::calculate_bounds),
+                    .ambiguous_with(visibility::calculate_bounds)
+                    .after(mesh::mark_3d_meshes_as_changed_if_their_assets_changed),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -288,7 +289,10 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    extract_mesh_materials::<M>.before(ExtractMeshesSet),
+                )
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
