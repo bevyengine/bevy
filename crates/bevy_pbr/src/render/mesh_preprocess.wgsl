@@ -66,12 +66,11 @@ struct LatePreprocessWorkItemIndirectParameters {
     // Padding.
     //
     // This isn't the usual structure padding; it's needed because some hardware
-    // requires indirect compute dispatch parameters to be aligned on 32-byte
+    // requires indirect compute dispatch parameters to be aligned on 64-byte
     // boundaries.
-    pad_a: u32,
-    pad_b: u32,
-    pad_c: u32,
-    pad_d: u32,
+    pad_a: vec4<u32>,
+    pad_b: vec4<u32>,
+    pad_c: vec4<u32>,
 }
 
 // The current frame's `MeshInput`.

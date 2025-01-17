@@ -11,6 +11,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
+use bevy_math::UVec4;
 use bevy_utils::{default, hashbrown::hash_map::Entry, TypeIdMap};
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
@@ -334,10 +335,9 @@ pub struct LatePreprocessWorkItemIndirectParameters {
     dispatch_y: u32,
     dispatch_z: u32,
     work_item_count: u32,
-    pad_a: u32,
-    pad_b: u32,
-    pad_c: u32,
-    pad_d: u32,
+    pad_a: UVec4,
+    pad_b: UVec4,
+    pad_c: UVec4,
 }
 
 impl Default for LatePreprocessWorkItemIndirectParameters {
@@ -347,10 +347,9 @@ impl Default for LatePreprocessWorkItemIndirectParameters {
             dispatch_y: 1,
             dispatch_z: 1,
             work_item_count: 0,
-            pad_a: 0,
-            pad_b: 0,
-            pad_c: 0,
-            pad_d: 0,
+            pad_a: UVec4::default(),
+            pad_b: UVec4::default(),
+            pad_c: UVec4::default(),
         }
     }
 }
