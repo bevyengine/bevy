@@ -60,6 +60,15 @@ use crate::state::{StateTransitionEvent, States};
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct StateScoped<S: States>(pub S);
 
+impl<S> Default for StateScoped<S>
+where
+    S: States + Default,
+{
+    fn default() -> Self {
+        Self(S::default())
+    }
+}
+
 /// Removes entities marked with [`StateScoped<S>`]
 /// when their state no longer matches the world state.
 ///
