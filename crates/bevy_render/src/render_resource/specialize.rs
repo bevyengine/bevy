@@ -188,13 +188,15 @@ pub trait HasBaseDescriptor<T: Specializable>: Specialize<T> {
     fn base_descriptor(&self) -> T::Descriptor;
 }
 
+pub type SpecializeFn<T, S> = fn(<S as Specialize<T>>::Key, &mut <T as Specializable>::Descriptor);
+
 /// A cache for specializable resources. For a given key type the resulting
 /// resource will only be created if it is missing, retrieving it from the
 /// cache otherwise.
 #[derive(Resource)]
 pub struct Specializer<T: Specializable, S: Specialize<T>> {
     specializer: S,
-    user_specializer: Option<fn(S::Key, &mut T::Descriptor)>,
+    user_specializer: Option<SpecializeFn<T, S>>,
     base_descriptor: T::Descriptor,
     pipelines: HashMap<S::Key, T::CachedId>,
 }
@@ -206,7 +208,7 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
     /// the same key.
     pub fn new(
         specializer: S,
-        user_specializer: Option<fn(S::Key, &mut T::Descriptor)>,
+        user_specializer: Option<SpecializeFn<T, S>>,
         base_descriptor: T::Descriptor,
     ) -> Self {
         Self {
