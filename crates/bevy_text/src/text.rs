@@ -170,11 +170,13 @@ impl TextLayout {
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
 /// # use bevy_hierarchy::BuildChildren;
-///
+/// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
 /// world.spawn((
+///     // `Text` or `Text2d` are needed, and will provide default instances
+///     // of the following components.
 ///     TextLayout::default(),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
@@ -184,6 +186,7 @@ impl TextLayout {
 ///     TextColor(BLUE.into()),
 /// ))
 /// .with_child((
+///     // Children must be `TextSpan`, not `Text` or `Text2d`.
 ///     TextSpan::new("Hello!"),
 ///     TextFont {
 ///         font: font_handle.into(),
