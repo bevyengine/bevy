@@ -1313,7 +1313,7 @@ impl Segment2d {
         self.rotated_around(rotation, self.center())
     }
 
-    /// Get the segment with it's center is at the origin
+    /// Get the segment with its center at the origin
     #[inline(always)]
     pub fn centered(&self) -> Segment2d {
         let center = self.center();
