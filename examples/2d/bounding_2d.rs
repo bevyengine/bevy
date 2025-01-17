@@ -224,7 +224,7 @@ fn setup(mut commands: Commands) {
             Vec2::new(40., 50.),
         )),
         Spin,
-        DesiredVolume::Circle,
+        DesiredVolume::Aabb,
         Intersects::default(),
     ));
 
