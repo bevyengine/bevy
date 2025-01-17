@@ -1699,7 +1699,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// This will also despawn the entities in any [`RelationshipSources`](crate::relationship::RelationshipSources) that are configured
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// # Example
@@ -1739,7 +1739,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// This will also despawn the entities in any [`RelationshipSources`](crate::relationship::RelationshipSources) that are configured
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that are configured
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), error_handler::silent());

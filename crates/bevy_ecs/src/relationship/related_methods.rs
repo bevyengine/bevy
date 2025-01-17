@@ -1,7 +1,7 @@
 use crate::{
     bundle::Bundle,
     entity::Entity,
-    relationship::{Relationship, RelationshipSources},
+    relationship::{Relationship, RelationshipTarget},
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
@@ -31,9 +31,9 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Despawns entities that relate to this one via the given [`RelationshipSources`].
+    /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
     /// This entity will not be despawned.
-    pub fn despawn_related<S: RelationshipSources>(&mut self) -> &mut Self {
+    pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
         if let Some(sources) = self.take::<S>() {
             self.world_scope(|world| {
                 for entity in sources.iter() {
@@ -70,9 +70,9 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Despawns entities that relate to this one via the given [`RelationshipSources`].
+    /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
     /// This entity will not be despawned.
-    pub fn despawn_related<S: RelationshipSources>(&mut self) -> &mut Self {
+    pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
         let id = self.id();
         self.commands.queue(move |world: &mut World| {
             world.entity_mut(id).despawn_related::<S>();

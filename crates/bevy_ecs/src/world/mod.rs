@@ -1276,7 +1276,7 @@ impl World {
     ///
     /// # Note
     ///
-    /// This will also despawn the entities in any [`RelationshipSources`](crate::relationship::RelationshipSources) that are configured
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
     /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// ```

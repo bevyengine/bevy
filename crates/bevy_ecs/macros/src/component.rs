@@ -64,7 +64,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Ok(value) => value,
         Err(err) => err.into_compile_error().into(),
     };
-    let relationship_sources = match derive_relationship_sources(&ast, &attrs, &bevy_ecs_path) {
+    let relationship_target = match derive_relationship_target(&ast, &attrs, &bevy_ecs_path) {
         Ok(value) => value,
         Err(err) => err.into_compile_error().into(),
     };
@@ -106,32 +106,32 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         );
     }
 
-    if let Some(relationship_sources) = &attrs.relationship_sources {
+    if let Some(relationship_target) = &attrs.relationship_target {
         if on_replace.is_some() {
             return syn::Error::new(
                 ast.span(),
-                "Custom on_replace hooks are not supported as RelationshipSources already define an on_replace hook",
+                "Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook",
             )
             .into_compile_error()
             .into();
         }
 
         on_replace = Some(
-            quote!(hooks.on_replace(<Self as #bevy_ecs_path::relationship::RelationshipSources>::on_replace);),
+            quote!(hooks.on_replace(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace);),
         );
 
-        if relationship_sources.despawn_descendants {
+        if relationship_target.despawn_descendants {
             if on_despawn.is_some() {
                 return syn::Error::new(
                     ast.span(),
-                    "Custom on_despawn hooks are not supported as this RelationshipSources already defines an on_despawn hook, via the despawn_descendants attribute",
+                    "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the despawn_descendants attribute",
                 )
                 .into_compile_error()
                 .into();
             }
 
             on_despawn = Some(
-                quote!(hooks.on_despawn(<Self as #bevy_ecs_path::relationship::RelationshipSources>::on_despawn);),
+                quote!(hooks.on_despawn(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn);),
             );
         }
     }
@@ -201,7 +201,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         .then_some(quote! { #bevy_ecs_path::component::Immutable })
         .unwrap_or(quote! { #bevy_ecs_path::component::Mutable });
 
-    let clone_handler = if relationship_sources.is_some() {
+    let clone_handler = if relationship_target.is_some() {
         quote!(#bevy_ecs_path::component::ComponentCloneHandler::ignore())
     } else {
         quote!(
@@ -248,7 +248,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
         #relationship
 
-        #relationship_sources
+        #relationship_target
     })
 }
 
@@ -284,7 +284,7 @@ pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
-pub const RELATIONSHIP_SOURCES: &str = "relationship_sources";
+pub const RELATIONSHIP_TARGET: &str = "relationship_target";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
@@ -303,7 +303,7 @@ struct Attrs {
     on_remove: Option<ExprPath>,
     on_despawn: Option<ExprPath>,
     relationship: Option<Relationship>,
-    relationship_sources: Option<RelationshipSources>,
+    relationship_target: Option<RelationshipTarget>,
     immutable: bool,
 }
 
@@ -324,10 +324,10 @@ enum RequireFunc {
 }
 
 struct Relationship {
-    relationship_sources: Ident,
+    relationship_target: Ident,
 }
 
-struct RelationshipSources {
+struct RelationshipTarget {
     relationship: Ident,
     despawn_descendants: bool,
 }
@@ -346,7 +346,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         on_despawn: None,
         requires: None,
         relationship: None,
-        relationship_sources: None,
+        relationship_target: None,
         immutable: false,
     };
 
@@ -406,9 +406,9 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         } else if attr.path().is_ident(RELATIONSHIP) {
             let relationship = attr.parse_args::<Relationship>()?;
             attrs.relationship = Some(relationship);
-        } else if attr.path().is_ident(RELATIONSHIP_SOURCES) {
-            let relationship_sources = attr.parse_args::<RelationshipSources>()?;
-            attrs.relationship_sources = Some(relationship_sources);
+        } else if attr.path().is_ident(RELATIONSHIP_TARGET) {
+            let relationship_target = attr.parse_args::<RelationshipTarget>()?;
+            attrs.relationship_target = Some(relationship_target);
         }
     }
 
@@ -452,16 +452,16 @@ fn hook_register_function_call(
 
 impl Parse for Relationship {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        syn::custom_keyword!(relationship_sources);
-        input.parse::<relationship_sources>()?;
+        syn::custom_keyword!(relationship_target);
+        input.parse::<relationship_target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
-            relationship_sources: input.parse::<Ident>()?,
+            relationship_target: input.parse::<Ident>()?,
         })
     }
 }
 
-impl Parse for RelationshipSources {
+impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         let mut relationship_ident = None;
         let mut despawn_descendants_exists = false;
@@ -487,8 +487,8 @@ impl Parse for RelationshipSources {
             }
         }
 
-        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipSources derive must specify a relationship via #[relationship_sources(relationship = X)"))?;
-        Ok(RelationshipSources {
+        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
+        Ok(RelationshipTarget {
             relationship,
             despawn_descendants: despawn_descendants_exists,
         })
@@ -526,11 +526,11 @@ fn derive_relationship(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let relationship_sources = &relationship.relationship_sources;
+    let relationship_target = &relationship.relationship_target;
 
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::Relationship for #struct_name #type_generics #where_clause {
-            type RelationshipSources = #relationship_sources;
+            type RelationshipTarget = #relationship_target;
 
             #[inline(always)]
             fn get(&self) -> #bevy_ecs_path::entity::Entity {
@@ -545,16 +545,16 @@ fn derive_relationship(
     }))
 }
 
-fn derive_relationship_sources(
+fn derive_relationship_target(
     ast: &DeriveInput,
     attrs: &Attrs,
     bevy_ecs_path: &Path,
 ) -> Result<Option<TokenStream2>> {
-    let Some(relationship_sources) = &attrs.relationship_sources else {
+    let Some(relationship_target) = &attrs.relationship_target else {
         return Ok(None);
     };
 
-    const RELATIONSHIP_SOURCES_FORMAT_MESSAGE: &str = "RelationshipSources derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
+    const RELATIONSHIP_TARGET_FORMAT_MESSAGE: &str = "RelationshipTarget derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
     let collection = if let Data::Struct(DataStruct {
         fields: Fields::Unnamed(unnamed_fields),
         struct_token,
@@ -563,27 +563,27 @@ fn derive_relationship_sources(
     {
         if let Some(first) = unnamed_fields.unnamed.first() {
             if first.vis != Visibility::Inherited {
-                return Err(syn::Error::new(first.span(), "The collection in RelationshipSources must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
+                return Err(syn::Error::new(first.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
             }
             first.ty.clone()
         } else {
             return Err(syn::Error::new(
                 struct_token.span(),
-                RELATIONSHIP_SOURCES_FORMAT_MESSAGE,
+                RELATIONSHIP_TARGET_FORMAT_MESSAGE,
             ));
         }
     } else {
         return Err(syn::Error::new(
             ast.span(),
-            RELATIONSHIP_SOURCES_FORMAT_MESSAGE,
+            RELATIONSHIP_TARGET_FORMAT_MESSAGE,
         ));
     };
 
-    let relationship = &relationship_sources.relationship;
+    let relationship = &relationship_target.relationship;
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     Ok(Some(quote! {
-        impl #impl_generics #bevy_ecs_path::relationship::RelationshipSources for #struct_name #type_generics #where_clause {
+        impl #impl_generics #bevy_ecs_path::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
             type Relationship = #relationship;
             type Collection = #collection;
 

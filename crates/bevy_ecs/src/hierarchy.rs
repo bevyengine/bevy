@@ -1,10 +1,10 @@
 //! The canonical "parent-child" [`Relationship`] for entities, driven by
-//! the [`Parent`] [`Relationship`] and the [`Children`] [`RelationshipSources`].
+//! the [`Parent`] [`Relationship`] and the [`Children`] [`RelationshipTarget`].
 //!
 //! See [`Parent`] for a full description of the relationship and how to use it.
 //!
 //! [`Relationship`]: crate::relationship::Relationship
-//! [`RelationshipSources`]: crate::relationship::RelationshipSources
+//! [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 
 use crate as bevy_ecs;
 use crate::bundle::Bundle;
@@ -31,7 +31,7 @@ use log::warn;
 
 /// A [`Relationship`](crate::relationship::Relationship) component that creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
-/// the [`Children`] [`RelationshipSources`](crate::relationship::RelationshipSources).
+/// the [`Children`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
 ///
 /// This relationship should be used for things like:
 ///
@@ -102,7 +102,7 @@ use log::warn;
     Debug,
     FromWorld
 )]
-#[relationship(relationship_sources = Children)]
+#[relationship(relationship_target = Children)]
 pub struct Parent(pub Entity);
 
 impl Parent {
@@ -132,13 +132,13 @@ impl FromWorld for Parent {
     }
 }
 
-/// A [`RelationshipSources`](crate::relationship::RelationshipSources) collection component that is populated
+/// A [`RelationshipTarget`](crate::relationship::RelationshipTarget) collection component that is populated
 /// with entities that "target" this entity with the [`Parent`] [`Relationship`](crate::relationship::Relationship) component.
 ///
 /// Together, these components form the "canonical parent-child hierarchy". See the [`Parent`] component for all full
 /// description of this relationship and instructions on how to use it.
 #[derive(Component, Default, Reflect, VisitEntitiesMut, Debug, PartialEq, Eq)]
-#[relationship_sources(relationship = Parent, despawn_descendants)]
+#[relationship_target(relationship = Parent, despawn_descendants)]
 #[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct Children(Vec<Entity>);
 
@@ -292,7 +292,7 @@ mod tests {
     use crate::{
         entity::Entity,
         hierarchy::{Children, Parent},
-        relationship::RelationshipSources,
+        relationship::RelationshipTarget,
         world::World,
     };
     use alloc::{vec, vec::Vec};

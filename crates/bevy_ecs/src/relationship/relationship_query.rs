@@ -1,7 +1,7 @@
 use crate::{
     entity::Entity,
     query::{QueryData, QueryFilter, WorldQuery},
-    relationship::{Relationship, RelationshipSources},
+    relationship::{Relationship, RelationshipTarget},
     system::Query,
 };
 use alloc::collections::VecDeque;
@@ -17,9 +17,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.get(entity).map(R::get).ok()
     }
 
-    /// If the given `entity` contains the `S` [`RelationshipSources`] component, returns the
+    /// If the given `entity` contains the `S` [`RelationshipTarget`] component, returns the
     /// source entities stored on that component.
-    pub fn relationship_sources<S: RelationshipSources>(
+    pub fn relationship_sources<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
     ) -> impl Iterator<Item = Entity> + 'w
@@ -28,7 +28,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     {
         self.get(entity)
             .into_iter()
-            .flat_map(RelationshipSources::iter)
+            .flat_map(RelationshipTarget::iter)
     }
 
     /// Recursively walks up the tree defined by the given `R` [`Relationship`] until
@@ -48,12 +48,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
-    /// Iterates all "leaf entities" as defined by the [`RelationshipSources`] hierarchy.
+    /// Iterates all "leaf entities" as defined by the [`RelationshipTarget`] hierarchy.
     ///
     /// # Warning
     /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
     /// relationships.
-    pub fn iter_leaves<S: RelationshipSources>(
+    pub fn iter_leaves<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
     ) -> impl Iterator<Item = Entity> + 'w
@@ -75,7 +75,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entity: Entity,
     ) -> impl Iterator<Item = Entity> + 'w
     where
-        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w R>, Option<&'w R::RelationshipSources>)>,
+        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w R>, Option<&'w R::RelationshipTarget>)>,
     {
         self.get(entity)
             .ok()
@@ -86,13 +86,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
             .flat_map(move |children| children.iter().filter(move |child| *child != entity))
     }
 
-    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipSources`] and their recursive
-    /// [`RelationshipSources`].
+    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`] and their recursive
+    /// [`RelationshipTarget`].
     ///
     /// # Warning
     /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
     /// relationships.
-    pub fn iter_descendants<S: RelationshipSources>(
+    pub fn iter_descendants<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
     ) -> DescendantIter<'w, 's, D, F, S>
@@ -102,13 +102,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         DescendantIter::new(self, entity)
     }
 
-    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipSources`] and their recursive
-    /// [`RelationshipSources`] in depth-first order.
+    /// Iterates all descendant entities as defined by the given `entity`'s [`RelationshipTarget`] and their recursive
+    /// [`RelationshipTarget`] in depth-first order.
     ///
     /// # Warning
     /// For relationship graphs that contain loops, this could loop infinitely. Only call this for "hierarchy-style"
     /// relationships.
-    pub fn iter_descendants_depth_first<S: RelationshipSources>(
+    pub fn iter_descendants_depth_first<S: RelationshipTarget>(
         &'w self,
         entity: Entity,
     ) -> DescendantDepthFirstIter<'w, 's, D, F, S>
@@ -137,7 +137,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 /// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy breadth-first.
-pub struct DescendantIter<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipSources>
+pub struct DescendantIter<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
 where
     D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
 {
@@ -145,7 +145,7 @@ where
     vecdeque: VecDeque<Entity>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipSources> DescendantIter<'w, 's, D, F, S>
+impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> DescendantIter<'w, 's, D, F, S>
 where
     D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
 {
@@ -156,13 +156,13 @@ where
             vecdeque: children_query
                 .get(entity)
                 .into_iter()
-                .flat_map(RelationshipSources::iter)
+                .flat_map(RelationshipTarget::iter)
                 .collect(),
         }
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipSources> Iterator
+impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
     for DescendantIter<'w, 's, D, F, S>
 where
     D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
@@ -183,7 +183,7 @@ where
 /// An [`Iterator`] of [`Entity`]s over the descendants of an [`Entity`].
 ///
 /// Traverses the hierarchy depth-first.
-pub struct DescendantDepthFirstIter<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipSources>
+pub struct DescendantDepthFirstIter<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
 where
     D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
 {
@@ -191,7 +191,7 @@ where
     stack: SmallVec<[Entity; 8]>,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipSources>
+impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
     DescendantDepthFirstIter<'w, 's, D, F, S>
 where
     D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
@@ -207,7 +207,7 @@ where
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipSources> Iterator
+impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
     for DescendantDepthFirstIter<'w, 's, D, F, S>
 where
     D::ReadOnly: WorldQuery<Item<'w> = &'w S>,

@@ -21,48 +21,48 @@ use crate::{
 use log::warn;
 
 /// A [`Component`] on a "source" [`Entity`] that references another target [`Entity`], creating a "relationship" between them. Every [`Relationship`]
-/// has a corresponding [`RelationshipSources`] type (and vice-versa), which exists on the "target" entity of a relationship and contains the list of all
+/// has a corresponding [`RelationshipTarget`] type (and vice-versa), which exists on the "target" entity of a relationship and contains the list of all
 /// "source" entities that relate to the given "target"
 ///
-/// The [`Relationship`] component is the "source of truth" and the [`RelationshipSources`] component reflects that source of truth. When a [`Relationship`]
-/// component is inserted on an [`Entity`], the corresponding [`RelationshipSources`] component is immediately inserted on the target component if it does
-/// not already exist, and the "source" entity is automatically added to the [`RelationshipSources`] collection (this is done via "component hooks").
+/// The [`Relationship`] component is the "source of truth" and the [`RelationshipTarget`] component reflects that source of truth. When a [`Relationship`]
+/// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does
+/// not already exist, and the "source" entity is automatically added to the [`RelationshipTarget`] collection (this is done via "component hooks").
 ///
 /// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`Parent`](crate::hierarchy::Parent)
-/// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipSources`].
+/// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipTarget`].
 ///
-/// [`Relationship`] and [`RelationshipSources`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
+/// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
 ///
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
-/// #[relationship(relationship_sources = Children)]
+/// #[relationship(relationship_target = Children)]
 /// pub struct Parent(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_sources(relationship = Parent)]
+/// #[relationship_target(relationship = Parent)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
-/// When deriving [`RelationshipSources`] you can specify the `#[relationship_sources(despawn_descendants)]` attribute to
-/// automatically despawn entities stored in an entity's [`RelationshipSources`] when that entity is despawned:
+/// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(despawn_descendants)]` attribute to
+/// automatically despawn entities stored in an entity's [`RelationshipTarget`] when that entity is despawned:
 ///
 /// ```
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
-/// #[relationship(relationship_sources = Children)]
+/// #[relationship(relationship_target = Children)]
 /// pub struct Parent(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_sources(relationship = Parent, despawn_descendants)]
+/// #[relationship_target(relationship = Parent, despawn_descendants)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
     /// entities that relate to the "target".
-    type RelationshipSources: RelationshipSources<Relationship = Self>;
+    type RelationshipTarget: RelationshipTarget<Relationship = Self>;
 
     /// Gets the [`Entity`] ID of the related entity.
     fn get(&self) -> Entity;
@@ -70,31 +70,30 @@ pub trait Relationship: Component + Sized {
     /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
 
-    /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipSources`] connection.
+    /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     fn on_insert(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-        let parent = world.entity(entity).get::<Self>().unwrap().get();
-        if parent == entity {
+        let target_entity = world.entity(entity).get::<Self>().unwrap().get();
+        if target_entity == entity {
             warn!(
-                "The {}({parent:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                "The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
         }
-        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
-            if let Some(mut relationship_sources) =
-                parent_entity.get_mut::<Self::RelationshipSources>()
+        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
+            if let Some(mut relationship_target) =
+                target_entity_mut.get_mut::<Self::RelationshipTarget>()
             {
-                relationship_sources.collection_mut_risky().add(entity);
+                relationship_target.collection_mut_risky().add(entity);
             } else {
-                let mut sources =
-                    <Self::RelationshipSources as RelationshipSources>::with_capacity(1);
-                sources.collection_mut_risky().add(entity);
-                world.commands().entity(parent).insert(sources);
+                let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
+                target.collection_mut_risky().add(entity);
+                world.commands().entity(target_entity).insert(target);
             }
         } else {
             warn!(
-                "The {}({parent:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                "The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
@@ -102,18 +101,18 @@ pub trait Relationship: Component + Sized {
         }
     }
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipSources`] connection.
+    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
     fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
-        let parent = world.entity(entity).get::<Self>().unwrap().get();
-        if let Ok(mut parent_entity) = world.get_entity_mut(parent) {
-            if let Some(mut relationship_sources) =
-                parent_entity.get_mut::<Self::RelationshipSources>()
+        let target_entity = world.entity(entity).get::<Self>().unwrap().get();
+        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
+            if let Some(mut relationship_target) =
+                target_entity_mut.get_mut::<Self::RelationshipTarget>()
             {
-                relationship_sources.collection_mut_risky().remove(entity);
-                if relationship_sources.len() == 0 {
-                    if let Some(mut entity) = world.commands().get_entity(parent) {
-                        entity.remove::<Self::RelationshipSources>();
+                relationship_target.collection_mut_risky().remove(entity);
+                if relationship_target.len() == 0 {
+                    if let Some(mut entity) = world.commands().get_entity(target_entity) {
+                        entity.remove::<Self::RelationshipTarget>();
                     }
                 }
             }
@@ -123,39 +122,39 @@ pub trait Relationship: Component + Sized {
 
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
-pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
-    /// The [`Relationship`] that populates this [`RelationshipSources`] collection.
-    type Relationship: Relationship<RelationshipSources = Self>;
-    /// The collection type that stores the "source" entities for this [`RelationshipSources`] component.
+pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
+    /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
+    type Relationship: Relationship<RelationshipTarget = Self>;
+    /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
     type Collection: RelationshipSourceCollection;
 
-    /// Returns a reference to the stored [`RelationshipSources::Collection`].
+    /// Returns a reference to the stored [`RelationshipTarget::Collection`].
     fn collection(&self) -> &Self::Collection;
-    /// Returns a mutable reference to the stored [`RelationshipSources::Collection`].
+    /// Returns a mutable reference to the stored [`RelationshipTarget::Collection`].
     ///
     /// # Warning
     /// This should generally not be called by user code, as modifying the internal collection could invalidate the relationship.
     /// This uses the "deprecated" state to warn users about this.
     fn collection_mut_risky(&mut self) -> &mut Self::Collection;
 
-    /// Creates a new [`RelationshipSources`] from the given [`RelationshipSources::Collection`].
+    /// Creates a new [`RelationshipTarget`] from the given [`RelationshipTarget::Collection`].
     ///
     /// # Warning
     /// This should generally not be called by user code, as constructing the internal collection could invalidate the relationship.
     /// This uses the "deprecated" state to warn users about this.
     fn from_collection_risky(collection: Self::Collection) -> Self;
 
-    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipSources`] connection.
+    /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
     fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
-        // copying the RelationshipSources collection
+        // copying the RelationshipTarget collection
         // SAFETY: This only reads the Self component and queues Remove commands
         unsafe {
             let world = world.as_unsafe_world_cell();
-            let sources = world.get_entity(entity).unwrap().get::<Self>().unwrap();
+            let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
             let mut commands = world.get_raw_command_queue();
-            for source_entity in sources.iter() {
+            for source_entity in relationship_target.iter() {
                 if world.get_entity(source_entity).is_some() {
                     commands.push(
                         entity_command::remove::<Self::Relationship>()
@@ -169,18 +168,18 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
         }
     }
 
-    /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipSources`] when
+    /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
     fn on_despawn(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
-        // copying the RelationshipSources collection
+        // copying the RelationshipTarget collection
         // SAFETY: This only reads the Self component and queues despawn commands
         unsafe {
             let world = world.as_unsafe_world_cell();
-            let sources = world.get_entity(entity).unwrap().get::<Self>().unwrap();
+            let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
             let mut commands = world.get_raw_command_queue();
-            for source_entity in sources.iter() {
+            for source_entity in relationship_target.iter() {
                 if world.get_entity(source_entity).is_some() {
                     commands.push(
                         entity_command::despawn()
@@ -194,7 +193,7 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
         }
     }
 
-    /// Creates this [`RelationshipSources`] with the given pre-allocated entity capacity.
+    /// Creates this [`RelationshipTarget`] with the given pre-allocated entity capacity.
     fn with_capacity(capacity: usize) -> Self {
         let collection =
             <Self::Collection as RelationshipSourceCollection>::with_capacity(capacity);
@@ -230,11 +229,11 @@ mod tests {
     #[test]
     fn custom_relationship() {
         #[derive(Component)]
-        #[relationship(relationship_sources = LikedBy)]
+        #[relationship(relationship_target = LikedBy)]
         struct Likes(pub Entity);
 
         #[derive(Component)]
-        #[relationship_sources(relationship = Likes)]
+        #[relationship_target(relationship = Likes)]
         struct LikedBy(Vec<Entity>);
 
         let mut world = World::new();

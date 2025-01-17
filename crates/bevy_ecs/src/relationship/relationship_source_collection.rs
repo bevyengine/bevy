@@ -1,7 +1,7 @@
 use crate::entity::Entity;
 use alloc::vec::Vec;
 
-/// The internal [`Entity`] collection used by a [`RelationshipSources`](crate::relationship::RelationshipSources) component.
+/// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
 pub trait RelationshipSourceCollection {
     /// Returns an instance with the given pre-allocated entity `capacity`.
