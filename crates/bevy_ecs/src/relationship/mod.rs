@@ -8,8 +8,6 @@ pub use related_methods::*;
 pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
-pub use bevy_ecs_macros::{Relationship, RelationshipSources};
-
 use crate::{
     component::{Component, ComponentId, Mutable},
     entity::Entity,
@@ -33,17 +31,16 @@ use log::warn;
 /// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`Parent`](crate::hierarchy::Parent)
 /// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipSources`].
 ///
-/// [`Relationship`] and [`RelationshipSources`] should always be derived to ensure the hooks are set up properly. They will both automatically
-/// implement [`Component`] with the necessary configuration to drive the [`Relationship`].
+/// [`Relationship`] and [`RelationshipSources`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
 ///
 /// ```
-/// # use bevy_ecs::relationship::{Relationship, RelationshipSources};
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
-/// #[derive(Relationship)]
+/// #[derive(Component)]
 /// #[relationship(relationship_sources = Children)]
 /// pub struct Parent(pub Entity);
 ///
-/// #[derive(RelationshipSources)]
+/// #[derive(Component)]
 /// #[relationship_sources(relationship = Parent)]
 /// pub struct Children(Vec<Entity>);
 /// ```
@@ -52,13 +49,13 @@ use log::warn;
 /// automatically despawn entities stored in an entity's [`RelationshipSources`] when that entity is despawned:
 ///
 /// ```
-/// # use bevy_ecs::relationship::{Relationship, RelationshipSources};
+/// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
-/// #[derive(Relationship)]
+/// #[derive(Component)]
 /// #[relationship(relationship_sources = Children)]
 /// pub struct Parent(pub Entity);
 ///
-/// #[derive(RelationshipSources)]
+/// #[derive(Component)]
 /// #[relationship_sources(relationship = Parent, despawn_descendants)]
 /// pub struct Children(Vec<Entity>);
 /// ```
@@ -237,19 +234,16 @@ pub trait RelationshipSources: Component<Mutability = Mutable> + Sized {
 mod tests {
     use crate as bevy_ecs;
     use crate::world::World;
-    use crate::{
-        entity::Entity,
-        relationship::{Relationship, RelationshipSources},
-    };
+    use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
 
     #[test]
     fn custom_relationship() {
-        #[derive(Relationship)]
+        #[derive(Component)]
         #[relationship(relationship_sources = LikedBy)]
         struct Likes(pub Entity);
 
-        #[derive(RelationshipSources)]
+        #[derive(Component)]
         #[relationship_sources(relationship = Likes)]
         struct LikedBy(Vec<Entity>);
 

@@ -16,7 +16,6 @@ use crate::{
         ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
         ReflectVisitEntitiesMut,
     },
-    relationship::{Relationship, RelationshipSources},
     world::{FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
@@ -26,7 +25,7 @@ use core::slice;
 use disqualified::ShortName;
 use log::warn;
 
-#[derive(Relationship, Clone, Reflect, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
+#[derive(Component, Clone, Reflect, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
 #[reflect(
     Component,
     MapEntities,
@@ -56,7 +55,7 @@ impl FromWorld for Parent {
     }
 }
 
-#[derive(RelationshipSources, Default, Reflect, VisitEntitiesMut)]
+#[derive(Component, Default, Reflect, VisitEntitiesMut)]
 #[relationship_sources(relationship = Parent, despawn_descendants)]
 #[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
 pub struct Children(Vec<Entity>);
