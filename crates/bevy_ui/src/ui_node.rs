@@ -2,7 +2,7 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -331,6 +331,8 @@ impl From<Vec2> for ScrollPosition {
     Visibility,
     VisibilityClass,
     ZIndex,
+    NodeContext,
+    NodeScaleFactor,
     ResolvedTargetCamera
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
@@ -2739,6 +2741,40 @@ pub struct BoxShadowSamples(pub u32);
 impl Default for BoxShadowSamples {
     fn default() -> Self {
         Self(4)
+    }
+}
+
+/// Local scale factor for this node.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct NodeScaleFactor(pub(crate) f32);
+
+impl Default for NodeScaleFactor {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl NodeScaleFactor {
+    pub fn get(&self) -> f32 {
+        self.0
+    }
+}
+
+/// Local context for this node.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct NodeContext(pub(crate) UVec2);
+
+impl Default for NodeContext {
+    fn default() -> Self {
+        Self(UVec2::ZERO)
+    }
+}
+
+impl NodeContext {
+    pub fn get(&self) -> UVec2 {
+        self.0
     }
 }
 
