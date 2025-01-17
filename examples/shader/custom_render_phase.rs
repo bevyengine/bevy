@@ -27,7 +27,10 @@ use bevy::{
     prelude::*,
     render::{
         batching::{
-            gpu_preprocessing::batch_and_prepare_sorted_render_phase,
+            gpu_preprocessing::{
+                batch_and_prepare_sorted_render_phase, IndirectParametersBuffers,
+                IndirectParametersMetadata,
+            },
             GetBatchData, GetFullBatchData,
         },
         camera::ExtractedCamera,
@@ -51,13 +54,10 @@ use bevy::{
         },
         renderer::RenderContext,
         sync_world::MainEntity,
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
-    }, utils::HashSet,
-};
-use bevy_render::{
-    batching::gpu_preprocessing::{IndirectParametersBuffers, IndirectParametersMetadata},
-    view::RetainedViewEntity
+    },
+    utils::HashSet,
 };
 use nonmax::NonMaxU32;
 
@@ -148,7 +148,7 @@ impl Plugin for MeshStencilPhasePlugin {
             return;
         };
         // The pipeline needs the RenderDevice to be created and it's only available once plugins
-        // are intialized
+        // are initialized
         render_app.init_resource::<StencilPipeline>();
     }
 }
@@ -466,17 +466,15 @@ fn extract_camera_phases(
     cameras: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
-
     live_entities.clear();
     for (main_entity, camera) in &cameras {
-        
         if !camera.is_active {
             continue;
         }
 
         // This is the main 3D camera, so we use the first subview index (0).
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
-         
+
         custom_phases.insert_or_clear(retained_view_entity);
         live_entities.insert(retained_view_entity);
     }
@@ -569,7 +567,11 @@ struct CustomDrawPassLabel;
 #[derive(Default)]
 struct CustomDrawNode;
 impl ViewNode for CustomDrawNode {
-    type ViewQuery = (&'static ExtractedCamera, &'static ExtractedView, &'static ViewTarget);
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static ExtractedView,
+        &'static ViewTarget,
+    );
 
     fn run<'w>(
         &self,
