@@ -1283,7 +1283,7 @@ impl Segment2d {
         Self::new(self.point1() + translation, self.point2() + translation)
     }
 
-    /// Compute a new segment, based on the original segment rotated around its center
+    /// Compute a new segment, based on the original segment rotated around the origin
     #[inline(always)]
     pub fn rotated(&self, rotation: Rot2) -> Segment2d {
         pub fn rotate_point(p: Vec2, rotation: Rot2) -> Vec2 {
@@ -1292,14 +1292,25 @@ impl Segment2d {
                 p.x * rotation.sin + p.y * rotation.cos,
             )
         }
-        // We center the segment for the purpose of the rotation, then offset back to it's original position
-        let offset_from_origin = self.center();
-        let centered = self.centered();
-        let centered_rotated: Segment2d = Segment2d::new(
-            rotate_point(centered.point1(), rotation),
-            rotate_point(centered.point2(), rotation),
-        );
-        centered_rotated.translated(offset_from_origin)
+        Segment2d::new(
+            rotate_point(self.point1(), rotation),
+            rotate_point(self.point2(), rotation),
+        )
+    }
+
+    /// Compute a new segment, based on the original segment rotated around a given point
+    #[inline(always)]
+    pub fn rotated_around(&self, rotation: Rot2, point: Vec2) -> Segment2d {
+        // We offset our segment so that our segment is rotated as if from the origin, then we can apply the offset back
+        let offset = self.translated(-point);
+        let rotated = offset.rotated(rotation);
+        rotated.translated(point)
+    }
+
+    /// Compute a new segment, based on the original segment rotated around its center
+    #[inline(always)]
+    pub fn rotated_around_center(&self, rotation: Rot2) -> Segment2d {
+        self.rotated_around(rotation, self.center())
     }
 
     /// Get the segment with it's center is at the origin

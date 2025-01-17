@@ -636,7 +636,7 @@ where
 
         let segment = Segment2d::new(self.point1, self.point2)
             .translated(self.isometry.translation)
-            .rotated(self.isometry.rotation);
+            .rotated_around_center(self.isometry.rotation);
 
         if self.draw_arrow {
             self.gizmos
