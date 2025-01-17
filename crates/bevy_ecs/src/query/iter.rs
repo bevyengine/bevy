@@ -1059,6 +1059,41 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             )
         }
     }
+
+    /// Transforms the iterator output to include the `Entity` which is being iterated over.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    /// #[derive(Component)]
+    /// struct ExampleComponent;
+    ///
+    /// fn example_system(query: Query<&ExampleComponent>) {
+    ///     for (entity, component) in query.iter().include_entity() {
+    ///         println!("entity {:?}", entity);
+    ///     }
+    /// }
+    /// ```
+    ///
+    pub fn include_entity(self) -> QueryIter<'w, 's, crate::query::IncludeEntity<D>, F> {
+        QueryIter {
+            world: self.world,
+            tables: self.tables,
+            archetypes: self.archetypes,
+            query_state: unsafe { self.query_state.as_transmuted_state() },
+            cursor: QueryIterationCursor {
+                is_dense: self.cursor.is_dense,
+                storage_id_iter: self.cursor.storage_id_iter,
+                table_entities: self.cursor.table_entities,
+                archetype_entities: self.cursor.archetype_entities,
+                fetch: self.cursor.fetch,
+                filter: self.cursor.filter,
+                current_len: self.cursor.current_len,
+                current_row: self.cursor.current_row,
+            },
+        }
+    }
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
