@@ -485,7 +485,10 @@ fn extract_camera_phases(
 // This is a very important step when writing a custom phase.
 //
 // This system determines which meshes will be added to the phase.
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 fn queue_custom_meshes(
     custom_draw_functions: Res<DrawFunctions<StencilPhase>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<StencilPipeline>>,
