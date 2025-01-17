@@ -160,9 +160,7 @@ impl ReflectComponent {
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
     ///
-    /// # Panics
-    ///
-    /// Panics if [`Component`] is immutable.
+    /// Always inserts if [`Component`] is immutable.
     pub fn apply_or_insert(
         &self,
         entity: &mut EntityWorldMut,
@@ -301,19 +299,17 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 component.apply(reflected_component);
             },
             apply_or_insert: |entity, reflected_component, registry| {
-                if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
-                    panic!("Cannot call `ReflectComponent::apply_or_insert` on component {name}. It is immutable, and cannot modified through reflection");
-                }
-
-                // SAFETY: guard ensures `C` is a mutable component
-                if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
-                    component.apply(reflected_component.as_partial_reflect());
-                } else {
-                    let component = entity.world_scope(|world| {
-                        from_reflect_with_fallback::<C>(reflected_component, world, registry)
-                    });
-                    entity.insert(component);
+                // SAFETY: guard ensures `apply` is not called on an immutable component
+                match unsafe { entity.get_mut_assume_mutable::<C>() } {
+                    Some(mut component) if C::Mutability::MUTABLE => {
+                        component.apply(reflected_component.as_partial_reflect());
+                    }
+                    _ => {
+                        let component = entity.world_scope(|world| {
+                            from_reflect_with_fallback::<C>(reflected_component, world, registry)
+                        });
+                        entity.insert(component);
+                    }
                 }
             },
             remove: |entity| {
