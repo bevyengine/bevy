@@ -275,7 +275,7 @@ where
             .add_systems(
                 PostUpdate,
                 mark_meshes_as_changed_if_their_materials_changed::<M>
-                    .ambiguous_with(visibility::calculate_bounds)
+                    .ambiguous_with_all()
                     .after(mesh::mark_3d_meshes_as_changed_if_their_assets_changed),
             );
 

@@ -127,6 +127,8 @@ pub enum RenderSet {
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
+    /// Prepares extracted meshes.
+    PrepareMeshes,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
     /// Queue drawable entities as phase items in render phases ready for
@@ -175,6 +177,7 @@ impl Render {
         schedule.configure_sets(
             (
                 ExtractCommands,
+                PrepareMeshes,
                 ManageViews,
                 Queue,
                 PhaseSort,
@@ -186,7 +189,7 @@ impl Render {
                 .chain(),
         );
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
+        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
             QueueMeshes
                 .in_set(Queue)

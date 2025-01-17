@@ -176,7 +176,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        set_mesh_motion_vector_flags.in_set(RenderSet::ManageViews),
+                        set_mesh_motion_vector_flags.in_set(RenderSet::PrepareMeshes),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -224,7 +224,7 @@ impl Plugin for MeshRenderPlugin {
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
                                 .in_set(RenderSet::PrepareResources),
                             collect_meshes_for_gpu_building
-                                .in_set(RenderSet::ManageViews)
+                                .in_set(RenderSet::PrepareMeshes)
                                 // This must be before
                                 // `set_mesh_motion_vector_flags` so it doesn't
                                 // overwrite those flags.
