@@ -272,7 +272,7 @@ impl Bounded2d for Segment2d {
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         let isometry: Isometry2d = isometry.into();
         let local_center = self.center();
-        let radius = local_center.distance(self.point1);
+        let radius = local_center.distance(self.point1());
         let local_circle = BoundingCircle::new(local_center, radius);
         local_circle.transformed_by(isometry.translation, isometry.rotation)
     }
