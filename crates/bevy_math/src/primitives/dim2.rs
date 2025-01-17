@@ -1221,9 +1221,9 @@ impl Primitive2d for Line2d {}
 )]
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
-    /// First point of the segment
+    /// The first point of the line segment
     pub point1: Vec2,
-    /// Second point of the segment
+    /// The second point of the line segment
     pub point2: Vec2,
 }
 impl Primitive2d for Segment2d {}
