@@ -258,7 +258,7 @@ impl<'a> EntityCommands<'a> {
     }
 }
 
-/// An "on_insert" component hook that when run, will validate that the parent of a given entity
+/// An `on_insert` component hook that when run, will validate that the parent of a given entity
 /// contains component `C`. This will print a warning if the parent does not contain `C`.
 pub fn validate_parent_has_component<C: Component>(
     world: DeferredWorld,
@@ -385,7 +385,7 @@ mod tests {
             .spawn_empty()
             .with_children(|p| {
                 child1 = p.spawn_empty().id();
-                child2 = p.spawn_empty().id()
+                child2 = p.spawn_empty().id();
             })
             .id();
 

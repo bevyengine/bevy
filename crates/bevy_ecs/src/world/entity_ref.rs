@@ -2100,7 +2100,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipSources`](crate::relationship::RelationshipSources) that are configured
     /// to despawn descendants. This results in "recursive despawn" behavior.
-
+    ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
