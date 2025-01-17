@@ -1221,10 +1221,8 @@ impl Primitive2d for Line2d {}
 )]
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
-    /// The first point of the line segment
-    pub point1: Vec2,
-    /// The second point of the line segment
-    pub point2: Vec2,
+    /// The endpoints of the line segment.
+    pub vertices: [Vec2; 2],
 }
 impl Primitive2d for Segment2d {}
 
@@ -1232,7 +1230,9 @@ impl Segment2d {
     /// Create a new `Segment2d` from its endpoints
     #[inline(always)]
     pub const fn new(point1: Vec2, point2: Vec2) -> Self {
-        Self { point1, point2 }
+        Self {
+            vertices: [point1, point2],
+        }
     }
 
     /// Create a new `Segment2d` from its endpoints and compute its geometric center
@@ -1256,13 +1256,13 @@ impl Segment2d {
     /// Get the position of the first point on the line segment
     #[inline(always)]
     pub fn point1(&self) -> Vec2 {
-        self.point1
+        self.vertices[0]
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
     pub fn point2(&self) -> Vec2 {
-        self.point2
+        self.vertices[1]
     }
 
     /// Get the segment's center

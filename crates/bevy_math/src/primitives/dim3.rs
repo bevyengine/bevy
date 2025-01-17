@@ -359,10 +359,8 @@ impl Primitive3d for Line3d {}
     reflect(Serialize, Deserialize)
 )]
 pub struct Segment3d {
-    /// The first point of the segment
-    pub point1: Vec3,
-    /// The second point of the segment
-    pub point2: Vec3,
+    /// The endpoints of the line segment.
+    pub vertices: [Vec3; 2],
 }
 impl Primitive3d for Segment3d {}
 
@@ -370,7 +368,9 @@ impl Segment3d {
     /// Create a new `Segment3d` from it's points
     #[inline(always)]
     pub fn new(point1: Vec3, point2: Vec3) -> Self {
-        Self { point1, point2 }
+        Self {
+            vertices: [point1, point2],
+        }
     }
 
     /// Create a new `Segment3d` from a direction and full length of the segment
@@ -394,13 +394,13 @@ impl Segment3d {
     /// Get the position of the first point on the line segment
     #[inline(always)]
     pub fn point1(&self) -> Vec3 {
-        self.point1
+        self.vertices[0]
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
     pub fn point2(&self) -> Vec3 {
-        self.point2
+        self.vertices[1]
     }
 
     /// Get the center of the segment
