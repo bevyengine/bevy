@@ -232,7 +232,7 @@ where
         let transformed = primitive
             .rotated(isometry.rotation)
             .offset(isometry.translation.into());
-        self.line(transformed.point1(), transformed.point1(), color);
+        self.line(transformed.point1(), transformed.point2(), color);
     }
 }
 
