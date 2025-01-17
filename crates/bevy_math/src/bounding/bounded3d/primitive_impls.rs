@@ -76,7 +76,7 @@ impl Bounded3d for Line3d {
 
 impl Bounded3d for Segment3d {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
-        Aabb3d::from_point_cloud(isometry, &[self.point1(), self.point2()])
+        Aabb3d::from_point_cloud(isometry, [self.point1(), self.point2()].iter().copied())
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
