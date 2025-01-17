@@ -1241,7 +1241,7 @@ impl Segment2d {
     ///
     /// Panics if `point1 == point2`
     #[inline(always)]
-    #[deprecated(since = "0.16", note = "Use the `new` constructor instead")]
+    #[deprecated(since = "0.16.0", note = "Use the `new` constructor instead")]
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
         (Self::new(point1, point2), (point1 + point2) / 2.)
     }
