@@ -422,7 +422,7 @@ impl Segment3d {
         Self::new(self.point1() + translation, self.point2() + translation)
     }
 
-    /// Get the segment rotated around it's center
+    /// Compute a new segment, based on the original segment rotated around the origin
     #[inline(always)]
     pub fn rotated(&self, rotation: Quat) -> Segment3d {
         Segment3d::new(
