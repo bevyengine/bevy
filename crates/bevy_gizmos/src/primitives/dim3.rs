@@ -230,8 +230,8 @@ where
 
         let isometry: Isometry3d = isometry.into();
         let transformed = primitive
-            .translated(isometry.translation.into())
-            .rotated_around_center(isometry.rotation);
+            .rotated(isometry.rotation)
+            .translated(isometry.translation.into());
         self.line(transformed.point1(), transformed.point2(), color);
     }
 }
