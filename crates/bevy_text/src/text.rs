@@ -159,43 +159,12 @@ impl TextLayout {
     }
 }
 
-/// A span of UI text in a tree of spans under an entity with [`TextLayout`] and `Text` or `Text2d`.
+/// A span of text in a tree of spans.
+///
+/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
+/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
-///
-/// ```
-/// # use bevy_asset::Handle;
-/// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{RED, BLUE};
-/// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
-/// # use bevy_hierarchy::BuildChildren;
-/// #
-/// # let font_handle: Handle<Font> = Default::default();
-/// # let mut world = World::default();
-/// #
-/// world.spawn((
-///     // `Text` or `Text2d` are needed, and will provide default instances
-///     // of the following components.
-///     TextLayout::default(),
-///     TextFont {
-///         font: font_handle.clone().into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
-///     TextColor(BLUE.into()),
-/// ))
-/// .with_child((
-///     // Children must be `TextSpan`, not `Text` or `Text2d`.
-///     TextSpan::new("Hello!"),
-///     TextFont {
-///         font: font_handle.into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
-///     TextColor(RED.into()),
-/// ));
-/// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
 #[require(TextFont, TextColor)]
