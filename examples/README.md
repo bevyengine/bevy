@@ -120,7 +120,7 @@ Example | Description
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
-[Sprite Scale](../examples/2d/sprite_scale.rs) | Shows how a sprite could be scaled into a rectangle while keeping the aspect ratio
+[Sprite Scale](../examples/2d/sprite_scale.rs) | Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
 [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid

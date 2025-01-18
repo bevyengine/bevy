@@ -164,6 +164,10 @@ pub enum SpriteImageMode {
     Auto,
     /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
     /// Otherwise no scaling will be applied.
+    ///
+    /// Note: [`TextureAtlas`] cannot be used with scaling applied to a sprite's rectangle.
+    /// Additionally, the custom rectangle portion of the texture cannot be used with the scaling option too.
+    /// It will be completely ignored during the scaling.
     Scale(ScalingMode),
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),
@@ -209,28 +213,36 @@ impl SpriteImageMode {
 pub enum ScalingMode {
     /// Scale the texture uniformly (maintain the texture's aspect ratio)
     /// so that both dimensions (width and height) of the texture will be equal
-    /// to or larger than the corresponding dimension of the rect.
-    /// Fill rect with a centered texture.
+    /// to or larger than the corresponding dimension of the target rectangle.
+    /// Fill sprite with a centered texture.
     #[default]
     FillCenter,
-    /// Scale the texture to fill the rect with a start of the texture,
-    /// maintaining the aspect ratio.
+    /// Scales the texture to fill the target rectangle while maintaining its aspect ratio.
+    /// One dimension of the texture will match the rectangle's size,
+    /// while the other dimension may exceed it.
+    /// The exceeding portion is aligned to the start:
+    /// * Horizontal overflow is left-aligned if the width exceeds the rectangle.
+    /// * Vertical overflow is top-aligned if the height exceeds the rectangle. 
     FillStart,
-    /// Scale the texture to fill the rect with a end of the texture,
-    /// maintaining the aspect ratio.
+    /// Scales the texture to fill the target rectangle while maintaining its aspect ratio.
+    /// One dimension of the texture will match the rectangle's size,
+    /// while the other dimension may exceed it.
+    /// The exceeding portion is aligned to the end:
+    /// * Horizontal overflow is right-aligned if the width exceeds the rectangle.
+    /// * Vertical overflow is bottom-aligned if the height exceeds the rectangle.
     FillEnd,
     /// Scaling the texture will maintain the original aspect ratio
     /// and ensure that the original texture fits entirely inside the rect.
-    /// At least one axis (X or Y) will fit exactly. The result is centered inside the rect.
+    /// At least one axis (x or y) will fit exactly. The result is centered inside the rect.
     FitCenter,
     /// Scaling the texture will maintain the original aspect ratio
     /// and ensure that the original texture fits entirely inside rect.
-    /// At least one axis (X or Y) will fit exactly.
+    /// At least one axis (x or y) will fit exactly.
     /// Aligns the result to the left and top edges of rect.
     FitStart,
     /// Scaling the texture will maintain the original aspect ratio
     /// and ensure that the original texture fits entirely inside rect.
-    /// At least one axis (X or Y) will fit exactly.
+    /// At least one axis (x or y) will fit exactly.
     /// Aligns the result to the right and bottom edges of rect.
     FitEnd,
 }

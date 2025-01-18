@@ -670,7 +670,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.sprite_scale]
 name = "Sprite Scale"
-description = "Shows how a sprite could be scaled into a rectangle while keeping the aspect ratio"
+description = "Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio"
 category = "2D Rendering"
 wasm = true
 
