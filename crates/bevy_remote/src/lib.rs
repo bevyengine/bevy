@@ -720,9 +720,9 @@ impl BrpError {
     #[must_use]
     pub fn resource_not_present(resource: &str) -> Self {
         Self {
-            code: todo!(),
+            code: error_codes::RESOURCE_NOT_PRESENT,
             message: format!("Resource `{resource}` not present in the world."),
-            data: todo!(),
+            data: None,
         }
     }
 

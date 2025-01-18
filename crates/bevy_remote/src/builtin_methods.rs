@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     removal_detection::RemovedComponentEntity,
-    system::{In, Local},
+    system::{In, Local, ParamSet},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
 use bevy_hierarchy::BuildChildren as _;
@@ -192,6 +192,7 @@ pub struct BrpInsertParams {
 
 /// `bevy/insert_resource`: Inserts a resource into the world with a given
 /// value.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpInsertResourceParams {
     /// The [full path] of the resource type to insert.
     ///
@@ -788,6 +789,29 @@ pub fn process_remote_insert_request(
         reflect_components,
     )
     .map_err(BrpError::component_error)?;
+
+    Ok(Value::Null)
+}
+
+/// Handles a `bevy/insert_resource` request coming from a client.
+pub fn process_remote_insert_resource_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpInsertResourceParams {
+        resource: resource_path,
+        value,
+    } = parse_some(params)?;
+
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let type_registry = app_type_registry.read();
+
+    let reflected_resource = deserialize_resource(&type_registry, &resource_path, value)
+        .map_err(BrpError::resource_error)?;
+
+    let reflect_resource =
+        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    reflect_resource.insert(world, &*reflected_resource, &type_registry);
 
     Ok(Value::Null)
 }
@@ -1522,6 +1546,23 @@ fn deserialize_components(
     }
 
     Ok(reflect_components)
+}
+
+/// Given a resource path and an associated serialized value (`value`), return the
+/// deserialized value.
+fn deserialize_resource(
+    type_registry: &TypeRegistry,
+    resource_path: &str,
+    value: Value,
+) -> AnyhowResult<Box<dyn PartialReflect>> {
+    let Some(resource_type) = type_registry.get_with_type_path(&resource_path) else {
+        return Err(anyhow!("Unknown resource type: `{}`", resource_path));
+    };
+    let reflected: Box<dyn PartialReflect> =
+        TypedReflectDeserializer::new(resource_type, type_registry)
+            .deserialize(&value)
+            .map_err(|err| anyhow!("{resource_path} is invalid: {err}"))?;
+    Ok(reflected)
 }
 
 /// Given a collection `reflect_components` of reflected component values, insert them into
