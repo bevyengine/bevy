@@ -61,13 +61,18 @@ impl Default for TextNodeFlags {
 /// ```
 /// # use bevy_asset::Handle;
 /// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::BLUE;
+/// # use bevy_color::palettes::basic::{BLUE, RED};
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
+/// # use bevy_ecs::prelude::Component;
+/// # use bevy_hierarchy::{ChildBuild, BuildChildren};
+/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
+/// #
+/// # #[derive(Component)]
+/// # struct WorldSpan;
 /// #
 /// // Basic usage.
 /// world.spawn(Text::new("hello world!"));
@@ -88,6 +93,12 @@ impl Default for TextNodeFlags {
 ///     Text::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text::new("hello ")).with_children(|parent| {
+///     parent.spawn((TextSpan::new("world"), WorldSpan));
+///     parent.spawn((TextSpan::new("!"), TextColor(RED.into())));
+/// });
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]

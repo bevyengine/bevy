@@ -158,7 +158,10 @@ impl TextLayout {
     }
 }
 
-/// A span of UI text in a tree of spans under an entity with [`TextLayout`] and `Text` or `Text2d`.
+/// A span of text in a tree of spans.
+///
+/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
+/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
