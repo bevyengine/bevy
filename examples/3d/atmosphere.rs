@@ -7,6 +7,7 @@ use bevy::{
     pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
 };
+use bevy_render::camera::Exposure;
 use light_consts::lux;
 
 fn main() {
@@ -20,6 +21,7 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
+        Exposure { ev100: 11.0 },
         Camera {
             hdr: true,
             ..default()
@@ -29,7 +31,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Atmosphere::EARTH,
         Bloom::NATURAL,
         AtmosphereSettings {
-            scene_units_to_km: 1.0,
+            scene_units_to_m: 1e+3,
             ..Default::default()
         },
     ));

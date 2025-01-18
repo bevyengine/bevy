@@ -232,24 +232,18 @@ impl Plugin for AtmospherePlugin {
 /// participating in Rayleigh and Mie scattering falls off roughly exponentially
 /// from the planet's surface, ozone only exists in a band centered at a fairly
 /// high altitude.
-///
-/// Note that all units are in kilometers. This is to combat precision issues,
-/// since integrating very small atmospheric densities over long distances
-/// might otherwise cause problems. [`AtmosphereSettings`] has a field to set
-/// the conversion factor from scene units to km, which by default assumes that
-/// the scene units are meters.
 #[derive(Clone, Component, Reflect, ShaderType)]
 #[require(AtmosphereSettings)]
 pub struct Atmosphere {
     /// Radius of the planet
     ///
-    /// units: km
+    /// units: m
     pub bottom_radius: f32,
 
     /// Radius at which we consider the atmosphere to 'end' for our
     /// calculations (from center of planet)
     ///
-    /// units: km
+    /// units: m
     pub top_radius: f32,
 
     /// An approximation of the average albedo (or color, roughly) of the
@@ -259,7 +253,7 @@ pub struct Atmosphere {
     pub ground_albedo: Vec3,
 
     /// The rate of falloff of rayleigh particulate with respect to altitude:
-    /// optical density = exp(-rayleigh_density_exp_scale * altitude).
+    /// optical density = exp(-rayleigh_density_exp_scale * altitude in meters).
     ///
     /// THIS VALUE MUST BE POSITIVE
     ///
@@ -267,13 +261,13 @@ pub struct Atmosphere {
     pub rayleigh_density_exp_scale: f32,
 
     /// The scattering optical density of rayleigh particulate, or how
-    /// much light it scatters per kilometer
+    /// much light it scatters per meter
     ///
-    /// units: km^-1
+    /// units: m^-1
     pub rayleigh_scattering: Vec3,
 
     /// The rate of falloff of mie particulate with respect to altitude:
-    /// optical density = exp(-mie_density_exp_scale * altitude)
+    /// optical density = exp(-mie_density_exp_scale * altitude in meters)
     ///
     /// THIS VALUE MUST BE POSITIVE
     ///
@@ -283,13 +277,13 @@ pub struct Atmosphere {
     /// The scattering optical density of mie particulate, or how much light
     /// it scatters per kilometer.
     ///
-    /// units: km^-1
+    /// units: m^-1
     pub mie_scattering: f32,
 
     /// The absorbing optical density of mie particulate, or how much light
-    /// it absorbs per kilometer.
+    /// it absorbs per meter.
     ///
-    /// units: km^-1
+    /// units: m^-1
     pub mie_absorption: f32,
 
     /// The "asymmetry" of mie scattering, or how much light tends to scatter
@@ -301,35 +295,35 @@ pub struct Atmosphere {
 
     /// The altitude at which the ozone layer is centered.
     ///
-    /// units: km
+    /// units: m
     pub ozone_layer_altitude: f32,
 
     /// The width of the ozone layer
     ///
-    /// units: km
+    /// units: m
     pub ozone_layer_width: f32,
 
     /// The optical density of ozone, or how much of each wavelength of
     /// light it absorbs per kilometer.
     ///
-    /// units: km^-1
+    /// units: m^-1
     pub ozone_absorption: Vec3,
 }
 
 impl Atmosphere {
     pub const EARTH: Atmosphere = Atmosphere {
-        bottom_radius: 6360.0,
-        top_radius: 6460.0,
+        bottom_radius: 6360_000.0,
+        top_radius: 6460_000.0,
         ground_albedo: Vec3::splat(0.3),
-        rayleigh_density_exp_scale: 1.0 / 8.0,
-        rayleigh_scattering: Vec3::new(0.005802, 0.013558, 0.033100),
-        mie_density_exp_scale: 1.0 / 1.2,
-        mie_scattering: 0.003996,
-        mie_absorption: 0.0004440,
+        rayleigh_density_exp_scale: 1.0 / 8000.0,
+        rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
+        mie_density_exp_scale: 1.0 / 1200.0,
+        mie_scattering: 3.996e-6,
+        mie_absorption: 0.444e-6,
         mie_asymmetry: 0.8,
-        ozone_layer_altitude: 25.0,
-        ozone_layer_width: 30.0,
-        ozone_absorption: Vec3::new(0.000650, 0.001881, 0.000085),
+        ozone_layer_altitude: 25000.0,
+        ozone_layer_width: 30000.0,
+        ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
     };
 
     pub fn with_density_multiplier(&self, mult: f32) -> Self {
@@ -412,9 +406,9 @@ pub struct AtmosphereSettings {
     /// of the aerial-view LUT.
     pub aerial_view_lut_samples: u32,
 
-    /// A conversion factor between scene units and kilometers, used to
+    /// A conversion factor between scene units and meters, used to
     /// combat floating-point precision issues.
-    pub scene_units_to_km: f32,
+    pub scene_units_to_m: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -429,7 +423,7 @@ impl Default for AtmosphereSettings {
             sky_view_lut_samples: 16,
             aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 10,
-            scene_units_to_km: 1.0e-3,
+            scene_units_to_m: 1.0,
         }
     }
 }

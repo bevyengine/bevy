@@ -39,7 +39,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
         for (var step_i: i32 = i32(settings.aerial_view_lut_samples - 1); step_i >= 0; step_i--) {
             let sample_depth = depth_at_sample(slice_i, step_i);
             //view_dir.w is the cosine of the angle between the view vector and the camera forward vector, used to correct the step length.
-            let t_i = -depth_ndc_to_view_z(sample_depth) / ray_dir.w * settings.scene_units_to_km;
+            let t_i = -depth_ndc_to_view_z(sample_depth) / ray_dir.w * settings.scene_units_to_m;
             let dt = (t_i - prev_t);
             prev_t = t_i;
 
