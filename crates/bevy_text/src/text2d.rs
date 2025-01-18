@@ -56,9 +56,6 @@ use bevy_window::{PrimaryWindow, Window};
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
-/// # #[derive(Component)]
-/// # struct WorldSpan;
-/// #
 /// // Basic usage.
 /// world.spawn(Text2d::new("hello world!"));
 ///
@@ -81,7 +78,7 @@ use bevy_window::{PrimaryWindow, Window};
 ///
 /// // With spans
 /// world.spawn(Text2d::new("hello ")).with_children(|parent| {
-///     parent.spawn((TextSpan::new("world"), WorldSpan));
+///     parent.spawn(TextSpan::new("world"));
 ///     parent.spawn((TextSpan::new("!"), TextColor(RED.into())));
 /// });
 /// ```

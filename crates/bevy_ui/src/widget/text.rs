@@ -71,9 +71,6 @@ impl Default for TextNodeFlags {
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
-/// # #[derive(Component)]
-/// # struct WorldSpan;
-/// #
 /// // Basic usage.
 /// world.spawn(Text::new("hello world!"));
 ///
@@ -96,7 +93,7 @@ impl Default for TextNodeFlags {
 ///
 /// // With spans
 /// world.spawn(Text::new("hello ")).with_children(|parent| {
-///     parent.spawn((TextSpan::new("world"), WorldSpan));
+///     parent.spawn(TextSpan::new("world"));
 ///     parent.spawn((TextSpan::new("!"), TextColor(RED.into())));
 /// });
 /// ```
