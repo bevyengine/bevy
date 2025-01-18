@@ -454,7 +454,8 @@ mod test {
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
         core::mem::swap(
-            #[allow(unsafe_code)]
+            #[expect(unsafe_code)]
+            // SAFETY: Parent is not mutable but this is for a test to produce a scenario that cannot happen
             unsafe {
                 &mut *app
                     .world_mut()
@@ -462,7 +463,8 @@ mod test {
                     .get_mut_assume_mutable::<Parent>()
                     .unwrap()
             },
-            #[allow(unsafe_code)]
+            // SAFETY: Parent is not mutable but this is for a test to produce a scenario that cannot happen
+            #[expect(unsafe_code)]
             unsafe {
                 &mut *temp
                     .entity_mut(grandchild)
