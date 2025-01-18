@@ -454,7 +454,10 @@ mod test {
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
         core::mem::swap(
-            #[expect(unsafe_code)]
+            #[expect(
+                unsafe_code,
+                reason = "Parent is not mutable but this is for a test to produce a scenario that cannot happen"
+            )]
             // SAFETY: Parent is not mutable but this is for a test to produce a scenario that cannot happen
             unsafe {
                 &mut *app
@@ -464,7 +467,10 @@ mod test {
                     .unwrap()
             },
             // SAFETY: Parent is not mutable but this is for a test to produce a scenario that cannot happen
-            #[expect(unsafe_code)]
+            #[expect(
+                unsafe_code,
+                reason = "Parent is not mutable but this is for a test to produce a scenario that cannot happen"
+            )]
             unsafe {
                 &mut *temp
                     .entity_mut(grandchild)
