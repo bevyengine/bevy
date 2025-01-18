@@ -139,7 +139,7 @@ impl FromWorld for Parent {
 /// description of this relationship and instructions on how to use it.
 #[derive(Component, Default, Reflect, VisitEntitiesMut, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = Parent, despawn_descendants)]
-#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
+#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut, FromWorld)]
 pub struct Children(Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
@@ -430,6 +430,19 @@ mod tests {
         assert!(
             world.entity(id).get::<Parent>().is_none(),
             "invalid Parent relationships should self-remove"
+        );
+    }
+
+    #[test]
+    fn reinsert_same_parent() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let id = world.spawn(Parent(parent)).id();
+        world.entity_mut(id).insert(Parent(parent));
+        assert_eq!(
+            Some(&Parent(parent)),
+            world.entity(id).get::<Parent>(),
+            "Parent should still be there"
         );
     }
 }

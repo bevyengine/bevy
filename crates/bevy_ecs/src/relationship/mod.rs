@@ -16,7 +16,7 @@ use crate::{
         entity_command::{self, CommandWithEntity},
         error_handler,
     },
-    world::DeferredWorld,
+    world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
 
@@ -112,7 +112,17 @@ pub trait Relationship: Component + Sized {
                 relationship_target.collection_mut_risky().remove(entity);
                 if relationship_target.len() == 0 {
                     if let Some(mut entity) = world.commands().get_entity(target_entity) {
-                        entity.remove::<Self::RelationshipTarget>();
+                        // this "remove" operation must check emptiness because in the event that an identical
+                        // relationship is inserted on top, this despawn would result in the removal of that identical
+                        // relationship ... not what we want!
+                        entity.queue(|mut entity: EntityWorldMut| {
+                            if entity
+                                .get::<Self::RelationshipTarget>()
+                                .map_or(false, |t| t.is_empty())
+                            {
+                                entity.remove::<Self::RelationshipTarget>();
+                            }
+                        });
                     }
                 }
             }
