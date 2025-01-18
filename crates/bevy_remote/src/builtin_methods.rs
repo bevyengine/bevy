@@ -10,7 +10,7 @@ use bevy_ecs::{
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     removal_detection::RemovedComponentEntity,
-    system::{In, Local, ParamSet},
+    system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
 use bevy_hierarchy::BuildChildren as _;
