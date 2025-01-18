@@ -9,8 +9,8 @@ mod debug_overlay;
 
 use crate::widget::ImageNode;
 use crate::{
-    experimental::UiChildren, BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip,
-    ComputedNode, DefaultUiCamera, Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
+    Outline, ResolvedBorderRadius, TargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -443,9 +443,7 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    parent_clip_query: Extract<Query<&CalculatedClip>>,
     mapping: Extract<Query<RenderEntity>>,
-    ui_children: UiChildren,
 ) {
     let image = AssetId::<Image>::default();
     let default_camera_entity = default_ui_camera.get();
@@ -514,10 +512,6 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
         {
             let outline_size = computed_node.outlined_node_size();
-            let parent_clip = ui_children
-                .get_parent(entity)
-                .and_then(|parent| parent_clip_query.get(parent).ok());
-
             extracted_uinodes.uinodes.insert(
                 commands.spawn(TemporaryRenderEntity).id(),
                 ExtractedUiNode {
@@ -528,7 +522,7 @@ pub fn extract_uinode_borders(
                         ..Default::default()
                     },
                     image,
-                    clip: parent_clip.map(|clip| clip.clip),
+                    clip: maybe_clip.map(|clip| clip.clip),
                     extracted_camera_entity,
                     item: ExtractedUiItem::Node {
                         transform: global_transform.compute_matrix(),
@@ -626,7 +620,7 @@ pub fn extract_ui_camera_view(
             // We use `UI_CAMERA_SUBVIEW` here so as not to conflict with the
             // main 3D or 2D camera, which will have subview index 0.
             let retained_view_entity =
-                RetainedViewEntity::new(main_entity.into(), UI_CAMERA_SUBVIEW);
+                RetainedViewEntity::new(main_entity.into(), None, UI_CAMERA_SUBVIEW);
             // Creates the UI view.
             let ui_camera_view = commands
                 .spawn((
@@ -894,6 +888,7 @@ pub fn queue_uinodes(
             // batch_range will be calculated in prepare_uinodes
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }

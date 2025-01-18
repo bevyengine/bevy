@@ -182,8 +182,12 @@ impl TextureAtlasLayout {
 /// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// - [`sprite animation event example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_animation.rs)
 /// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Default, Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Debug))]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, PartialEq, Hash)
+)]
 pub struct TextureAtlas {
     /// Texture atlas layout handle
     pub layout: Handle<TextureAtlasLayout>,

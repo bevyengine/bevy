@@ -68,6 +68,7 @@ use core::ops::Range;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     mesh::allocator::SlabId,
+    render_phase::PhaseItemBatchSetKey,
     view::{NoIndirectDrawing, RetainedViewEntity},
 };
 pub use camera_3d::*;
@@ -269,6 +270,12 @@ pub struct Opaque3dBatchSetKey {
     pub lightmap_slab: Option<NonMaxU32>,
 }
 
+impl PhaseItemBatchSetKey for Opaque3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
+}
+
 /// Data that must be identical in order to *batch* phase items together.
 ///
 /// Note that a *batch set* (if multi-draw is in use) contains multiple batches.
@@ -430,6 +437,9 @@ pub struct Transmissive3d {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transmissive3d {
@@ -493,6 +503,11 @@ impl SortedPhaseItem for Transmissive3d {
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
     }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transmissive3d {
@@ -509,6 +524,9 @@ pub struct Transparent3d {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transparent3d {
@@ -560,6 +578,11 @@ impl SortedPhaseItem for Transparent3d {
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
     }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transparent3d {
@@ -594,7 +617,7 @@ pub fn extract_core_3d_camera_phases(
         });
 
         // This is the main 3D camera, so use the first subview index (0).
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
         opaque_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
         alpha_mask_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
@@ -662,7 +685,7 @@ pub fn extract_camera_prepass_phase(
         });
 
         // This is the main 3D camera, so we use the first subview index (0).
-        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), 0);
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
         if depth_prepass || normal_prepass || motion_vector_prepass {
             opaque_3d_prepass_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);

@@ -851,6 +851,9 @@ pub fn queue_material_meshes<M: Material>(
                 }
             };
 
+            // Fetch the slabs that this mesh resides in.
+            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
@@ -865,13 +868,12 @@ pub fn queue_material_meshes<M: Material>(
                             distance,
                             batch_range: 0..1,
                             extra_index: PhaseItemExtraIndex::None,
+                            indexed: index_slab.is_some(),
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = Opaque3dBatchSetKey {
-                            draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
+                            draw_function: draw_opaque_pbr,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),
                             index_slab,
@@ -903,10 +905,9 @@ pub fn queue_material_meshes<M: Material>(
                             distance,
                             batch_range: 0..1,
                             extra_index: PhaseItemExtraIndex::None,
+                            indexed: index_slab.is_some(),
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
@@ -938,6 +939,7 @@ pub fn queue_material_meshes<M: Material>(
                         distance,
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        indexed: index_slab.is_some(),
                     });
                 }
             }

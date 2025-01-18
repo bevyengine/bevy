@@ -1,10 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -41,7 +36,6 @@ pub use bevy_gilrs as gilrs;
 pub use bevy_gizmos as gizmos;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
-pub use bevy_hierarchy as hierarchy;
 #[cfg(feature = "bevy_image")]
 pub use bevy_image as image;
 pub use bevy_input as input;

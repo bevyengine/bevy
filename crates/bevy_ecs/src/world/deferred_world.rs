@@ -580,6 +580,28 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
+    /// Triggers all `on_despawn` hooks for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_on_despawn(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+    ) {
+        if archetype.has_despawn_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_despawn {
+                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                }
+            }
+        }
+    }
+
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety

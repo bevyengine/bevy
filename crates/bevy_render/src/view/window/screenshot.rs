@@ -22,7 +22,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_image::{Image, TextureFormatPixelInfo};
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
@@ -185,7 +184,7 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCapt
 
 fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Captured>>) {
     for entity in screenshots.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -240,7 +239,7 @@ fn extract_screenshots(
                 entity, render_target
             );
             // If we don't despawn the entity here, it will be captured again in the next frame
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
             continue;
         }
         seen_targets.insert(render_target.clone());
