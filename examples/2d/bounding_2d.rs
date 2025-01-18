@@ -106,22 +106,22 @@ fn render_shapes(mut gizmos: Gizmos, query: Query<(&Shape, &Transform)>) {
         let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
         match shape {
             Shape::Rectangle(r) => {
-                gizmos.primitive_2d(r, isometry, color);
+                gizmos.primitive_2d(&*r, isometry, color);
             }
             Shape::Circle(c) => {
-                gizmos.primitive_2d(c, isometry, color);
+                gizmos.primitive_2d(&*c, isometry, color);
             }
             Shape::Triangle(t) => {
-                gizmos.primitive_2d(t, isometry, color);
+                gizmos.primitive_2d(&*t, isometry, color);
             }
             Shape::Line(l) => {
-                gizmos.primitive_2d(l, isometry, color);
+                gizmos.primitive_2d(&*l, isometry, color);
             }
             Shape::Capsule(c) => {
-                gizmos.primitive_2d(c, isometry, color);
+                gizmos.primitive_2d(&*c, isometry, color);
             }
             Shape::Polygon(p) => {
-                gizmos.primitive_2d(p, isometry, color);
+                gizmos.primitive_2d(&*p, isometry, color);
             }
         }
     }
@@ -301,8 +301,8 @@ fn ray_cast_system(
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let toi = match volume {
-            CurrentVolume::Aabb(a) => ray_cast.aabb_intersection_at(a),
-            CurrentVolume::Circle(c) => ray_cast.circle_intersection_at(c),
+            CurrentVolume::Aabb(a) => ray_cast.aabb_intersection_at(&*a),
+            CurrentVolume::Circle(c) => ray_cast.circle_intersection_at(&*c),
         };
         **intersects = toi.is_some();
         if let Some(toi) = toi {
@@ -388,8 +388,8 @@ fn aabb_intersection_system(
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {
-            CurrentVolume::Aabb(a) => aabb.intersects(a),
-            CurrentVolume::Circle(c) => aabb.intersects(c),
+            CurrentVolume::Aabb(a) => aabb.intersects(&*a),
+            CurrentVolume::Circle(c) => aabb.intersects(&*c),
         };
 
         **intersects = hit;
@@ -407,8 +407,8 @@ fn circle_intersection_system(
 
     for (volume, mut intersects) in volumes.iter_mut() {
         let hit = match volume {
-            CurrentVolume::Aabb(a) => circle.intersects(a),
-            CurrentVolume::Circle(c) => circle.intersects(c),
+            CurrentVolume::Aabb(a) => circle.intersects(&*a),
+            CurrentVolume::Circle(c) => circle.intersects(&*c),
         };
 
         **intersects = hit;
