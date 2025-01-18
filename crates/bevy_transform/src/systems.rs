@@ -453,14 +453,23 @@ mod test {
         app.world_mut()
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
-        let grandchild_parent = app.world().entity(grandchild).get::<Parent>().unwrap().0;
-        let child_parent = app.world().entity(child).get::<Parent>().unwrap().0;
-        app.world_mut()
-            .entity_mut(child)
-            .insert(Parent(grandchild_parent));
-        app.world_mut()
-            .entity_mut(grandchild)
-            .insert(Parent(child_parent));
+        core::mem::swap(
+            #[allow(unsafe_code)]
+            unsafe {
+                &mut *app
+                    .world_mut()
+                    .entity_mut(child)
+                    .get_mut_assume_mutable::<Parent>()
+                    .unwrap()
+            },
+            #[allow(unsafe_code)]
+            unsafe {
+                &mut *temp
+                    .entity_mut(grandchild)
+                    .get_mut_assume_mutable::<Parent>()
+                    .unwrap()
+            },
+        );
 
         app.update();
     }

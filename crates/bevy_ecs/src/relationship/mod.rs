@@ -118,7 +118,7 @@ pub trait Relationship: Component + Sized {
                         entity.queue(|mut entity: EntityWorldMut| {
                             if entity
                                 .get::<Self::RelationshipTarget>()
-                                .map_or(false, |t| t.is_empty())
+                                .is_some_and(RelationshipTarget::is_empty)
                             {
                                 entity.remove::<Self::RelationshipTarget>();
                             }
