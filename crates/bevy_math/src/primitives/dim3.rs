@@ -452,6 +452,16 @@ impl Segment3d {
         let center = self.center();
         self.translated(-center)
     }
+
+    /// Get the segment with a new length
+    #[inline(always)]
+    pub fn resized(&self, length: f32) -> Segment3d {
+        let offset_from_origin = self.center();
+        let centered = self.centered();
+        let ratio = length / self.length();
+        let segment = Segment3d::new(centered.point1() * ratio, centered.point2() * ratio);
+        segment.translated(offset_from_origin)
+    }
 }
 
 /// A series of connected line segments in 3D space.
