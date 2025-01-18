@@ -222,7 +222,7 @@ pub enum ScalingMode {
     /// while the other dimension may exceed it.
     /// The exceeding portion is aligned to the start:
     /// * Horizontal overflow is left-aligned if the width exceeds the rectangle.
-    /// * Vertical overflow is top-aligned if the height exceeds the rectangle. 
+    /// * Vertical overflow is top-aligned if the height exceeds the rectangle.
     FillStart,
     /// Scales the texture to fill the target rectangle while maintaining its aspect ratio.
     /// One dimension of the texture will match the rectangle's size,
