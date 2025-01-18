@@ -365,7 +365,7 @@ pub struct Segment3d {
 impl Primitive3d for Segment3d {}
 
 impl Segment3d {
-    /// Create a new `Segment3d` from it's points
+    /// Create a new `Segment3d` from its endpoints
     #[inline(always)]
     pub fn new(point1: Vec3, point2: Vec3) -> Self {
         Self {
