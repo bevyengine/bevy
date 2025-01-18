@@ -423,10 +423,6 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_request,
             )
             .with_method(
-                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
-                builtin_methods::export_registry_types,
-            )
-            .with_method(
                 builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
                 builtin_methods::process_remote_mutate_component_request,
             )
@@ -437,6 +433,30 @@ impl Default for RemotePlugin {
             .with_watching_method(
                 builtin_methods::BRP_LIST_AND_WATCH_METHOD,
                 builtin_methods::process_remote_list_watching_request,
+            )
+            .with_method(
+                builtin_methods::BRP_LIST_RESOURCES_METHOD,
+                builtin_methods::process_remote_get_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_INSERT_RESOURCE_METHOD,
+                builtin_methods::process_remote_insert_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
+                builtin_methods::process_remote_remove_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
+                builtin_methods::process_remote_mutate_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_LIST_RESOURCES_METHOD,
+                builtin_methods::process_remote_list_resources_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+                builtin_methods::export_registry_types,
             )
     }
 }
