@@ -11,10 +11,10 @@ use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
+    hierarchy::ChildSpawner,
     name::Name,
     world::World,
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_image::{
     CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
     ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
@@ -1377,7 +1377,7 @@ fn warn_on_differing_texture_transforms(
 )]
 fn load_node(
     gltf_node: &Node,
-    world_builder: &mut WorldChildBuilder,
+    child_spawner: &mut ChildSpawner,
     root_load_context: &LoadContext,
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
@@ -1399,7 +1399,7 @@ fn load_node(
     // of negative scale factors is odd. if so we will assign a copy of the material with face
     // culling inverted, rather than modifying the mesh data directly.
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
-    let mut node = world_builder.spawn((transform, Visibility::default()));
+    let mut node = child_spawner.spawn((transform, Visibility::default()));
 
     let name = node_name(gltf_node);
     node.insert(name.clone());

@@ -24,7 +24,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
-            // parent is a ChildBuilder, which has a similar API to Commands
+            // parent is a ChildSpawnerCommands, which has a similar API to Commands
             parent.spawn((
                 Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
                 Sprite {
@@ -77,13 +77,13 @@ fn rotate(
         // To demonstrate removing children, we'll remove a child after a couple of seconds.
         if time.elapsed_secs() >= 2.0 && children.len() == 2 {
             let child = children.last().unwrap();
-            commands.entity(*child).despawn_recursive();
+            commands.entity(*child).despawn();
         }
 
         if time.elapsed_secs() >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
-            commands.entity(parent).despawn_recursive();
+            commands.entity(parent).despawn();
         }
     }
 }
