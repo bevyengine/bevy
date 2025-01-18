@@ -47,7 +47,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// ```
 /// # use bevy_asset::Handle;
 /// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{BLUE, RED};
+/// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
 /// # use bevy_ecs::prelude::Component;
 /// # use bevy_hierarchy::{ChildBuild, BuildChildren};
@@ -79,7 +79,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// // With spans
 /// world.spawn(Text2d::new("hello ")).with_children(|parent| {
 ///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(RED.into())));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
