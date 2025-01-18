@@ -5,11 +5,11 @@ use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
 /// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum TransformSystem {
-    /// Propagates changes in transform to children's [`GlobalTransform`]
+    /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
     TransformPropagate,
 }
 
-/// The base plugin for handling [`Transform`] components
+/// The base plugin for handling [`Transform`](crate::components::Transform) components
 #[derive(Default)]
 pub struct TransformPlugin;
 
