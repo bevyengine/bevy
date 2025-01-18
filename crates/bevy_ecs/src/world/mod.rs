@@ -1261,8 +1261,8 @@ impl World {
     ///
     /// # Note
     ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -1301,8 +1301,8 @@ impl World {
     ///
     /// # Note
     ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
     pub fn try_despawn(&mut self, entity: Entity) -> Result<(), TryDespawnError> {

@@ -35,7 +35,7 @@ fn despawn_with_children_recursive_inner(world: &mut World, entity: Entity, warn
         if !world.despawn(entity) {
             debug!("Failed to despawn entity {}", entity);
         }
-    } else if world.try_despawn(entity).is_err() {
+    } else if !world.try_despawn(entity) {
         debug!("Failed to despawn entity {}", entity);
     }
 }
