@@ -163,6 +163,7 @@ pub struct BrpRemoveParams {
 }
 
 /// `bevy/remove_resource`: Removes the given resource from the world.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpRemoveResourceParams {
     /// The [full path] of the resource type to remove.
     ///
@@ -902,6 +903,25 @@ pub fn process_remote_remove_request(
     Ok(Value::Null)
 }
 
+/// Handles a `bevy/remove_resource` request coming from a client.
+pub fn process_remote_remove_resource_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpRemoveResourceParams {
+        resource: resource_path,
+    } = parse_some(params)?;
+
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let type_registry = app_type_registry.read();
+
+    let reflect_resource =
+        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+    reflect_resource.remove(world);
+
+    Ok(Value::Null)
+}
+
 /// Handles a `bevy/destroy` (despawn entity) request coming from a client.
 pub fn process_remote_destroy_request(
     In(params): In<Option<Value>>,
@@ -1329,6 +1349,7 @@ pub enum SchemaKind {
 pub enum SchemaType {
     /// Represents a string value.
     String,
+
     /// Represents a floating-point number.
     Float,
 
