@@ -12,9 +12,6 @@ keywords = ["bevy"]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.16.0-dev", default-features = false, features = [
-  "bevy_app",
-], optional = true }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
 serde = { version = "1", default-features = false, features = [
@@ -41,7 +38,7 @@ default = ["std", "bevy-support", "bevy_reflect"]
 ## systems for transform propagation and more.
 ## This exists because it allows opting out of all of this, leaving only a bare-bones transform struct,
 ## which enables users to depend on that without needing the larger Bevy dependency tree.
-bevy-support = ["alloc", "dep:bevy_app", "dep:bevy_ecs", "dep:bevy_hierarchy"]
+bevy-support = ["alloc", "dep:bevy_app", "dep:bevy_ecs"]
 
 ## Adds serialization support through `serde`.
 serialize = ["dep:serde", "bevy_math/serialize"]
@@ -64,7 +61,6 @@ std = [
   "alloc",
   "bevy_app?/std",
   "bevy_ecs?/std",
-  "bevy_hierarchy?/std",
   "bevy_math/std",
   "bevy_reflect?/std",
   "serde?/std",

@@ -351,6 +351,7 @@ pub struct Observers {
     on_insert: CachedObservers,
     on_replace: CachedObservers,
     on_remove: CachedObservers,
+    on_despawn: CachedObservers,
     // Map from trigger type to set of observers
     cache: HashMap<ComponentId, CachedObservers>,
 }
@@ -362,6 +363,7 @@ impl Observers {
             ON_INSERT => &mut self.on_insert,
             ON_REPLACE => &mut self.on_replace,
             ON_REMOVE => &mut self.on_remove,
+            ON_DESPAWN => &mut self.on_despawn,
             _ => self.cache.entry(event_type).or_default(),
         }
     }
@@ -372,6 +374,7 @@ impl Observers {
             ON_INSERT => Some(&self.on_insert),
             ON_REPLACE => Some(&self.on_replace),
             ON_REMOVE => Some(&self.on_remove),
+            ON_DESPAWN => Some(&self.on_despawn),
             _ => self.cache.get(&event_type),
         }
     }
@@ -446,6 +449,7 @@ impl Observers {
             ON_INSERT => Some(ArchetypeFlags::ON_INSERT_OBSERVER),
             ON_REPLACE => Some(ArchetypeFlags::ON_REPLACE_OBSERVER),
             ON_REMOVE => Some(ArchetypeFlags::ON_REMOVE_OBSERVER),
+            ON_DESPAWN => Some(ArchetypeFlags::ON_DESPAWN_OBSERVER),
             _ => None,
         }
     }
@@ -481,6 +485,14 @@ impl Observers {
             .contains_key(&component_id)
         {
             flags.insert(ArchetypeFlags::ON_REMOVE_OBSERVER);
+        }
+
+        if self
+            .on_despawn
+            .component_observers
+            .contains_key(&component_id)
+        {
+            flags.insert(ArchetypeFlags::ON_DESPAWN_OBSERVER);
         }
     }
 }
@@ -521,7 +533,7 @@ impl World {
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     pub fn trigger<E: Event>(&mut self, mut event: E) {
-        let event_id = self.register_component::<E>();
+        let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, ()) };
     }
@@ -531,7 +543,7 @@ impl World {
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
-        let event_id = self.register_component::<E>();
+        let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe { self.trigger_targets_dynamic_ref(event_id, event, ()) };
     }
@@ -542,7 +554,7 @@ impl World {
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     pub fn trigger_targets<E: Event>(&mut self, mut event: E, targets: impl TriggerTargets) {
-        let event_id = self.register_component::<E>();
+        let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, targets) };
     }
@@ -553,7 +565,7 @@ impl World {
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
-        let event_id = self.register_component::<E>();
+        let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe { self.trigger_targets_dynamic_ref(event_id, event, targets) };
     }
@@ -995,7 +1007,7 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = world.register_component::<OnRemove>();
+        let on_remove = OnRemove::register_component_id(&mut world);
         world.spawn(
             // SAFETY: OnAdd and OnRemove are both unit types, so this is safe
             unsafe {
@@ -1154,7 +1166,7 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = world.register_component::<EventA>();
+        let event_a = OnRemove::register_component_id(&mut world);
 
         world.spawn(ObserverState {
             // SAFETY: we registered `event_a` above and it matches the type of EventA
@@ -1463,6 +1475,7 @@ mod tests {
     }
 
     #[test]
+    #[should_panic]
     fn observer_invalid_params() {
         #[derive(Resource)]
         struct ResA;
@@ -1476,8 +1489,6 @@ mod tests {
             commands.insert_resource(ResB);
         });
         world.trigger(EventA);
-
-        assert!(world.get_resource::<ResB>().is_none());
     }
 
     #[test]

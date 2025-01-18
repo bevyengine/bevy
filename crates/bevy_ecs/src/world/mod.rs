@@ -147,10 +147,21 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(ON_ADD, self.register_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
-        assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
-        assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
+        // The order that we register these events is vital to ensure that the constants are correct!
+        let on_add = OnAdd::register_component_id(self);
+        assert_eq!(ON_ADD, on_add);
+
+        let on_insert = OnInsert::register_component_id(self);
+        assert_eq!(ON_INSERT, on_insert);
+
+        let on_replace = OnReplace::register_component_id(self);
+        assert_eq!(ON_REPLACE, on_replace);
+
+        let on_remove = OnRemove::register_component_id(self);
+        assert_eq!(ON_REMOVE, on_remove);
+
+        let on_despawn = OnDespawn::register_component_id(self);
+        assert_eq!(ON_DESPAWN, on_despawn);
     }
     /// Creates a new empty [`World`].
     ///
@@ -1072,18 +1083,25 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let entity_location = {
-            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-            // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe {
-                bundle_spawner.spawn_non_existent(
-                    entity,
-                    bundle,
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
-                )
-            }
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+        let mut entity_location = unsafe {
+            bundle_spawner.spawn_non_existent(
+                entity,
+                bundle,
+                #[cfg(feature = "track_location")]
+                Location::caller(),
+            )
         };
+
+        // SAFETY: command_queue is not referenced anywhere else
+        if !unsafe { self.command_queue.is_empty() } {
+            self.flush_commands();
+            entity_location = self
+                .entities()
+                .get(entity)
+                .unwrap_or(EntityLocation::INVALID);
+        }
 
         #[cfg(feature = "track_location")]
         self.entities
@@ -1258,8 +1276,8 @@ impl World {
     ///
     /// # Note
     ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};

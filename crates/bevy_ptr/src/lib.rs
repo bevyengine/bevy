@@ -289,7 +289,9 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
     /// # Safety
-    /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
+    /// * The data pointed to by this `Ptr` must be valid for writes.
+    /// * There must be no active references (mutable or otherwise) to the data underlying this `Ptr`.
+    /// * Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
         PtrMut(self.0, PhantomData)

@@ -202,11 +202,11 @@ mod tests {
         entity::{
             Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
         },
+        hierarchy::Parent,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         system::Resource,
         world::World,
     };
-    use bevy_hierarchy::{BuildChildren, Parent};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;
@@ -296,7 +296,7 @@ mod tests {
 
         // We then reload the scene to make sure that from_scene_parent_entity's parent component
         // isn't updated with the entity map, since this component isn't defined in the scene.
-        // With bevy_hierarchy, this can cause serious errors and malformed hierarchies.
+        // With [`bevy_ecs::hierarchy`], this can cause serious errors and malformed hierarchies.
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
         assert_eq!(

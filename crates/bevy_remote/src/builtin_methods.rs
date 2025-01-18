@@ -7,13 +7,13 @@ use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
     event::EventCursor,
+    hierarchy::Parent,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_hierarchy::BuildChildren as _;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{ReflectSerializer, TypedReflectDeserializer},
@@ -50,7 +50,7 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
-/// The method path for a `bevy/reparent` request.
+/// The method path for a `bevy/mutate_component` request.
 pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/mutate_component";
 
 /// The method path for a `bevy/get+watch` request.
@@ -200,7 +200,7 @@ pub struct BrpListParams {
     pub entity: Entity,
 }
 
-/// `bevy/mutate`:
+/// `bevy/mutate_component`:
 ///
 /// The server responds with a null.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
@@ -208,7 +208,7 @@ pub struct BrpMutateParams {
     /// The entity of the component to mutate.
     pub entity: Entity,
 
-    /// The [full path] of component to mutate.
+    /// The [full path] of the component to mutate.
     ///
     /// [full path]: bevy_reflect::TypePath::type_path
     pub component: String,
@@ -841,7 +841,7 @@ pub fn process_remote_reparent_request(
     // If `None`, remove the entities' parents.
     else {
         for entity in entities {
-            get_entity_mut(world, entity)?.remove_parent();
+            get_entity_mut(world, entity)?.remove::<Parent>();
         }
     }
 
@@ -986,7 +986,7 @@ fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
     let short_path = binding.short_path();
     let type_path = binding.path();
     let mut typed_schema = JsonSchemaBevyType {
-        reflect_types: get_registrered_reflect_types(reg),
+        reflect_types: get_registered_reflect_types(reg),
         short_path: short_path.to_owned(),
         type_path: type_path.to_owned(),
         crate_name: binding.crate_name().map(str::to_owned),
@@ -1111,7 +1111,7 @@ fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
     (t.type_path().to_owned(), typed_schema)
 }
 
-fn get_registrered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
+fn get_registered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
     // Vec could be moved to allow registering more types by game maker.
     let registered_reflect_types: [(TypeId, &str); 5] = [
         { (TypeId::of::<ReflectComponent>(), "Component") },

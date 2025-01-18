@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_app", "bevy_hierarchy"]
+default = ["std", "bevy_reflect", "bevy_app"]
 
 # Functionality
 
@@ -17,28 +17,18 @@ default = ["std", "bevy_reflect", "bevy_app", "bevy_hierarchy"]
 bevy_reflect = [
   "dep:bevy_reflect",
   "bevy_ecs/bevy_reflect",
-  "bevy_hierarchy?/reflect",
   "bevy_app?/bevy_reflect",
 ]
 
 ## Adds integration with the `bevy_app` plugin API.
-bevy_app = ["dep:bevy_app", "bevy_hierarchy?/bevy_app"]
-
-## Adds integration with the `bevy_hierarchy` `Parent` and `Children` API.
-bevy_hierarchy = ["dep:bevy_hierarchy"]
+bevy_app = ["dep:bevy_app"]
 
 # Platform Compatibility
 
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = [
-  "bevy_ecs/std",
-  "bevy_utils/std",
-  "bevy_reflect?/std",
-  "bevy_app?/std",
-  "bevy_hierarchy?/std",
-]
+std = ["bevy_ecs/std", "bevy_utils/std", "bevy_reflect?/std", "bevy_app?/std"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
@@ -63,7 +53,6 @@ bevy_state_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.16.0-dev", default-features = false, optional = true }
 variadics_please = "1.1"
 
 # other

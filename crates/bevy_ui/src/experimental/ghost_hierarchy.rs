@@ -2,14 +2,11 @@
 
 use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
 use core::marker::PhantomData;
 
-#[cfg(feature = "ghost_nodes")]
-use bevy_hierarchy::HierarchyQueryExt;
 #[cfg(feature = "ghost_nodes")]
 use smallvec::SmallVec;
 
@@ -169,10 +166,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 
     /// Returns the UI parent of the provided entity.
     pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
-        self.parents_query
-            .get(entity)
-            .ok()
-            .map(|parent| parent.entity())
+        self.parents_query.get(entity).ok().map(|parent| parent.0)
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
@@ -222,7 +216,6 @@ mod tests {
         system::{Query, SystemState},
         world::World,
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     use super::{GhostNode, Node, UiChildren, UiRootNodes};
 

@@ -1261,9 +1261,14 @@ category = "3D Rendering"
 wasm = false
 setup = [
   [
+    "mkdir",
+    "-p",
+    "assets/external/models",
+  ],
+  [
     "curl",
     "-o",
-    "assets/models/bunny.meshlet_mesh",
+    "assets/external/models/bunny.meshlet_mesh",
     "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
   ],
 ]
