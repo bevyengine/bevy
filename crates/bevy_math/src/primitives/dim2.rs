@@ -1287,16 +1287,7 @@ impl Segment2d {
     /// Compute a new segment, based on the original segment rotated around the origin
     #[inline(always)]
     pub fn rotated(&self, rotation: Rot2) -> Segment2d {
-        pub fn rotate_point(p: Vec2, rotation: Rot2) -> Vec2 {
-            Vec2::new(
-                p.x * rotation.cos - p.y * rotation.sin,
-                p.x * rotation.sin + p.y * rotation.cos,
-            )
-        }
-        Segment2d::new(
-            rotate_point(self.point1(), rotation),
-            rotate_point(self.point2(), rotation),
-        )
+        Segment2d::new(rotation * self.point1(), rotation * self.point2())
     }
 
     /// Compute a new segment, based on the original segment rotated around a given point
