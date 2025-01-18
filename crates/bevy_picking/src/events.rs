@@ -540,7 +540,7 @@ pub fn pointer_events(
     {
         match action {
             // Pressed Button
-            PointerAction::Pressed { direction, button } => {
+            PointerAction::Button { direction, button } => {
                 let state = pointer_state.get_mut(pointer_id, button);
 
                 // The sequence of events emitted depends on if this is a press or a release

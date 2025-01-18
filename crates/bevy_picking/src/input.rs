@@ -159,7 +159,7 @@ pub fn mouse_pick_events(
                 pointer_events.send(PointerInput::new(
                     PointerId::Mouse,
                     location,
-                    PointerAction::Pressed { direction, button },
+                    PointerAction::Button { direction, button },
                 ));
             }
             _ => {}
@@ -198,7 +198,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Pressed {
+                        PointerAction::Button {
                             direction: PressDirection::Pressed,
                             button: PointerButton::Primary,
                         },
@@ -226,7 +226,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Pressed {
+                        PointerAction::Button {
                             direction: PressDirection::Released,
                             button: PointerButton::Primary,
                         },

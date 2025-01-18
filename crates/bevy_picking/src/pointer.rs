@@ -242,8 +242,8 @@ impl Location {
 /// Types of actions that can be taken by pointers.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub enum PointerAction {
-    /// A button has been pressed on the pointer.
-    Pressed {
+    /// A button on the pointer has been pressed or released.
+    Button {
         /// The press state, either pressed or released.
         direction: PressDirection,
         /// The button that was pressed.
@@ -284,7 +284,7 @@ impl PointerInput {
     /// Returns true if the `target_button` of this pointer was just pressed.
     #[inline]
     pub fn button_just_pressed(&self, target_button: PointerButton) -> bool {
-        if let PointerAction::Pressed { direction, button } = self.action {
+        if let PointerAction::Button { direction, button } = self.action {
             direction == PressDirection::Pressed && button == target_button
         } else {
             false
@@ -294,7 +294,7 @@ impl PointerInput {
     /// Returns true if the `target_button` of this pointer was just released.
     #[inline]
     pub fn button_just_released(&self, target_button: PointerButton) -> bool {
-        if let PointerAction::Pressed { direction, button } = self.action {
+        if let PointerAction::Button { direction, button } = self.action {
             direction == PressDirection::Released && button == target_button
         } else {
             false
@@ -308,7 +308,7 @@ impl PointerInput {
     ) {
         for event in events.read() {
             match event.action {
-                PointerAction::Pressed { direction, button } => {
+                PointerAction::Button { direction, button } => {
                     pointers
                         .iter_mut()
                         .for_each(|(pointer_id, _, mut pointer)| {
