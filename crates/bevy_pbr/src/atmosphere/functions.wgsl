@@ -243,7 +243,9 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
         let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE);
         sun_illuminance += (*light).color.rgb * factor * ray_dir_ws.y;
     }
-    return sun_illuminance * transmittance * view.exposure;
+    //FIXME: exposure comp should be applied to the sun, and yet it makes it way too dim
+    // for bloom to happen. Why?
+    return sun_illuminance * transmittance;// * view.exposure;
 }
 
 // TRANSFORM UTILITIES

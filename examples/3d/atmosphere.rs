@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::tonemapping::Tonemapping,
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
 };
@@ -27,6 +27,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Tonemapping::AcesFitted,
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Atmosphere::EARTH,
+        Bloom::NATURAL,
         AtmosphereSettings {
             scene_units_to_km: 1.0,
             ..Default::default()
