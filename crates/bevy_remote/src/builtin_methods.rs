@@ -1682,7 +1682,7 @@ fn deserialize_resource(
     resource_path: &str,
     value: Value,
 ) -> AnyhowResult<Box<dyn PartialReflect>> {
-    let Some(resource_type) = type_registry.get_with_type_path(&resource_path) else {
+    let Some(resource_type) = type_registry.get_with_type_path(resource_path) else {
         return Err(anyhow!("Unknown resource type: `{}`", resource_path));
     };
     let reflected: Box<dyn PartialReflect> =
