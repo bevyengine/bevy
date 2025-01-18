@@ -716,6 +716,26 @@ impl BrpError {
         }
     }
 
+    /// Resource was not present in the world.
+    #[must_use]
+    pub fn resource_not_present(resource: &str) -> Self {
+        Self {
+            code: todo!(),
+            message: format!("Resource `{resource}` not present in the world."),
+            data: todo!(),
+        }
+    }
+
+    /// An arbitrary resource error. Possibly related to reflection.
+    #[must_use]
+    pub fn resource_error<E: ToString>(error: E) -> Self {
+        Self {
+            code: error_codes::RESOURCE_ERROR,
+            message: error.to_string(),
+            data: None,
+        }
+    }
+
     /// An arbitrary internal error.
     #[must_use]
     pub fn internal<E: ToString>(error: E) -> Self {
@@ -770,6 +790,14 @@ pub mod error_codes {
 
     /// Cannot reparent an entity to itself.
     pub const SELF_REPARENT: i16 = -23404;
+
+    // MATTY: Clean these up :)
+
+    /// Could not reflect or find resource.
+    pub const RESOURCE_ERROR: i16 = -23501;
+
+    /// Could not find resource in the world.
+    pub const RESOURCE_NOT_PRESENT: i16 = -23502;
 }
 
 /// The result of a request.

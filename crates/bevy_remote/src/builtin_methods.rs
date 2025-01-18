@@ -88,6 +88,7 @@ pub struct BrpGetParams {
 }
 
 /// `bevy/get_resource`: Retrieves the value of a given resource.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct BrpGetResourceParams {
     /// The [full path] of the resource type being requested.
     ///
@@ -351,6 +352,13 @@ pub enum BrpGetResponse {
     Strict(HashMap<String, Value>),
 }
 
+/// The response to a `bevy/get_resource` request.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpGetResourceResponse {
+    /// The value of the requested resource.
+    pub value: Value,
+}
+
 /// A single response from a `bevy/get+watch` request.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(untagged)]
@@ -378,6 +386,9 @@ pub enum BrpGetWatchingResponse {
 
 /// The response to a `bevy/list` request.
 pub type BrpListResponse = Vec<String>;
+
+/// The response to a `bevy/list_resources` request.
+pub type BrpListResourcesResponse = Vec<String>;
 
 /// A single response from a `bevy/list+watch` request.
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
@@ -438,6 +449,44 @@ pub fn process_remote_get_request(In(params): In<Option<Value>>, world: &World) 
 
     let response =
         reflect_components_to_response(components, strict, entity, entity_ref, &type_registry)?;
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+/// Handles a `bevy/get_resource` request coming from a client.
+pub fn process_remote_get_resource_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    let BrpGetResourceParams {
+        resource: resource_path,
+    } = parse_some(params)?;
+
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+    let reflect_resource =
+        get_reflect_resource(&type_registry, &resource_path).map_err(BrpError::resource_error)?;
+
+    let Some(reflected) = reflect_resource.reflect(world) else {
+        return Err(BrpError::resource_not_present(&resource_path));
+    };
+
+    // Use the `ReflectSerializer` to serialize the value of the resource;
+    // this produces a map with a single item.
+    let reflect_serializer = ReflectSerializer::new(reflected.as_partial_reflect(), &type_registry);
+    let Value::Object(serialized_object) =
+        serde_json::to_value(&reflect_serializer).map_err(BrpError::resource_error)?
+    else {
+        return Err(BrpError {
+            code: error_codes::RESOURCE_ERROR,
+            message: format!("Resource `{}` could not be serialized", resource_path),
+            data: None,
+        });
+    };
+
+    // MATTY: Probably get rid of this unwrap?
+    // Get the single value out of the map.
+    let value = serialized_object.into_values().next().unwrap();
+    let response = BrpGetResourceResponse { value };
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
@@ -597,11 +646,7 @@ fn reflect_component(
     // Each component value serializes to a map with a single entry.
     let reflect_serializer = ReflectSerializer::new(reflected.as_partial_reflect(), type_registry);
     let Value::Object(serialized_object) =
-        serde_json::to_value(&reflect_serializer).map_err(|err| BrpError {
-            code: error_codes::COMPONENT_ERROR,
-            message: err.to_string(),
-            data: None,
-        })?
+        serde_json::to_value(&reflect_serializer).map_err(BrpError::component_error)?
     else {
         return Err(BrpError {
             code: error_codes::COMPONENT_ERROR,
@@ -1517,6 +1562,30 @@ fn get_component_type_registration<'r>(
     type_registry
         .get_with_type_path(component_path)
         .ok_or_else(|| anyhow!("Unknown component type: `{}`", component_path))
+}
+
+/// Given a resource's type path, return the associated [`ReflectResource`] from the given
+/// `type_registry` if possible.
+fn get_reflect_resource<'r>(
+    type_registry: &'r TypeRegistry,
+    resource_path: &str,
+) -> AnyhowResult<&'r ReflectResource> {
+    let resource_registration = get_resource_type_registration(type_registry, resource_path)?;
+
+    resource_registration
+        .data::<ReflectResource>()
+        .ok_or_else(|| anyhow!("Resource `{}` isn't reflectable", resource_path))
+}
+
+/// Given a resource's type path, return the associated [`TypeRegistration`] from the given
+/// `type_registry` if possible.
+fn get_resource_type_registration<'r>(
+    type_registry: &'r TypeRegistry,
+    resource_path: &str,
+) -> AnyhowResult<&'r TypeRegistration> {
+    type_registry
+        .get_with_type_path(resource_path)
+        .ok_or_else(|| anyhow!("Unknown resource type: `{}`", resource_path))
 }
 
 #[cfg(test)]
