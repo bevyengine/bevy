@@ -1,13 +1,6 @@
+use crate::systems::{propagate_transforms, sync_simple_transforms};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
-
-use crate::{
-    components::GlobalTransform,
-    systems::{propagate_transforms, sync_simple_transforms},
-};
-
-#[cfg(feature = "bevy_reflect")]
-use crate::components::Transform;
 
 /// Set enum for the systems relating to transform propagation
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -28,8 +21,8 @@ impl Plugin for TransformPlugin {
         struct PropagateTransformsSet;
 
         #[cfg(feature = "bevy_reflect")]
-        app.register_type::<Transform>()
-            .register_type::<GlobalTransform>();
+        app.register_type::<crate::components::Transform>()
+            .register_type::<crate::components::GlobalTransform>();
 
         app.configure_sets(
             PostStartup,
