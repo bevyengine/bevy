@@ -21,7 +21,7 @@ fn main() {
 }
 
 // A component that records what animation we want to play. This is created when
-// we start loading the mesh (see `setup_mesh_and_animation`) and picked up when
+// we start loading the mesh (see `setup_mesh_and_animation`) and read when
 // the mesh is spawned (see `play_animation_once_loaded`).
 #[derive(Component)]
 struct AnimationToPlay {
@@ -43,7 +43,7 @@ fn setup_mesh_and_animation(
     // Register the animation graph as an asset.
     let graph_handle = graphs.add(graph);
 
-    // Create a component that will spawn our mesh after it has loaded.
+    // Create a SceneRoot component that will spawn our mesh after it has loaded.
     let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
 
     // Create a component that records which animation we want to play on the
@@ -53,7 +53,7 @@ fn setup_mesh_and_animation(
         index,
     };
 
-    // Spawn an entity containing our components, and connect it to our
+    // Spawn an entity with our components and connect it to our
     // play_animation_once_loaded trigger.
     commands
         .spawn((mesh_scene, animation_to_play))
@@ -67,12 +67,12 @@ fn play_animation_once_loaded(
     animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    // The entity we spawned in setup_mesh_and_animation is the trigger's target.
+    // The entity we spawned in `setup_mesh_and_animation` is the trigger's target.
     // Start by finding the AnimationToPlay component we added to that entity.
     if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
-        // The mesh and an animation player will have been spawned in a
-        // descendent of this entity. Search the descendents to find the
-        // animation player.
+        // The SceneRoot component will have spawned the mesh and an animation
+        // player as a descendent of our entity. Search the descendents to find
+        // the animation player.
         for child in children.iter_descendants(trigger.target()) {
             if let Ok(mut player) = players.get_mut(child) {
                 // Tell the animation player to start the animation and keep
