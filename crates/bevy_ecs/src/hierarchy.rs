@@ -6,24 +6,22 @@
 //! [`Relationship`]: crate::relationship::Relationship
 //! [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 
-use crate as bevy_ecs;
-use crate::bundle::Bundle;
-use crate::component::ComponentId;
-use crate::relationship::{RelatedSpawner, RelatedSpawnerCommands};
-use crate::system::EntityCommands;
-use crate::world::{DeferredWorld, EntityWorldMut};
+#[cfg(feature = "bevy_reflect")]
+use crate::reflect::{
+    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
+    ReflectVisitEntitiesMut,
+};
 use crate::{
-    component::Component,
+    self as bevy_ecs,
+    bundle::Bundle,
+    component::{Component, ComponentId},
     entity::{Entity, VisitEntities},
-    reflect::{
-        ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
-        ReflectVisitEntitiesMut,
-    },
-    world::{FromWorld, World},
+    relationship::{RelatedSpawner, RelatedSpawnerCommands},
+    system::EntityCommands,
+    world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
 use bevy_ecs_macros::VisitEntitiesMut;
-use bevy_reflect::Reflect;
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -92,15 +90,19 @@ use log::warn;
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
 /// ```
-#[derive(Component, Clone, Reflect, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
-#[reflect(
-    Component,
-    MapEntities,
-    VisitEntities,
-    VisitEntitiesMut,
-    PartialEq,
-    Debug,
-    FromWorld
+#[derive(Component, Clone, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    reflect(
+        Component,
+        MapEntities,
+        VisitEntities,
+        VisitEntitiesMut,
+        PartialEq,
+        Debug,
+        FromWorld
+    )
 )]
 #[relationship(relationship_target = Children)]
 pub struct Parent(pub Entity);
@@ -137,9 +139,13 @@ impl FromWorld for Parent {
 ///
 /// Together, these components form the "canonical parent-child hierarchy". See the [`Parent`] component for all full
 /// description of this relationship and instructions on how to use it.
-#[derive(Component, Default, Reflect, VisitEntitiesMut, Debug, PartialEq, Eq)]
+#[derive(Component, Default, VisitEntitiesMut, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = Parent, despawn_descendants)]
-#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut, FromWorld)]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut, FromWorld)
+)]
 pub struct Children(Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
