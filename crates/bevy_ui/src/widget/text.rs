@@ -61,7 +61,7 @@ impl Default for TextNodeFlags {
 /// ```
 /// # use bevy_asset::Handle;
 /// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{BLUE, RED};
+/// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
 /// # use bevy_ecs::prelude::Component;
 /// # use bevy_hierarchy::{ChildBuild, BuildChildren};
@@ -94,7 +94,7 @@ impl Default for TextNodeFlags {
 /// // With spans
 /// world.spawn(Text::new("hello ")).with_children(|parent| {
 ///     parent.spawn(TextSpan::new("world"));
-///     parent.spawn((TextSpan::new("!"), TextColor(RED.into())));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
 /// });
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
