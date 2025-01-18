@@ -334,9 +334,8 @@ impl Bounded2d for Triangle2d {
         if let Some((point1, point2)) = side_opposite_to_non_acute {
             // The triangle is obtuse or right, so the minimum bounding circle's diameter is equal to the longest side.
             // We can compute the minimum bounding circle from the line segment of the longest side.
-            let segment = Segment2d::new(point1, point2).centered();
-            let center = (point1 + point2) / 2.;
-            segment.bounding_circle(isometry * Isometry2d::from_translation(center))
+            let segment = Segment2d::new(point1, point2);
+            segment.bounding_circle(isometry)
         } else {
             // The triangle is acute, so the smallest bounding circle is the circumcircle.
             let (Circle { radius }, circumcenter) = self.circumcircle();
