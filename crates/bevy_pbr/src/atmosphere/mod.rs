@@ -266,7 +266,7 @@ pub struct Atmosphere {
     /// units: N/A
     pub rayleigh_density_exp_scale: f32,
 
-    /// The scattering optical density of rayleigh particulare, or how
+    /// The scattering optical density of rayleigh particulate, or how
     /// much light it scatters per kilometer
     ///
     /// units: km^-1
@@ -280,7 +280,7 @@ pub struct Atmosphere {
     /// units: N/A
     pub mie_density_exp_scale: f32,
 
-    /// The scattering optical density of mie particular, or how much light
+    /// The scattering optical density of mie particulate, or how much light
     /// it scatters per kilometer.
     ///
     /// units: km^-1

@@ -59,7 +59,18 @@ fn setup_terrain_scene(
             illuminance: lux::AMBIENT_DAYLIGHT,
             ..default()
         },
-        Transform::from_xyz(1.0, -1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(1.0, -0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+        cascade_shadow_config.clone(),
+    ));
+
+    // Moon
+    commands.spawn((
+        DirectionalLight {
+            shadows_enabled: true,
+            illuminance: lux::FULL_MOON_NIGHT,
+            ..default()
+        },
+        Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config,
     ));
 
@@ -100,11 +111,7 @@ fn setup_terrain_scene(
     ));
 }
 
-fn dynamic_scene(mut sun: Single<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
-    let t = time.elapsed_secs() * 0.5;
-    let radius = 0.3;
-    let x = radius * ops::cos(t);
-    let y = radius * ops::sin(t);
-    sun.translation = Vec3::new(1.0, y + 0.15, x);
-    sun.look_at(Vec3::ZERO, Vec3::Y);
+fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
+    suns.iter_mut()
+        .for_each(|mut tf| tf.rotate_x(-time.delta_secs() * PI / 10.0));
 }
