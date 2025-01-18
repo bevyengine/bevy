@@ -182,7 +182,7 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Create a colored rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
 /// which will allow it to take its size from the size of the grid area it occupies.
-fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
+fn item_rect(builder: &mut ChildSpawnerCommands, color: Srgba) {
     builder
         .spawn((
             Node {
@@ -197,7 +197,7 @@ fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
         });
 }
 
-fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text: &str) {
+fn spawn_nested_text_bundle(builder: &mut ChildSpawnerCommands, font: Handle<Font>, text: &str) {
     builder.spawn((
         Text::new(text),
         TextFont { font, ..default() },

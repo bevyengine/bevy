@@ -20,7 +20,6 @@ crates=(
     bevy_asset
     bevy_audio
     bevy_diagnostic
-    bevy_hierarchy
     bevy_transform
     bevy_window
     bevy_encase_derive
