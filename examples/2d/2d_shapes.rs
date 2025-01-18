@@ -27,6 +27,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    // Spawn a camera
     commands.spawn(Camera2d);
 
     let shapes = [

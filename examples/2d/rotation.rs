@@ -57,6 +57,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // 2D orthographic camera
     commands.spawn(Camera2d);
 
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Hold ArrowUp | ArrowRight | ArrowLeft to move the ship."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
+
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;
 
