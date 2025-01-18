@@ -54,7 +54,6 @@ fn setup_terrain_scene(
     // Sun
     commands.spawn((
         DirectionalLight {
-            color: Color::srgb(0.98, 0.95, 0.82),
             shadows_enabled: true,
             illuminance: lux::AMBIENT_DAYLIGHT,
             ..default()
