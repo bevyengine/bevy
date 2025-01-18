@@ -28,12 +28,7 @@ bevy_app = ["dep:bevy_app"]
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = [
-  "bevy_ecs/std",
-  "bevy_utils/std",
-  "bevy_reflect?/std",
-  "bevy_app?/std",
-]
+std = ["bevy_ecs/std", "bevy_utils/std", "bevy_reflect?/std", "bevy_app?/std"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
