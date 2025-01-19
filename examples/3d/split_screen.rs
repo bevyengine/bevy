@@ -105,7 +105,7 @@ fn setup(
             });
     }
 
-    fn buttons_panel(parent: &mut ChildBuilder) {
+    fn buttons_panel(parent: &mut ChildSpawnerCommands) {
         parent
             .spawn(Node {
                 position_type: PositionType::Absolute,
@@ -124,7 +124,7 @@ fn setup(
             });
     }
 
-    fn rotate_button(parent: &mut ChildBuilder, caption: &str, direction: Direction) {
+    fn rotate_button(parent: &mut ChildSpawnerCommands, caption: &str, direction: Direction) {
         parent
             .spawn((
                 RotateCamera(direction),

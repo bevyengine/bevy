@@ -13,7 +13,6 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_input::{
     prelude::*,
     touch::{TouchInput, TouchPhase},
@@ -268,6 +267,6 @@ pub fn deactivate_touch_pointers(
     // A hash set is used to prevent despawning the same entity twice.
     for (entity, pointer) in despawn_list.drain() {
         debug!("Despawning pointer {:?}", pointer);
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }

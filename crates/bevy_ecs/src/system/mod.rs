@@ -160,6 +160,12 @@ use crate::world::World;
 /// Use this to get a system from a function. Also note that every system implements this trait as
 /// well.
 ///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If a system needs to be returned from a function or
+/// stored somewhere, use [`System`] instead of this trait.
+///
 /// # Examples
 ///
 /// ```
