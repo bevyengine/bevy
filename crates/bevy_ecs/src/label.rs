@@ -142,6 +142,10 @@ macro_rules! define_label {
             }
         }
 
+        #[expect(clippy::allow_attributes, reason = "Expect would break upon stabilization")]
+        #[allow(unknown_or_malformed_diagnostic_attributes,
+            reason = "do_not_recommend is not stable yet"
+        )]
         #[diagnostic::do_not_recommend]
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
