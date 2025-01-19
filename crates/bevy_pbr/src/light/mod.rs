@@ -86,6 +86,8 @@ pub mod light_consts {
         pub const FULL_DAYLIGHT: f32 = 20_000.;
         /// The amount of light (lux) in direct sunlight.
         pub const DIRECT_SUNLIGHT: f32 = 100_000.;
+        /// The amount of light (lux) of raw sunlight, not filtered by the atmosphere.
+        pub const RAW_SUNLIGHT: f32 = 130_000.;
     }
 }
 

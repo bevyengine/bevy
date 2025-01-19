@@ -3,15 +3,20 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    core_pipeline::{
+        auto_exposure::{AutoExposure, AutoExposurePlugin},
+        bloom::Bloom,
+        tonemapping::Tonemapping,
+    },
     pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
 };
+use bevy_render::camera::Exposure;
 use light_consts::lux;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, AutoExposurePlugin))
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(Update, dynamic_scene)
         .run();
@@ -24,10 +29,11 @@ fn setup_camera_fog(mut commands: Commands) {
             hdr: true,
             ..default()
         },
+        Exposure::SUNLIGHT,
         Tonemapping::AcesFitted,
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        Atmosphere::EARTH,
         Bloom::NATURAL,
+        Atmosphere::EARTH,
         AtmosphereSettings {
             scene_units_to_km: 1.0,
             ..Default::default()
@@ -56,21 +62,10 @@ fn setup_terrain_scene(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
-            illuminance: lux::AMBIENT_DAYLIGHT,
+            illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
         Transform::from_xyz(1.0, -0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        cascade_shadow_config.clone(),
-    ));
-
-    // Moon
-    commands.spawn((
-        DirectionalLight {
-            shadows_enabled: true,
-            illuminance: lux::FULL_MOON_NIGHT,
-            ..default()
-        },
-        Transform::from_xyz(1.0, 0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config,
     ));
 

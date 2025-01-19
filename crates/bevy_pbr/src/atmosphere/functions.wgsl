@@ -231,7 +231,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
     return inscattering * view.exposure;
 }
 
-const SUN_ANGULAR_SIZE: f32 = 0.00872665; //angular radius of sun in radians
+const SUN_ANGULAR_SIZE: f32 = 0.0174533 ; //angular diameter of sun in radians
 
 fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
     var sun_illuminance = vec3(0.0);
@@ -240,12 +240,11 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
         let angle_to_sun = fast_acos(neg_LdotV);
         let pixel_size = fwidth(angle_to_sun);
-        let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE);
-        sun_illuminance += (*light).color.rgb * factor * ray_dir_ws.y;
+        let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
+        let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
+        sun_illuminance += ((*light).color.rgb / sun_solid_angle) * factor * ray_dir_ws.y;
     }
-    //FIXME: exposure comp should be applied to the sun, and yet it makes it way too dim
-    // for bloom to happen. Why?
-    return sun_illuminance * transmittance;// * view.exposure;
+    return sun_illuminance * transmittance * view.exposure;
 }
 
 // TRANSFORM UTILITIES
