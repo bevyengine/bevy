@@ -3,11 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{
-        auto_exposure::{AutoExposure, AutoExposurePlugin},
-        bloom::Bloom,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
 };
@@ -16,7 +12,7 @@ use light_consts::lux;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, AutoExposurePlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(Update, dynamic_scene)
         .run();
@@ -25,7 +21,6 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
-        Exposure { ev100: 11.0 },
         Camera {
             hdr: true,
             ..default()

@@ -275,7 +275,7 @@ pub struct Atmosphere {
     pub mie_density_exp_scale: f32,
 
     /// The scattering optical density of mie particulate, or how much light
-    /// it scatters per kilometer.
+    /// it scatters per meter.
     ///
     /// units: m^-1
     pub mie_scattering: f32,
@@ -304,7 +304,7 @@ pub struct Atmosphere {
     pub ozone_layer_width: f32,
 
     /// The optical density of ozone, or how much of each wavelength of
-    /// light it absorbs per kilometer.
+    /// light it absorbs per meter.
     ///
     /// units: m^-1
     pub ozone_absorption: Vec3,
@@ -312,18 +312,18 @@ pub struct Atmosphere {
 
 impl Atmosphere {
     pub const EARTH: Atmosphere = Atmosphere {
-        bottom_radius: 6360_000.0,
-        top_radius: 6460_000.0,
+        bottom_radius: 6.360e6,
+        top_radius: 6.460e6,
         ground_albedo: Vec3::splat(0.3),
-        rayleigh_density_exp_scale: 1.0 / 8000.0,
-        rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
-        mie_density_exp_scale: 1.0 / 1200.0,
+        rayleigh_density_exp_scale: 1.25e-4,
+        rayleigh_scattering: Vec3::new(5.802e-6, 1.3558e-5, 3.310e-5),
+        mie_density_exp_scale: 8.3333e-4,
         mie_scattering: 3.996e-6,
-        mie_absorption: 0.444e-6,
+        mie_absorption: 4.440e-7,
         mie_asymmetry: 0.8,
-        ozone_layer_altitude: 25000.0,
-        ozone_layer_width: 30000.0,
-        ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
+        ozone_layer_altitude: 2.5e4,
+        ozone_layer_width: 3.0e4,
+        ozone_absorption: Vec3::new(6.50e-7, 1.881e-6, 8.50e-8),
     };
 
     pub fn with_density_multiplier(&self, mult: f32) -> Self {
@@ -407,7 +407,7 @@ pub struct AtmosphereSettings {
     pub aerial_view_lut_samples: u32,
 
     /// A conversion factor between scene units and meters, used to
-    /// combat floating-point precision issues.
+    /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
 }
 
