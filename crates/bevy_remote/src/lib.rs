@@ -857,8 +857,6 @@ pub mod error_codes {
     /// Cannot reparent an entity to itself.
     pub const SELF_REPARENT: i16 = -23404;
 
-    // MATTY: Clean these up :)
-
     /// Could not reflect or find resource.
     pub const RESOURCE_ERROR: i16 = -23501;
 
