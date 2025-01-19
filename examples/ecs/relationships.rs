@@ -14,6 +14,7 @@
 //! In this example we're using the literal names [`Targeting`] and [`TargetedBy`],
 //! as games often have units that target other units in combat.
 
+use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
 /// The entity that this entity is targeting.
@@ -50,13 +51,9 @@ fn main() {
         // even though the entity itself is not yet instantiated in the world.
         // This works because Commands will reserve the entity ID before actually spawning the entity,
         // through the use of atomic counters.
-        let alice = commands.spawn((Name::new("Alice"))).id();
+        let alice = commands.spawn(Name::new("Alice")).id();
         // Relations are just components, so we can add them into the bundle that we're spawning.
         let bob = commands.spawn((Name::new("Bob"), Targeting(alice))).id();
-
-        // Simply inserting the `Targeting` component will automatically create and update the `TargetedBy` component on the target entity.
-        // We can do this at any point; not just when the entity is spawned.
-        commands.entity(alice).insert(Targeting(bob));
 
         // The `with_related` helper method on `EntityCommands` can be used to add relations in a more ergonomic way.
         let charlie = commands
@@ -64,23 +61,51 @@ fn main() {
             // The `with_related` method will automatically add the `Targeting` component to any entities spawned within the closure,
             // targeting the entity that we're calling `with_related` on.
             .with_related::<Targeting>(|related_spawner_commands| {
-                related_spawner.spawn(Name::new("Devon"));
+                // We could spawn multiple entities here, and they would all target `charlie`.
+                related_spawner_commands.spawn(Name::new("Devon"));
             })
             .id();
+
+        // Simply inserting the `Targeting` component will automatically create and update the `TargetedBy` component on the target entity.
+        // We can do this at any point; not just when the entity is spawned.
+        commands.entity(alice).insert(Targeting(charlie));
     }
 
-    world.run_system(spawning_entities_with_relationships);
+    world
+        .run_system_once(spawning_entities_with_relationships)
+        .unwrap();
 
-    fn debug_relationships(query: Query<(&Name, &Targeting, &TargetedBy)>) {
+    fn debug_relationships(
+        // Not all of our entities are targeted by something, so we use `Option` in our query to handle this case.
+        relations_query: Query<(&Name, &Targeting, Option<&TargetedBy>)>,
+        name_query: Query<&Name>,
+    ) {
         let mut relationships = String::new();
 
-        for (name, targeting, targeted_by) in query.iter() {
+        for (name, targeting, maybe_targeted_by) in relations_query.iter() {
+            let targeting_name = name_query.get(targeting.0).unwrap();
+            let targeted_by_string = if let Some(targeted_by) = maybe_targeted_by {
+                let mut vec_of_names = Vec::<&Name>::new();
+
+                for entity in &targeted_by.0 {
+                    let name = name_query.get(*entity).unwrap();
+                    vec_of_names.push(name);
+                }
+
+                // Convert this to a nice string for printing.
+                let vec_of_str: Vec<&str> = vec_of_names.iter().map(|name| name.as_str()).collect();
+                vec_of_str.join(", ")
+            } else {
+                "nobody".to_string()
+            };
+
             relationships.push_str(&format!(
-                "{} is targeting {:?}, and is targeted by {:?}\n",
-                name.0, targeting.0, targeted_by.0
+                "{name} is targeting {targeting_name}, and is targeted by {targeted_by_string}\n",
             ));
         }
+
+        println!("{}", relationships);
     }
 
-    world.run_system(debug_relationships);
+    world.run_system_once(debug_relationships).unwrap();
 }
