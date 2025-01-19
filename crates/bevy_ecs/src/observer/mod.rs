@@ -1625,7 +1625,7 @@ mod tests {
             assert_eq!(trigger.trigger.caller, caller);
         });
         world.commands().spawn(Component).clear();
-        world.flush_commands();
+        world.flush();
     }
 
     #[test]
