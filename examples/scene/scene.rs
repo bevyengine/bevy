@@ -1,5 +1,3 @@
-//! # Introduction
-//!
 //! This example demonstrates how to load scene data from files and then dynamically
 //! apply that data to entities in your Bevy `World`. This includes spawning new
 //! entities and applying updates to existing ones. Scenes in Bevy encapsulate
@@ -19,7 +17,7 @@
 //! a new scene file to disk. This is useful for anyone wanting to see how to integrate
 //! file-based scene workflows into their Bevy projects.
 //!
-//! # Note on Filesystem
+//! # Note on working with files
 //!
 //! The saving behavior uses the standard filesystem APIs, which are blocking, so it
 //! utilizes a thread pool (`IoTaskPool`) to avoid stalling the main thread. This
