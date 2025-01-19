@@ -194,7 +194,7 @@
 //!
 //! `result`: null.
 //!
-//! ### `bevy/mutate_component`
+//! ### bevy/mutate_component
 //!
 //! Mutate a field in a component.
 //!
@@ -274,6 +274,52 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
+//! ### bevy/get_resource
+//!
+//! Extract the value of a given resource from the world.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to get.
+//!
+//! `result`:
+//! - `value`: The value of the resource in the world.
+//!
+//! ### bevy/insert_resource
+//!
+//! Insert the given resource into the world with the given value.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to insert.
+//! - `value`: The value of the resource to be inserted.
+//!
+//! `result`: null.
+//!
+//! ### bevy/remove_resource
+//!
+//! Remove the given resource from the world.
+//!
+//! `params`
+//! - `resource`: The [fully-qualified type name] of the resource to remove.
+//!
+//! `result`: null.
+//!
+//! ### bevy/mutate_resource
+//!
+//! Mutate a field in a resource.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to mutate.
+//! - `path`: The path of the field within the resource. See
+//!   [`GetPath`](bevy_reflect::GetPath#syntax) for more information on formatting this string.
+//! - `value`: The value to be inserted at `path`.
+//!
+//! `result`: null.
+//!
+//! ### bevy/list_resources
+//!
+//! List all reflectable registered resource types. This method has no parameters.
+//!
+//! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
 //! ## Custom methods
 //!
