@@ -4,11 +4,10 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
+    pbr::{Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder, light_consts::lux},
+    render::camera::Exposure,
     prelude::*,
 };
-use bevy_render::camera::Exposure;
-use light_consts::lux;
 
 fn main() {
     App::new()
@@ -29,6 +28,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Tonemapping::AcesFitted,
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Bloom::NATURAL,
+        Msaa::Sample8,
         Atmosphere::EARTH,
         AtmosphereSettings {
             scene_units_to_m: 1e+4,
