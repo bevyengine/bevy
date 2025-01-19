@@ -89,10 +89,6 @@ fn play_animation_when_ready(
                 commands
                     .entity(child)
                     .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
-
-                // We know that our scene will only contain a single mesh and
-                // animation player, so stop searching.
-                break;
             }
         }
     }
