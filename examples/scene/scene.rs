@@ -113,7 +113,7 @@ struct ResourceA {
 /// `SCENE_FILE_PATH` points to the original scene file that we'll be loading.
 /// `NEW_SCENE_FILE_PATH` points to the new scene file that we'll be creating
 /// (and demonstrating how to serialize to disk).
-
+///
 /// The initial scene file will be loaded below and not change when the scene is saved.
 const SCENE_FILE_PATH: &str = "scenes/load_scene_example.scn.ron";
 
