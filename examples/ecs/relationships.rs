@@ -113,6 +113,10 @@ fn main() {
     // Systems can return errors,
     // which can be used to signal that something went wrong during the system's execution.
     #[derive(Debug)]
+    #[expect(
+        dead_code,
+        reason = "This error struct is only used for debugging in this example."
+    )]
     struct TargetingCycle {
         initial_entity: Entity,
         visited: EntityHashSet,
@@ -122,22 +126,24 @@ fn main() {
     /// Here, we're going to look for cycles using a depth-first search.
     fn check_for_cycles(
         // We want to check every entity for cycles
-        query_to_check: Query<(Entity, &Name), With<Targeting>>,
+        query_to_check: Query<Entity, With<Targeting>>,
+        // Fetch the names for easier debugging.
+        name_query: Query<&Name>,
         // The targeting_query allows us to traverse the relationship graph.
         targeting_query: Query<&Targeting>,
     ) -> Result<(), TargetingCycle> {
-        for (initial_entity, initial_entity_name) in query_to_check.iter() {
-            println!("Checking for cycles starting from {initial_entity_name}...",);
+        for initial_entity in query_to_check.iter() {
             let mut visited = EntityHashSet::new();
-            let mut targeting_name = initial_entity_name;
+            let mut targeting_name = name_query.get(initial_entity).unwrap().clone();
+            println!("Checking for cycles starting at {targeting_name}",);
 
             // There's all sorts of methods like this; check the `Query` docs for more!
             // This would also be easy to do by just manually checking the `Targeting` component,
             // and calling `query.get(targeted_entity)` on the entity that it targets in a loop.
             for targeting in targeting_query.iter_ancestors(initial_entity) {
-                let target_name = query_to_check.get(targeting).unwrap().1;
+                let target_name = name_query.get(targeting).unwrap();
                 println!("{targeting_name} is targeting {target_name}",);
-                targeting_name = target_name;
+                targeting_name = target_name.clone();
 
                 if visited.contains(&targeting) {
                     return Err(TargetingCycle {
@@ -158,7 +164,29 @@ fn main() {
     // the first checks if running the system failed, and the second checks if the system itself returned an error.
     // We're unwrapping the first, but checking the output of the system itself.
     let cycle_result = world.run_system_once(check_for_cycles).unwrap();
-    println!("{:?}", cycle_result);
+    println!("{cycle_result:?} \n");
     // We deliberately introduced a cycle during spawning!
     assert!(cycle_result.is_err());
+
+    // Now, let's demonstrate removing relationships and break the cycle.
+    fn untarget(mut commands: Commands, name_query: Query<(Entity, &Name)>) {
+        // Let's find Charlie by doing a linear scan of the entity names.
+        let charlie = name_query
+            .iter()
+            .find(|(_entity, name)| name.as_str() == "Charlie")
+            .unwrap()
+            .0;
+
+        // We can remove the `Targeting` component to remove the relationship
+        // and break the cycle we saw earlier.
+        println!("Removing Charlie's targeting relationship.\n");
+        commands.entity(charlie).remove::<Targeting>();
+    }
+
+    world.run_system_once(untarget).unwrap();
+    world.run_system_once(debug_relationships).unwrap();
+    // Cycle free!
+    let cycle_result = world.run_system_once(check_for_cycles).unwrap();
+    println!("{cycle_result:?} \n");
+    assert!(cycle_result.is_ok());
 }
