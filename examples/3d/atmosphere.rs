@@ -28,7 +28,6 @@ fn setup_camera_fog(mut commands: Commands) {
         Tonemapping::AcesFitted,
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         Bloom::NATURAL,
-        Msaa::Sample8,
         Atmosphere::EARTH,
         AtmosphereSettings {
             scene_units_to_m: 1e+4,
