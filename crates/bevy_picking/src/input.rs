@@ -28,7 +28,6 @@ use tracing::debug;
 
 use crate::pointer::{
     Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
-    PressDirection,
 };
 
 use crate::PickSet;
@@ -129,7 +128,7 @@ pub fn mouse_pick_events(
                 pointer_events.send(PointerInput::new(
                     PointerId::Mouse,
                     location,
-                    PointerAction::Moved {
+                    PointerAction::Move {
                         delta: event.position - *cursor_last,
                     },
                 ));
@@ -152,15 +151,11 @@ pub fn mouse_pick_events(
                     MouseButton::Middle => PointerButton::Middle,
                     MouseButton::Other(_) | MouseButton::Back | MouseButton::Forward => continue,
                 };
-                let direction = match input.state {
-                    ButtonState::Pressed => PressDirection::Pressed,
-                    ButtonState::Released => PressDirection::Released,
+                let action = match input.state {
+                    ButtonState::Pressed => PointerAction::Press(button),
+                    ButtonState::Released => PointerAction::Release(button),
                 };
-                pointer_events.send(PointerInput::new(
-                    PointerId::Mouse,
-                    location,
-                    PointerAction::Button { direction, button },
-                ));
+                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
             }
             _ => {}
         }
@@ -198,10 +193,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Button {
-                            direction: PressDirection::Pressed,
-                            button: PointerButton::Primary,
-                        },
+                        PointerAction::Press(PointerButton::Primary),
                     ));
 
                     touch_cache.insert(touch.id, *touch);
@@ -215,7 +207,7 @@ pub fn touch_pick_events(
                         pointer_events.send(PointerInput::new(
                             pointer,
                             location,
-                            PointerAction::Moved {
+                            PointerAction::Move {
                                 delta: touch.position - last_touch.position,
                             },
                         ));
@@ -226,10 +218,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Button {
-                            direction: PressDirection::Released,
-                            button: PointerButton::Primary,
-                        },
+                        PointerAction::Release(PointerButton::Primary),
                     ));
                     touch_cache.remove(&touch.id);
                 }
@@ -237,7 +226,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Canceled,
+                        PointerAction::Cancel,
                     ));
                     touch_cache.remove(&touch.id);
                 }
