@@ -28,7 +28,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     var prev_t = 0.0;
     var total_inscattering = vec3(0.0);
-    var optical_depth = vec3(0.0);
     var throughput = vec3(1.0);
 
     // The aerial view LUT is in NDC space, so it uses bevy's reverse z convention. Since
@@ -49,10 +48,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let local_atmosphere = sample_atmosphere(local_r);
             let sample_optical_depth = local_atmosphere.extinction * dt;
             let sample_transmittance = exp(-sample_optical_depth);
-            optical_depth += sample_optical_depth;
-
-            // use beer's law to get transmittance from optical density
-            let transmittance_to_sample = exp(-optical_depth);
 
             // evaluate one segment of the integral
             var inscattering = sample_local_inscattering(local_atmosphere, ray_dir.xyz, local_r, local_up);
@@ -66,7 +61,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
                 break;
             }
 
-            sum_transmittance += transmittance_to_sample.r + transmittance_to_sample.g + transmittance_to_sample.b;
+            sum_transmittance += throughput.r + throughput.g + throughput.b;
         }
         //We only have one channel to store transmittance, so we store the mean 
         let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);

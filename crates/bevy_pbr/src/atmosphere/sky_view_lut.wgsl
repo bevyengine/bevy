@@ -40,7 +40,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let sample_count_floor = floor(sample_count);
     let t_max_floor = t_max * sample_count_floor / sample_count;
     var total_inscattering = vec3(0.0);
-    var optical_depth = vec3(0.0);
     var throughput = vec3(1.0);
     for (var s = 0.0; s < sample_count; s += 1.0) {
         // Use quadratic distribution like reference
@@ -58,7 +57,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
         let sample_optical_depth = local_atmosphere.extinction * dt_i;
         let sample_transmittance = exp(-sample_optical_depth);
-        optical_depth += sample_optical_depth;
 
         let inscattering = sample_local_inscattering(
             local_atmosphere,
