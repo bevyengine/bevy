@@ -16,7 +16,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube)
-        // New types must be registed in order to be usable with reflection.
+        // New types must be registered in order to be usable with reflection.
         .register_type::<Cube>()
         .register_type::<TestResource>()
         .run();
