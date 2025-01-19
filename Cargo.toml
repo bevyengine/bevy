@@ -2053,7 +2053,7 @@ name = "relationships"
 path = "examples/ecs/relationships.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.relations]
+[package.metadata.example.relationships]
 name = "Relationships"
 description = "Define and work with custom relationships between entities"
 category = "ECS (Entity Component System)"
