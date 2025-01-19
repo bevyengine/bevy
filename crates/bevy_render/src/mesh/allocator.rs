@@ -861,7 +861,7 @@ impl MeshAllocator {
 }
 
 impl GeneralSlab {
-    /// Creates a new growable slab big enough to hold an single element of
+    /// Creates a new growable slab big enough to hold a single element of
     /// `data_slot_count` size with the given `layout`.
     fn new(
         new_slab_id: SlabId,

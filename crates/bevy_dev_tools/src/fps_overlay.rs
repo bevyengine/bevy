@@ -12,7 +12,6 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
     system::{Commands, Query, Res, Resource},
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_ui::{
@@ -42,7 +41,7 @@ impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
-            app.add_plugins(FrameTimeDiagnosticsPlugin);
+            app.add_plugins(FrameTimeDiagnosticsPlugin::default());
         }
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)

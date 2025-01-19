@@ -15,15 +15,7 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    change_detection::DetectChanges,
-    entity::EntityHashMap,
-    prelude::{Entity, EventReader, EventWriter},
-    query::With,
-    schedule::IntoSystemConfigs,
-    system::{NonSendMut, Query, Res, ResMut, Resource},
-};
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
@@ -181,7 +173,7 @@ fn should_update_accessibility_nodes(
 
 fn update_accessibility_nodes(
     mut adapters: NonSendMut<AccessKitAdapters>,
-    focus: Res<InputFocus>,
+    focus: Option<Res<InputFocus>>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
         Entity,
@@ -195,6 +187,9 @@ fn update_accessibility_nodes(
         return;
     };
     let Some(adapter) = adapters.get_mut(&primary_window_id) else {
+        return;
+    };
+    let Some(focus) = focus else {
         return;
     };
     if focus.is_changed() || !nodes.is_empty() {

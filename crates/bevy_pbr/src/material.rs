@@ -124,7 +124,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's fragment shader. If [`ShaderRef::Default`] is returned, the default mesh fragment shader
     /// will be used.
-    #[allow(unused_variables)]
     fn fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -174,7 +173,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     ///
     /// This is used for the various [prepasses](bevy_core_pipeline::prepass) as well as for generating the depth maps
     /// required for shadow mapping.
-    #[allow(unused_variables)]
     fn prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -187,7 +185,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Returns this material's deferred fragment shader. If [`ShaderRef::Default`] is returned, the default deferred fragment shader
     /// will be used.
-    #[allow(unused_variables)]
     fn deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
     }
@@ -198,7 +195,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     ///
     /// See [`crate::meshlet::MeshletMesh`] for limitations.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -210,7 +206,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     ///
     /// See [`crate::meshlet::MeshletMesh`] for limitations.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_prepass_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -222,7 +217,6 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
     /// This is part of an experimental feature, and is unnecessary to implement unless you are using `MeshletMesh`'s.
     ///
     /// See [`crate::meshlet::MeshletMesh`] for limitations.
-    #[allow(unused_variables)]
     #[cfg(feature = "meshlet")]
     fn meshlet_mesh_deferred_fragment_shader() -> ShaderRef {
         ShaderRef::Default
@@ -230,7 +224,10 @@ pub trait Material: Asset + AsBindGroup + Clone + Sized {
 
     /// Customizes the default [`RenderPipelineDescriptor`] for a specific entity using the entity's
     /// [`MaterialPipelineKey`] and [`MeshVertexBufferLayoutRef`] as input.
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(
         pipeline: &MaterialPipeline<Self>,
@@ -641,7 +638,6 @@ pub fn queue_material_meshes<M: Material>(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
@@ -668,7 +664,6 @@ pub fn queue_material_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
-        view_entity,
         view,
         visible_entities,
         msaa,
@@ -690,10 +685,10 @@ pub fn queue_material_meshes<M: Material>(
             Some(transmissive_phase),
             Some(transparent_phase),
         ) = (
-            opaque_render_phases.get_mut(&view_entity),
-            alpha_mask_render_phases.get_mut(&view_entity),
-            transmissive_render_phases.get_mut(&view_entity),
-            transparent_render_phases.get_mut(&view_entity),
+            opaque_render_phases.get_mut(&view.retained_view_entity),
+            alpha_mask_render_phases.get_mut(&view.retained_view_entity),
+            transmissive_render_phases.get_mut(&view.retained_view_entity),
+            transparent_render_phases.get_mut(&view.retained_view_entity),
         )
         else {
             continue;
@@ -807,12 +802,14 @@ pub fn queue_material_meshes<M: Material>(
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
                 | mesh_pipeline_key_bits;
 
-            let lightmap_slab_index = render_lightmaps
-                .render_lightmaps
-                .get(visible_entity)
-                .map(|lightmap| lightmap.slab_index);
-            if lightmap_slab_index.is_some() {
+            let mut lightmap_slab = None;
+            if let Some(lightmap) = render_lightmaps.render_lightmaps.get(visible_entity) {
+                lightmap_slab = Some(*lightmap.slab_index);
                 mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+
+                if lightmap.bicubic_sampling {
+                    mesh_key |= MeshPipelineKey::LIGHTMAP_BICUBIC_SAMPLING;
+                }
             }
 
             if render_visibility_ranges.entity_has_crossfading_visibility_ranges(*visible_entity) {
@@ -854,6 +851,9 @@ pub fn queue_material_meshes<M: Material>(
                 }
             };
 
+            // Fetch the slabs that this mesh resides in.
+            let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
+
             match mesh_key
                 .intersection(MeshPipelineKey::BLEND_RESERVED_BITS | MeshPipelineKey::MAY_DISCARD)
             {
@@ -868,18 +868,16 @@ pub fn queue_material_meshes<M: Material>(
                             distance,
                             batch_range: 0..1,
                             extra_index: PhaseItemExtraIndex::None,
+                            indexed: index_slab.is_some(),
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = Opaque3dBatchSetKey {
-                            draw_function: draw_opaque_pbr,
                             pipeline: pipeline_id,
+                            draw_function: draw_opaque_pbr,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),
                             index_slab,
-                            lightmap_slab: lightmap_slab_index
-                                .map(|lightmap_slab_index| *lightmap_slab_index),
+                            lightmap_slab,
                         };
                         let bin_key = Opaque3dBinKey {
                             asset_id: mesh_instance.mesh_asset_id.into(),
@@ -907,10 +905,9 @@ pub fn queue_material_meshes<M: Material>(
                             distance,
                             batch_range: 0..1,
                             extra_index: PhaseItemExtraIndex::None,
+                            indexed: index_slab.is_some(),
                         });
                     } else if material.properties.render_method == OpaqueRendererMethod::Forward {
-                        let (vertex_slab, index_slab) =
-                            mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
                             draw_function: draw_alpha_mask_pbr,
                             pipeline: pipeline_id,
@@ -942,6 +939,7 @@ pub fn queue_material_meshes<M: Material>(
                         distance,
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        indexed: index_slab.is_some(),
                     });
                 }
             }

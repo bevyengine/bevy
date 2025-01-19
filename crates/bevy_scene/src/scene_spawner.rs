@@ -3,11 +3,11 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
+    hierarchy::Parent,
     reflect::AppTypeRegistry,
     system::Resource,
     world::{Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
@@ -201,9 +201,8 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                    entity_mut.remove_parent();
-                    entity_mut.despawn_recursive();
+                if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                    entity_mut.despawn();
                 };
             }
         }
@@ -403,7 +402,7 @@ impl SceneSpawner {
         }
     }
 
-    /// Check that an scene instance spawned previously is ready to use
+    /// Check that a scene instance spawned previously is ready to use
     pub fn instance_is_ready(&self, instance_id: InstanceId) -> bool {
         self.spawned_instances.contains_key(&instance_id)
     }
@@ -519,6 +518,7 @@ mod tests {
     use bevy_asset::{AssetPlugin, AssetServer, Handle};
     use bevy_ecs::{
         component::Component,
+        hierarchy::Children,
         observer::Trigger,
         prelude::ReflectComponent,
         query::With,
@@ -536,7 +536,6 @@ mod tests {
         entity::Entity,
         prelude::{AppTypeRegistry, World},
     };
-    use bevy_hierarchy::{Children, HierarchyPlugin};
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -550,7 +549,6 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins(ScheduleRunnerPlugin::default())
-            .add_plugins(HierarchyPlugin)
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>();
@@ -854,7 +852,7 @@ mod tests {
             .run_system_once(
                 |mut commands: Commands, query: Query<Entity, With<ComponentF>>| {
                     for entity in query.iter() {
-                        commands.entity(entity).despawn_recursive();
+                        commands.entity(entity).despawn();
                     }
                 },
             )

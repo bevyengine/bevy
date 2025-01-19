@@ -565,6 +565,7 @@ pub struct ComponentHooks {
     pub(crate) on_insert: Option<ComponentHook>,
     pub(crate) on_replace: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
+    pub(crate) on_despawn: Option<ComponentHook>,
 }
 
 impl ComponentHooks {
@@ -631,6 +632,16 @@ impl ComponentHooks {
             .expect("Component already has an on_remove hook")
     }
 
+    /// Register a [`ComponentHook`] that will be run for each component on an entity when it is despawned.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `on_despawn` hook
+    pub fn on_despawn(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_despawn(hook)
+            .expect("Component already has an on_despawn hook")
+    }
+
     /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
     ///
     /// This is a fallible version of [`Self::on_add`].
@@ -680,6 +691,19 @@ impl ComponentHooks {
             return None;
         }
         self.on_remove = Some(hook);
+        Some(self)
+    }
+
+    /// Attempt to register a [`ComponentHook`] that will be run for each component on an entity when it is despawned.
+    ///
+    /// This is a fallible version of [`Self::on_despawn`].
+    ///
+    /// Returns `None` if the component already has an `on_despawn` hook.
+    pub fn try_on_despawn(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_despawn.is_some() {
+            return None;
+        }
+        self.on_despawn = Some(hook);
         Some(self)
     }
 }
@@ -776,6 +800,9 @@ impl ComponentInfo {
         }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
+        }
+        if self.hooks().on_despawn.is_some() {
+            flags.insert(ArchetypeFlags::ON_DESPAWN_HOOK);
         }
     }
 

@@ -32,7 +32,7 @@ pub type DiGraph<S = FixedHasher> = Graph<true, S>;
 /// `Graph<DIRECTED>` is a graph datastructure using an associative array
 /// of its node weights `NodeId`.
 ///
-/// It uses an combined adjacency list and sparse adjacency matrix
+/// It uses a combined adjacency list and sparse adjacency matrix
 /// representation, using **O(|N| + |E|)** space, and allows testing for edge
 /// existence in constant time.
 ///

@@ -8,8 +8,8 @@
 //! ## Important Note
 //!
 //! This backend completely ignores [`FocusPolicy`](crate::FocusPolicy). The design of `bevy_ui`'s
-//! focus systems and the picking plugin are not compatible. Instead, use the optional [`PickingBehavior`] component
-//! to override how an entity responds to picking focus. Nodes without the [`PickingBehavior`] component
+//! focus systems and the picking plugin are not compatible. Instead, use the optional [`Pickable`] component
+//! to override how an entity responds to picking focus. Nodes without the [`Pickable`] component
 //! will still trigger events and block items below it from being hovered.
 //!
 //! ## Implementation Notes
@@ -48,7 +48,7 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
-    picking_behavior: Option<&'static PickingBehavior>,
+    pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
     view_visibility: Option<&'static ViewVisibility>,
     target_camera: Option<&'static TargetCamera>,
@@ -196,13 +196,13 @@ pub fn ui_picking(
 
             picks.push((node.entity, HitData::new(camera_entity, depth, None, None)));
 
-            if let Some(picking_behavior) = node.picking_behavior {
-                // If an entity has a `PickingBehavior` component, we will use that as the source of truth.
-                if picking_behavior.should_block_lower {
+            if let Some(pickable) = node.pickable {
+                // If an entity has a `Pickable` component, we will use that as the source of truth.
+                if pickable.should_block_lower {
                     break;
                 }
             } else {
-                // If the PickingBehavior component doesn't exist, default behavior is to block.
+                // If the `Pickable` component doesn't exist, default behavior is to block.
                 break;
             }
 

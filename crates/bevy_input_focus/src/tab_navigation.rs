@@ -30,11 +30,11 @@ use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    hierarchy::{Children, Parent},
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
-use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
@@ -363,7 +363,6 @@ pub fn handle_tab_navigation(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
 
     use super::*;
 
@@ -372,10 +371,9 @@ mod tests {
         let mut app = App::new();
         let world = app.world_mut();
 
-        let tab_entity_1 = world.spawn(TabIndex(0)).id();
-        let tab_entity_2 = world.spawn(TabIndex(1)).id();
-        let mut tab_group_entity = world.spawn(TabGroup::new(0));
-        tab_group_entity.replace_children(&[tab_entity_1, tab_entity_2]);
+        let tab_group_entity = world.spawn(TabGroup::new(0)).id();
+        let tab_entity_1 = world.spawn((TabIndex(0), Parent(tab_group_entity))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), Parent(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);

@@ -86,7 +86,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     }
 }
 
-/// Filter that selects entities with a `A` for an asset that changed
+/// Filter that selects entities with an `A` for an asset that changed
 /// after the system last ran, where `A` is a component that implements
 /// [`AsAssetId`].
 ///
@@ -114,8 +114,8 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 /// # Performance
 ///
 /// When at least one `A` is updated, this will
-/// read a hashmap once per entity with a `A` component. The
-/// runtime of the query is proportional to how many entities with a `A`
+/// read a hashmap once per entity with an `A` component. The
+/// runtime of the query is proportional to how many entities with an `A`
 /// it matches.
 ///
 /// If no `A` asset updated since the last time the system ran, then no lookups occur.

@@ -398,6 +398,7 @@ pub mod common_conditions {
         change_detection::DetectChanges,
         event::{Event, EventReader},
         prelude::{Component, Query, With},
+        query::QueryFilter,
         removal_detection::RemovedComponents,
         system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
     };
@@ -937,6 +938,12 @@ pub mod common_conditions {
         removals.read().count() > 0
     }
 
+    /// A [`Condition`]-satisfying system that returns `true`
+    /// if there are any entities that match the given [`QueryFilter`].
+    pub fn any_match_filter<F: QueryFilter>(query: Query<(), F>) -> bool {
+        !query.is_empty()
+    }
+
     /// Generates a [`Condition`] that inverses the result of passed one.
     ///
     /// # Example
@@ -1256,6 +1263,7 @@ where
 mod tests {
     use super::{common_conditions::*, Condition};
     use crate as bevy_ecs;
+    use crate::query::With;
     use crate::{
         change_detection::ResMut,
         component::Component,
@@ -1396,6 +1404,7 @@ mod tests {
                 .distributive_run_if(resource_removed::<TestResource>)
                 .distributive_run_if(on_event::<TestEvent>)
                 .distributive_run_if(any_with_component::<TestComponent>)
+                .distributive_run_if(any_match_filter::<With<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
     }

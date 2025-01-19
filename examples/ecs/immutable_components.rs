@@ -138,7 +138,10 @@ fn demo_2(world: &mut World) {
 }
 
 /// This example demonstrates how to work with _dynamic_ immutable components.
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to work with dynamic components"
+)]
 fn demo_3(world: &mut World) {
     // This is a list of dynamic components we will create.
     // The first item is the name of the component, and the second is the size

@@ -93,3 +93,9 @@ fn sphere_intersects_plane_half_space(
 fn powsafe(color: vec3<f32>, power: f32) -> vec3<f32> {
     return pow(abs(color), vec3(power)) * sign(color);
 }
+
+// https://en.wikipedia.org/wiki/Vector_projection#Vector_projection_2
+fn project_onto(lhs: vec3<f32>, rhs: vec3<f32>) -> vec3<f32> {
+    let other_len_sq_rcp = 1.0 / dot(rhs, rhs);
+    return rhs * dot(lhs, rhs) * other_len_sq_rcp;
+}
