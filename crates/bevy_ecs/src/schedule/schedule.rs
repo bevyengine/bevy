@@ -425,7 +425,7 @@ impl Schedule {
     }
 
     /// Call function `f` on each pair of ([`NodeId`], [`ScheduleSystem`]).
-    pub fn systems_for_each(&self, mut f: impl FnMut(NodeId, &ScheduleSystem)) {
+    fn systems_for_each(&self, mut f: impl FnMut(NodeId, &ScheduleSystem)) {
         match self.executor_initialized {
             true => {
                 for (id, system) in self
