@@ -110,6 +110,32 @@ fn main() {
 
     world.run_system_once(debug_relationships).unwrap();
 
+    // Demonstrates how to correctly mutate relationships.
+    // Relationship components are immutable! We can't query for the `Targeting` component mutably and modify it directly,
+    // but we can insert a new `Targeting` component to replace the old one.
+    // This allows the hooks on the `Targeting` component to update the `TargetedBy` component correctly.
+    // The `TargetedBy` component will be updated automatically!
+    fn mutate_relationships(name_query: Query<(Entity, &Name)>, mut commands: Commands) {
+        // Let's find Devon by doing a linear scan of the entity names.
+        let devon = name_query
+            .iter()
+            .find(|(_entity, name)| name.as_str() == "Devon")
+            .unwrap()
+            .0;
+
+        let alice = name_query
+            .iter()
+            .find(|(_entity, name)| name.as_str() == "Alice")
+            .unwrap()
+            .0;
+
+        println!("Making Devon target Alice.\n");
+        commands.entity(devon).insert(Targeting(alice));
+    }
+
+    world.run_system_once(mutate_relationships).unwrap();
+    world.run_system_once(debug_relationships).unwrap();
+
     // Systems can return errors,
     // which can be used to signal that something went wrong during the system's execution.
     #[derive(Debug)]
