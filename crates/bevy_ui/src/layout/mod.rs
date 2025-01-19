@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, LayoutConfig, Node, Outline,
-    OverflowAxis, ScrollPosition, TargetCamera, UiScale, Val,
+    OverflowAxis, ScrollPosition, UiScale, UiTargetCamera, Val,
 };
 use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
@@ -105,7 +105,7 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Option<&TargetCamera>,
+        Option<&UiTargetCamera>,
     )>,
     computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
     ui_children: UiChildren,
@@ -132,8 +132,8 @@ pub fn ui_layout_system(
     let (cameras, default_ui_camera) = camera_data;
 
     let default_camera = default_ui_camera.get();
-    let camera_with_default = |target_camera: Option<&TargetCamera>| {
-        target_camera.map(TargetCamera::entity).or(default_camera)
+    let camera_with_default = |target_camera: Option<&UiTargetCamera>| {
+        target_camera.map(UiTargetCamera::entity).or(default_camera)
     };
 
     resized_windows.clear();
@@ -165,7 +165,7 @@ pub fn ui_layout_system(
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
-                            "TargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
+                            "UiTargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
                         );
                         return;
@@ -181,7 +181,7 @@ pub fn ui_layout_system(
                     } else {
                         warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {}",
+                            To fix this, add an explicit `UiTargetCamera` component to the root UI node {}",
                             entity
                         );
                     }
@@ -621,7 +621,7 @@ mod tests {
         let camera_entity = world.spawn(Camera2d).id();
 
         let ui_entity = world
-            .spawn((Node::default(), TargetCamera(camera_entity)))
+            .spawn((Node::default(), UiTargetCamera(camera_entity)))
             .id();
 
         // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
@@ -926,7 +926,7 @@ mod tests {
             for moving_ui_entity in moving_ui_query.iter() {
                 commands
                     .entity(moving_ui_entity)
-                    .insert(TargetCamera(target_camera_entity))
+                    .insert(UiTargetCamera(target_camera_entity))
                     .insert(Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(pos.y),
@@ -944,8 +944,8 @@ mod tests {
         ) {
             world.run_system_once_with(move_ui_node, new_pos).unwrap();
             ui_schedule.run(world);
-            let (ui_node_entity, TargetCamera(target_camera_entity)) = world
-                .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
+            let (ui_node_entity, UiTargetCamera(target_camera_entity)) = world
+                .query_filtered::<(Entity, &UiTargetCamera), With<MovingUiNode>>()
                 .get_single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
