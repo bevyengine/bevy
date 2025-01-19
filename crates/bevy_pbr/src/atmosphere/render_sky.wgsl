@@ -34,9 +34,6 @@ fn main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
         let sun_illuminance = sample_sun_illuminance(ray_dir_ws.xyz, transmittance);
         return vec4(inscattering + sun_illuminance, (transmittance.r + transmittance.g + transmittance.b) / 3.0);
     } else {
-        let ndc_xy = uv_to_ndc(in.uv);
-        let ndc = vec3(ndc_xy, depth);
-        let inscattering_and_transmittance = sample_aerial_view_lut(ndc);
-        return inscattering_and_transmittance;
+        return sample_aerial_view_lut(in.uv, depth);
     }
 }

@@ -382,7 +382,7 @@ pub struct AtmosphereSettings {
     /// The size of the sky-view LUT.
     pub sky_view_lut_size: UVec2,
 
-    /// The size of the aerial LUT.
+    /// The size of the aerial-view LUT.
     pub aerial_view_lut_size: UVec3,
 
     /// The number of points to sample along each ray when
@@ -405,6 +405,14 @@ pub struct AtmosphereSettings {
     /// of the aerial-view LUT.
     pub aerial_view_lut_samples: u32,
 
+    /// The maximum distance from the camera to evaluate the
+    /// aerial view LUT. The slices along the z-axis of the
+    /// texture will be distributed linearly from the camera
+    /// to this value.
+    ///
+    /// units: m
+    pub aerial_view_lut_max_distance: f32,
+
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
@@ -422,6 +430,7 @@ impl Default for AtmosphereSettings {
             sky_view_lut_samples: 16,
             aerial_view_lut_size: UVec3::new(32, 32, 32),
             aerial_view_lut_samples: 10,
+            aerial_view_lut_max_distance: 3.2e4,
             scene_units_to_m: 1.0,
         }
     }

@@ -31,7 +31,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Bloom::NATURAL,
         Atmosphere::EARTH,
         AtmosphereSettings {
-            scene_units_to_m: 1e+3,
+            scene_units_to_m: 1e+4,
             ..Default::default()
         },
     ));

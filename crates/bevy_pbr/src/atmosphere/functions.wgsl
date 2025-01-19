@@ -28,7 +28,7 @@
 //   cosine of the zenith angle of a ray with
 //   respect to the planet normal
 //
-// atmosphere space: 
+// atmosphere space:
 //   abbreviated as "as" (contrast with vs, cs, ws), this space is similar
 //   to view space, but with the camera positioned horizontally on the planet
 //   surface, so the horizon is a horizontal line centered vertically in the
@@ -130,8 +130,11 @@ fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
 
 //RGB channels: total inscattered light along the camera ray to the current sample.
 //A channel: average transmittance across all wavelengths to the current sample.
-fn sample_aerial_view_lut(ndc: vec3<f32>) -> vec4<f32> {
-    return textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, vec3(ndc_to_uv(ndc.xy), ndc.z), 0.0);
+fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
+    let view_pos = view.view_from_clip * vec4(uv_to_ndc(uv), depth, 1.0);
+    let dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
+    let uvw = vec3(uv, dist / settings.aerial_view_lut_max_distance);
+    return textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
 }
 
 // PHASE FUNCTIONS
@@ -306,13 +309,6 @@ fn direction_atmosphere_to_world(dir_as: vec3<f32>) -> vec3<f32> {
 fn direction_view_to_world(view_dir: vec3<f32>) -> vec3<f32> {
     let world_dir = view.world_from_view * vec4(view_dir, 0.0);
     return world_dir.xyz;
-}
-
-/// Convert ndc depth to linear view z. 
-/// Note: Depth values in front of the camera will be negative as -z is forward
-fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
-    let view_pos = view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
-    return view_pos.z / view_pos.w;
 }
 
 //Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.

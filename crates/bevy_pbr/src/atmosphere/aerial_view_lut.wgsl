@@ -16,7 +16,7 @@
 @group(0) @binding(13) var aerial_view_lut_out: texture_storage_3d<rgba16float, write>;
 
 @compute
-@workgroup_size(16, 16, 1) //TODO: this approach makes it so closer slices get fewer samples. But we also expect those to have less scattering. So win/win?
+@workgroup_size(16, 16, 1)
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     if any(idx.xy > settings.aerial_view_lut_size.xy) { return; }
 
@@ -24,21 +24,15 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let ray_dir = uv_to_ray_direction(uv);
     let r = view_radius();
     let mu = ray_dir.y;
-    let t_max = max_atmosphere_distance(r, mu);
+    let t_max = settings.aerial_view_lut_max_distance;
 
     var prev_t = 0.0;
     var total_inscattering = vec3(0.0);
     var throughput = vec3(1.0);
 
-    // The aerial view LUT is in NDC space, so it uses bevy's reverse z convention. Since
-    // we write multiple slices from each thread, we need to iterate in order near->far, which 
-    // is why the indices are reversed.
-    for (var slice_i: i32 = i32(settings.aerial_view_lut_size.z - 1); slice_i >= 0; slice_i--) {
-        var sum_transmittance = 0.0;
-        for (var step_i: i32 = i32(settings.aerial_view_lut_samples - 1); step_i >= 0; step_i--) {
-            let sample_depth = depth_at_sample(slice_i, step_i);
-            //view_dir.w is the cosine of the angle between the view vector and the camera forward vector, used to correct the step length.
-            let t_i = -depth_ndc_to_view_z(sample_depth) / ray_dir.w * settings.scene_units_to_m;
+    for (var slice_i: u32 = 0; slice_i < settings.aerial_view_lut_size.z; slice_i++) {
+        for (var step_i: u32 = 0; step_i < settings.aerial_view_lut_samples; step_i++) {
+            let t_i = t_max * (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
             let dt = (t_i - prev_t);
             prev_t = t_i;
 
@@ -51,7 +45,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
             // evaluate one segment of the integral
             var inscattering = sample_local_inscattering(local_atmosphere, ray_dir.xyz, local_r, local_up);
-            
+
             // Analytical integration of the single scattering term in the radiance transfer equation
             let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
             total_inscattering += throughput * s_int;
@@ -60,16 +54,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             if all(throughput < vec3(0.001)) {
                 break;
             }
-
-            sum_transmittance += throughput.r + throughput.g + throughput.b;
         }
-        //We only have one channel to store transmittance, so we store the mean 
-        let mean_transmittance = sum_transmittance / (f32(settings.aerial_view_lut_samples) * 3.0);
-        textureStore(aerial_view_lut_out, vec3(vec2<i32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
+        //We only have one channel to store transmittance, so we store the mean
+        let mean_transmittance = (throughput.r + throughput.g + throughput.b) / 3.0;
+        textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(total_inscattering, mean_transmittance));
     }
-}
-
-// linearly interpolates from 0..1 on the domain of slice_i, using step_i as a substep index
-fn depth_at_sample(slice_i: i32, step_i: i32) -> f32 {
-    return (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
 }
