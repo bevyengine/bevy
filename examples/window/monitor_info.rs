@@ -73,7 +73,7 @@ fn update(
                 width: Val::Percent(100.0),
                 ..default()
             },
-            TargetCamera(camera),
+            UiTargetCamera(camera),
             MonitorRef(entity),
         ));
     }
