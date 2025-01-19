@@ -3,16 +3,13 @@
 //! (which enables transform and visibility propagation),
 //! you can define your own relationships using components.
 //!
-//! Every relationship has two sides: the source and the target.
-//! The source is the entity that has the relationship with the target,
-//! while the target keeps track of all the entities that have a relationship with it.
-//! For the standard hierarchy, the source is stored in the [`Parent`] component,
-//! while the target is stored in the [`Children`] component.
-//!
 //! We can define a custom relationship by creating two components:
-//! one to store "what is being targeted" and another to store "what is targeting."
-//! In this example we're using the literal names [`Targeting`] and [`TargetedBy`],
-//! as games often have units that target other units in combat.
+//! one to store the relationship itself, and another to keep track of the reverse relationship.
+//! Bevy's [`Parent`] component implements the [`Relationship`] trait, serving as the source of truth,
+//! while the [`Children`] component implements the [`RelationshipTarget`] trait and is used to accelerate traversals down the hierarchy.
+//!
+//! In this example we're creating a [`Targeting`]/[`TargetedBy`] relationship,
+//! demonstrating how you might model units which target a single unit in combat.
 
 use bevy::ecs::entity::EntityHashSet;
 use bevy::ecs::system::RunSystemOnce;
