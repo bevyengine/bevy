@@ -1,4 +1,7 @@
 //! In this example, we use a system to print diagnostic information about the world.
+//!
+//! This includes information about which components, bundles, and systems are registered,
+//! as well as the order that systems will run in.
 
 #![expect(
     missing_docs,
@@ -52,17 +55,22 @@ pub enum ScheduleLabel {
 }
 
 /// A special label for diagnostic.
-/// If the diagnostic system running in a commonly used label, like the ones
-/// defined as `bevy_app::CoreSchedule`, it is not able to get the corresponding
-/// [`Schedule`] instance. ([`World::run_schedule_ref`] for reference)
+/// If a system has a commonly used label, like [`bevy_app::CoreSchedule`] it is not able to get
+/// the corresponding [`Schedule`] instance and can't be inspected.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct DiagnosticLabel;
 
 /// World diagnostic example.
-/// You can also use [`World::diagnose`] which does not require mutable access.
 fn diagnostic_world_system(world: &mut World) {
     println!("{}", world.diagnose_with_flattened().unwrap());
 }
+
+// If you do not have mutable access, you can also use [`World::diagnose`].
+// This version will not include a flattened representation.
+//
+// fn diagnostic_world_system(world: &World) {
+//     println!("{}", world.diagnose().unwrap());
+// }
 
 // In this example, we add a counter resource and increase its value in one system,
 // while a different system prints debug information about the world.
