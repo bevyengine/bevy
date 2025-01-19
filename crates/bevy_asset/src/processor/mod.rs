@@ -56,7 +56,9 @@ use crate::{
     AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
     MissingAssetLoaderForExtensionError,
 };
-use alloc::{collections::VecDeque, sync::Arc};
+use alloc::{
+    borrow::ToOwned, boxed::Box, collections::VecDeque, string::ToString, sync::Arc, vec, vec::Vec,
+};
 use bevy_ecs::prelude::*;
 #[cfg(feature = "trace")]
 use bevy_tasks::ConditionalSendFuture;

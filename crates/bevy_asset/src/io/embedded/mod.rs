@@ -8,6 +8,7 @@ use crate::io::{
     memory::{Dir, MemoryAssetReader, Value},
     AssetSource, AssetSourceBuilders,
 };
+use alloc::{borrow::ToOwned, boxed::Box};
 use bevy_ecs::system::Resource;
 use std::path::{Path, PathBuf};
 

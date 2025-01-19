@@ -1,4 +1,9 @@
 use crate::AssetPath;
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use async_fs::File;
 use bevy_utils::HashSet;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};

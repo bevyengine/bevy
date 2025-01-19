@@ -2,7 +2,7 @@ use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
 };
-use alloc::sync::Arc;
+use alloc::{boxed::Box, string::ToString, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
 #[cfg(feature = "trace")]
 use bevy_tasks::ConditionalSendFuture;
@@ -338,6 +338,7 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{format, string::String};
     use core::marker::PhantomData;
     use std::{
         path::Path,
