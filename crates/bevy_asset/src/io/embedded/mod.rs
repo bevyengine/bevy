@@ -33,7 +33,7 @@ impl EmbeddedAssetRegistry {
     /// Inserts a new asset. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
-    /// or a [`Vec<u8>`].
+    /// or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
@@ -52,7 +52,7 @@ impl EmbeddedAssetRegistry {
     /// Inserts new asset metadata. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
-    /// or a [`Vec<u8>`].
+    /// or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
