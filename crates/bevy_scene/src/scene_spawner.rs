@@ -3,7 +3,7 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     event::{Event, EventCursor, Events},
-    hierarchy::Parent,
+    hierarchy::ChildOf,
     reflect::AppTypeRegistry,
     system::Resource,
     world::{Mut, World},
@@ -377,7 +377,7 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for &entity in instance.entity_map.values() {
-                    // Add the `Parent` component to the scene root, and update the `Children` component of
+                    // Add the `ChildOf` component to the scene root, and update the `Children` component of
                     // the scene parent
                     if !world
                         .get_entity(entity)
@@ -386,7 +386,7 @@ impl SceneSpawner {
                         // scene have a parent
                         // Entities that wouldn't exist anymore are also skipped
                         // this case shouldn't happen anyway
-                        .is_none_or(|entity| entity.contains::<Parent>())
+                        .is_none_or(|entity| entity.contains::<ChildOf>())
                     {
                         world.entity_mut(parent).add_child(entity);
                     }

@@ -35,7 +35,7 @@ impl Clips {
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
     targets: Query<(Entity, &AnimationTarget)>,
-    parents: Query<&Parent>,
+    children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
@@ -107,7 +107,7 @@ fn assign_clips(
                 }
 
                 // Go to the next parent.
-                current = parents.get(entity).ok().map(Parent::get);
+                current = children.get(entity).ok().map(ChildOf::get);
             }
         }
 

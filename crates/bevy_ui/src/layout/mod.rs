@@ -107,7 +107,7 @@ pub fn ui_layout_system(
         Option<&mut ContentSize>,
         Option<&TargetCamera>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
+    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
@@ -844,7 +844,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<Parent>>()
+            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,

@@ -61,22 +61,22 @@ fn rotate(
     mut parents_query: Query<(Entity, &Children), With<Sprite>>,
     mut transform_query: Query<&mut Transform, With<Sprite>>,
 ) {
-    for (parent, children) in &mut parents_query {
+    for (parent, parent_of) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
             transform.rotate_z(-PI / 2. * time.delta_secs());
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
-        // Alternatively, you could query entities that have a Parent component
-        for child in children {
+        // Alternatively, you could query entities that have a ChildOf component
+        for child in parent_of {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
                 transform.rotate_z(PI * time.delta_secs());
             }
         }
 
         // To demonstrate removing children, we'll remove a child after a couple of seconds.
-        if time.elapsed_secs() >= 2.0 && children.len() == 2 {
-            let child = children.last().unwrap();
+        if time.elapsed_secs() >= 2.0 && parent_of.len() == 2 {
+            let child = parent_of.last().unwrap();
             commands.entity(*child).despawn();
         }
 
