@@ -74,7 +74,7 @@ fn play_animation_when_ready(
         // The SceneRoot component will have spawned the scene as a hierarchy
         // of entities parented to our entity. Since the asset contained a skinned
         // mesh and animations, it will also have spawned an animation player
-        // component. Search our entity's descendents to find the animation player.
+        // component. Search our entity's descendants to find the animation player.
         for child in children.iter_descendants(trigger.target()) {
             if let Ok(mut player) = players.get_mut(child) {
                 // Tell the animation player to start the animation and keep
