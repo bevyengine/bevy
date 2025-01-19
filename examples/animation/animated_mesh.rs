@@ -43,23 +43,25 @@ fn setup_mesh_and_animation(
     // Store the animation graph as an asset.
     let graph_handle = graphs.add(graph);
 
-    // Create a SceneRoot component that will spawn our mesh after it has loaded.
-    let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
-
     // Create a component that stores a reference to our animation.
     let animation_to_play = AnimationToPlay {
         graph_handle,
         index,
     };
 
-    // Spawn an entity with our components and connect it to our
-    // play_animation_once_loaded trigger.
+    // Start loading the asset as a scene and store a reference to it in a
+    // SceneRoot component. This component will automatically spawn a scene
+    // containing our mesh once it has loaded.
+    let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
+
+    // Spawn an entity with our components, and connect it to an observer that
+    // will trigger when the scene is loaded and spawned.
     commands
-        .spawn((mesh_scene, animation_to_play))
-        .observe(play_animation_once_loaded);
+        .spawn((animation_to_play, mesh_scene))
+        .observe(play_animation_when_ready);
 }
 
-fn play_animation_once_loaded(
+fn play_animation_when_ready(
     trigger: Trigger<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
@@ -69,9 +71,10 @@ fn play_animation_once_loaded(
     // The entity we spawned in `setup_mesh_and_animation` is the trigger's target.
     // Start by finding the AnimationToPlay component we added to that entity.
     if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
-        // The SceneRoot component will have spawned the mesh and an animation
-        // player as a descendent of our entity. Search the descendents to find
-        // the animation player.
+        // The SceneRoot component will have spawned the scene as a hierarchy
+        // of entities parented to our entity. Since the asset contained a skinned
+        // mesh and animations, it will also have spawned an animation player
+        // component. Search our entity's descendents to find the animation player.
         for child in children.iter_descendants(trigger.target()) {
             if let Ok(mut player) = players.get_mut(child) {
                 // Tell the animation player to start the animation and keep
