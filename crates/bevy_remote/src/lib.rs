@@ -435,7 +435,7 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_watching_request,
             )
             .with_method(
-                builtin_methods::BRP_LIST_RESOURCES_METHOD,
+                builtin_methods::BRP_GET_RESOURCE_METHOD,
                 builtin_methods::process_remote_get_resource_request,
             )
             .with_method(
