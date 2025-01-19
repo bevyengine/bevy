@@ -22,11 +22,13 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
+|bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
+|bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
@@ -60,9 +62,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
 |bevy_image|Load and access image data. Usually added by an image format|
-|bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_remote|Enable the Bevy Remote Protocol|
-|bevy_sprite_picking_backend|Provides an implementation for picking sprites|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
