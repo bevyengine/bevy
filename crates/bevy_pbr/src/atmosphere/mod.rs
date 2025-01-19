@@ -312,18 +312,18 @@ pub struct Atmosphere {
 
 impl Atmosphere {
     pub const EARTH: Atmosphere = Atmosphere {
-        bottom_radius: 6.360e6,
-        top_radius: 6.460e6,
+        bottom_radius: 6_360_000.0,
+        top_radius: 6_460_000.0,
         ground_albedo: Vec3::splat(0.3),
-        rayleigh_density_exp_scale: 1.25e-4,
-        rayleigh_scattering: Vec3::new(5.802e-6, 1.3558e-5, 3.310e-5),
-        mie_density_exp_scale: 8.3333e-4,
+        rayleigh_density_exp_scale: 1.0 / 8_000.0,
+        rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
+        mie_density_exp_scale: 1.0 / 1_200.0,
         mie_scattering: 3.996e-6,
-        mie_absorption: 4.440e-7,
+        mie_absorption: 0.444e-6,
         mie_asymmetry: 0.8,
-        ozone_layer_altitude: 2.5e4,
-        ozone_layer_width: 3.0e4,
-        ozone_absorption: Vec3::new(6.50e-7, 1.881e-6, 8.50e-8),
+        ozone_layer_altitude: 25_000.0,
+        ozone_layer_width: 30_000.0,
+        ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
     };
 
     pub fn with_density_multiplier(mut self, mult: f32) -> Self {
