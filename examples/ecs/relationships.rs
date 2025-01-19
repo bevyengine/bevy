@@ -14,6 +14,7 @@
 //! In this example we're using the literal names [`Targeting`] and [`TargetedBy`],
 //! as games often have units that target other units in combat.
 
+use bevy::ecs::entity::EntityHashSet;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 
@@ -108,4 +109,56 @@ fn main() {
     }
 
     world.run_system_once(debug_relationships).unwrap();
+
+    // Systems can return errors,
+    // which can be used to signal that something went wrong during the system's execution.
+    #[derive(Debug)]
+    struct TargetingCycle {
+        initial_entity: Entity,
+        visited: EntityHashSet,
+    }
+
+    /// Bevy's relationships come with all sorts of useful methods for traversal.
+    /// Here, we're going to look for cycles using a depth-first search.
+    fn check_for_cycles(
+        // We want to check every entity for cycles
+        query_to_check: Query<(Entity, &Name), With<Targeting>>,
+        // The targeting_query allows us to traverse the relationship graph.
+        targeting_query: Query<&Targeting>,
+    ) -> Result<(), TargetingCycle> {
+        for (initial_entity, initial_entity_name) in query_to_check.iter() {
+            println!("Checking for cycles starting from {initial_entity_name}...",);
+            let mut visited = EntityHashSet::new();
+            let mut targeting_name = initial_entity_name;
+
+            // There's all sorts of methods like this; check the `Query` docs for more!
+            // This would also be easy to do by just manually checking the `Targeting` component,
+            // and calling `query.get(targeted_entity)` on the entity that it targets in a loop.
+            for targeting in targeting_query.iter_ancestors(initial_entity) {
+                let target_name = query_to_check.get(targeting).unwrap().1;
+                println!("{targeting_name} is targeting {target_name}",);
+                targeting_name = target_name;
+
+                if visited.contains(&targeting) {
+                    return Err(TargetingCycle {
+                        initial_entity,
+                        visited,
+                    });
+                } else {
+                    visited.insert(targeting);
+                }
+            }
+        }
+
+        // If we've checked all the entities and haven't found a cycle, we're good!
+        Ok(())
+    }
+
+    // Calling `world.run_system_once` on systems which return Results gives us two layers of errors:
+    // the first checks if running the system failed, and the second checks if the system itself returned an error.
+    // We're unwrapping the first, but checking the output of the system itself.
+    let cycle_result = world.run_system_once(check_for_cycles).unwrap();
+    println!("{:?}", cycle_result);
+    // We deliberately introduced a cycle during spawning!
+    assert!(cycle_result.is_err());
 }
