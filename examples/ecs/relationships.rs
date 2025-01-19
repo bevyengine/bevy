@@ -3,7 +3,7 @@
 //! (which enables transform and visibility propagation),
 //! you can define your own relationships using components.
 //!
-//! Every relation has two sides: the source and the target.
+//! Every relationship has two sides: the source and the target.
 //! The source is the entity that has the relationship with the target,
 //! while the target keeps track of all the entities that have a relationship with it.
 //! For the standard hierarchy, the source is stored in the [`Parent`] component,
