@@ -20,9 +20,9 @@ fn main() {
         .run();
 }
 
-// A component that records what animation we want to play. This is created when
-// we start loading the mesh (see `setup_mesh_and_animation`) and read when
-// the mesh is spawned (see `play_animation_once_loaded`).
+// A component that stores a reference to an animation we want to play. This is
+// created when we start loading the mesh (see `setup_mesh_and_animation`) and
+// read when the mesh has spawned (see `play_animation_once_loaded`).
 #[derive(Component)]
 struct AnimationToPlay {
     graph_handle: Handle<AnimationGraph>,
@@ -40,14 +40,13 @@ fn setup_mesh_and_animation(
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
     );
 
-    // Register the animation graph as an asset.
+    // Store the animation graph as an asset.
     let graph_handle = graphs.add(graph);
 
     // Create a SceneRoot component that will spawn our mesh after it has loaded.
     let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
 
-    // Create a component that records which animation we want to play on the
-    // mesh once it has spawned.
+    // Create a component that stores a reference to our animation.
     let animation_to_play = AnimationToPlay {
         graph_handle,
         index,
