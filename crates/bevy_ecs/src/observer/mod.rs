@@ -141,6 +141,12 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     pub fn get_propagate(&self) -> bool {
         *self.propagate
     }
+
+    /// Returns the source code location that triggered this observer.
+    #[cfg(feature = "track_location")]
+    pub fn caller(&self) -> &'static Location<'static> {
+        self.trigger.caller
+    }
 }
 
 impl<'w, E: Debug, B: Bundle> Debug for Trigger<'w, E, B> {
@@ -1604,7 +1610,7 @@ mod tests {
         let caller = Location::caller();
         let mut world = World::new();
         world.add_observer(move |trigger: Trigger<EventA>| {
-            assert_eq!(trigger.trigger.caller, caller);
+            assert_eq!(trigger.caller(), caller);
         });
         world.trigger(EventA);
     }
@@ -1619,10 +1625,10 @@ mod tests {
         let caller = Location::caller();
         let mut world = World::new();
         world.add_observer(move |trigger: Trigger<OnAdd, Component>| {
-            assert_eq!(trigger.trigger.caller, caller);
+            assert_eq!(trigger.caller(), caller);
         });
         world.add_observer(move |trigger: Trigger<OnRemove, Component>| {
-            assert_eq!(trigger.trigger.caller, caller);
+            assert_eq!(trigger.caller(), caller);
         });
         world.commands().spawn(Component).clear();
         world.flush();
