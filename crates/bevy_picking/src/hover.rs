@@ -118,7 +118,7 @@ fn build_over_map(
     let cancelled_pointers: HashSet<PointerId> = pointer_input
         .read()
         .filter_map(|p| {
-            if let PointerAction::Canceled = p.action {
+            if let PointerAction::Cancel = p.action {
                 Some(p.pointer_id)
             } else {
                 None
