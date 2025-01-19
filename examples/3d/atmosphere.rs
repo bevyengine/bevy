@@ -25,6 +25,7 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
+        Exposure { ev100: 11.0 },
         Camera {
             hdr: true,
             ..default()
@@ -35,7 +36,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Bloom::NATURAL,
         Atmosphere::EARTH,
         AtmosphereSettings {
-            scene_units_to_km: 1.0,
+            scene_units_to_m: 1e+3,
             ..Default::default()
         },
     ));

@@ -32,7 +32,7 @@ struct AtmosphereSettings {
     multiscattering_lut_samples: u32,
     sky_view_lut_samples: u32,
     aerial_view_lut_samples: u32,
-    scene_units_to_km: f32,
+    scene_units_to_m: f32,
 }
 
 

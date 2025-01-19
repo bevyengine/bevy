@@ -256,9 +256,9 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
-/// Assuming y=0 is the planet ground, returns the view radius in kilometers
+/// Assuming y=0 is the planet ground, returns the view radius in meters
 fn view_radius() -> f32 {
-    return view.world_position.y * settings.scene_units_to_km + atmosphere.bottom_radius;
+    return view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
