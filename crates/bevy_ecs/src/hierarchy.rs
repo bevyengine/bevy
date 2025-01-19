@@ -1,5 +1,5 @@
 //! The canonical "parent-child" [`Relationship`] for entities, driven by
-//! the [`ChildOf`] [`Relationship`] and the [`Children`] [`RelationshipTarget`].
+//! the [`ChildOf`] [`Relationship`] and the [`ParentOf`] [`RelationshipTarget`].
 //!
 //! See [`ChildOf`] for a full description of the relationship and how to use it.
 //!
@@ -29,7 +29,7 @@ use log::warn;
 
 /// A [`Relationship`](crate::relationship::Relationship) component that creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
-/// the [`Children`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
+/// the [`ParentOf`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
 ///
 /// This relationship should be used for things like:
 ///
@@ -39,14 +39,14 @@ use log::warn;
 /// 4.
 ///
 /// [`ChildOf`] contains a single "target" [`Entity`]. When [`ChildOf`] is inserted on a "source" entity,
-/// the "target" entity will automatically (and immediately, via a component hook) have a [`Children`]
-/// component inserted, and the "source" entity will be added to that [`Children`] instance.
+/// the "target" entity will automatically (and immediately, via a component hook) have a [`ParentOf`]
+/// component inserted, and the "source" entity will be added to that [`ParentOf`] instance.
 ///
-/// If the [`ChildOf`] component is replaced with a different "target" entity, the old target's [`Children`]
+/// If the [`ChildOf`] component is replaced with a different "target" entity, the old target's [`ParentOf`]
 /// will be automatically (and immediately, via a component hook) be updated to reflect that change.
 ///
 /// Likewise, when the [`ChildOf`] component is removed, the "source" entity will be removed from the old
-/// target's [`Children`]. If this results in [`Children`] being empty, [`Children`] will be automatically removed.
+/// target's [`ParentOf`]. If this results in [`ParentOf`] being empty, [`ParentOf`] will be automatically removed.
 ///
 /// When a parent is despawned, all children (and their descendants) will _also_ be despawned.
 ///
@@ -60,11 +60,11 @@ use log::warn;
 /// let child2 = world.spawn(ChildOf(root)).id();
 /// let grandchild = world.spawn(ChildOf(child1)).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(&**world.entity(root).get::<ParentOf>().unwrap(), &[child1, child2]);
+/// assert_eq!(&**world.entity(child1).get::<ParentOf>().unwrap(), &[grandchild]);
 ///
 /// world.entity_mut(child2).remove::<ChildOf>();
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1]);
+/// assert_eq!(&**world.entity(root).get::<ParentOf>().unwrap(), &[child1]);
 ///
 /// world.entity_mut(root).despawn();
 /// assert!(world.get_entity(root).is_err());
@@ -87,8 +87,8 @@ use log::warn;
 ///     child2 = p.spawn_empty().id();
 /// }).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(&**world.entity(root).get::<ParentOf>().unwrap(), &[child1, child2]);
+/// assert_eq!(&**world.entity(child1).get::<ParentOf>().unwrap(), &[grandchild]);
 /// ```
 #[derive(Component, Clone, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -104,7 +104,7 @@ use log::warn;
         FromWorld
     )
 )]
-#[relationship(relationship_target = Children)]
+#[relationship(relationship_target = ParentOf)]
 pub struct ChildOf(pub Entity);
 
 impl ChildOf {
@@ -146,9 +146,9 @@ impl FromWorld for ChildOf {
     feature = "bevy_reflect",
     reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut, FromWorld)
 )]
-pub struct Children(Vec<Entity>);
+pub struct ParentOf(Vec<Entity>);
 
-impl<'a> IntoIterator for &'a Children {
+impl<'a> IntoIterator for &'a ParentOf {
     type Item = <Self::IntoIter as Iterator>::Item;
 
     type IntoIter = slice::Iter<'a, Entity>;
@@ -159,7 +159,7 @@ impl<'a> IntoIterator for &'a Children {
     }
 }
 
-impl Deref for Children {
+impl Deref for ParentOf {
     type Target = [Entity];
 
     fn deref(&self) -> &Self::Target {
@@ -297,7 +297,7 @@ pub fn validate_parent_has_component<C: Component>(
 mod tests {
     use crate::{
         entity::Entity,
-        hierarchy::{ChildOf, Children},
+        hierarchy::{ChildOf, ParentOf},
         relationship::RelationshipTarget,
         world::World,
     };
@@ -327,7 +327,7 @@ mod tests {
             entity,
             children: world
                 .entity(entity)
-                .get::<Children>()
+                .get::<ParentOf>()
                 .map_or_else(Default::default, |c| {
                     c.iter().map(|e| get_hierarchy(world, e)).collect()
                 }),

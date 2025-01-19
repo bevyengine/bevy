@@ -14,7 +14,7 @@ fn main() {
 
 fn move_sprite(
     time: Res<Time>,
-    mut sprite: Query<&mut Transform, (Without<Sprite>, With<Children>)>,
+    mut sprite: Query<&mut Transform, (Without<Sprite>, With<ParentOf>)>,
 ) {
     let t = time.elapsed_secs() * 0.1;
     for mut transform in &mut sprite {

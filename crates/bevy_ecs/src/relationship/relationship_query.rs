@@ -62,9 +62,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     {
         self.iter_descendants_depth_first(entity).filter(|entity| {
             self.get(*entity)
-                // These are leaf nodes if they have the `Children` component but it's empty
+                // These are leaf nodes if they have the `ParentOf` component but it's empty
                 .map(|children| children.len() == 0)
-                // Or if they don't have the `Children` component at all
+                // Or if they don't have the `ParentOf` component at all
                 .unwrap_or(true)
         })
     }

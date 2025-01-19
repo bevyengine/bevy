@@ -29,7 +29,7 @@ use log::warn;
 /// not already exist, and the "source" entity is automatically added to the [`RelationshipTarget`] collection (this is done via "component hooks").
 ///
 /// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`ChildOf`](crate::hierarchy::ChildOf)
-/// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipTarget`].
+/// [`Relationship`] and the [`ParentOf`](crate::hierarchy::ParentOf) [`RelationshipTarget`].
 ///
 /// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
 ///
@@ -37,12 +37,12 @@ use log::warn;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
-/// #[relationship(relationship_target = Children)]
+/// #[relationship(relationship_target = ParentOf)]
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
 /// #[relationship_target(relationship = ChildOf)]
-/// pub struct Children(Vec<Entity>);
+/// pub struct ParentOf(Vec<Entity>);
 /// ```
 ///
 /// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(despawn_descendants)]` attribute to
@@ -52,12 +52,12 @@ use log::warn;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
-/// #[relationship(relationship_target = Children)]
+/// #[relationship(relationship_target = ParentOf)]
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
 /// #[relationship_target(relationship = ChildOf, despawn_descendants)]
-/// pub struct Children(Vec<Entity>);
+/// pub struct ParentOf(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"

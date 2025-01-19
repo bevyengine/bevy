@@ -45,19 +45,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn joint_animation(
     time: Res<Time>,
     children: Query<&ChildOf, With<SkinnedMesh>>,
-    parents: Query<&Children>,
+    parents: Query<&ParentOf>,
     mut transform_query: Query<&mut Transform>,
 ) {
     // Iter skinned mesh entity
     for child_of in &children {
         // Mesh node is the parent of the skinned mesh entity.
         let mesh_node_entity = child_of.get();
-        // Get `Children` in the mesh node.
+        // Get `ParentOf` in the mesh node.
         let mesh_node_parent = parents.get(mesh_node_entity).unwrap();
 
         // First joint is the second child of the mesh node.
         let first_joint_entity = mesh_node_parent[1];
-        // Get `Children` in the first joint.
+        // Get `ParentOf` in the first joint.
         let first_joint_parent_of = parents.get(first_joint_entity).unwrap();
 
         // Second joint is the first child of the first joint.

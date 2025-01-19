@@ -262,8 +262,8 @@ fn update_buttons(
         Changed<Interaction>,
     >,
     mut bar_node: Single<&mut Node, With<Bar>>,
-    mut text_query: Query<&mut TextColor>,
-    children_query: Query<&Children>,
+    mut text_colors: Query<&mut TextColor>,
+    parents: Query<&ParentOf>,
     mut button_activated_event: EventWriter<ButtonActivatedEvent>,
 ) {
     for (button_id, interaction, constraint, value) in button_query.iter_mut() {
@@ -286,11 +286,11 @@ fn update_buttons(
                 }
             }
             Interaction::Hovered => {
-                if let Ok(children) = children_query.get(button_id) {
+                if let Ok(children) = parents.get(button_id) {
                     for &child in children {
-                        if let Ok(grand_children) = children_query.get(child) {
+                        if let Ok(grand_children) = parents.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
+                                if let Ok(mut text_color) = text_colors.get_mut(grandchild) {
                                     if text_color.0 != ACTIVE_TEXT_COLOR {
                                         text_color.0 = HOVERED_TEXT_COLOR;
                                     }
@@ -301,11 +301,11 @@ fn update_buttons(
                 }
             }
             Interaction::None => {
-                if let Ok(children) = children_query.get(button_id) {
-                    for &child in children {
-                        if let Ok(grand_children) = children_query.get(child) {
+                if let Ok(parent_of) = parents.get(button_id) {
+                    for &child in parent_of {
+                        if let Ok(grand_children) = parents.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
+                                if let Ok(mut text_color) = text_colors.get_mut(grandchild) {
                                     if text_color.0 != ACTIVE_TEXT_COLOR {
                                         text_color.0 = UNHOVERED_TEXT_COLOR;
                                     }
@@ -325,7 +325,7 @@ fn update_radio_buttons_colors(
     mut border_query: Query<&mut BorderColor>,
     mut color_query: Query<&mut BackgroundColor>,
     mut text_query: Query<&mut TextColor>,
-    children_query: Query<&Children>,
+    children_query: Query<&ParentOf>,
 ) {
     for &ButtonActivatedEvent(button_id) in event_reader.read() {
         let (_, target_constraint, _) = button_query.get(button_id).unwrap();

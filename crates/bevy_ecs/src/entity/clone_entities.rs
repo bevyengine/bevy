@@ -18,7 +18,7 @@ use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
     entity::Entity,
-    hierarchy::{ChildOf, Children},
+    hierarchy::{ChildOf, ParentOf},
     query::DebugCheckedUnwrap,
     world::{DeferredWorld, World},
 };
@@ -626,11 +626,11 @@ impl<'w> EntityCloneBuilder<'w> {
     /// When set to true all children will be cloned with the same options as the parent.
     pub fn recursive(&mut self, recursive: bool) -> &mut Self {
         if recursive {
-            self.override_component_clone_handler::<Children>(
+            self.override_component_clone_handler::<ParentOf>(
                 ComponentCloneHandler::custom_handler(component_clone_children),
             )
         } else {
-            self.remove_component_clone_handler_override::<Children>()
+            self.remove_component_clone_handler_override::<ParentOf>()
         }
     }
 
@@ -686,11 +686,11 @@ impl<'w> EntityCloneBuilder<'w> {
     }
 }
 
-/// Clone handler for the [`Children`] component. Allows to clone the entity recursively.
+/// Clone handler for the [`ParentOf`] component. Allows to clone the entity recursively.
 fn component_clone_children(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
     let children = ctx
-        .read_source_component::<Children>()
-        .expect("Source entity must have Children component")
+        .read_source_component::<ParentOf>()
+        .expect("Source entity must have ParentOf component")
         .iter();
     let parent = ctx.target();
     for child in children {

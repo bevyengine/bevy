@@ -281,13 +281,13 @@ mod animation {
 
     fn pause_animation_frame(
         trigger: Trigger<SceneInstanceReady>,
-        children: Query<&Children>,
+        parents: Query<&ParentOf>,
         mut commands: Commands,
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        let entity = children.get(trigger.target()).unwrap()[0];
-        let entity = children.get(entity).unwrap()[0];
+        let entity = parents.get(trigger.target()).unwrap()[0];
+        let entity = parents.get(entity).unwrap()[0];
 
         let (entity, mut player) = players.get_mut(entity).unwrap();
         let mut transitions = AnimationTransitions::new();

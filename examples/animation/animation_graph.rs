@@ -418,13 +418,13 @@ fn handle_weight_drag(
 fn update_ui(
     mut text_query: Query<&mut Text>,
     mut background_query: Query<&mut Node, Without<Text>>,
-    container_query: Query<(&Children, &ClipNode)>,
+    container_query: Query<(&ParentOf, &ClipNode)>,
     animation_weights_query: Query<&ExampleAnimationWeights, Changed<ExampleAnimationWeights>>,
 ) {
     for animation_weights in animation_weights_query.iter() {
-        for (children, clip_node) in &container_query {
+        for (parent_of, clip_node) in &container_query {
             // Draw the green background color to visually indicate the weight.
-            let mut bg_iter = background_query.iter_many_mut(children);
+            let mut bg_iter = background_query.iter_many_mut(parent_of);
             if let Some(mut node) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
                 node.width =
@@ -432,7 +432,7 @@ fn update_ui(
             }
 
             // Update the node labels with the current weights.
-            let mut text_iter = text_query.iter_many_mut(children);
+            let mut text_iter = text_query.iter_many_mut(parent_of);
             if let Some(mut text) = text_iter.fetch_next() {
                 **text = format!(
                     "{}\n{:.2}",

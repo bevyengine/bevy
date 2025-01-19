@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn rotate(
     mut commands: Commands,
     time: Res<Time>,
-    mut parents_query: Query<(Entity, &Children), With<Sprite>>,
+    mut parents_query: Query<(Entity, &ParentOf), With<Sprite>>,
     mut transform_query: Query<&mut Transform, With<Sprite>>,
 ) {
     for (parent, parent_of) in &mut parents_query {
@@ -66,7 +66,7 @@ fn rotate(
             transform.rotate_z(-PI / 2. * time.delta_secs());
         }
 
-        // To iterate through the entities children, just treat the Children component as a Vec
+        // To iterate through the entities children, just treat the ParentOf component as a Vec
         // Alternatively, you could query entities that have a ChildOf component
         for child in parent_of {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
