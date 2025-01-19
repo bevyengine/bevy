@@ -26,7 +26,6 @@ pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
@@ -356,7 +355,6 @@ mod tests {
     use bevy_ecs::{
         component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
     };
-    use bevy_hierarchy::BuildChildren;
     use bevy_input::{
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,

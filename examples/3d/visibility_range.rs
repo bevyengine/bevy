@@ -187,7 +187,7 @@ fn set_visibility_ranges(
                 break;
             }
             match parent {
-                Some(parent) => current = **parent,
+                Some(parent) => current = parent.0,
                 None => break,
             }
         }
