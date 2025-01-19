@@ -29,7 +29,7 @@ use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    hierarchy::{ParentOf, ChildOf},
+    hierarchy::{ChildOf, ParentOf},
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
