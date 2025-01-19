@@ -138,7 +138,7 @@ fn main() {
     #[derive(Debug)]
     #[expect(
         dead_code,
-        reason = "This error struct is only used for debugging in this example."
+        reason = "Rust considers types that are only used by their debug trait as dead code."
     )]
     struct TargetingCycle {
         initial_entity: Entity,
