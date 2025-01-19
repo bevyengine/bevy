@@ -2,6 +2,10 @@
 
 #import bevy_render::maths::{PI, HALF_PI};
 
+// This file includes fast approximations of common irrational and trig functions. These
+// are likely most useful when raymarching, for example, where total numeric accuracy can
+// be sacrificed for greater sample count.
+
 fn fast_sqrt(x: f32) -> f32 {
     return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
 }
