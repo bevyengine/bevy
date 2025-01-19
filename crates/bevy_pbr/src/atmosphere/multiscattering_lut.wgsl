@@ -25,7 +25,7 @@ fn s2_sequence(n: u32) -> vec2<f32> {
     return fract(0.5 + f32(n) * PHI_2);
 }
 
-//Lambert equal-area projection. 
+// Lambert equal-area projection. 
 fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
     let phi = PI_2 * uv.y;
     let sin_lambda = 2 * uv.x - 1;
@@ -57,42 +57,15 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     workgroupBarrier();
 
-    // Parallel reduction
-    if global_id.z < 32u {
-        MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 32u];
-        LSharedMem[global_id.z] += LSharedMem[global_id.z + 32u];
+    // Parallel reduction bitshift to the right to divide by 2 each step
+    for (var step = 32u; step > 0u; step >>= 1u) {
+        if global_id.z < step {
+            MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + step];
+            LSharedMem[global_id.z] += LSharedMem[global_id.z + step];
+        }
+        workgroupBarrier();
     }
-    workgroupBarrier();
 
-    if global_id.z < 16u {
-        MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 16u];
-        LSharedMem[global_id.z] += LSharedMem[global_id.z + 16u];
-    }
-    workgroupBarrier();
-
-    if global_id.z < 8u {
-        MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 8u];
-        LSharedMem[global_id.z] += LSharedMem[global_id.z + 8u];
-    }
-    workgroupBarrier();
-
-    if global_id.z < 4u {
-        MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 4u];
-        LSharedMem[global_id.z] += LSharedMem[global_id.z + 4u];
-    }
-    workgroupBarrier();
-
-    if global_id.z < 2u {
-        MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 2u];
-        LSharedMem[global_id.z] += LSharedMem[global_id.z + 2u];
-    }
-    workgroupBarrier();
-
-    if global_id.z < 1u {
-        MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + 1u];
-        LSharedMem[global_id.z] += LSharedMem[global_id.z + 1u];
-    }
-    workgroupBarrier();
     if global_id.z > 0u {
         return;
     }

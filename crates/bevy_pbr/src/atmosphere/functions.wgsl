@@ -159,17 +159,17 @@ fn henyey_greenstein(neg_LdotV: f32) -> f32 {
 // ATMOSPHERE SAMPLING
 
 struct AtmosphereSample {
-    /// units: km^-1
+    /// units: m^-1
     rayleigh_scattering: vec3<f32>,
 
-    /// units: km^-1
+    /// units: m^-1
     mie_scattering: f32,
 
     /// the sum of scattering and absorption. Since the phase function doesn't
     /// matter for this, we combine rayleigh and mie extinction to a single 
     //  value.
     //
-    /// units: km^-1
+    /// units: m^-1
     extinction: vec3<f32>
 }
 
@@ -234,7 +234,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
     return inscattering * view.exposure;
 }
 
-const SUN_ANGULAR_SIZE: f32 = 0.0174533 ; //angular diameter of sun in radians
+const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
 
 fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> vec3<f32> {
     var sun_illuminance = vec3(0.0);
@@ -265,13 +265,13 @@ fn view_radius() -> f32 {
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
-// t = distance along view ray (km)
-//NOTE: this means that if your world is actually spherical, this will be wrong.
+// t = distance along view ray in atmosphere space
+// NOTE: this means that if your world is actually spherical, this will be wrong.
 fn get_local_up(r: f32, t: f32, ray_dir: vec3<f32>) -> vec3<f32> {
     return normalize(vec3(0.0, r, 0.0) + t * ray_dir);
 }
 
-// given a ray starting at radius r, with mu = cos(zenith angle),
+// Given a ray starting at radius r, with mu = cos(zenith angle),
 // and a t = distance along the ray, gives the new radius at point t
 fn get_local_r(r: f32, mu: f32, t: f32) -> f32 {
     return sqrt(t * t + 2.0 * r * mu * t + r * r);
@@ -311,8 +311,8 @@ fn direction_view_to_world(view_dir: vec3<f32>) -> vec3<f32> {
     return world_dir.xyz;
 }
 
-//Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
-//w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
+// Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
+// w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
 fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
     // breaks down at large translations. This code only needs to know the ray direction.
