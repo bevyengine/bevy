@@ -652,7 +652,7 @@ impl Dag {
         &self.topsort
     }
 
-    /// Returns a string containing information about the Dag.
+    /// Returns a string containing node and edge information about the [`Dag`].
     pub fn diagnose(
         &self,
         prefix: &str,
