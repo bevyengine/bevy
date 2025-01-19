@@ -142,32 +142,38 @@ macro_rules! define_label {
             }
         }
 
-        #[expect(clippy::allow_attributes, reason = "Expect would break upon stabilization")]
-        #[allow(unknown_or_malformed_diagnostic_attributes,
-            reason = "do_not_recommend is not stable yet"
-        )]
-        #[diagnostic::do_not_recommend]
-        impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
+        const _: () = {
+            #[expect(clippy::allow_attributes, reason = "Expect would break upon stabilization")]
+            #[allow(unknown_or_malformed_diagnostic_attributes,
+                reason = "do_not_recommend is not stable yet"
+            )]
+            mod with_lint_workaround {
+                use super::*;
 
-            $($interned_extra_methods_impl)*
+                #[diagnostic::do_not_recommend]
+                impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
-            fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
-                (**self).dyn_clone()
+                    $($interned_extra_methods_impl)*
+
+                    fn dyn_clone(&self) -> $crate::label::Box<dyn $label_trait_name> {
+                        (**self).dyn_clone()
+                    }
+
+                    /// Casts this value to a form where it can be compared with other type-erased values.
+                    fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq {
+                        (**self).as_dyn_eq()
+                    }
+
+                    fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher) {
+                        (**self).dyn_hash(state);
+                    }
+
+                    fn intern(&self) -> Self {
+                        *self
+                    }
+                }
             }
-
-            /// Casts this value to a form where it can be compared with other type-erased values.
-            fn as_dyn_eq(&self) -> &dyn $crate::label::DynEq {
-                (**self).as_dyn_eq()
-            }
-
-            fn dyn_hash(&self, state: &mut dyn ::core::hash::Hasher) {
-                (**self).dyn_hash(state);
-            }
-
-            fn intern(&self) -> Self {
-                *self
-            }
-        }
+        };
 
         impl PartialEq for dyn $label_trait_name {
             fn eq(&self, other: &Self) -> bool {
