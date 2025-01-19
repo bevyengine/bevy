@@ -326,13 +326,12 @@ impl Atmosphere {
         ozone_absorption: Vec3::new(6.50e-7, 1.881e-6, 8.50e-8),
     };
 
-    pub fn with_density_multiplier(&self, mult: f32) -> Self {
-        let mut new_atmo = self.clone();
-        new_atmo.rayleigh_scattering *= mult;
-        new_atmo.mie_scattering *= mult;
-        new_atmo.mie_absorption *= mult;
-        new_atmo.ozone_absorption *= mult;
-        new_atmo
+    pub fn with_density_multiplier(mut self, mult: f32) -> Self {
+        self.rayleigh_scattering *= mult;
+        self.mie_scattering *= mult;
+        self.mie_absorption *= mult;
+        self.ozone_absorption *= mult;
+        self
     }
 }
 
