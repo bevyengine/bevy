@@ -6,8 +6,8 @@
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            get_local_r, get_local_up, view_radius, uv_to_ndc, position_ndc_to_world, depth_ndc_to_view_z,
-            max_atmosphere_distance, uv_to_ray_direction
+            get_local_r, get_local_up, view_radius, uv_to_ndc, max_atmosphere_distance,
+            uv_to_ray_direction
         },
     }
 }

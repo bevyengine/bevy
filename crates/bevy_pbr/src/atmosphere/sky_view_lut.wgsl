@@ -6,9 +6,8 @@
         functions::{
             sample_atmosphere, get_local_up, AtmosphereSample,
             sample_local_inscattering, get_local_r, view_radius,
-            direction_view_to_world, max_atmosphere_distance, 
-            direction_atmosphere_to_world, sky_view_lut_uv_to_zenith_azimuth,
-            zenith_azimuth_to_ray_dir,
+            max_atmosphere_distance, direction_atmosphere_to_world,
+            sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
         },
     }
 }

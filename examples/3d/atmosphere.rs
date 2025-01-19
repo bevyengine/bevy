@@ -30,6 +30,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Bloom::NATURAL,
         Atmosphere::EARTH,
         AtmosphereSettings {
+            aerial_view_lut_max_distance: 3.2e5,
             scene_units_to_m: 1e+4,
             ..Default::default()
         },

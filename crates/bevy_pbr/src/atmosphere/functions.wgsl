@@ -287,12 +287,6 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
     return ndc * vec2(0.5, -0.5) + vec2(0.5);
 }
 
-/// Convert a ndc space position to world space
-fn position_ndc_to_world(ndc_pos: vec3<f32>) -> vec3<f32> {
-    let world_pos = view.world_from_clip * vec4(ndc_pos, 1.0);
-    return world_pos.xyz / world_pos.w;
-}
-
 /// Converts a direction in world space to atmosphere space
 fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
     let dir_as = atmosphere_transforms.atmosphere_from_world * vec4(dir_ws, 0.0);
@@ -303,12 +297,6 @@ fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
 fn direction_atmosphere_to_world(dir_as: vec3<f32>) -> vec3<f32> {
     let dir_ws = atmosphere_transforms.world_from_atmosphere * vec4(dir_as, 0.0);
     return dir_ws.xyz;
-}
-
-/// Convert a view space direction to world space
-fn direction_view_to_world(view_dir: vec3<f32>) -> vec3<f32> {
-    let world_dir = view.world_from_view * vec4(view_dir, 0.0);
-    return world_dir.xyz;
 }
 
 // Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
