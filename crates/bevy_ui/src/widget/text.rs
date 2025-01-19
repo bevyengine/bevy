@@ -257,7 +257,7 @@ pub fn measure_text_system(
             &mut ComputedTextBlock,
             Option<&TargetCamera>,
         ),
-        With<Node>,
+        With<ComputedNode>,
     >,
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,

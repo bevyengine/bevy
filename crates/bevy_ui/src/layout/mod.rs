@@ -387,17 +387,13 @@ with UI components as a child of an entity without UI components, your UI layout
             if let Some(outline) = maybe_outline {
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
-                node.outline_width = if style.display != Display::None {
-                    match outline.width {
-                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
-                        width => width,
-                    }
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.)
-                } else {
-                    0.
-                };
+                node.outline_width = match outline.width {
+                    Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
+                    width => width,
+                }
+                .resolve(node.size().x, viewport_size)
+                .unwrap_or(0.)
+                .max(0.);
 
                 node.outline_offset = match outline.offset {
                     Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),

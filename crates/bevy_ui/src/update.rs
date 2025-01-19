@@ -2,7 +2,7 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, Node, OverflowAxis, TargetCamera,
 };
 
 use super::ComputedNode;
@@ -49,18 +49,13 @@ fn update_clipping(
         Option<&mut CalculatedClip>,
     )>,
     entity: Entity,
-    mut maybe_inherited_clip: Option<Rect>,
+    maybe_inherited_clip: Option<Rect>,
 ) {
     let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
         node_query.get_mut(entity)
     else {
         return;
     };
-
-    // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
-    if node.display == Display::None {
-        maybe_inherited_clip = Some(Rect::default());
-    }
 
     // Update this node's CalculatedClip component
     if let Some(mut calculated_clip) = maybe_calculated_clip {

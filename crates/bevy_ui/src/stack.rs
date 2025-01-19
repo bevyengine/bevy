@@ -5,7 +5,7 @@ use bevy_utils::HashSet;
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    ComputedNode, GlobalZIndex, ZIndex,
+    ComputedNode, Display, GlobalZIndex, Node, ZIndex,
 };
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
@@ -39,32 +39,43 @@ impl ChildBufferCache {
 /// Then build the `UiStack` from a walk of the existing layout trees starting from each root node,
 /// filtering branches by `Without<GlobalZIndex>`so that we don't revisit nodes.
 pub fn ui_stack_system(
+    mut commands: Commands,
     mut cache: Local<ChildBufferCache>,
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut visited_root_nodes: Local<HashSet<Entity>>,
     mut ui_stack: ResMut<UiStack>,
     ui_root_nodes: UiRootNodes,
-    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
-    zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
+    root_node_query: Query<(Entity, &Node, Option<&GlobalZIndex>, Option<&ZIndex>)>,
+    zindex_global_node_query: Query<(Entity, &Node, &GlobalZIndex, Option<&ZIndex>)>,
     ui_children: UiChildren,
-    zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    zindex_query: Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
+    node_query: Query<&Node>,
     mut update_query: Query<&mut ComputedNode>,
 ) {
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
-    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
-        root_nodes.push((
-            id,
-            (
-                maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
-                maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
-            ),
-        ));
+    for (id, node, maybe_global_zindex, maybe_zindex) in
+        root_node_query.iter_many(ui_root_nodes.iter())
+    {
+        if node.display != Display::None {
+            root_nodes.push((
+                id,
+                (
+                    maybe_global_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                    maybe_zindex.map(|zindex| zindex.0).unwrap_or(0),
+                ),
+            ));
+        } else {
+            commands.entity(id).remove::<ComputedNode>();
+        }
         visited_root_nodes.insert(id);
     }
 
-    for (id, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
+    for (id, node, global_zindex, maybe_zindex) in zindex_global_node_query.iter() {
+        if node.display == Display::None {
+            commands.entity(id).remove::<ComputedNode>();
+        }
         if visited_root_nodes.contains(&id) {
             continue;
         }
@@ -82,9 +93,11 @@ pub fn ui_stack_system(
 
     for (root_entity, _) in root_nodes.drain(..) {
         update_uistack_recursive(
+            &mut commands,
             &mut cache,
             root_entity,
             &ui_children,
+            &node_query,
             &zindex_query,
             &mut ui_stack.uinodes,
         );
@@ -93,20 +106,32 @@ pub fn ui_stack_system(
     for (i, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok(mut node) = update_query.get_mut(*entity) {
             node.bypass_change_detection().stack_index = i as u32;
+        } else {
+            commands.entity(*entity).try_insert(ComputedNode {
+                stack_index: i as u32,
+                ..ComputedNode::DEFAULT
+            });
         }
     }
 }
 
 fn update_uistack_recursive(
+    commands: &mut Commands,
     cache: &mut ChildBufferCache,
     node_entity: Entity,
     ui_children: &UiChildren,
-    zindex_query: &Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
+    node_query: &Query<&Node>,
+    zindex_query: &Query<Option<&ZIndex>, (With<Node>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
+    if node_query.get(node_entity).unwrap().display == Display::None {
+        remove_computed_nodes_recursive(node_entity, commands, ui_children);
+    }
+
     ui_stack.push(node_entity);
 
     let mut child_buffer = cache.pop();
+
     child_buffer.extend(
         ui_children
             .iter_ui_children(node_entity)
@@ -117,11 +142,31 @@ fn update_uistack_recursive(
                     .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
             }),
     );
+
     child_buffer.sort_by_key(|k| k.1);
     for (child_entity, _) in child_buffer.drain(..) {
-        update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);
+        update_uistack_recursive(
+            commands,
+            cache,
+            child_entity,
+            ui_children,
+            node_query,
+            zindex_query,
+            ui_stack,
+        );
     }
     cache.push(child_buffer);
+}
+
+fn remove_computed_nodes_recursive(
+    node_entity: Entity,
+    commands: &mut Commands,
+    ui_children: &UiChildren,
+) {
+    commands.entity(node_entity).remove::<ComputedNode>();
+    for child in ui_children.iter_ui_children(node_entity) {
+        remove_computed_nodes_recursive(child, commands, ui_children);
+    }
 }
 
 #[cfg(test)]
