@@ -102,7 +102,7 @@
 //! in the ECS. Each of these methods uses the `bevy/` prefix, which is a namespace reserved for
 //! BRP built-in methods.
 //!
-//! ### bevy/get
+//! ### `bevy/get`
 //!
 //! Retrieve the values of one or more components from an entity.
 //!
@@ -123,7 +123,7 @@
 //!
 //! `result`: A map associating each type name to its value on the requested entity.
 //!
-//! ### bevy/query
+//! ### `bevy/query`
 //!
 //! Perform a query over components in the ECS, returning all matching entities and their associated
 //! component values.
@@ -155,7 +155,7 @@
 //!
 //!
 //!
-//! ### bevy/spawn
+//! ### `bevy/spawn`
 //!
 //! Create a new entity with the provided components and return the resulting entity ID.
 //!
@@ -165,7 +165,7 @@
 //! `result`:
 //! - `entity`: The ID of the newly spawned entity.
 //!
-//! ### bevy/destroy
+//! ### `bevy/destroy`
 //!
 //! Despawn the entity with the given ID.
 //!
@@ -174,7 +174,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/remove
+//! ### `bevy/remove`
 //!
 //! Delete one or more components from an entity.
 //!
@@ -184,7 +184,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/insert
+//! ### `bevy/insert`
 //!
 //! Insert one or more components into an entity.
 //!
@@ -194,7 +194,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/mutate_component
+//! ### `bevy/mutate_component`
 //!
 //! Mutate a field in a component.
 //!
@@ -207,7 +207,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/reparent
+//! ### `bevy/reparent`
 //!
 //! Assign a new parent to one or more entities.
 //!
@@ -218,7 +218,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/list
+//! ### `bevy/list`
 //!
 //! List all registered components or all components present on an entity.
 //!
@@ -230,7 +230,7 @@
 //!
 //! `result`: An array of fully-qualified type names of components.
 //!
-//! ### bevy/get+watch
+//! ### `bevy/get+watch`
 //!
 //! Watch the values of one or more components from an entity.
 //!
@@ -258,7 +258,7 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
-//! ### bevy/list+watch
+//! ### `bevy/list+watch`
 //!
 //! Watch all components present on an entity.
 //!
@@ -274,7 +274,7 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
-//! ### bevy/get_resource
+//! ### `bevy/get_resource`
 //!
 //! Extract the value of a given resource from the world.
 //!
@@ -284,7 +284,7 @@
 //! `result`:
 //! - `value`: The value of the resource in the world.
 //!
-//! ### bevy/insert_resource
+//! ### `bevy/insert_resource`
 //!
 //! Insert the given resource into the world with the given value.
 //!
@@ -294,7 +294,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/remove_resource
+//! ### `bevy/remove_resource`
 //!
 //! Remove the given resource from the world.
 //!
@@ -303,7 +303,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/mutate_resource
+//! ### `bevy/mutate_resource`
 //!
 //! Mutate a field in a resource.
 //!
@@ -315,7 +315,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/list_resources
+//! ### `bevy/list_resources`
 //!
 //! List all reflectable registered resource types. This method has no parameters.
 //!
