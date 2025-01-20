@@ -1,3 +1,7 @@
+//! Contains the [`EntityHashSet`] type, a [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+//!
+//! This module is a lightweight wrapper around [`hashbrown`](bevy_utils::hashbrown)'s [`HashSet`] that is more performant for [`Entity`] keys.
+
 use core::{
     fmt::{self, Debug, Formatter},
     iter::FusedIterator,
@@ -36,6 +40,16 @@ impl EntityHashSet {
     /// [`HashSet::with_capacity_and_hasher(n, EntityHash)`]: HashSet::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(HashSet::with_capacity_and_hasher(n, EntityHash))
+    }
+
+    /// Returns the number of elements in the set.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns `true` if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Returns the inner [`HashSet`].
