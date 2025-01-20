@@ -1,6 +1,6 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Component;
-use bevy_ecs::entity::{Entity, EntityHashMap};
+use bevy_ecs::entity::{hash_map::EntityHashMap, Entity};
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::sync_world::MainEntity;

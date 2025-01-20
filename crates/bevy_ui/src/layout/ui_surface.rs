@@ -3,7 +3,7 @@ use core::fmt;
 use taffy::TaffyTree;
 
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
