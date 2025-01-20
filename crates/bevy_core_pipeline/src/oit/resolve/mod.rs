@@ -6,7 +6,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_set::EntityHashSet, hash_map::EntityHashMap},
     prelude::*,
 };
 use bevy_image::BevyDefault as _;

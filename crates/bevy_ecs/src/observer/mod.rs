@@ -9,7 +9,7 @@ pub use runner::*;
 use crate::{
     archetype::ArchetypeFlags,
     component::ComponentId,
-    entity::EntityHashMap,
+    entity::hash_map::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
