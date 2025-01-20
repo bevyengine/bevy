@@ -7,7 +7,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, hash_map::EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::AnyOf,
     system::{Commands, Query, Res, ResMut, Resource},
 };

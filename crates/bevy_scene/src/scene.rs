@@ -1,7 +1,7 @@
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
-    entity::{Entity, hash_map::EntityHashMap, SceneEntityMapper},
+    entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };

@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
-    entity::{Entities, Entity, hash_map::EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entities, Entity},
     event::EventReader,
     query::Has,
     system::{Local, Query, Res, ResMut, Resource, SystemState},
