@@ -511,13 +511,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens
             .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
@@ -603,13 +597,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens
             .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
@@ -703,13 +691,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens.collect();
         keyed_query.sort_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
@@ -769,13 +751,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens.collect();
         keyed_query.sort_unstable_by(|(key_1, _), (key_2, _)| compare(key_1, key_2));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
@@ -898,13 +874,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens.collect();
         keyed_query.sort_by_key(|(lens, _)| f(lens));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
@@ -967,13 +937,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens.collect();
         keyed_query.sort_unstable_by_key(|(lens, _)| f(lens));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
@@ -1036,13 +1000,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe {
-            query_lens_state.iter_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.change_tick(),
-            )
-        };
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens.collect();
         keyed_query.sort_by_cached_key(|(lens, _)| f(lens));
         let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity);
