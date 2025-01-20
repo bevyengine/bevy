@@ -1,13 +1,12 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, LayoutConfig, Node, Outline,
+    BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Node, Outline,
     OverflowAxis, ResolvedScaleFactor, ResolvedTargetCamera, ResolvedTargetSize, ScrollPosition,
-    UiScale, UiTargetCamera, Val,
+    UiScale, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityBorrow, EntityHashMap, EntityHashSet},
-    event::EventReader,
+    entity::{Entity, EntityHashMap},
     query::With,
     removal_detection::RemovedComponents,
     system::{Commands, Local, Query, Res, ResMut, SystemParam},
@@ -15,10 +14,9 @@ use bevy_ecs::{
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
+use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use tracing::warn;
 use ui_surface::UiSurface;
