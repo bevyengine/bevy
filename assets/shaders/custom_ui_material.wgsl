@@ -36,8 +36,13 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     // is less than the border width on that axis then the position is within 
     // the border and we return the border color
     if d.x < b.x || d.y < b.y {
-        // cutoff the borders corners diagonally instead of a curve
-        if d.x + d.y < radius {
+        // select radius for the nearest corner
+        let rs = select(in.border_radius.xy, in.border_radius.wz, 0.0 < p.y);
+        let radius = select(rs.x, rs.y, 0.0 < p.x);
+
+        // determine if the point is inside the curved corner and return the corresponding color
+        let q = radius - d;
+        if radius < min(max(q.x, q.y), 0.0) + length(vec2(max(q.x, 0.0), max(q.y, 0.0))) {
             return corner_color;
         } else {
             return border_color;
