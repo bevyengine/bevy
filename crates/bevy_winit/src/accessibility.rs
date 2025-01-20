@@ -178,7 +178,7 @@ fn update_accessibility_nodes(
     nodes: Query<(
         Entity,
         &AccessibilityNode,
-        Option<&ParentOf>,
+        Option<&Children>,
         Option<&ChildOf>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
@@ -217,7 +217,7 @@ fn update_adapter(
     nodes: Query<(
         Entity,
         &AccessibilityNode,
-        Option<&ParentOf>,
+        Option<&Children>,
         Option<&ChildOf>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
@@ -269,14 +269,14 @@ fn queue_node_for_update(
 
 #[inline]
 fn add_children_nodes(
-    parent_of: Option<&ParentOf>,
+    children: Option<&Children>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
     node: &mut Node,
 ) {
-    let Some(parent_of) = parent_of else {
+    let Some(children) = children else {
         return;
     };
-    for child in parent_of {
+    for child in children {
         if node_entities.contains(*child) {
             node.push_child(NodeId(child.to_bits()));
         }

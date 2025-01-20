@@ -377,7 +377,7 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for &entity in instance.entity_map.values() {
-                    // Add the `ChildOf` component to the scene root, and update the `ParentOf` component of
+                    // Add the `ChildOf` component to the scene root, and update the `Children` component of
                     // the scene parent
                     if !world
                         .get_entity(entity)
@@ -518,7 +518,7 @@ mod tests {
     use bevy_asset::{AssetPlugin, AssetServer, Handle};
     use bevy_ecs::{
         component::Component,
-        hierarchy::ParentOf,
+        hierarchy::Children,
         observer::Trigger,
         prelude::ReflectComponent,
         query::With,
@@ -583,7 +583,7 @@ mod tests {
         assert_eq!(scene_component_a.x, 3.0);
         assert_eq!(scene_component_a.y, 4.0);
         assert_eq!(
-            app.world().entity(entity).get::<ParentOf>().unwrap().len(),
+            app.world().entity(entity).get::<Children>().unwrap().len(),
             1
         );
 
@@ -598,7 +598,7 @@ mod tests {
         assert!(app.world().get_entity(scene_entity).is_err());
 
         // the root entity does not have any children anymore
-        assert!(app.world().entity(entity).get::<ParentOf>().is_none());
+        assert!(app.world().entity(entity).get::<Children>().is_none());
     }
 
     #[derive(Reflect, Component, Debug, PartialEq, Eq, Clone, Copy, Default)]

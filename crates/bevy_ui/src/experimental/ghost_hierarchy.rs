@@ -74,11 +74,11 @@ pub struct UiChildren<'w, 's> {
     ui_children_query: Query<
         'w,
         's,
-        (Option<&'static ParentOf>, Has<GhostNode>),
+        (Option<&'static Children>, Has<GhostNode>),
         Or<(With<Node>, With<GhostNode>)>,
     >,
-    changed_children_query: Query<'w, 's, Entity, Changed<ParentOf>>,
-    children_query: Query<'w, 's, &'static ParentOf>,
+    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
+    children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
     parents_query: Query<'w, 's, &'static ChildOf>,
 }
@@ -87,8 +87,8 @@ pub struct UiChildren<'w, 's> {
 /// System param that gives access to UI children utilities.
 #[derive(SystemParam)]
 pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, Option<&'static ParentOf>, With<Node>>,
-    changed_children_query: Query<'w, 's, Entity, Changed<ParentOf>>,
+    ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
+    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     parents_query: Query<'w, 's, &'static ChildOf>,
 }
 
@@ -186,7 +186,7 @@ pub struct UiChildrenIter<'w, 's> {
     query: &'s Query<
         'w,
         's,
-        (Option<&'static ParentOf>, Has<GhostNode>),
+        (Option<&'static Children>, Has<GhostNode>),
         Or<(With<Node>, With<GhostNode>)>,
     >,
 }

@@ -19,14 +19,14 @@ fn main() {
 }
 
 fn button_system(
-    mut interactions: Query<
-        (&Interaction, &ParentOf, &mut ImageNode),
+    mut interaction_query: Query<
+        (&Interaction, &Children, &mut ImageNode),
         (Changed<Interaction>, With<Button>),
     >,
-    mut texts: Query<&mut Text>,
+    mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, parent_of, mut image) in &mut interactions {
-        let mut text = texts.get_mut(parent_of[0]).unwrap();
+    for (interaction, children, mut image) in &mut interaction_query {
+        let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 **text = "Press".to_string();

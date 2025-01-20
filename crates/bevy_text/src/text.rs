@@ -447,7 +447,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 Changed<Root>,
                 Changed<TextFont>,
                 Changed<TextLayout>,
-                Changed<ParentOf>,
+                Changed<Children>,
             )>,
             With<Root>,
             With<TextFont>,
@@ -460,7 +460,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
-                Changed<ParentOf>,
+                Changed<Children>,
                 Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,

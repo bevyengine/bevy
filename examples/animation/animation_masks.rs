@@ -462,7 +462,7 @@ fn handle_button_toggles(
 
 // A system that updates the UI based on the current app state.
 fn update_ui(
-    mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &ParentOf)>,
+    mut animation_controls: Query<(&AnimationControl, &mut BackgroundColor, &Children)>,
     texts: Query<Entity, With<Text>>,
     mut writer: TextUiWriter,
     app_state: Res<AppState>,

@@ -29,7 +29,7 @@ use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    hierarchy::{ParentOf, ChildOf},
+    hierarchy::{Children, ChildOf},
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
@@ -148,12 +148,12 @@ pub enum TabNavigationError {
 #[derive(SystemParam)]
 pub struct TabNavigation<'w, 's> {
     // Query for tab groups.
-    tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static ParentOf)>,
+    tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
     // Query for tab indices.
     tabindex_query: Query<
         'w,
         's,
-        (Entity, Option<&'static TabIndex>, Option<&'static ParentOf>),
+        (Entity, Option<&'static TabIndex>, Option<&'static Children>),
         Without<TabGroup>,
     >,
     // Query for parents.

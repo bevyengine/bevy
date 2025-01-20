@@ -301,7 +301,7 @@ fn race_track_pos(offset: f32, t: f32) -> Vec2 {
 
 fn move_cars(
     time: Res<Time>,
-    mut movables: Query<(&mut Transform, &Moves, &ParentOf)>,
+    mut movables: Query<(&mut Transform, &Moves, &Children)>,
     mut spins: Query<&mut Transform, (Without<Moves>, With<Rotates>)>,
 ) {
     for (mut transform, moves, children) in &mut movables {

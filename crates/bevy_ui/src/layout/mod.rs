@@ -70,7 +70,7 @@ pub enum LayoutError {
 #[derive(SystemParam)]
 pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_cameras: RemovedComponents<'w, 's, Camera>,
-    removed_parent_of: RemovedComponents<'w, 's, ParentOf>,
+    removed_children: RemovedComponents<'w, 's, Children>,
     removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
     removed_nodes: RemovedComponents<'w, 's, Node>,
 }
@@ -239,7 +239,7 @@ pub fn ui_layout_system(
     }
 
     // update and remove children
-    for entity in removed_components.removed_parent_of.read() {
+    for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
 
@@ -1111,7 +1111,7 @@ mod tests {
 
         let children = world
             .entity(parent)
-            .get::<ParentOf>()
+            .get::<Children>()
             .unwrap()
             .iter()
             .copied()

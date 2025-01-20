@@ -68,7 +68,7 @@ impl Plugin for MorphPlugin {
 ///
 /// Only direct children are updated, to fulfill the expectations of glTF spec.
 pub fn inherit_weights(
-    morph_nodes: Query<(&ParentOf, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
+    morph_nodes: Query<(&Children, &MorphWeights), (Without<Mesh3d>, Changed<MorphWeights>)>,
     mut morph_primitives: Query<&mut MeshMorphWeights, With<Mesh3d>>,
 ) {
     for (children, parent_weights) in &morph_nodes {

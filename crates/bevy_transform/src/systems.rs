@@ -12,10 +12,10 @@ pub fn sync_simple_transforms(
             (
                 Or<(Changed<Transform>, Added<GlobalTransform>)>,
                 Without<ChildOf>,
-                Without<ParentOf>,
+                Without<Children>,
             ),
         >,
-        Query<(Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, Without<ParentOf>)>,
+        Query<(Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
     )>,
     mut orphaned: RemovedComponents<ChildOf>,
 ) {
@@ -42,12 +42,12 @@ pub fn sync_simple_transforms(
 /// Third party plugins should ensure that this is used in concert with [`sync_simple_transforms`].
 pub fn propagate_transforms(
     mut root_query: Query<
-        (Entity, &ParentOf, Ref<Transform>, &mut GlobalTransform),
+        (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
         Without<ChildOf>,
     >,
     mut orphaned: RemovedComponents<ChildOf>,
     transform_query: Query<
-        (Ref<Transform>, &mut GlobalTransform, Option<&ParentOf>),
+        (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
         With<ChildOf>,
     >,
     parent_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
@@ -111,7 +111,7 @@ pub fn propagate_transforms(
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     transform_query: &Query<
-        (Ref<Transform>, &mut GlobalTransform, Option<&ParentOf>),
+        (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
         With<ChildOf>,
     >,
     parent_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
@@ -331,7 +331,7 @@ mod test {
 
         assert_eq!(
             world
-                .get::<ParentOf>(parent)
+                .get::<Children>(parent)
                 .unwrap()
                 .iter()
                 .cloned()
@@ -350,7 +350,7 @@ mod test {
 
         assert_eq!(
             world
-                .get::<ParentOf>(parent)
+                .get::<Children>(parent)
                 .unwrap()
                 .iter()
                 .cloned()
@@ -360,7 +360,7 @@ mod test {
 
         assert_eq!(
             world
-                .get::<ParentOf>(children[1])
+                .get::<Children>(children[1])
                 .unwrap()
                 .iter()
                 .cloned()
@@ -374,7 +374,7 @@ mod test {
 
         assert_eq!(
             world
-                .get::<ParentOf>(parent)
+                .get::<Children>(parent)
                 .unwrap()
                 .iter()
                 .cloned()
@@ -410,10 +410,10 @@ mod test {
 
         app.update();
 
-        // check the `ParentOf` structure is spawned
-        assert_eq!(&**app.world().get::<ParentOf>(parent).unwrap(), &[child]);
+        // check the `Children` structure is spawned
+        assert_eq!(&**app.world().get::<Children>(parent).unwrap(), &[child]);
         assert_eq!(
-            &**app.world().get::<ParentOf>(child).unwrap(),
+            &**app.world().get::<Children>(child).unwrap(),
             &[grandchild]
         );
         // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
@@ -429,7 +429,7 @@ mod test {
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
         ComputeTaskPool::get_or_init(TaskPool::default);
-        // We cannot directly edit ChildOf and ParentOf, so we use a temp world to break
+        // We cannot directly edit ChildOf and Children, so we use a temp world to break
         // the hierarchy's invariants.
         let mut temp = World::new();
         let mut app = App::new();

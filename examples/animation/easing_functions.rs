@@ -101,7 +101,7 @@ const SIZE_PER_FUNCTION: f32 = 95.0;
 
 fn display_curves(
     mut gizmos: Gizmos,
-    ease_functions: Query<(&SelectedEaseFunction, &Transform, &ParentOf)>,
+    ease_functions: Query<(&SelectedEaseFunction, &Transform, &Children)>,
     mut transforms: Query<&mut Transform, Without<SelectedEaseFunction>>,
     mut ui_text: Single<&mut Text>,
     time: Res<Time>,
@@ -115,7 +115,7 @@ fn display_curves(
 
     ui_text.0 = format!("Progress: {:.2}", now);
 
-    for (SelectedEaseFunction(function, color), transform, parent_of) in &ease_functions {
+    for (SelectedEaseFunction(function, color), transform, children) in &ease_functions {
         // Draw a box around the curve
         gizmos.linestrip_2d(
             [
@@ -153,8 +153,8 @@ fn display_curves(
 
         // Show progress along the curve for the current time
         let y = f.sample(now).unwrap() * SIZE_PER_FUNCTION + 15.0;
-        transforms.get_mut(parent_of[0]).unwrap().translation.y = y;
-        transforms.get_mut(parent_of[1]).unwrap().translation =
+        transforms.get_mut(children[0]).unwrap().translation.y = y;
+        transforms.get_mut(children[1]).unwrap().translation =
             Vec3::new(now * SIZE_PER_FUNCTION, y, 0.0);
         gizmos.linestrip_2d(
             [

@@ -554,7 +554,7 @@ fn derive_relationship_target(
         return Ok(None);
     };
 
-    const RELATIONSHIP_TARGET_FORMAT_MESSAGE: &str = "RelationshipTarget derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: ParentOf(Vec<Entity>))";
+    const RELATIONSHIP_TARGET_FORMAT_MESSAGE: &str = "RelationshipTarget derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
     let collection = if let Data::Struct(DataStruct {
         fields: Fields::Unnamed(unnamed_fields),
         struct_token,

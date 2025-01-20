@@ -403,16 +403,16 @@ where
 
 fn buttons_handler<T>(
     mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
-    mut visibility_button_query: Query<(&Target<T>, &Interaction, &ParentOf), Changed<Interaction>>,
+    mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
     mut text_query: Query<(&mut Text, &mut TextColor)>,
 ) where
     T: Send + Sync,
     Target<T>: TargetUpdate + Component,
 {
-    for (target, interaction, parent_of) in visibility_button_query.iter_mut() {
+    for (target, interaction, children) in visibility_button_query.iter_mut() {
         if matches!(interaction, Interaction::Pressed) {
             let mut target_value = left_panel_query.get_mut(target.id).unwrap();
-            for &child in parent_of {
+            for &child in children {
                 if let Ok((mut text, mut text_color)) = text_query.get_mut(child) {
                     **text = target.update_target(target_value.as_mut());
                     text_color.0 = if text.contains("None") || text.contains("Hidden") {
@@ -427,14 +427,14 @@ fn buttons_handler<T>(
 }
 
 fn text_hover(
-    mut button_query: Query<(&Interaction, &mut BackgroundColor, &ParentOf), Changed<Interaction>>,
+    mut button_query: Query<(&Interaction, &mut BackgroundColor, &Children), Changed<Interaction>>,
     mut text_query: Query<(&Text, &mut TextColor)>,
 ) {
-    for (interaction, mut color, parent_of) in button_query.iter_mut() {
+    for (interaction, mut color, children) in button_query.iter_mut() {
         match interaction {
             Interaction::Hovered => {
                 *color = Color::BLACK.with_alpha(0.6).into();
-                for &child in parent_of {
+                for &child in children {
                     if let Ok((_, mut text_color)) = text_query.get_mut(child) {
                         // Bypass change detection to avoid recomputation of the text when only changing the color
                         text_color.bypass_change_detection().0 = YELLOW.into();
@@ -443,7 +443,7 @@ fn text_hover(
             }
             _ => {
                 *color = Color::BLACK.with_alpha(0.5).into();
-                for &child in parent_of {
+                for &child in children {
                     if let Ok((text, mut text_color)) = text_query.get_mut(child) {
                         text_color.bypass_change_detection().0 =
                             if text.contains("None") || text.contains("Hidden") {
