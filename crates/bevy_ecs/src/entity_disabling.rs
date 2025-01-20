@@ -74,10 +74,9 @@ impl DefaultQueryFilters {
 
 #[cfg(test)]
 mod tests {
-    use std::vec;
 
     use super::*;
-    use alloc::vec::Vec;
+    use alloc::{vec, vec::Vec};
 
     #[test]
     fn test_set_filters() {
