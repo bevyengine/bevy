@@ -39,7 +39,9 @@ pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
+pub mod entity_disabling;
 pub mod event;
+pub mod hierarchy;
 pub mod identifier;
 pub mod intern;
 pub mod label;
@@ -48,6 +50,7 @@ pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod relationship;
 pub mod removal_detection;
 pub mod result;
 pub mod schedule;
@@ -73,6 +76,7 @@ pub mod prelude {
         component::{require, Component},
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
+        hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},

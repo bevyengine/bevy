@@ -73,7 +73,6 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
 use extract_resource::ExtractResourcePlugin;
@@ -357,7 +356,6 @@ impl Plugin for RenderPlugin {
         };
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,

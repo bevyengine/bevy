@@ -4,7 +4,6 @@ use bevy_ecs::{
     prelude::*,
     system::{Query, SystemParam},
 };
-use bevy_hierarchy::Children;
 
 use crate::{TextColor, TextFont, TextSpan};
 

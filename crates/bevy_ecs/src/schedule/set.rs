@@ -20,12 +20,18 @@ use crate::{
 
 define_label!(
     /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
+    )]
     ScheduleLabel,
     SCHEDULE_LABEL_INTERNER
 );
 
 define_label!(
     /// Types that identify logical groups of systems.
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
+    )]
     SystemSet,
     SYSTEM_SET_INTERNER,
     extra_methods: {
