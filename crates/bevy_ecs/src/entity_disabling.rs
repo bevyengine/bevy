@@ -67,14 +67,17 @@ impl DefaultQueryFilters {
         self.ids().all(|component_id| {
             components
                 .get_info(component_id)
-                .map_or(false, |info| info.storage_type() == StorageType::Table)
+                .is_some_and(|info| info.storage_type() == StorageType::Table)
         })
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::vec;
+
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn test_set_filters() {

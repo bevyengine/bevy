@@ -215,7 +215,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     fn new_uninitialized(world: &mut World) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
-        Self::from_states_uninitialized(world.id(), fetch_state, filter_state)
+        Self::from_states_uninitialized(world, fetch_state, filter_state)
     }
 
     /// Creates a new [`QueryState`] but does not populate it with the matched results from the World yet
@@ -226,7 +226,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let fetch_state = D::get_state(world.components())?;
         let filter_state = F::get_state(world.components())?;
         Some(Self::from_states_uninitialized(
-            world.id(),
+            world,
             fetch_state,
             filter_state,
         ))
@@ -237,7 +237,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
     fn from_states_uninitialized(
-        world_id: WorldId,
+        world: &World,
         fetch_state: <D as WorldQuery>::State,
         filter_state: <F as WorldQuery>::State,
     ) -> Self {
@@ -264,7 +264,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         }
 
         Self {
-            world_id,
+            world_id: world.id(),
             archetype_generation: ArchetypeGeneration::initial(),
             matched_storage_ids: Vec::new(),
             is_dense,
