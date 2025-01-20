@@ -10,7 +10,7 @@ use bevy_asset::{
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     hierarchy::ChildSpawner,
     name::Name,
     world::World,

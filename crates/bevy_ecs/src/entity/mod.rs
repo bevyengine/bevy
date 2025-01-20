@@ -53,11 +53,8 @@ pub use visit_entities::*;
 mod hash;
 pub use hash::*;
 
-mod hash_map;
-mod hash_set;
-
-pub use hash_map::EntityHashMap;
-pub use hash_set::EntityHashSet;
+pub mod hash_map;
+pub mod hash_set;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -70,6 +67,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
+use bevy_platform_support::sync::atomic::Ordering;
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
@@ -79,26 +77,16 @@ use core::panic::Location;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::Ordering;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::Ordering;
-
-#[cfg(all(target_has_atomic = "64", not(feature = "portable-atomic")))]
-use core::sync::atomic::AtomicI64 as AtomicIdCursor;
-#[cfg(all(target_has_atomic = "64", feature = "portable-atomic"))]
-use portable_atomic::AtomicI64 as AtomicIdCursor;
+#[cfg(target_has_atomic = "64")]
+use bevy_platform_support::sync::atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
 /// Most modern platforms support 64-bit atomics, but some less-common platforms
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
-#[cfg(all(not(target_has_atomic = "64"), not(feature = "portable-atomic")))]
-use core::sync::atomic::AtomicIsize as AtomicIdCursor;
-#[cfg(all(not(target_has_atomic = "64"), feature = "portable-atomic"))]
-use portable_atomic::AtomicIsize as AtomicIdCursor;
+#[cfg(not(target_has_atomic = "64"))]
+use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 

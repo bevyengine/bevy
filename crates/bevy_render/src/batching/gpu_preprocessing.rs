@@ -4,7 +4,7 @@ use core::any::TypeId;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{Has, With},
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut, Resource, StaticSystemParam},
