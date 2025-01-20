@@ -38,7 +38,7 @@ pub use default::default;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
 
-use core::{hash::Hash, mem::ManuallyDrop};
+use core::mem::ManuallyDrop;
 
 #[cfg(feature = "alloc")]
 use {
@@ -46,7 +46,7 @@ use {
         collections::HashMap,
         hash::{Hashed, NoOpHash, PassHash},
     },
-    core::any::TypeId,
+    core::{any::TypeId, hash::Hash},
 };
 
 /// A [`HashMap`] pre-configured to use [`Hashed`] keys and [`PassHash`] passthrough hashing.

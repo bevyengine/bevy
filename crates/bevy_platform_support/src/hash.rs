@@ -35,7 +35,7 @@ impl BuildHasher for FixedHasher {
 /// It also enables faster [`PartialEq`] comparisons by short circuiting on hash equality.
 /// See [`PassHash`] and [`PassHasher`] for a "pass through" [`BuildHasher`] and [`Hasher`] implementation
 /// designed to work with [`Hashed`]
-/// See [`PreHashMap`] for a hashmap pre-configured to use [`Hashed`] keys.
+/// See `PreHashMap` for a hashmap pre-configured to use [`Hashed`] keys.
 pub struct Hashed<V, S = FixedHasher> {
     hash: u64,
     value: V,

@@ -1,6 +1,6 @@
 //! Contains the [`EntityHashMap`] type, a [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 //!
-//! This module is a lightweight wrapper around [`hashbrown`](bevy_utils::hashbrown)'s [`HashMap`] that is more performant for [`Entity`] keys.
+//! This module is a lightweight wrapper around Bevy's [`HashMap`] that is more performant for [`Entity`] keys.
 
 use core::{
     fmt::{self, Debug, Formatter},
