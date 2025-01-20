@@ -630,10 +630,12 @@ impl SystemNode {
         }
     }
 
+    /// Obtain a reference to the [`ScheduleSystem`] represented by this node.
     pub fn get(&self) -> Option<&ScheduleSystem> {
         self.inner.as_ref()
     }
 
+    /// Obtain a mutable reference to the [`ScheduleSystem`] represented by this node.
     pub fn get_mut(&mut self) -> Option<&mut ScheduleSystem> {
         self.inner.as_mut()
     }
