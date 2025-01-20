@@ -19,7 +19,6 @@ use log::error;
 use core::panic::Location;
 
 use crate::{
-    self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
     component::{Component, ComponentId, Mutable},

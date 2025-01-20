@@ -2,7 +2,6 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
     ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,

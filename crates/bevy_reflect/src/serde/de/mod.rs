@@ -38,7 +38,6 @@ mod tests {
     use bevy_utils::{HashMap, HashSet};
 
     use crate::{
-        self as bevy_reflect,
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,
