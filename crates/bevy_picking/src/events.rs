@@ -78,7 +78,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
 /// propagates to the pointer's window and stops there.
 #[derive(QueryData)]
 pub struct PointerTraversal {
-    parent: Option<&'static Parent>,
+    parent: Option<&'static ChildOf>,
     window: Option<&'static Window>,
 }
 
