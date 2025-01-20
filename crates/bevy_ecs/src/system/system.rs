@@ -9,7 +9,7 @@ use thiserror::Error;
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::UniversalAccess,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -44,10 +44,10 @@ pub trait System: Send + Sync + 'static {
     fn type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
-    /// Returns the system's component [`Access`].
-    fn component_access(&self) -> &Access<ComponentId>;
-    /// Returns the system's archetype component [`Access`].
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
+    /// Returns the system's component [`UniversalAccess`].
+    fn component_access(&self) -> &UniversalAccess<ComponentId>;
+    /// Returns the system's archetype component [`UniversalAccess`].
+    fn archetype_component_access(&self) -> &UniversalAccess<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
 
@@ -137,11 +137,11 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     fn initialize(&mut self, _world: &mut World);
 
-    /// Update the system's archetype component [`Access`].
+    /// Update the system's archetype component [`UniversalAccess`]. This includes the archetypes for nested worlds.
     ///
     /// ## Note for implementors
     /// `world` may only be used to access metadata. This can be done in safe code
-    /// via functions such as [`UnsafeWorldCell::archetypes`].
+    /// via functions such as [`UnsafeWorldCell::archetypes`]. (No synchronization should be depended on for this function).
     fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.

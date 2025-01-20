@@ -26,7 +26,7 @@ use crate::{
     result::Result,
     schedule::*,
     system::{IntoSystem, Resource, ScheduleSystem},
-    world::World,
+    world::{World, WorldId},
 };
 
 use crate::{query::AccessConflicts, storage::SparseSetIndex};
@@ -623,13 +623,50 @@ pub struct ScheduleGraph {
     dependency: Dag,
     ambiguous_with: UnGraph,
     ambiguous_with_all: HashSet<NodeId>,
-    conflicting_systems: Vec<(NodeId, NodeId, Vec<ComponentId>)>,
+    conflicting_systems: Vec<ConflictingSystemRecord>,
     anonymous_sets: usize,
     changed: bool,
     settings: ScheduleBuildSettings,
     /// Dependency edges that will **not** automatically insert an instance of `apply_deferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
     auto_sync_node_ids: HashMap<u32, NodeId>,
+}
+
+/// Describes a conflict between two systems.
+pub enum ConflictingSystemRecord {
+    /// The two systems have overlapping access
+    ConflictingAccess {
+        /// one of the system's nodes
+        node_a: NodeId,
+        /// the other system's node
+        node_b: NodeId,
+        /// the component ids of the conflicting access. If this is empty, the systems conflict over some non-component, non-exclusive system parameter.
+        components: Vec<ComponentId>,
+        /// the world the systems conflict over. Usually, this is the world the systems run on.
+        common_world: WorldId,
+    },
+    /// one or both of the systems require exclusive world access
+    ConflictingExclusivity {
+        /// one of the system's nodes
+        node_a: NodeId,
+        /// the other system's node
+        node_b: NodeId,
+    },
+}
+
+impl ConflictingSystemRecord {
+    /// provides the nodes that conflict
+    fn nodes(&self) -> (NodeId, NodeId) {
+        match self {
+            ConflictingSystemRecord::ConflictingExclusivity { node_a, node_b }
+            | ConflictingSystemRecord::ConflictingAccess {
+                node_a,
+                node_b,
+                components: _,
+                common_world: _,
+            } => (*node_a, *node_b),
+        }
+    }
 }
 
 impl ScheduleGraph {
@@ -739,9 +776,8 @@ impl ScheduleGraph {
 
     /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.
     ///
-    /// If the `Vec<ComponentId>` is empty, the systems conflict on [`World`] access.
     /// Must be called after [`ScheduleGraph::build_schedule`] to be non-empty.
-    pub fn conflicting_systems(&self) -> &[(NodeId, NodeId, Vec<ComponentId>)] {
+    pub fn conflicting_systems(&self) -> &[ConflictingSystemRecord] {
         &self.conflicting_systems
     }
 
@@ -1359,7 +1395,7 @@ impl ScheduleGraph {
         flat_results_disconnected: &Vec<(NodeId, NodeId)>,
         ambiguous_with_flattened: &UnGraph,
         ignored_ambiguities: &BTreeSet<ComponentId>,
-    ) -> Vec<(NodeId, NodeId, Vec<ComponentId>)> {
+    ) -> Vec<ConflictingSystemRecord> {
         let mut conflicting_systems = Vec::new();
         for &(a, b) in flat_results_disconnected {
             if ambiguous_with_flattened.contains_edge(a, b)
@@ -1372,26 +1408,45 @@ impl ScheduleGraph {
             let system_a = self.systems[a.index()].get().unwrap();
             let system_b = self.systems[b.index()].get().unwrap();
             if system_a.is_exclusive() || system_b.is_exclusive() {
-                conflicting_systems.push((a, b, Vec::new()));
+                conflicting_systems.push(ConflictingSystemRecord::ConflictingExclusivity {
+                    node_a: a,
+                    node_b: b,
+                });
             } else {
                 let access_a = system_a.component_access();
                 let access_b = system_b.component_access();
                 if !access_a.is_compatible(access_b) {
-                    match access_a.get_conflicts(access_b) {
-                        AccessConflicts::Individual(conflicts) => {
-                            let conflicts: Vec<_> = conflicts
-                                .ones()
-                                .map(ComponentId::get_sparse_set_index)
-                                .filter(|id| !ignored_ambiguities.contains(id))
-                                .collect();
-                            if !conflicts.is_empty() {
-                                conflicting_systems.push((a, b, conflicts));
+                    for (conflicts, common_world) in access_a.get_conflicts(access_b) {
+                        match conflicts {
+                            AccessConflicts::Individual(conflicts) => {
+                                let conflicts: Vec<_> = conflicts
+                                    .ones()
+                                    .map(ComponentId::get_sparse_set_index)
+                                    .filter(|id| !ignored_ambiguities.contains(id))
+                                    .collect();
+                                if !conflicts.is_empty() {
+                                    conflicting_systems.push(
+                                        ConflictingSystemRecord::ConflictingAccess {
+                                            node_a: a,
+                                            node_b: b,
+                                            components: conflicts,
+                                            common_world,
+                                        },
+                                    );
+                                }
                             }
-                        }
-                        AccessConflicts::All => {
-                            // there is no specific component conflicting, but the systems are overall incompatible
-                            // for example 2 systems with `Query<EntityMut>`
-                            conflicting_systems.push((a, b, Vec::new()));
+                            AccessConflicts::All => {
+                                // there is no specific component conflicting, but the systems are overall incompatible
+                                // for example 2 systems with `Query<EntityMut>`
+                                conflicting_systems.push(
+                                    ConflictingSystemRecord::ConflictingAccess {
+                                        node_a: a,
+                                        node_b: b,
+                                        components: Vec::new(),
+                                        common_world,
+                                    },
+                                );
+                            }
                         }
                     }
                 }
@@ -1854,7 +1909,7 @@ impl ScheduleGraph {
     /// if [`ScheduleBuildSettings::ambiguity_detection`] is [`LogLevel::Ignore`], this check is skipped
     fn optionally_check_conflicts(
         &self,
-        conflicts: &[(NodeId, NodeId, Vec<ComponentId>)],
+        conflicts: &[ConflictingSystemRecord],
         components: &Components,
         schedule_label: InternedScheduleLabel,
     ) -> Result<(), ScheduleBuildError> {
@@ -1875,7 +1930,7 @@ impl ScheduleGraph {
 
     fn get_conflicts_error_message(
         &self,
-        ambiguities: &[(NodeId, NodeId, Vec<ComponentId>)],
+        ambiguities: &[ConflictingSystemRecord],
         components: &Components,
     ) -> String {
         let n_ambiguities = ambiguities.len();
@@ -1885,15 +1940,33 @@ impl ScheduleGraph {
                 Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
             );
 
-        for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
+        for (name_a, name_b, conflicts, record) in self.conflicts_to_string(ambiguities, components)
+        {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
 
-            if !conflicts.is_empty() {
-                writeln!(message, "    conflict on: {conflicts:?}").unwrap();
-            } else {
-                // one or both systems must be exclusive
-                let world = core::any::type_name::<World>();
-                writeln!(message, "    conflict on: {world}").unwrap();
+            match record {
+                ConflictingSystemRecord::ConflictingAccess {
+                    node_a: _,
+                    node_b: _,
+                    components,
+                    common_world,
+                } => {
+                    if conflicts.is_empty() {
+                        writeln!(
+                            message,
+                            "    conflict over a common world with id {common_world:?} on some non-exclusive, non-component, access."
+                        )
+                        .unwrap();
+                    } else {
+                        writeln!(message, "    conflict over a common world with id {common_world:?} on: {components:?}").unwrap();
+                    }
+                }
+                ConflictingSystemRecord::ConflictingExclusivity {
+                    node_a: _,
+                    node_b: _,
+                } => {
+                    writeln!(message, "    conflict by competing for exclusivity (for example, conflicting on World).").unwrap();
+                }
             }
         }
 
@@ -1903,25 +1976,36 @@ impl ScheduleGraph {
     /// convert conflicts to human readable format
     pub fn conflicts_to_string<'a>(
         &'a self,
-        ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
+        ambiguities: &'a [ConflictingSystemRecord],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
-        ambiguities
-            .iter()
-            .map(move |(system_a, system_b, conflicts)| {
-                let name_a = self.get_node_name(system_a);
-                let name_b = self.get_node_name(system_b);
+    ) -> impl Iterator<Item = (String, String, Vec<&'a str>, &'a ConflictingSystemRecord)> + 'a
+    {
+        ambiguities.iter().map(move |conflict| {
+            let (system_a, system_b) = conflict.nodes();
+            let name_a = self.get_node_name(&system_a);
+            let name_b = self.get_node_name(&system_b);
 
-                debug_assert!(system_a.is_system(), "{name_a} is not a system.");
-                debug_assert!(system_b.is_system(), "{name_b} is not a system.");
+            debug_assert!(system_a.is_system(), "{name_a} is not a system.");
+            debug_assert!(system_b.is_system(), "{name_b} is not a system.");
 
-                let conflict_names: Vec<_> = conflicts
+            let conflict_names: Vec<&'a str> = match conflict {
+                ConflictingSystemRecord::ConflictingAccess {
+                    node_a: _,
+                    node_b: _,
+                    components: conflicts,
+                    common_world: _,
+                } => conflicts
                     .iter()
                     .map(|id| components.get_name(*id).unwrap())
-                    .collect();
+                    .collect(),
+                ConflictingSystemRecord::ConflictingExclusivity {
+                    node_a: _,
+                    node_b: _,
+                } => Vec::new(),
+            };
 
-                (name_a, name_b, conflict_names)
-            })
+            (name_a, name_b, conflict_names, conflict)
+        })
     }
 
     fn traverse_sets_containing_node(&self, id: NodeId, f: &mut impl FnMut(NodeId) -> bool) {

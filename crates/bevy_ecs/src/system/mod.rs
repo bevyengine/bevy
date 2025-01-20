@@ -327,6 +327,7 @@ mod tests {
     use alloc::{vec, vec::Vec};
     use bevy_utils::default;
     use core::any::TypeId;
+    use smallvec::SmallVec;
     use std::println;
 
     use crate::{
@@ -337,7 +338,7 @@ mod tests {
         component::{Component, Components, Tick},
         entity::{Entities, Entity},
         prelude::{AnyOf, EntityRef},
-        query::{Added, Changed, Or, With, Without},
+        query::{AccessConflicts, Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
         result::Result,
         schedule::{
@@ -1094,7 +1095,9 @@ mod tests {
             .get_resource_id(TypeId::of::<B>())
             .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
-        assert_eq!(conflicts, vec![b_id, d_id].into());
+        let mut expected = SmallVec::<[_; 2]>::new();
+        expected.push((AccessConflicts::from(vec![b_id, d_id]), world.id()));
+        assert_eq!(conflicts, expected);
     }
 
     #[test]
@@ -1489,7 +1492,10 @@ mod tests {
         // set up system and verify its access is empty
         system.initialize(&mut world);
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        let archetype_component_access = system.archetype_component_access();
+        let archetype_component_access = system
+            .archetype_component_access()
+            .get_access(world.id())
+            .unwrap();
         assert!(expected_ids
             .iter()
             .all(|id| archetype_component_access.has_component_read(*id)));
@@ -1516,7 +1522,10 @@ mod tests {
 
         // update system and verify its accesses are correct
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        let archetype_component_access = system.archetype_component_access();
+        let archetype_component_access = system
+            .archetype_component_access()
+            .get_access(world.id())
+            .unwrap();
         assert!(expected_ids
             .iter()
             .all(|id| archetype_component_access.has_component_read(*id)));
@@ -1531,7 +1540,10 @@ mod tests {
         );
         world.spawn((A, B, D));
         system.update_archetype_component_access(world.as_unsafe_world_cell());
-        let archetype_component_access = system.archetype_component_access();
+        let archetype_component_access = system
+            .archetype_component_access()
+            .get_access(world.id())
+            .unwrap();
         assert!(expected_ids
             .iter()
             .all(|id| archetype_component_access.has_component_read(*id)));

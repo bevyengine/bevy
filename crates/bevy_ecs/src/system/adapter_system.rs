@@ -127,14 +127,14 @@ where
         self.name.clone()
     }
 
-    fn component_access(&self) -> &crate::query::Access<crate::component::ComponentId> {
+    fn component_access(&self) -> &crate::query::UniversalAccess<crate::component::ComponentId> {
         self.system.component_access()
     }
 
     #[inline]
     fn archetype_component_access(
         &self,
-    ) -> &crate::query::Access<crate::archetype::ArchetypeComponentId> {
+    ) -> &crate::query::UniversalAccess<crate::archetype::ArchetypeComponentId> {
         self.system.archetype_component_access()
     }
 

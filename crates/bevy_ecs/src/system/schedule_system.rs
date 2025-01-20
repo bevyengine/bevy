@@ -3,7 +3,7 @@ use alloc::{borrow::Cow, vec::Vec};
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
-    query::Access,
+    query::UniversalAccess,
     result::Result,
     system::{input::SystemIn, BoxedSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -31,12 +31,12 @@ impl<S: System<In = (), Out = ()>> System for InfallibleSystemWrapper<S> {
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
+    fn component_access(&self) -> &UniversalAccess<ComponentId> {
         self.0.component_access()
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+    fn archetype_component_access(&self) -> &UniversalAccess<ArchetypeComponentId> {
         self.0.archetype_component_access()
     }
 

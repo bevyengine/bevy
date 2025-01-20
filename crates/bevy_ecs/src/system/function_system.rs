@@ -2,7 +2,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeGeneration},
     component::{ComponentId, Tick},
     prelude::FromWorld,
-    query::{Access, FilteredAccessSet},
+    query::{FilteredAccessSet, UniversalAccess},
     schedule::{InternedSystemSet, SystemSet},
     system::{
         check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
@@ -28,7 +28,7 @@ pub struct SystemMeta {
     /// - soundness issues (e.g. multiple [`SystemParam`]s mutably accessing the same component)
     /// - ambiguities in the schedule (e.g. two systems that have some sort of conflicting access)
     pub(crate) component_access_set: FilteredAccessSet<ComponentId>,
-    /// This [`Access`] is used to determine which systems can run in parallel with each other
+    /// This [`UniversalAccess`] is used to determine which systems can run in parallel with each other
     /// in the multithreaded executor.
     ///
     /// We use a [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
@@ -37,7 +37,7 @@ pub struct SystemMeta {
     /// both `A`, `B` and `T` then in practice there's no risk of conflict. By using [`ArchetypeComponentId`]
     /// we can be more precise because we can check if the existing archetypes of the [`World`]
     /// cause a conflict
-    pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
+    pub(crate) archetype_component_access: UniversalAccess<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
     is_send: bool,
@@ -55,7 +55,7 @@ impl SystemMeta {
         let name = core::any::type_name::<T>();
         Self {
             name: name.into(),
-            archetype_component_access: Access::default(),
+            archetype_component_access: UniversalAccess::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
             has_deferred: false,
@@ -146,11 +146,11 @@ impl SystemMeta {
     /// but no archetype that matches the first query will match the second and vice versa,
     /// which means there's no risk of conflict.
     #[inline]
-    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+    pub fn archetype_component_access(&self) -> &UniversalAccess<ArchetypeComponentId> {
         &self.archetype_component_access
     }
 
-    /// Returns a mutable reference to the [`Access`] for [`ArchetypeComponentId`].
+    /// Returns a mutable reference to the [`UniversalAccess`] for [`ArchetypeComponentId`].
     /// This is used to determine which systems can run in parallel with each other
     /// in the multithreaded executor.
     ///
@@ -162,9 +162,11 @@ impl SystemMeta {
     ///
     /// # Safety
     ///
-    /// No access can be removed from the returned [`Access`].
+    /// No access can be removed from the returned [`UniversalAccess`].
     #[inline]
-    pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
+    pub unsafe fn archetype_component_access_mut(
+        &mut self,
+    ) -> &mut UniversalAccess<ArchetypeComponentId> {
         &mut self.archetype_component_access
     }
 
@@ -578,6 +580,11 @@ impl<Param: SystemParam> SystemState<Param> {
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
             unsafe { Param::new_archetype(&mut self.param_state, archetype, &mut self.meta) };
         }
+
+        // Safety: guaranteed by the assertion above
+        unsafe {
+            Param::update_meta(&mut self.param_state, world, &mut self.meta);
+        }
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
@@ -786,12 +793,12 @@ where
     }
 
     #[inline]
-    fn component_access(&self) -> &Access<ComponentId> {
+    fn component_access(&self) -> &UniversalAccess<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
 
     #[inline]
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+    fn archetype_component_access(&self) -> &UniversalAccess<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
     }
 
@@ -890,6 +897,9 @@ where
             // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
             unsafe { F::Param::new_archetype(&mut state.param, archetype, &mut self.system_meta) };
         }
+
+        // SAFETY: The assertion above ensures that the param_state was initialized from `world`.
+        unsafe { F::Param::update_meta(&mut state.param, world, &mut self.system_meta) };
     }
 
     #[inline]
