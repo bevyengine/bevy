@@ -2,10 +2,10 @@ use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     NamedField, UnnamedField,
 };
+use alloc::boxed::Box;
+use alloc::sync::Arc;
 use bevy_utils::HashMap;
 use core::slice::Iter;
-
-use alloc::sync::Arc;
 use thiserror::Error;
 
 /// Describes the form of an enum variant.

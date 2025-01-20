@@ -17,27 +17,26 @@ use crate::{
     DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UntypedAssetId,
     UntypedAssetLoadFailedEvent, UntypedHandle,
 };
-use alloc::sync::Arc;
+use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
+use alloc::{
+    format,
+    string::{String, ToString},
+    sync::Arc,
+};
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{
-    tracing::{error, info},
-    HashSet,
-};
-use core::{
-    any::{Any, TypeId},
-    future::Future,
-    panic::AssertUnwindSafe,
-};
+use bevy_utils::HashSet;
+use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
 use futures_lite::{FutureExt, StreamExt};
 use info::*;
 use loaders::*;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockWriteGuard};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use tracing::{error, info};
 
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader). This can be used to kick off new asset loads and
 /// retrieve their current load states.
@@ -204,7 +203,7 @@ impl AssetServer {
         loader.ok_or_else(error)?.get().await.map_err(|_| error())
     }
 
-    /// Returns the registered [`AssetLoader`] associated with the given [`std::any::type_name`], if it exists.
+    /// Returns the registered [`AssetLoader`] associated with the given [`core::any::type_name`], if it exists.
     pub async fn get_asset_loader_with_type_name(
         &self,
         type_name: &str,
@@ -383,7 +382,7 @@ impl AssetServer {
         );
 
         if should_load {
-            self.spawn_load_task(handle.clone().untyped(), path, &mut infos, guard);
+            self.spawn_load_task(handle.clone().untyped(), path, infos, guard);
         }
 
         handle
@@ -407,7 +406,7 @@ impl AssetServer {
         );
 
         if should_load {
-            self.spawn_load_task(handle.clone(), path, &mut infos, guard);
+            self.spawn_load_task(handle.clone(), path, infos, guard);
         }
 
         handle
@@ -417,9 +416,13 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
-        infos: &mut AssetInfos,
+        infos: RwLockWriteGuard<AssetInfos>,
         guard: G,
     ) {
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         let owned_handle = handle.clone();
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
@@ -433,7 +436,10 @@ impl AssetServer {
         });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
-        infos.pending_tasks.insert(handle.id(), task);
+        {
+            let mut infos = infos;
+            infos.pending_tasks.insert(handle.id(), task);
+        }
 
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         task.detach();
@@ -469,6 +475,11 @@ impl AssetServer {
             HandleLoadingMode::Request,
             meta_transform,
         );
+
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         if !should_load {
             return handle;
         }
@@ -480,11 +491,8 @@ impl AssetServer {
             match server.load_untyped_async(path).await {
                 Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                     id,
-                    loaded_asset: LoadedAsset::new_with_dependencies(
-                        LoadedUntypedAsset { handle },
-                        None,
-                    )
-                    .into(),
+                    loaded_asset: LoadedAsset::new_with_dependencies(LoadedUntypedAsset { handle })
+                        .into(),
                 }),
                 Err(err) => {
                     error!("{err}");
@@ -639,7 +647,14 @@ impl AssetServer {
         };
 
         match self
-            .load_with_meta_loader_and_reader(&base_path, meta, &*loader, &mut *reader, true, false)
+            .load_with_meta_loader_and_reader(
+                &base_path,
+                meta.as_ref(),
+                &*loader,
+                &mut *reader,
+                true,
+                false,
+            )
             .await
         {
             Ok(loaded_asset) => {
@@ -727,7 +742,7 @@ impl AssetServer {
     /// After the asset has been fully loaded by the [`AssetServer`], it will show up in the relevant [`Assets`] storage.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn add<A: Asset>(&self, asset: A) -> Handle<A> {
-        self.load_asset(LoadedAsset::new_with_dependencies(asset, None))
+        self.load_asset(LoadedAsset::new_with_dependencies(asset))
     }
 
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
@@ -778,6 +793,11 @@ impl AssetServer {
         let mut infos = self.data.infos.write();
         let handle =
             infos.create_loading_handle_untyped(TypeId::of::<A>(), core::any::type_name::<A>());
+
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
+
         let id = handle.id();
 
         let event_sender = self.data.asset_event_sender.clone();
@@ -785,7 +805,7 @@ impl AssetServer {
         let task = IoTaskPool::get().spawn(async move {
             match future.await {
                 Ok(asset) => {
-                    let loaded_asset = LoadedAsset::new_with_dependencies(asset, None).into();
+                    let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();
                     event_sender
                         .send(InternalAssetEvent::Loaded { id, loaded_asset })
                         .unwrap();
@@ -889,7 +909,7 @@ impl AssetServer {
             .spawn(async move {
                 let Ok(source) = server.get_source(path.source()) else {
                     error!(
-                        "Failed to load {path}. AssetSource {:?} does not exist",
+                        "Failed to load {path}. AssetSource {} does not exist",
                         path.source()
                     );
                     return;
@@ -901,7 +921,7 @@ impl AssetServer {
                         Ok(reader) => reader,
                         Err(_) => {
                             error!(
-                                "Failed to load {path}. AssetSource {:?} does not have a processed AssetReader",
+                                "Failed to load {path}. AssetSource {} does not have a processed AssetReader",
                                 path.source()
                             );
                             return;
@@ -915,7 +935,6 @@ impl AssetServer {
                         id,
                         loaded_asset: LoadedAsset::new_with_dependencies(
                             LoadedFolder { handles },
-                            None,
                         )
                         .into(),
                     }),
@@ -1301,7 +1320,7 @@ impl AssetServer {
     pub(crate) async fn load_with_meta_loader_and_reader(
         &self,
         asset_path: &AssetPath<'_>,
-        meta: Box<dyn AssetMetaDyn>,
+        meta: &dyn AssetMetaDyn,
         loader: &dyn ErasedAssetLoader,
         reader: &mut dyn Reader,
         load_dependencies: bool,
@@ -1326,13 +1345,140 @@ impl AssetServer {
                 })
             })
     }
+
+    /// Returns a future that will suspend until the specified asset and its dependencies finish
+    /// loading.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub async fn wait_for_asset<A: Asset>(
+        &self,
+        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // which ensures the handle won't be dropped while waiting for the asset.
+        handle: &Handle<A>,
+    ) -> Result<(), WaitForAssetError> {
+        self.wait_for_asset_id(handle.id().untyped()).await
+    }
+
+    /// Returns a future that will suspend until the specified asset and its dependencies finish
+    /// loading.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub async fn wait_for_asset_untyped(
+        &self,
+        // NOTE: We take a reference to a handle so we know it will outlive the future,
+        // which ensures the handle won't be dropped while waiting for the asset.
+        handle: &UntypedHandle,
+    ) -> Result<(), WaitForAssetError> {
+        self.wait_for_asset_id(handle.id()).await
+    }
+
+    /// Returns a future that will suspend until the specified asset and its dependencies finish
+    /// loading.
+    ///
+    /// Note that since an asset ID does not count as a reference to the asset,
+    /// the future returned from this method will *not* keep the asset alive.
+    /// This may lead to the asset unexpectedly being dropped while you are waiting for it to
+    /// finish loading.
+    ///
+    /// When calling this method, make sure a strong handle is stored elsewhere to prevent the
+    /// asset from being dropped.
+    /// If you have access to an asset's strong [`Handle`], you should prefer to call
+    /// [`AssetServer::wait_for_asset`]
+    /// or [`wait_for_asset_untyped`](Self::wait_for_asset_untyped) to ensure the asset finishes
+    /// loading.
+    ///
+    /// # Errors
+    ///
+    /// This will return an error if the asset or any of its dependencies fail to load,
+    /// or if the asset has not been queued up to be loaded.
+    pub async fn wait_for_asset_id(
+        &self,
+        id: impl Into<UntypedAssetId>,
+    ) -> Result<(), WaitForAssetError> {
+        let id = id.into();
+        core::future::poll_fn(move |cx| self.wait_for_asset_id_poll_fn(cx, id)).await
+    }
+
+    /// Used by [`wait_for_asset_id`](AssetServer::wait_for_asset_id) in [`poll_fn`](core::future::poll_fn).
+    fn wait_for_asset_id_poll_fn(
+        &self,
+        cx: &mut core::task::Context<'_>,
+        id: UntypedAssetId,
+    ) -> Poll<Result<(), WaitForAssetError>> {
+        let infos = self.data.infos.read();
+
+        let Some(info) = infos.get(id) else {
+            return Poll::Ready(Err(WaitForAssetError::NotLoaded));
+        };
+
+        match (&info.load_state, &info.rec_dep_load_state) {
+            (LoadState::Loaded, RecursiveDependencyLoadState::Loaded) => Poll::Ready(Ok(())),
+            // Return an error immediately if the asset is not in the process of loading
+            (LoadState::NotLoaded, _) => Poll::Ready(Err(WaitForAssetError::NotLoaded)),
+            // If the asset is loading, leave our waker behind
+            (LoadState::Loading, _)
+            | (_, RecursiveDependencyLoadState::Loading)
+            | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded) => {
+                // Check if our waker is already there
+                let has_waker = info
+                    .waiting_tasks
+                    .iter()
+                    .any(|waker| waker.will_wake(cx.waker()));
+
+                if has_waker {
+                    return Poll::Pending;
+                }
+
+                let mut infos = {
+                    // Must drop read-only guard to acquire write guard
+                    drop(infos);
+                    self.data.infos.write()
+                };
+
+                let Some(info) = infos.get_mut(id) else {
+                    return Poll::Ready(Err(WaitForAssetError::NotLoaded));
+                };
+
+                // If the load state changed while reacquiring the lock, immediately
+                // reawaken the task
+                let is_loading = matches!(
+                    (&info.load_state, &info.rec_dep_load_state),
+                    (LoadState::Loading, _)
+                        | (_, RecursiveDependencyLoadState::Loading)
+                        | (LoadState::Loaded, RecursiveDependencyLoadState::NotLoaded)
+                );
+
+                if !is_loading {
+                    cx.waker().wake_by_ref();
+                } else {
+                    // Leave our waker behind
+                    info.waiting_tasks.push(cx.waker().clone());
+                }
+
+                Poll::Pending
+            }
+            (LoadState::Failed(error), _) => {
+                Poll::Ready(Err(WaitForAssetError::Failed(error.clone())))
+            }
+            (_, RecursiveDependencyLoadState::Failed(error)) => {
+                Poll::Ready(Err(WaitForAssetError::DependencyFailed(error.clone())))
+            }
+        }
+    }
 }
 
 /// A system that manages internal [`AssetServer`] events, such as finalizing asset loads.
 pub fn handle_internal_asset_events(world: &mut World) {
     world.resource_scope(|world, server: Mut<AssetServer>| {
         let mut infos = server.data.infos.write();
-        let mut untyped_failures = vec![];
+        let var_name = vec![];
+        let mut untyped_failures = var_name;
         for event in server.data.asset_event_receiver.try_iter() {
             match event {
                 InternalAssetEvent::Loaded { id, loaded_asset } => {
@@ -1349,6 +1495,11 @@ pub fn handle_internal_asset_events(world: &mut World) {
                         .get(&id.type_id())
                         .expect("Asset event sender should exist");
                     sender(world, id);
+                    if let Some(info) = infos.get_mut(id) {
+                        for waker in info.waiting_tasks.drain(..) {
+                            waker.wake();
+                        }
+                    }
                 }
                 InternalAssetEvent::Failed { id, path, error } => {
                     infos.process_asset_fail(id, error.clone());
@@ -1379,10 +1530,10 @@ pub fn handle_internal_asset_events(world: &mut World) {
             infos: &AssetInfos,
             paths_to_reload: &mut HashSet<AssetPath<'static>>,
         ) {
-            if let Some(dependants) = infos.loader_dependants.get(asset_path) {
-                for dependant in dependants {
-                    paths_to_reload.insert(dependant.to_owned());
-                    queue_ancestors(dependant, infos, paths_to_reload);
+            if let Some(dependents) = infos.loader_dependents.get(asset_path) {
+                for dependent in dependents {
+                    paths_to_reload.insert(dependent.to_owned());
+                    queue_ancestors(dependent, infos, paths_to_reload);
                 }
             }
         }
@@ -1400,7 +1551,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         };
 
-        let mut paths_to_reload = HashSet::new();
+        let mut paths_to_reload = <HashSet<_>>::default();
         let mut handle_event = |source: AssetSourceId<'static>, event: AssetSourceEvent| {
             match event {
                 // TODO: if the asset was processed and the processed file was changed, the first modified event
@@ -1472,44 +1623,87 @@ pub(crate) enum InternalAssetEvent {
 }
 
 /// The load state of an asset.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
+#[derive(Component, Clone, Debug)]
 pub enum LoadState {
     /// The asset has not started loading yet
     NotLoaded,
+
     /// The asset is in the process of loading.
     Loading,
+
     /// The asset has been loaded and has been added to the [`World`]
     Loaded,
+
     /// The asset failed to load. The underlying [`AssetLoadError`] is
     /// referenced by [`Arc`] clones in all related [`DependencyLoadState`]s
     /// and [`RecursiveDependencyLoadState`]s in the asset's dependency tree.
     Failed(Arc<AssetLoadError>),
 }
 
+impl LoadState {
+    /// Returns `true` if this instance is [`LoadState::Loading`]
+    pub fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading)
+    }
+
+    /// Returns `true` if this instance is [`LoadState::Loaded`]
+    pub fn is_loaded(&self) -> bool {
+        matches!(self, Self::Loaded)
+    }
+
+    /// Returns `true` if this instance is [`LoadState::Failed`]
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
+}
+
 /// The load state of an asset's dependencies.
-#[derive(Component, Clone, Debug, Eq, PartialEq)]
+#[derive(Component, Clone, Debug)]
 pub enum DependencyLoadState {
     /// The asset has not started loading yet
     NotLoaded,
+
     /// Dependencies are still loading
     Loading,
+
     /// Dependencies have all loaded
     Loaded,
+
     /// One or more dependencies have failed to load. The underlying [`AssetLoadError`]
     /// is referenced by [`Arc`] clones in all related [`LoadState`] and
     /// [`RecursiveDependencyLoadState`]s in the asset's dependency tree.
     Failed(Arc<AssetLoadError>),
 }
 
+impl DependencyLoadState {
+    /// Returns `true` if this instance is [`DependencyLoadState::Loading`]
+    pub fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading)
+    }
+
+    /// Returns `true` if this instance is [`DependencyLoadState::Loaded`]
+    pub fn is_loaded(&self) -> bool {
+        matches!(self, Self::Loaded)
+    }
+
+    /// Returns `true` if this instance is [`DependencyLoadState::Failed`]
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
+}
+
 /// The recursive load state of an asset's dependencies.
-#[derive(Component, Clone, Debug, Eq, PartialEq)]
+#[derive(Component, Clone, Debug)]
 pub enum RecursiveDependencyLoadState {
     /// The asset has not started loading yet
     NotLoaded,
+
     /// Dependencies in this asset's dependency tree are still loading
     Loading,
+
     /// Dependencies in this asset's dependency tree have all loaded
     Loaded,
+
     /// One or more dependencies have failed to load in this asset's dependency
     /// tree. The underlying [`AssetLoadError`] is referenced by [`Arc`] clones
     /// in all related [`LoadState`]s and [`DependencyLoadState`]s in the asset's
@@ -1517,8 +1711,25 @@ pub enum RecursiveDependencyLoadState {
     Failed(Arc<AssetLoadError>),
 }
 
+impl RecursiveDependencyLoadState {
+    /// Returns `true` if this instance is [`RecursiveDependencyLoadState::Loading`]
+    pub fn is_loading(&self) -> bool {
+        matches!(self, Self::Loading)
+    }
+
+    /// Returns `true` if this instance is [`RecursiveDependencyLoadState::Loaded`]
+    pub fn is_loaded(&self) -> bool {
+        matches!(self, Self::Loaded)
+    }
+
+    /// Returns `true` if this instance is [`RecursiveDependencyLoadState::Failed`]
+    pub fn is_failed(&self) -> bool {
+        matches!(self, Self::Failed(_))
+    }
+}
+
 /// An error that occurs during an [`Asset`] load.
-#[derive(Error, Debug, Clone, PartialEq, Eq)]
+#[derive(Error, Debug, Clone)]
 pub enum AssetLoadError {
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {
@@ -1554,8 +1765,10 @@ pub enum AssetLoadError {
         error: Box<DeserializeMetaError>,
     },
     #[error("Asset '{path}' is configured to be processed. It cannot be loaded directly.")]
+    #[from(ignore)]
     CannotLoadProcessedAsset { path: AssetPath<'static> },
     #[error("Asset '{path}' is configured to be ignored. It cannot be loaded.")]
+    #[from(ignore)]
     CannotLoadIgnoredAsset { path: AssetPath<'static> },
     #[error("Failed to load asset '{path}', asset loader '{loader_name}' panicked")]
     AssetLoaderPanic {
@@ -1586,18 +1799,6 @@ pub struct AssetLoaderError {
     error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
-impl PartialEq for AssetLoaderError {
-    /// Equality comparison for `AssetLoaderError::error` is not full (only through `TypeId`)
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.path == other.path
-            && self.loader_name == other.loader_name
-            && self.error.type_id() == other.error.type_id()
-    }
-}
-
-impl Eq for AssetLoaderError {}
-
 impl AssetLoaderError {
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
@@ -1610,24 +1811,14 @@ pub struct AddAsyncError {
     error: Arc<dyn core::error::Error + Send + Sync + 'static>,
 }
 
-impl PartialEq for AddAsyncError {
-    /// Equality comparison is not full (only through `TypeId`)
-    #[inline]
-    fn eq(&self, other: &Self) -> bool {
-        self.error.type_id() == other.error.type_id()
-    }
-}
-
-impl Eq for AddAsyncError {}
-
 /// An error that occurs when an [`AssetLoader`] is not registered for a given extension.
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
-#[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
+#[error("no `AssetLoader` found{}", format_missing_asset_ext(extensions))]
 pub struct MissingAssetLoaderForExtensionError {
     extensions: Vec<String>,
 }
 
-/// An error that occurs when an [`AssetLoader`] is not registered for a given [`std::any::type_name`].
+/// An error that occurs when an [`AssetLoader`] is not registered for a given [`core::any::type_name`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("no `AssetLoader` found with the name '{type_name}'")]
 pub struct MissingAssetLoaderForTypeNameError {
@@ -1664,3 +1855,14 @@ impl core::fmt::Debug for AssetServer {
 /// This is appended to asset sources when loading a [`LoadedUntypedAsset`]. This provides a unique
 /// source for a given [`AssetPath`].
 const UNTYPED_SOURCE_SUFFIX: &str = "--untyped";
+
+/// An error when attempting to wait asynchronously for an [`Asset`] to load.
+#[derive(Error, Debug, Clone)]
+pub enum WaitForAssetError {
+    #[error("tried to wait for an asset that is not being loaded")]
+    NotLoaded,
+    #[error(transparent)]
+    Failed(Arc<AssetLoadError>),
+    #[error(transparent)]
+    DependencyFailed(Arc<AssetLoadError>),
+}

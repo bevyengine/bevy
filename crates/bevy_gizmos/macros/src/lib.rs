@@ -11,8 +11,8 @@ use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
 #[proc_macro_derive(GizmoConfigGroup)]
 pub fn derive_gizmo_config_group(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
-    let bevy_gizmos_path: Path = BevyManifest::default().get_path("bevy_gizmos");
-    let bevy_reflect_path: Path = BevyManifest::default().get_path("bevy_reflect");
+    let bevy_gizmos_path: Path = BevyManifest::shared().get_path("bevy_gizmos");
+    let bevy_reflect_path: Path = BevyManifest::shared().get_path("bevy_reflect");
 
     ast.generics.make_where_clause().predicates.push(
         parse_quote! { Self: #bevy_reflect_path::Reflect + #bevy_reflect_path::TypePath + Default},

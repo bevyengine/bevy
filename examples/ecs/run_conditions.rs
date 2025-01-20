@@ -82,7 +82,7 @@ fn has_user_input(
 fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
     move |mut timer: Local<f32>, time: Res<Time>| {
         // Tick the timer
-        *timer += time.delta_seconds();
+        *timer += time.delta_secs();
         // Return true if the timer has passed the time
         *timer >= t
     }

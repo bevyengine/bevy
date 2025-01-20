@@ -1,15 +1,15 @@
 use crate::{
     batching::BatchingStrategy,
     component::Tick,
-    entity::Entity,
+    entity::{Entity, EntityBorrow, EntitySet},
     query::{
         QueryCombinationIter, QueryData, QueryEntityError, QueryFilter, QueryIter, QueryManyIter,
-        QueryParIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
+        QueryManyUniqueIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
+        ReadOnlyQueryData,
     },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use core::{
-    borrow::Borrow,
     marker::PhantomData,
     ops::{Deref, DerefMut},
 };
@@ -202,7 +202,7 @@ use core::{
 /// ## Whole Entity Access
 ///
 /// [`EntityRef`]s can be fetched from a query. This will give read-only access to any component on the entity,
-/// and can be use to dynamically fetch any component without baking it into the query type. Due to this global
+/// and can be used to dynamically fetch any component without baking it into the query type. Due to this global
 /// access to the entity, this will block any other system from parallelizing with it. As such these queries
 /// should be sparingly used.
 ///
@@ -352,6 +352,8 @@ use core::{
 /// [`par_iter`]: Self::par_iter
 /// [`par_iter_mut`]: Self::par_iter_mut
 /// [performance]: #performance
+/// [`Single`]: Single
+/// [`Option<Single>`]: Single
 /// [`single`]: Self::single
 /// [`single_mut`]: Self::single_mut
 /// [`SparseSet`]: crate::storage::SparseSet
@@ -618,7 +620,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// ) {
     ///     for friends in &friends_query {
     ///         for counter in counter_query.iter_many(&friends.list) {
-    ///             println!("Friend's counter: {:?}", counter.value);
+    ///             println!("Friend's counter: {}", counter.value);
     ///         }
     ///     }
     /// }
@@ -629,7 +631,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to get mutable query items.
     #[inline]
-    pub fn iter_many<EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many<EntityList: IntoIterator<Item: EntityBorrow>>(
         &self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
@@ -649,7 +651,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Returns an iterator over the query items generated from an [`Entity`] list.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
-    /// doesnn't guarantee uniqueness. Entities that don't match the query are skipped.
+    /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
     ///
     /// # Examples
     ///
@@ -672,6 +674,130 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     for friends in &friends_query {
     ///         let mut iter = counter_query.iter_many_mut(&friends.list);
     ///         while let Some(mut counter) = iter.fetch_next() {
+    ///             println!("Friend's counter: {}", counter.value);
+    ///             counter.value += 1;
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    #[inline]
+    pub fn iter_many_mut<EntityList: IntoIterator<Item: EntityBorrow>>(
+        &mut self,
+        entities: EntityList,
+    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
+        // SAFETY: `self.world` has permission to access the required components.
+        unsafe {
+            self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the unique read-only query items generated from an [`EntitySet`].
+    ///
+    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::{EntitySet, UniqueEntityIter}};
+    /// # use core::slice;
+    /// # #[derive(Component)]
+    /// # struct Counter {
+    /// #     value: i32
+    /// # }
+    /// #
+    /// // `Friends` ensures that it only lists unique entities.
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     unique_list: Vec<Entity>,
+    /// }
+    ///
+    /// impl<'a> IntoIterator for &'a Friends {
+    ///
+    ///     type Item = &'a Entity;
+    ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
+    ///  
+    ///     fn into_iter(self) -> Self::IntoIter {
+    ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
+    ///        unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///     }
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     counter_query: Query<&Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for counter in counter_query.iter_many_unique(friends) {
+    ///             println!("Friend's counter: {:?}", counter.value);
+    ///         }
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(system);
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many_unique_mut`](Self::iter_many_unique_mut) to get mutable query items.
+    #[inline]
+    pub fn iter_many_unique<EntityList: EntitySet>(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'_, 's, D::ReadOnly, F, EntityList::IntoIter> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The query is read-only, so it can be aliased even if it was originally mutable.
+        unsafe {
+            self.state.as_readonly().iter_many_unique_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns an iterator over the unique query items generated from an [`EntitySet`].
+    ///
+    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::{prelude::*, entity::{EntitySet, UniqueEntityIter}};
+    /// # use core::slice;
+    /// #[derive(Component)]
+    /// struct Counter {
+    ///     value: i32
+    /// }
+    ///
+    /// // `Friends` ensures that it only lists unique entities.
+    /// #[derive(Component)]
+    /// struct Friends {
+    ///     unique_list: Vec<Entity>,
+    /// }
+    ///
+    /// impl<'a> IntoIterator for &'a Friends {
+    ///     type Item = &'a Entity;
+    ///     type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
+    ///
+    ///     fn into_iter(self) -> Self::IntoIter {
+    ///         // SAFETY: `Friends` ensures that it unique_list contains only unique entities.
+    ///         unsafe { UniqueEntityIter::from_iterator_unchecked(self.unique_list.iter()) }
+    ///     }
+    /// }
+    ///
+    /// fn system(
+    ///     friends_query: Query<&Friends>,
+    ///     mut counter_query: Query<&mut Counter>,
+    /// ) {
+    ///     for friends in &friends_query {
+    ///         for mut counter in counter_query.iter_many_unique_mut(friends) {
     ///             println!("Friend's counter: {:?}", counter.value);
     ///             counter.value += 1;
     ///         }
@@ -680,13 +806,13 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
     #[inline]
-    pub fn iter_many_mut<EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub fn iter_many_unique_mut<EntityList: EntitySet>(
         &mut self,
         entities: EntityList,
-    ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
         // SAFETY: `self.world` has permission to access the required components.
         unsafe {
-            self.state.iter_many_unchecked_manual(
+            self.state.iter_many_unique_unchecked_manual(
                 entities,
                 self.world,
                 self.last_run,
@@ -759,7 +885,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
-    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: Borrow<Entity>>>(
+    pub unsafe fn iter_many_unsafe<EntityList: IntoIterator<Item: EntityBorrow>>(
         &self,
         entities: EntityList,
     ) -> QueryManyIter<'_, 's, D, F, EntityList::IntoIter> {
@@ -768,6 +894,35 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // - The caller ensures that this operation will not result in any aliased mutable accesses.
         unsafe {
             self.state.iter_many_unchecked_manual(
+                entities,
+                self.world,
+                self.last_run,
+                self.this_run,
+            )
+        }
+    }
+
+    /// Returns an [`Iterator`] over the unique query items generated from an [`Entity`] list.
+    ///
+    /// Items are returned in the order of the list of entities. Entities that don't match the query are skipped.
+    ///
+    /// # Safety
+    ///
+    /// This allows aliased mutability.
+    /// You must make sure this call does not result in multiple mutable references to the same component.
+    ///
+    /// # See also
+    ///
+    /// - [`iter_many_mut`](Self::iter_many_mut) to safely access the query items.
+    pub unsafe fn iter_many_unique_unsafe<EntityList: EntitySet>(
+        &self,
+        entities: EntityList,
+    ) -> QueryManyUniqueIter<'_, 's, D, F, EntityList::IntoIter> {
+        // SAFETY:
+        // - `self.world` has permission to access the required components.
+        // - The caller ensures that this operation will not result in any aliased mutable accesses.
+        unsafe {
+            self.state.iter_many_unique_unchecked_manual(
                 entities,
                 self.world,
                 self.last_run,
@@ -1333,7 +1488,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ## Panics
     ///
-    /// This will panic if `NewD` is not a subset of the original fetch `Q`
+    /// This will panic if `NewD` is not a subset of the original fetch `D`
     ///
     /// ## Example
     ///
@@ -1374,19 +1529,108 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// ## Allowed Transmutes
     ///
-    /// Besides removing parameters from the query, you can also
-    /// make limited changes to the types of parameters.
+    /// Besides removing parameters from the query,
+    /// you can also make limited changes to the types of parameters.
+    /// The new query must have a subset of the *read*, *write*, and *required* access of the original query.
     ///
-    /// * Can always add/remove [`Entity`]
-    /// * Can always add/remove [`EntityLocation`]
-    /// * Can always add/remove [`&Archetype`]
-    /// * `Ref<T>` <-> `&T`
-    /// * `&mut T` -> `&T`
-    /// * `&mut T` -> `Ref<T>`
-    /// * [`EntityMut`](crate::world::EntityMut) -> [`EntityRef`](crate::world::EntityRef)
-    ///  
+    /// * `&mut T` and [`Mut<T>`](crate::change_detection::Mut) have read, write, and required access to `T`
+    /// * `&T` and [`Ref<T>`](crate::change_detection::Ref) have read and required access to `T`
+    /// * [`Option<D>`] and [`AnyOf<(D, ...)>`](crate::query::AnyOf) have the read and write access of the subqueries, but no required access
+    /// * Tuples of query data and `#[derive(QueryData)]` structs have the union of the access of their subqueries
+    /// * [`EntityMut`](crate::world::EntityMut) has read and write access to all components, but no required access
+    /// * [`EntityRef`](crate::world::EntityRef) has read access to all components, but no required access
+    /// * [`Entity`], [`EntityLocation`], [`&Archetype`], [`Has<T>`], and [`PhantomData<T>`] have no access at all,
+    ///   so can be added to any query
+    /// * [`FilteredEntityRef`](crate::world::FilteredEntityRef) and [`FilteredEntityMut`](crate::world::FilteredEntityMut)
+    ///   have access determined by the [`QueryBuilder`](crate::query::QueryBuilder) used to construct them.
+    ///   Any query can be transmuted to them, and they will receive the access of the source query,
+    ///   but only if they are the top-level query and not nested
+    /// * [`Added<T>`](crate::query::Added) and [`Changed<T>`](crate::query::Changed) filters have read and required access to `T`
+    /// * [`With<T>`](crate::query::With) and [`Without<T>`](crate::query::Without) filters have no access at all,
+    ///   so can be added to any query
+    /// * Tuples of query filters and `#[derive(QueryFilter)]` structs have the union of the access of their subqueries
+    /// * [`Or<(F, ...)>`](crate::query::Or) filters have the read access of the subqueries, but no required access
+    ///
+    /// ### Examples of valid transmutes
+    ///
+    /// ```rust
+    /// # use bevy_ecs::{
+    /// #     prelude::*,
+    /// #     archetype::Archetype,
+    /// #     entity::EntityLocation,
+    /// #     query::{QueryData, QueryFilter},
+    /// #     world::{FilteredEntityMut, FilteredEntityRef},
+    /// # };
+    /// # use std::marker::PhantomData;
+    /// #
+    /// # fn assert_valid_transmute<OldD: QueryData, NewD: QueryData>() {
+    /// #     assert_valid_transmute_filtered::<OldD, (), NewD, ()>();
+    /// # }
+    /// #
+    /// # fn assert_valid_transmute_filtered<OldD: QueryData, OldF: QueryFilter, NewD: QueryData, NewF: QueryFilter>() {
+    /// #     let mut world = World::new();
+    /// #     // Make sure all components in the new query are initialized
+    /// #     let state = world.query_filtered::<NewD, NewF>();
+    /// #     let state = world.query_filtered::<OldD, OldF>();
+    /// #     state.transmute_filtered::<NewD, NewF>(&world);
+    /// # }
+    /// #
+    /// # #[derive(Component)]
+    /// # struct T;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct U;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct V;
+    /// #
+    /// // `&mut T` and `Mut<T>` access the same data and can be transmuted to each other,
+    /// // `&T` and `Ref<T>` access the same data and can be transmuted to each other,
+    /// // and mutable versions can be transmuted to read-only versions
+    /// assert_valid_transmute::<&mut T, &T>();
+    /// assert_valid_transmute::<&mut T, Mut<T>>();
+    /// assert_valid_transmute::<Mut<T>, &mut T>();
+    /// assert_valid_transmute::<&T, Ref<T>>();
+    /// assert_valid_transmute::<Ref<T>, &T>();
+    ///
+    /// // The structure can be rearranged, or subqueries dropped
+    /// assert_valid_transmute::<(&T, &U), &T>();
+    /// assert_valid_transmute::<((&T, &U), &V), (&T, (&U, &V))>();
+    /// assert_valid_transmute::<Option<(&T, &U)>, (Option<&T>, Option<&U>)>();
+    ///
+    /// // Queries with no access can be freely added
+    /// assert_valid_transmute::<
+    ///     &T,
+    ///     (&T, Entity, EntityLocation, &Archetype, Has<U>, PhantomData<T>),
+    /// >();
+    ///
+    /// // Required access can be transmuted to optional,
+    /// // and optional access can be transmuted to other optional access
+    /// assert_valid_transmute::<&T, Option<&T>>();
+    /// assert_valid_transmute::<AnyOf<(&mut T, &mut U)>, Option<&T>>();
+    /// // Note that removing subqueries from `AnyOf` will result
+    /// // in an `AnyOf` where all subqueries can yield `None`!
+    /// assert_valid_transmute::<AnyOf<(&T, &U, &V)>, AnyOf<(&T, &U)>>();
+    /// assert_valid_transmute::<EntityMut, Option<&mut T>>();
+    ///
+    /// // Anything can be transmuted to `FilteredEntityRef` or `FilteredEntityMut`
+    /// // This will create a `FilteredEntityMut` that only has read access to `T`
+    /// assert_valid_transmute::<&T, FilteredEntityMut>();
+    /// // This transmute will succeed, but the `FilteredEntityMut` will have no access!
+    /// // It must be the top-level query to be given access, but here it is nested in a tuple.
+    /// assert_valid_transmute::<&T, (Entity, FilteredEntityMut)>();
+    ///
+    /// // `Added<T>` and `Changed<T>` filters have the same access as `&T` data
+    /// // Remember that they are only evaluated on the transmuted query, not the original query!
+    /// assert_valid_transmute_filtered::<Entity, Changed<T>, &T, ()>();
+    /// assert_valid_transmute_filtered::<&mut T, (), &T, Added<T>>();
+    /// // Nested inside of an `Or` filter, they have the same access as `Option<&T>`.
+    /// assert_valid_transmute_filtered::<Option<&T>, (), Entity, Or<(Changed<T>, With<U>)>>();
+    /// ```
+    ///
     /// [`EntityLocation`]: crate::entity::EntityLocation
     /// [`&Archetype`]: crate::archetype::Archetype
+    /// [`Has<T>`]: crate::query::Has
     #[track_caller]
     pub fn transmute_lens<NewD: QueryData>(&mut self) -> QueryLens<'_, NewD> {
         self.transmute_lens_filtered::<NewD, ()>()
@@ -1646,11 +1890,13 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// [System parameter] that provides access to single entity's components, much like [`Query::single`]/[`Query::single_mut`].
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
-/// This will cause systems that use this parameter to be skipped.
+/// /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
 ///
 /// See [`Query`] for more details.
+///
+/// [System parameter]: crate::system::SystemParam
 pub struct Single<'w, D: QueryData, F: QueryFilter = ()> {
     pub(crate) item: D::Item<'w>,
     pub(crate) _filter: PhantomData<F>,
@@ -1680,13 +1926,15 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
-/// This will cause systems that use this parameter to be skipped.
+/// /// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
 /// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)
 /// which must individually check each query result for a match.
 ///
 /// See [`Query`] for more details.
+///
+/// [System parameter]: crate::system::SystemParam
 pub struct Populated<'w, 's, D: QueryData, F: QueryFilter = ()>(pub(crate) Query<'w, 's, D, F>);
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Deref for Populated<'w, 's, D, F> {

@@ -8,7 +8,7 @@ use crate::{
     ApplyError, DynamicTuple, Generics, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Tuple, Type, TypeInfo, TypePath, UnnamedField,
 };
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,
@@ -57,6 +57,11 @@ pub trait TupleStruct: PartialReflect {
 
     /// Clones the struct into a [`DynamicTupleStruct`].
     fn clone_dynamic(&self) -> DynamicTupleStruct;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_tuple_struct_info(&self) -> Option<&'static TupleStructInfo> {
+        self.get_represented_type_info()?.as_tuple_struct().ok()
+    }
 }
 
 /// A container for compile-time tuple struct info.

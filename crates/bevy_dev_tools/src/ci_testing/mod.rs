@@ -17,7 +17,7 @@ use core::time::Duration;
 /// (`ci_testing_config.ron` by default) and executes its specified actions. For a reference of the
 /// allowed configuration, see [`CiTestingConfig`].
 ///
-/// This plugin is included within `DefaultPlugins`, `HeadlessPlugins` and `MinimalPlugins`
+/// This plugin is included within `DefaultPlugins` and `MinimalPlugins`
 /// when the `bevy_ci_testing` feature is enabled.
 /// It is recommended to only used this plugin during testing (manual or
 /// automatic), and disable it during regular development and for production builds.
@@ -56,12 +56,13 @@ impl Plugin for CiTestingPlugin {
                 systems::send_events
                     .before(trigger_screenshots)
                     .before(bevy_window::close_when_requested)
-                    .in_set(SendEvents),
+                    .in_set(SendEvents)
+                    .ambiguous_with_all(),
             );
 
         // The offending system does not exist in the wasm32 target.
         // As a result, we must conditionally order the two systems using a system set.
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(any(unix, windows))]
         app.configure_sets(
             Update,
             SendEvents.before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),

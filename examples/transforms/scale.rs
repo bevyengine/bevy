@@ -48,10 +48,10 @@ fn setup(
     ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Add a light source for better 3d visibility.
     commands.spawn((
@@ -90,6 +90,6 @@ fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
 // by cycling through the directions to scale.
 fn scale_cube(mut cubes: Query<(&mut Transform, &Scaling)>, timer: Res<Time>) {
     for (mut transform, cube) in &mut cubes {
-        transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_seconds();
+        transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_secs();
     }
 }

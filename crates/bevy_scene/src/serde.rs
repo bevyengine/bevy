@@ -180,7 +180,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
                     )
                 })
                 .collect::<Vec<_>>();
-            entries.sort_by_key(|(type_path, _partial_reflect)| *type_path);
+            entries.sort_by_key(|(type_path, _)| *type_path);
             entries
         };
 
@@ -476,7 +476,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let mut added = HashSet::new();
+        let mut added = <HashSet<_>>::default();
         let mut entries = Vec::new();
         while let Some(registration) =
             map.next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
@@ -775,7 +775,7 @@ mod tests {
         assert!(dst_world
             .query_filtered::<&MyEntityRef, With<Foo>>()
             .iter(&dst_world)
-            .all(|r| world.get_entity(r.0).is_none()));
+            .all(|r| world.get_entity(r.0).is_err()));
     }
 
     #[test]
@@ -935,7 +935,7 @@ mod tests {
                 .entities
                 .iter()
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
-                .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
+                .unwrap_or_else(|| panic!("missing entity (expected: `{}`)", expected.entity));
 
             assert_eq!(expected.entity, received.entity, "entities did not match");
 
@@ -964,7 +964,7 @@ mod tests {
         }
     }
 
-    /// These tests just verify that that the [`assert_scene_eq`] function is working properly for our tests.
+    /// These tests just verify that the [`assert_scene_eq`] function is working properly for our tests.
     mod assert_scene_eq_tests {
         use super::*;
 

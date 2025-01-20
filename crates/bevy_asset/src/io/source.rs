@@ -2,15 +2,17 @@ use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
 };
-use alloc::sync::Arc;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    sync::Arc,
+};
 use atomicow::CowArc;
 use bevy_ecs::system::Resource;
-use bevy_utils::{
-    tracing::{error, warn},
-    Duration, HashMap,
-};
-use core::{fmt::Display, hash::Hash};
+use bevy_utils::HashMap;
+use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
+use tracing::{error, warn};
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 
@@ -343,7 +345,7 @@ impl AssetSourceBuilders {
     /// Builds a new [`AssetSources`] collection. If `watch` is true, the unprocessed sources will watch for changes.
     /// If `watch_processed` is true, the processed sources will watch for changes.
     pub fn build_sources(&mut self, watch: bool, watch_processed: bool) -> AssetSources {
-        let mut sources = HashMap::new();
+        let mut sources = <HashMap<_, _>>::default();
         for (id, source) in &mut self.sources {
             if let Some(data) = source.build(
                 AssetSourceId::Name(id.clone_owned()),
@@ -531,7 +533,7 @@ impl AssetSource {
                 not(target_os = "android")
             ))]
             {
-                let path = std::path::PathBuf::from(path.clone());
+                let path = super::file::get_base_path().join(path.clone());
                 if path.exists() {
                     Some(Box::new(
                         super::file::FileWatcher::new(
@@ -587,7 +589,7 @@ impl AssetSources {
             AssetSourceId::Name(name) => self
                 .sources
                 .get(&name)
-                .ok_or_else(|| MissingAssetSourceError(AssetSourceId::Name(name))),
+                .ok_or(MissingAssetSourceError(AssetSourceId::Name(name))),
         }
     }
 

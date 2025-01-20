@@ -19,7 +19,7 @@
 //!
 //! The more sophisticated way is to update the player's position based on the time that has passed:
 //! ```no_run
-//! transform.translation += velocity * time.delta_seconds();
+//! transform.translation += velocity * time.delta_secs();
 //! ```
 //! This way, velocity represents a speed in units per second, and the player will move at the same speed
 //! regardless of the frame rate.
@@ -130,14 +130,11 @@ struct PreviousPhysicalTranslation(Vec3);
 
 /// Spawn the player sprite and a 2D camera.
 fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn((
         Name::new("Player"),
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            transform: Transform::from_scale(Vec3::splat(0.3)),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
+        Transform::from_scale(Vec3::splat(0.3)),
         AccumulatedInput::default(),
         Velocity::default(),
         PhysicalTranslation::default(),
@@ -148,24 +145,19 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// Spawn a bit of UI text to explain how to move the player.
 fn spawn_text(mut commands: Commands) {
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                bottom: Val::Px(12.0),
-                left: Val::Px(12.0),
-                ..default()
-            },
+        .spawn(Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Move the player with WASD",
-                TextStyle {
-                    font_size: 25.0,
-                    ..default()
-                },
-            ));
-        });
+        .with_child((
+            Text::new("Move the player with WASD"),
+            TextFont {
+                font_size: 25.0,
+                ..default()
+            },
+        ));
 }
 
 /// Handle keyboard input and accumulate it in the `AccumulatedInput` component.
@@ -222,7 +214,7 @@ fn advance_physics(
     ) in query.iter_mut()
     {
         previous_physical_translation.0 = current_physical_translation.0;
-        current_physical_translation.0 += velocity.0 * fixed_time.delta_seconds();
+        current_physical_translation.0 += velocity.0 * fixed_time.delta_secs();
 
         // Reset the input accumulator, as we are currently consuming all input that happened since the last fixed timestep.
         input.0 = Vec2::ZERO;

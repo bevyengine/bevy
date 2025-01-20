@@ -1,13 +1,13 @@
+use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
-use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, hash_error, type_info::impl_type_methods, ApplyError, Generics,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath,
+    self as bevy_reflect, generics::impl_generic_info_methods, hash_error,
+    type_info::impl_type_methods, ApplyError, Generics, PartialReflect, Reflect, ReflectKind,
+    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -30,7 +30,7 @@ use crate::{
 ///
 /// ```
 /// use bevy_reflect::{PartialReflect, Set};
-/// use bevy_utils::HashSet;
+/// use std::collections::HashSet;
 ///
 ///
 /// let foo: &mut dyn Set = &mut HashSet::<u32>::new();
@@ -42,7 +42,7 @@ use crate::{
 /// ```
 ///
 /// [`HashSet`]: std::collections::HashSet
-/// [`BTreeSet`]: std::collections::BTreeSet
+/// [`BTreeSet`]: alloc::collections::BTreeSet
 /// [set-like]: https://doc.rust-lang.org/stable/std/collections/struct.HashSet.html
 /// [reflection]: crate
 pub trait Set: PartialReflect {
@@ -431,7 +431,7 @@ pub fn set_partial_eq<M: Set>(a: &M, b: &dyn PartialReflect) -> Option<bool> {
 ///
 /// # Example
 /// ```
-/// # use bevy_utils::HashSet;
+/// # use std::collections::HashSet;
 /// use bevy_reflect::Reflect;
 ///
 /// let mut my_set = HashSet::new();
@@ -498,6 +498,7 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
 #[cfg(test)]
 mod tests {
     use super::DynamicSet;
+    use alloc::string::{String, ToString};
 
     #[test]
     fn test_into_iter() {

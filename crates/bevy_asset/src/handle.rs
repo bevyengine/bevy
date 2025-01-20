@@ -3,7 +3,6 @@ use crate::{
     UntypedAssetId,
 };
 use alloc::sync::Arc;
-use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use core::{
     any::TypeId,
@@ -122,8 +121,8 @@ impl core::fmt::Debug for StrongHandle {
 /// of the [`Handle`] are dropped.
 ///
 /// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
-#[derive(Component, Reflect)]
-#[reflect(Default, Component, Debug, Hash, PartialEq)]
+#[derive(Reflect)]
+#[reflect(Default, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
@@ -515,7 +514,10 @@ pub enum UntypedAssetConversionError {
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
     use bevy_reflect::PartialReflect;
+    use bevy_utils::FixedHasher;
+    use core::hash::BuildHasher;
 
     use super::*;
 
@@ -526,9 +528,7 @@ mod tests {
 
     /// Simple utility to directly hash a value using a fixed hasher
     fn hash<T: Hash>(data: &T) -> u64 {
-        let mut hasher = bevy_utils::AHasher::default();
-        data.hash(&mut hasher);
-        hasher.finish()
+        FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `Handles` should be equivalent to each other and themselves
@@ -552,8 +552,11 @@ mod tests {
     }
 
     /// Typed and Untyped `Handles` should be orderable amongst each other and themselves
-    #[allow(clippy::cmp_owned)]
     #[test]
+    #[expect(
+        clippy::cmp_owned,
+        reason = "This lints on the assertion that a typed handle converted to an untyped handle maintains its ordering compared to an untyped handle. While the conversion would normally be useless, we need to ensure that converted handles maintain their ordering, making the conversion necessary here."
+    )]
     fn ordering() {
         assert!(UUID_1 < UUID_2);
 

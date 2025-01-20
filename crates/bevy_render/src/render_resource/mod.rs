@@ -42,21 +42,23 @@ pub use wgpu::{
     BufferBinding, BufferBindingType, BufferDescriptor, BufferSize, BufferUsages, ColorTargetState,
     ColorWrites, CommandEncoder, CommandEncoderDescriptor, CompareFunction, ComputePass,
     ComputePassDescriptor, ComputePipelineDescriptor as RawComputePipelineDescriptor,
-    DepthBiasState, DepthStencilState, Extent3d, Face, Features as WgpuFeatures, FilterMode,
-    FragmentState as RawFragmentState, FrontFace, ImageCopyBuffer, ImageCopyBufferBase,
+    DepthBiasState, DepthStencilState, DownlevelFlags, Extent3d, Face, Features as WgpuFeatures,
+    FilterMode, FragmentState as RawFragmentState, FrontFace, ImageCopyBuffer, ImageCopyBufferBase,
     ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout, ImageSubresourceRange, IndexFormat,
     Limits as WgpuLimits, LoadOp, Maintain, MapMode, MultisampleState, Operations, Origin3d,
     PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor, PolygonMode,
     PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
-    ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,
-    StencilOperation, StencilState, StorageTextureAccess, StoreOp, TextureAspect,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-    TextureViewDescriptor, TextureViewDimension, VertexAttribute,
-    VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
-    VertexStepMode, COPY_BUFFER_ALIGNMENT,
+    RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
+    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
+    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
+    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
+    TextureUsages, TextureView as WgpuTextureView, TextureViewDescriptor, TextureViewDimension,
+    VertexAttribute, VertexBufferLayout as RawVertexBufferLayout, VertexFormat,
+    VertexState as RawVertexState, VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
+
+pub use crate::mesh::VertexBufferLayout;
 
 pub mod encase {
     pub use bevy_encase_derive::ShaderType;

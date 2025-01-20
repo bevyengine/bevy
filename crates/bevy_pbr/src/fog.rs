@@ -29,10 +29,7 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// # fn system(mut commands: Commands) {
 /// commands.spawn((
 ///     // Setup your camera as usual
-///     Camera3dBundle {
-///         // ... camera options
-/// #       ..Default::default()
-///     },
+///     Camera3d::default(),
 ///     // Add fog to the same entity
 ///     DistanceFog {
 ///         color: Color::WHITE,
@@ -72,9 +69,6 @@ pub struct DistanceFog {
     /// Determines which falloff mode to use, and its parameters.
     pub falloff: FogFalloff,
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `DistanceFog`")]
-pub type FogSettings = DistanceFog;
 
 /// Allows switching between different fog falloff modes, and configuring their parameters.
 ///

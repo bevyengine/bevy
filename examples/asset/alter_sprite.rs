@@ -1,9 +1,8 @@
 //! Shows how to modify texture assets after spawning.
 
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
-    render::{render_asset::RenderAssetUsages, texture::ImageLoaderSettings},
+    image::ImageLoaderSettings, input::common_conditions::input_just_pressed, prelude::*,
+    render::render_asset::RenderAssetUsages,
 };
 
 fn main() {
@@ -49,7 +48,7 @@ struct Left;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let bird_left = Bird::Normal;
     let bird_right = Bird::Normal;
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let texture_left = asset_server.load_with_settings(
         bird_left.get_texture_path(),
@@ -75,63 +74,43 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // This marker component ensures we can easily find either of the Birds by using With and
         // Without query filters.
         Left,
-        SpriteBundle {
-            texture: texture_left,
-            transform: Transform::from_xyz(-200.0, 0.0, 0.0),
-            ..default()
-        },
+        Sprite::from_image(texture_left),
+        Transform::from_xyz(-200.0, 0.0, 0.0),
         bird_left,
     ));
 
     commands.spawn((
         Name::new("Bird Right"),
-        SpriteBundle {
-            // In contrast to the above, here we rely on the default `RenderAssetUsages` loader
-            // setting.
-            texture: asset_server.load(bird_right.get_texture_path()),
-            transform: Transform::from_xyz(200.0, 0.0, 0.0),
-            ..default()
-        },
+        // In contrast to the above, here we rely on the default `RenderAssetUsages` loader setting
+        Sprite::from_image(asset_server.load(bird_right.get_texture_path())),
+        Transform::from_xyz(200.0, 0.0, 0.0),
         bird_right,
     ));
 }
 
 fn spawn_text(mut commands: Commands) {
-    commands
-        .spawn((
-            Name::new("Instructions"),
-            NodeBundle {
-                style: Style {
-                    align_items: AlignItems::Start,
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Start,
-                    width: Val::Percent(100.),
-                    ..default()
-                },
-                ..default()
-            },
-        ))
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "Space: swap image texture paths by mutating a Handle<Image>",
-                TextStyle::default(),
-            ));
-            parent.spawn(TextBundle::from_section(
-                "Return: mutate the image Asset itself, changing all copies of it",
-                TextStyle::default(),
-            ));
-        });
+    commands.spawn((
+        Name::new("Instructions"),
+        Text::new(
+            "Space: swap the right sprite's image handle\n\
+            Return: modify the image Asset of the left sprite, affecting all uses of it",
+        ),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.),
+            left: Val::Px(12.),
+            ..default()
+        },
+    ));
 }
 
 fn alter_handle(
     asset_server: Res<AssetServer>,
-    mut right_bird: Query<(&mut Bird, &mut Handle<Image>), Without<Left>>,
+    right_bird: Single<(&mut Bird, &mut Sprite), Without<Left>>,
 ) {
     // Image handles, like other parts of the ECS, can be queried as mutable and modified at
     // runtime. We only spawned one bird without the `Left` marker component.
-    let Ok((mut bird, mut handle)) = right_bird.get_single_mut() else {
-        return;
-    };
+    let (mut bird, mut sprite) = right_bird.into_inner();
 
     // Switch to a new Bird variant
     bird.set_next_variant();
@@ -139,18 +118,12 @@ fn alter_handle(
     // Modify the handle associated with the Bird on the right side. Note that we will only
     // have to load the same path from storage media once: repeated attempts will re-use the
     // asset.
-    *handle = asset_server.load(bird.get_texture_path());
+    sprite.image = asset_server.load(bird.get_texture_path());
 }
 
-fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Query<&Handle<Image>, With<Left>>) {
-    // It's convenient to retrieve the asset handle stored with the bird on the left. However,
-    // we could just as easily have retained this in a resource or a dedicated component.
-    let Ok(handle) = left_bird.get_single() else {
-        return;
-    };
-
+fn alter_asset(mut images: ResMut<Assets<Image>>, left_bird: Single<&Sprite, With<Left>>) {
     // Obtain a mutable reference to the Image asset.
-    let Some(image) = images.get_mut(handle) else {
+    let Some(image) = images.get_mut(&left_bird.image) else {
         return;
     };
 

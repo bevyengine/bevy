@@ -82,6 +82,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
 [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
 # Platform-Specific Examples
@@ -106,13 +107,13 @@ Alternatively, you can install Android Studio.
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo ndk -t <target_name> build -o <project_name>/app/src/main/jniLibs
+cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
 ```
 
 For example, to compile to a 64-bit ARM platform:
 
 ```sh
-cargo ndk -t arm64-v8a build -o android_example/app/src/main/jniLibs
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
 Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
@@ -157,7 +158,7 @@ adb uninstall org.bevyengine.example
 
 In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
 [requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameAvtivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
@@ -264,7 +265,7 @@ Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 
-Bevy has an helper to build its examples:
+Bevy has a helper to build its examples:
 
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`

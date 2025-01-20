@@ -1,5 +1,5 @@
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::all_tuples;
+use variadics_please::all_tuples;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
     ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     Typed, UnnamedField,
 };
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -56,6 +57,11 @@ pub trait Tuple: PartialReflect {
 
     /// Clones the struct into a [`DynamicTuple`].
     fn clone_dynamic(&self) -> DynamicTuple;
+
+    /// Will return `None` if [`TypeInfo`] is not available.
+    fn get_represented_tuple_info(&self) -> Option<&'static TupleInfo> {
+        self.get_represented_type_info()?.as_tuple().ok()
+    }
 }
 
 /// An iterator over the field values of a tuple.
@@ -371,7 +377,7 @@ impl FromIterator<Box<dyn PartialReflect>> for DynamicTuple {
 
 impl IntoIterator for DynamicTuple {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = alloc::vec::IntoIter<Self::Item>;
+    type IntoIter = vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.fields.into_iter()
@@ -692,6 +698,7 @@ macro_rules! impl_type_path_tuple {
         $(#[$meta])*
         impl <$param: TypePath> TypePath for ($param,) {
             fn type_path() -> &'static str {
+                use $crate::__macro_exports::alloc_utils::ToOwned;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() + $param::type_path() + ",)"
@@ -699,6 +706,7 @@ macro_rules! impl_type_path_tuple {
             }
 
             fn short_type_path() -> &'static str {
+                use $crate::__macro_exports::alloc_utils::ToOwned;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() + $param::short_type_path() + ",)"
@@ -711,6 +719,7 @@ macro_rules! impl_type_path_tuple {
         $(#[$meta])*
         impl <$($param: TypePath,)* $last: TypePath> TypePath for ($($param,)* $last) {
             fn type_path() -> &'static str {
+                use $crate::__macro_exports::alloc_utils::ToOwned;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() $(+ $param::type_path() + ", ")* + $last::type_path() + ")"
@@ -718,6 +727,7 @@ macro_rules! impl_type_path_tuple {
             }
 
             fn short_type_path() -> &'static str {
+                use $crate::__macro_exports::alloc_utils::ToOwned;
                 static CELL: GenericTypePathCell = GenericTypePathCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
                     "(".to_owned() $(+ $param::short_type_path() + ", ")* + $last::short_type_path() + ")"

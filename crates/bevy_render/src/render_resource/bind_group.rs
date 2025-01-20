@@ -7,12 +7,13 @@ use crate::{
     texture::GpuImage,
 };
 use alloc::sync::Arc;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
 use encase::ShaderType;
 use thiserror::Error;
-use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource};
+use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource, TextureViewDimension};
 
 define_atomic_id!(BindGroupId);
 
@@ -45,6 +46,18 @@ impl From<wgpu::BindGroup> for BindGroup {
     }
 }
 
+impl<'a> From<&'a BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a BindGroup) -> Self {
+        Some(value.deref())
+    }
+}
+
+impl<'a> From<&'a mut BindGroup> for Option<&'a wgpu::BindGroup> {
+    fn from(value: &'a mut BindGroup) -> Self {
+        Some(&*value)
+    }
+}
+
 impl Deref for BindGroup {
     type Target = wgpu::BindGroup;
 
@@ -66,7 +79,7 @@ impl Deref for BindGroup {
 /// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
 ///
 /// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
-/// for an [`Image`](crate::texture::Image) hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
+/// for an [`Image`](bevy_image::Image) hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
 /// should retry again later.
 ///
 /// # Deriving
@@ -75,7 +88,8 @@ impl Deref for BindGroup {
 /// what their binding type is, and what index they should be bound at:
 ///
 /// ```
-/// # use bevy_render::{render_resource::*, texture::Image};
+/// # use bevy_render::render_resource::*;
+/// # use bevy_image::Image;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
 /// # use bevy_render::storage::ShaderStorageBuffer;
@@ -121,7 +135,7 @@ impl Deref for BindGroup {
 ///         GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///         (with a different binding index) if a binding of the sampler for the [`Image`](crate::texture::Image) is also required.
+///         (with a different binding index) if a binding of the sampler for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
 /// |-----------------------|-------------------------------------------------------------------------|----------------------|
@@ -149,7 +163,7 @@ impl Deref for BindGroup {
 ///         resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///         (with a different binding index) if a binding of the texture for the [`Image`](crate::texture::Image) is also required.
+///         (with a different binding index) if a binding of the texture for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
@@ -159,7 +173,7 @@ impl Deref for BindGroup {
 ///     * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which
 ///       will be bound as a storage buffer in shaders. If the `storage` attribute is used, the field is expected a raw
 ///       buffer, and the buffer will be bound as a storage buffer in shaders.
-///     * It supports and optional `read_only` parameter. Defaults to false if not present.
+///     * It supports an optional `read_only` parameter. Defaults to false if not present.
 ///
 /// | Arguments              | Values                                                                  | Default              |
 /// |------------------------|-------------------------------------------------------------------------|----------------------|
@@ -182,9 +196,10 @@ impl Deref for BindGroup {
 ///
 ///  As mentioned above, [`Option<Handle<Image>>`] is also supported:
 /// ```
-/// # use bevy_render::{render_resource::AsBindGroup, texture::Image};
-/// # use bevy_color::LinearRgba;
 /// # use bevy_asset::Handle;
+/// # use bevy_color::LinearRgba;
+/// # use bevy_image::Image;
+/// # use bevy_render::render_resource::AsBindGroup;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
@@ -233,6 +248,29 @@ impl Deref for BindGroup {
 ///         as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
 ///         the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
 ///         is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+/// * `bindless(COUNT)`
+///     * This switch enables *bindless resources*, which changes the way Bevy
+///       supplies resources (uniforms, textures, and samplers) to the shader.
+///       When bindless resources are enabled, and the current platform supports
+///       them, instead of presenting a single instance of a resource to your
+///       shader Bevy will instead present a *binding array* of `COUNT` elements.
+///       In your shader, the index of the element of each binding array
+///       corresponding to the mesh currently being drawn can be retrieved with
+///       `mesh[in.instance_index].material_and_lightmap_bind_group_slot &
+///       0xffffu`.
+///     * Bindless uniforms don't exist, so in bindless mode all uniforms and
+///       uniform buffers are automatically replaced with read-only storage
+///       buffers.
+///     * The purpose of bindless mode is to improve performance by reducing
+///       state changes. By grouping resources together into binding arrays, Bevy
+///       doesn't have to modify GPU state as often, decreasing API and driver
+///       overhead.
+///     * If bindless mode is enabled, the `BINDLESS` definition will be
+///       available. Because not all platforms support bindless resources, you
+///       should check for the presence of this definition via `#ifdef` and fall
+///       back to standard bindings if it isn't present.
+///     * See the `shaders/shader_material_bindless` example for an example of
+///       how to use bindless mode.
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
@@ -293,6 +331,26 @@ pub trait AsBindGroup {
 
     type Param: SystemParam + 'static;
 
+    /// The number of slots per bind group, if bindless mode is enabled.
+    ///
+    /// If this bind group doesn't use bindless, then this will be `None`.
+    ///
+    /// Note that the *actual* slot count may be different from this value, due
+    /// to platform limitations. For example, if bindless resources aren't
+    /// supported on this platform, the actual slot count will be 1.
+    fn bindless_slot_count() -> Option<u32> {
+        None
+    }
+
+    /// True if the hardware *actually* supports bindless textures for this
+    /// type, taking the device and driver capabilities into account.
+    ///
+    /// If this type doesn't use bindless textures, then the return value from
+    /// this function is meaningless.
+    fn bindless_supported(_: &RenderDevice) -> bool {
+        true
+    }
+
     /// label
     fn label() -> Option<&'static str> {
         None
@@ -306,7 +364,7 @@ pub trait AsBindGroup {
         param: &mut SystemParamItem<'_, '_, Self::Param>,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let UnpreparedBindGroup { bindings, data } =
-            Self::unprepared_bind_group(self, layout, render_device, param)?;
+            Self::unprepared_bind_group(self, layout, render_device, param, false)?;
 
         let entries = bindings
             .iter()
@@ -326,29 +384,45 @@ pub trait AsBindGroup {
     }
 
     /// Returns a vec of (binding index, `OwnedBindingResource`).
-    /// In cases where `OwnedBindingResource` is not available (as for bindless texture arrays currently),
-    /// an implementor may define `as_bind_group` directly. This may prevent certain features
-    /// from working correctly.
+    ///
+    /// In cases where `OwnedBindingResource` is not available (as for bindless
+    /// texture arrays currently), an implementor may return
+    /// `AsBindGroupError::CreateBindGroupDirectly` from this function and
+    /// instead define `as_bind_group` directly. This may prevent certain
+    /// features, such as bindless mode, from working correctly.
+    ///
+    /// Set `force_no_bindless` to true to require that bindless textures *not*
+    /// be used. `ExtendedMaterial` uses this in order to ensure that the base
+    /// material doesn't use bindless mode if the extension doesn't.
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         param: &mut SystemParamItem<'_, '_, Self::Param>,
+        force_no_bindless: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError>;
 
-    /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
+    /// Creates the bind group layout matching all bind groups returned by
+    /// [`AsBindGroup::as_bind_group`]
     fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
     where
         Self: Sized,
     {
         render_device.create_bind_group_layout(
             Self::label(),
-            &Self::bind_group_layout_entries(render_device),
+            &Self::bind_group_layout_entries(render_device, false),
         )
     }
 
-    /// Returns a vec of bind group layout entries
-    fn bind_group_layout_entries(render_device: &RenderDevice) -> Vec<BindGroupLayoutEntry>
+    /// Returns a vec of bind group layout entries.
+    ///
+    /// Set `force_no_bindless` to true to require that bindless textures *not*
+    /// be used. `ExtendedMaterial` uses this in order to ensure that the base
+    /// material doesn't use bindless mode if the extension doesn't.
+    fn bind_group_layout_entries(
+        render_device: &RenderDevice,
+        force_no_bindless: bool,
+    ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
 }
@@ -359,22 +433,29 @@ pub enum AsBindGroupError {
     /// The bind group could not be generated. Try again next frame.
     #[error("The bind group could not be generated")]
     RetryNextUpdate,
-    #[error("At binding index{0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
+    #[error("Create the bind group via `as_bind_group()` instead")]
+    CreateBindGroupDirectly,
+    #[error("At binding index {0}, the provided image sampler `{1}` does not match the required sampler type(s) `{2}`.")]
     InvalidSamplerType(u32, String, String),
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
 pub struct PreparedBindGroup<T> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
+    pub bindings: BindingResources,
     pub bind_group: BindGroup,
     pub data: T,
 }
 
 /// a map containing `OwnedBindingResource`s, keyed by the target binding index
 pub struct UnpreparedBindGroup<T> {
-    pub bindings: Vec<(u32, OwnedBindingResource)>,
+    pub bindings: BindingResources,
     pub data: T,
 }
+
+/// A pair of binding index and binding resource, used as part of
+/// [`PreparedBindGroup`] and [`UnpreparedBindGroup`].
+#[derive(Deref, DerefMut)]
+pub struct BindingResources(pub Vec<(u32, OwnedBindingResource)>);
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
 /// This is used by types like [`PreparedBindGroup`] to hold a single list of all
@@ -382,7 +463,7 @@ pub struct UnpreparedBindGroup<T> {
 #[derive(Debug)]
 pub enum OwnedBindingResource {
     Buffer(Buffer),
-    TextureView(TextureView),
+    TextureView(TextureViewDimension, TextureView),
     Sampler(Sampler),
 }
 
@@ -390,7 +471,7 @@ impl OwnedBindingResource {
     pub fn get_binding(&self) -> BindingResource {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
-            OwnedBindingResource::TextureView(view) => BindingResource::TextureView(view),
+            OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
             OwnedBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
         }
     }
@@ -421,8 +502,9 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{self as bevy_render, prelude::Image};
+    use crate as bevy_render;
     use bevy_asset::Handle;
+    use bevy_image::Image;
 
     #[test]
     fn texture_visibility() {

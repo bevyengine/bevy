@@ -1,19 +1,16 @@
-//! Additional [`Gizmos`] Functions -- Arcs
+//! Additional [`GizmoBuffer`] Functions -- Arcs
 //!
-//! Includes the implementation of [`Gizmos::arc_2d`],
+//! Includes the implementation of [`GizmoBuffer::arc_2d`],
 //! and assorted support items.
 
-use crate::{
-    circles::DEFAULT_CIRCLE_RESOLUTION,
-    prelude::{GizmoConfigGroup, Gizmos},
-};
+use crate::{circles::DEFAULT_CIRCLE_RESOLUTION, gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Quat, Rot2, Vec2, Vec3};
 use core::f32::consts::{FRAC_PI_2, TAU};
 
 // === 2D ===
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -50,14 +47,14 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
-        isometry: Isometry2d,
+        isometry: impl Into<Isometry2d>,
         arc_angle: f32,
         radius: f32,
         color: impl Into<Color>,
-    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc2dBuilder<'_, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            isometry,
+            isometry: isometry.into(),
             arc_angle,
             radius,
             color: color.into(),
@@ -66,13 +63,13 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc2dBuilder<'a, 'w, 's, Config, Clear>
+/// A builder returned by [`GizmoBuffer::arc_2d`].
+pub struct Arc2dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry2d,
     arc_angle: f32,
     radius: f32,
@@ -80,7 +77,7 @@ where
     resolution: Option<u32>,
 }
 
-impl<Config, Clear> Arc2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Arc2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -92,7 +89,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Arc2dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Arc2dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -122,7 +119,7 @@ fn arc_2d_inner(arc_angle: f32, radius: f32, resolution: u32) -> impl Iterator<I
 
 // === 3D ===
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -176,13 +173,13 @@ where
         &mut self,
         angle: f32,
         radius: f32,
-        isometry: Isometry3d,
+        isometry: impl Into<Isometry3d>,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc3dBuilder<'_, Config, Clear> {
         Arc3dBuilder {
             gizmos: self,
             start_vertex: Vec3::X,
-            isometry,
+            isometry: isometry.into(),
             angle,
             radius,
             color: color.into(),
@@ -233,7 +230,7 @@ where
         from: Vec3,
         to: Vec3,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc3dBuilder<'_, Config, Clear> {
         self.arc_from_to(center, from, to, color, |x| x)
     }
 
@@ -279,7 +276,7 @@ where
         from: Vec3,
         to: Vec3,
         color: impl Into<Color>,
-    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc3dBuilder<'_, Config, Clear> {
         self.arc_from_to(center, from, to, color, |angle| {
             if angle > 0.0 {
                 TAU - angle
@@ -299,7 +296,7 @@ where
         to: Vec3,
         color: impl Into<Color>,
         angle_fn: impl Fn(f32) -> f32,
-    ) -> Arc3dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc3dBuilder<'_, Config, Clear> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
         // orientation ambiguity of `up` doesn't matter
         let from_axis = (from - center).normalize_or_zero();
@@ -366,7 +363,7 @@ where
         from: Vec2,
         to: Vec2,
         color: impl Into<Color>,
-    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc2dBuilder<'_, Config, Clear> {
         self.arc_2d_from_to(center, from, to, color, core::convert::identity)
     }
 
@@ -412,7 +409,7 @@ where
         from: Vec2,
         to: Vec2,
         color: impl Into<Color>,
-    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc2dBuilder<'_, Config, Clear> {
         self.arc_2d_from_to(center, from, to, color, |angle| angle - TAU)
     }
 
@@ -424,7 +421,7 @@ where
         to: Vec2,
         color: impl Into<Color>,
         angle_fn: impl Fn(f32) -> f32,
-    ) -> Arc2dBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> Arc2dBuilder<'_, Config, Clear> {
         // `from` and `to` can be the same here since in either case nothing gets rendered and the
         // orientation ambiguity of `up` doesn't matter
         let from_axis = (from - center).normalize_or_zero();
@@ -446,13 +443,13 @@ where
     }
 }
 
-/// A builder returned by [`Gizmos::arc_2d`].
-pub struct Arc3dBuilder<'a, 'w, 's, Config, Clear>
+/// A builder returned by [`GizmoBuffer::arc_2d`].
+pub struct Arc3dBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     // this is the vertex the arc starts on in the XZ plane. For the normal arc_3d method this is
     // always starting at Vec3::X. For the short/long arc methods we actually need a way to start
     // at the from position and this is where this internal field comes into play. Some implicit
@@ -470,7 +467,7 @@ where
     resolution: Option<u32>,
 }
 
-impl<Config, Clear> Arc3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Arc3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -482,7 +479,7 @@ where
     }
 }
 
-impl<Config, Clear> Drop for Arc3dBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for Arc3dBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

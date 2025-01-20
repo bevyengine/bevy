@@ -20,7 +20,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{GpuCulling, NoCpuCulling, NoFrustumCulling},
+        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -59,9 +59,9 @@ struct Args {
     #[argh(switch)]
     no_automatic_batching: bool,
 
-    /// whether to enable GPU culling.
+    /// whether to disable indirect drawing.
     #[argh(switch)]
-    gpu_culling: bool,
+    no_indirect_drawing: bool,
 
     /// whether to disable CPU culling.
     #[argh(switch)]
@@ -111,7 +111,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings {
@@ -175,9 +175,9 @@ fn setup(
             }
 
             // camera
-            let mut camera = commands.spawn(Camera3dBundle::default());
-            if args.gpu_culling {
-                camera.insert(GpuCulling);
+            let mut camera = commands.spawn(Camera3d::default());
+            if args.no_indirect_drawing {
+                camera.insert(NoIndirectDrawing);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
@@ -230,10 +230,7 @@ fn setup(
             }
             // camera
             let center = 0.5 * scale * Vec3::new(WIDTH as f32, HEIGHT as f32, WIDTH as f32);
-            commands.spawn(Camera3dBundle {
-                transform: Transform::from_translation(center),
-                ..default()
-            });
+            commands.spawn((Camera3d::default(), Transform::from_translation(center)));
             // Inside-out box around the meshes onto which shadows are cast (though you cannot see them...)
             commands.spawn((
                 Mesh3d(mesh_assets.add(Cuboid::from_size(2.0 * 1.1 * center))),
@@ -441,14 +438,13 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 fn move_camera(
     time: Res<Time>,
     args: Res<Args>,
-    mut camera_query: Query<&mut Transform, With<Camera>>,
+    mut camera_transform: Single<&mut Transform, With<Camera>>,
 ) {
-    let mut camera_transform = camera_query.single_mut();
     let delta = 0.15
         * if args.benchmark {
             1.0 / 60.0
         } else {
-            time.delta_seconds()
+            time.delta_secs()
         };
     camera_transform.rotate_z(delta);
     camera_transform.rotate_x(delta);

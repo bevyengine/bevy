@@ -1,8 +1,8 @@
 use crate::type_info::impl_type_methods;
 use crate::{Reflect, Type, TypePath};
-use alloc::borrow::Cow;
-use alloc::sync::Arc;
+use alloc::{borrow::Cow, boxed::Box, sync::Arc};
 use core::ops::Deref;
+use derive_more::derive::From;
 
 /// The generic parameters of a type.
 ///
@@ -63,7 +63,7 @@ impl Deref for Generics {
 }
 
 /// An enum representing a generic parameter.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, From)]
 pub enum GenericInfo {
     /// A type parameter.
     ///
@@ -98,18 +98,6 @@ impl GenericInfo {
             Self::Const(info) => info.ty(),
         }
     });
-}
-
-impl From<TypeParamInfo> for GenericInfo {
-    fn from(info: TypeParamInfo) -> Self {
-        Self::Type(info)
-    }
-}
-
-impl From<ConstParamInfo> for GenericInfo {
-    fn from(info: ConstParamInfo) -> Self {
-        Self::Const(info)
-    }
 }
 
 /// Type information for a generic type parameter.
@@ -253,6 +241,7 @@ mod tests {
     use super::*;
     use crate as bevy_reflect;
     use crate::{Reflect, Typed};
+    use alloc::string::String;
     use core::fmt::Debug;
 
     #[test]

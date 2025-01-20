@@ -56,10 +56,10 @@ fn setup(
     ));
 
     // Camera...
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0., 1.5, -8.).looking_at(Vec3::new(0., -0.5, 0.), Vec3::Y),
+    ));
 
     // Action! (Our cubes that are going to move)
     commands.spawn((
@@ -117,7 +117,7 @@ fn move_cubes(
         );
 
         if tracking.progress < TRANSITION_DURATION {
-            tracking.progress += time.delta_seconds();
+            tracking.progress += time.delta_secs();
         } else {
             tracking.initial_transform = *transform;
             tracking.target_transform = random_transform(&mut rng.0);

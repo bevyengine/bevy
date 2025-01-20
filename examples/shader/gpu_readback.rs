@@ -7,8 +7,7 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         gpu_readback::{Readback, ReadbackComplete},
         render_asset::{RenderAssetUsages, RenderAssets},
-        render_graph,
-        render_graph::{RenderGraph, RenderLabel},
+        render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{
             binding_types::{storage_buffer, texture_storage_2d},
             *,
@@ -180,6 +179,7 @@ impl FromWorld for ComputePipeline {
             shader: shader.clone(),
             shader_defs: Vec::new(),
             entry_point: "main".into(),
+            zero_initialize_workgroup_memory: false,
         });
         ComputePipeline { layout, pipeline }
     }

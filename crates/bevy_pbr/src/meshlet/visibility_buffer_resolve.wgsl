@@ -2,15 +2,16 @@
 
 #import bevy_pbr::{
     meshlet_bindings::{
+        Meshlet,
         meshlet_visibility_buffer,
         meshlet_cluster_meshlet_ids,
         meshlets,
-        meshlet_vertex_ids,
-        meshlet_vertex_data,
         meshlet_cluster_instance_ids,
         meshlet_instance_uniforms,
-        get_meshlet_index,
-        unpack_meshlet_vertex,
+        get_meshlet_vertex_id,
+        get_meshlet_vertex_position,
+        get_meshlet_vertex_normal,
+        get_meshlet_vertex_uv,
     },
     mesh_view_bindings::view,
     mesh_functions::mesh_position_local_to_world,
@@ -93,6 +94,7 @@ struct VertexOutput {
     world_tangent: vec4<f32>,
     mesh_flags: u32,
     cluster_id: u32,
+    material_bind_group_slot: u32,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
     motion_vector: vec2<f32>,
@@ -106,59 +108,58 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
     let packed_ids = u32(meshlet_visibility_buffer[frag_coord_1d]); // TODO: Might be faster to load the correct u32 directly
     let cluster_id = packed_ids >> 7u;
     let meshlet_id = meshlet_cluster_meshlet_ids[cluster_id];
-    let meshlet = meshlets[meshlet_id];
+    var meshlet = meshlets[meshlet_id];
 
     let triangle_id = extractBits(packed_ids, 0u, 7u);
     let index_ids = meshlet.start_index_id + (triangle_id * 3u) + vec3(0u, 1u, 2u);
-    let indices = meshlet.start_vertex_id + vec3(get_meshlet_index(index_ids.x), get_meshlet_index(index_ids.y), get_meshlet_index(index_ids.z));
-    let vertex_ids = vec3(meshlet_vertex_ids[indices.x], meshlet_vertex_ids[indices.y], meshlet_vertex_ids[indices.z]);
-    let vertex_1 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.x]);
-    let vertex_2 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.y]);
-    let vertex_3 = unpack_meshlet_vertex(meshlet_vertex_data[vertex_ids.z]);
+    let vertex_ids = vec3(get_meshlet_vertex_id(index_ids[0]), get_meshlet_vertex_id(index_ids[1]), get_meshlet_vertex_id(index_ids[2]));
+    let vertex_0 = load_vertex(&meshlet, vertex_ids[0]);
+    let vertex_1 = load_vertex(&meshlet, vertex_ids[1]);
+    let vertex_2 = load_vertex(&meshlet, vertex_ids[2]);
 
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
     var instance_uniform = meshlet_instance_uniforms[instance_id];
 
     let world_from_local = affine3_to_square(instance_uniform.world_from_local);
+    let world_position_0 = mesh_position_local_to_world(world_from_local, vec4(vertex_0.position, 1.0));
     let world_position_1 = mesh_position_local_to_world(world_from_local, vec4(vertex_1.position, 1.0));
     let world_position_2 = mesh_position_local_to_world(world_from_local, vec4(vertex_2.position, 1.0));
-    let world_position_3 = mesh_position_local_to_world(world_from_local, vec4(vertex_3.position, 1.0));
 
     let frag_coord_ndc = frag_coord_to_ndc(frag_coord).xy;
     let partial_derivatives = compute_partial_derivatives(
-        array(world_position_1, world_position_2, world_position_3),
+        array(world_position_0, world_position_1, world_position_2),
         frag_coord_ndc,
         view.viewport.zw / 2.0,
     );
 
-    let world_position = mat3x4(world_position_1, world_position_2, world_position_3) * partial_derivatives.barycentrics;
+    let world_position = mat3x4(world_position_0, world_position_1, world_position_2) * partial_derivatives.barycentrics;
     let world_positions_camera_relative = mat3x3(
+        world_position_0.xyz - view.world_position,
         world_position_1.xyz - view.world_position,
         world_position_2.xyz - view.world_position,
-        world_position_3.xyz - view.world_position,
     );
     let ddx_world_position = world_positions_camera_relative * partial_derivatives.ddx;
     let ddy_world_position = world_positions_camera_relative * partial_derivatives.ddy;
 
     let world_normal = mat3x3(
+        normal_local_to_world(vertex_0.normal, &instance_uniform),
         normal_local_to_world(vertex_1.normal, &instance_uniform),
         normal_local_to_world(vertex_2.normal, &instance_uniform),
-        normal_local_to_world(vertex_3.normal, &instance_uniform),
     ) * partial_derivatives.barycentrics;
 
-    let uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.barycentrics;
-    let ddx_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddx;
-    let ddy_uv = mat3x2(vertex_1.uv, vertex_2.uv, vertex_3.uv) * partial_derivatives.ddy;
+    let uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv) * partial_derivatives.barycentrics;
+    let ddx_uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv) * partial_derivatives.ddx;
+    let ddy_uv = mat3x2(vertex_0.uv, vertex_1.uv, vertex_2.uv) * partial_derivatives.ddy;
 
     let world_tangent = calculate_world_tangent(world_normal, ddx_world_position, ddy_world_position, ddx_uv, ddy_uv);
 
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
     let previous_world_from_local = affine3_to_square(instance_uniform.previous_world_from_local);
+    let previous_world_position_0 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_0.position, 1.0));
     let previous_world_position_1 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_1.position, 1.0));
     let previous_world_position_2 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_2.position, 1.0));
-    let previous_world_position_3 = mesh_position_local_to_world(previous_world_from_local, vec4(vertex_3.position, 1.0));
-    let previous_world_position = mat3x4(previous_world_position_1, previous_world_position_2, previous_world_position_3) * partial_derivatives.barycentrics;
+    let previous_world_position = mat3x4(previous_world_position_0, previous_world_position_1, previous_world_position_2) * partial_derivatives.barycentrics;
     let motion_vector = calculate_motion_vector(world_position, previous_world_position);
 #endif
 #endif
@@ -172,12 +173,27 @@ fn resolve_vertex_output(frag_coord: vec4<f32>) -> VertexOutput {
         ddy_uv,
         world_tangent,
         instance_uniform.flags,
-        cluster_id,
+        instance_id ^ meshlet_id,
+        instance_uniform.material_and_lightmap_bind_group_slot & 0xffffu,
 #ifdef PREPASS_FRAGMENT
 #ifdef MOTION_VECTOR_PREPASS
         motion_vector,
 #endif
 #endif
+    );
+}
+
+struct MeshletVertex {
+    position: vec3<f32>,
+    normal: vec3<f32>,
+    uv: vec2<f32>,
+}
+
+fn load_vertex(meshlet: ptr<function, Meshlet>, vertex_id: u32) -> MeshletVertex {
+    return MeshletVertex(
+        get_meshlet_vertex_position(meshlet, vertex_id),
+        get_meshlet_vertex_normal(meshlet, vertex_id),
+        get_meshlet_vertex_uv(meshlet, vertex_id),
     );
 }
 

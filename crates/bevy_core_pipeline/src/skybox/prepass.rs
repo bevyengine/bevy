@@ -105,6 +105,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 entry_point: "fragment".into(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
             }),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

@@ -1,4 +1,4 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec::Vec};
 
 use super::{IntoSystem, ReadOnlySystem, System};
 use crate::{
@@ -179,8 +179,9 @@ where
     }
 
     #[inline]
-    unsafe fn validate_param_unsafe(&self, world: UnsafeWorldCell) -> bool {
-        self.system.validate_param_unsafe(world)
+    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
+        // SAFETY: Delegate to other `System` implementations.
+        unsafe { self.system.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut crate::prelude::World) {

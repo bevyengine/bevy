@@ -3,10 +3,7 @@ mod settings;
 mod upsampling_pipeline;
 
 use bevy_color::{Gray, LinearRgba};
-#[allow(deprecated)]
-pub use settings::{
-    Bloom, BloomCompositeMode, BloomPrefilter, BloomPrefilterSettings, BloomSettings,
-};
+pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
 use crate::{
     core_2d::graph::{Core2d, Node2d},
@@ -39,7 +36,7 @@ use upsampling_pipeline::{
 
 const BLOOM_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(929599476923908);
 
-const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
+const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
 pub struct BloomPlugin;
 

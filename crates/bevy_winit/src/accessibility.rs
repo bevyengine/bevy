@@ -1,27 +1,21 @@
 //! Helpers for mapping window entities to accessibility types
 
 use alloc::{collections::VecDeque, sync::Arc};
+use bevy_input_focus::InputFocus;
 use std::sync::Mutex;
 
+use accesskit::{
+    ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeId, Role, Tree,
+    TreeUpdate,
+};
 use accesskit_winit::Adapter;
 use bevy_a11y::{
-    accesskit::{
-        ActionHandler, ActionRequest, ActivationHandler, DeactivationHandler, Node, NodeBuilder,
-        NodeId, Role, Tree, TreeUpdate,
-    },
     AccessibilityNode, AccessibilityRequested, AccessibilitySystem,
-    ActionRequest as ActionRequestWrapper, Focus, ManageAccessibilityUpdates,
+    ActionRequest as ActionRequestWrapper, ManageAccessibilityUpdates,
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    entity::EntityHashMap,
-    prelude::{DetectChanges, Entity, EventReader, EventWriter},
-    query::With,
-    schedule::IntoSystemConfigs,
-    system::{NonSendMut, Query, Res, ResMut, Resource},
-};
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
@@ -64,9 +58,9 @@ impl AccessKitState {
     }
 
     fn build_root(&mut self) -> Node {
-        let mut builder = NodeBuilder::new(Role::Window);
-        builder.set_name(self.name.clone());
-        builder.build()
+        let mut node = Node::new(Role::Window);
+        node.set_label(self.name.clone());
+        node
     }
 
     fn build_initial_tree(&mut self) -> TreeUpdate {
@@ -179,7 +173,7 @@ fn should_update_accessibility_nodes(
 
 fn update_accessibility_nodes(
     mut adapters: NonSendMut<AccessKitAdapters>,
-    focus: Res<Focus>,
+    focus: Option<Res<InputFocus>>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
         Entity,
@@ -195,7 +189,18 @@ fn update_accessibility_nodes(
     let Some(adapter) = adapters.get_mut(&primary_window_id) else {
         return;
     };
+    let Some(focus) = focus else {
+        return;
+    };
     if focus.is_changed() || !nodes.is_empty() {
+        // Don't panic if the focused entity does not currently exist
+        // It's probably waiting to be spawned
+        if let Some(focused_entity) = focus.0 {
+            if !node_entities.contains(focused_entity) {
+                return;
+            }
+        }
+
         adapter.update_if_active(|| {
             update_adapter(
                 nodes,
@@ -218,7 +223,7 @@ fn update_adapter(
     node_entities: Query<Entity, With<AccessibilityNode>>,
     primary_window: &Window,
     primary_window_id: Entity,
-    focus: Res<Focus>,
+    focus: Res<InputFocus>,
 ) -> TreeUpdate {
     let mut to_update = vec![];
     let mut window_children = vec![];
@@ -227,23 +232,21 @@ fn update_adapter(
         queue_node_for_update(entity, parent, &node_entities, &mut window_children);
         add_children_nodes(children, &node_entities, &mut node);
         let node_id = NodeId(entity.to_bits());
-        let node = node.build();
         to_update.push((node_id, node));
     }
-    let mut window_node = NodeBuilder::new(Role::Window);
+    let mut window_node = Node::new(Role::Window);
     if primary_window.focused {
         let title = primary_window.title.clone();
-        window_node.set_name(title.into_boxed_str());
+        window_node.set_label(title.into_boxed_str());
     }
     window_node.set_children(window_children);
-    let window_node = window_node.build();
     let node_id = NodeId(primary_window_id.to_bits());
     let window_update = (node_id, window_node);
     to_update.insert(0, window_update);
     TreeUpdate {
         nodes: to_update,
         tree: None,
-        focus: NodeId(focus.unwrap_or(primary_window_id).to_bits()),
+        focus: NodeId(focus.0.unwrap_or(primary_window_id).to_bits()),
     }
 }
 
@@ -268,7 +271,7 @@ fn queue_node_for_update(
 fn add_children_nodes(
     children: Option<&Children>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
-    node: &mut NodeBuilder,
+    node: &mut Node,
 ) {
     let Some(children) = children else {
         return;

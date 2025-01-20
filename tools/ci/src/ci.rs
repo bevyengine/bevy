@@ -77,6 +77,7 @@ impl CI {
                 cmds.append(&mut commands::DocCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::DocTestCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::CompileCheckCommand::default().prepare(sh, flags));
+                cmds.append(&mut commands::CompileCheckNoStdCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::CompileFailCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::BenchCheckCommand::default().prepare(sh, flags));
                 cmds.append(&mut commands::ExampleCheckCommand::default().prepare(sh, flags));
@@ -102,6 +103,7 @@ enum Commands {
     DocCheck(commands::DocCheckCommand),
     DocTest(commands::DocTestCommand),
     CompileCheck(commands::CompileCheckCommand),
+    CompileCheckNoStd(commands::CompileCheckNoStdCommand),
     CompileFail(commands::CompileFailCommand),
     BenchCheck(commands::BenchCheckCommand),
     ExampleCheck(commands::ExampleCheckCommand),
@@ -121,6 +123,7 @@ impl Prepare for Commands {
             Commands::DocCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::DocTest(subcommand) => subcommand.prepare(sh, flags),
             Commands::CompileCheck(subcommand) => subcommand.prepare(sh, flags),
+            Commands::CompileCheckNoStd(subcommand) => subcommand.prepare(sh, flags),
             Commands::CompileFail(subcommand) => subcommand.prepare(sh, flags),
             Commands::BenchCheck(subcommand) => subcommand.prepare(sh, flags),
             Commands::ExampleCheck(subcommand) => subcommand.prepare(sh, flags),

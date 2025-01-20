@@ -1,16 +1,18 @@
-use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh};
+use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances,
+    PreviousGlobalTransform, RenderMaterialInstances, RenderMeshMaterialIds,
 };
-use bevy_asset::{AssetEvent, AssetServer, Assets, Handle, UntypedAssetId};
+use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
     event::EventReader,
     query::Has,
     system::{Local, Query, Res, ResMut, Resource, SystemState},
 };
-use bevy_render::{render_resource::StorageBuffer, view::RenderLayers, MainWorld};
+use bevy_render::{
+    render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
+};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{HashMap, HashSet};
 use core::ops::{DerefMut, Range};
@@ -18,33 +20,36 @@ use core::ops::{DerefMut, Range};
 /// Manages data for each entity with a [`MeshletMesh`].
 #[derive(Resource)]
 pub struct InstanceManager {
-    /// Amount of clusters in the scene (sum of all meshlet counts across all instances)
+    /// Amount of instances in the scene.
+    pub scene_instance_count: u32,
+    /// Amount of clusters in the scene.
     pub scene_cluster_count: u32,
 
-    /// Per-instance [`Entity`], [`RenderLayers`], and [`NotShadowCaster`]
-    pub instances: Vec<(Entity, RenderLayers, bool)>,
-    /// Per-instance [`MeshUniform`]
+    /// Per-instance [`MainEntity`], [`RenderLayers`], and [`NotShadowCaster`].
+    pub instances: Vec<(MainEntity, RenderLayers, bool)>,
+    /// Per-instance [`MeshUniform`].
     pub instance_uniforms: StorageBuffer<Vec<MeshUniform>>,
-    /// Per-instance material ID
+    /// Per-instance material ID.
     pub instance_material_ids: StorageBuffer<Vec<u32>>,
-    /// Prefix-sum of meshlet counts per instance
-    pub instance_meshlet_counts_prefix_sum: StorageBuffer<Vec<u32>>,
-    /// Per-instance index to the start of the instance's slice of the meshlets buffer
+    /// Per-instance count of meshlets in the instance's [`MeshletMesh`].
+    pub instance_meshlet_counts: StorageBuffer<Vec<u32>>,
+    /// Per-instance index to the start of the instance's slice of the meshlets buffer.
     pub instance_meshlet_slice_starts: StorageBuffer<Vec<u32>>,
     /// Per-view per-instance visibility bit. Used for [`RenderLayers`] and [`NotShadowCaster`] support.
     pub view_instance_visibility: EntityHashMap<StorageBuffer<Vec<u32>>>,
 
-    /// Next material ID available for a [`Material`]
+    /// Next material ID available for a [`Material`].
     next_material_id: u32,
-    /// Map of [`Material`] to material ID
+    /// Map of [`Material`] to material ID.
     material_id_lookup: HashMap<UntypedAssetId, u32>,
-    /// Set of material IDs used in the scene
+    /// Set of material IDs used in the scene.
     material_ids_present_in_scene: HashSet<u32>,
 }
 
 impl InstanceManager {
     pub fn new() -> Self {
         Self {
+            scene_instance_count: 0,
             scene_cluster_count: 0,
 
             instances: Vec::new(),
@@ -58,9 +63,9 @@ impl InstanceManager {
                 buffer.set_label(Some("meshlet_instance_material_ids"));
                 buffer
             },
-            instance_meshlet_counts_prefix_sum: {
+            instance_meshlet_counts: {
                 let mut buffer = StorageBuffer::default();
-                buffer.set_label(Some("meshlet_instance_meshlet_counts_prefix_sum"));
+                buffer.set_label(Some("meshlet_instance_meshlet_counts"));
                 buffer
             },
             instance_meshlet_slice_starts: {
@@ -71,19 +76,19 @@ impl InstanceManager {
             view_instance_visibility: EntityHashMap::default(),
 
             next_material_id: 0,
-            material_id_lookup: HashMap::new(),
-            material_ids_present_in_scene: HashSet::new(),
+            material_id_lookup: HashMap::default(),
+            material_ids_present_in_scene: HashSet::default(),
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn add_instance(
         &mut self,
-        instance: Entity,
+        instance: MainEntity,
         meshlets_slice: Range<u32>,
         transform: &GlobalTransform,
         previous_transform: Option<&PreviousGlobalTransform>,
         render_layers: Option<&RenderLayers>,
+        mesh_material_ids: &RenderMeshMaterialIds,
         not_shadow_receiver: bool,
         not_shadow_caster: bool,
     ) {
@@ -103,7 +108,25 @@ impl InstanceManager {
             previous_world_from_local: (&previous_transform).into(),
             flags: flags.bits(),
         };
-        let mesh_uniform = MeshUniform::new(&transforms, 0, None);
+
+        let Some(mesh_material_asset_id) = mesh_material_ids.mesh_to_material.get(&instance) else {
+            return;
+        };
+        let Some(mesh_material_binding_id) = mesh_material_ids
+            .material_to_binding
+            .get(mesh_material_asset_id)
+        else {
+            return;
+        };
+
+        let mesh_uniform = MeshUniform::new(
+            &transforms,
+            0,
+            mesh_material_binding_id.slot,
+            None,
+            None,
+            None,
+        );
 
         // Append instance data
         self.instances.push((
@@ -113,14 +136,15 @@ impl InstanceManager {
         ));
         self.instance_uniforms.get_mut().push(mesh_uniform);
         self.instance_material_ids.get_mut().push(0);
-        self.instance_meshlet_counts_prefix_sum
+        self.instance_meshlet_counts
             .get_mut()
-            .push(self.scene_cluster_count);
+            .push(meshlets_slice.len() as u32);
         self.instance_meshlet_slice_starts
             .get_mut()
             .push(meshlets_slice.start);
 
-        self.scene_cluster_count += meshlets_slice.end - meshlets_slice.start;
+        self.scene_instance_count += 1;
+        self.scene_cluster_count += meshlets_slice.len() as u32;
     }
 
     /// Get the material ID for a [`crate::Material`].
@@ -139,12 +163,13 @@ impl InstanceManager {
     }
 
     pub fn reset(&mut self, entities: &Entities) {
+        self.scene_instance_count = 0;
         self.scene_cluster_count = 0;
 
         self.instances.clear();
         self.instance_uniforms.get_mut().clear();
         self.instance_material_ids.get_mut().clear();
-        self.instance_meshlet_counts_prefix_sum.get_mut().clear();
+        self.instance_meshlet_counts.get_mut().clear();
         self.instance_meshlet_slice_starts.get_mut().clear();
         self.view_instance_visibility
             .retain(|view_entity, _| entities.contains(*view_entity));
@@ -163,12 +188,13 @@ pub fn extract_meshlet_mesh_entities(
     mut instance_manager: ResMut<InstanceManager>,
     // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
     mut main_world: ResMut<MainWorld>,
+    mesh_material_ids: Res<RenderMeshMaterialIds>,
     mut system_state: Local<
         Option<
             SystemState<(
                 Query<(
                     Entity,
-                    &Handle<MeshletMesh>,
+                    &MeshletMesh3d,
                     &GlobalTransform,
                     Option<&PreviousGlobalTransform>,
                     Option<&RenderLayers>,
@@ -226,11 +252,12 @@ pub fn extract_meshlet_mesh_entities(
 
         // Add the instance's data to the instance manager
         instance_manager.add_instance(
-            instance,
+            instance.into(),
             meshlets_slice,
             transform,
             previous_transform,
             render_layers,
+            &mesh_material_ids,
             not_shadow_receiver,
             not_shadow_caster,
         );

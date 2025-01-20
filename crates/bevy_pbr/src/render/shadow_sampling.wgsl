@@ -40,6 +40,8 @@ fn search_for_blockers_in_shadow_map_hardware(
     return vec2(0.0);
 #else   // WEBGL2
 
+#ifdef PCSS_SAMPLERS_AVAILABLE
+
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSampleLevel(
         view_bindings::directional_shadow_textures,
@@ -57,6 +59,10 @@ fn search_for_blockers_in_shadow_map_hardware(
     );
 #endif  // NO_ARRAY_TEXTURES_SUPPORT
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
+
+#else   // PCSS_SAMPLERS_AVAILABLE
+    return vec2(0.0);
+#endif  // PCSS_SAMPLERS_AVAILABLE
 
 #endif  // WEBGL2
 }
@@ -340,6 +346,8 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
     return vec2(0.0);
 #else   // WEBGL2
 
+#ifdef PCSS_SAMPLERS_AVAILABLE
+
 #ifdef NO_CUBE_ARRAY_TEXTURES_SUPPORT
     let sampled_depth = textureSample(
         view_bindings::point_shadow_textures,
@@ -356,6 +364,10 @@ fn search_for_blockers_in_shadow_cubemap_hardware(
 #endif
 
     return select(vec2(0.0), vec2(sampled_depth, 1.0), sampled_depth >= depth);
+
+#else   // PCSS_SAMPLERS_AVAILABLE
+    return vec2(0.0);
+#endif  // PCSS_SAMPLERS_AVAILABLE
 
 #endif  // WEBGL2
 }

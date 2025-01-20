@@ -6,6 +6,7 @@ use async_fs::{read_dir, File};
 use futures_io::AsyncSeek;
 use futures_lite::StreamExt;
 
+use alloc::{borrow::ToOwned, boxed::Box};
 use core::{pin::Pin, task, task::Poll};
 use std::path::Path;
 
@@ -161,6 +162,12 @@ impl AssetWriter for FileAssetWriter {
             async_fs::create_dir_all(parent).await?;
         }
         async_fs::rename(full_old_path, full_new_path).await?;
+        Ok(())
+    }
+
+    async fn create_directory<'a>(&'a self, path: &'a Path) -> Result<(), AssetWriterError> {
+        let full_path = self.root_path.join(path);
+        async_fs::create_dir_all(full_path).await?;
         Ok(())
     }
 

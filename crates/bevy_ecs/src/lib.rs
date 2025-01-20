@@ -1,14 +1,32 @@
-// FIXME(11590): remove this once the lint is fixed
-#![allow(unsafe_op_in_unsafe_fn)]
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+#![cfg_attr(
+    test,
+    expect(
+        dependency_on_unit_never_type_fallback,
+        reason = "See #17340. To be removed once Edition 2024 is released"
+    )
+)]
 #![doc = include_str!("../README.md")]
-// `rustdoc_internals` is needed for `#[doc(fake_variadics)]`
-#![allow(internal_features)]
+#![cfg_attr(
+    any(docsrs, docsrs_dep),
+    expect(
+        internal_features,
+        reason = "rustdoc_internals is needed for fake_variadic"
+    )
+)]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -23,14 +41,18 @@ pub mod component;
 pub mod entity;
 pub mod entity_disabling;
 pub mod event;
+pub mod hierarchy;
 pub mod identifier;
 pub mod intern;
 pub mod label;
+pub mod name;
 pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod relationship;
 pub mod removal_detection;
+pub mod result;
 pub mod schedule;
 pub mod storage;
 pub mod system;
@@ -43,31 +65,42 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[expect(
+        deprecated,
+        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
+    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        component::Component,
-        entity::{Entity, EntityMapper},
+        component::{require, Component},
+        entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        observer::{Observer, Trigger},
+        hierarchy::{ChildSpawner, ChildSpawnerCommands, Children, Parent},
+        name::{Name, NameOrEntity},
+        observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        result::{Error, Result},
         schedule::{
-            apply_deferred, common_conditions::*, Condition, IntoSystemConfigs, IntoSystemSet,
-            IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
+            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
+            IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParallelCommands, ParamSet, Populated, Query, ReadOnlySystem, Res,
-            ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction,
+            Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
+            IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
+            Res, ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FromWorld, OnAdd, OnInsert, OnRemove,
-            OnReplace, World,
+            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
+
+    #[doc(hidden)]
+    #[cfg(feature = "std")]
+    pub use crate::system::ParallelCommands;
 
     #[doc(hidden)]
     #[cfg(feature = "bevy_reflect")]
@@ -80,21 +113,36 @@ pub mod prelude {
     pub use crate::reflect::AppFunctionRegistry;
 }
 
+/// Exports used by macros.
+///
+/// These are not meant to be used directly and are subject to breaking changes.
+#[doc(hidden)]
+pub mod __macro_exports {
+    // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
+    // included `extern crate alloc;`. This re-export ensures we have access
+    // to `Vec` in `no_std` and `std` contexts.
+    pub use alloc::vec::Vec;
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{RequiredComponents, RequiredComponentsError};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{Component, ComponentId},
+        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         system::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
-    use alloc::{sync::Arc, vec};
+    use alloc::{
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
     use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::HashSet;
@@ -113,9 +161,8 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
-    #[allow(dead_code)]
     #[derive(Default)]
-    struct NonSendA(usize, PhantomData<*mut ()>);
+    struct NonSendA(PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -132,8 +179,10 @@ mod tests {
         }
     }
 
-    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how `Drop` behavior works in regards to SparseSet storage, and as such is solely a wrapper around `DropCk` to make it use the SparseSet storage. Because of this, the inner field is intentionally never read."
+    )]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -418,7 +467,7 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();
         let f = world.spawn((TableStored("def"), A(456), B(1))).id();
-        let mut results = HashSet::new();
+        let mut results = <HashSet<_>>::default();
         world
             .query::<(Entity, &A)>()
             .iter(&world)
@@ -595,7 +644,9 @@ mod tests {
             .collect::<HashSet<_>>();
         assert_eq!(
             ents,
-            HashSet::from([(e, None, A(123)), (f, Some(SparseStored(1)), A(456))])
+            [(e, None, A(123)), (f, Some(SparseStored(1)), A(456))]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
     }
 
@@ -627,7 +678,9 @@ mod tests {
                 .iter(&world)
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<HashSet<_>>(),
-            HashSet::from([(e1, A(1), B(3)), (e2, A(2), B(4))])
+            [(e1, A(1), B(3)), (e2, A(2), B(4))]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         assert_eq!(world.entity_mut(e1).take::<A>(), Some(A(1)));
         assert_eq!(
@@ -644,7 +697,9 @@ mod tests {
                 .iter(&world)
                 .map(|(e, &B(b), &TableStored(s))| (e, b, s))
                 .collect::<HashSet<_>>(),
-            HashSet::from([(e2, 4, "xyz"), (e1, 3, "abc")])
+            [(e2, 4, "xyz"), (e1, 3, "abc")]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         world.entity_mut(e1).insert(A(43));
         assert_eq!(
@@ -653,7 +708,9 @@ mod tests {
                 .iter(&world)
                 .map(|(e, &i, &b)| (e, i, b))
                 .collect::<HashSet<_>>(),
-            HashSet::from([(e2, A(2), B(4)), (e1, A(43), B(3))])
+            [(e2, A(2), B(4)), (e1, A(43), B(3))]
+                .into_iter()
+                .collect::<HashSet<_>>()
         );
         world.entity_mut(e1).insert(C);
         assert_eq!(
@@ -951,7 +1008,7 @@ mod tests {
 
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            HashSet::from([e1, e3])
+            [e1, e3].into_iter().collect::<HashSet<_>>()
         );
 
         // ensure changing an entity's archetypes also moves its changed state
@@ -959,7 +1016,7 @@ mod tests {
 
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            HashSet::from([e3, e1]),
+            [e3, e1].into_iter().collect::<HashSet<_>>(),
             "changed entities list should not change"
         );
 
@@ -968,7 +1025,7 @@ mod tests {
 
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            HashSet::from([e3, e1]),
+            [e3, e1].into_iter().collect::<HashSet<_>>(),
             "changed entities list should not change"
         );
 
@@ -976,7 +1033,7 @@ mod tests {
         assert!(world.despawn(e2));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            HashSet::from([e3, e1]),
+            [e3, e1].into_iter().collect::<HashSet<_>>(),
             "changed entities list should not change"
         );
 
@@ -984,7 +1041,7 @@ mod tests {
         assert!(world.despawn(e1));
         assert_eq!(
             get_filtered::<Changed<A>>(&mut world),
-            HashSet::from([e3]),
+            [e3].into_iter().collect::<HashSet<_>>(),
             "e1 should no longer be returned"
         );
 
@@ -995,11 +1052,20 @@ mod tests {
         let e4 = world.spawn_empty().id();
 
         world.entity_mut(e4).insert(A(0));
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
-        assert_eq!(get_filtered::<Added<A>>(&mut world), HashSet::from([e4]));
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            [e4].into_iter().collect::<HashSet<_>>()
+        );
+        assert_eq!(
+            get_filtered::<Added<A>>(&mut world),
+            [e4].into_iter().collect::<HashSet<_>>()
+        );
 
         world.entity_mut(e4).insert(A(1));
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            [e4].into_iter().collect::<HashSet<_>>()
+        );
 
         world.clear_trackers();
 
@@ -1008,9 +1074,18 @@ mod tests {
         world.entity_mut(e4).insert((A(0), B(0)));
 
         assert!(get_filtered::<Added<A>>(&mut world).is_empty());
-        assert_eq!(get_filtered::<Changed<A>>(&mut world), HashSet::from([e4]));
-        assert_eq!(get_filtered::<Added<B>>(&mut world), HashSet::from([e4]));
-        assert_eq!(get_filtered::<Changed<B>>(&mut world), HashSet::from([e4]));
+        assert_eq!(
+            get_filtered::<Changed<A>>(&mut world),
+            [e4].into_iter().collect::<HashSet<_>>()
+        );
+        assert_eq!(
+            get_filtered::<Added<B>>(&mut world),
+            [e4].into_iter().collect::<HashSet<_>>()
+        );
+        assert_eq!(
+            get_filtered::<Changed<B>>(&mut world),
+            [e4].into_iter().collect::<HashSet<_>>()
+        );
     }
 
     #[test]
@@ -1042,19 +1117,19 @@ mod tests {
 
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            HashSet::from([e1, e3])
+            [e1, e3].into_iter().collect::<HashSet<_>>()
         );
 
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), HashSet::from([e3, e1]), "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), [e3, e1].into_iter().collect::<HashSet<_>>(), "changed entities list should not change (although the order will due to archetype moves)");
 
         // spawning a new SparseStored entity should not change existing changed state
         world.entity_mut(e1).insert(SparseStored(0));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            HashSet::from([e3, e1]),
+            [e3, e1].into_iter().collect::<HashSet<_>>(),
             "changed entities list should not change"
         );
 
@@ -1062,7 +1137,7 @@ mod tests {
         assert!(world.despawn(e2));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            HashSet::from([e3, e1]),
+            [e3, e1].into_iter().collect::<HashSet<_>>(),
             "changed entities list should not change"
         );
 
@@ -1070,7 +1145,7 @@ mod tests {
         assert!(world.despawn(e1));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            HashSet::from([e3]),
+            [e3].into_iter().collect::<HashSet<_>>(),
             "e1 should no longer be returned"
         );
 
@@ -1083,17 +1158,17 @@ mod tests {
         world.entity_mut(e4).insert(SparseStored(0));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            HashSet::from([e4])
+            [e4].into_iter().collect::<HashSet<_>>()
         );
         assert_eq!(
             get_filtered::<Added<SparseStored>>(&mut world),
-            HashSet::from([e4])
+            [e4].into_iter().collect::<HashSet<_>>()
         );
 
         world.entity_mut(e4).insert(A(1));
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            HashSet::from([e4])
+            [e4].into_iter().collect::<HashSet<_>>()
         );
 
         world.clear_trackers();
@@ -1105,7 +1180,7 @@ mod tests {
         assert!(get_filtered::<Added<SparseStored>>(&mut world).is_empty());
         assert_eq!(
             get_filtered::<Changed<SparseStored>>(&mut world),
-            HashSet::from([e4])
+            [e4].into_iter().collect::<HashSet<_>>()
         );
     }
 
@@ -1289,7 +1364,12 @@ mod tests {
             .iter(&world)
             .map(|(a, b)| (a.0, b.0))
             .collect::<HashSet<_>>();
-        assert_eq!(results, HashSet::from([(1, "1"), (2, "2"), (3, "3"),]));
+        assert_eq!(
+            results,
+            [(1, "1"), (2, "2"), (3, "3"),]
+                .into_iter()
+                .collect::<HashSet<_>>()
+        );
 
         let removed_bundle = world.entity_mut(e2).take::<(B, TableStored)>().unwrap();
         assert_eq!(removed_bundle, (B(2), TableStored("2")));
@@ -1298,11 +1378,14 @@ mod tests {
             .iter(&world)
             .map(|(a, b)| (a.0, b.0))
             .collect::<HashSet<_>>();
-        assert_eq!(results, HashSet::from([(1, "1"), (3, "3"),]));
+        assert_eq!(
+            results,
+            [(1, "1"), (3, "3"),].into_iter().collect::<HashSet<_>>()
+        );
 
         let mut a_query = world.query::<&A>();
         let results = a_query.iter(&world).map(|a| a.0).collect::<HashSet<_>>();
-        assert_eq!(results, HashSet::from([1, 3, 2]));
+        assert_eq!(results, [1, 3, 2].into_iter().collect::<HashSet<_>>());
 
         let entity_ref = world.entity(e2);
         assert_eq!(
@@ -1481,6 +1564,7 @@ mod tests {
     #[test]
     fn resource_scope() {
         let mut world = World::default();
+        assert!(world.try_resource_scope::<A, _>(|_, _| {}).is_none());
         world.insert_resource(A(0));
         world.resource_scope(|world: &mut World, mut value: Mut<A>| {
             value.0 += 1;
@@ -1618,107 +1702,6 @@ mod tests {
     }
 
     #[test]
-    fn reserve_entities_across_worlds() {
-        let mut world_a = World::default();
-        let mut world_b = World::default();
-
-        let e1 = world_a.spawn(A(1)).id();
-        let e2 = world_a.spawn(A(2)).id();
-        let e3 = world_a.entities().reserve_entity();
-        world_a.flush_entities();
-
-        let world_a_max_entities = world_a.entities().len();
-        world_b.entities.reserve_entities(world_a_max_entities);
-        world_b.entities.flush_as_invalid();
-
-        let e4 = world_b.spawn(A(4)).id();
-        assert_eq!(
-            e4,
-            Entity::from_raw(3),
-            "new entity is created immediately after world_a's max entity"
-        );
-        assert!(world_b.get::<A>(e1).is_none());
-        assert!(world_b.get_entity(e1).is_none());
-
-        assert!(world_b.get::<A>(e2).is_none());
-        assert!(world_b.get_entity(e2).is_none());
-
-        assert!(world_b.get::<A>(e3).is_none());
-        assert!(world_b.get_entity(e3).is_none());
-
-        world_b.get_or_spawn(e1).unwrap().insert(B(1));
-        assert_eq!(
-            world_b.get::<B>(e1),
-            Some(&B(1)),
-            "spawning into 'world_a' entities works"
-        );
-
-        world_b.get_or_spawn(e4).unwrap().insert(B(4));
-        assert_eq!(
-            world_b.get::<B>(e4),
-            Some(&B(4)),
-            "spawning into existing `world_b` entities works"
-        );
-        assert_eq!(
-            world_b.get::<A>(e4),
-            Some(&A(4)),
-            "spawning into existing `world_b` entities works"
-        );
-
-        let e4_mismatched_generation =
-            Entity::from_raw_and_generation(3, NonZero::<u32>::new(2).unwrap());
-        assert!(
-            world_b.get_or_spawn(e4_mismatched_generation).is_none(),
-            "attempting to spawn on top of an entity with a mismatched entity generation fails"
-        );
-        assert_eq!(
-            world_b.get::<B>(e4),
-            Some(&B(4)),
-            "failed mismatched spawn doesn't change existing entity"
-        );
-        assert_eq!(
-            world_b.get::<A>(e4),
-            Some(&A(4)),
-            "failed mismatched spawn doesn't change existing entity"
-        );
-
-        let high_non_existent_entity = Entity::from_raw(6);
-        world_b
-            .get_or_spawn(high_non_existent_entity)
-            .unwrap()
-            .insert(B(10));
-        assert_eq!(
-            world_b.get::<B>(high_non_existent_entity),
-            Some(&B(10)),
-            "inserting into newly allocated high / non-continuous entity id works"
-        );
-
-        let high_non_existent_but_reserved_entity = Entity::from_raw(5);
-        assert!(
-            world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
-            "entities between high-newly allocated entity and continuous block of existing entities don't exist"
-        );
-
-        let reserved_entities = vec![
-            world_b.entities().reserve_entity(),
-            world_b.entities().reserve_entity(),
-            world_b.entities().reserve_entity(),
-            world_b.entities().reserve_entity(),
-        ];
-
-        assert_eq!(
-            reserved_entities,
-            vec![
-                Entity::from_raw(5),
-                Entity::from_raw(4),
-                Entity::from_raw(7),
-                Entity::from_raw(8),
-            ],
-            "space between original entities and high entities is used for new entity ids"
-        );
-    }
-
-    #[test]
     fn insert_or_spawn_batch() {
         let mut world = World::default();
         let e0 = world.spawn(A(0)).id();
@@ -1798,6 +1781,134 @@ mod tests {
             world.get::<C>(e1),
             Some(&C),
             "new entity was spawned and received C component"
+        );
+    }
+
+    #[test]
+    fn insert_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = world.spawn(B(0)).id();
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.insert_batch(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(1)),
+            "first entity's A component should have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
+        );
+        assert_eq!(
+            world.get::<A>(e1),
+            Some(&A(0)),
+            "second entity should have received A component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(1)),
+            "second entity's B component should have been replaced"
+        );
+    }
+
+    #[test]
+    fn insert_batch_same_archetype() {
+        let mut world = World::default();
+        let e0 = world.spawn((A(0), B(0))).id();
+        let e1 = world.spawn((A(0), B(0))).id();
+        let e2 = world.spawn(B(0)).id();
+
+        let values = vec![(e0, (B(1), C)), (e1, (B(2), C)), (e2, (B(3), C))];
+
+        world.insert_batch(values);
+        let mut query = world.query::<(Option<&A>, &B, &C)>();
+        let component_values = query.get_many(&world, [e0, e1, e2]).unwrap();
+
+        assert_eq!(
+            component_values,
+            [(Some(&A(0)), &B(1), &C), (Some(&A(0)), &B(2), &C), (None, &B(3), &C)],
+            "all entities should have had their B component replaced, received C component, and had their A component (or lack thereof) unchanged"
+        );
+    }
+
+    #[test]
+    fn insert_batch_if_new() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = world.spawn(B(0)).id();
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.insert_batch_if_new(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "first entity's A component should not have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
+        );
+        assert_eq!(
+            world.get::<A>(e1),
+            Some(&A(0)),
+            "second entity should have received A component"
+        );
+        assert_eq!(
+            world.get::<B>(e1),
+            Some(&B(0)),
+            "second entity's B component should not have been replaced"
+        );
+    }
+
+    #[test]
+    fn try_insert_batch() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = Entity::from_raw(1);
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.try_insert_batch(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(1)),
+            "first entity's A component should have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
+        );
+    }
+
+    #[test]
+    fn try_insert_batch_if_new() {
+        let mut world = World::default();
+        let e0 = world.spawn(A(0)).id();
+        let e1 = Entity::from_raw(1);
+
+        let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
+
+        world.try_insert_batch_if_new(values);
+
+        assert_eq!(
+            world.get::<A>(e0),
+            Some(&A(0)),
+            "first entity's A component should not have been replaced"
+        );
+        assert_eq!(
+            world.get::<B>(e0),
+            Some(&B(0)),
+            "first entity should have received B component"
         );
     }
 
@@ -2031,6 +2142,138 @@ mod tests {
     }
 
     #[test]
+    fn remove_component_and_its_runtime_required_components() {
+        #[derive(Component)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+        world.register_required_components::<X, Y>();
+        world.register_required_components::<Y, Z>();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_component_and_its_required_components() {
+        #[derive(Component)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        #[require(Z)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        struct Z;
+
+        #[derive(Component)]
+        struct V;
+
+        let mut world = World::new();
+
+        let e = world.spawn((X, V)).id();
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //check that `remove` works as expected
+        world.entity_mut(e).remove::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).insert(X);
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+
+        //remove `X` again and ensure that `Y` and `Z` was removed too
+        world.entity_mut(e).remove_with_requires::<X>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
+    fn remove_bundle_and_his_required_components() {
+        #[derive(Component, Default)]
+        #[require(Y)]
+        struct X;
+
+        #[derive(Component, Default)]
+        struct Y;
+
+        #[derive(Component, Default)]
+        #[require(W)]
+        struct Z;
+
+        #[derive(Component, Default)]
+        struct W;
+
+        #[derive(Component)]
+        struct V;
+
+        #[derive(Bundle, Default)]
+        struct TestBundle {
+            x: X,
+            z: Z,
+        }
+
+        let mut world = World::new();
+        let e = world.spawn((TestBundle::default(), V)).id();
+
+        assert!(world.entity(e).contains::<X>());
+        assert!(world.entity(e).contains::<Y>());
+        assert!(world.entity(e).contains::<Z>());
+        assert!(world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
+
+        world.entity_mut(e).remove_with_requires::<TestBundle>();
+        assert!(!world.entity(e).contains::<X>());
+        assert!(!world.entity(e).contains::<Y>());
+        assert!(!world.entity(e).contains::<Z>());
+        assert!(!world.entity(e).contains::<W>());
+        assert!(world.entity(e).contains::<V>());
+    }
+
+    #[test]
     fn runtime_required_components() {
         // Same as `required_components` test but with runtime registration
 
@@ -2164,6 +2407,118 @@ mod tests {
     }
 
     #[test]
+    fn runtime_required_components_propagate_up() {
+        // `A` requires `B` directly.
+        #[derive(Component)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        let mut world = World::new();
+
+        // `B` requires `C` with a runtime registration.
+        // `A` should also require `C` because it requires `B`.
+        world.register_required_components::<B, C>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<C>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_propagate_up_even_more() {
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component, Default)]
+        struct B;
+
+        #[derive(Component, Default)]
+        struct C;
+
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+
+        let id = world.spawn(A).id();
+
+        assert!(world.entity(id).get::<D>().is_some());
+    }
+
+    #[test]
+    fn runtime_required_components_deep_require_does_not_override_shallow_require() {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component, Default)]
+        struct B;
+        #[derive(Component, Default)]
+        struct C;
+        #[derive(Component)]
+        struct Counter(i32);
+        #[derive(Component, Default)]
+        struct D;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+        world.register_required_components_with::<D, Counter>(|| Counter(2));
+        // This should replace the require constructor in A since it is
+        // shallower.
+        world.register_required_components_with::<C, Counter>(|| Counter(1));
+
+        let id = world.spawn(A).id();
+
+        // The "shallower" of the two components is used.
+        assert_eq!(world.entity(id).get::<Counter>().unwrap().0, 1);
+    }
+
+    #[test]
+    fn runtime_required_components_deep_require_does_not_override_shallow_require_deep_subtree_after_shallow(
+    ) {
+        #[derive(Component)]
+        struct A;
+        #[derive(Component, Default)]
+        struct B;
+        #[derive(Component, Default)]
+        struct C;
+        #[derive(Component, Default)]
+        struct D;
+        #[derive(Component, Default)]
+        struct E;
+        #[derive(Component)]
+        struct Counter(i32);
+        #[derive(Component, Default)]
+        struct F;
+
+        let mut world = World::new();
+
+        world.register_required_components::<A, B>();
+        world.register_required_components::<B, C>();
+        world.register_required_components::<C, D>();
+        world.register_required_components::<D, E>();
+        world.register_required_components_with::<E, Counter>(|| Counter(1));
+        world.register_required_components_with::<F, Counter>(|| Counter(2));
+        world.register_required_components::<E, F>();
+
+        let id = world.spawn(A).id();
+
+        // The "shallower" of the two components is used.
+        assert_eq!(world.entity(id).get::<Counter>().unwrap().0, 1);
+    }
+
+    #[test]
     fn runtime_required_components_existing_archetype() {
         #[derive(Component)]
         struct X;
@@ -2283,42 +2638,67 @@ mod tests {
         assert_eq!(to_vec(required_z), vec![(b, 0), (c, 1)]);
     }
 
-    // These structs are primarily compilation tests to test the derive macros. Because they are
-    // never constructed, we have to manually silence the `dead_code` lint.
-    #[allow(dead_code)]
+    #[test]
+    #[should_panic = "Recursive required components detected: A → B → C → B\nhelp: If this is intentional, consider merging the components."]
+    fn required_components_recursion_errors() {
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Default)]
+        #[require(C)]
+        struct B;
+
+        #[derive(Component, Default)]
+        #[require(B)]
+        struct C;
+
+        World::new().register_component::<A>();
+    }
+
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentA(u32);
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentB(u32);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
-    #[allow(dead_code)]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntities {
         entities: Vec<Entity>,
         another_one: Entity,
         maybe_entity: Option<Entity>,
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[visit_entities(ignore)]
         something_else: String,
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }

@@ -1,19 +1,19 @@
-use core::any::TypeId;
-use fixedbitset::FixedBitSet;
-use std::collections::HashMap;
-
 use crate::{
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
     system::{IntoSystem, ResMut, Resource},
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-    TypeIdMap,
-};
+use alloc::vec::Vec;
+use bevy_utils::{HashMap, TypeIdMap};
+use core::any::TypeId;
+use fixedbitset::FixedBitSet;
+use log::{info, warn};
 use thiserror::Error;
 
+#[cfg(not(feature = "bevy_debug_stepping"))]
+use log::error;
+
 #[cfg(test)]
-use bevy_utils::tracing::debug;
+use log::debug;
 
 use crate as bevy_ecs;
 
@@ -168,14 +168,8 @@ impl Stepping {
         if self.action == Action::RunAll {
             return None;
         }
-        let label = match self.schedule_order.get(self.cursor.schedule) {
-            None => return None,
-            Some(label) => label,
-        };
-        let state = match self.schedule_states.get(label) {
-            None => return None,
-            Some(state) => state,
-        };
+        let label = self.schedule_order.get(self.cursor.schedule)?;
+        let state = self.schedule_states.get(label)?;
         state
             .node_ids
             .get(self.cursor.system)
@@ -420,6 +414,10 @@ impl Stepping {
                     // transitions, and add debugging messages for permitted
                     // transitions.  Any action transition that falls through
                     // this match block will be performed.
+                    #[expect(
+                        clippy::match_same_arms,
+                        reason = "Readability would be negatively impacted by combining the `(Waiting, RunAll)` and `(Continue, RunAll)` match arms."
+                    )]
                     match (self.action, action) {
                         // ignore non-transition updates, and prevent a call to
                         // enable() from overwriting a step or continue call
@@ -828,6 +826,8 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};
+    use alloc::{format, vec};
+    use std::println;
 
     pub use crate as bevy_ecs;
 

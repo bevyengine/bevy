@@ -33,17 +33,17 @@ fn button_system(
         let mut text = text_query.get_mut(children[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
-                text.sections[0].value = "Press".to_string();
+                **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
                 border_color.0 = RED.into();
             }
             Interaction::Hovered => {
-                text.sections[0].value = "Hover".to_string();
+                **text = "Hover".to_string();
                 *color = HOVERED_BUTTON.into();
                 border_color.0 = Color::WHITE;
             }
             Interaction::None => {
-                text.sections[0].value = "Button".to_string();
+                **text = "Button".to_string();
                 *color = NORMAL_BUTTON.into();
                 border_color.0 = Color::BLACK;
             }
@@ -53,22 +53,20 @@ fn button_system(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn(ButtonBundle {
-                    style: Style {
+                .spawn((
+                    Button,
+                    Node {
                         width: Val::Px(150.0),
                         height: Val::Px(65.0),
                         border: UiRect::all(Val::Px(5.0)),
@@ -78,18 +76,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    border_color: BorderColor(Color::BLACK),
-                    border_radius: BorderRadius::MAX,
-                    background_color: NORMAL_BUTTON.into(),
-                    ..default()
-                })
-                .with_child(TextBundle::from_section(
-                    "Button",
-                    TextStyle {
+                    BorderColor(Color::BLACK),
+                    BorderRadius::MAX,
+                    BackgroundColor(NORMAL_BUTTON),
+                ))
+                .with_child((
+                    Text::new("Button"),
+                    TextFont {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 33.0,
-                        color: Color::srgb(0.9, 0.9, 0.9),
+                        ..default()
                     },
+                    TextColor(Color::srgb(0.9, 0.9, 0.9)),
                 ));
         });
 }

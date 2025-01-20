@@ -1,13 +1,14 @@
 //! Provides a simple aspect ratio struct to help with calculations.
 
 use crate::Vec2;
+use derive_more::derive::Into;
 use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 /// An `AspectRatio` is the ratio of width to height.
-#[derive(Copy, Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Copy, Clone, Debug, PartialEq, PartialOrd, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub struct AspectRatio(f32);
 
@@ -45,31 +46,31 @@ impl AspectRatio {
 
     /// Returns the aspect ratio as a f32 value.
     #[inline]
-    pub fn ratio(&self) -> f32 {
+    pub const fn ratio(&self) -> f32 {
         self.0
     }
 
     /// Returns the inverse of this aspect ratio (height/width).
     #[inline]
-    pub fn inverse(&self) -> Self {
+    pub const fn inverse(&self) -> Self {
         Self(1.0 / self.0)
     }
 
     /// Returns true if the aspect ratio represents a landscape orientation.
     #[inline]
-    pub fn is_landscape(&self) -> bool {
+    pub const fn is_landscape(&self) -> bool {
         self.0 > 1.0
     }
 
     /// Returns true if the aspect ratio represents a portrait orientation.
     #[inline]
-    pub fn is_portrait(&self) -> bool {
+    pub const fn is_portrait(&self) -> bool {
         self.0 < 1.0
     }
 
     /// Returns true if the aspect ratio is exactly square.
     #[inline]
-    pub fn is_square(&self) -> bool {
+    pub const fn is_square(&self) -> bool {
         self.0 == 1.0
     }
 }
@@ -80,13 +81,6 @@ impl TryFrom<Vec2> for AspectRatio {
     #[inline]
     fn try_from(value: Vec2) -> Result<Self, Self::Error> {
         Self::try_new(value.x, value.y)
-    }
-}
-
-impl From<AspectRatio> for f32 {
-    #[inline]
-    fn from(aspect_ratio: AspectRatio) -> Self {
-        aspect_ratio.0
     }
 }
 

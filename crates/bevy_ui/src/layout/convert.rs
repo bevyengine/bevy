@@ -1,10 +1,10 @@
 use taffy::style_helpers;
 
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, GridAutoFlow,
+    AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
-    MaxTrackSizingFunction, MinTrackSizingFunction, OverflowAxis, PositionType, RepeatedGridTrack,
-    Style, UiRect, Val,
+    MaxTrackSizingFunction, MinTrackSizingFunction, Node, OverflowAxis, PositionType,
+    RepeatedGridTrack, UiRect, Val,
 };
 
 use super::LayoutContext;
@@ -20,12 +20,12 @@ impl Val {
             Val::Px(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.scale_factor * value)
             }
-            Val::VMin(value) => {
-                taffy::style::LengthPercentageAuto::Length(context.min_size * value / 100.)
-            }
-            Val::VMax(value) => {
-                taffy::style::LengthPercentageAuto::Length(context.max_size * value / 100.)
-            }
+            Val::VMin(value) => taffy::style::LengthPercentageAuto::Length(
+                context.physical_size.min_element() * value / 100.,
+            ),
+            Val::VMax(value) => taffy::style::LengthPercentageAuto::Length(
+                context.physical_size.max_element() * value / 100.,
+            ),
             Val::Vw(value) => {
                 taffy::style::LengthPercentageAuto::Length(context.physical_size.x * value / 100.)
             }
@@ -63,37 +63,36 @@ impl UiRect {
     }
 }
 
-pub fn from_style(
-    context: &LayoutContext,
-    style: &Style,
-    ignore_border: bool,
-) -> taffy::style::Style {
+pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> taffy::style::Style {
     taffy::style::Style {
-        display: style.display.into(),
+        display: node.display.into(),
+        box_sizing: node.box_sizing.into(),
+        item_is_table: false,
+        text_align: taffy::TextAlign::Auto,
         overflow: taffy::Point {
-            x: style.overflow.x.into(),
-            y: style.overflow.y.into(),
+            x: node.overflow.x.into(),
+            y: node.overflow.y.into(),
         },
         scrollbar_width: 0.0,
-        position: style.position_type.into(),
-        flex_direction: style.flex_direction.into(),
-        flex_wrap: style.flex_wrap.into(),
-        align_items: style.align_items.into(),
-        justify_items: style.justify_items.into(),
-        align_self: style.align_self.into(),
-        justify_self: style.justify_self.into(),
-        align_content: style.align_content.into(),
-        justify_content: style.justify_content.into(),
+        position: node.position_type.into(),
+        flex_direction: node.flex_direction.into(),
+        flex_wrap: node.flex_wrap.into(),
+        align_items: node.align_items.into(),
+        justify_items: node.justify_items.into(),
+        align_self: node.align_self.into(),
+        justify_self: node.justify_self.into(),
+        align_content: node.align_content.into(),
+        justify_content: node.justify_content.into(),
         inset: taffy::Rect {
-            left: style.left.into_length_percentage_auto(context),
-            right: style.right.into_length_percentage_auto(context),
-            top: style.top.into_length_percentage_auto(context),
-            bottom: style.bottom.into_length_percentage_auto(context),
+            left: node.left.into_length_percentage_auto(context),
+            right: node.right.into_length_percentage_auto(context),
+            top: node.top.into_length_percentage_auto(context),
+            bottom: node.bottom.into_length_percentage_auto(context),
         },
-        margin: style
+        margin: node
             .margin
             .map_to_taffy_rect(|m| m.into_length_percentage_auto(context)),
-        padding: style
+        padding: node
             .padding
             .map_to_taffy_rect(|m| m.into_length_percentage(context)),
         // Ignore border for leaf nodes as it isn't implemented in the rendering engine.
@@ -101,53 +100,52 @@ pub fn from_style(
         border: if ignore_border {
             taffy::Rect::zero()
         } else {
-            style
-                .border
+            node.border
                 .map_to_taffy_rect(|m| m.into_length_percentage(context))
         },
-        flex_grow: style.flex_grow,
-        flex_shrink: style.flex_shrink,
-        flex_basis: style.flex_basis.into_dimension(context),
+        flex_grow: node.flex_grow,
+        flex_shrink: node.flex_shrink,
+        flex_basis: node.flex_basis.into_dimension(context),
         size: taffy::Size {
-            width: style.width.into_dimension(context),
-            height: style.height.into_dimension(context),
+            width: node.width.into_dimension(context),
+            height: node.height.into_dimension(context),
         },
         min_size: taffy::Size {
-            width: style.min_width.into_dimension(context),
-            height: style.min_height.into_dimension(context),
+            width: node.min_width.into_dimension(context),
+            height: node.min_height.into_dimension(context),
         },
         max_size: taffy::Size {
-            width: style.max_width.into_dimension(context),
-            height: style.max_height.into_dimension(context),
+            width: node.max_width.into_dimension(context),
+            height: node.max_height.into_dimension(context),
         },
-        aspect_ratio: style.aspect_ratio,
+        aspect_ratio: node.aspect_ratio,
         gap: taffy::Size {
-            width: style.column_gap.into_length_percentage(context),
-            height: style.row_gap.into_length_percentage(context),
+            width: node.column_gap.into_length_percentage(context),
+            height: node.row_gap.into_length_percentage(context),
         },
-        grid_auto_flow: style.grid_auto_flow.into(),
-        grid_template_rows: style
+        grid_auto_flow: node.grid_auto_flow.into(),
+        grid_template_rows: node
             .grid_template_rows
             .iter()
             .map(|track| track.clone_into_repeated_taffy_track(context))
             .collect::<Vec<_>>(),
-        grid_template_columns: style
+        grid_template_columns: node
             .grid_template_columns
             .iter()
             .map(|track| track.clone_into_repeated_taffy_track(context))
             .collect::<Vec<_>>(),
-        grid_auto_rows: style
+        grid_auto_rows: node
             .grid_auto_rows
             .iter()
             .map(|track| track.into_taffy_track(context))
             .collect::<Vec<_>>(),
-        grid_auto_columns: style
+        grid_auto_columns: node
             .grid_auto_columns
             .iter()
             .map(|track| track.into_taffy_track(context))
             .collect::<Vec<_>>(),
-        grid_row: style.grid_row.into(),
-        grid_column: style.grid_column.into(),
+        grid_row: node.grid_row.into(),
+        grid_column: node.grid_column.into(),
     }
 }
 
@@ -248,6 +246,15 @@ impl From<Display> for taffy::style::Display {
             Display::Grid => taffy::style::Display::Grid,
             Display::Block => taffy::style::Display::Block,
             Display::None => taffy::style::Display::None,
+        }
+    }
+}
+
+impl From<BoxSizing> for taffy::style::BoxSizing {
+    fn from(value: BoxSizing) -> Self {
+        match value {
+            BoxSizing::BorderBox => taffy::style::BoxSizing::BorderBox,
+            BoxSizing::ContentBox => taffy::style::BoxSizing::ContentBox,
         }
     }
 }
@@ -448,8 +455,9 @@ mod tests {
         use sh::TaffyZero;
         use taffy::style_helpers as sh;
 
-        let bevy_style = Style {
+        let node = Node {
             display: Display::Flex,
+            box_sizing: BoxSizing::ContentBox,
             position_type: PositionType::Absolute,
             left: Val::ZERO,
             right: Val::Percent(50.),
@@ -492,6 +500,7 @@ mod tests {
             max_height: Val::ZERO,
             aspect_ratio: None,
             overflow: crate::Overflow::clip(),
+            overflow_clip_margin: crate::OverflowClipMargin::default(),
             column_gap: Val::ZERO,
             row_gap: Val::ZERO,
             grid_auto_flow: GridAutoFlow::ColumnDense,
@@ -515,8 +524,9 @@ mod tests {
             grid_row: GridPlacement::span(3),
         };
         let viewport_values = LayoutContext::new(1.0, bevy_math::Vec2::new(800., 600.));
-        let taffy_style = from_style(&viewport_values, &bevy_style, false);
+        let taffy_style = from_node(&node, &viewport_values, false);
         assert_eq!(taffy_style.display, taffy::style::Display::Flex);
+        assert_eq!(taffy_style.box_sizing, taffy::style::BoxSizing::ContentBox);
         assert_eq!(taffy_style.position, taffy::style::Position::Absolute);
         assert_eq!(
             taffy_style.inset.left,

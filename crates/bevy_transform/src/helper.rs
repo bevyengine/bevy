@@ -1,11 +1,11 @@
 //! System parameter for computing up-to-date [`GlobalTransform`]s.
 
 use bevy_ecs::{
+    hierarchy::Parent,
     prelude::Entity,
     query::QueryEntityError,
     system::{Query, SystemParam},
 };
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use thiserror::Error;
 
 use crate::components::{GlobalTransform, Transform};
@@ -52,7 +52,7 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::NoSuchEntity(entity) => {
+        QueryEntityError::NoSuchEntity(entity, _) => {
             if ancestor {
                 MalformedHierarchy(entity)
             } else {
@@ -80,11 +80,11 @@ pub enum ComputeGlobalTransformError {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use core::f32::consts::TAU;
 
     use bevy_app::App;
-    use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
+    use bevy_ecs::{hierarchy::Parent, system::SystemState};
     use bevy_math::{Quat, Vec3};
 
     use crate::{
@@ -124,7 +124,7 @@ mod tests {
             let mut e = app.world_mut().spawn(transform);
 
             if let Some(entity) = entity {
-                e.set_parent(entity);
+                e.insert(Parent(entity));
             }
 
             entity = Some(e.id());

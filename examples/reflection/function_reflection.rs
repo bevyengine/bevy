@@ -8,8 +8,8 @@
 
 use bevy::reflect::{
     func::{
-        ArgList, DynamicFunction, DynamicFunctionMut, FunctionInfo, FunctionResult, IntoFunction,
-        IntoFunctionMut, Return,
+        ArgList, DynamicFunction, DynamicFunctionMut, FunctionResult, IntoFunction,
+        IntoFunctionMut, Return, SignatureInfo,
     },
     PartialReflect, Reflect,
 };
@@ -83,7 +83,50 @@ fn main() {
     dbg!(closure.call_once(args).unwrap());
     assert_eq!(count, 5);
 
-    // As stated before, this works for many kinds of simple functions.
+    // Generic functions can also be converted into a `DynamicFunction`,
+    // however, they will need to be manually monomorphized first.
+    fn stringify<T: ToString>(value: T) -> String {
+        value.to_string()
+    }
+
+    // We have to manually specify the concrete generic type we want to use.
+    let function = stringify::<i32>.into_function();
+
+    let args = ArgList::new().push_owned(123_i32);
+    let return_value = function.call(args).unwrap();
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<String>().unwrap(), "123");
+
+    // To make things a little easier, we can also "overload" functions.
+    // This makes it so that a single `DynamicFunction` can represent multiple functions,
+    // and the correct one is chosen based on the types of the arguments.
+    // Each function overload must have a unique argument signature.
+    let function = stringify::<i32>
+        .into_function()
+        .with_overload(stringify::<f32>);
+
+    // Now our `function` accepts both `i32` and `f32` arguments.
+    let args = ArgList::new().push_owned(1.23_f32);
+    let return_value = function.call(args).unwrap();
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<String>().unwrap(), "1.23");
+
+    // Function overloading even allows us to have a variable number of arguments.
+    let function = (|| 0)
+        .into_function()
+        .with_overload(|a: i32| a)
+        .with_overload(|a: i32, b: i32| a + b)
+        .with_overload(|a: i32, b: i32, c: i32| a + b + c);
+
+    let args = ArgList::new()
+        .push_owned(1_i32)
+        .push_owned(2_i32)
+        .push_owned(3_i32);
+    let return_value = function.call(args).unwrap();
+    let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
+    assert_eq!(value.try_take::<i32>().unwrap(), 6);
+
+    // As stated earlier, `IntoFunction` works for many kinds of simple functions.
     // Functions with non-reflectable arguments or return values may not be able to be converted.
     // Generic functions are also not supported (unless manually monomorphized like `foo::<i32>.into_function()`).
     // Additionally, the lifetime of the return value is tied to the lifetime of the first argument.
@@ -118,7 +161,7 @@ fn main() {
     let value: &dyn PartialReflect = return_value.unwrap_ref();
     assert_eq!(value.try_downcast_ref::<String>().unwrap(), "Hello, world!");
 
-    // Lastly, for more complex use cases, you can always create a custom `DynamicFunction` manually.
+    // For more complex use cases, you can always create a custom `DynamicFunction` manually.
     // This is useful for functions that can't be converted via the `IntoFunction` trait.
     // For example, this function doesn't implement `IntoFunction` due to the fact that
     // the lifetime of the return value is not tied to the lifetime of the first argument.
@@ -150,7 +193,7 @@ fn main() {
         // This makes it easier to debug and is also required for function registration.
         // We can either give it a custom name or use the function's type name as
         // derived from `std::any::type_name_of_val`.
-        FunctionInfo::named(std::any::type_name_of_val(&get_or_insert))
+        SignatureInfo::named(std::any::type_name_of_val(&get_or_insert))
             // We can always change the name if needed.
             // It's a good idea to also ensure that the name is unique,
             // such as by using its type name or by prefixing it with your crate name.

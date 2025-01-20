@@ -1,15 +1,16 @@
-//! Additional [`Gizmos`] Functions -- Crosses
+//! Additional [`GizmoBuffer`] Functions -- Crosses
 //!
-//! Includes the implementation of [`Gizmos::cross`] and [`Gizmos::cross_2d`],
+//! Includes the implementation of [`GizmoBuffer::cross`] and [`GizmoBuffer::cross_2d`],
 //! and assorted support items.
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 
-impl<Config> Gizmos<'_, '_, Config>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
 {
     /// Draw a cross in 3D with the given `isometry` applied.
     ///
@@ -30,7 +31,13 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn cross(&mut self, isometry: Isometry3d, half_size: f32, color: impl Into<Color>) {
+    pub fn cross(
+        &mut self,
+        isometry: impl Into<Isometry3d>,
+        half_size: f32,
+        color: impl Into<Color>,
+    ) {
+        let isometry = isometry.into();
         let color: Color = color.into();
         [Vec3::X, Vec3::Y, Vec3::Z]
             .map(|axis| axis * half_size)
@@ -59,7 +66,13 @@ where
     /// }
     /// # bevy_ecs::system::assert_is_system(system);
     /// ```
-    pub fn cross_2d(&mut self, isometry: Isometry2d, half_size: f32, color: impl Into<Color>) {
+    pub fn cross_2d(
+        &mut self,
+        isometry: impl Into<Isometry2d>,
+        half_size: f32,
+        color: impl Into<Color>,
+    ) {
+        let isometry = isometry.into();
         let color: Color = color.into();
         [Vec2::X, Vec2::Y]
             .map(|axis| axis * half_size)

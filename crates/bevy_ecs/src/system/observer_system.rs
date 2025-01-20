@@ -21,6 +21,12 @@ impl<
 }
 
 /// Implemented for systems that convert into [`ObserverSystem`].
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If an observer system needs to be returned from a
+/// function or stored somewhere, use [`ObserverSystem`] instead of this trait.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot become an `ObserverSystem`",
     label = "the trait `IntoObserverSystem` is not implemented",
@@ -70,7 +76,7 @@ mod tests {
         fn b() {}
 
         let mut world = World::new();
-        world.observe(a.pipe(b));
+        world.add_observer(a.pipe(b));
     }
 
     #[test]
@@ -81,6 +87,6 @@ mod tests {
         fn b(_: In<u32>) {}
 
         let mut world = World::new();
-        world.observe(a.pipe(b));
+        world.add_observer(a.pipe(b));
     }
 }

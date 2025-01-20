@@ -18,24 +18,23 @@ fn main() {
 struct MyRoundGizmos {}
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // text
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn((
+        Text::new(
             "Hold 'Left' or 'Right' to change the line width of straight gizmos\n\
         Hold 'Up' or 'Down' to change the line width of round gizmos\n\
         Press '1' / '2' to toggle the visibility of straight / round gizmos\n\
         Press 'U' / 'I' to cycle through line styles\n\
         Press 'J' / 'K' to cycle through line joins",
-            TextStyle::default(),
-        )
-        .with_style(Style {
+        ),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.),
             left: Val::Px(12.),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 fn draw_example_collection(
@@ -43,7 +42,7 @@ fn draw_example_collection(
     mut my_gizmos: Gizmos<MyRoundGizmos>,
     time: Res<Time>,
 ) {
-    let sin_t_scaled = ops::sin(time.elapsed_seconds()) * 50.;
+    let sin_t_scaled = ops::sin(time.elapsed_secs()) * 50.;
     gizmos.line_2d(Vec2::Y * -sin_t_scaled, Vec2::splat(-80.), RED);
     gizmos.ray_2d(Vec2::Y * sin_t_scaled, Vec2::splat(80.), LIME);
 
@@ -67,15 +66,11 @@ fn draw_example_collection(
 
     gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::splat(650.), BLACK);
 
-    gizmos.cross_2d(
-        Isometry2d::from_translation(Vec2::new(-160., 120.)),
-        12.,
-        FUCHSIA,
-    );
+    gizmos.cross_2d(Vec2::new(-160., 120.), 12., FUCHSIA);
 
     let domain = Interval::EVERYWHERE;
-    let curve = function_curve(domain, |t| Vec2::new(t, ops::sin(t / 25.0) * 100.0));
-    let resolution = ((ops::sin(time.elapsed_seconds()) + 1.0) * 50.0) as usize;
+    let curve = FunctionCurve::new(domain, |t| Vec2::new(t, ops::sin(t / 25.0) * 100.0));
+    let resolution = ((ops::sin(time.elapsed_secs()) + 1.0) * 50.0) as usize;
     let times_and_colors = (0..=resolution)
         .map(|n| n as f32 / resolution as f32)
         .map(|t| (t - 0.5) * 600.0)
@@ -84,16 +79,16 @@ fn draw_example_collection(
 
     my_gizmos
         .rounded_rect_2d(Isometry2d::IDENTITY, Vec2::splat(630.), BLACK)
-        .corner_radius(ops::cos(time.elapsed_seconds() / 3.) * 100.);
+        .corner_radius(ops::cos(time.elapsed_secs() / 3.) * 100.);
 
     // Circles have 32 line-segments by default.
     // You may want to increase this for larger circles.
     my_gizmos
-        .circle_2d(Isometry2d::from_translation(Vec2::ZERO), 300., NAVY)
+        .circle_2d(Isometry2d::IDENTITY, 300., NAVY)
         .resolution(64);
 
     my_gizmos.ellipse_2d(
-        Isometry2d::new(Vec2::ZERO, Rot2::radians(time.elapsed_seconds() % TAU)),
+        Rot2::radians(time.elapsed_secs() % TAU),
         Vec2::new(100., 200.),
         YELLOW_GREEN,
     );
@@ -101,7 +96,7 @@ fn draw_example_collection(
     // Arcs default resolution is linearly interpolated between
     // 1 and 32, using the arc length as scalar.
     my_gizmos.arc_2d(
-        Isometry2d::from_rotation(Rot2::radians(sin_t_scaled / 10.)),
+        Rot2::radians(sin_t_scaled / 10.),
         FRAC_PI_2,
         310.,
         ORANGE_RED,
@@ -134,24 +129,28 @@ fn update_config(
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line_width += 5. * time.delta_seconds();
-        config.line_width = config.line_width.clamp(0., 50.);
+        config.line.width += 5. * time.delta_secs();
+        config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line_width -= 5. * time.delta_seconds();
-        config.line_width = config.line_width.clamp(0., 50.);
+        config.line.width -= 5. * time.delta_secs();
+        config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
         config.enabled ^= true;
     }
     if keyboard.just_pressed(KeyCode::KeyU) {
-        config.line_style = match config.line_style {
+        config.line.style = match config.line.style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+            },
             _ => GizmoLineStyle::Solid,
         };
     }
     if keyboard.just_pressed(KeyCode::KeyJ) {
-        config.line_joints = match config.line_joints {
+        config.line.joints = match config.line.joints {
             GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
             GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
             GizmoLineJoint::Round(_) => GizmoLineJoint::None,
@@ -161,24 +160,28 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line_width += 5. * time.delta_seconds();
-        my_config.line_width = my_config.line_width.clamp(0., 50.);
+        my_config.line.width += 5. * time.delta_secs();
+        my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line_width -= 5. * time.delta_seconds();
-        my_config.line_width = my_config.line_width.clamp(0., 50.);
+        my_config.line.width -= 5. * time.delta_secs();
+        my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
         my_config.enabled ^= true;
     }
     if keyboard.just_pressed(KeyCode::KeyI) {
-        my_config.line_style = match my_config.line_style {
+        my_config.line.style = match my_config.line.style {
             GizmoLineStyle::Solid => GizmoLineStyle::Dotted,
+            GizmoLineStyle::Dotted => GizmoLineStyle::Dashed {
+                gap_scale: 3.0,
+                line_scale: 5.0,
+            },
             _ => GizmoLineStyle::Solid,
         };
     }
     if keyboard.just_pressed(KeyCode::KeyK) {
-        my_config.line_joints = match my_config.line_joints {
+        my_config.line.joints = match my_config.line.joints {
             GizmoLineJoint::Bevel => GizmoLineJoint::Miter,
             GizmoLineJoint::Miter => GizmoLineJoint::Round(4),
             GizmoLineJoint::Round(_) => GizmoLineJoint::None,

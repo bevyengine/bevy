@@ -38,6 +38,7 @@ fn vertex(
     // x: left, y: top, z: right, w: bottom.
     @location(5) border: vec4<f32>,
     @location(6) size: vec2<f32>,
+    @location(7) point: vec2<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -47,13 +48,6 @@ fn vertex(
     out.radius = radius;
     out.size = size;
     out.border = border;
-    var point = 0.49999 * size;
-    if (flags & RIGHT_VERTEX) == 0u {
-        point.x *= -1.;
-    }
-    if (flags & BOTTOM_VERTEX) == 0u {
-        point.y *= -1.;
-    }
     out.point = point;
 
     return out;
@@ -123,8 +117,7 @@ fn sd_inset_rounded_box(point: vec2<f32>, size: vec2<f32>, radius: vec4<f32>, in
 // get alpha for antialiasing for sdf
 fn antialias(distance: f32) -> f32 {
     // Using the fwidth(distance) was causing artifacts, so just use the distance.
-    // This antialiases between the distance values of 0.25 and -0.25
-    return clamp(0.0, 1.0, 0.5 - 2.0 * distance);
+    return clamp(0.0, 1.0, (0.5 - distance));
 }
 
 fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {

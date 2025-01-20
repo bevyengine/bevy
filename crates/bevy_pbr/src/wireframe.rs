@@ -127,7 +127,6 @@ fn global_color_changed(
 }
 
 /// Updates the wireframe material when the color in [`WireframeColor`] changes
-#[allow(clippy::type_complexity)]
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     mut colors_changed: Query<
@@ -204,7 +203,7 @@ fn apply_global_wireframe_material(
     }
 }
 
-/// Gets an handle to a wireframe material with a fallback on the default material
+/// Gets a handle to a wireframe material with a fallback on the default material
 fn get_wireframe_material(
     maybe_color: Option<&WireframeColor>,
     wireframe_materials: &mut Assets<WireframeMaterial>,

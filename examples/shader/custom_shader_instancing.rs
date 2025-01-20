@@ -29,7 +29,8 @@ use bevy::{
         },
         render_resource::*,
         renderer::RenderDevice,
-        view::{ExtractedView, NoFrustumCulling},
+        sync_world::MainEntity,
+        view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
         Render, RenderApp, RenderSet,
     },
 };
@@ -47,8 +48,7 @@ fn main() {
 
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
-        meshes.add(Cuboid::new(0.5, 0.5, 0.5)),
-        SpatialBundle::INHERITED_IDENTITY,
+        Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
         InstanceMaterialData(
             (1..=10)
                 .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
@@ -70,10 +70,14 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // We need this component because we use `draw_indexed` and `draw`
+        // instead of `draw_indirect_indexed` and `draw_indirect` in
+        // `DrawMeshInstanced::render`.
+        NoIndirectDrawing,
+    ));
 }
 
 #[derive(Component, Deref)]
@@ -119,7 +123,6 @@ struct InstanceData {
     color: [f32; 4],
 }
 
-#[allow(clippy::too_many_arguments)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
@@ -127,14 +130,15 @@ fn queue_custom(
     pipeline_cache: Res<PipelineCache>,
     meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    material_meshes: Query<Entity, With<InstanceMaterialData>>,
+    material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(Entity, &ExtractedView, &Msaa)>,
+    views: Query<(&ExtractedView, &Msaa)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    for (view_entity, view, msaa) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -142,8 +146,9 @@ fn queue_custom(
 
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
-        for entity in &material_meshes {
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(entity) else {
+        for (entity, main_entity) in &material_meshes {
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*main_entity)
+            else {
                 continue;
             };
             let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
@@ -155,12 +160,13 @@ fn queue_custom(
                 .specialize(&pipeline_cache, &custom_pipeline, key, &mesh.layout)
                 .unwrap();
             transparent_phase.add(Transparent3d {
-                entity,
+                entity: (entity, *main_entity),
                 pipeline,
                 draw_function: draw_custom,
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }
@@ -268,7 +274,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
         // A borrow check workaround.
         let mesh_allocator = mesh_allocator.into_inner();
 
-        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.entity())
+        let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(item.main_entity())
         else {
             return RenderCommandResult::Skip;
         };

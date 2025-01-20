@@ -4,12 +4,16 @@ use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
 use core::hash::Hash;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
+
 /// Stores the position data of the input devices of type `T`.
 ///
 /// The values are stored as `f32`s, using [`Axis::set`].
 /// Use [`Axis::get`] to retrieve the value clamped between [`Axis::MIN`] and [`Axis::MAX`]
 /// inclusive, or unclamped using [`Axis::get_unclamped`].
 #[derive(Debug, Resource)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 pub struct Axis<T> {
     /// The position data of the input devices.
     axis_data: HashMap<T, f32>,
@@ -41,16 +45,16 @@ where
     /// If the `input_device`:
     /// - was present before, the position data is updated, and the old value is returned.
     /// - wasn't present before, `None` is returned.
-    pub fn set(&mut self, input_device: T, position_data: f32) -> Option<f32> {
-        self.axis_data.insert(input_device, position_data)
+    pub fn set(&mut self, input_device: impl Into<T>, position_data: f32) -> Option<f32> {
+        self.axis_data.insert(input_device.into(), position_data)
     }
 
     /// Returns the position data of the provided `input_device`.
     ///
     /// This will be clamped between [`Axis::MIN`] and [`Axis::MAX`] inclusive.
-    pub fn get(&self, input_device: T) -> Option<f32> {
+    pub fn get(&self, input_device: impl Into<T>) -> Option<f32> {
         self.axis_data
-            .get(&input_device)
+            .get(&input_device.into())
             .copied()
             .map(|value| value.clamp(Self::MIN, Self::MAX))
     }
@@ -62,13 +66,23 @@ where
     /// Use for things like camera zoom, where you want devices like mouse wheels to be able to
     /// exceed the normal range. If being able to move faster on one input device
     /// than another would give an unfair advantage, you should likely use [`Axis::get`] instead.
-    pub fn get_unclamped(&self, input_device: T) -> Option<f32> {
-        self.axis_data.get(&input_device).copied()
+    pub fn get_unclamped(&self, input_device: impl Into<T>) -> Option<f32> {
+        self.axis_data.get(&input_device.into()).copied()
     }
 
     /// Removes the position data of the `input_device`, returning the position data if the input device was previously set.
-    pub fn remove(&mut self, input_device: T) -> Option<f32> {
-        self.axis_data.remove(&input_device)
+    pub fn remove(&mut self, input_device: impl Into<T>) -> Option<f32> {
+        self.axis_data.remove(&input_device.into())
+    }
+
+    /// Returns an iterator over all axes.
+    pub fn all_axes(&self) -> impl Iterator<Item = &T> {
+        self.axis_data.keys()
+    }
+
+    /// Returns an iterator over all axes and their values.
+    pub fn all_axes_and_values(&self) -> impl Iterator<Item = (&T, f32)> {
+        self.axis_data.iter().map(|(axis, value)| (axis, *value))
     }
 }
 

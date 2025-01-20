@@ -8,9 +8,18 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Represents the possible value types for layout properties.
 ///
-/// This enum allows specifying values for various [`Style`](crate::Style) properties in different units,
+/// This enum allows specifying values for various [`Node`](crate::Node) properties in different units,
 /// such as logical pixels, percentages, or automatically determined values.
-
+///
+/// `Val` also implements [`core::str::FromStr`] to allow parsing values from strings in the format `#.#px`. Whitespaces between the value and unit is allowed. The following units are supported:
+/// * `px`: logical pixels
+/// * `%`: percentage
+/// * `vw`: percentage of the viewport width
+/// * `vh`: percentage of the viewport height
+/// * `vmin`: percentage of the viewport's smaller dimension
+/// * `vmax`: percentage of the viewport's larger dimension
+///
+/// Additionally, `auto` will be parsed as [`Val::Auto`].
 #[derive(Copy, Clone, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -19,7 +28,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Serialize, Deserialize)
 )]
 pub enum Val {
-    /// Automatically determine the value based on the context and other [`Style`](crate::Style) properties.
+    /// Automatically determine the value based on the context and other [`Node`](crate::Node) properties.
     Auto,
     /// Set this value in logical pixels.
     Px(f32),
@@ -28,7 +37,7 @@ pub enum Val {
     /// If the UI node has no parent, the percentage is calculated based on the window's length
     /// along the corresponding axis.
     ///
-    /// The chosen axis depends on the [`Style`](crate::Style) field set:
+    /// The chosen axis depends on the [`Node`](crate::Node) field set:
     /// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
     /// * For `gap`, `min_size`, `size`, and `max_size`:
     ///   - `width` is relative to the parent's width.
@@ -44,6 +53,70 @@ pub enum Val {
     VMin(f32),
     /// Set this value in percent of the viewport's larger dimension.
     VMax(f32),
+}
+
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ValParseError {
+    UnitMissing,
+    ValueMissing,
+    InvalidValue,
+    InvalidUnit,
+}
+
+impl core::fmt::Display for ValParseError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            ValParseError::UnitMissing => write!(f, "unit missing"),
+            ValParseError::ValueMissing => write!(f, "value missing"),
+            ValParseError::InvalidValue => write!(f, "invalid value"),
+            ValParseError::InvalidUnit => write!(f, "invalid unit"),
+        }
+    }
+}
+
+impl core::str::FromStr for Val {
+    type Err = ValParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = s.trim();
+
+        if s.eq_ignore_ascii_case("auto") {
+            return Ok(Val::Auto);
+        }
+
+        let Some(end_of_number) = s
+            .bytes()
+            .position(|c| !(c.is_ascii_digit() || c == b'.' || c == b'-' || c == b'+'))
+        else {
+            return Err(ValParseError::UnitMissing);
+        };
+
+        if end_of_number == 0 {
+            return Err(ValParseError::ValueMissing);
+        }
+
+        let (value, unit) = s.split_at(end_of_number);
+
+        let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
+
+        let unit = unit.trim();
+
+        if unit.eq_ignore_ascii_case("px") {
+            Ok(Val::Px(value))
+        } else if unit.eq_ignore_ascii_case("%") {
+            Ok(Val::Percent(value))
+        } else if unit.eq_ignore_ascii_case("vw") {
+            Ok(Val::Vw(value))
+        } else if unit.eq_ignore_ascii_case("vh") {
+            Ok(Val::Vh(value))
+        } else if unit.eq_ignore_ascii_case("vmin") {
+            Ok(Val::VMin(value))
+        } else if unit.eq_ignore_ascii_case("vmax") {
+            Ok(Val::VMax(value))
+        } else {
+            Err(ValParseError::InvalidUnit)
+        }
+    }
 }
 
 impl PartialEq for Val {
@@ -204,7 +277,7 @@ impl Val {
 /// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples
-
+///
 /// ## Margin
 ///
 /// A margin is used to create space around UI elements, outside of any defined borders.
@@ -244,7 +317,6 @@ impl Val {
 ///     bottom: Val::Px(40.0),
 /// };
 /// ```
-
 #[derive(Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -392,11 +464,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn horizontal(value: Val) -> Self {
-        UiRect {
+    pub const fn horizontal(value: Val) -> Self {
+        Self {
             left: value,
             right: value,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
@@ -415,11 +487,11 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn vertical(value: Val) -> Self {
-        UiRect {
+    pub const fn vertical(value: Val) -> Self {
+        Self {
             top: value,
             bottom: value,
-            ..Default::default()
+            ..Self::DEFAULT
         }
     }
 
@@ -437,8 +509,8 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Percent(15.0));
     /// assert_eq!(ui_rect.bottom, Val::Percent(15.0));
     /// ```
-    pub fn axes(horizontal: Val, vertical: Val) -> Self {
-        UiRect {
+    pub const fn axes(horizontal: Val, vertical: Val) -> Self {
+        Self {
             left: horizontal,
             right: horizontal,
             top: vertical,
@@ -461,10 +533,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn left(value: Val) -> Self {
-        UiRect {
-            left: value,
-            ..Default::default()
+    pub const fn left(left: Val) -> Self {
+        Self {
+            left,
+            ..Self::DEFAULT
         }
     }
 
@@ -483,10 +555,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn right(value: Val) -> Self {
-        UiRect {
-            right: value,
-            ..Default::default()
+    pub const fn right(right: Val) -> Self {
+        Self {
+            right,
+            ..Self::DEFAULT
         }
     }
 
@@ -505,10 +577,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::Px(10.0));
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
-    pub fn top(value: Val) -> Self {
-        UiRect {
-            top: value,
-            ..Default::default()
+    pub const fn top(top: Val) -> Self {
+        Self {
+            top,
+            ..Self::DEFAULT
         }
     }
 
@@ -527,10 +599,10 @@ impl UiRect {
     /// assert_eq!(ui_rect.top, Val::ZERO);
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
-    pub fn bottom(value: Val) -> Self {
-        UiRect {
-            bottom: value,
-            ..Default::default()
+    pub const fn bottom(bottom: Val) -> Self {
+        Self {
+            bottom,
+            ..Self::DEFAULT
         }
     }
 
@@ -548,7 +620,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub fn with_left(mut self, left: Val) -> Self {
+    pub const fn with_left(mut self, left: Val) -> Self {
         self.left = left;
         self
     }
@@ -567,7 +639,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub fn with_right(mut self, right: Val) -> Self {
+    pub const fn with_right(mut self, right: Val) -> Self {
         self.right = right;
         self
     }
@@ -586,7 +658,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(20.0));
     /// ```
     #[inline]
-    pub fn with_top(mut self, top: Val) -> Self {
+    pub const fn with_top(mut self, top: Val) -> Self {
         self.top = top;
         self
     }
@@ -605,7 +677,7 @@ impl UiRect {
     /// assert_eq!(ui_rect.bottom, Val::Px(10.0));
     /// ```
     #[inline]
-    pub fn with_bottom(mut self, bottom: Val) -> Self {
+    pub const fn with_bottom(mut self, bottom: Val) -> Self {
         self.bottom = bottom;
         self
     }
@@ -689,6 +761,60 @@ mod tests {
             format!("{}", ValArithmeticError::NonEvaluateable),
             "the given variant of Val is not evaluateable (non-numeric)"
         );
+    }
+
+    #[test]
+    fn val_str_parse() {
+        assert_eq!("auto".parse::<Val>(), Ok(Val::Auto));
+        assert_eq!("Auto".parse::<Val>(), Ok(Val::Auto));
+        assert_eq!("AUTO".parse::<Val>(), Ok(Val::Auto));
+
+        assert_eq!("3px".parse::<Val>(), Ok(Val::Px(3.)));
+        assert_eq!("3 px".parse::<Val>(), Ok(Val::Px(3.)));
+        assert_eq!("3.5px".parse::<Val>(), Ok(Val::Px(3.5)));
+        assert_eq!("-3px".parse::<Val>(), Ok(Val::Px(-3.)));
+        assert_eq!("3.5 PX".parse::<Val>(), Ok(Val::Px(3.5)));
+
+        assert_eq!("3%".parse::<Val>(), Ok(Val::Percent(3.)));
+        assert_eq!("3 %".parse::<Val>(), Ok(Val::Percent(3.)));
+        assert_eq!("3.5%".parse::<Val>(), Ok(Val::Percent(3.5)));
+        assert_eq!("-3%".parse::<Val>(), Ok(Val::Percent(-3.)));
+
+        assert_eq!("3vw".parse::<Val>(), Ok(Val::Vw(3.)));
+        assert_eq!("3 vw".parse::<Val>(), Ok(Val::Vw(3.)));
+        assert_eq!("3.5vw".parse::<Val>(), Ok(Val::Vw(3.5)));
+        assert_eq!("-3vw".parse::<Val>(), Ok(Val::Vw(-3.)));
+        assert_eq!("3.5 VW".parse::<Val>(), Ok(Val::Vw(3.5)));
+
+        assert_eq!("3vh".parse::<Val>(), Ok(Val::Vh(3.)));
+        assert_eq!("3 vh".parse::<Val>(), Ok(Val::Vh(3.)));
+        assert_eq!("3.5vh".parse::<Val>(), Ok(Val::Vh(3.5)));
+        assert_eq!("-3vh".parse::<Val>(), Ok(Val::Vh(-3.)));
+        assert_eq!("3.5 VH".parse::<Val>(), Ok(Val::Vh(3.5)));
+
+        assert_eq!("3vmin".parse::<Val>(), Ok(Val::VMin(3.)));
+        assert_eq!("3 vmin".parse::<Val>(), Ok(Val::VMin(3.)));
+        assert_eq!("3.5vmin".parse::<Val>(), Ok(Val::VMin(3.5)));
+        assert_eq!("-3vmin".parse::<Val>(), Ok(Val::VMin(-3.)));
+        assert_eq!("3.5 VMIN".parse::<Val>(), Ok(Val::VMin(3.5)));
+
+        assert_eq!("3vmax".parse::<Val>(), Ok(Val::VMax(3.)));
+        assert_eq!("3 vmax".parse::<Val>(), Ok(Val::VMax(3.)));
+        assert_eq!("3.5vmax".parse::<Val>(), Ok(Val::VMax(3.5)));
+        assert_eq!("-3vmax".parse::<Val>(), Ok(Val::VMax(-3.)));
+        assert_eq!("3.5 VMAX".parse::<Val>(), Ok(Val::VMax(3.5)));
+
+        assert_eq!("".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!(
+            "hello world".parse::<Val>(),
+            Err(ValParseError::ValueMissing)
+        );
+        assert_eq!("3".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!("3.5".parse::<Val>(), Err(ValParseError::UnitMissing));
+        assert_eq!("3pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
+        assert_eq!("3.5pxx".parse::<Val>(), Err(ValParseError::InvalidUnit));
+        assert_eq!("3-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
+        assert_eq!("3.5-3px".parse::<Val>(), Err(ValParseError::InvalidValue));
     }
 
     #[test]

@@ -68,7 +68,7 @@ pub struct StateTransitionEvent<S: States> {
 ///
 /// These system sets are run sequentially, in the order of the enum variants.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub(crate) enum StateTransitionSteps {
+pub enum StateTransitionSteps {
     /// States apply their transitions from [`NextState`](super::NextState)
     /// and compute functions based on their parent states.
     DependentTransitions,
@@ -135,7 +135,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
         Some(entered) => {
             match current_state {
                 // If the [`State<S>`] resource exists, and the state is not the one we are
-                // entering - we need to set the new value, compute dependant states, send transition events
+                // entering - we need to set the new value, compute dependent states, send transition events
                 // and register transition schedules.
                 Some(mut state_resource) => {
                     let exited = match *state_resource == entered {
@@ -151,7 +151,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     });
                 }
                 None => {
-                    // If the [`State<S>`] resource does not exist, we create it, compute dependant states, send a transition event and register the `OnEnter` schedule.
+                    // If the [`State<S>`] resource does not exist, we create it, compute dependent states, send a transition event and register the `OnEnter` schedule.
                     commands.insert_resource(State(entered.clone()));
 
                     event.send(StateTransitionEvent {
@@ -162,7 +162,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
             };
         }
         None => {
-            // We first remove the [`State<S>`] resource, and if one existed we compute dependant states, send a transition event and run the `OnExit` schedule.
+            // We first remove the [`State<S>`] resource, and if one existed we compute dependent states, send a transition event and run the `OnExit` schedule.
             if let Some(resource) = current_state {
                 commands.remove_resource::<State<S>>();
 
@@ -181,7 +181,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
 /// Runs automatically when using `App` to insert states, but needs to
 /// be added manually in other situations.
 pub fn setup_state_transitions_in_world(world: &mut World) {
-    let mut schedules = world.get_resource_or_insert_with(Schedules::default);
+    let mut schedules = world.get_resource_or_init::<Schedules>();
     if schedules.contains(StateTransition) {
         return;
     }

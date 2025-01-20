@@ -1,5 +1,3 @@
-#![expect(deprecated)]
-
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
@@ -9,7 +7,7 @@ use bevy_core_pipeline::{
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{Bundle, Component, Entity},
+    prelude::{require, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
@@ -30,16 +28,15 @@ use bevy_render::{
         *,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
+    sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    world_sync::RenderEntity,
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    prelude::default,
-    tracing::{error, warn},
-};
+use bevy_utils::prelude::default;
 use core::mem;
+use tracing::{error, warn};
 
 const PREPROCESS_DEPTH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(102258915420479);
 const SSAO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(253938746510568);
@@ -72,6 +69,8 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         );
 
         app.register_type::<ScreenSpaceAmbientOcclusion>();
+
+        app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
 
     fn finish(&self, app: &mut App) {
@@ -129,18 +128,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     }
 }
 
-/// Bundle to apply screen space ambient occlusion.
-#[derive(Bundle, Default, Clone)]
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `ScreenSpaceAmbientOcclusion` component instead. Inserting it will now also insert the other components required by it automatically."
-)]
-pub struct ScreenSpaceAmbientOcclusionBundle {
-    pub settings: ScreenSpaceAmbientOcclusion,
-    pub depth_prepass: DepthPrepass,
-    pub normal_prepass: NormalPrepass,
-}
-
 /// Component to apply screen space ambient occlusion to a 3d camera.
 ///
 /// Screen space ambient occlusion (SSAO) approximates small-scale,
@@ -181,9 +168,6 @@ impl Default for ScreenSpaceAmbientOcclusion {
         }
     }
 }
-
-#[deprecated(since = "0.15.0", note = "Renamed to `ScreenSpaceAmbientOcclusion`")]
-pub type ScreenSpaceAmbientOcclusionSettings = ScreenSpaceAmbientOcclusion;
 
 #[derive(Reflect, PartialEq, Eq, Hash, Clone, Copy, Default, Debug)]
 pub enum ScreenSpaceAmbientOcclusionQualityLevel {
@@ -268,8 +252,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             preprocess_depth_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 16),
-                div_ceil(camera_size.y, 16),
+                camera_size.x.div_ceil(16),
+                camera_size.y.div_ceil(16),
                 1,
             );
         }
@@ -289,11 +273,7 @@ impl ViewNode for SsaoNode {
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            ssao_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 8),
-                div_ceil(camera_size.y, 8),
-                1,
-            );
+            ssao_pass.dispatch_workgroups(camera_size.x.div_ceil(8), camera_size.y.div_ceil(8), 1);
         }
 
         {
@@ -312,8 +292,8 @@ impl ViewNode for SsaoNode {
                 &[view_uniform_offset.offset],
             );
             spatial_denoise_pass.dispatch_workgroups(
-                div_ceil(camera_size.x, 8),
-                div_ceil(camera_size.y, 8),
+                camera_size.x.div_ceil(8),
+                camera_size.y.div_ceil(8),
                 1,
             );
         }
@@ -449,6 +429,7 @@ impl FromWorld for SsaoPipelines {
                 shader: PREPROCESS_DEPTH_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "preprocess_depth".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         let spatial_denoise_pipeline =
@@ -462,6 +443,7 @@ impl FromWorld for SsaoPipelines {
                 shader: SPATIAL_DENOISE_SHADER_HANDLE,
                 shader_defs: Vec::new(),
                 entry_point: "spatial_denoise".into(),
+                zero_initialize_workgroup_memory: false,
             });
 
         Self {
@@ -514,6 +496,7 @@ impl SpecializedComputePipeline for SsaoPipelines {
             shader: SSAO_SHADER_HANDLE,
             shader_defs,
             entry_point: "ssao".into(),
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -522,7 +505,7 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (&RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
+            (RenderEntity, &Camera, &ScreenSpaceAmbientOcclusion, &Msaa),
             (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
@@ -535,10 +518,13 @@ fn extract_ssao_settings(
             );
             return;
         }
+        let mut entity_commands = commands
+            .get_entity(entity)
+            .expect("SSAO entity wasn't synced.");
         if camera.is_active {
-            commands
-                .get_or_spawn(entity.id())
-                .insert(ssao_settings.clone());
+            entity_commands.insert(ssao_settings.clone());
+        } else {
+            entity_commands.remove::<ScreenSpaceAmbientOcclusion>();
         }
     }
 }
@@ -766,17 +752,9 @@ fn prepare_ssao_bind_groups(
     }
 }
 
-#[allow(clippy::needless_range_loop)]
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {
-    let mut t = [[0; 64]; 64];
-
-    for x in 0..64 {
-        for y in 0..64 {
-            t[x][y] = hilbert_index(x as u16, y as u16);
-        }
-    }
-
-    t
+    use core::array::from_fn;
+    from_fn(|x| from_fn(|y| hilbert_index(x as u16, y as u16)))
 }
 
 // https://www.shadertoy.com/view/3tB3z3
@@ -803,9 +781,4 @@ fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
     }
 
     index
-}
-
-/// Divide `numerator` by `denominator`, rounded up to the nearest multiple of `denominator`.
-fn div_ceil(numerator: u32, denominator: u32) -> u32 {
-    (numerator + denominator - 1) / denominator
 }

@@ -2,7 +2,6 @@
 //! uniform variable.
 
 use bevy::{
-    asset::LoadState,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
@@ -42,10 +41,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
-        ..Default::default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
+    ));
 }
 
 fn create_array_texture(
@@ -57,7 +56,9 @@ fn create_array_texture(
     mut materials: ResMut<Assets<ArrayTextureMaterial>>,
 ) {
     if loading_texture.is_loaded
-        || asset_server.load_state(loading_texture.handle.id()) != LoadState::Loaded
+        || !asset_server
+            .load_state(loading_texture.handle.id())
+            .is_loaded()
     {
         return;
     }

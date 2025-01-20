@@ -10,6 +10,7 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     core_pipeline::tonemapping::Tonemapping,
+    image::TextureFormatPixelInfo,
     prelude::*,
     render::{
         camera::RenderTarget,
@@ -21,9 +22,9 @@ use bevy::{
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{BevyDefault, TextureFormatPixelInfo},
         Extract, Render, RenderApp, RenderSet,
     },
+    winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
 use std::{
@@ -81,16 +82,20 @@ fn main() {
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
-                // Do not create a window on startup.
+                // Not strictly necessary, as the inclusion of ScheduleRunnerPlugin below
+                // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
-                    exit_condition: bevy::window::ExitCondition::DontExit,
-                    close_when_requested: false,
-                }),
+                    ..default()
+                })
+                // WinitPlugin will panic in environments without a display server.
+                .disable::<WinitPlugin>(),
         )
         .add_plugins(ImageCopyPlugin)
         // headless frame capture
         .add_plugins(CaptureFramePlugin)
+        // ScheduleRunnerPlugin provides an alternative to the default bevy_winit app runner, which
+        // manages the loop without creating a window.
         .add_plugins(ScheduleRunnerPlugin::run_loop(
             // Run 60 times per second.
             Duration::from_secs_f64(1.0 / 60.0),
@@ -180,16 +185,16 @@ fn setup(
         Transform::from_xyz(4.0, 8.0, 4.0),
     ));
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        tonemapping: Tonemapping::None,
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             // render to image
             target: render_target,
             ..default()
         },
-        ..default()
-    });
+        Tonemapping::None,
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Plugin for Render world part of work
@@ -263,7 +268,7 @@ fn setup_render_target(
 
     scene_controller.state = SceneState::Render(pre_roll_frames);
     scene_controller.name = scene_name;
-    RenderTarget::Image(render_target_image_handle)
+    RenderTarget::Image(render_target_image_handle.into())
 }
 
 /// Setups image saver
@@ -362,14 +367,8 @@ impl render_graph::Node for ImageCopyDriver {
             // That's why image in buffer can be little bit wider
             // This should be taken into account at copy from buffer stage
             let padded_bytes_per_row = RenderDevice::align_copy_bytes_per_row(
-                (src_image.size.x as usize / block_dimensions.0 as usize) * block_size as usize,
+                (src_image.size.width as usize / block_dimensions.0 as usize) * block_size as usize,
             );
-
-            let texture_extent = Extent3d {
-                width: src_image.size.x,
-                height: src_image.size.y,
-                depth_or_array_layers: 1,
-            };
 
             encoder.copy_texture_to_buffer(
                 src_image.texture.as_image_copy(),
@@ -385,7 +384,7 @@ impl render_graph::Node for ImageCopyDriver {
                         rows_per_image: None,
                     },
                 },
-                texture_extent,
+                src_image.size,
             );
 
             let render_queue = world.get_resource::<RenderQueue>().unwrap();

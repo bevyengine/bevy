@@ -9,7 +9,6 @@ use bevy::{
     math::vec3,
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
-    render::world_sync::SyncToRenderWorld,
 };
 
 /// Entry point.
@@ -31,22 +30,17 @@ fn main() {
 /// Spawns all the objects in the scene.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a fog volume with a voxelized version of the Stanford bunny.
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Visible,
-            transform: Transform::from_xyz(0.0, 0.5, 0.0),
-            ..default()
-        })
-        .insert(FogVolume {
+    commands.spawn((
+        Transform::from_xyz(0.0, 0.5, 0.0),
+        FogVolume {
             density_texture: Some(asset_server.load("volumes/bunny.ktx2")),
             density_factor: 1.0,
             // Scatter as much of the light as possible, to brighten the bunny
             // up.
             scattering: 1.0,
             ..default()
-        })
-        // indicates that this fog volume needs to be Synchronized to the render world
-        .insert(SyncToRenderWorld);
+        },
+    ));
 
     // Spawn a bright directional light that illuminates the fog well.
     commands.spawn((
@@ -61,23 +55,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 
     // Spawn a camera.
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-0.75, 1.0, 2.0)
-                .looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-0.75, 1.0, 2.0).looking_at(vec3(0.0, 0.0, 0.0), Vec3::Y),
+        Camera {
+            hdr: true,
             ..default()
-        })
-        .insert(VolumetricFog {
+        },
+        VolumetricFog {
             // Make this relatively high in order to increase the fog quality.
             step_count: 64,
             // Disable ambient light.
             ambient_intensity: 0.0,
             ..default()
-        });
+        },
+    ));
 }
 
 /// Rotates the camera a bit every frame.

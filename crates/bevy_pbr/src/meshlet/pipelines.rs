@@ -34,10 +34,9 @@ pub struct MeshletPipelines {
     downsample_depth_second_shadow_view: CachedComputePipelineId,
     visibility_buffer_software_raster: CachedComputePipelineId,
     visibility_buffer_software_raster_depth_only: CachedComputePipelineId,
-    visibility_buffer_software_raster_depth_only_clamp_ortho: CachedComputePipelineId,
     visibility_buffer_hardware_raster: CachedRenderPipelineId,
     visibility_buffer_hardware_raster_depth_only: CachedRenderPipelineId,
-    visibility_buffer_hardware_raster_depth_only_clamp_ortho: CachedRenderPipelineId,
+    visibility_buffer_hardware_raster_depth_only_unclipped: CachedRenderPipelineId,
     resolve_depth: CachedRenderPipelineId,
     resolve_depth_shadow_view: CachedRenderPipelineId,
     resolve_material_depth: CachedRenderPipelineId,
@@ -76,6 +75,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_FILL_CLUSTER_BUFFERS_PASS".into()],
                     entry_point: "fill_cluster_buffers".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -84,7 +84,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout.clone()],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -92,6 +92,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_FIRST_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),
+                zero_initialize_workgroup_memory: false,
             }),
 
             cull_second: pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
@@ -99,7 +100,7 @@ impl FromWorld for MeshletPipelines {
                 layout: vec![cull_layout],
                 push_constant_ranges: vec![PushConstantRange {
                     stages: ShaderStages::COMPUTE,
-                    range: 0..4,
+                    range: 0..8,
                 }],
                 shader: MESHLET_CULLING_SHADER_HANDLE,
                 shader_defs: vec![
@@ -107,6 +108,7 @@ impl FromWorld for MeshletPipelines {
                     "MESHLET_SECOND_CULLING_PASS".into(),
                 ],
                 entry_point: "cull_clusters".into(),
+                zero_initialize_workgroup_memory: false,
             }),
 
             downsample_depth_first: pipeline_cache.queue_compute_pipeline(
@@ -120,6 +122,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                     entry_point: "downsample_depth_first".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -134,6 +137,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
                     entry_point: "downsample_depth_second".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -148,6 +152,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "downsample_depth_first".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -162,6 +167,7 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "downsample_depth_second".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -182,6 +188,7 @@ impl FromWorld for MeshletPipelines {
                         .into(),
                     ],
                     entry_point: "rasterize_cluster".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -203,30 +210,9 @@ impl FromWorld for MeshletPipelines {
                         .into(),
                     ],
                     entry_point: "rasterize_cluster".into(),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
-
-            visibility_buffer_software_raster_depth_only_clamp_ortho: pipeline_cache
-                .queue_compute_pipeline(ComputePipelineDescriptor {
-                    label: Some(
-                        "meshlet_visibility_buffer_software_raster_depth_only_clamp_ortho_pipeline"
-                            .into(),
-                    ),
-                    layout: vec![visibility_buffer_raster_layout.clone()],
-                    push_constant_ranges: vec![],
-                    shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
-                    shader_defs: vec![
-                        "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
-                        "DEPTH_CLAMP_ORTHO".into(),
-                        if remap_1d_to_2d_dispatch_layout.is_some() {
-                            "MESHLET_2D_DISPATCH"
-                        } else {
-                            ""
-                        }
-                        .into(),
-                    ],
-                    entry_point: "rasterize_cluster".into(),
-                }),
 
             visibility_buffer_hardware_raster: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
@@ -249,7 +235,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -269,6 +255,7 @@ impl FromWorld for MeshletPipelines {
                             write_mask: ColorWrites::empty(),
                         })],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -292,7 +279,7 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
+                        cull_mode: Some(Face::Back),
                         unclipped_depth: false,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
@@ -309,13 +296,14 @@ impl FromWorld for MeshletPipelines {
                             write_mask: ColorWrites::empty(),
                         })],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
-            visibility_buffer_hardware_raster_depth_only_clamp_ortho: pipeline_cache
+            visibility_buffer_hardware_raster_depth_only_unclipped: pipeline_cache
                 .queue_render_pipeline(RenderPipelineDescriptor {
                     label: Some(
-                        "meshlet_visibility_buffer_hardware_raster_depth_only_clamp_ortho_pipeline"
+                        "meshlet_visibility_buffer_hardware_raster_depth_only_unclipped_pipeline"
                             .into(),
                     ),
                     layout: vec![visibility_buffer_raster_layout],
@@ -325,10 +313,7 @@ impl FromWorld for MeshletPipelines {
                     }],
                     vertex: VertexState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-                        shader_defs: vec![
-                            "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
-                            "DEPTH_CLAMP_ORTHO".into(),
-                        ],
+                        shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "vertex".into(),
                         buffers: vec![],
                     },
@@ -336,8 +321,8 @@ impl FromWorld for MeshletPipelines {
                         topology: PrimitiveTopology::TriangleList,
                         strip_index_format: None,
                         front_face: FrontFace::Ccw,
-                        cull_mode: None,
-                        unclipped_depth: false,
+                        cull_mode: Some(Face::Back),
+                        unclipped_depth: true,
                         polygon_mode: PolygonMode::Fill,
                         conservative: false,
                     },
@@ -345,10 +330,7 @@ impl FromWorld for MeshletPipelines {
                     multisample: MultisampleState::default(),
                     fragment: Some(FragmentState {
                         shader: MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE,
-                        shader_defs: vec![
-                            "MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into(),
-                            "DEPTH_CLAMP_ORTHO".into(),
-                        ],
+                        shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS".into()],
                         entry_point: "fragment".into(),
                         targets: vec![Some(ColorTargetState {
                             format: TextureFormat::R8Uint,
@@ -356,6 +338,7 @@ impl FromWorld for MeshletPipelines {
                             write_mask: ColorWrites::empty(),
                         })],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 }),
 
             resolve_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
@@ -381,6 +364,7 @@ impl FromWorld for MeshletPipelines {
                     entry_point: "resolve_depth".into(),
                     targets: vec![],
                 }),
+                zero_initialize_workgroup_memory: false,
             }),
 
             resolve_depth_shadow_view: pipeline_cache.queue_render_pipeline(
@@ -407,6 +391,7 @@ impl FromWorld for MeshletPipelines {
                         entry_point: "resolve_depth".into(),
                         targets: vec![],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -434,6 +419,7 @@ impl FromWorld for MeshletPipelines {
                         entry_point: "resolve_material_depth".into(),
                         targets: vec![],
                     }),
+                    zero_initialize_workgroup_memory: false,
                 },
             ),
 
@@ -441,10 +427,14 @@ impl FromWorld for MeshletPipelines {
                 pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                     label: Some("meshlet_remap_1d_to_2d_dispatch_pipeline".into()),
                     layout: vec![layout],
-                    push_constant_ranges: vec![],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..4,
+                    }],
                     shader: MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE,
                     shader_defs: vec![],
                     entry_point: "remap_dispatch".into(),
+                    zero_initialize_workgroup_memory: false,
                 })
             }),
         }
@@ -455,7 +445,6 @@ impl MeshletPipelines {
     pub fn get(
         world: &World,
     ) -> Option<(
-        &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
@@ -486,14 +475,11 @@ impl MeshletPipelines {
             pipeline_cache.get_compute_pipeline(pipeline.visibility_buffer_software_raster)?,
             pipeline_cache
                 .get_compute_pipeline(pipeline.visibility_buffer_software_raster_depth_only)?,
-            pipeline_cache.get_compute_pipeline(
-                pipeline.visibility_buffer_software_raster_depth_only_clamp_ortho,
-            )?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_hardware_raster)?,
             pipeline_cache
                 .get_render_pipeline(pipeline.visibility_buffer_hardware_raster_depth_only)?,
             pipeline_cache.get_render_pipeline(
-                pipeline.visibility_buffer_hardware_raster_depth_only_clamp_ortho,
+                pipeline.visibility_buffer_hardware_raster_depth_only_unclipped,
             )?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth_shadow_view)?,

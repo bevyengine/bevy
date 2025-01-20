@@ -1,6 +1,8 @@
+use core::hint::black_box;
+
 use bevy_ecs::{entity::Entity, event::Event, observer::Trigger, world::World};
 
-use criterion::{black_box, Criterion};
+use criterion::Criterion;
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 fn deterministic_rand() -> ChaCha8Rng {
@@ -17,10 +19,10 @@ pub fn observe_simple(criterion: &mut Criterion) {
 
     group.bench_function("trigger_simple", |bencher| {
         let mut world = World::new();
-        world.observe(empty_listener_base);
+        world.add_observer(empty_listener_base);
         bencher.iter(|| {
             for _ in 0..10000 {
-                world.trigger(EventBase)
+                world.trigger(EventBase);
             }
         });
     });

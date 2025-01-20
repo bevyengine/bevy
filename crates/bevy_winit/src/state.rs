@@ -1,5 +1,7 @@
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
+#[cfg(feature = "custom_cursor")]
+use bevy_asset::AssetId;
 use bevy_ecs::{
     change_detection::{DetectChanges, NonSendMut, Res},
     entity::Entity,
@@ -8,16 +10,24 @@ use bevy_ecs::{
     system::SystemState,
     world::FromWorld,
 };
+#[cfg(feature = "custom_cursor")]
+use bevy_image::{Image, TextureAtlasLayout};
 use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
+#[cfg(feature = "custom_cursor")]
+use bevy_math::URect;
 use bevy_math::{ivec2, DVec2, Vec2};
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use bevy_utils::{HashMap, Instant};
+#[cfg(feature = "custom_cursor")]
+use bevy_utils::HashMap;
+use bevy_utils::Instant;
 use core::marker::PhantomData;
+#[cfg(target_arch = "wasm32")]
+use winit::platform::web::EventLoopExtWebSys;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -40,8 +50,8 @@ use crate::{
     accessibility::AccessKitAdapters,
     converters, create_windows,
     system::{create_monitors, CachedWindow},
-    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper, UpdateMode,
-    WinitSettings, WinitWindows,
+    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
+    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -74,6 +84,8 @@ struct WinitAppRunnerState<T: Event> {
     previous_lifecycle: AppLifecycle,
     /// Bevy window events to send
     bevy_window_events: Vec<bevy_window::WindowEvent>,
+    /// Raw Winit window events to send
+    raw_winit_events: Vec<RawWinitWindowEvent>,
     _marker: PhantomData<T>,
 
     event_writer_system_state: SystemState<(
@@ -88,6 +100,7 @@ struct WinitAppRunnerState<T: Event> {
 
 impl<T: Event> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
+        #[cfg(feature = "custom_cursor")]
         app.add_event::<T>().init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
@@ -114,6 +127,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
             bevy_window_events: Vec::new(),
+            raw_winit_events: Vec::new(),
             _marker: PhantomData,
             event_writer_system_state,
         }
@@ -134,27 +148,37 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 }
 
+#[cfg(feature = "custom_cursor")]
 /// Identifiers for custom cursors used in caching.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CustomCursorCacheKey {
-    /// u64 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
-    AssetIndex(u64),
-    /// u128 is used instead of `AssetId`, because `bevy_asset` can't be imported here.
-    AssetUuid(u128),
-    /// A URL to a cursor.
+    /// A custom cursor with an image.
+    Image {
+        id: AssetId<Image>,
+        texture_atlas_layout_id: Option<AssetId<TextureAtlasLayout>>,
+        texture_atlas_index: Option<usize>,
+        flip_x: bool,
+        flip_y: bool,
+        rect: Option<URect>,
+    },
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    /// A custom cursor with a URL.
     Url(String),
 }
 
+#[cfg(feature = "custom_cursor")]
 /// Caches custom cursors. On many platforms, creating custom cursors is expensive, especially on
 /// the web.
 #[derive(Debug, Clone, Default, Resource)]
 pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
 
-/// A source for a cursor. Is created in `bevy_render` and consumed by the winit event loop.
+/// A source for a cursor. Consumed by the winit event loop.
 #[derive(Debug)]
 pub enum CursorSource {
+    #[cfg(feature = "custom_cursor")]
     /// A custom cursor was identified to be cached, no reason to recreate it.
     CustomCached(CustomCursorCacheKey),
+    #[cfg(feature = "custom_cursor")]
     /// A custom cursor was not cached, so it needs to be created by the winit event loop.
     Custom((CustomCursorCacheKey, winit::window::CustomCursorSource)),
     /// A system cursor was requested.
@@ -174,7 +198,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         }
 
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
+        let _span = tracing::info_span!("winit event_handler").entered();
 
         if self.app.plugins_state() != PluginsState::Cleaned {
             if self.app.plugins_state() != PluginsState::Ready {
@@ -239,6 +263,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             warn!("Window {window:?} is missing `Window` component, skipping event {event:?}");
             return;
         };
+
+        // Store a copy of the event to send to an EventWriter later.
+        self.raw_winit_events.push(RawWinitWindowEvent {
+            window_id,
+            event: event.clone(),
+        });
 
         // Allow AccessKit to respond to `WindowEvent`s before they reach
         // the engine.
@@ -465,6 +495,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             self.lifecycle = AppLifecycle::Suspended;
             // Trigger one last update to enter the suspended state
             should_update = true;
+            self.ran_update_since_last_redraw = false;
 
             #[cfg(target_os = "android")]
             {
@@ -547,7 +578,10 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
             if !self.ran_update_since_last_redraw || all_invisible {
                 self.run_app_update();
+                #[cfg(feature = "custom_cursor")]
                 self.update_cursors(event_loop);
+                #[cfg(not(feature = "custom_cursor"))]
+                self.update_cursors();
                 self.ran_update_since_last_redraw = true;
             } else {
                 self.redraw_requested = true;
@@ -676,13 +710,15 @@ impl<T: Event> WinitAppRunnerState<T> {
     }
 
     fn forward_bevy_events(&mut self) {
+        let raw_winit_events = self.raw_winit_events.drain(..).collect::<Vec<_>>();
         let buffered_events = self.bevy_window_events.drain(..).collect::<Vec<_>>();
-
-        if buffered_events.is_empty() {
-            return;
-        }
-
         let world = self.world_mut();
+
+        if !raw_winit_events.is_empty() {
+            world
+                .resource_mut::<Events<RawWinitWindowEvent>>()
+                .send_batch(raw_winit_events);
+        }
 
         for winit_event in buffered_events.iter() {
             match winit_event.clone() {
@@ -770,19 +806,30 @@ impl<T: Event> WinitAppRunnerState<T> {
             }
         }
 
-        world
-            .resource_mut::<Events<BevyWindowEvent>>()
-            .send_batch(buffered_events);
+        if !buffered_events.is_empty() {
+            world
+                .resource_mut::<Events<BevyWindowEvent>>()
+                .send_batch(buffered_events);
+        }
     }
 
-    fn update_cursors(&mut self, event_loop: &ActiveEventLoop) {
+    fn update_cursors(&mut self, #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop) {
+        #[cfg(feature = "custom_cursor")]
         let mut windows_state: SystemState<(
             NonSendMut<WinitWindows>,
             ResMut<CustomCursorCache>,
             Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
         )> = SystemState::new(self.world_mut());
+        #[cfg(feature = "custom_cursor")]
         let (winit_windows, mut cursor_cache, mut windows) =
             windows_state.get_mut(self.world_mut());
+        #[cfg(not(feature = "custom_cursor"))]
+        let mut windows_state: SystemState<(
+            NonSendMut<WinitWindows>,
+            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
+        )> = SystemState::new(self.world_mut());
+        #[cfg(not(feature = "custom_cursor"))]
+        let (winit_windows, mut windows) = windows_state.get_mut(self.world_mut());
 
         for (entity, mut pending_cursor) in windows.iter_mut() {
             let Some(winit_window) = winit_windows.get_window(entity) else {
@@ -793,6 +840,7 @@ impl<T: Event> WinitAppRunnerState<T> {
             };
 
             let final_cursor: winit::window::Cursor = match pending_cursor {
+                #[cfg(feature = "custom_cursor")]
                 CursorSource::CustomCached(cache_key) => {
                     let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
                         error!("Cursor should have been cached, but was not found");
@@ -800,6 +848,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                     };
                     cached_cursor.clone().into()
                 }
+                #[cfg(feature = "custom_cursor")]
                 CursorSource::Custom((cache_key, cursor)) => {
                     let custom_cursor = event_loop.create_custom_cursor(cursor);
                     cursor_cache.0.insert(cache_key, custom_cursor.clone());
@@ -830,19 +879,27 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
 
-    let mut runner_state = WinitAppRunnerState::new(app);
+    let runner_state = WinitAppRunnerState::new(app);
 
     trace!("starting winit event loop");
-    // TODO(clean): the winit docs mention using `spawn` instead of `run` on Wasm.
-    if let Err(err) = event_loop.run_app(&mut runner_state) {
-        error!("winit event loop returned an error: {err}");
+    // The winit docs mention using `spawn` instead of `run` on Wasm.
+    // https://docs.rs/winit/latest/winit/platform/web/trait.EventLoopExtWebSys.html#tymethod.spawn_app
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            event_loop.spawn_app(runner_state);
+            AppExit::Success
+        } else {
+            let mut runner_state = runner_state;
+            if let Err(err) = event_loop.run_app(&mut runner_state) {
+                error!("winit event loop returned an error: {err}");
+            }
+            // If everything is working correctly then the event loop only exits after it's sent an exit code.
+            runner_state.app_exit.unwrap_or_else(|| {
+                error!("Failed to receive an app exit code! This is a bug");
+                AppExit::error()
+            })
+        }
     }
-
-    // If everything is working correctly then the event loop only exits after it's sent an exit code.
-    runner_state.app_exit.unwrap_or_else(|| {
-        error!("Failed to receive a app exit code! This is a bug");
-        AppExit::error()
-    })
 }
 
 pub(crate) fn react_to_resize(

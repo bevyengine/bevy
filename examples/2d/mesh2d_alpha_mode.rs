@@ -20,7 +20,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     let texture_handle = asset_server.load("branding/icon.png");
     let mesh_handle = meshes.add(Rectangle::from_size(Vec2::splat(256.0)));

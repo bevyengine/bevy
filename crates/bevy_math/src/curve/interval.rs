@@ -65,7 +65,7 @@ impl Interval {
         }
     }
 
-    /// The unit interval covering the range between `0.0` and `1.0`.
+    /// An interval of length 1.0, starting at 0.0 and ending at 1.0.
     pub const UNIT: Self = Self {
         start: 0.0,
         end: 1.0,
@@ -198,7 +198,10 @@ pub fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> 
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
+    use alloc::vec::Vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 
     #[test]
@@ -237,10 +240,10 @@ mod tests {
     #[test]
     fn lengths() {
         let ivl = interval(-5.0, 10.0).unwrap();
-        assert!((ivl.length() - 15.0).abs() <= f32::EPSILON);
+        assert!(ops::abs(ivl.length() - 15.0) <= f32::EPSILON);
 
         let ivl = interval(5.0, 100.0).unwrap();
-        assert!((ivl.length() - 95.0).abs() <= f32::EPSILON);
+        assert!(ops::abs(ivl.length() - 95.0) <= f32::EPSILON);
 
         let ivl = interval(0.0, f32::INFINITY).unwrap();
         assert_eq!(ivl.length(), f32::INFINITY);

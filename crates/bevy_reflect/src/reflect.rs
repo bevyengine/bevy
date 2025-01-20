@@ -1,8 +1,9 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, set_debug, struct_debug,
-    tuple_debug, tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
+    array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
+    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectKind,
     ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
+use alloc::boxed::Box;
 use core::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -16,7 +17,7 @@ use crate::utility::NonGenericTypeInfoCell;
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
-    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
         from_kind: ReflectKind,
         to_kind: ReflectKind,
@@ -37,7 +38,7 @@ pub enum ApplyError {
     },
 
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
+    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
     DifferentSize { from_size: usize, to_size: usize },
 
     #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
@@ -269,13 +270,6 @@ where
         }
     }
 
-    /// Returns a serializable version of the value.
-    ///
-    /// If the underlying type does not support serialization, returns `None`.
-    fn serializable(&self) -> Option<Serializable> {
-        None
-    }
-
     /// Indicates whether or not this type is a _dynamic_ type.
     ///
     /// Dynamic types include the ones built-in to this [crate],
@@ -319,17 +313,17 @@ where
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait Reflect: PartialReflect + DynamicTyped + Any {
-    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
-    /// Returns the value as a [`&dyn Any`][std::any::Any].
+    /// Returns the value as a [`&dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn as_any(&self) -> &dyn Any;
 
-    /// Returns the value as a [`&mut dyn Any`][std::any::Any].
+    /// Returns the value as a [`&mut dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -358,8 +352,7 @@ impl dyn PartialReflect {
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
         self.get_represented_type_info()
-            .map(|t| t.type_path() == T::type_path())
-            .unwrap_or(false)
+            .is_some_and(|t| t.type_path() == T::type_path())
     }
 
     /// Downcasts the value to type `T`, consuming the trait object.

@@ -10,7 +10,12 @@ use crate::{
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
-use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    string::{String, ToString},
+};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -105,26 +110,6 @@ impl<
     }
 }
 
-/// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then
-/// saves that `L` asset using the `S` [`AssetSaver`].
-///
-/// This is a specialized use case of [`LoadTransformAndSave`] and is useful where there is no asset manipulation
-/// such as when compressing assets.
-///
-/// This uses [`LoadAndSaveSettings`] to configure the processor.
-///
-/// [`Asset`]: crate::Asset
-#[deprecated = "Use `LoadTransformAndSave<L, IdentityAssetTransformer<<L as AssetLoader>::Asset>, S>` instead"]
-pub type LoadAndSave<L, S> =
-    LoadTransformAndSave<L, IdentityAssetTransformer<<L as AssetLoader>::Asset>, S>;
-
-/// Settings for the [`LoadAndSave`] [`Process::Settings`] implementation.
-///
-/// `LoaderSettings` corresponds to [`AssetLoader::Settings`] and `SaverSettings` corresponds to [`AssetSaver::Settings`].
-#[deprecated = "Use `LoadTransformAndSaveSettings<LoaderSettings, (), SaverSettings>` instead"]
-pub type LoadAndSaveSettings<LoaderSettings, SaverSettings> =
-    LoadTransformAndSaveSettings<LoaderSettings, (), SaverSettings>;
-
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]
 pub enum ProcessError {
@@ -133,13 +118,16 @@ pub enum ProcessError {
     #[error(transparent)]
     MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
     #[error("The processor '{0}' does not exist")]
+    #[from(ignore)]
     MissingProcessor(String),
     #[error("Encountered an AssetReader error for '{path}': {err}")]
+    #[from(ignore)]
     AssetReaderError {
         path: AssetPath<'static>,
         err: AssetReaderError,
     },
     #[error("Encountered an AssetWriter error for '{path}': {err}")]
+    #[from(ignore)]
     AssetWriterError {
         path: AssetPath<'static>,
         err: AssetWriterError,
@@ -151,6 +139,7 @@ pub enum ProcessError {
     #[error(transparent)]
     MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
     #[error("Failed to read asset metadata for {path}: {err}")]
+    #[from(ignore)]
     ReadAssetMetaError {
         path: AssetPath<'static>,
         err: AssetReaderError,
@@ -162,8 +151,10 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(#[from] Box<dyn core::error::Error + Send + Sync + 'static>),
+    #[from(ignore)]
+    AssetSaveError(Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Encountered an error while transforming the asset: {0}")]
+    #[from(ignore)]
     AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
@@ -320,14 +311,7 @@ impl<'a> ProcessContext<'a> {
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server
-            .load_with_meta_loader_and_reader(
-                self.path,
-                Box::new(meta),
-                &*loader,
-                &mut reader,
-                false,
-                true,
-            )
+            .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
             .await?;
         for (path, full_hash) in &loaded_asset.loader_dependencies {
             self.new_processed_info

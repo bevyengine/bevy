@@ -1,25 +1,29 @@
-use alloc::sync::Arc;
-use core::any::Any;
-use std::sync::{Mutex, MutexGuard};
-
+use alloc::{boxed::Box, vec::Vec};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Span;
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
-use core::panic::AssertUnwindSafe;
-
 use concurrent_queue::ConcurrentQueue;
+use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
+use std::{
+    eprintln,
+    sync::{Mutex, MutexGuard},
+};
+
+#[cfg(feature = "trace")]
+use tracing::{info_span, Span};
+
+#[cfg(feature = "portable-atomic")]
+use portable_atomic_util::Arc;
+
+#[cfg(not(feature = "portable-atomic"))]
+use alloc::sync::Arc;
 
 use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::BoxedSystem,
-    warn_system_skipped,
+    system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -30,7 +34,7 @@ use super::__rust_begin_short_backtrace;
 /// Borrowed data used by the [`MultiThreadedExecutor`].
 struct Environment<'env, 'sys> {
     executor: &'env MultiThreadedExecutor,
-    systems: &'sys [SyncUnsafeCell<BoxedSystem>],
+    systems: &'sys [SyncUnsafeCell<ScheduleSystem>],
     conditions: SyncUnsafeCell<Conditions<'sys>>,
     world_cell: UnsafeWorldCell<'env>,
 }
@@ -270,7 +274,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
         &self,
         system_index: usize,
         res: Result<(), Box<dyn Any + Send>>,
-        system: &BoxedSystem,
+        system: &ScheduleSystem,
     ) {
         // tell the executor that the system finished
         self.environment
@@ -299,7 +303,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
 
     fn tick_executor(&self) {
         // Ensure that the executor handles any events pushed to the system_completion queue by this thread.
-        // If this thread acquires the lock, the exector runs after the push() and they are processed.
+        // If this thread acquires the lock, the executor runs after the push() and they are processed.
         // If this thread does not acquire the lock, then the is_empty() check on the other thread runs
         // after the lock is released, which is after try_lock() failed, which is after the push()
         // on this thread, so the is_empty() check will see the new events and loop.
@@ -460,7 +464,7 @@ impl ExecutorState {
     fn can_run(
         &mut self,
         system_index: usize,
-        system: &mut BoxedSystem,
+        system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
@@ -524,7 +528,7 @@ impl ExecutorState {
     unsafe fn should_run(
         &mut self,
         system_index: usize,
-        system: &BoxedSystem,
+        system: &mut ScheduleSystem,
         conditions: &mut Conditions,
         world: UnsafeWorldCell,
     ) -> bool {
@@ -575,7 +579,6 @@ impl ExecutorState {
             // - `update_archetype_component_access` has been called for system.
             let valid_params = unsafe { system.validate_param_unsafe(world) };
             if !valid_params {
-                warn_system_skipped!("System", system.name());
                 self.skipped_systems.insert(system_index);
             }
             should_run &= valid_params;
@@ -605,10 +608,17 @@ impl ExecutorState {
                 // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
                 unsafe {
-                    __rust_begin_short_backtrace::run_unsafe(
-                        &mut **system,
+                    // TODO: implement an error-handling API instead of panicking.
+                    if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
+                        system,
                         context.environment.world_cell,
-                    );
+                    ) {
+                        panic!(
+                            "Encountered an error in system `{}`: {:?}",
+                            &*system.name(),
+                            err
+                        );
+                    };
                 };
             }));
             context.system_completed(system_index, res, system);
@@ -652,7 +662,14 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    __rust_begin_short_backtrace::run(&mut **system, world);
+                    // TODO: implement an error-handling API instead of panicking.
+                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                        panic!(
+                            "Encountered an error in system `{}`: {:?}",
+                            &*system.name(),
+                            err
+                        );
+                    };
                 }));
                 context.system_completed(system_index, res, system);
             };
@@ -712,7 +729,7 @@ impl ExecutorState {
 
 fn apply_deferred(
     unapplied_systems: &FixedBitSet,
-    systems: &[SyncUnsafeCell<BoxedSystem>],
+    systems: &[SyncUnsafeCell<ScheduleSystem>],
     world: &mut World,
 ) -> Result<(), Box<dyn Any + Send>> {
     for system_index in unapplied_systems.ones() {
@@ -741,8 +758,10 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
 ) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
         .map(|condition| {
@@ -751,7 +770,6 @@ unsafe fn evaluate_and_fold_conditions(
             //   required by the condition.
             // - `update_archetype_component_access` has been called for condition.
             if !unsafe { condition.validate_param_unsafe(world) } {
-                warn_system_skipped!("Condition", condition.name());
                 return false;
             }
             // SAFETY:

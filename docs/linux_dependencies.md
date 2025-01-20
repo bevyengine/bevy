@@ -122,7 +122,7 @@ mkShell rec {
     pkg-config
   ];
   buildInputs = [
-    udev alsa-lib vulkan-loader
+    udev alsa-lib-with-plugins vulkan-loader
     xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
     libxkbcommon wayland # To use the wayland feature
   ];
@@ -134,17 +134,25 @@ And enter it by just running `nix-shell`.
 You should be able compile Bevy programs using `cargo run` within this nix-shell.
 You can do this in one line with `nix-shell --run "cargo run"`.
 
+If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https://github.com/nix-community/nixGL) is additionally required,
+to link graphics drivers into the context of software installed by nix:
+
+1. Install a system specific nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
+   * If you're running a nvidia GPU choose `nixVulkanNvidia`.
+   * Otherwise, choose another wrapper appropriate for your system.
+2. Run `nixVulkanNvidia-xxx.xxx.xx cargo run` to compile a bevy program, where `xxx-xxx-xx` denotes the graphics driver version `nixVulkanNvidia` was compiled with.
+
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
 Instead of creating `shell.nix`, you just need to add the derivation (`mkShell`)
-to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell and
-`nix develop -c cargo run` to run the program. See
+to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell or
+`nix develop -c cargo run` to just run the program. See
 [Nix's documentation](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-develop.html)
 for more information about `devShells`.
 
 Note that this template does not add Rust to the environment because there are many ways to do it.
 For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to `nativeBuildInputs`.
 
-[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/games/jumpy/default.nix)
+[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix)
 is an example of packaging a Bevy program in nix.
 
 ## [OpenSUSE](https://www.opensuse.org/)

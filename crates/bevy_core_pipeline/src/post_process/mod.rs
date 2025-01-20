@@ -14,6 +14,7 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_image::{BevyDefault, Image};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -32,7 +33,7 @@ use bevy_render::{
         TextureDimension, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
-    texture::{BevyDefault, GpuImage, Image},
+    texture::GpuImage,
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderSet,
 };
@@ -111,7 +112,7 @@ pub struct ChromaticAberration {
     /// The size of the streaks around the edges of objects, as a fraction of
     /// the window size.
     ///
-    /// The default value is 0.2.
+    /// The default value is 0.02.
     pub intensity: f32,
 
     /// A cap on the number of texture samples that will be performed.
@@ -344,6 +345,7 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             depth_stencil: None,
             multisample: default(),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

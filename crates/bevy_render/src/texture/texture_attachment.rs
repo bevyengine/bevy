@@ -80,6 +80,7 @@ impl ColorAttachment {
 }
 
 /// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
+#[derive(Clone)]
 pub struct DepthAttachment {
     pub view: TextureView,
     clear_value: Option<f32>,
