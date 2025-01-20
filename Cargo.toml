@@ -29,6 +29,10 @@ members = [
   # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
   "errors",
 ]
+exclude = [
+  # Integration tests are not part of the workspace
+  "tests-integration",
+]
 
 [workspace.lints.clippy]
 doc_markdown = "warn"
