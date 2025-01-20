@@ -21,7 +21,7 @@ mod source;
 pub use futures_lite::AsyncWriteExt;
 pub use source::*;
 
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::future::Future;
 use core::{

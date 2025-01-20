@@ -144,9 +144,10 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 extern crate alloc;
-extern crate core;
+extern crate std;
 
 pub mod io;
 pub mod meta;
@@ -209,7 +210,11 @@ use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
     processor::{AssetProcessor, Process},
 };
-use alloc::sync::Arc;
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
 use bevy_app::{App, Last, Plugin, PreUpdate};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::{
@@ -639,7 +644,14 @@ mod tests {
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets,
     };
-    use alloc::sync::Arc;
+    use alloc::{
+        boxed::Box,
+        format,
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
     use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
         event::EventCursor,
