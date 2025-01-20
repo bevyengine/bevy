@@ -10,6 +10,11 @@ use crate::{
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    string::{String, ToString},
+};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};

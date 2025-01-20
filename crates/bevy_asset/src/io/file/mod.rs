@@ -10,6 +10,7 @@ mod sync_file_asset;
 pub use file_watcher::*;
 use tracing::{debug, error};
 
+use alloc::borrow::ToOwned;
 use std::{
     env,
     path::{Path, PathBuf},
