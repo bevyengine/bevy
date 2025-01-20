@@ -1,9 +1,4 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -690,7 +685,11 @@ pub mod __macro_exports {
         note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
     )]
     pub trait RegisterForReflection {
-        fn __register(_registry: &mut TypeRegistry) {}
+        #[expect(
+            unused_variables,
+            reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+        )]
+        fn __register(registry: &mut TypeRegistry) {}
     }
 
     impl<T: GetTypeRegistration> RegisterForReflection for T {

@@ -4,13 +4,15 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #![no_std]
 
 #[cfg(feature = "std")]
 extern crate std;
 
 extern crate alloc;
+
+#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
+compile_error!("Either of the `async_executor` or the `edge_executor` features must be enabled.");
 
 #[cfg(not(target_arch = "wasm32"))]
 mod conditional_send {
@@ -41,6 +43,7 @@ pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Outpu
 
 pub mod futures;
 
+#[cfg(any(feature = "async_executor", feature = "edge_executor"))]
 mod executor;
 
 mod slice;

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
@@ -45,11 +45,11 @@ auto_register = [
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.15.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = [
+bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
-bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 
 # used by bevy-utils, but it also needs reflect impls
 foldhash = { version = "0.1.3", default-features = false }
@@ -59,7 +59,7 @@ erased-serde = { version = "0.4", default-features = false, features = [
   "alloc",
 ] }
 disqualified = { version = "1.0", default-features = false }
-downcast-rs = { version = "1.2", default-features = false }
+downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }

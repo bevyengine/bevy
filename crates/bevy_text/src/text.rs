@@ -8,12 +8,12 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
-use bevy_utils::warn_once;
+use bevy_utils::once;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use tracing::warn;
 
 /// Wrapper for [`cosmic_text::Buffer`]
 #[derive(Deref, DerefMut, Debug, Clone)]
@@ -168,7 +168,6 @@ impl TextLayout {
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
-/// # use bevy_hierarchy::BuildChildren;
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -285,6 +284,11 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
+    /// The vertical height of a line of text, from the top of one line to the top of the
+    /// next.
+    ///
+    /// Defaults to `LineHeight::RelativeToFont(1.2)`
+    pub line_height: LineHeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
@@ -317,6 +321,12 @@ impl TextFont {
         self.font_smoothing = font_smoothing;
         self
     }
+
+    /// Returns this [`TextFont`] with the specified [`LineHeight`].
+    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
+        self.line_height = line_height;
+        self
+    }
 }
 
 impl Default for TextFont {
@@ -324,8 +334,36 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
+            line_height: LineHeight::default(),
             font_smoothing: Default::default(),
         }
+    }
+}
+
+/// Specifies the height of each line of text for `Text` and `Text2d`
+///
+/// Default is 1.2x the font size
+#[derive(Debug, Clone, Copy, Reflect)]
+#[reflect(Debug)]
+pub enum LineHeight {
+    /// Set line height to a specific number of pixels
+    Px(f32),
+    /// Set line height to a multiple of the font size
+    RelativeToFont(f32),
+}
+
+impl LineHeight {
+    pub(crate) fn eval(self, font_size: f32) -> f32 {
+        match self {
+            LineHeight::Px(px) => px,
+            LineHeight::RelativeToFont(scale) => scale * font_size,
+        }
+    }
+}
+
+impl Default for LineHeight {
+    fn default() -> Self {
+        LineHeight::RelativeToFont(1.2)
     }
 }
 
@@ -443,8 +481,8 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Root children changed (can include additions and removals).
     for root in changed_roots.iter() {
         let Ok((_, Some(mut computed), _)) = computed.get_mut(root) else {
-            warn_once!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
-                prints once", root, core::any::type_name::<Root>());
+            once!(warn!("found entity {} with a root text component ({}) but no ComputedTextBlock; this warning only \
+                prints once", root, core::any::type_name::<Root>()));
             continue;
         };
         computed.needs_rerender = true;
@@ -456,30 +494,30 @@ pub fn detect_text_needs_rerender<Root: Component>(
     // - Span children changed (can include additions and removals).
     for (entity, maybe_span_parent, has_text_block) in changed_spans.iter() {
         if has_text_block {
-            warn_once!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
+            once!(warn!("found entity {} with a TextSpan that has a TextLayout, which should only be on root \
                 text entities (that have {}); this warning only prints once",
-                entity, core::any::type_name::<Root>());
+                entity, core::any::type_name::<Root>()));
         }
 
         let Some(span_parent) = maybe_span_parent else {
-            warn_once!(
+            once!(warn!(
                 "found entity {} with a TextSpan that has no parent; it should have an ancestor \
                 with a root text component ({}); this warning only prints once",
                 entity,
                 core::any::type_name::<Root>()
-            );
+            ));
             continue;
         };
-        let mut parent: Entity = **span_parent;
+        let mut parent: Entity = span_parent.0;
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                warn_once!("found entity {} with a TextSpan that is part of a broken hierarchy with a Parent \
+                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a Parent \
                     component that points at non-existent entity {}; this warning only prints once",
-                    entity, parent);
+                    entity, parent));
                 break;
             };
             if let Some(mut computed) = maybe_computed {
@@ -487,21 +525,21 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 break;
             }
             if !has_span {
-                warn_once!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
+                once!(warn!("found entity {} with a TextSpan that has an ancestor ({}) that does not have a text \
                 span component or a ComputedTextBlock component; this warning only prints once",
-                    entity, parent);
+                    entity, parent));
                 break;
             }
             let Some(next_parent) = maybe_parent else {
-                warn_once!(
+                once!(warn!(
                     "found entity {} with a TextSpan that has no ancestor with the root text \
                     component ({}); this warning only prints once",
                     entity,
                     core::any::type_name::<Root>()
-                );
+                ));
                 break;
             };
-            parent = **next_parent;
+            parent = next_parent.0;
         }
     }
 }

@@ -5,6 +5,7 @@ use crate::{
 use alloc::{
     boxed::Box,
     string::{String, ToString},
+    vec::Vec,
 };
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
@@ -28,9 +29,6 @@ use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
 };
-
-#[cfg(feature = "downcast")]
-use alloc::vec::Vec;
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
@@ -111,6 +109,8 @@ impl Default for App {
             app.insert_resource(AppTypeRegistry::new_with_derived_types());
 
             app.register_type::<Name>();
+            app.register_type::<Parent>();
+            app.register_type::<Children>();
         }
 
         #[cfg(feature = "reflect_functions")]
@@ -527,7 +527,6 @@ impl App {
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
     /// ```
-    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,
@@ -1365,7 +1364,7 @@ pub enum AppExit {
 }
 
 impl AppExit {
-    /// Creates a [`AppExit::Error`] with a error code of 1.
+    /// Creates a [`AppExit::Error`] with an error code of 1.
     #[must_use]
     pub const fn error() -> Self {
         Self::Error(NonZero::<u8>::MIN)
@@ -1741,7 +1740,7 @@ mod tests {
 
     #[test]
     fn app_exit_size() {
-        // There wont be many of them so the size isn't a issue but
+        // There wont be many of them so the size isn't an issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }

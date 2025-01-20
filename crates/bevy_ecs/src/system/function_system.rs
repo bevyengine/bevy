@@ -195,7 +195,7 @@ pub enum ParamWarnPolicy {
     /// No warning should ever be emitted.
     Never,
     /// The warning will be emitted once and status will update to [`Self::Never`].
-    Once,
+    Warn,
 }
 
 impl ParamWarnPolicy {
@@ -218,7 +218,7 @@ impl ParamWarnPolicy {
                 name,
                 disqualified::ShortName::of::<P>()
             ),
-            Self::Once => {
+            Self::Warn => {
                 log::warn!(
                     "{0} did not run because it requested inaccessible system parameter {1}",
                     name,
@@ -241,13 +241,13 @@ where
     /// Set warn policy.
     fn with_param_warn_policy(self, warn_policy: ParamWarnPolicy) -> FunctionSystem<M, F>;
 
-    /// Warn only once about invalid system parameters.
-    fn param_warn_once(self) -> FunctionSystem<M, F> {
-        self.with_param_warn_policy(ParamWarnPolicy::Once)
+    /// Warn and ignore systems with invalid parameters.
+    fn warn_param_missing(self) -> FunctionSystem<M, F> {
+        self.with_param_warn_policy(ParamWarnPolicy::Warn)
     }
 
-    /// Disable all param warnings.
-    fn never_param_warn(self) -> FunctionSystem<M, F> {
+    /// Silently ignore systems with invalid parameters.
+    fn ignore_param_missing(self) -> FunctionSystem<M, F> {
         self.with_param_warn_policy(ParamWarnPolicy::Never)
     }
 }
@@ -1012,7 +1012,14 @@ pub struct HasSystemInput;
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
@@ -1029,7 +1036,6 @@ macro_rules! impl_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut($($param,)*)->Out,
                     $($param: $param,)*
@@ -1041,7 +1047,14 @@ macro_rules! impl_system_function {
             }
         }
 
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<In, Out, Func, $($param: SystemParam),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,
@@ -1056,7 +1069,6 @@ macro_rules! impl_system_function {
             type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
                     input: In::Inner<'_>,

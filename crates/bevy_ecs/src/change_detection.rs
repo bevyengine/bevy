@@ -609,7 +609,10 @@ impl<'w, T: Resource> Res<'w, T> {
     ///
     /// Note that unless you actually need an instance of `Res<T>`, you should
     /// prefer to just convert it to `&T` which can be freely copied.
-    #[allow(clippy::should_implement_trait)]
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "As this struct derefs to the inner resource, a `Clone` trait implementation would interfere with the common case of cloning the inner content. (A similar case of this happening can be found with `std::cell::Ref::clone()`.)"
+    )]
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,

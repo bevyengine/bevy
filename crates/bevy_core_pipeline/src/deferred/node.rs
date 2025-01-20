@@ -1,6 +1,7 @@
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::render_graph::ViewNode;
 
+use bevy_render::view::ExtractedView;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext},
@@ -9,9 +10,9 @@ use bevy_render::{
     renderer::RenderContext,
     view::ViewDepthTexture,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use crate::prepass::ViewPrepassTextures;
 
@@ -25,8 +26,8 @@ pub struct DeferredGBufferPrepassNode;
 
 impl ViewNode for DeferredGBufferPrepassNode {
     type ViewQuery = (
-        Entity,
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
     );
@@ -35,7 +36,10 @@ impl ViewNode for DeferredGBufferPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (view, camera, view_depth_texture, view_prepass_textures): QueryItem<'w, Self::ViewQuery>,
+        (camera, extracted_view, view_depth_texture, view_prepass_textures): QueryItem<
+            'w,
+            Self::ViewQuery,
+        >,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let (Some(opaque_deferred_phases), Some(alpha_mask_deferred_phases)) = (
@@ -46,8 +50,8 @@ impl ViewNode for DeferredGBufferPrepassNode {
         };
 
         let (Some(opaque_deferred_phase), Some(alpha_mask_deferred_phase)) = (
-            opaque_deferred_phases.get(&view),
-            alpha_mask_deferred_phases.get(&view),
+            opaque_deferred_phases.get(&extracted_view.retained_view_entity),
+            alpha_mask_deferred_phases.get(&extracted_view.retained_view_entity),
         ) else {
             return Ok(());
         };
@@ -143,7 +147,8 @@ impl ViewNode for DeferredGBufferPrepassNode {
             }
 
             // Opaque draws
-            if !opaque_deferred_phase.batchable_mesh_keys.is_empty()
+            if !opaque_deferred_phase.multidrawable_mesh_keys.is_empty()
+                || !opaque_deferred_phase.batchable_mesh_keys.is_empty()
                 || !opaque_deferred_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]

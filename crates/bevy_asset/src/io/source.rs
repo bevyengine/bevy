@@ -2,15 +2,17 @@ use crate::{
     io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
 };
-use alloc::sync::Arc;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    sync::Arc,
+};
 use atomicow::CowArc;
 use bevy_ecs::system::Resource;
-use bevy_utils::{
-    tracing::{error, warn},
-    Duration, HashMap,
-};
-use core::{fmt::Display, hash::Hash};
+use bevy_utils::HashMap;
+use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;
+use tracing::{error, warn};
 
 use super::{ErasedAssetReader, ErasedAssetWriter};
 

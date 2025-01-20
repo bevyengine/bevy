@@ -1,7 +1,14 @@
-// FIXME(11590): remove this once the lint is fixed
-#![allow(unsafe_op_in_unsafe_fn)]
-// TODO: remove once Edition 2024 is released
-#![allow(dependency_on_unit_never_type_fallback)]
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+#![cfg_attr(
+    test,
+    expect(
+        dependency_on_unit_never_type_fallback,
+        reason = "See #17340. To be removed once Edition 2024 is released"
+    )
+)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -11,7 +18,7 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -33,6 +40,7 @@ pub mod change_detection;
 pub mod component;
 pub mod entity;
 pub mod event;
+pub mod hierarchy;
 pub mod identifier;
 pub mod intern;
 pub mod label;
@@ -41,6 +49,7 @@ pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod relationship;
 pub mod removal_detection;
 pub mod result;
 pub mod schedule;
@@ -55,7 +64,10 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
+    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
@@ -63,6 +75,7 @@ pub mod prelude {
         component::{require, Component},
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
+        hierarchy::{ChildSpawner, ChildSpawnerCommands, Children, Parent},
         name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
@@ -73,13 +86,13 @@ pub mod prelude {
             IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem, Res, ResMut, Resource,
-            Single, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
-            WithParamWarnPolicy,
+            Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
+            IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
+            Res, ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
@@ -147,9 +160,8 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
-    #[allow(dead_code)]
     #[derive(Default)]
-    struct NonSendA(usize, PhantomData<*mut ()>);
+    struct NonSendA(PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -166,8 +178,10 @@ mod tests {
         }
     }
 
-    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how `Drop` behavior works in regards to SparseSet storage, and as such is solely a wrapper around `DropCk` to make it use the SparseSet storage. Because of this, the inner field is intentionally never read."
+    )]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -2641,42 +2655,49 @@ mod tests {
         World::new().register_component::<A>();
     }
 
-    // These structs are primarily compilation tests to test the derive macros. Because they are
-    // never constructed, we have to manually silence the `dead_code` lint.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentA(u32);
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentB(u32);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
-    #[allow(dead_code)]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntities {
         entities: Vec<Entity>,
         another_one: Entity,
         maybe_entity: Option<Entity>,
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[visit_entities(ignore)]
         something_else: String,
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }

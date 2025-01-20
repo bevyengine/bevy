@@ -10,6 +10,11 @@ use crate::{
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    string::{String, ToString},
+};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
@@ -104,26 +109,6 @@ impl<
         }
     }
 }
-
-/// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then
-/// saves that `L` asset using the `S` [`AssetSaver`].
-///
-/// This is a specialized use case of [`LoadTransformAndSave`] and is useful where there is no asset manipulation
-/// such as when compressing assets.
-///
-/// This uses [`LoadAndSaveSettings`] to configure the processor.
-///
-/// [`Asset`]: crate::Asset
-#[deprecated = "Use `LoadTransformAndSave<L, IdentityAssetTransformer<<L as AssetLoader>::Asset>, S>` instead"]
-pub type LoadAndSave<L, S> =
-    LoadTransformAndSave<L, IdentityAssetTransformer<<L as AssetLoader>::Asset>, S>;
-
-/// Settings for the [`LoadAndSave`] [`Process::Settings`] implementation.
-///
-/// `LoaderSettings` corresponds to [`AssetLoader::Settings`] and `SaverSettings` corresponds to [`AssetSaver::Settings`].
-#[deprecated = "Use `LoadTransformAndSaveSettings<LoaderSettings, (), SaverSettings>` instead"]
-pub type LoadAndSaveSettings<LoaderSettings, SaverSettings> =
-    LoadTransformAndSaveSettings<LoaderSettings, (), SaverSettings>;
 
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]

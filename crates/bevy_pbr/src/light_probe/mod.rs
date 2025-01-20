@@ -28,7 +28,8 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use bevy_utils::{tracing::error, HashMap};
+use bevy_utils::HashMap;
+use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
@@ -184,7 +185,6 @@ pub struct ViewLightProbesUniformOffset(u32);
 /// This information is parameterized by the [`LightProbeComponent`] type. This
 /// will either be [`EnvironmentMapLight`] for reflection probes or
 /// [`IrradianceVolume`] for irradiance volumes.
-#[allow(dead_code)]
 struct LightProbeInfo<C>
 where
     C: LightProbeComponent,

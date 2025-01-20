@@ -1,6 +1,8 @@
 //! Contains the [`AutoFocus`] component and related machinery.
 
 use bevy_ecs::{component::ComponentId, prelude::*, world::DeferredWorld};
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 
 use crate::InputFocus;
 
@@ -12,6 +14,11 @@ use crate::InputFocus;
 /// The focus is swapped when this component is added
 /// or an entity with this component is spawned.
 #[derive(Debug, Default, Component, Copy, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component)
+)]
 #[component(on_add = on_auto_focus_added)]
 pub struct AutoFocus;
 

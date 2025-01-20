@@ -1,4 +1,3 @@
-#![allow(clippy::match_same_arms)]
 //! This example illustrates how reflection works for simple data structures, like
 //! structs, tuples and vectors.
 
@@ -34,7 +33,6 @@ pub struct C(usize);
 
 /// Deriving reflect on an enum will implement the `Reflect` and `Enum` traits
 #[derive(Reflect)]
-#[allow(dead_code)]
 enum D {
     A,
     B(usize),
@@ -61,7 +59,6 @@ pub struct E {
 #[derive(Reflect, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[reflect(opaque)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-#[allow(dead_code)]
 enum F {
     X,
     Y,
@@ -124,6 +121,10 @@ fn setup() {
         // implementation. Opaque is implemented for opaque types like String and Instant,
         // but also include primitive types like i32, usize, and f32 (despite not technically being opaque).
         ReflectRef::Opaque(_) => {}
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_patterns` is not always linted"
+        )]
         #[allow(
             unreachable_patterns,
             reason = "This example cannot always detect when `bevy_reflect/functions` is enabled."

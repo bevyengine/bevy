@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![expect(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -40,7 +40,6 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
-mod spatial_bundle;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
@@ -50,7 +49,6 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -64,9 +62,8 @@ pub mod prelude {
             Mesh3d,
         },
         render_resource::Shader,
-        spatial_bundle::SpatialBundle,
         texture::ImagePlugin,
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
     };
 }
@@ -75,7 +72,6 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
@@ -101,9 +97,9 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_utils::tracing::debug;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
+use tracing::debug;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -352,7 +348,6 @@ impl Plugin for RenderPlugin {
         };
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
@@ -477,10 +472,8 @@ unsafe fn initialize_render_app(app: &mut App) {
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
-                (
-                    PipelineCache::process_pipeline_queue_system.before(render_system),
-                    render_system,
-                )
+                (PipelineCache::process_pipeline_queue_system, render_system)
+                    .chain()
                     .in_set(RenderSet::Render),
                 despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
             ),
@@ -489,7 +482,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.set_extract(|main_world, render_world| {
         {
             #[cfg(feature = "trace")]
-            let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
+            let _stage_span = tracing::info_span!("entity_sync").entered();
             entity_sync_system(main_world, render_world);
         }
 

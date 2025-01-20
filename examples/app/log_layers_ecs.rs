@@ -15,11 +15,11 @@ use std::sync::mpsc;
 
 use bevy::{
     log::{
+        tracing::{self, Subscriber},
         tracing_subscriber::{self, Layer},
         BoxedLayer, Level,
     },
     prelude::*,
-    utils::tracing::{self, Subscriber},
 };
 
 fn main() {

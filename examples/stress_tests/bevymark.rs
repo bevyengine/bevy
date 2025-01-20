@@ -2,6 +2,7 @@
 //!
 //! Usage: spawn more entities by clicking on the screen.
 
+use core::time::Duration;
 use std::str::FromStr;
 
 use argh::FromArgs;
@@ -14,7 +15,6 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::AlphaMode2d,
-    utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -142,7 +142,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings {
@@ -216,7 +216,6 @@ struct BirdResources {
 #[derive(Component)]
 struct StatsText;
 
-#[allow(clippy::too_many_arguments)]
 fn setup(
     mut commands: Commands,
     args: Res<Args>,
@@ -323,7 +322,6 @@ fn setup(
     commands.insert_resource(scheduled);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
@@ -387,7 +385,6 @@ fn bird_velocity_transform(
 
 const FIXED_DELTA_TIME: f32 = 1.0 / 60.0;
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_birds(
     commands: &mut Commands,
     args: &Args,

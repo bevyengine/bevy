@@ -13,8 +13,8 @@ use bevy_asset::{Asset, Handle, RenderAssetUsages};
 use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
-use bevy_utils::tracing::warn;
 use bytemuck::cast_slice;
+use tracing::warn;
 use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
@@ -491,7 +491,6 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
-    #[allow(clippy::match_same_arms)]
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
@@ -503,6 +502,10 @@ impl Mesh {
 
         for attributes in self.attributes.values_mut() {
             let indices = indices.iter();
+            #[expect(
+                clippy::match_same_arms,
+                reason = "Although the `vec` binding on some match arms may have different types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+            )]
             match &mut attributes.values {
                 VertexAttributeValues::Float32(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Sint32(vec) => *vec = duplicate(vec, indices),
@@ -789,7 +792,6 @@ impl Mesh {
     ///
     /// Panics if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
-    #[allow(clippy::match_same_arms)]
     pub fn merge(&mut self, other: &Mesh) {
         use VertexAttributeValues::*;
 
@@ -800,6 +802,10 @@ impl Mesh {
         for (attribute, values) in self.attributes_mut() {
             let enum_variant_name = values.enum_variant_name();
             if let Some(other_values) = other.attribute(attribute.id) {
+                #[expect(
+                    clippy::match_same_arms,
+                    reason = "Although the bindings on some match arms may have different types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+                )]
                 match (values, other_values) {
                     (Float32(vec1), Float32(vec2)) => vec1.extend(vec2),
                     (Sint32(vec1), Sint32(vec2)) => vec1.extend(vec2),

@@ -342,6 +342,15 @@ pub trait AsBindGroup {
         None
     }
 
+    /// True if the hardware *actually* supports bindless textures for this
+    /// type, taking the device and driver capabilities into account.
+    ///
+    /// If this type doesn't use bindless textures, then the return value from
+    /// this function is meaningless.
+    fn bindless_supported(_: &RenderDevice) -> bool {
+        true
+    }
+
     /// label
     fn label() -> Option<&'static str> {
         None
@@ -405,7 +414,7 @@ pub trait AsBindGroup {
         )
     }
 
-    /// Returns a vec of bind group layout entries
+    /// Returns a vec of bind group layout entries.
     ///
     /// Set `force_no_bindless` to true to require that bindless textures *not*
     /// be used. `ExtendedMaterial` uses this in order to ensure that the base

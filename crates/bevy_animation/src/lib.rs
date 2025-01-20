@@ -1,6 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -44,13 +43,11 @@ use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap,
-};
+use bevy_utils::{HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
+use tracing::{trace, warn};
 use uuid::Uuid;
 
 /// The animation prelude.
@@ -467,7 +464,7 @@ pub enum AnimationEvaluationError {
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
 /// playing, but is presently paused.
 ///
-/// An stopped animation is considered no longer active.
+/// A stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
@@ -938,13 +935,6 @@ impl AnimationPlayer {
     /// If the animation isn't currently active, returns `None`.
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
-    }
-
-    #[deprecated = "Use `is_playing_animation` instead"]
-    /// Returns true if the animation is currently playing or paused, or false
-    /// if the animation is stopped.
-    pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
-        self.active_animations.contains_key(&animation)
     }
 }
 

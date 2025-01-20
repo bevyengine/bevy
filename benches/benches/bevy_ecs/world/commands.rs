@@ -2,8 +2,8 @@ use core::hint::black_box;
 
 use bevy_ecs::{
     component::Component,
-    system::Commands,
-    world::{Command, CommandQueue, World},
+    system::{Command, Commands},
+    world::{CommandQueue, World},
 };
 use criterion::Criterion;
 
