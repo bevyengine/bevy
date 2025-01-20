@@ -559,6 +559,7 @@ macro_rules! impl_reflect_for_veclike {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<$ty>();
                 registration.insert::<ReflectFromPtr>(FromType::<$ty>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<$ty>::from_type());
                 registration
             }
 
@@ -803,11 +804,12 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
             V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-            S: TypePath + BuildHasher + Send + Sync,
+            S: TypePath + BuildHasher + Send + Sync + Default,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
                 registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                 registration
             }
 
@@ -1028,11 +1030,12 @@ macro_rules! impl_reflect_for_hashset {
         impl<V, S> GetTypeRegistration for $ty
         where
             V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            S: TypePath + BuildHasher + Send + Sync,
+            S: TypePath + BuildHasher + Send + Sync + Default,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
                 registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                 registration
             }
 
@@ -1294,6 +1297,7 @@ where
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -1658,6 +1662,7 @@ impl GetTypeRegistration for Cow<'static, str> {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
@@ -2119,6 +2124,7 @@ impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -2412,6 +2418,7 @@ impl GetTypeRegistration for &'static Location<'static> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
