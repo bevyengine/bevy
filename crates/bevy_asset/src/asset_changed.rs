@@ -287,7 +287,7 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_asset, AssetEvents, AssetPlugin, Handle};
+    use crate::{AssetEvents, AssetPlugin, Handle};
     use alloc::{vec, vec::Vec};
     use core::num::NonZero;
     use std::println;

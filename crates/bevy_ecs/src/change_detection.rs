@@ -1254,7 +1254,6 @@ mod tests {
     use core::panic::Location;
 
     use crate::{
-        self as bevy_ecs,
         change_detection::{
             Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },

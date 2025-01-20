@@ -15,8 +15,6 @@ use log::error;
 #[cfg(test)]
 use log::debug;
 
-use crate as bevy_ecs;
-
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
     /// Stepping is disabled; run all systems

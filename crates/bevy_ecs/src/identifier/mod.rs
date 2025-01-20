@@ -201,7 +201,7 @@ mod tests {
         // and also Entity flag.
         let high = 0x7FFFFFFF;
         let low = 0xC;
-        let bits: u64 = high << u32::BITS | low;
+        let bits: u64 = (high << u32::BITS) | low;
 
         let id = Identifier::try_from_bits(bits).unwrap();
 

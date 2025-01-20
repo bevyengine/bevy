@@ -3705,9 +3705,6 @@ mod tests {
     };
     use std::{println, sync::Mutex};
 
-    // For bevy_ecs_macros
-    use crate as bevy_ecs;
-
     type ID = u8;
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
