@@ -169,12 +169,6 @@ impl<'a, V> Deref for Keys<'a, V> {
     }
 }
 
-impl<V> DerefMut for Keys<'_, V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a, V> Iterator for Keys<'a, V> {
     type Item = &'a Entity;
 
@@ -230,12 +224,6 @@ impl<V> Deref for IntoKeys<V> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<V> DerefMut for IntoKeys<V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
