@@ -187,12 +187,14 @@ const LINE2D: Line2d = Line2d { direction: Dir2::X };
 const LINE3D: Line3d = Line3d { direction: Dir3::X };
 
 const SEGMENT_2D: Segment2d = Segment2d {
-    direction: Dir2::X,
-    half_length: BIG_2D,
+    vertices: [Vec2::new(-BIG_2D / 2., 0.), Vec2::new(BIG_2D / 2., 0.)],
 };
+
 const SEGMENT_3D: Segment3d = Segment3d {
-    direction: Dir3::X,
-    half_length: BIG_3D,
+    vertices: [
+        Vec3::new(-BIG_3D / 2., 0., 0.),
+        Vec3::new(BIG_3D / 2., 0., 0.),
+    ],
 };
 
 const POLYLINE_2D: Polyline2d<4> = Polyline2d {

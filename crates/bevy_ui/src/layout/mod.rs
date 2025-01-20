@@ -5,14 +5,8 @@ use crate::{
     UiScale, Val,
 };
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashMap},
-    query::With,
-    removal_detection::RemovedComponents,
-    system::{Commands, Local, Query, Res, ResMut, SystemParam},
-    world::Ref,
+    change_detection::{DetectChanges, DetectChangesMut}, entity::{Entity, EntityHashMap}, hierarchy::{Children, Parent}, query::With, removal_detection::RemovedComponents, system::{Commands, Local, Query, Res, ResMut, SystemParam}, world::Ref
 };
-use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
@@ -430,18 +424,7 @@ mod tests {
 
     use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2d;
-    use bevy_ecs::{
-        entity::Entity,
-        event::Events,
-        prelude::{Commands, Component, In, Query, With},
-        query::Without,
-        schedule::{ApplyDeferred, IntoSystemConfigs, Schedule},
-        system::RunSystemOnce,
-        world::World,
-    };
-    use bevy_hierarchy::{
-        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
-    };
+    use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
@@ -738,7 +721,7 @@ mod tests {
         }
 
         // despawn the parent entity and its descendants
-        despawn_with_children_recursive(&mut world, ui_parent_entity, true);
+        world.entity_mut(ui_parent_entity).despawn();
 
         ui_schedule.run(&mut world);
 

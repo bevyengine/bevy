@@ -2628,7 +2628,7 @@ impl UiTargetCamera {
 ///
 /// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
 /// just for debug purposes and the user wants a way to choose the default [`Camera`]
-/// without having to add a [`TargetCamera`] to the root node.
+/// without having to add a [`UiTargetCamera`] to the root node.
 ///
 /// Another use is when the user wants the Ui to be in another window by default,
 /// all that is needed is to place this component on the camera
@@ -2652,7 +2652,7 @@ impl UiTargetCamera {
 ///             ..Default::default()
 ///         },
 ///         // We add the Marker here so all Ui will spawn in
-///         // another window if no TargetCamera is specified
+///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
 ///     ));
 /// }
