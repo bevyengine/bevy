@@ -235,15 +235,6 @@ impl ExactSizeIterator for EntityHashSetIter<'_> {}
 
 impl FusedIterator for EntityHashSetIter<'_> {}
 
-/// This implementation is somewhat surprising:
-/// as hash sets make no guarantees about the order of their elements,
-/// [`DoubleEndedIterator::next_back`] is implemented by simply forwarding to the underlying [`Iter::next`].
-impl DoubleEndedIterator for EntityHashSetIter<'_> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        self.0.next()
-    }
-}
-
 impl Clone for EntityHashSetIter<'_> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), PhantomData)
