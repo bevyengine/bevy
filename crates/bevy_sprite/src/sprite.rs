@@ -164,10 +164,6 @@ pub enum SpriteImageMode {
     Auto,
     /// The texture will be scaled to fit the rect bounds defined in [`Sprite::custom_size`].
     /// Otherwise no scaling will be applied.
-    ///
-    /// Note: [`TextureAtlas`] cannot be used with scaling applied to a sprite's rectangle.
-    /// Additionally, the custom rectangle portion of the texture cannot be used with the scaling option too.
-    /// It will be completely ignored during the scaling.
     Scale(ScalingMode),
     /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
     Sliced(TextureSlicer),

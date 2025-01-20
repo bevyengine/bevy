@@ -702,10 +702,16 @@ pub fn prepare_sprite_image_bind_groups(
             // By default, the size of the quad is the size of the texture
             let mut quad_size = batch_image_size;
 
+            // Texture size is the size of the image
+            let mut texture_size = batch_image_size;
+
             // If a rect is specified, adjust UVs and the size of the quad
             let mut uv_offset_scale = if let Some(rect) = extracted_sprite.rect {
                 let rect_size = rect.size();
                 quad_size = rect_size;
+                // Update texture size to the rect size
+                // It will help scale properly only portion of the image
+                texture_size = rect_size;
                 Vec4::new(
                     rect.min.x / batch_image_size.x,
                     rect.max.y / batch_image_size.y,
@@ -728,7 +734,7 @@ pub fn prepare_sprite_image_bind_groups(
             if let Some(scaling_mode) = extracted_sprite.scaling_mode {
                 apply_scaling(
                     scaling_mode,
-                    batch_image_size,
+                    texture_size,
                     &mut quad_size,
                     &mut quad_translation,
                     &mut uv_offset_scale,
@@ -902,65 +908,58 @@ fn apply_scaling(
 ) {
     let quad_ratio = quad_size.x / quad_size.y;
     let texture_ratio = texture_size.x / texture_size.y;
+    let tex_quad_scale = texture_ratio / quad_ratio;
+    let quad_tex_scale = quad_ratio / texture_ratio;
 
     match scaling_mode {
         ScalingMode::FillCenter => {
-            let scale = if quad_ratio > texture_ratio {
-                // Quad is wider than the image
-                Vec2::new(1., -texture_ratio / quad_ratio)
+            if quad_ratio > texture_ratio {
+                // offset texture to center by y coordinate
+                uv_offset_scale.y += (uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale) * 0.5;
+                // sum up scales
+                uv_offset_scale.w *= tex_quad_scale;
             } else {
-                // Quad is taller than the image
-                Vec2::new(quad_ratio / texture_ratio, -1.)
+                // offset texture to center by x coordinate
+                uv_offset_scale.x += (uv_offset_scale.z - uv_offset_scale.z * quad_tex_scale) * 0.5;
+                uv_offset_scale.z *= quad_tex_scale;
             };
-            let offset = (1.0 - scale) * 0.5;
-
-            // override all previous scaling and offset
-            *uv_offset_scale = Vec4::new(offset.x, offset.y, scale.x, scale.y);
         }
         ScalingMode::FillStart => {
             if quad_ratio > texture_ratio {
-                let scale = Vec2::new(1., -texture_ratio / quad_ratio);
-                let offset = (1.0 - scale) * 0.5;
-                *uv_offset_scale = Vec4::new(offset.x, scale.y.abs(), scale.x, scale.y);
+                uv_offset_scale.y += uv_offset_scale.w - uv_offset_scale.w * tex_quad_scale;
+                uv_offset_scale.w *= tex_quad_scale;
             } else {
-                let scale = Vec2::new(quad_ratio / texture_ratio, -1.);
-                let offset = (1.0 - scale) * 0.5;
-                *uv_offset_scale = Vec4::new(0.0, offset.y, scale.x, scale.y);
+                uv_offset_scale.z *= quad_tex_scale;
             }
         }
         ScalingMode::FillEnd => {
             if quad_ratio > texture_ratio {
-                let scale = Vec2::new(1., -texture_ratio / quad_ratio);
-                let offset = (1.0 - scale) * 0.5;
-                *uv_offset_scale = Vec4::new(offset.x, 1.0, scale.x, scale.y);
+                uv_offset_scale.w *= tex_quad_scale;
             } else {
-                let scale = Vec2::new(quad_ratio / texture_ratio, -1.);
-                let offset = (1.0 - scale) * 0.5;
-                *uv_offset_scale = Vec4::new(1.0 - scale.x, offset.y, scale.x, scale.y);
+                uv_offset_scale.x += uv_offset_scale.z - uv_offset_scale.z * quad_tex_scale;
+                uv_offset_scale.z *= quad_tex_scale;
             }
         }
         ScalingMode::FitCenter => {
-            let scale = if texture_ratio > quad_ratio {
+            if texture_ratio > quad_ratio {
                 // Scale based on width
-                Vec2::new(1.0, quad_ratio / texture_ratio)
+                quad_size.y *= quad_tex_scale;
             } else {
                 // Scale based on height
-                Vec2::new(texture_ratio / quad_ratio, 1.0)
-            };
-
-            *quad_size *= scale;
+                quad_size.x *= tex_quad_scale;
+            }
         }
         ScalingMode::FitStart => {
             if texture_ratio > quad_ratio {
                 // The quad is scaled to match the image ratio, and the quad translation is adjusted
                 // to start of the quad within the original quad size.
-                let scale = Vec2::new(1.0, quad_ratio / texture_ratio);
+                let scale = Vec2::new(1.0, quad_tex_scale);
                 let new_quad = *quad_size * scale;
                 let offset = *quad_size - new_quad;
                 *quad_translation = Vec2::new(0.0, -offset.y);
                 *quad_size = new_quad;
             } else {
-                let scale = Vec2::new(texture_ratio / quad_ratio, 1.0);
+                let scale = Vec2::new(tex_quad_scale, 1.0);
                 let new_quad = *quad_size * scale;
                 let offset = *quad_size - new_quad;
                 *quad_translation = Vec2::new(offset.x, 0.0);
@@ -969,13 +968,13 @@ fn apply_scaling(
         }
         ScalingMode::FitEnd => {
             if texture_ratio > quad_ratio {
-                let scale = Vec2::new(1.0, quad_ratio / texture_ratio);
+                let scale = Vec2::new(1.0, quad_tex_scale);
                 let new_quad = *quad_size * scale;
                 let offset = *quad_size - new_quad;
                 *quad_translation = Vec2::new(0.0, offset.y);
                 *quad_size = new_quad;
             } else {
-                let scale = Vec2::new(texture_ratio / quad_ratio, 1.0);
+                let scale = Vec2::new(tex_quad_scale, 1.0);
                 let new_quad = *quad_size * scale;
                 let offset = *quad_size - new_quad;
                 *quad_translation = Vec2::new(-offset.x, 0.0);
