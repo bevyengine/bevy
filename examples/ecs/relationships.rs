@@ -1,11 +1,11 @@
 //! Entities generally don't exist in isolation. Instead, they are related to other entities in various ways.
-//! While Bevy comes with a built-in [`Parent`]/[`Children`] relationship
+//! While Bevy comes with a built-in [`ChildOf`]/[`Children`] relationship
 //! (which enables transform and visibility propagation),
 //! you can define your own relationships using components.
 //!
 //! We can define a custom relationship by creating two components:
 //! one to store the relationship itself, and another to keep track of the reverse relationship.
-//! Bevy's [`Parent`] component implements the [`Relationship`] trait, serving as the source of truth,
+//! Bevy's [`ChildOf`] component implements the [`Relationship`] trait, serving as the source of truth,
 //! while the [`Children`] component implements the [`RelationshipTarget`] trait and is used to accelerate traversals down the hierarchy.
 //!
 //! In this example we're creating a [`Targeting`]/[`TargetedBy`] relationship,
