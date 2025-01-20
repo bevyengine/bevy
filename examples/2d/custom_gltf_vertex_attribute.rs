@@ -33,6 +33,9 @@ fn main() {
             DefaultPlugins.set(
                 GltfPlugin::default()
                     // Map a custom glTF attribute name to a `MeshVertexAttribute`.
+                    // The glTF file used here has an attribute name with *two*
+                    // underscores: __BARYCENTRIC
+                    // One is stripped to do the comparison here.
                     .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
             ),
             Material2dPlugin::<CustomMaterial>::default(),
