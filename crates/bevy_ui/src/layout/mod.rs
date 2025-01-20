@@ -84,8 +84,7 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
 #[doc(hidden)]
 #[derive(Default)]
 pub struct UiLayoutSystemBuffers {
-    interned_root_nodes: Vec<Vec<Entity>>,
-    resized_windows: EntityHashSet,
+    interned_root_nodes: Vec<Vec<Entity>>,    
     camera_layout_info: EntityHashMap<CameraLayoutInfo>,
 }
 
@@ -100,12 +99,9 @@ struct CameraLayoutInfo {
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
-    // primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
     ui_scale: Res<UiScale>,
     target_query: Query<(Entity, &ResolvedTargetCamera)>,
-    //mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
-    mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
     root_nodes: UiRootNodes,
     mut node_query: Query<(
@@ -133,31 +129,17 @@ pub fn ui_layout_system(
 ) {
     let UiLayoutSystemBuffers {
         interned_root_nodes,
-        resized_windows,
         camera_layout_info,
     } = &mut *buffers;
 
     let (cameras, _) = camera_data;
 
-    //let default_camera = default_ui_camera.get();
-    // let camera_with_default = |target_camera: Option<&UiTargetCamera>| {
-    //     target_camera.map(UiTargetCamera::entity).or(default_camera)
-    // };
-
-    resized_windows.clear();
-    resized_windows.extend(resize_events.read().map(|event| event.window));
     let mut calculate_camera_layout_info = |camera: &Camera| {
         let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
         let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
-        // let camera_target = camera
-        //     .target
-        //     .normalize(primary_window.get_single().map(|(e, _)| e).ok());
-        // let resized = matches!(camera_target,
-        //   Some(NormalizedRenderTarget::Window(window_ref)) if resized_windows.contains(&window_ref.entity())
-        // );
         CameraLayoutInfo {
             size,
-           // resized,
+
             scale_factor: scale_factor * ui_scale.0,
             root_nodes: interned_root_nodes.pop().unwrap_or_default(),
         }
