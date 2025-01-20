@@ -14,9 +14,9 @@ trace_tracy_memory = ["dep:tracy-client"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
+bevy_app = { workspace = true }
+bevy_utils = { workspace = true }
+bevy_ecs = { workspace = true }
 
 # other
 tracing-subscriber = { version = "0.3.1", features = [

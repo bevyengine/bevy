@@ -14,14 +14,14 @@ serialize = ["serde"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", features = [
+bevy_app = { workspace = true }
+bevy_ecs = { workspace = true, features = [
   "bevy_reflect",
 ] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
+bevy_reflect = { workspace = true, features = [
   "bevy",
 ], optional = true }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform_support = { workspace = true, default-features = false, features = [
   "std",
 ] }
 

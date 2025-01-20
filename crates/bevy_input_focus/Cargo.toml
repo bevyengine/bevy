@@ -22,12 +22,12 @@ bevy_reflect = [
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
-bevy_input = { path = "../bevy_input", version = "0.16.0-dev", default-features = false }
-bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false }
-bevy_window = { path = "../bevy_window", version = "0.16.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
+bevy_app = { workspace = true, default-features = false }
+bevy_ecs = { workspace = true, default-features = false }
+bevy_input = { workspace = true, default-features = false }
+bevy_math = { workspace = true, default-features = false }
+bevy_window = { workspace = true, default-features = false }
+bevy_reflect = { workspace = true, features = [
   "glam",
 ], default-features = false, optional = true }
 

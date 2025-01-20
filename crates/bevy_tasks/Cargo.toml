@@ -32,7 +32,7 @@ portable-atomic = [
 ]
 
 [dependencies]
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform_support = { workspace = true, default-features = false, features = [
   "alloc",
 ] }
 
