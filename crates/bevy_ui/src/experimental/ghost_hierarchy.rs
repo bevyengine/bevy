@@ -43,17 +43,17 @@ impl GhostNode {
 #[cfg(feature = "ghost_nodes")]
 /// System param that allows iteration of all UI root nodes.
 ///
-/// A UI root node is either a [`Node`] without a [`Parent`], or with only [`GhostNode`] ancestors.
+/// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
 #[derive(SystemParam)]
 pub struct UiRootNodes<'w, 's> {
-    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<Parent>)>,
-    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
+    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>,
+    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
     all_nodes_query: Query<'w, 's, Entity, With<Node>>,
     ui_children: UiChildren<'w, 's>,
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<Parent>)>;
+pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>;
 
 #[cfg(feature = "ghost_nodes")]
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -74,22 +74,22 @@ pub struct UiChildren<'w, 's> {
     ui_children_query: Query<
         'w,
         's,
-        (Option<&'static Children>, Has<GhostNode>),
+        (Option<&'static ParentOf>, Has<GhostNode>),
         Or<(With<Node>, With<GhostNode>)>,
     >,
-    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    children_query: Query<'w, 's, &'static Children>,
+    changed_children_query: Query<'w, 's, Entity, Changed<ParentOf>>,
+    children_query: Query<'w, 's, &'static ParentOf>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
-    parents_query: Query<'w, 's, &'static Parent>,
+    parents_query: Query<'w, 's, &'static ChildOf>,
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
 /// System param that gives access to UI children utilities.
 #[derive(SystemParam)]
 pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
-    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    parents_query: Query<'w, 's, &'static Parent>,
+    ui_children_query: Query<'w, 's, Option<&'static ParentOf>, With<Node>>,
+    changed_children_query: Query<'w, 's, Entity, Changed<ParentOf>>,
+    parents_query: Query<'w, 's, &'static ChildOf>,
 }
 
 #[cfg(feature = "ghost_nodes")]
@@ -186,7 +186,7 @@ pub struct UiChildrenIter<'w, 's> {
     query: &'s Query<
         'w,
         's,
-        (Option<&'static Children>, Has<GhostNode>),
+        (Option<&'static ParentOf>, Has<GhostNode>),
         Or<(With<Node>, With<GhostNode>)>,
     >,
 }

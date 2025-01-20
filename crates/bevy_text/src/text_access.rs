@@ -23,22 +23,22 @@ pub trait TextSpanComponent: TextSpanAccess + From<String> {}
 
 #[derive(Resource, Default)]
 pub(crate) struct TextIterScratch {
-    stack: Vec<(&'static Children, usize)>,
+    stack: Vec<(&'static ParentOf, usize)>,
 }
 
 impl TextIterScratch {
-    fn take<'a>(&mut self) -> Vec<(&'a Children, usize)> {
+    fn take<'a>(&mut self) -> Vec<(&'a ParentOf, usize)> {
         core::mem::take(&mut self.stack)
             .into_iter()
-            .map(|_| -> (&Children, usize) { unreachable!() })
+            .map(|_| -> (&ParentOf, usize) { unreachable!() })
             .collect()
     }
 
-    fn recover(&mut self, mut stack: Vec<(&Children, usize)>) {
+    fn recover(&mut self, mut stack: Vec<(&ParentOf, usize)>) {
         stack.clear();
         self.stack = stack
             .into_iter()
-            .map(|_| -> (&'static Children, usize) { unreachable!() })
+            .map(|_| -> (&'static ParentOf, usize) { unreachable!() })
             .collect();
     }
 }
@@ -57,7 +57,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
             &'static R,
             &'static TextFont,
             &'static TextColor,
-            Option<&'static Children>,
+            Option<&'static ParentOf>,
         ),
     >,
     spans: Query<
@@ -67,7 +67,7 @@ pub struct TextReader<'w, 's, R: TextRoot> {
             &'static TextSpan,
             &'static TextFont,
             &'static TextColor,
-            Option<&'static Children>,
+            Option<&'static ParentOf>,
         ),
     >,
 }
@@ -142,7 +142,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
     scratch: &'a mut TextIterScratch,
     root_entity: Option<Entity>,
     /// Stack of (children, next index into children).
-    stack: Vec<(&'a Children, usize)>,
+    stack: Vec<(&'a ParentOf, usize)>,
     roots: &'a Query<
         'a,
         'a,
@@ -150,7 +150,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
             &'static R,
             &'static TextFont,
             &'static TextColor,
-            Option<&'static Children>,
+            Option<&'static ParentOf>,
         ),
     >,
     spans: &'a Query<
@@ -160,7 +160,7 @@ pub struct TextSpanIter<'a, R: TextRoot> {
             &'static TextSpan,
             &'static TextFont,
             &'static TextColor,
-            Option<&'static Children>,
+            Option<&'static ParentOf>,
         ),
     >,
 }
@@ -245,7 +245,7 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
         ),
         Without<R>,
     >,
-    children: Query<'w, 's, &'static Children>,
+    children: Query<'w, 's, &'static ParentOf>,
 }
 
 impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
@@ -268,7 +268,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         }
 
         // Prep stack.
-        let mut stack: Vec<(&Children, usize)> = self.scratch.take();
+        let mut stack: Vec<(&ParentOf, usize)> = self.scratch.take();
         if let Ok(children) = self.children.get(root_entity) {
             stack.push((children, 0));
         }
@@ -418,7 +418,7 @@ impl<'w, 's, R: TextRoot> TextWriter<'w, 's, R> {
         }
 
         // Prep stack.
-        let mut stack: Vec<(&Children, usize)> = self.scratch.take();
+        let mut stack: Vec<(&ParentOf, usize)> = self.scratch.take();
         if let Ok(children) = self.children.get(root_entity) {
             stack.push((children, 0));
         }

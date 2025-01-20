@@ -178,8 +178,8 @@ fn update_accessibility_nodes(
     nodes: Query<(
         Entity,
         &AccessibilityNode,
-        Option<&Children>,
-        Option<&Parent>,
+        Option<&ParentOf>,
+        Option<&ChildOf>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
@@ -217,8 +217,8 @@ fn update_adapter(
     nodes: Query<(
         Entity,
         &AccessibilityNode,
-        Option<&Children>,
-        Option<&Parent>,
+        Option<&ParentOf>,
+        Option<&ChildOf>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
     primary_window: &Window,
@@ -253,12 +253,12 @@ fn update_adapter(
 #[inline]
 fn queue_node_for_update(
     node_entity: Entity,
-    parent: Option<&Parent>,
+    child_of: Option<&ChildOf>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
     window_children: &mut Vec<NodeId>,
 ) {
-    let should_push = if let Some(parent) = parent {
-        !node_entities.contains(parent.get())
+    let should_push = if let Some(child_of) = child_of {
+        !node_entities.contains(child_of.get())
     } else {
         true
     };
@@ -269,14 +269,14 @@ fn queue_node_for_update(
 
 #[inline]
 fn add_children_nodes(
-    children: Option<&Children>,
+    parent_of: Option<&ParentOf>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
     node: &mut Node,
 ) {
-    let Some(children) = children else {
+    let Some(parent_of) = parent_of else {
         return;
     };
-    for child in children {
+    for child in parent_of {
         if node_entities.contains(*child) {
             node.push_child(NodeId(child.to_bits()));
         }

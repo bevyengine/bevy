@@ -105,23 +105,23 @@ fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
 }
 
 fn button_system(
-    mut interaction_query: Query<(&Interaction, &Parent), (Changed<Interaction>, With<Button>)>,
-    labels_query: Query<(&Children, &Parent), With<Button>>,
+    mut interaction_query: Query<(&Interaction, &ChildOf), (Changed<Interaction>, With<Button>)>,
+    labels_query: Query<(&ParentOf, &ChildOf), With<Button>>,
     mut text_query: Query<&mut Text>,
     mut counter_query: Query<&mut Counter>,
 ) {
     // Update parent counter on click
-    for (interaction, parent) in &mut interaction_query {
+    for (interaction, child_of) in &mut interaction_query {
         if matches!(interaction, Interaction::Pressed) {
-            let mut counter = counter_query.get_mut(parent.get()).unwrap();
+            let mut counter = counter_query.get_mut(child_of.get()).unwrap();
             counter.0 += 1;
         }
     }
 
     // Update button labels to match their parent counter
-    for (children, parent) in &labels_query {
-        let counter = counter_query.get(parent.get()).unwrap();
-        let mut text = text_query.get_mut(children[0]).unwrap();
+    for (parent_of, child_of) in &labels_query {
+        let counter = counter_query.get(child_of.get()).unwrap();
+        let mut text = text_query.get_mut(parent_of[0]).unwrap();
 
         **text = counter.0.to_string();
     }

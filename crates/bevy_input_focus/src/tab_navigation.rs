@@ -29,7 +29,7 @@ use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    hierarchy::{Children, Parent},
+    hierarchy::{ChildOf, ParentOf},
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
@@ -148,16 +148,16 @@ pub enum TabNavigationError {
 #[derive(SystemParam)]
 pub struct TabNavigation<'w, 's> {
     // Query for tab groups.
-    tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static Children)>,
+    tabgroup_query: Query<'w, 's, (Entity, &'static TabGroup, &'static ParentOf)>,
     // Query for tab indices.
     tabindex_query: Query<
         'w,
         's,
-        (Entity, Option<&'static TabIndex>, Option<&'static Children>),
+        (Entity, Option<&'static TabIndex>, Option<&'static ParentOf>),
         Without<TabGroup>,
     >,
     // Query for parents.
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
 }
 
 impl TabNavigation<'_, '_> {
@@ -371,8 +371,8 @@ mod tests {
         let world = app.world_mut();
 
         let tab_group_entity = world.spawn(TabGroup::new(0)).id();
-        let tab_entity_1 = world.spawn((TabIndex(0), Parent(tab_group_entity))).id();
-        let tab_entity_2 = world.spawn((TabIndex(1), Parent(tab_group_entity))).id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_entity))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);

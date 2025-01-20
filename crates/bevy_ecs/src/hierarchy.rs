@@ -1,7 +1,7 @@
 //! The canonical "parent-child" [`Relationship`] for entities, driven by
-//! the [`Parent`] [`Relationship`] and the [`Children`] [`RelationshipTarget`].
+//! the [`ChildOf`] [`Relationship`] and the [`ParentOf`] [`RelationshipTarget`].
 //!
-//! See [`Parent`] for a full description of the relationship and how to use it.
+//! See [`ChildOf`] for a full description of the relationship and how to use it.
 //!
 //! [`Relationship`]: crate::relationship::Relationship
 //! [`RelationshipTarget`]: crate::relationship::RelationshipTarget
@@ -29,7 +29,7 @@ use log::warn;
 
 /// A [`Relationship`](crate::relationship::Relationship) component that creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
-/// the [`Children`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
+/// the [`ParentOf`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
 ///
 /// This relationship should be used for things like:
 ///
@@ -38,33 +38,33 @@ use log::warn;
 /// 3. Ensuring a hierarchy is despawned when an entity is despawned.
 /// 4.
 ///
-/// [`Parent`] contains a single "target" [`Entity`]. When [`Parent`] is inserted on a "source" entity,
-/// the "target" entity will automatically (and immediately, via a component hook) have a [`Children`]
-/// component inserted, and the "source" entity will be added to that [`Children`] instance.
+/// [`ChildOf`] contains a single "target" [`Entity`]. When [`ChildOf`] is inserted on a "source" entity,
+/// the "target" entity will automatically (and immediately, via a component hook) have a [`ParentOf`]
+/// component inserted, and the "source" entity will be added to that [`ParentOf`] instance.
 ///
-/// If the [`Parent`] component is replaced with a different "target" entity, the old target's [`Children`]
+/// If the [`ChildOf`] component is replaced with a different "target" entity, the old target's [`ParentOf`]
 /// will be automatically (and immediately, via a component hook) be updated to reflect that change.
 ///
-/// Likewise, when the [`Parent`] component is removed, the "source" entity will be removed from the old
-/// target's [`Children`]. If this results in [`Children`] being empty, [`Children`] will be automatically removed.
+/// Likewise, when the [`ChildOf`] component is removed, the "source" entity will be removed from the old
+/// target's [`ParentOf`]. If this results in [`ParentOf`] being empty, [`ParentOf`] will be automatically removed.
 ///
 /// When a parent is despawned, all children (and their descendants) will _also_ be despawned.
 ///
-/// You can create parent-child relationships in a variety of ways. The most direct way is to insert a [`Parent`] component:
+/// You can create parent-child relationships in a variety of ways. The most direct way is to insert a [`ChildOf`] component:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::new();
 /// let root = world.spawn_empty().id();
-/// let child1 = world.spawn(Parent(root)).id();
-/// let child2 = world.spawn(Parent(root)).id();
-/// let grandchild = world.spawn(Parent(child1)).id();
+/// let child1 = world.spawn(ChildOf(root)).id();
+/// let child2 = world.spawn(ChildOf(root)).id();
+/// let grandchild = world.spawn(ChildOf(child1)).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(&**world.entity(root).get::<ParentOf>().unwrap(), &[child1, child2]);
+/// assert_eq!(&**world.entity(child1).get::<ParentOf>().unwrap(), &[grandchild]);
 ///
-/// world.entity_mut(child2).remove::<Parent>();
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1]);
+/// world.entity_mut(child2).remove::<ChildOf>();
+/// assert_eq!(&**world.entity(root).get::<ParentOf>().unwrap(), &[child1]);
 ///
 /// world.entity_mut(root).despawn();
 /// assert!(world.get_entity(root).is_err());
@@ -87,8 +87,8 @@ use log::warn;
 ///     child2 = p.spawn_empty().id();
 /// }).id();
 ///
-/// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
-/// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
+/// assert_eq!(&**world.entity(root).get::<ParentOf>().unwrap(), &[child1, child2]);
+/// assert_eq!(&**world.entity(child1).get::<ParentOf>().unwrap(), &[grandchild]);
 /// ```
 #[derive(Component, Clone, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -104,17 +104,17 @@ use log::warn;
         FromWorld
     )
 )]
-#[relationship(relationship_target = Children)]
-pub struct Parent(pub Entity);
+#[relationship(relationship_target = ParentOf)]
+pub struct ChildOf(pub Entity);
 
-impl Parent {
+impl ChildOf {
     /// Returns the "target" entity.
     pub fn get(&self) -> Entity {
         self.0
     }
 }
 
-impl Deref for Parent {
+impl Deref for ChildOf {
     type Target = Entity;
 
     #[inline]
@@ -123,32 +123,32 @@ impl Deref for Parent {
     }
 }
 
-// TODO: We need to impl either FromWorld or Default so Parent can be registered as Reflect.
+// TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
 // This is because Reflect deserialize by creating an instance and apply a patch on top.
-// However Parent should only ever be set with a real user-defined entity.  Its worth looking into
+// However ChildOf should only ever be set with a real user-defined entity.  Its worth looking into
 // better ways to handle cases like this.
-impl FromWorld for Parent {
+impl FromWorld for ChildOf {
     #[inline(always)]
     fn from_world(_world: &mut World) -> Self {
-        Parent(Entity::PLACEHOLDER)
+        ChildOf(Entity::PLACEHOLDER)
     }
 }
 
 /// A [`RelationshipTarget`](crate::relationship::RelationshipTarget) collection component that is populated
-/// with entities that "target" this entity with the [`Parent`] [`Relationship`](crate::relationship::Relationship) component.
+/// with entities that "target" this entity with the [`ChildOf`] [`Relationship`](crate::relationship::Relationship) component.
 ///
-/// Together, these components form the "canonical parent-child hierarchy". See the [`Parent`] component for all full
+/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for all full
 /// description of this relationship and instructions on how to use it.
 #[derive(Component, Default, VisitEntitiesMut, Debug, PartialEq, Eq)]
-#[relationship_target(relationship = Parent, despawn_descendants)]
+#[relationship_target(relationship = ChildOf, despawn_descendants)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
     reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut, FromWorld)
 )]
-pub struct Children(Vec<Entity>);
+pub struct ParentOf(Vec<Entity>);
 
-impl<'a> IntoIterator for &'a Children {
+impl<'a> IntoIterator for &'a ParentOf {
     type Item = <Self::IntoIter as Iterator>::Item;
 
     type IntoIter = slice::Iter<'a, Entity>;
@@ -159,7 +159,7 @@ impl<'a> IntoIterator for &'a Children {
     }
 }
 
-impl Deref for Children {
+impl Deref for ParentOf {
     type Target = [Entity];
 
     fn deref(&self) -> &Self::Target {
@@ -167,14 +167,14 @@ impl Deref for Children {
     }
 }
 
-/// A type alias over [`RelatedSpawner`] used to spawn child entities containing a [`Parent`] relationship.
-pub type ChildSpawner<'w> = RelatedSpawner<'w, Parent>;
+/// A type alias over [`RelatedSpawner`] used to spawn child entities containing a [`ChildOf`] relationship.
+pub type ChildSpawner<'w> = RelatedSpawner<'w, ChildOf>;
 
-/// A type alias over [`RelatedSpawnerCommands`] used to spawn child entities containing a [`Parent`] relationship.
-pub type ChildSpawnerCommands<'w> = RelatedSpawnerCommands<'w, Parent>;
+/// A type alias over [`RelatedSpawnerCommands`] used to spawn child entities containing a [`ChildOf`] relationship.
+pub type ChildSpawnerCommands<'w> = RelatedSpawnerCommands<'w, ChildOf>;
 
 impl<'w> EntityWorldMut<'w> {
-    /// Spawns children of this entity (with a [`Parent`] relationship) by taking a function that operates on a [`ChildSpawner`].
+    /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that operates on a [`ChildSpawner`].
     pub fn with_children(&mut self, func: impl FnOnce(&mut ChildSpawner)) -> &mut Self {
         self.with_related(func);
         self
@@ -182,12 +182,12 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Adds the given children to this entity
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
-        self.add_related::<Parent>(children)
+        self.add_related::<ChildOf>(children)
     }
 
     /// Adds the given child to this entity
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
-        self.add_related::<Parent>(&[child])
+        self.add_related::<ChildOf>(&[child])
     }
 
     /// Spawns the passed bundle and adds it to this entity as a child.
@@ -198,31 +198,31 @@ impl<'w> EntityWorldMut<'w> {
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
         let id = self.id();
         self.world_scope(|world| {
-            world.spawn((bundle, Parent(id)));
+            world.spawn((bundle, ChildOf(id)));
         });
         self
     }
 
-    /// Removes the [`Parent`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.remove::<Parent>()")]
+    /// Removes the [`ChildOf`] component, if it exists.
+    #[deprecated(since = "0.16.0", note = "Use entity_mut.remove::<ChildOf>()")]
     pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<Parent>();
+        self.remove::<ChildOf>();
         self
     }
 
-    /// Inserts the [`Parent`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(Parent(entity))")]
+    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
+    #[deprecated(since = "0.16.0", note = "Use entity_mut.insert(ChildOf(entity))")]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(Parent(parent));
+        self.insert(ChildOf(parent));
         self
     }
 }
 
 impl<'a> EntityCommands<'a> {
-    /// Spawns children of this entity (with a [`Parent`] relationship) by taking a function that operates on a [`ChildSpawner`].
+    /// Spawns children of this entity (with a [`ChildOf`] relationship) by taking a function that operates on a [`ChildSpawner`].
     pub fn with_children(
         &mut self,
-        func: impl FnOnce(&mut RelatedSpawnerCommands<Parent>),
+        func: impl FnOnce(&mut RelatedSpawnerCommands<ChildOf>),
     ) -> &mut Self {
         self.with_related(func);
         self
@@ -230,12 +230,12 @@ impl<'a> EntityCommands<'a> {
 
     /// Adds the given children to this entity
     pub fn add_children(&mut self, children: &[Entity]) -> &mut Self {
-        self.add_related::<Parent>(children)
+        self.add_related::<ChildOf>(children)
     }
 
     /// Adds the given child to this entity
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
-        self.add_related::<Parent>(&[child])
+        self.add_related::<ChildOf>(&[child])
     }
 
     /// Spawns the passed bundle and adds it to this entity as a child.
@@ -245,21 +245,21 @@ impl<'a> EntityCommands<'a> {
     /// [`with_children`]: EntityCommands::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
         let id = self.id();
-        self.commands.spawn((bundle, Parent(id)));
+        self.commands.spawn((bundle, ChildOf(id)));
         self
     }
 
-    /// Removes the [`Parent`] component, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.remove::<Parent>()")]
+    /// Removes the [`ChildOf`] component, if it exists.
+    #[deprecated(since = "0.16.0", note = "Use entity_commands.remove::<ChildOf>()")]
     pub fn remove_parent(&mut self) -> &mut Self {
-        self.remove::<Parent>();
+        self.remove::<ChildOf>();
         self
     }
 
-    /// Inserts the [`Parent`] component with the given `parent` entity, if it exists.
-    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(Parent(entity))")]
+    /// Inserts the [`ChildOf`] component with the given `parent` entity, if it exists.
+    #[deprecated(since = "0.16.0", note = "Use entity_commands.insert(ChildOf(entity))")]
     pub fn set_parent(&mut self, parent: Entity) -> &mut Self {
-        self.insert(Parent(parent));
+        self.insert(ChildOf(parent));
         self
     }
 }
@@ -272,7 +272,7 @@ pub fn validate_parent_has_component<C: Component>(
     _: ComponentId,
 ) {
     let entity_ref = world.entity(entity);
-    let Some(child_of) = entity_ref.get::<Parent>() else {
+    let Some(child_of) = entity_ref.get::<ChildOf>() else {
         return;
     };
     if !world
@@ -297,7 +297,7 @@ pub fn validate_parent_has_component<C: Component>(
 mod tests {
     use crate::{
         entity::Entity,
-        hierarchy::{Children, Parent},
+        hierarchy::{ChildOf, ParentOf},
         relationship::RelationshipTarget,
         world::World,
     };
@@ -327,7 +327,7 @@ mod tests {
             entity,
             children: world
                 .entity(entity)
-                .get::<Children>()
+                .get::<ParentOf>()
                 .map_or_else(Default::default, |c| {
                     c.iter().map(|e| get_hierarchy(world, e)).collect()
                 }),
@@ -338,9 +338,9 @@ mod tests {
     fn hierarchy() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(Parent(root)).id();
-        let grandchild = world.spawn(Parent(child1)).id();
-        let child2 = world.spawn(Parent(root)).id();
+        let child1 = world.spawn(ChildOf(root)).id();
+        let grandchild = world.spawn(ChildOf(child1)).id();
+        let child2 = world.spawn(ChildOf(root)).id();
 
         // Spawn
         let hierarchy = get_hierarchy(&world, root);
@@ -356,12 +356,12 @@ mod tests {
         );
 
         // Removal
-        world.entity_mut(child1).remove::<Parent>();
+        world.entity_mut(child1).remove::<ChildOf>();
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child2)]));
 
         // Insert
-        world.entity_mut(child1).insert(Parent(root));
+        world.entity_mut(child1).insert(ChildOf(root));
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
@@ -420,10 +420,10 @@ mod tests {
     fn self_parenting_invalid() {
         let mut world = World::new();
         let id = world.spawn_empty().id();
-        world.entity_mut(id).insert(Parent(id));
+        world.entity_mut(id).insert(ChildOf(id));
         assert!(
-            world.entity(id).get::<Parent>().is_none(),
-            "invalid Parent relationships should self-remove"
+            world.entity(id).get::<ChildOf>().is_none(),
+            "invalid ChildOf relationships should self-remove"
         );
     }
 
@@ -432,10 +432,10 @@ mod tests {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
         world.entity_mut(parent).despawn();
-        let id = world.spawn(Parent(parent)).id();
+        let id = world.spawn(ChildOf(parent)).id();
         assert!(
-            world.entity(id).get::<Parent>().is_none(),
-            "invalid Parent relationships should self-remove"
+            world.entity(id).get::<ChildOf>().is_none(),
+            "invalid ChildOf relationships should self-remove"
         );
     }
 
@@ -443,12 +443,12 @@ mod tests {
     fn reinsert_same_parent() {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
-        let id = world.spawn(Parent(parent)).id();
-        world.entity_mut(id).insert(Parent(parent));
+        let id = world.spawn(ChildOf(parent)).id();
+        world.entity_mut(id).insert(ChildOf(parent));
         assert_eq!(
-            Some(&Parent(parent)),
-            world.entity(id).get::<Parent>(),
-            "Parent should still be there"
+            Some(&ChildOf(parent)),
+            world.entity(id).get::<ChildOf>(),
+            "ChildOf should still be there"
         );
     }
 }

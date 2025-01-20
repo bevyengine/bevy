@@ -1277,7 +1277,7 @@ impl World {
     /// # Note
     ///
     /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
-    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
+    /// to despawn descendants. For example, this will recursively despawn child entities in [`ParentOf`](crate::hierarchy::ParentOf).
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};

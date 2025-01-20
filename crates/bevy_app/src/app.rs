@@ -104,8 +104,8 @@ impl Default for App {
         {
             app.init_resource::<AppTypeRegistry>();
             app.register_type::<Name>();
-            app.register_type::<Parent>();
-            app.register_type::<Children>();
+            app.register_type::<ChildOf>();
+            app.register_type::<ParentOf>();
         }
 
         #[cfg(feature = "reflect_functions")]

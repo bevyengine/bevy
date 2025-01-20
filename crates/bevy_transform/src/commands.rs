@@ -2,7 +2,7 @@
 //! while preserving [`GlobalTransform`].
 
 use crate::prelude::{GlobalTransform, Transform};
-use bevy_ecs::{entity::Entity, hierarchy::Parent, system::EntityCommands, world::EntityWorldMut};
+use bevy_ecs::{entity::Entity, hierarchy::ChildOf, system::EntityCommands, world::EntityWorldMut};
 
 /// Collection of methods similar to the built-in parenting methods on [`EntityWorldMut`] and [`EntityCommands`], but preserving each
 /// entity's [`GlobalTransform`].
@@ -10,7 +10,7 @@ pub trait BuildChildrenTransformExt {
     /// Change this entity's parent while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`].
     ///
-    /// Insert the [`Parent`] component directly if you don't want to also update the [`Transform`].
+    /// Insert the [`ChildOf`] component directly if you don't want to also update the [`Transform`].
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// the next time commands are applied
@@ -64,7 +64,7 @@ impl BuildChildrenTransformExt for EntityWorldMut<'_> {
     fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
         self.world_scope(|world| {
-            world.entity_mut(child).remove::<Parent>();
+            world.entity_mut(child).remove::<ChildOf>();
             // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
             let mut update_transform = || {
                 let child_global = *world.get_entity(child).ok()?.get::<GlobalTransform>()?;

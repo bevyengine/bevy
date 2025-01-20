@@ -202,7 +202,7 @@ mod tests {
         entity::{
             Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
         },
-        hierarchy::Parent,
+        hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
         system::Resource,
         world::World,
@@ -268,7 +268,7 @@ mod tests {
         world
             .resource_mut::<AppTypeRegistry>()
             .write()
-            .register::<Parent>();
+            .register::<ChildOf>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
         world
@@ -304,7 +304,7 @@ mod tests {
             world
                 .get_entity(original_child_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .unwrap()
                 .get(),
             "something about reloading the scene is touching entities with the same scene Ids"
@@ -314,7 +314,7 @@ mod tests {
             world
                 .get_entity(from_scene_parent_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .unwrap()
                 .get(),
             "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
@@ -324,7 +324,7 @@ mod tests {
             world
                 .get_entity(from_scene_child_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
                 .get(),
             "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"

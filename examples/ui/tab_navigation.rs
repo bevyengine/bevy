@@ -25,19 +25,19 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
-    mut interaction_query: Query<
+    mut interactions: Query<
         (
             &Interaction,
             &mut BackgroundColor,
             &mut BorderColor,
-            &Children,
+            &ParentOf,
         ),
         (Changed<Interaction>, With<Button>),
     >,
-    mut text_query: Query<&mut Text>,
+    mut texts: Query<&mut Text>,
 ) {
-    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+    for (interaction, mut color, mut border_color, parent_of) in &mut interactions {
+        let mut text = texts.get_mut(parent_of[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 **text = "Press".to_string();

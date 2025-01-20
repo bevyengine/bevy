@@ -175,19 +175,19 @@ fn setup(
 fn set_visibility_ranges(
     mut commands: Commands,
     mut new_meshes: Query<Entity, Added<Mesh3d>>,
-    parents: Query<(Option<&Parent>, Option<&MainModel>)>,
+    children: Query<(Option<&ChildOf>, Option<&MainModel>)>,
 ) {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
         // Search for the nearest ancestor `MainModel` component.
         let (mut current, mut main_model) = (new_mesh, None);
-        while let Ok((parent, maybe_main_model)) = parents.get(current) {
+        while let Ok((child_of, maybe_main_model)) = children.get(current) {
             if let Some(model) = maybe_main_model {
                 main_model = Some(model);
                 break;
             }
-            match parent {
-                Some(parent) => current = parent.0,
+            match child_of {
+                Some(child_of) => current = child_of.0,
                 None => break,
             }
         }

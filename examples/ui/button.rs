@@ -23,14 +23,14 @@ fn button_system(
             &Interaction,
             &mut BackgroundColor,
             &mut BorderColor,
-            &Children,
+            &ParentOf,
         ),
         (Changed<Interaction>, With<Button>),
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut color, mut border_color, children) in &mut interaction_query {
-        let mut text = text_query.get_mut(children[0]).unwrap();
+    for (interaction, mut color, mut border_color, parent_of) in &mut interaction_query {
+        let mut text = text_query.get_mut(parent_of[0]).unwrap();
         match *interaction {
             Interaction::Pressed => {
                 **text = "Press".to_string();

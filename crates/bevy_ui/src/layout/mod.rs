@@ -70,7 +70,7 @@ pub enum LayoutError {
 #[derive(SystemParam)]
 pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_cameras: RemovedComponents<'w, 's, Camera>,
-    removed_children: RemovedComponents<'w, 's, Children>,
+    removed_parent_of: RemovedComponents<'w, 's, ParentOf>,
     removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
     removed_nodes: RemovedComponents<'w, 's, Node>,
 }
@@ -107,7 +107,7 @@ pub fn ui_layout_system(
         Option<&mut ContentSize>,
         Option<&UiTargetCamera>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
+    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
@@ -239,7 +239,7 @@ pub fn ui_layout_system(
     }
 
     // update and remove children
-    for entity in removed_components.removed_children.read() {
+    for entity in removed_components.removed_parent_of.read() {
         ui_surface.try_remove_children(entity);
     }
 
@@ -844,7 +844,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<Parent>>()
+            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
@@ -1111,7 +1111,7 @@ mod tests {
 
         let children = world
             .entity(parent)
-            .get::<Children>()
+            .get::<ParentOf>()
             .unwrap()
             .iter()
             .copied()

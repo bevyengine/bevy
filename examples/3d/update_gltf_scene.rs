@@ -57,12 +57,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn move_scene_entities(
     time: Res<Time>,
     moved_scene: Query<Entity, With<MovedScene>>,
-    children: Query<&Children>,
+    parents: Query<&ParentOf>,
     mut transforms: Query<&mut Transform>,
 ) {
     for moved_scene_entity in &moved_scene {
         let mut offset = 0.;
-        for entity in children.iter_descendants(moved_scene_entity) {
+        for entity in parents.iter_descendants(moved_scene_entity) {
             if let Ok(mut transform) = transforms.get_mut(entity) {
                 transform.translation = Vec3::new(
                     offset * ops::sin(time.elapsed_secs()) / 20.,
