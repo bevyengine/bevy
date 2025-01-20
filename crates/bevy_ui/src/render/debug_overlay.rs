@@ -1,6 +1,5 @@
 use crate::CalculatedClip;
 use crate::ComputedNode;
-use crate::DefaultUiCamera;
 use crate::ResolvedTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
