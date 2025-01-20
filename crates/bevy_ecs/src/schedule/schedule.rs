@@ -3,6 +3,7 @@
     reason = "This instance of module inception is being discussed; see #17344."
 )]
 use alloc::{
+    borrow::Cow,
     boxed::Box,
     collections::BTreeSet,
     format,
@@ -211,6 +212,83 @@ impl Schedules {
 
         self
     }
+
+    /// Returns a string containing information about the systems.
+    pub fn diagnose(&self) -> Result<String, core::fmt::Error> {
+        let mut result = "Schedule:\n".to_string();
+
+        let label_with_schedules = self.iter().collect::<Vec<_>>();
+        writeln!(result, "  schedules: {}", label_with_schedules.len())?;
+
+        for (label, schedule) in label_with_schedules {
+            let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::default();
+            schedule.systems_for_each(|node_id, system| {
+                id_to_names.insert(node_id, system.name());
+            });
+            for (node_id, set, _) in schedule.graph().system_sets() {
+                id_to_names.insert(node_id, format!("{:?}", set).into());
+            }
+
+            writeln!(
+                result,
+                "    label: {:?} kind:{:?}",
+                label,
+                schedule.get_executor_kind(),
+            )?;
+
+            let schedule_graph = schedule.graph();
+
+            writeln!(
+                result,
+                "{}",
+                schedule_graph
+                    .hierarchy()
+                    .diagnose("  ", "hierarchy", &id_to_names)?
+                    .trim_end()
+            )?;
+
+            writeln!(
+                result,
+                "{}",
+                schedule_graph
+                    .dependency()
+                    .diagnose("  ", "dependency", &id_to_names)?
+                    .trim_end()
+            )?;
+        }
+
+        Ok(result)
+    }
+
+    /// Returns a string containing information about the systems, including flattened representation.
+    pub fn diagnose_flattened(&mut self) -> Result<String, core::fmt::Error> {
+        let mut result = self.diagnose()?;
+
+        let label_with_schedules = self.iter_mut().collect::<Vec<_>>();
+
+        for (_, schedule) in label_with_schedules {
+            let mut id_to_names = HashMap::<NodeId, Cow<'static, str>>::default();
+            schedule.systems_for_each(|node_id, system| {
+                id_to_names.insert(node_id, system.name());
+            });
+            for (node_id, set, _) in schedule.graph().system_sets() {
+                id_to_names.insert(node_id, format!("{:?}", set).into());
+            }
+
+            let schedule_graph = &mut schedule.graph;
+
+            writeln!(
+                result,
+                "{}",
+                schedule_graph
+                    .dependency_flatten()
+                    .diagnose("  ", "dependency flatten", &id_to_names,)?
+                    .trim_end()
+            )?;
+        }
+
+        Ok(result)
+    }
 }
 
 fn make_executor(kind: ExecutorKind) -> Box<dyn SystemExecutor> {
@@ -344,6 +422,27 @@ impl Schedule {
         self.graph.ambiguous_with.add_edge(a_id, b_id);
 
         self
+    }
+
+    /// Call function `f` on each pair of ([`NodeId`], [`ScheduleSystem`]).
+    fn systems_for_each(&self, mut f: impl FnMut(NodeId, &ScheduleSystem)) {
+        match self.executor_initialized {
+            true => {
+                for (id, system) in self
+                    .executable
+                    .system_ids
+                    .iter()
+                    .zip(self.executable.systems.iter())
+                {
+                    f(*id, system);
+                }
+            }
+            false => {
+                for (node_id, system, _) in self.graph.systems() {
+                    f(node_id, system);
+                }
+            }
+        }
     }
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
@@ -552,6 +651,41 @@ impl Dag {
     pub fn cached_topsort(&self) -> &[NodeId] {
         &self.topsort
     }
+
+    /// Returns a string containing node and edge information about the [`Dag`].
+    pub fn diagnose(
+        &self,
+        prefix: &str,
+        name: &str,
+        id_to_names: &HashMap<NodeId, Cow<'static, str>>,
+    ) -> Result<String, core::fmt::Error> {
+        let mut result = String::new();
+        writeln!(result, "{prefix}{name}:")?;
+
+        writeln!(result, "{prefix}  nodes:")?;
+        for node_id in self.graph().nodes() {
+            let name = id_to_names.get(&node_id).unwrap();
+            writeln!(result, "{prefix}    {node_id:?}({name})")?;
+        }
+
+        writeln!(result, "{prefix}  edges:")?;
+        for (l, r) in self.graph().all_edges() {
+            let l_name = id_to_names.get(&l).unwrap();
+            let r_name = id_to_names.get(&r).unwrap();
+            writeln!(result, "{prefix}    {l:?}({l_name}) -> {r:?}({r_name})")?;
+        }
+
+        writeln!(result, "{prefix}  topsorted:")?;
+        for (node_id, node_name) in self
+            .cached_topsort()
+            .iter()
+            .map(|node_id| (node_id, id_to_names.get(node_id).unwrap()))
+        {
+            writeln!(result, "{prefix}    {node_id:?}({node_name})")?;
+        }
+
+        Ok(result)
+    }
 }
 
 /// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
@@ -735,6 +869,22 @@ impl ScheduleGraph {
     /// a system or set has to run before another system or set.
     pub fn dependency(&self) -> &Dag {
         &self.dependency
+    }
+
+    /// Returns the [`Dag`] of the flattened dependencies in the schedule.
+    ///
+    /// Nodes in this graph are systems and sets, and edges denote that
+    /// a system or set has to run before another system or set.
+    pub fn dependency_flatten(&mut self) -> Dag {
+        let (set_systems, _) =
+            self.map_sets_to_systems(&self.hierarchy.topsort, &self.hierarchy.graph);
+        let dependency_flattened = self.get_dependency_flattened(&set_systems);
+        Dag {
+            topsort: self
+                .topsort_graph(&dependency_flattened, ReportCycles::Dependency)
+                .unwrap(),
+            graph: dependency_flattened,
+        }
     }
 
     /// Returns the list of systems that conflict with each other, i.e. have ambiguities in their access.

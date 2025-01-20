@@ -52,9 +52,9 @@ use crate::{
         error::{EntityFetchError, TryRunScheduleError},
     },
 };
-use alloc::{boxed::Box, vec::Vec};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, fmt::Write};
 use log::warn;
 
 #[cfg(not(feature = "portable-atomic"))]
@@ -3639,6 +3639,150 @@ impl World {
         schedules.allow_ambiguous_resource::<T>(self);
         self.insert_resource(schedules);
     }
+
+    /// Returns a string containing information about the world.
+    ///
+    /// If you need a flattened representation, consider using [`World::diagnose_with_flattened`].
+    pub fn diagnose(&self) -> Result<String, fmt::Error> {
+        let mut result = self.diagnose_non_systems()?;
+
+        if let Some(schedules) = self.get_resource::<Schedules>() {
+            result.push_str(&schedules.diagnose()?);
+        }
+
+        Ok(result)
+    }
+
+    /// Returns a string containing information about the world, including a flattened representation.
+    ///
+    /// If you don't need the flattened representation, consider using [`World::diagnose`].
+    pub fn diagnose_with_flattened(&mut self) -> Result<String, fmt::Error> {
+        let mut result = self.diagnose_non_systems()?;
+
+        if let Some(mut schedules) = self.get_resource_mut::<Schedules>() {
+            result.push_str(&schedules.diagnose_flattened()?);
+        }
+
+        Ok(result)
+    }
+
+    /// Returns a string containing information about the world, excluding systems.
+    /// See [`World::diagnose`] and [`World::diagnose_with_flattened`].
+    fn diagnose_non_systems(&self) -> Result<String, fmt::Error> {
+        let mut result = String::new();
+
+        let component_size = self.components().len();
+        let bundle_size = self.bundles().len();
+        let archetype_size = self.archetypes().len();
+        let entity_size = self.entities().len();
+        let resource_size = self.storages().resources.len();
+        let non_send_resource_size = self.storages().non_send_resources.len();
+        let table_size = self.storages().tables.len();
+        let sparse_set_size = self.storages().sparse_sets.len();
+
+        writeln!(result, "world:")?;
+        writeln!(result, "  summary:")?;
+        writeln!(result, "    component: {bundle_size}")?;
+        writeln!(result, "    bundle: {component_size}")?;
+        writeln!(result, "    archetype: {archetype_size}")?;
+        writeln!(result, "    entity: {entity_size}")?;
+        writeln!(result, "    resource: {resource_size}")?;
+        writeln!(result, "    resource(non send): {non_send_resource_size}")?;
+        writeln!(result, "    table: {table_size}")?;
+        writeln!(result, "    sparse set: {sparse_set_size}")?;
+
+        writeln!(result, "  detail:")?;
+
+        if component_size > 0 {
+            writeln!(result, "    components:")?;
+
+            for component in self.components().iter() {
+                writeln!(
+                    result,
+                    "      {:?}({name}) {storage_type:?} {send_sync}",
+                    component.id(),
+                    name = component.name(),
+                    storage_type = component.storage_type(),
+                    send_sync = if component.is_send_and_sync() {
+                        "send_sync"
+                    } else {
+                        "non_send_sync"
+                    }
+                )?;
+            }
+        }
+
+        if bundle_size > 0 {
+            writeln!(result, "    bundles:")?;
+
+            for bundle in self.bundles().iter() {
+                writeln!(
+                    result,
+                    "      {:?}: {:?}",
+                    bundle.id(),
+                    bundle
+                        .explicit_components()
+                        .iter()
+                        .map(|id| id.diagnose(self))
+                        .collect::<Vec<_>>()
+                )?;
+            }
+        }
+
+        if archetype_size > 0 {
+            writeln!(result, "    archetypes:")?;
+            for archetype in self.archetypes().iter() {
+                writeln!(
+                    result,
+                    "      {:?}: components:{:?} table:{:?} entity:{}",
+                    archetype.id(),
+                    archetype
+                        .components()
+                        .map(|id| id.diagnose(self))
+                        .collect::<Vec<_>>(),
+                    archetype.table_id(),
+                    archetype.len(),
+                )?;
+            }
+        }
+
+        if resource_size > 0 {
+            writeln!(result, "    resources:")?;
+            for (component_id, _resource_data) in self.storages().resources.iter() {
+                writeln!(result, "      {}", component_id.diagnose(self))?;
+            }
+        }
+
+        if non_send_resource_size > 0 {
+            writeln!(result, "    resources(non send):")?;
+            for (component_id, _resource_data) in self.storages().non_send_resources.iter() {
+                let component = self.components().get_info(component_id).unwrap();
+                writeln!(result, "      {:?}({})", component_id, component.name(),)?;
+            }
+        }
+
+        if table_size > 0 {
+            writeln!(result, "    tables:")?;
+            for (idx, table) in self.storages().tables.iter().enumerate() {
+                writeln!(result, "      [{idx}] entities: {}", table.entity_count())?;
+            }
+        }
+
+        if sparse_set_size > 0 {
+            writeln!(result, "    sparse_set:")?;
+            for (component_id, sparse_set) in self.storages().sparse_sets.iter() {
+                let component_display = component_id.diagnose(self);
+                writeln!(
+                    result,
+                    "      {} entity: {}",
+                    component_display,
+                    sparse_set.len()
+                )?;
+            }
+        }
+
+        Ok(result)
+    }
 }
 
 impl fmt::Debug for World {
@@ -3682,6 +3826,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use super::{FromWorld, World};
     use crate::{
+        archetype::ArchetypeId,
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         entity::EntityHashSet,
@@ -4237,7 +4382,15 @@ mod tests {
     #[test]
     fn spawn_empty_bundle() {
         let mut world = World::new();
-        world.spawn(());
+        let entity = world.spawn(());
+        assert!(entity.archetype().id() == ArchetypeId::EMPTY);
+
+        let bundles = world.bundles().iter().collect::<Vec<_>>();
+        assert_eq!(bundles.len(), 1);
+
+        let bundle = bundles[0];
+        assert_eq!(bundle.id().index(), 0);
+        assert!(bundle.contributed_components().is_empty());
     }
 
     #[test]
