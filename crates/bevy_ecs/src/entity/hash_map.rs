@@ -9,9 +9,9 @@ use core::{
     ops::{Deref, DerefMut, Index},
 };
 
+use bevy_platform_support::collections::hash_map::{self, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_map::{self, HashMap};
 
 use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 

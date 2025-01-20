@@ -17,6 +17,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_platform_support::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -44,7 +45,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap, Parallel};
+use bevy_utils::{default, Parallel};
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
 use tracing::{error, warn};

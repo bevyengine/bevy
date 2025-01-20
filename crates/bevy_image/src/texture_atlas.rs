@@ -1,11 +1,11 @@
 use bevy_app::prelude::*;
 use bevy_asset::{Asset, AssetApp as _, AssetId, Assets, Handle};
 use bevy_math::{URect, UVec2};
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::HashMap;
 
 use crate::Image;
 

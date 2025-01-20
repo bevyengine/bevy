@@ -13,6 +13,7 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::TemporalJitter,
     mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
@@ -20,7 +21,6 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
-use bevy_utils::{HashMap, HashSet};
 use core::hash::Hash;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].

@@ -1,7 +1,7 @@
 use alloc::{borrow::ToOwned, vec::Vec};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
-use bevy_utils::{HashMap, HashSet};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
 

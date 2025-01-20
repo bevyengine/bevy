@@ -5,6 +5,7 @@
 //! and make comparisons for any type as fast as integers.
 
 use alloc::{borrow::ToOwned, boxed::Box};
+use bevy_platform_support::{collections::HashSet, hash::FixedHasher};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
 
 #[cfg(feature = "std")]
@@ -12,8 +13,6 @@ use std::sync::{PoisonError, RwLock};
 
 #[cfg(not(feature = "std"))]
 use spin::rwlock::RwLock;
-
-use bevy_utils::{FixedHasher, HashSet};
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
 ///
@@ -181,7 +180,7 @@ impl<T: ?Sized> Default for Interner<T> {
 #[cfg(test)]
 mod tests {
     use alloc::{boxed::Box, string::ToString};
-    use bevy_utils::FixedHasher;
+    use bevy_platform_support::hash::FixedHasher;
     use core::hash::{BuildHasher, Hash, Hasher};
 
     use crate::intern::{Internable, Interned, Interner};

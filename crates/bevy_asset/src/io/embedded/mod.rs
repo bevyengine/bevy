@@ -26,7 +26,9 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: alloc::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
+    root_paths: alloc::sync::Arc<
+        parking_lot::RwLock<bevy_platform_support::collections::HashMap<Box<Path>, PathBuf>>,
+    >,
 }
 
 impl EmbeddedAssetRegistry {

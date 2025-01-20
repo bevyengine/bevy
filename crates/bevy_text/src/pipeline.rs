@@ -11,8 +11,8 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{UVec2, Vec2};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::HashMap;
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 

@@ -14,6 +14,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
@@ -28,7 +29,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use bevy_utils::HashMap;
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};

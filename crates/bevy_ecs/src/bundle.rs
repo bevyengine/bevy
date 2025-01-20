@@ -21,8 +21,9 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{ConstNonNull, OwningPtr};
-use bevy_utils::{HashMap, HashSet, TypeIdMap};
+use bevy_utils::TypeIdMap;
 #[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};

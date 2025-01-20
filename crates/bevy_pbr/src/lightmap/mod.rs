@@ -46,6 +46,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,
@@ -57,7 +58,7 @@ use bevy_render::{
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::{default, HashSet};
+use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
 use tracing::error;

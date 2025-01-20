@@ -15,11 +15,12 @@ use crate::{
 use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::sync::Arc;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{HashMap, HashSet, TypeIdMap};
+use bevy_utils::TypeIdMap;
 #[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
@@ -519,7 +520,7 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
-/// use bevy_utils::HashSet;
+/// use bevy_platform_support::collections::HashSet;
 ///
 /// #[derive(Component)]
 /// struct MyTrackedComponent;

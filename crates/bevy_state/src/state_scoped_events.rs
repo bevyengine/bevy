@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Commands, Resource},
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 use crate::state::{FreelyMutableState, OnExit, StateTransitionEvent};
 

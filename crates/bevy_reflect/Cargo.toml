@@ -89,6 +89,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
+  "serialize",
 ] }
 
 # used by bevy-utils, but it also needs reflect impls

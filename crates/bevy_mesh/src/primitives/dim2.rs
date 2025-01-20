@@ -1128,7 +1128,7 @@ impl From<Capsule2d> for Mesh {
 #[cfg(test)]
 mod tests {
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
 
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 

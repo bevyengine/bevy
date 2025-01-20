@@ -10,7 +10,7 @@ use bevy_ecs::{
     system::{Resource, SystemParam},
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
 /// which can be used in situations where an image was not explicitly defined. The most common

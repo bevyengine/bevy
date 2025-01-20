@@ -50,9 +50,9 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{HashMap, HashSet};
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;

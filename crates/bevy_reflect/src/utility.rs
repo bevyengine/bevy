@@ -2,7 +2,8 @@
 
 use crate::TypeInfo;
 use alloc::boxed::Box;
-use bevy_utils::{DefaultHasher, FixedHasher, NoOpHash, TypeIdMap};
+use bevy_platform_support::hash::{DefaultHasher, FixedHasher, NoOpHash};
+use bevy_utils::TypeIdMap;
 use core::{
     any::{Any, TypeId},
     hash::BuildHasher,

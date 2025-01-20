@@ -14,7 +14,7 @@ default = ["std"]
 # Functionality
 
 ## Adds serialization support through `serde`.
-serde = ["hashbrown/serde"]
+serialize = ["hashbrown/serde"]
 
 # Platform Compatibility
 

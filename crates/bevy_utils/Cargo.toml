@@ -14,7 +14,7 @@ default = ["std", "serde"]
 # Functionality
 
 ## Adds serialization support through `serde`.
-serde = ["bevy_platform_support/serde"]
+serde = ["bevy_platform_support/serialize"]
 
 # Platform Compatibility
 
