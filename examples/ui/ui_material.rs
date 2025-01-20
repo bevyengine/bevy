@@ -39,7 +39,7 @@ fn setup(
                     position_type: PositionType::Absolute,
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
-                    border: UiRect::all(Val::Px(25.)),
+                    border: UiRect::all(Val::Px(20.)),
                     ..default()
                 },
                 MaterialNode(ui_materials.add(CustomUiMaterial {
@@ -49,7 +49,7 @@ fn setup(
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
                     corner_color: LinearRgba::NONE.to_f32_array().into(),
                 })),
-                BorderRadius::all(Val::Px(25.)),
+                BorderRadius::all(Val::Px(20.)),
                 // UI material nodes can have outlines and shadows like any other UI node
                 Outline {
                     width: Val::Px(2.),
