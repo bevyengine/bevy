@@ -208,6 +208,7 @@ pub fn extract_text2d_sprite(
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
                     original_entity: Some(original_entity),
+                    scaling_mode: None,
                 },
             );
         }

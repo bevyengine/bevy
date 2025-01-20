@@ -664,6 +664,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "sprite_scale"
+path = "examples/2d/sprite_scale.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.sprite_scale]
+name = "Sprite Scale"
+description = "Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite_flipping"
 path = "examples/2d/sprite_flipping.rs"
 doc-scrape-examples = true
