@@ -15,5 +15,9 @@ extern crate std;
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
+pub mod hash;
 pub mod sync;
 pub mod time;
+
+#[cfg(feature = "alloc")]
+pub mod collections;
