@@ -1,4 +1,4 @@
-use crate::entity::Entity;
+use crate::entity::{Entity, EntityHashSet};
 use alloc::vec::Vec;
 
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
@@ -47,6 +47,30 @@ impl RelationshipSourceCollection for Vec<Entity> {
 
     fn len(&self) -> usize {
         Vec::len(self)
+    }
+}
+
+impl RelationshipSourceCollection for EntityHashSet {
+    fn with_capacity(capacity: usize) -> Self {
+        EntityHashSet::with_capacity(capacity)
+    }
+
+    fn add(&mut self, entity: Entity) {
+        self.insert(entity);
+    }
+
+    fn remove(&mut self, entity: Entity) {
+        // We need to call the remove method on the underlying hash set,
+        // which takes its argument by reference
+        self.0.remove(&entity);
+    }
+
+    fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        self.len()
     }
 }
 

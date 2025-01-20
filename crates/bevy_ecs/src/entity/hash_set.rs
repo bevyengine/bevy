@@ -38,6 +38,16 @@ impl EntityHashSet {
         Self(HashSet::with_capacity_and_hasher(n, EntityHash))
     }
 
+    /// Returns the number of elements in the set.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns `true` if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     /// Returns the inner [`HashSet`].
     pub fn into_inner(self) -> HashSet<Entity, EntityHash> {
         self.0
@@ -220,6 +230,15 @@ impl<'a> Iterator for Iter<'a> {
 impl ExactSizeIterator for Iter<'_> {}
 
 impl FusedIterator for Iter<'_> {}
+
+/// This implementation is somewhat surprising:
+/// as hash sets make no guarantees about the order of their elements,
+/// [`DoubleEndedIterator::next_back`] is implemented by simply forwarding to the underlying [`Iter::next`].
+impl DoubleEndedIterator for Iter<'_> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
 
 impl Clone for Iter<'_> {
     fn clone(&self) -> Self {
