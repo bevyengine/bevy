@@ -49,3 +49,32 @@ impl RelationshipSourceCollection for Vec<Entity> {
         Vec::len(self)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as bevy_ecs;
+    use crate::prelude::{Component, World};
+    use crate::relationship::RelationshipTarget;
+
+    #[test]
+    fn vec_relationship_source_collection() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, despawn_descendants)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Rel(b));
+
+        let rel_target = world.get::<RelTarget>(b).unwrap();
+        let collection = rel_target.collection();
+        assert_eq!(collection, &alloc::vec!(a));
+    }
+}
