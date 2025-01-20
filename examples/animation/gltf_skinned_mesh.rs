@@ -58,10 +58,10 @@ fn joint_animation(
         // First joint is the second child of the mesh node.
         let first_joint_entity = mesh_node_parent[1];
         // Get `Children` in the first joint.
-        let first_joint_parent_of = parents.get(first_joint_entity).unwrap();
+        let first_joint_children = parents.get(first_joint_entity).unwrap();
 
         // Second joint is the first child of the first joint.
-        let second_joint_entity = first_joint_parent_of[0];
+        let second_joint_entity = first_joint_children[0];
         // Get `Transform` in the second joint.
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
