@@ -704,7 +704,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
@@ -731,7 +731,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
@@ -758,7 +758,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
@@ -768,7 +768,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// and passing the bundle to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
     ///
-    /// This command silently fails by ignoring any entities that do not exist.
+    /// This command will send a warning if any of the given entities do not exist.
     ///
     /// For the panicking version, see [`insert_batch`](Self::insert_batch).
     #[track_caller]
@@ -777,13 +777,16 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(command::try_insert_batch(batch, InsertMode::Replace));
+        self.queue(
+            command::insert_batch(batch, InsertMode::Replace)
+                .handle_error_with(error_handler::warn()),
+        );
     }
 
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
@@ -793,7 +796,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
     /// but it is faster due to memory pre-allocation.
     ///
-    /// This command silently fails by ignoring any entities that do not exist.
+    /// This command will send a warning if any of the given entities do not exist.
     ///
     /// For the panicking version, see [`insert_batch_if_new`](Self::insert_batch_if_new).
     #[track_caller]
@@ -802,7 +805,9 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(command::try_insert_batch(batch, InsertMode::Keep));
+        self.queue(
+            command::insert_batch(batch, InsertMode::Keep).handle_error_with(error_handler::warn()),
+        );
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
