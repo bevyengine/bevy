@@ -65,7 +65,7 @@ impl RelationshipSourceCollection for Vec<Entity> {
 }
 
 impl RelationshipSourceCollection for EntityHashSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::EntityHashSetIter<'a>>;
+    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
 
     fn with_capacity(capacity: usize) -> Self {
         EntityHashSet::with_capacity(capacity)
