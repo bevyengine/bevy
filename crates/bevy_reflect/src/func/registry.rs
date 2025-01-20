@@ -1,8 +1,8 @@
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::borrow::Cow;
+use bevy_platform_support::sync::Arc;
+use bevy_utils::HashMap;
 use core::fmt::Debug;
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-use bevy_utils::HashMap;
 
 use crate::func::{
     ArgList, DynamicFunction, FunctionRegistrationError, FunctionResult, IntoFunction,

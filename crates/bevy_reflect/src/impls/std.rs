@@ -127,7 +127,9 @@ impl_reflect_opaque!(::core::time::Duration(
     Default
 ));
 #[cfg(any(target_arch = "wasm32", feature = "std"))]
-impl_reflect_opaque!(::bevy_utils::Instant(Debug, Hash, PartialEq));
+impl_reflect_opaque!(::bevy_platform_support::time::Instant(
+    Debug, Hash, PartialEq
+));
 impl_reflect_opaque!(::core::num::NonZeroI128(
     Debug,
     Hash,
@@ -214,6 +216,11 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
 ));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>);
+
+// We check despite `portable-atomic` being enabled, if the standard library `Arc` is
+// also available, and implement Reflect for it.
+#[cfg(all(feature = "portable-atomic", target_has_atomic = "ptr"))]
 impl_reflect_opaque!(::alloc::sync::Arc<T: Send + Sync + ?Sized>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
@@ -2432,7 +2439,8 @@ mod tests {
         TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
-    use bevy_utils::{HashMap, Instant};
+    use bevy_platform_support::time::Instant;
+    use bevy_utils::HashMap;
     use core::{
         f32::consts::{PI, TAU},
         time::Duration,

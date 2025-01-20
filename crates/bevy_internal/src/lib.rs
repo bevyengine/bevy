@@ -46,6 +46,7 @@ pub use bevy_math as math;
 pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
 pub use bevy_picking as picking;
+pub use bevy_platform_support as platform_support;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_remote")]

@@ -53,22 +53,14 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, panic::Location};
 use log::warn;
-
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::{AtomicU32, Ordering};
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::{AtomicU32, Ordering};
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 #[cfg(feature = "track_location")]
 use bevy_ptr::UnsafeCellDeref;
-
-use core::panic::Location;
-
-use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.

@@ -1,16 +1,11 @@
 use alloc::{string::String, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
 #[cfg(feature = "std")]
 use std::thread_local;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 #[cfg(all(
     feature = "std",

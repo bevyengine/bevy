@@ -56,6 +56,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+] }
 
 # rendering
 image = { version = "0.25.2", default-features = false }

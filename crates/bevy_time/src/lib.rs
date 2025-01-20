@@ -35,7 +35,7 @@ use bevy_ecs::{
     event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
     prelude::*,
 };
-use bevy_utils::Instant;
+use bevy_platform_support::time::Instant;
 use core::time::Duration;
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};

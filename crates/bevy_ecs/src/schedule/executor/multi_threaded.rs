@@ -1,4 +1,5 @@
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
@@ -11,12 +12,6 @@ use std::{
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 use crate::{
     archetype::ArchetypeComponentId,

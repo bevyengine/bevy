@@ -1,18 +1,12 @@
 use alloc::{borrow::ToOwned, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
+use bevy_utils::{HashMap, HashSet};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
 
-use bevy_utils::{HashMap, HashSet};
-
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 use crate::{
     bundle::Bundle,
