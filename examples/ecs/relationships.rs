@@ -39,8 +39,8 @@ fn main() {
     let mut world = World::new();
 
     // We're going to spawn a few entities and relate them to each other in a complex way.
-    // To start, Alice will target Bob, Bob will target Charlie,
-    // and Charlie will target Alice. This creates a loop in the relationship graph.
+    // To start, Bob will target Alice, Charlie will target Bob,
+    // and Alice will target Charlie. This creates a loop in the relationship graph.
     //
     // Then, we'll spawn Devon, who will target Charlie,
     // creating a more complex graph with a branching structure.
