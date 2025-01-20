@@ -4,11 +4,15 @@
 //! replacing the path as appropriate.
 //! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
+//! Pass `--help` to see all the supported arguments.
 //!
 //! If you want to hot reload asset changes, enable the `file_watcher` cargo feature.
 
+use argh::FromArgs;
 use bevy::{
+    core_pipeline::prepass::DepthPrepass,
     prelude::*,
+    render::experimental::occlusion_culling::OcclusionCulling,
     render::primitives::{Aabb, Sphere},
 };
 
@@ -24,7 +28,26 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use morph_viewer_plugin::MorphViewerPlugin;
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
+/// A simple glTF scene viewer made with Bevy
+#[derive(FromArgs, Resource)]
+struct Args {
+    /// the path to the glTF scene
+    #[argh(
+        positional,
+        default = "\"assets/models/FlightHelmet/FlightHelmet.gltf\".to_string()"
+    )]
+    scene_path: String,
+    /// enable occlusion culling
+    #[argh(switch)]
+    occlusion_culling: Option<bool>,
+}
+
 fn main() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let args: Args = argh::from_env();
+    #[cfg(target_arch = "wasm32")]
+    let args: Args = Args::from_args(&[], &[]).unwrap();
+
     let mut app = App::new();
     app.add_plugins((
         DefaultPlugins
@@ -43,6 +66,7 @@ fn main() {
         SceneViewerPlugin,
         MorphViewerPlugin,
     ))
+    .insert_resource(args)
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
 
@@ -67,12 +91,10 @@ fn parse_scene(scene_path: String) -> (String, usize) {
     (scene_path, 0)
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let scene_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+    let scene_path = &args.scene_path;
     info!("Loading {}", scene_path);
-    let (file_path, scene_index) = parse_scene(scene_path);
+    let (file_path, scene_index) = parse_scene((*scene_path).clone());
 
     commands.insert_resource(SceneHandle::new(asset_server.load(file_path), scene_index));
 }
@@ -82,6 +104,7 @@ fn setup_scene_after_load(
     mut setup: Local<bool>,
     mut scene_handle: ResMut<SceneHandle>,
     asset_server: Res<AssetServer>,
+    args: Res<Args>,
     meshes: Query<(&GlobalTransform, Option<&Aabb>), With<Mesh3d>>,
 ) {
     if scene_handle.is_loaded && !*setup {
@@ -125,7 +148,7 @@ fn setup_scene_after_load(
         info!("{}", camera_controller);
         info!("{}", *scene_handle);
 
-        commands.spawn((
+        let mut camera = commands.spawn((
             Camera3d::default(),
             Projection::from(projection),
             Transform::from_translation(Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5))
@@ -144,6 +167,12 @@ fn setup_scene_after_load(
             },
             camera_controller,
         ));
+
+        // If occlusion culling was requested, include the relevant components.
+        // The Z-prepass is currently required.
+        if args.occlusion_culling == Some(true) {
+            camera.insert((DepthPrepass, OcclusionCulling));
+        }
 
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light {

@@ -202,6 +202,18 @@ impl<T: NoUninit> RawBufferVec<T> {
     }
 }
 
+impl<T> RawBufferVec<T>
+where
+    T: NoUninit + Default,
+{
+    pub fn grow_set(&mut self, index: u32, value: T) {
+        while index as usize + 1 > self.len() {
+            self.values.push(T::default());
+        }
+        self.values[index as usize] = value;
+    }
+}
+
 impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {

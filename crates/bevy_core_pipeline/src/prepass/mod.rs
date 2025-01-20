@@ -78,6 +78,7 @@ pub struct DeferredPrepass;
 pub struct PreviousViewData {
     pub view_from_world: Mat4,
     pub clip_from_world: Mat4,
+    pub clip_from_view: Mat4,
 }
 
 #[derive(Resource, Default)]
