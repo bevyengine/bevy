@@ -278,6 +278,7 @@ bevy_log = { path = "../bevy_log", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", features = [
   "bevy_reflect",
 ] }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
