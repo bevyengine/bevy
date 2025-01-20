@@ -136,6 +136,11 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
+    ///
+    /// Check the list of types which implement [`RelationshipSourceCollection`] for the data structures that can be used inside of your component.
+    /// If you need a new collection type, you can implement the [`RelationshipSourceCollection`] trait
+    /// for a type you own which wraps the collection you want to use (to avoid the orphan rule),
+    /// or open an issue on the Bevy repository to request first-party support for your collection type.
     type Collection: RelationshipSourceCollection;
 
     /// Returns a reference to the stored [`RelationshipTarget::Collection`].
