@@ -237,7 +237,7 @@ unsafe impl EntitySetIterator for Iter<'_> {}
 pub struct IntoIter<S = EntityHash>(set::IntoIter<Entity>, PhantomData<S>);
 
 impl IntoIter {
-    /// Returns the inner [`IntoIter`](hash_set::IntoIter).
+    /// Returns the inner [`IntoIter`](set::IntoIter).
     pub fn into_inner(self) -> set::IntoIter<Entity> {
         self.0
     }
@@ -301,7 +301,7 @@ unsafe impl EntitySetIterator for IntoIter {}
 pub struct Drain<'a, S = EntityHash>(set::Drain<'a, Entity>, PhantomData<S>);
 
 impl<'a> Drain<'a> {
-    /// Returns the inner [`Drain`](hash_set::Drain).
+    /// Returns the inner [`Drain`](set::Drain).
     pub fn into_inner(self) -> set::Drain<'a, Entity> {
         self.0
     }
