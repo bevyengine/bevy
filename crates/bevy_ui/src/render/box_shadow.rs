@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, NodeContext, RenderUiSystem,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ResolvedTargetSize, RenderUiSystem,
     ResolvedBorderRadius, ResolvedTargetCamera, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
@@ -244,7 +244,7 @@ pub fn extract_shadows(
             &BoxShadow,
             Option<&CalculatedClip>,
             &ResolvedTargetCamera,
-            &NodeContext,
+            &ResolvedTargetSize,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,

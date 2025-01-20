@@ -331,8 +331,8 @@ impl From<Vec2> for ScrollPosition {
     Visibility,
     VisibilityClass,
     ZIndex,
-    NodeContext,
-    NodeScaleFactor,
+    ResolvedTargetSize,
+    ResolvedScaleFactor,
     ResolvedTargetCamera
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
@@ -2747,15 +2747,15 @@ impl Default for BoxShadowSamples {
 /// Local scale factor for this node.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct NodeScaleFactor(pub(crate) f32);
+pub struct ResolvedScaleFactor(pub(crate) f32);
 
-impl Default for NodeScaleFactor {
+impl Default for ResolvedScaleFactor {
     fn default() -> Self {
         Self(1.0)
     }
 }
 
-impl NodeScaleFactor {
+impl ResolvedScaleFactor {
     pub fn get(&self) -> f32 {
         self.0
     }
@@ -2764,15 +2764,15 @@ impl NodeScaleFactor {
 /// Local context for this node.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct NodeContext(pub(crate) UVec2);
+pub struct ResolvedTargetSize(pub(crate) UVec2);
 
-impl Default for NodeContext {
+impl Default for ResolvedTargetSize {
     fn default() -> Self {
         Self(UVec2::ZERO)
     }
 }
 
-impl NodeContext {
+impl ResolvedTargetSize {
     pub fn get(&self) -> UVec2 {
         self.0
     }
