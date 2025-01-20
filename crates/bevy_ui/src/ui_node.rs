@@ -2616,9 +2616,9 @@ mod tests {
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
-pub struct TargetCamera(pub Entity);
+pub struct UiTargetCamera(pub Entity);
 
-impl TargetCamera {
+impl UiTargetCamera {
     pub fn entity(&self) -> Entity {
         self.0
     }

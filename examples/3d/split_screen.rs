@@ -84,7 +84,7 @@ fn setup(
         // Set up UI
         commands
             .spawn((
-                TargetCamera(camera),
+                UiTargetCamera(camera),
                 Node {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),

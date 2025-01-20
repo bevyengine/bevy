@@ -1,19 +1,24 @@
 use crate::{
-    experimental::UiChildren, BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ResolvedScaleFactor, ResolvedTargetSize, ScrollPosition, Val,
+    experimental::{UiChildren, UiRootNodes},
+    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, LayoutConfig, Node, Outline,
+    OverflowAxis, ResolvedScaleFactor, ResolvedTargetCamera, ResolvedTargetSize, ScrollPosition,
+    UiScale, UiTargetCamera, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashMap, EntityHashSet},
+    entity::{Entity, EntityBorrow, EntityHashMap, EntityHashSet},
+    event::EventReader,
     query::With,
     removal_detection::RemovedComponents,
-    system::{Commands, Local, Query, ResMut, SystemParam},
+    system::{Commands, Local, Query, Res, ResMut, SystemParam},
     world::Ref,
 };
 use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
+use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
+use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use tracing::warn;
 use ui_surface::UiSurface;
@@ -70,6 +75,7 @@ pub enum LayoutError {
 #[doc(hidden)]
 #[derive(SystemParam)]
 pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
+    removed_cameras: RemovedComponents<'w, 's, Camera>,
     removed_children: RemovedComponents<'w, 's, Children>,
     removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
     removed_nodes: RemovedComponents<'w, 's, Node>,
@@ -85,7 +91,7 @@ pub struct UiLayoutSystemBuffers {
 
 struct CameraLayoutInfo {
     size: UVec2,
-    resized: bool,
+    //resized: bool,
     scale_factor: f32,
     root_nodes: Vec<Entity>,
 }
@@ -94,7 +100,14 @@ struct CameraLayoutInfo {
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
+    // primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
+    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
+    ui_scale: Res<UiScale>,
+    target_query: Query<(Entity, &ResolvedTargetCamera)>,
+    //mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
+    mut resize_events: EventReader<bevy_window::WindowResized>,
     mut ui_surface: ResMut<UiSurface>,
+    root_nodes: UiRootNodes,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
@@ -124,6 +137,52 @@ pub fn ui_layout_system(
         camera_layout_info,
     } = &mut *buffers;
 
+    let (cameras, _) = camera_data;
+
+    //let default_camera = default_ui_camera.get();
+    // let camera_with_default = |target_camera: Option<&UiTargetCamera>| {
+    //     target_camera.map(UiTargetCamera::entity).or(default_camera)
+    // };
+
+    resized_windows.clear();
+    resized_windows.extend(resize_events.read().map(|event| event.window));
+    let mut calculate_camera_layout_info = |camera: &Camera| {
+        let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
+        let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
+        // let camera_target = camera
+        //     .target
+        //     .normalize(primary_window.get_single().map(|(e, _)| e).ok());
+        // let resized = matches!(camera_target,
+        //   Some(NormalizedRenderTarget::Window(window_ref)) if resized_windows.contains(&window_ref.entity())
+        // );
+        CameraLayoutInfo {
+            size,
+           // resized,
+            scale_factor: scale_factor * ui_scale.0,
+            root_nodes: interned_root_nodes.pop().unwrap_or_default(),
+        }
+    };
+
+    // Precalculate the layout info for each camera, so we have fast access to it for each node
+    camera_layout_info.clear();
+
+    target_query
+        .iter_many(root_nodes.iter())
+        .for_each(|(entity, target)| {
+                    let Ok((_, camera)) = cameras.get(target.0) else {
+                        warn!(
+                            "UiTargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
+                            target.0
+                        );
+                        return;
+                    };
+                    let layout_info = camera_layout_info
+                        .entry(target.0)
+                        .or_insert_with(|| calculate_camera_layout_info(camera));
+                    layout_info.root_nodes.push(entity);
+            
+            });
+
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
@@ -145,6 +204,20 @@ pub fn ui_layout_system(
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
+
+    // clean up removed cameras
+    ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
+
+    // update camera children
+    for (camera_id, _) in cameras.iter() {
+        let root_nodes =
+            if let Some(CameraLayoutInfo { root_nodes, .. }) = camera_layout_info.get(&camera_id) {
+                root_nodes.iter().cloned()
+            } else {
+                [].iter().cloned()
+            };
+        ui_surface.set_camera_children(camera_id, root_nodes);
+    }
 
     // update and remove children
     for entity in removed_components.removed_children.read() {
@@ -540,7 +613,7 @@ mod tests {
         let camera_entity = world.spawn(Camera2d).id();
 
         let ui_entity = world
-            .spawn((Node::default(), TargetCamera(camera_entity)))
+            .spawn((Node::default(), UiTargetCamera(camera_entity)))
             .id();
 
         // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
@@ -845,7 +918,7 @@ mod tests {
             for moving_ui_entity in moving_ui_query.iter() {
                 commands
                     .entity(moving_ui_entity)
-                    .insert(TargetCamera(target_camera_entity))
+                    .insert(UiTargetCamera(target_camera_entity))
                     .insert(Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(pos.y),
@@ -863,8 +936,8 @@ mod tests {
         ) {
             world.run_system_once_with(move_ui_node, new_pos).unwrap();
             ui_schedule.run(world);
-            let (ui_node_entity, TargetCamera(target_camera_entity)) = world
-                .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
+            let (ui_node_entity, UiTargetCamera(target_camera_entity)) = world
+                .query_filtered::<(Entity, &UiTargetCamera), With<MovingUiNode>>()
                 .get_single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);

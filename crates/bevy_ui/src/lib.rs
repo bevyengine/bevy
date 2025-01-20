@@ -153,7 +153,7 @@ impl Plugin for UiPlugin {
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
             .register_type::<ScrollPosition>()
-            .register_type::<TargetCamera>()
+            .register_type::<UiTargetCamera>()
             .register_type::<ImageNode>()
             .register_type::<ImageNodeSize>()
             .register_type::<UiRect>()

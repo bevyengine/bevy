@@ -2,8 +2,8 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, DefaultUiCamera, Display, Node, ResolvedTargetSize, ResolvedScaleFactor, OverflowAxis,
-    ResolvedTargetCamera, TargetCamera, UiScale,
+    CalculatedClip, DefaultUiCamera, Display, Node, OverflowAxis, ResolvedScaleFactor,
+    ResolvedTargetCamera, ResolvedTargetSize, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -146,7 +146,7 @@ pub fn resolve_target_camera_system(
     images: Res<Assets<Image>>,
     camera_query: Query<&Camera>,
     window_query: Query<(Entity, &Window)>,
-    target_camera_query: Query<&TargetCamera>,
+    target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
     mut context_query: Query<(
         &mut ResolvedScaleFactor,
@@ -163,7 +163,7 @@ pub fn resolve_target_camera_system(
         let camera_entity = target_camera_query
             .get(root_entity)
             .ok()
-            .map(TargetCamera::entity)
+            .map(UiTargetCamera::entity)
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
