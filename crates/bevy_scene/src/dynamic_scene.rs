@@ -2,7 +2,7 @@ use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap, SceneEntityMapper},
+    entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
@@ -200,7 +200,8 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::{
-            Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
+            hash_map::EntityHashMap, Entity, EntityMapper, MapEntities, VisitEntities,
+            VisitEntitiesMut,
         },
         hierarchy::Parent,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
