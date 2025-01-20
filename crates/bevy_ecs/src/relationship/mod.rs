@@ -130,6 +130,11 @@ pub trait Relationship: Component + Sized {
     }
 }
 
+/// The iterator type for the source entities in a [`RelationshipTarget`] collection,
+/// as defined in the [`RelationshipSourceCollection`] trait.
+pub type SourceIter<'w, R> =
+    <<R as RelationshipTarget>::Collection as RelationshipSourceCollection>::SourceIter<'w>;
+
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
@@ -215,10 +220,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// Iterates the entities stored in this collection.
     #[inline]
-    fn iter(
-        &self,
-    ) -> <<Self as RelationshipTarget>::Collection as RelationshipSourceCollection>::SourceIter<'_>
-    {
+    fn iter(&self) -> SourceIter<'_, Self> {
         self.collection().iter()
     }
 

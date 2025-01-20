@@ -9,6 +9,8 @@ pub trait RelationshipSourceCollection {
     /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
     /// to ensure that all methods and traits (like [`DoubleEndedIterator`]) of the underlying collection's iterator
     /// are available to the user when implemented without unduly restricting the possible collections.
+    ///
+    /// The [`SourceIter`](super::SourceIter) type alias can be helpful to reduce confusion when working with this associated type.
     type SourceIter<'a>: Iterator<Item = Entity>
     where
         Self: 'a;
