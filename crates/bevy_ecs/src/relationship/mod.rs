@@ -28,7 +28,7 @@ use log::warn;
 /// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does
 /// not already exist, and the "source" entity is automatically added to the [`RelationshipTarget`] collection (this is done via "component hooks").
 ///
-/// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`Parent`](crate::hierarchy::Parent)
+/// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`ChildOf`](crate::hierarchy::ChildOf)
 /// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipTarget`].
 ///
 /// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
@@ -38,10 +38,10 @@ use log::warn;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct Parent(pub Entity);
+/// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = Parent)]
+/// #[relationship_target(relationship = ChildOf)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
@@ -53,10 +53,10 @@ use log::warn;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct Parent(pub Entity);
+/// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = Parent, despawn_descendants)]
+/// #[relationship_target(relationship = ChildOf, despawn_descendants)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
