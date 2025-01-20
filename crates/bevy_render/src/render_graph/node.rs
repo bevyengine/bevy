@@ -23,6 +23,9 @@ pub use bevy_render_macros::RenderLabel;
 use super::{InternedRenderSubGraph, RenderSubGraph};
 
 define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(RenderLabel)]`"
+    )]
     /// A strongly-typed class of labels used to identify a [`Node`] in a render graph.
     RenderLabel,
     RENDER_LABEL_INTERNER

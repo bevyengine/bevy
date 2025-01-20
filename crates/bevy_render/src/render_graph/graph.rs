@@ -14,6 +14,9 @@ use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
 pub use bevy_render_macros::RenderSubGraph;
 
 define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(RenderSubGraph)]`"
+    )]
     /// A strongly-typed class of labels used to identify a [`SubGraph`] in a render graph.
     RenderSubGraph,
     RENDER_SUB_GRAPH_INTERNER
