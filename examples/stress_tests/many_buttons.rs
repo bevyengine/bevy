@@ -73,7 +73,7 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings {
@@ -248,7 +248,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
 }
 
 fn spawn_button(
-    commands: &mut ChildBuilder,
+    commands: &mut ChildSpawnerCommands,
     background_color: Color,
     buttons: f32,
     column: usize,
@@ -296,5 +296,5 @@ fn spawn_button(
 }
 
 fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<Parent>)>) {
-    commands.entity(*root_node).despawn_recursive();
+    commands.entity(*root_node).despawn();
 }

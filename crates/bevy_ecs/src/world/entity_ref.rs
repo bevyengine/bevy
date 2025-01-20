@@ -12,7 +12,10 @@ use crate::{
     removal_detection::RemovedComponentEvents,
     storage::Storages,
     system::{IntoObserverSystem, Resource},
-    world::{error::EntityComponentError, DeferredWorld, Mut, World},
+    world::{
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DeferredWorld, Mut, Ref,
+        World, ON_DESPAWN, ON_REMOVE, ON_REPLACE,
+    },
 };
 use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
@@ -27,8 +30,6 @@ use core::{
     mem::MaybeUninit,
 };
 use thiserror::Error;
-
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -388,12 +389,11 @@ impl PartialEq for EntityRef<'_> {
 
 impl Eq for EntityRef<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityRef<'_> {
     /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -944,12 +944,11 @@ impl PartialEq for EntityMut<'_> {
 
 impl Eq for EntityMut<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for EntityMut<'_> {
     /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -1001,7 +1000,7 @@ impl<'w> EntityWorldMut<'w> {
             self.entity,
             self.world
                 .entities()
-                .entity_does_not_exist_error_details_message(self.entity)
+                .entity_does_not_exist_error_details(self.entity)
         );
     }
 
@@ -1758,7 +1757,10 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
-        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Needs to be documented; see #17345."
+        )]
         unsafe {
             Self::move_entity_from_remove::<false>(
                 entity,
@@ -2094,6 +2096,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// See [`World::despawn`] for more details.
     ///
+    /// # Note
+    ///
+    /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. This results in "recursive despawn" behavior.
+    ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
@@ -2103,6 +2110,15 @@ impl<'w> EntityWorldMut<'w> {
             #[cfg(feature = "track_location")]
             Location::caller(),
         );
+    }
+
+    /// Despawns the provided entity and its descendants.
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity.despawn(), which now automatically despawns recursively."
+    )]
+    pub fn despawn_recursive(self) {
+        self.despawn();
     }
 
     pub(crate) fn despawn_with_caller(
@@ -2122,6 +2138,10 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
+            if archetype.has_despawn_observer() {
+                deferred_world.trigger_observers(ON_DESPAWN, self.entity, archetype.components());
+            }
+            deferred_world.trigger_on_despawn(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
             }
@@ -3178,12 +3198,11 @@ impl PartialEq for FilteredEntityRef<'_> {
 
 impl Eq for FilteredEntityRef<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityRef<'_> {
     /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -3505,12 +3524,11 @@ impl PartialEq for FilteredEntityMut<'_> {
 
 impl Eq for FilteredEntityMut<'_> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl PartialOrd for FilteredEntityMut<'_> {
     /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -3653,12 +3671,11 @@ impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
     /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -3793,12 +3810,11 @@ impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
 
 impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
 
-#[expect(clippy::non_canonical_partial_ord_impl)]
 impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
     /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.entity().partial_cmp(&other.entity())
+        Some(self.cmp(other))
     }
 }
 
@@ -5275,7 +5291,8 @@ mod tests {
             .resource_mut::<TestVec>()
             .0
             .push("OrdA hook on_insert");
-        world.commands().entity(entity).despawn();
+        world.commands().entity(entity).remove::<OrdA>();
+        world.commands().entity(entity).remove::<OrdB>();
     }
 
     fn ord_a_hook_on_replace(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
@@ -5383,12 +5400,12 @@ mod tests {
             "OrdB observer on_insert",
             "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
             "OrdA observer on_replace", // start of despawn
-            "OrdB observer on_replace",
             "OrdA hook on_replace",
-            "OrdB hook on_replace",
             "OrdA observer on_remove",
-            "OrdB observer on_remove",
             "OrdA hook on_remove",
+            "OrdB observer on_replace",
+            "OrdB hook on_replace",
+            "OrdB observer on_remove",
             "OrdB hook on_remove",
         ];
         world.flush();

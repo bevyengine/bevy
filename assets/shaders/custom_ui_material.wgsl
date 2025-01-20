@@ -11,33 +11,24 @@
 
 @fragment
 fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
-    let point = (in.uv - 0.5) * in.size;
+    // normalized position relative to the center of the UI node
+    let r = in.uv - 0.5;
 
-    // select the correct horizontal and vertical borders width depending on the current position compared to the of the target rectangle
+    // normalized size of the border closest to the current position
     let b = vec2(
-        select(in.border_widths.x, in.border_widths.y, point.x < 0.),
-        select(in.border_widths.z, in.border_widths.w, point.y < 0.)
+        select(in.border_widths.x, in.border_widths.y, 0. < r.x),
+        select(in.border_widths.z, in.border_widths.w, 0. < r.y)
     );
 
-    // select the corner radii of either the left side corners or the right side corners depending on the current horizontal position compared to the center of the target rectangle
-    let rx = select(in.border_radius.xw, in.border_radius.yz, 0. < point.x);
-
-    // select the correct radii from the remaining corners according to the vertical position relative to the center
-    let r = select(rx.x, rx.y, 0. < point.y);
-
-    // distance of the current pixel from the nearest corner.
-    let d = 0.5 * in.size - abs(point);
-
-    // is the pixel inside the border on either the x or y axis
-    if any(d < b) {
-        // is the pixel distance along either the x and y axis less than the corner radius
-        if length(d) < r {
-            return corner_color;
-        } else {
-            return border_color;
-        }
+    // if the distance to the edge from the current position on any axis 
+    // is less than the border width on that axis then the position is within 
+    // the border and we return the border color
+    if any(0.5 - b < abs(r)) {
+        return border_color;
     }
 
+    // sample the texture at this position if it's to the left of the slider value
+    // otherwise return a fully transparent color
     if in.uv.x < slider {
         let output_color = textureSample(material_color_texture, material_color_sampler, in.uv) * color;
         return output_color;

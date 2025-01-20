@@ -293,8 +293,8 @@ pub fn debug_draw(
                         ..Default::default()
                     },
                 ))
-                .insert(PickingBehavior::IGNORE)
-                .insert(TargetCamera(camera));
+                .insert(Pickable::IGNORE)
+                .insert(UiTargetCamera(camera));
         }
     }
 }

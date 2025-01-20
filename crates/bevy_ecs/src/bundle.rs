@@ -246,6 +246,15 @@ impl<C: Component> DynamicBundle for C {
 
 macro_rules! tuple_impl {
     ($(#[$meta:meta])* $($name: ident),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
@@ -254,43 +263,57 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
-            #[allow(unused_variables)]
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            #[allow(unused_variables, unused_mut)]
-            #[allow(clippy::unused_unit)]
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
             unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                #[allow(unused_unsafe)]
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will not run anything in the unsafe block. Additionally, rewriting this to move the () outside of the unsafe would require putting the safety comment inside the tuple, hurting readability of the code."
+                )]
                 // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
             }
 
             fn register_required_components(
-                _components: &mut Components,
-                _storages: &mut Storages,
-                _required_components: &mut RequiredComponents,
+                components: &mut Components,
+                storages: &mut Storages,
+                required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(_components, _storages, _required_components);)*
+                $(<$name as Bundle>::register_required_components(components, storages, required_components);)*
             }
         }
 
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
-            #[allow(unused_variables, unused_mut)]
             #[inline(always)]
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                #[allow(non_snake_case)]
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
                 let ($(mut $name,)*) = self;
                 $(
                     $name.get_components(&mut *func);
@@ -1021,7 +1044,6 @@ impl<'w> BundleInserter<'w> {
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
-        let table = self.table.as_mut();
         let archetype = self.archetype.as_ref();
 
         // SAFETY: All components in the bundle are guaranteed to exist in the World
@@ -1045,6 +1067,8 @@ impl<'w> BundleInserter<'w> {
                 );
             }
         }
+
+        let table = self.table.as_mut();
 
         // SAFETY: Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran

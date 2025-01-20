@@ -230,7 +230,7 @@ pub struct ExtractedUiTextureSlice {
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
@@ -256,7 +256,7 @@ pub fn extract_ui_texture_slices(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
             &ImageNode,
         )>,
     >,
@@ -265,11 +265,12 @@ pub fn extract_ui_texture_slices(
     let default_camera_entity = default_ui_camera.get();
 
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
+        else {
             continue;
         };
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -326,7 +327,7 @@ pub fn extract_ui_texture_slices(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
-                camera_entity,
+                extracted_camera_entity,
                 image_scale_mode,
                 atlas_rect,
                 flip_x: image.flip_x,
@@ -338,22 +339,34 @@ pub fn extract_ui_texture_slices(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 pub fn queue_ui_slices(
     extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    views: Query<(Entity, &ExtractedView)>,
+    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
-        let Ok((view_entity, view)) = views.get(extracted_slicer.camera_entity) else {
+        let Ok(default_camera_view) =
+            render_views.get_mut(extracted_slicer.extracted_camera_entity)
+        else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -373,6 +386,7 @@ pub fn queue_ui_slices(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }
@@ -435,7 +449,7 @@ pub fn prepare_ui_slices(
                             && texture_slices.image != AssetId::default()
                             && batch_image_handle != texture_slices.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(texture_slices.camera_entity)
+                            != Some(texture_slices.extracted_camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
@@ -445,7 +459,7 @@ pub fn prepare_ui_slices(
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: texture_slices.image,
-                                camera: texture_slices.camera_entity,
+                                camera: texture_slices.extracted_camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));

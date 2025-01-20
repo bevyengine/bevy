@@ -1,9 +1,4 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
@@ -158,7 +153,7 @@ impl Plugin for UiPlugin {
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
             .register_type::<ScrollPosition>()
-            .register_type::<TargetCamera>()
+            .register_type::<UiTargetCamera>()
             .register_type::<ImageNode>()
             .register_type::<ImageNodeSize>()
             .register_type::<UiRect>()

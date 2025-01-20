@@ -4,7 +4,6 @@ mod condition;
 mod config;
 mod executor;
 mod graph;
-#[allow(clippy::module_inception)]
 mod schedule;
 mod set;
 mod stepping;

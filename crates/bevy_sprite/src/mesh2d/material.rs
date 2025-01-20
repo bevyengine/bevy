@@ -5,7 +5,9 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::{AlphaMask2d, AlphaMask2dBinKey, Opaque2d, Opaque2dBinKey, Transparent2d},
+    core_2d::{
+        AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
+    },
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -484,7 +486,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
@@ -498,14 +499,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, visible_entities, msaa, tonemapping, dither) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
-        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view_entity) else {
+        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -583,7 +586,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     opaque_phase.add(
-                        (),
+                        BatchSetKey2d {
+                            indexed: mesh.indexed(),
+                        },
                         bin_key,
                         (*render_entity, *visible_entity),
                         binned_render_phase_type,
@@ -597,7 +602,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     alpha_mask_phase.add(
-                        (),
+                        BatchSetKey2d {
+                            indexed: mesh.indexed(),
+                        },
                         bin_key,
                         (*render_entity, *visible_entity),
                         binned_render_phase_type,
@@ -616,6 +623,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        indexed: mesh.indexed(),
                     });
                 }
             }

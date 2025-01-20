@@ -446,7 +446,7 @@ impl<'w, 's> Commands<'w, 's> {
         fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
             panic!(
                 "Attempting to create an EntityCommands for entity {entity}, which {}",
-                entities.entity_does_not_exist_error_details_message(entity)
+                entities.entity_does_not_exist_error_details(entity)
             );
         }
 
@@ -1699,8 +1699,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// # Example
     ///
@@ -1723,11 +1723,24 @@ impl<'a> EntityCommands<'a> {
     pub fn despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), error_handler::warn());
     }
+    /// Despawns the provided entity and its descendants.
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity.despawn(), which now automatically despawns recursively."
+    )]
+    pub fn despawn_recursive(&mut self) {
+        self.despawn();
+    }
 
     /// Despawns the entity.
     ///
     /// This will not emit a warning if the entity does not exist, essentially performing
     /// the same function as [`Self::despawn`] without emitting warnings.
+    ///
+    /// # Note
+    ///
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that are configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), error_handler::silent());
     }
@@ -2149,7 +2162,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp, clippy::approx_constant)]
 mod tests {
     use crate::{
         self as bevy_ecs,
@@ -2163,7 +2175,10 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
     };
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how `Drop` behavior works in regards to SparseSet storage, and as such is solely a wrapper around `DropCk` to make it use the SparseSet storage. Because of this, the inner field is intentionally never read."
+    )]
     #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct SparseDropCk(DropCk);

@@ -147,10 +147,21 @@ impl World {
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
     fn bootstrap(&mut self) {
-        assert_eq!(ON_ADD, self.register_component::<OnAdd>());
-        assert_eq!(ON_INSERT, self.register_component::<OnInsert>());
-        assert_eq!(ON_REPLACE, self.register_component::<OnReplace>());
-        assert_eq!(ON_REMOVE, self.register_component::<OnRemove>());
+        // The order that we register these events is vital to ensure that the constants are correct!
+        let on_add = OnAdd::register_component_id(self);
+        assert_eq!(ON_ADD, on_add);
+
+        let on_insert = OnInsert::register_component_id(self);
+        assert_eq!(ON_INSERT, on_insert);
+
+        let on_replace = OnReplace::register_component_id(self);
+        assert_eq!(ON_REPLACE, on_replace);
+
+        let on_remove = OnRemove::register_component_id(self);
+        assert_eq!(ON_REMOVE, on_remove);
+
+        let on_despawn = OnDespawn::register_component_id(self);
+        assert_eq!(ON_DESPAWN, on_despawn);
     }
     /// Creates a new empty [`World`].
     ///
@@ -674,9 +685,7 @@ impl World {
         fn panic_no_entity(world: &World, entity: Entity) -> ! {
             panic!(
                 "Entity {entity} {}",
-                world
-                    .entities
-                    .entity_does_not_exist_error_details_message(entity)
+                world.entities.entity_does_not_exist_error_details(entity)
             );
         }
 
@@ -1074,18 +1083,25 @@ impl World {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
-        let entity_location = {
-            let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-            // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-            unsafe {
-                bundle_spawner.spawn_non_existent(
-                    entity,
-                    bundle,
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
-                )
-            }
+        let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+        let mut entity_location = unsafe {
+            bundle_spawner.spawn_non_existent(
+                entity,
+                bundle,
+                #[cfg(feature = "track_location")]
+                Location::caller(),
+            )
         };
+
+        // SAFETY: command_queue is not referenced anywhere else
+        if !unsafe { self.command_queue.is_empty() } {
+            self.flush_commands();
+            entity_location = self
+                .entities()
+                .get(entity)
+                .unwrap_or(EntityLocation::INVALID);
+        }
 
         #[cfg(feature = "track_location")]
         self.entities
@@ -1245,8 +1261,7 @@ impl World {
             Err(EntityFetchError::NoSuchEntity(..)) => {
                 return Err(EntityFetchError::NoSuchEntity(
                     entity,
-                    self.entities()
-                        .entity_does_not_exist_error_details_message(entity),
+                    self.entities().entity_does_not_exist_error_details(entity),
                 ))
             }
         };
@@ -1261,8 +1276,8 @@ impl World {
     ///
     /// # Note
     ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// ```
     /// use bevy_ecs::{component::Component, world::World};
@@ -1309,7 +1324,7 @@ impl World {
             true
         } else {
             if log_warning {
-                warn!("error[B0003]: {caller}: Could not despawn entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", self.entities.entity_does_not_exist_error_details_message(entity));
+                warn!("error[B0003]: {caller}: Could not despawn entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", self.entities.entity_does_not_exist_error_details(entity));
             }
             false
         }
@@ -2468,11 +2483,11 @@ impl World {
                             )
                         };
                     } else {
-                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(entity));
+                        panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
                 }
             } else {
-                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details_message(first_entity));
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {first_entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(first_entity));
             }
         }
     }
@@ -4320,5 +4335,35 @@ mod tests {
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
             Err(EntityFetchError::NoSuchEntity(e, ..)) if e == e1));
+    }
+
+    #[cfg(feature = "track_location")]
+    #[test]
+    #[track_caller]
+    fn entity_spawn_despawn_tracking() {
+        use core::panic::Location;
+
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            Some(Location::caller())
+        );
+        world.despawn(entity);
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            Some(Location::caller())
+        );
+        let new = world.spawn_empty().id();
+        assert_eq!(entity.index(), new.index());
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            None
+        );
+        world.despawn(new);
+        assert_eq!(
+            world.entities.entity_get_spawned_or_despawned_by(entity),
+            None
+        );
     }
 }

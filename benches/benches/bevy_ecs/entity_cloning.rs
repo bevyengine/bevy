@@ -3,9 +3,9 @@ use core::hint::black_box;
 use benches::bench;
 use bevy_ecs::bundle::Bundle;
 use bevy_ecs::component::ComponentCloneHandler;
+use bevy_ecs::hierarchy::Parent;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, world::World};
-use bevy_hierarchy::{BuildChildren, CloneEntityHierarchyExt};
 use bevy_math::Mat4;
 use bevy_reflect::{GetTypeRegistration, Reflect};
 use criterion::{criterion_group, Bencher, Criterion, Throughput};
@@ -142,8 +142,7 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
 
         for parent_id in current_hierarchy_level {
             for _ in 0..children {
-                let child_id = world.spawn(B::default()).set_parent(parent_id).id();
-
+                let child_id = world.spawn((B::default(), Parent(parent_id))).id();
                 hierarchy_level.push(child_id);
             }
         }
