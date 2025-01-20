@@ -101,9 +101,6 @@ pub struct Smaa {
     pub preset: SmaaPreset,
 }
 
-#[deprecated(since = "0.15.0", note = "Renamed to `Smaa`")]
-pub type SmaaSettings = Smaa;
-
 /// A preset quality level for SMAA.
 ///
 /// Higher values are slower but result in a higher-quality image.
@@ -914,7 +911,6 @@ impl ViewNode for SmaaNode {
 /// writes to the two-channel RG edges texture. Additionally, it ensures that
 /// all pixels it didn't touch are stenciled out so that phase 2 won't have to
 /// examine them.
-#[allow(clippy::too_many_arguments)]
 fn perform_edge_detection(
     render_context: &mut RenderContext,
     smaa_pipelines: &SmaaPipelines,
@@ -968,7 +964,6 @@ fn perform_edge_detection(
 /// This runs as part of the [`SmaaNode`]. It reads the edges texture and writes
 /// to the blend weight texture, using the stencil buffer to avoid processing
 /// pixels it doesn't need to examine.
-#[allow(clippy::too_many_arguments)]
 fn perform_blending_weight_calculation(
     render_context: &mut RenderContext,
     smaa_pipelines: &SmaaPipelines,
@@ -1027,7 +1022,6 @@ fn perform_blending_weight_calculation(
 ///
 /// This runs as part of the [`SmaaNode`]. It reads from the blend weight
 /// texture. It's the only phase that writes to the postprocessing destination.
-#[allow(clippy::too_many_arguments)]
 fn perform_neighborhood_blending(
     render_context: &mut RenderContext,
     smaa_pipelines: &SmaaPipelines,

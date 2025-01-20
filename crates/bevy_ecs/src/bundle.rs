@@ -23,7 +23,7 @@ use crate::{
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
@@ -246,6 +246,15 @@ impl<C: Component> DynamicBundle for C {
 
 macro_rules! tuple_impl {
     ($(#[$meta:meta])* $($name: ident),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
@@ -254,43 +263,57 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
-            #[allow(unused_variables)]
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            #[allow(unused_variables, unused_mut)]
-            #[allow(clippy::unused_unit)]
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
             unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                #[allow(unused_unsafe)]
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will not run anything in the unsafe block. Additionally, rewriting this to move the () outside of the unsafe would require putting the safety comment inside the tuple, hurting readability of the code."
+                )]
                 // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
             }
 
             fn register_required_components(
-                _components: &mut Components,
-                _storages: &mut Storages,
-                _required_components: &mut RequiredComponents,
+                components: &mut Components,
+                storages: &mut Storages,
+                required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(_components, _storages, _required_components);)*
+                $(<$name as Bundle>::register_required_components(components, storages, required_components);)*
             }
         }
 
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
-            #[allow(unused_variables, unused_mut)]
             #[inline(always)]
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                #[allow(non_snake_case)]
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
                 let ($(mut $name,)*) = self;
                 $(
                     $name.get_components(&mut *func);
@@ -336,12 +359,12 @@ impl SparseSetIndex for BundleId {
     }
 }
 
-// What to do on insertion if component already exists
+/// What to do on insertion if a component already exists.
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum InsertMode {
+pub enum InsertMode {
     /// Any existing components of a matching type will be overwritten.
     Replace,
-    /// Any existing components of a matching type will kept unchanged.
+    /// Any existing components of a matching type will be left unchanged.
     Keep,
 }
 
@@ -504,7 +527,6 @@ impl BundleInfo {
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
-    #[allow(clippy::too_many_arguments)]
     unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
@@ -516,7 +538,7 @@ impl BundleInfo {
         change_tick: Tick,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -535,14 +557,14 @@ impl BundleInfo {
                             table_row,
                             component_ptr,
                             change_tick,
-                            #[cfg(feature = "track_change_detection")]
+                            #[cfg(feature = "track_location")]
                             caller,
                         ),
                         (ComponentStatus::Existing, InsertMode::Replace) => column.replace(
                             table_row,
                             component_ptr,
                             change_tick,
-                            #[cfg(feature = "track_change_detection")]
+                            #[cfg(feature = "track_location")]
                             caller,
                         ),
                         (ComponentStatus::Existing, InsertMode::Keep) => {
@@ -561,7 +583,7 @@ impl BundleInfo {
                         entity,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -576,7 +598,7 @@ impl BundleInfo {
                 change_tick,
                 table_row,
                 entity,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -594,7 +616,6 @@ impl BundleInfo {
     /// This method _should not_ be called outside of [`BundleInfo::write_components`].
     /// For more information, read the [`BundleInfo::write_components`] safety docs.
     /// This function inherits the safety requirements defined there.
-    #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn initialize_required_component(
         table: &mut Table,
         sparse_sets: &mut SparseSets,
@@ -604,7 +625,7 @@ impl BundleInfo {
         component_id: ComponentId,
         storage_type: StorageType,
         component_ptr: OwningPtr,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         {
             match storage_type {
@@ -617,7 +638,7 @@ impl BundleInfo {
                         table_row,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -630,7 +651,7 @@ impl BundleInfo {
                         entity,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -1019,11 +1040,10 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
-        let table = self.table.as_mut();
         let archetype = self.archetype.as_ref();
 
         // SAFETY: All components in the bundle are guaranteed to exist in the World
@@ -1048,6 +1068,8 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
+        let table = self.table.as_mut();
+
         // SAFETY: Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = self.archetype.as_mut();
@@ -1070,7 +1092,7 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1112,7 +1134,7 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1195,7 +1217,7 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1330,7 +1352,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -1355,7 +1377,7 @@ impl<'w> BundleSpawner<'w> {
                 self.change_tick,
                 bundle,
                 InsertMode::Replace,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
             entities.set(entity.index(), location);
@@ -1404,7 +1426,7 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
@@ -1412,7 +1434,7 @@ impl<'w> BundleSpawner<'w> {
             self.spawn_non_existent(
                 entity,
                 bundle,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -1643,6 +1665,7 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 mod tests {
     use crate as bevy_ecs;
     use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+    use alloc::vec;
 
     #[derive(Component)]
     struct A;

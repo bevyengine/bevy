@@ -135,6 +135,7 @@ unsafe impl<T: TrustedEntityBorrow> TrustedEntityBorrow for Arc<T> {}
 /// [`into_iter()`]: IntoIterator::into_iter
 /// [`iter_many_unique`]: crate::system::Query::iter_many_unique
 /// [`iter_many_unique_mut`]: crate::system::Query::iter_many_unique_mut
+/// [`Vec`]: alloc::vec::Vec
 pub trait EntitySet: IntoIterator<IntoIter: EntitySetIterator> {}
 
 impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
@@ -379,25 +380,26 @@ impl<I: Iterator<Item: TrustedEntityBorrow> + Debug> Debug for UniqueEntityIter<
 
 #[cfg(test)]
 mod tests {
-    #[allow(unused_imports)]
+    use alloc::{vec, vec::Vec};
+
     use crate::prelude::{Schedule, World};
 
-    #[allow(unused_imports)]
     use crate::component::Component;
+    use crate::entity::Entity;
     use crate::query::{QueryState, With};
     use crate::system::Query;
     use crate::world::Mut;
-    #[allow(unused_imports)]
     use crate::{self as bevy_ecs};
-    #[allow(unused_imports)]
-    use crate::{entity::Entity, world::unsafe_world_cell};
 
     use super::UniqueEntityIter;
 
     #[derive(Component, Clone)]
     pub struct Thing;
 
-    #[allow(clippy::iter_skip_zero)]
+    #[expect(
+        clippy::iter_skip_zero,
+        reason = "The `skip(0)` is used to ensure that the `Skip` iterator implements `EntitySet`, which is needed to pass the iterator as the `entities` parameter."
+    )]
     #[test]
     fn preserving_uniqueness() {
         let mut world = World::new();

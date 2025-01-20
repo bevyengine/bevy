@@ -27,7 +27,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
                 &mut out,
             );
         }
-        bevy_utils::tracing::info!("Layout tree for camera entity: {entity}\n{out}");
+        tracing::info!("Layout tree for camera entity: {entity}\n{out}");
     }
 }
 

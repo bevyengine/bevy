@@ -14,14 +14,12 @@ use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
-///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
 ///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// frame if it doesn't have a [`Parent`](bevy_ecs::hierarchy::Parent).
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///

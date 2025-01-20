@@ -1,7 +1,10 @@
-use alloc::collections::BTreeMap;
+#![expect(
+    clippy::module_inception,
+    reason = "This instance of module inception is being discussed; see #17344."
+)]
 use alloc::{
     boxed::Box,
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     format,
     string::{String, ToString},
     vec,
@@ -113,8 +116,13 @@ impl Schedules {
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
-        // label used when trace feature is enabled
-        #[allow(unused_variables)]
+        #[cfg_attr(
+            not(feature = "trace"),
+            expect(
+                unused_variables,
+                reason = "The `label` variable goes unused if the `trace` feature isn't active"
+            )
+        )]
         for (label, schedule) in &mut self.inner {
             #[cfg(feature = "trace")]
             let name = format!("{label:?}");
@@ -615,7 +623,7 @@ pub struct SystemNode {
 }
 
 impl SystemNode {
-    #![allow(missing_docs)]
+    /// Create a new [`SystemNode`]
     pub fn new(system: ScheduleSystem) -> Self {
         Self {
             inner: Some(system),

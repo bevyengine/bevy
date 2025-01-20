@@ -3,7 +3,7 @@ use crate::{
     self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
     UntypedHandle,
 };
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
     prelude::EventWriter,
     system::{Res, ResMut, Resource, SystemChangeTick},

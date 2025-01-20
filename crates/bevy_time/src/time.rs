@@ -1,5 +1,5 @@
 use bevy_ecs::system::Resource;
-use bevy_utils::Duration;
+use core::time::Duration;
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,

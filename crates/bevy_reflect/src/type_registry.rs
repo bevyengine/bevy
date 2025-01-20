@@ -79,8 +79,7 @@ pub trait GetTypeRegistration: 'static {
     ///
     /// This method is called by [`TypeRegistry::register`] to register any other required types.
     /// Often, this is done for fields of structs and enum variants to ensure all types are properly registered.
-    #[allow(unused_variables)]
-    fn register_type_dependencies(registry: &mut TypeRegistry) {}
+    fn register_type_dependencies(_registry: &mut TypeRegistry) {}
 }
 
 impl Default for TypeRegistry {
@@ -785,7 +784,10 @@ pub struct ReflectFromPtr {
     from_ptr_mut: unsafe fn(PtrMut) -> &mut dyn Reflect,
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We must interact with pointers here, which are inherently unsafe."
+)]
 impl ReflectFromPtr {
     /// Returns the [`TypeId`] that the [`ReflectFromPtr`] was constructed for.
     pub fn type_id(&self) -> TypeId {
@@ -837,7 +839,10 @@ impl ReflectFromPtr {
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We must interact with pointers here, which are inherently unsafe."
+)]
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
@@ -857,7 +862,10 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 }
 
 #[cfg(test)]
-#[allow(unsafe_code)]
+#[expect(
+    unsafe_code,
+    reason = "We must interact with pointers here, which are inherently unsafe."
+)]
 mod test {
     use super::*;
     use crate as bevy_reflect;

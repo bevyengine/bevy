@@ -1,5 +1,5 @@
 use bevy_ecs::system::Resource;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
 #[derive(Debug, Resource, Clone)]

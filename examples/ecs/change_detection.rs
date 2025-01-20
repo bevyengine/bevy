@@ -87,7 +87,7 @@ fn change_detection(
             component,
             component.is_added(),
             component.is_changed(),
-            // If you enable the `track_change_detection` feature, you can unlock the `changed_by()`
+            // If you enable the `track_location` feature, you can unlock the `changed_by()`
             // method. It returns the file and line number that the component or resource was
             // changed in. It's not recommended for released games, but great for debugging!
             component.changed_by()
@@ -100,7 +100,7 @@ fn change_detection(
             my_resource,
             my_resource.is_added(),
             my_resource.is_changed(),
-            my_resource.changed_by() // Like components, requires `track_change_detection` feature.
+            my_resource.changed_by() // Like components, requires `track_location` feature.
         );
     }
 }

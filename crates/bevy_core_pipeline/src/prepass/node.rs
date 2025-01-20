@@ -6,11 +6,11 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewUniformOffset},
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use crate::skybox::prepass::{RenderSkyboxPrepassPipeline, SkyboxPrepassBindGroup};
 
@@ -27,8 +27,8 @@ pub struct PrepassNode;
 
 impl ViewNode for PrepassNode {
     type ViewQuery = (
-        Entity,
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
@@ -43,8 +43,8 @@ impl ViewNode for PrepassNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            view,
             camera,
+            extracted_view,
             view_depth_texture,
             view_prepass_textures,
             view_uniform_offset,
@@ -63,8 +63,8 @@ impl ViewNode for PrepassNode {
         };
 
         let (Some(opaque_prepass_phase), Some(alpha_mask_prepass_phase)) = (
-            opaque_prepass_phases.get(&view),
-            alpha_mask_prepass_phases.get(&view),
+            opaque_prepass_phases.get(&extracted_view.retained_view_entity),
+            alpha_mask_prepass_phases.get(&extracted_view.retained_view_entity),
         ) else {
             return Ok(());
         };
@@ -120,7 +120,8 @@ impl ViewNode for PrepassNode {
             }
 
             // Opaque draws
-            if !opaque_prepass_phase.batchable_mesh_keys.is_empty()
+            if !opaque_prepass_phase.multidrawable_mesh_keys.is_empty()
+                || !opaque_prepass_phase.batchable_mesh_keys.is_empty()
                 || !opaque_prepass_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]

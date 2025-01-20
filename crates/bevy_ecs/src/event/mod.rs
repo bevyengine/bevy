@@ -32,6 +32,7 @@ pub use writer::EventWriter;
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use alloc::{vec, vec::Vec};
     use bevy_ecs::{event::*, system::assert_is_read_only_system};
     use bevy_ecs_macros::Event;
 
@@ -567,7 +568,6 @@ mod tests {
         assert!(last.is_none(), "EventMutator should be empty");
     }
 
-    #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_reader_iter_nth() {
         use bevy_ecs::prelude::*;
@@ -594,7 +594,6 @@ mod tests {
         schedule.run(&mut world);
     }
 
-    #[allow(clippy::iter_nth_zero)]
     #[test]
     fn test_event_mutator_iter_nth() {
         use bevy_ecs::prelude::*;

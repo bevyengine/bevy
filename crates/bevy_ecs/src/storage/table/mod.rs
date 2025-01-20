@@ -9,7 +9,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::HashMap;
 pub use column::*;
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     alloc::Layout,
@@ -85,11 +85,11 @@ impl TableId {
     }
 }
 
-/// A opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
+/// An opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
 ///
 /// Values of this type are retrievable from [`Archetype::entity_table_row`] and can be
 /// used alongside [`Archetype::table_id`] to fetch the exact table and row where an
-/// [`Entity`]'s
+/// [`Entity`]'s components are stored.
 ///
 /// Values of this type are only valid so long as entities have not moved around.
 /// Adding and removing components from an entity, or despawning it will invalidate
@@ -183,7 +183,7 @@ impl TableBuilder {
 /// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities
 /// in a [`World`].
 ///
-/// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
+/// Conceptually, a `Table` can be thought of as a `HashMap<ComponentId, Column>`, where
 /// each [`ThinColumn`] is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
 /// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
 /// entity). Fetching components from a table involves fetching the associated column for a
@@ -390,7 +390,7 @@ impl Table {
     }
 
     /// Fetches the calling locations that last changed the each component
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn get_changed_by_slice_for(
         &self,
         component_id: ComponentId,
@@ -433,7 +433,7 @@ impl Table {
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn get_changed_by(
         &self,
         component_id: ComponentId,
@@ -571,7 +571,7 @@ impl Table {
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             col.changed_by
                 .initialize_unchecked(len, UnsafeCell::new(Location::caller()));
         }
@@ -822,7 +822,9 @@ mod tests {
         ptr::OwningPtr,
         storage::{Storages, TableBuilder, TableId, TableRow, Tables},
     };
-    #[cfg(feature = "track_change_detection")]
+    use alloc::vec::Vec;
+
+    #[cfg(feature = "track_location")]
     use core::panic::Location;
 
     #[derive(Component)]
@@ -860,7 +862,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         Location::caller(),
                     );
                 });

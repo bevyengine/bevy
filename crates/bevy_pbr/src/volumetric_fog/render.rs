@@ -607,7 +607,6 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
 }
 
 /// Specializes volumetric fog pipelines for all views with that effect enabled.
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_volumetric_fog_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,

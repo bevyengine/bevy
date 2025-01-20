@@ -66,8 +66,8 @@ pub mod internal {
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::system::Resource;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
-    use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
+    use tracing::info;
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
@@ -210,7 +210,7 @@ pub mod internal {
     }
 
     fn setup_system() {
-        bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
+        tracing::warn!("This platform and/or configuration is not supported!");
     }
 
     impl Default for super::SystemInfo {

@@ -1,6 +1,6 @@
 [package]
 name = "bevy_ecs"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Bevy Engine's entity component system"
 homepage = "https://bevyengine.org"
@@ -28,11 +28,14 @@ bevy_reflect = ["dep:bevy_reflect"]
 ## Extends reflection support to functions.
 reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
 
+## Use the configurable global error handler as the default error handler
+configurable_error_handler = []
+
 # Debugging Features
 
 ## Enables `tracing` integration, allowing spans and other metrics to be reported
 ## through that framework.
-trace = ["std", "dep:tracing", "bevy_utils/tracing"]
+trace = ["std", "dep:tracing"]
 
 ## Enables a more detailed set of traces which may be noisy if left on by default.
 detailed_trace = ["trace"]
@@ -43,7 +46,7 @@ bevy_debug_stepping = []
 
 ## Provides more detailed tracking of the cause of various effects within the ECS.
 ## This will often provide more detailed error messages.
-track_change_detection = []
+track_location = []
 
 # Executor Backend
 
@@ -94,13 +97,13 @@ portable-atomic = [
 ]
 
 [dependencies]
-bevy_ptr = { path = "../bevy_ptr", version = "0.15.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev", default-features = false, optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev", default-features = false, features = [
+bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
-bevy_ecs_macros = { path = "macros", version = "0.15.0-dev" }
+bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
 
 bitflags = { version = "2.3", default-features = false }
 concurrent-queue = { version = "2.5.0", default-features = false }

@@ -3,6 +3,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
@@ -11,10 +12,18 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+#[cfg(feature = "std")]
+extern crate std;
+
 extern crate alloc;
 
 use alloc::sync::Arc;
+
+#[cfg(feature = "std")]
 use std::sync::Mutex;
+
+#[cfg(not(feature = "std"))]
+use spin::mutex::Mutex;
 
 mod event;
 mod monitor;
@@ -138,6 +147,7 @@ impl Plugin for WindowPlugin {
         }
 
         // Register event types
+        #[cfg(feature = "bevy_reflect")]
         app.register_type::<WindowEvent>()
             .register_type::<WindowResized>()
             .register_type::<RequestRedraw>()
@@ -159,6 +169,7 @@ impl Plugin for WindowPlugin {
             .register_type::<Monitor>();
 
         // Register window descriptor and related types
+        #[cfg(feature = "bevy_reflect")]
         app.register_type::<Window>()
             .register_type::<PrimaryWindow>();
     }

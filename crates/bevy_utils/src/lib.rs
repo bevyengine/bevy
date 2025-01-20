@@ -1,17 +1,16 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![expect(
-    unsafe_code,
-    reason = "Some utilities, such as cells, require unsafe code."
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -27,8 +26,6 @@ pub mod synccell;
 pub mod syncunsafecell;
 
 mod default;
-mod object_safe;
-pub use object_safe::assert_object_safe;
 mod once;
 #[cfg(feature = "std")]
 mod parallel_queue;
@@ -62,9 +59,8 @@ pub use foldhash::fast::{FixedState, FoldHasher as DefaultHasher, RandomState};
 pub use hashbrown;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
+#[cfg(any(feature = "std", target_arch = "wasm32"))]
 pub use time::*;
-#[cfg(feature = "tracing")]
-pub use tracing;
 
 #[cfg(feature = "alloc")]
 use core::any::TypeId;
@@ -367,20 +363,13 @@ impl<F: FnOnce()> OnDrop<F> {
 
 impl<F: FnOnce()> Drop for OnDrop<F> {
     fn drop(&mut self) {
+        #![expect(
+            unsafe_code,
+            reason = "Taking from a ManuallyDrop requires unsafe code."
+        )]
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
-    }
-}
-
-/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
-#[cfg(feature = "tracing")]
-#[macro_export]
-macro_rules! detailed_trace {
-    ($($tts:tt)*) => {
-        if cfg!(feature = "detailed_trace") {
-            $crate::tracing::trace!($($tts)*);
-        }
     }
 }
 

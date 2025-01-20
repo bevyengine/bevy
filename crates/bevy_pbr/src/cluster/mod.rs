@@ -23,7 +23,8 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{tracing::warn, HashSet};
+use bevy_utils::HashSet;
+use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
 use crate::MeshPipeline;
@@ -824,7 +825,7 @@ impl ViewClusterBuffers {
 // the number of light probes is irrelevant.
 fn pack_offset_and_counts(offset: usize, point_count: u32, spot_count: u32) -> u32 {
     ((offset as u32 & CLUSTER_OFFSET_MASK) << (CLUSTER_COUNT_SIZE * 2))
-        | (point_count & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE
+        | ((point_count & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE)
         | (spot_count & CLUSTER_COUNT_MASK)
 }
 

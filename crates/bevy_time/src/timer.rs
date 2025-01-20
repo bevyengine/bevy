@@ -1,7 +1,7 @@
 use crate::Stopwatch;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///
@@ -447,7 +447,6 @@ pub enum TimerMode {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 

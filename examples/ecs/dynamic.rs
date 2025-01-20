@@ -1,4 +1,7 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to work with dynamic components"
+)]
 
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
@@ -148,9 +151,7 @@ fn main() {
                 let mut builder = QueryBuilder::<FilteredEntityMut>::new(&mut world);
                 parse_query(rest, &mut builder, &component_names);
                 let mut query = builder.build();
-
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
-                    #[allow(deprecated)]
                     let terms = filtered_entity
                         .access()
                         .component_reads_and_writes()

@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
 #[derive(Default)]
-pub(crate) struct ObservedBy(pub(crate) Vec<Entity>);
+pub struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
@@ -50,7 +50,7 @@ impl Component for ObservedBy {
 
 /// Trait that holds functions for configuring interaction with observers during entity cloning.
 pub trait CloneEntityWithObserversExt {
-    /// Sets the option to automatically add cloned entities to the obsevers targeting source entity.
+    /// Sets the option to automatically add cloned entities to the observers targeting source entity.
     fn add_observers(&mut self, add_observers: bool) -> &mut Self;
 }
 

@@ -69,11 +69,11 @@ use crate::{
     },
     storage::{SparseSetIndex, TableId, TableRow},
 };
-use alloc::{borrow::ToOwned, string::String, vec::Vec};
+use alloc::vec::Vec;
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 
 #[cfg(feature = "serialize")]
@@ -592,7 +592,14 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
+    )]
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -786,7 +793,14 @@ impl Entities {
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
-    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
+    )]
     pub fn reserve(&mut self, additional: u32) {
         self.verify_flushed();
 
@@ -968,7 +982,7 @@ impl Entities {
 
     /// Sets the source code location from which this entity has last been spawned
     /// or despawned.
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     #[inline]
     pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: &'static Location) {
         let meta = self
@@ -979,31 +993,59 @@ impl Entities {
     }
 
     /// Returns the source code location from which this entity has last been spawned
-    /// or despawned. Returns `None` if this entity has never existed.
-    #[cfg(feature = "track_change_detection")]
+    /// or despawned. Returns `None` if its index has been reused by another entity
+    /// or if this entity has never existed.
+    #[cfg(feature = "track_location")]
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
     ) -> Option<&'static Location<'static>> {
         self.meta
             .get(entity.index() as usize)
+            .filter(|meta|
+                // Generation is incremented immediately upon despawn
+                (meta.generation == entity.generation)
+                || (meta.location.archetype_id == ArchetypeId::INVALID)
+                && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
             .and_then(|meta| meta.spawned_or_despawned_by)
     }
 
     /// Constructs a message explaining why an entity does not exists, if known.
-    pub(crate) fn entity_does_not_exist_error_details_message(&self, _entity: Entity) -> String {
-        #[cfg(feature = "track_change_detection")]
-        {
-            if let Some(location) = self.entity_get_spawned_or_despawned_by(_entity) {
-                format!("was despawned by {location}",)
-            } else {
-                "was never spawned".to_owned()
-            }
+    pub(crate) fn entity_does_not_exist_error_details(
+        &self,
+        _entity: Entity,
+    ) -> EntityDoesNotExistDetails {
+        EntityDoesNotExistDetails {
+            #[cfg(feature = "track_location")]
+            location: self.entity_get_spawned_or_despawned_by(_entity),
         }
-        #[cfg(not(feature = "track_change_detection"))]
-        {
-            "does not exist (enable `track_change_detection` feature for more details)".to_owned()
+    }
+}
+
+/// Helper struct that, when printed, will write the appropriate details
+/// regarding an entity that did not exist.
+#[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct EntityDoesNotExistDetails {
+    #[cfg(feature = "track_location")]
+    location: Option<&'static Location<'static>>,
+}
+
+impl fmt::Display for EntityDoesNotExistDetails {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        #[cfg(feature = "track_location")]
+        if let Some(location) = self.location {
+            write!(f, "was despawned by {location}")
+        } else {
+            write!(
+                f,
+                "does not exist (index has been reused or was never spawned)"
+            )
         }
+        #[cfg(not(feature = "track_location"))]
+        write!(
+            f,
+            "does not exist (enable `track_location` feature for more details)"
+        )
     }
 }
 
@@ -1014,7 +1056,7 @@ struct EntityMeta {
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     spawned_or_despawned_by: Option<&'static Location<'static>>,
 }
 
@@ -1023,7 +1065,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         spawned_or_despawned_by: None,
     };
 }
@@ -1065,6 +1107,7 @@ impl EntityLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::format;
 
     #[test]
     fn entity_niche_optimization() {
@@ -1149,7 +1192,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
+    #[expect(
+        clippy::nonminimal_bool,
+        reason = "This intentionally tests all possible comparison operators as separate functions; thus, we don't want to rewrite these comparisons to use different operators."
+    )]
     fn entity_comparison() {
         assert_eq!(
             Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()),

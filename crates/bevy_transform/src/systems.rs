@@ -1,13 +1,6 @@
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
-use bevy_ecs::{
-    change_detection::Ref,
-    prelude::{Changed, DetectChanges, Entity, Query, With, Without},
-    query::{Added, Or},
-    removal_detection::RemovedComponents,
-    system::{Local, ParamSet},
-};
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::prelude::*;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
@@ -186,13 +179,13 @@ unsafe fn propagate_recursive(
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
     use bevy_app::prelude::*;
     use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::systems::*;
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     #[test]
     fn correct_parent_removed() {
@@ -210,8 +203,8 @@ mod test {
         let root = commands.spawn(offset_transform(3.3)).id();
         let parent = commands.spawn(offset_transform(4.4)).id();
         let child = commands.spawn(offset_transform(5.5)).id();
-        commands.entity(parent).set_parent(root);
-        commands.entity(child).set_parent(parent);
+        commands.entity(parent).insert(Parent(root));
+        commands.entity(child).insert(Parent(parent));
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -224,7 +217,7 @@ mod test {
         // Remove parent of `parent`
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
-        commands.entity(parent).remove_parent();
+        commands.entity(parent).remove::<Parent>();
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -237,7 +230,7 @@ mod test {
         // Remove parent of `child`
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
-        commands.entity(child).remove_parent();
+        commands.entity(child).remove::<Parent>();
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -461,8 +454,29 @@ mod test {
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
         core::mem::swap(
-            &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
-            &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
+            #[expect(
+                unsafe_code,
+                reason = "Parent is not mutable but this is for a test to produce a scenario that cannot happen"
+            )]
+            // SAFETY: Parent is not mutable but this is for a test to produce a scenario that cannot happen
+            unsafe {
+                &mut *app
+                    .world_mut()
+                    .entity_mut(child)
+                    .get_mut_assume_mutable::<Parent>()
+                    .unwrap()
+            },
+            // SAFETY: Parent is not mutable but this is for a test to produce a scenario that cannot happen
+            #[expect(
+                unsafe_code,
+                reason = "Parent is not mutable but this is for a test to produce a scenario that cannot happen"
+            )]
+            unsafe {
+                &mut *temp
+                    .entity_mut(grandchild)
+                    .get_mut_assume_mutable::<Parent>()
+                    .unwrap()
+            },
         );
 
         app.update();
@@ -500,7 +514,7 @@ mod test {
             .abs_diff_eq(2. * translation, 0.1));
 
         // Reparent child
-        world.entity_mut(child).remove_parent();
+        world.entity_mut(child).remove::<Parent>();
         world.entity_mut(parent).add_child(child);
 
         // Run schedule to propagate transforms

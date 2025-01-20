@@ -1,4 +1,5 @@
 use crate::{meta::Settings, Asset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle};
+use alloc::boxed::Box;
 use atomicow::CowArc;
 use bevy_tasks::ConditionalSendFuture;
 use bevy_utils::HashMap;

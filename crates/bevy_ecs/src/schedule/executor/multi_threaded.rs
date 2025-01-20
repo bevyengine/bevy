@@ -4,7 +4,10 @@ use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
-use std::sync::{Mutex, MutexGuard};
+use std::{
+    eprintln,
+    sync::{Mutex, MutexGuard},
+};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
@@ -755,8 +758,10 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
 ) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
         .map(|condition| {

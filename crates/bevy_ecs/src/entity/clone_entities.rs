@@ -18,8 +18,9 @@ use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
     entity::Entity,
+    hierarchy::{Children, Parent},
     query::DebugCheckedUnwrap,
-    world::World,
+    world::{DeferredWorld, World},
 };
 
 /// Context for component clone handlers.
@@ -621,6 +622,29 @@ impl<'w> EntityCloneBuilder<'w> {
         self
     }
 
+    /// Sets the option to recursively clone entities.
+    /// When set to true all children will be cloned with the same options as the parent.
+    pub fn recursive(&mut self, recursive: bool) -> &mut Self {
+        if recursive {
+            self.override_component_clone_handler::<Children>(
+                ComponentCloneHandler::custom_handler(component_clone_children),
+            )
+        } else {
+            self.remove_component_clone_handler_override::<Children>()
+        }
+    }
+
+    /// Sets the option to add cloned entity as a child to the parent entity.
+    pub fn as_child(&mut self, as_child: bool) -> &mut Self {
+        if as_child {
+            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::custom_handler(
+                component_clone_parent,
+            ))
+        } else {
+            self.remove_component_clone_handler_override::<Parent>()
+        }
+    }
+
     /// Helper function that allows a component through the filter.
     fn filter_allow(&mut self, id: ComponentId) {
         if self.filter_allows_components {
@@ -662,6 +686,34 @@ impl<'w> EntityCloneBuilder<'w> {
     }
 }
 
+/// Clone handler for the [`Children`] component. Allows to clone the entity recursively.
+fn component_clone_children(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let children = ctx
+        .read_source_component::<Children>()
+        .expect("Source entity must have Children component")
+        .iter();
+    let parent = ctx.target();
+    for child in children {
+        let child_clone = world.commands().spawn_empty().id();
+        let mut clone_entity = ctx
+            .entity_cloner()
+            .with_source_and_target(*child, child_clone);
+        world.commands().queue(move |world: &mut World| {
+            clone_entity.clone_entity(world);
+            world.entity_mut(child_clone).insert(Parent(parent));
+        });
+    }
+}
+
+/// Clone handler for the [`Parent`] component. Allows to add clone as a child to the parent entity.
+fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let parent = ctx
+        .read_source_component::<Parent>()
+        .map(|p| p.0)
+        .expect("Source entity must have Parent component");
+    world.commands().entity(ctx.target()).insert(Parent(parent));
+}
+
 #[cfg(test)]
 mod tests {
     use super::ComponentCloneCtx;
@@ -671,6 +723,7 @@ mod tests {
         entity::EntityCloneBuilder,
         world::{DeferredWorld, World},
     };
+    use alloc::vec::Vec;
     use bevy_ecs_macros::require;
     use bevy_ptr::OwningPtr;
     use core::alloc::Layout;
@@ -679,6 +732,7 @@ mod tests {
     mod reflect {
         use super::*;
         use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
+        use alloc::vec;
         use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
 
         #[test]

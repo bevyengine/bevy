@@ -1,20 +1,15 @@
-use bevy_asset::AssetId;
-use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_math::{URect, UVec2};
-use bevy_render::{
-    render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-};
-use bevy_utils::{
-    tracing::{debug, error, warn},
-    HashMap,
-};
+use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
     RectToInsert, TargetBin,
 };
 use thiserror::Error;
+use tracing::{debug, error, warn};
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
+use crate::{Image, TextureFormatPixelInfo};
 use crate::{TextureAtlasLayout, TextureAtlasSources};
 
 #[derive(Debug, Error)]
@@ -155,16 +150,6 @@ impl<'a> TextureAtlasBuilder<'a> {
         }
     }
 
-    #[deprecated(
-        since = "0.14.0",
-        note = "TextureAtlasBuilder::finish() was not idiomatic. Use TextureAtlasBuilder::build() instead."
-    )]
-    pub fn finish(
-        &mut self,
-    ) -> Result<(TextureAtlasLayout, TextureAtlasSources, Image), TextureAtlasBuilderError> {
-        self.build()
-    }
-
     /// Consumes the builder, and returns the newly created texture atlas and
     /// the associated atlas layout.
     ///
@@ -178,8 +163,7 @@ impl<'a> TextureAtlasBuilder<'a> {
     /// # use bevy_sprite::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_asset::*;
-    /// # use bevy_render::prelude::*;
-    /// # use bevy_image::Image;
+    /// # use bevy_image::prelude::*;
     ///
     /// fn my_system(mut commands: Commands, mut textures: ResMut<Assets<Image>>, mut layouts: ResMut<Assets<TextureAtlasLayout>>) {
     ///     // Declare your builder

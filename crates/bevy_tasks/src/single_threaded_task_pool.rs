@@ -3,17 +3,58 @@ use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
+#[cfg(feature = "std")]
+use std::thread_local;
+
 #[cfg(feature = "portable-atomic")]
 use portable_atomic_util::Arc;
 
 #[cfg(not(feature = "portable-atomic"))]
 use alloc::sync::Arc;
 
-#[cfg(feature = "std")]
+#[cfg(all(
+    feature = "std",
+    any(feature = "async_executor", feature = "edge_executor")
+))]
 use crate::executor::LocalExecutor;
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(
+    not(feature = "std"),
+    any(feature = "async_executor", feature = "edge_executor")
+))]
 use crate::executor::Executor as LocalExecutor;
+
+#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
+mod dummy_executor {
+    use async_task::Task;
+    use core::{future::Future, marker::PhantomData};
+
+    /// Dummy implementation of a `LocalExecutor` to allow for a cleaner compiler error
+    /// due to missing feature flags.
+    #[doc(hidden)]
+    #[derive(Debug)]
+    pub struct LocalExecutor<'a>(PhantomData<fn(&'a ())>);
+
+    impl<'a> LocalExecutor<'a> {
+        /// Dummy implementation
+        pub const fn new() -> Self {
+            Self(PhantomData)
+        }
+
+        /// Dummy implementation
+        pub fn try_tick(&self) -> bool {
+            unimplemented!()
+        }
+
+        /// Dummy implementation
+        pub fn spawn<T: 'a>(&self, _: impl Future<Output = T> + 'a) -> Task<T> {
+            unimplemented!()
+        }
+    }
+}
+
+#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
+use dummy_executor::LocalExecutor;
 
 #[cfg(feature = "std")]
 thread_local! {

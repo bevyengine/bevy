@@ -4,9 +4,9 @@ mod render_device;
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::tracing::{error, info, info_span, warn};
 pub use graph_runner::*;
 pub use render_device::*;
+use tracing::{error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -36,6 +36,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     let render_adapter = world.resource::<RenderAdapter>();
 
     let res = RenderGraphRunner::run(
@@ -43,6 +44,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         render_device.clone(), // TODO: is this clone really necessary?
         diagnostics_recorder,
         &render_queue.0,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         &render_adapter.0,
         world,
         |encoder| {
@@ -97,8 +99,8 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         }
 
         #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
+        tracing::event!(
+            tracing::Level::INFO,
             message = "finished frame",
             tracy.frame_mark = true
         );

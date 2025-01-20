@@ -18,7 +18,7 @@ pub struct BlendInput<T> {
 
 /// An animatable value type.
 pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
-    /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
+    /// Interpolates between `a` and `b` with an interpolation factor of `time`.
     ///
     /// The `time` parameter here may not be clamped to the range `[0.0, 1.0]`.
     fn interpolate(a: &Self, b: &Self, time: f32) -> Self;
@@ -126,8 +126,7 @@ impl Animatable for bool {
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         inputs
             .max_by_key(|x| FloatOrd(x.weight))
-            .map(|input| input.value)
-            .unwrap_or(false)
+            .is_some_and(|input| input.value)
     }
 }
 
