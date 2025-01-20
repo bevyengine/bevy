@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use alloc::vec::Vec;
 use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},

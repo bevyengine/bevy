@@ -494,7 +494,6 @@ pub fn tuple_struct_debug(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
     #[derive(Reflect)]
     struct Ts(u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8, u8);

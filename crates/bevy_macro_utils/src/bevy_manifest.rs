@@ -1,12 +1,13 @@
 extern crate proc_macro;
 
-use std::sync::LazyLock;
+use std::sync::MutexGuard;
 
 use cargo_manifest_proc_macros::{
     CargoManifest, CrateReExportingPolicy, KnownReExportingCrate, PathPiece,
     TryResolveCratePathError,
 };
 use proc_macro::TokenStream;
+
 struct BevyReExportingPolicy;
 
 impl CrateReExportingPolicy for BevyReExportingPolicy {
@@ -19,29 +20,29 @@ impl CrateReExportingPolicy for BevyReExportingPolicy {
     }
 }
 
+const BEVY: &str = "bevy";
+
 const KNOWN_RE_EXPORTING_CRATE_BEVY: KnownReExportingCrate = KnownReExportingCrate {
-    re_exporting_crate_package_name: "bevy",
+    re_exporting_crate_package_name: BEVY,
     crate_re_exporting_policy: &BevyReExportingPolicy {},
 };
 
 const ALL_KNOWN_RE_EXPORTING_CRATES: &[&KnownReExportingCrate] = &[&KNOWN_RE_EXPORTING_CRATE_BEVY];
 
 /// The path to the `Cargo.toml` file for the Bevy project.
-pub struct BevyManifest {}
-
-const BEVY: &str = "bevy";
+pub struct BevyManifest(MutexGuard<'static, CargoManifest>);
 
 impl BevyManifest {
     /// Returns a global shared instance of the [`BevyManifest`] struct.
-    pub fn shared() -> &'static LazyLock<Self> {
-        static LAZY_SELF: LazyLock<BevyManifest> = LazyLock::new(|| BevyManifest {});
-        &LAZY_SELF
+    pub fn shared() -> Self {
+        Self(CargoManifest::shared())
     }
 
     /// Attempt to retrieve the [path](syn::Path) of a particular package in
     /// the [manifest](BevyManifest) by [name](str).
     pub fn maybe_get_path(&self, name: &str) -> Result<syn::Path, TryResolveCratePathError> {
-        CargoManifest::shared().try_resolve_crate_path(name, ALL_KNOWN_RE_EXPORTING_CRATES)
+        self.0
+            .try_resolve_crate_path(name, ALL_KNOWN_RE_EXPORTING_CRATES)
     }
 
     /// Returns the path for the crate with the given name.

@@ -827,8 +827,6 @@ mod tests {
     use alloc::{format, vec};
     use std::println;
 
-    pub use crate as bevy_ecs;
-
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestSchedule;
 

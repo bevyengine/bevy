@@ -584,7 +584,6 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
     #[derive(Reflect, Default)]
     struct MyStruct {
