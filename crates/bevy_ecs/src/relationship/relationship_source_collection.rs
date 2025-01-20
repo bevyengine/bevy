@@ -1,5 +1,6 @@
 use crate::entity::{Entity, EntityHashSet};
 use alloc::vec::Vec;
+use smallvec::SmallVec;
 
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
@@ -89,6 +90,32 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 }
 
+impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
+    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+
+    fn with_capacity(capacity: usize) -> Self {
+        SmallVec::with_capacity(capacity)
+    }
+
+    fn add(&mut self, entity: Entity) {
+        SmallVec::push(self, entity);
+    }
+
+    fn remove(&mut self, entity: Entity) {
+        if let Some(index) = <[Entity]>::iter(self).position(|e| *e == entity) {
+            SmallVec::remove(self, index);
+        }
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        <[Entity]>::iter(self).copied()
+    }
+
+    fn len(&self) -> usize {
+        SmallVec::len(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,5 +163,26 @@ mod tests {
         let rel_target = world.get::<RelTarget>(b).unwrap();
         let collection = rel_target.collection();
         assert_eq!(collection, &EntityHashSet::from([a]));
+    }
+
+    #[test]
+    fn smallvec_relationship_source_collection() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, despawn_descendants)]
+        struct RelTarget(SmallVec<[Entity; 4]>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Rel(b));
+
+        let rel_target = world.get::<RelTarget>(b).unwrap();
+        let collection = rel_target.collection();
+        assert_eq!(collection, &SmallVec::from_buf([a]));
     }
 }
