@@ -229,7 +229,7 @@ use core::{
 /// // This will panic!
 /// // EntityRef provides read access to ALL components on an entity.
 /// // When combined with &mut ComponentA in the same query, it creates
-/// // a conflict because EntityRef could read ComponentA while the &mut 
+/// // a conflict because EntityRef could read ComponentA while the &mut
 /// // attempts to modify it - violating Rust's borrowing rules of no
 /// // simultaneous read+write access.
 /// query: Query<(EntityRef, &mut ComponentA)>
@@ -253,8 +253,8 @@ use core::{
 /// # ) {}
 /// # bevy_ecs::system::assert_system_does_not_conflict(system);
 /// ```
-/// The fundamental rule: EntityRef's ability to read all components means it can never 
-/// coexist with mutable access. With/Without filters guarantee this by keeping the 
+/// The fundamental rule: EntityRef's ability to read all components means it can never
+/// coexist with mutable access. With/Without filters guarantee this by keeping the
 /// queries on completely separate entities.
 ///
 /// # Accessing query items
