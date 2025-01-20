@@ -1,6 +1,8 @@
 //! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
 
-use bevy::{prelude::*, reflect::TypePath, render::render_resource::*};
+use bevy::{
+    color::palettes::css::DARK_BLUE, prelude::*, reflect::TypePath, render::render_resource::*,
+};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
@@ -37,7 +39,7 @@ fn setup(
                     position_type: PositionType::Absolute,
                     width: Val::Px(905.0 * banner_scale_factor),
                     height: Val::Px(363.0 * banner_scale_factor),
-                    border: UiRect::all(Val::Px(20.)),
+                    border: UiRect::all(Val::Px(25.)),
                     ..default()
                 },
                 MaterialNode(ui_materials.add(CustomUiMaterial {
@@ -47,7 +49,13 @@ fn setup(
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
                     corner_color: LinearRgba::NONE.to_f32_array().into(),
                 })),
-                BorderRadius::bottom_right(Val::Px(15.)),
+                BorderRadius::all(Val::Px(25.)),
+                // UI material nodes can have outlines and shadows like any other UI node
+                Outline {
+                    width: Val::Px(2.),
+                    offset: Val::Px(100.),
+                    color: DARK_BLUE.into(),
+                },
             ));
         });
 }
