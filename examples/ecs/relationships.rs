@@ -168,13 +168,11 @@ fn main() {
                 println!("{targeting_name} is targeting {target_name}",);
                 targeting_name = target_name.clone();
 
-                if visited.contains(&targeting) {
+                if !visited.insert(targeting) {
                     return Err(TargetingCycle {
                         initial_entity,
                         visited,
                     });
-                } else {
-                    visited.insert(targeting);
                 }
             }
         }
