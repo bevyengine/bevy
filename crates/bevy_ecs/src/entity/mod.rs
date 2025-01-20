@@ -59,6 +59,12 @@ mod hash_set;
 pub use hash_map::EntityHashMap;
 pub use hash_set::EntityHashSet;
 
+mod index_map;
+mod index_set;
+
+pub use index_map::EntityIndexMap;
+pub use index_set::EntityIndexSet;
+
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     identifier::{
