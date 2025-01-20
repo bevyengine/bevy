@@ -84,7 +84,8 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
 #[doc(hidden)]
 #[derive(Default)]
 pub struct UiLayoutSystemBuffers {
-    interned_root_nodes: Vec<Vec<Entity>>,    
+    interned_root_nodes: Vec<Vec<Entity>>,
+    
     camera_layout_info: EntityHashMap<CameraLayoutInfo>,
 }
 
@@ -99,7 +100,7 @@ struct CameraLayoutInfo {
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
-    camera_data: (Query<(Entity, &Camera)>, DefaultUiCamera),
+    camera_data: Query<(Entity, &Camera)>,
     ui_scale: Res<UiScale>,
     target_query: Query<(Entity, &ResolvedTargetCamera)>,
     mut ui_surface: ResMut<UiSurface>,
@@ -132,7 +133,7 @@ pub fn ui_layout_system(
         camera_layout_info,
     } = &mut *buffers;
 
-    let (cameras, _) = camera_data;
+    let cameras = camera_data;
 
     let mut calculate_camera_layout_info = |camera: &Camera| {
         let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
