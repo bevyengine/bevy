@@ -31,7 +31,6 @@ pub use writer::EventWriter;
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use alloc::{vec, vec::Vec};
     use bevy_ecs::{event::*, system::assert_is_read_only_system};
     use bevy_ecs_macros::Event;

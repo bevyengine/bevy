@@ -502,7 +502,6 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_render;
     use bevy_asset::Handle;
     use bevy_image::Image;
 

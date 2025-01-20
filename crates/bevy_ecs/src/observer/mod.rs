@@ -760,7 +760,6 @@ mod tests {
     use bevy_ptr::OwningPtr;
     use bevy_utils::HashMap;
 
-    use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::{
         observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},

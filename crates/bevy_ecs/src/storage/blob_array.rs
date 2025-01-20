@@ -479,7 +479,6 @@ impl BlobArray {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use bevy_ecs::prelude::*;
 
     #[derive(Component)]

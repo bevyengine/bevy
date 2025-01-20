@@ -27,8 +27,6 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-use crate as bevy_ecs;
-
 use super::__rust_begin_short_backtrace;
 
 /// Borrowed data used by the [`MultiThreadedExecutor`].
@@ -801,7 +799,6 @@ impl MainThreadExecutor {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         prelude::Resource,
         schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
         system::Commands,

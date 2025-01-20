@@ -12,7 +12,6 @@ use crate::reflect::{
     ReflectVisitEntitiesMut,
 };
 use crate::{
-    self as bevy_ecs,
     bundle::Bundle,
     component::{Component, ComponentId},
     entity::{Entity, VisitEntities},

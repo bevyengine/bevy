@@ -57,7 +57,6 @@ impl VisitEntitiesMut for Entity {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         entity::{EntityHashMap, MapEntities, SceneEntityMapper},
         world::World,
     };

@@ -359,7 +359,6 @@ impl UnitVariantInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{Reflect, Typed};
 
     #[test]

@@ -19,7 +19,6 @@ use log::error;
 use core::panic::Location;
 
 use crate::{
-    self as bevy_ecs,
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
     component::{Component, ComponentId, Mutable},
@@ -2164,7 +2163,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         component::{require, Component},
         system::{Commands, Resource},
         world::{CommandQueue, FromWorld, World},

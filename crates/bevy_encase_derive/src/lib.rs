@@ -31,7 +31,7 @@ fn bevy_encase_path() -> syn::Path {
                 segments,
             }
         })
-        .unwrap_or_else(|| bevy_manifest.get_path(ENCASE))
+        .unwrap_or_else(|_err| bevy_manifest.get_path(ENCASE))
 }
 
 implement!(bevy_encase_path());

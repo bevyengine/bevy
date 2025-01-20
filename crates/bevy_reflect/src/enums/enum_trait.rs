@@ -316,7 +316,6 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
 
     #[derive(Reflect, Debug, PartialEq)]

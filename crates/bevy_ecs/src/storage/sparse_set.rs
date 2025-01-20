@@ -661,7 +661,6 @@ impl SparseSets {
 mod tests {
     use super::SparseSets;
     use crate::{
-        self as bevy_ecs,
         component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
         entity::Entity,
         storage::SparseSet,

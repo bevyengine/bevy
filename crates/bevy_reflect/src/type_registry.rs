@@ -868,7 +868,6 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 )]
 mod test {
     use super::*;
-    use crate as bevy_reflect;
 
     #[test]
     fn test_reflect_from_ptr() {

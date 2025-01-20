@@ -219,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_schedule_label() {
-        use crate::{self as bevy_ecs, world::World};
+        use crate::world::World;
 
         #[derive(Resource)]
         struct Flag(bool);
@@ -251,8 +251,6 @@ mod tests {
 
     #[test]
     fn test_derive_schedule_label() {
-        use crate::{self as bevy_ecs};
-
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
 
@@ -353,8 +351,6 @@ mod tests {
 
     #[test]
     fn test_derive_system_set() {
-        use crate::{self as bevy_ecs};
-
         #[derive(SystemSet, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitSet;
 
