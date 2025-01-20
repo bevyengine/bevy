@@ -57,7 +57,7 @@ mod hash_map;
 mod hash_set;
 
 pub use hash_map::EntityHashMap;
-pub use hash_set::EntityHashSet;
+pub use hash_set::{EntityHashSet, EntityHashSetIter};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},

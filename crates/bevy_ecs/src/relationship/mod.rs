@@ -215,7 +215,10 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// Iterates the entities stored in this collection.
     #[inline]
-    fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
+    fn iter(
+        &self,
+    ) -> <<Self as RelationshipTarget>::Collection as RelationshipSourceCollection>::SourceIter<'_>
+    {
         self.collection().iter()
     }
 

@@ -4,6 +4,15 @@ use alloc::vec::Vec;
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
 pub trait RelationshipSourceCollection {
+    /// The type of iterator returned by the `iter` method.
+    ///
+    /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
+    /// to ensure that all methods and traits (like [`DoubleEndedIterator`]) of the underlying collection's iterator
+    /// are available to the user when implemented without unduly restricting the possible collections.
+    type SourceIter<'a>: Iterator<Item = Entity>
+    where
+        Self: 'a;
+
     /// Returns an instance with the given pre-allocated entity `capacity`.
     fn with_capacity(capacity: usize) -> Self;
 
@@ -14,7 +23,7 @@ pub trait RelationshipSourceCollection {
     fn remove(&mut self, entity: Entity);
 
     /// Iterates all entities in the collection.
-    fn iter(&self) -> impl DoubleEndedIterator<Item = Entity>;
+    fn iter(&self) -> Self::SourceIter<'_>;
 
     /// Returns the current length of the collection.
     fn len(&self) -> usize;
@@ -27,6 +36,8 @@ pub trait RelationshipSourceCollection {
 }
 
 impl RelationshipSourceCollection for Vec<Entity> {
+    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+
     fn with_capacity(capacity: usize) -> Self {
         Vec::with_capacity(capacity)
     }
@@ -41,7 +52,7 @@ impl RelationshipSourceCollection for Vec<Entity> {
         }
     }
 
-    fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
+    fn iter(&self) -> Self::SourceIter<'_> {
         <[Entity]>::iter(self).copied()
     }
 
@@ -51,6 +62,8 @@ impl RelationshipSourceCollection for Vec<Entity> {
 }
 
 impl RelationshipSourceCollection for EntityHashSet {
+    type SourceIter<'a> = core::iter::Copied<crate::entity::EntityHashSetIter<'a>>;
+
     fn with_capacity(capacity: usize) -> Self {
         EntityHashSet::with_capacity(capacity)
     }
@@ -65,7 +78,7 @@ impl RelationshipSourceCollection for EntityHashSet {
         self.0.remove(&entity);
     }
 
-    fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
+    fn iter(&self) -> Self::SourceIter<'_> {
         self.iter().copied()
     }
 

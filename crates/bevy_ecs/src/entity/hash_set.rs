@@ -64,8 +64,8 @@ impl EntityHashSet {
     /// The iterator element type is `&'a Entity`.
     ///
     /// Equivalent to [`HashSet::iter`].
-    pub fn iter(&self) -> Iter<'_> {
-        Iter(self.0.iter(), PhantomData)
+    pub fn iter(&self) -> EntityHashSetIter<'_> {
+        EntityHashSetIter(self.0.iter(), PhantomData)
     }
 
     /// Drains elements which are true under the given predicate,
@@ -94,10 +94,10 @@ impl DerefMut for EntityHashSet {
 impl<'a> IntoIterator for &'a EntityHashSet {
     type Item = &'a Entity;
 
-    type IntoIter = Iter<'a>;
+    type IntoIter = EntityHashSetIter<'a>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Iter((&self.0).into_iter(), PhantomData)
+        EntityHashSetIter((&self.0).into_iter(), PhantomData)
     }
 }
 
@@ -196,16 +196,16 @@ impl FromIterator<Entity> for EntityHashSet {
 /// This struct is created by the [`iter`] method on [`EntityHashSet`]. See its documentation for more.
 ///
 /// [`iter`]: EntityHashSet::iter
-pub struct Iter<'a, S = EntityHash>(hash_set::Iter<'a, Entity>, PhantomData<S>);
+pub struct EntityHashSetIter<'a, S = EntityHash>(hash_set::Iter<'a, Entity>, PhantomData<S>);
 
-impl<'a> Iter<'a> {
+impl<'a> EntityHashSetIter<'a> {
     /// Returns the inner [`Iter`](hash_set::Iter).
     pub fn into_inner(self) -> hash_set::Iter<'a, Entity> {
         self.0
     }
 }
 
-impl<'a> Deref for Iter<'a> {
+impl<'a> Deref for EntityHashSetIter<'a> {
     type Target = hash_set::Iter<'a, Entity>;
 
     fn deref(&self) -> &Self::Target {
@@ -213,13 +213,13 @@ impl<'a> Deref for Iter<'a> {
     }
 }
 
-impl DerefMut for Iter<'_> {
+impl DerefMut for EntityHashSetIter<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
-impl<'a> Iterator for Iter<'a> {
+impl<'a> Iterator for EntityHashSetIter<'a> {
     type Item = &'a Entity;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -227,39 +227,39 @@ impl<'a> Iterator for Iter<'a> {
     }
 }
 
-impl ExactSizeIterator for Iter<'_> {}
+impl ExactSizeIterator for EntityHashSetIter<'_> {}
 
-impl FusedIterator for Iter<'_> {}
+impl FusedIterator for EntityHashSetIter<'_> {}
 
 /// This implementation is somewhat surprising:
 /// as hash sets make no guarantees about the order of their elements,
 /// [`DoubleEndedIterator::next_back`] is implemented by simply forwarding to the underlying [`Iter::next`].
-impl DoubleEndedIterator for Iter<'_> {
+impl DoubleEndedIterator for EntityHashSetIter<'_> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.0.next()
     }
 }
 
-impl Clone for Iter<'_> {
+impl Clone for EntityHashSetIter<'_> {
     fn clone(&self) -> Self {
         Self(self.0.clone(), PhantomData)
     }
 }
 
-impl Debug for Iter<'_> {
+impl Debug for EntityHashSetIter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_tuple("Iter").field(&self.0).field(&self.1).finish()
     }
 }
 
-impl Default for Iter<'_> {
+impl Default for EntityHashSetIter<'_> {
     fn default() -> Self {
         Self(Default::default(), PhantomData)
     }
 }
 
 // SAFETY: Iter stems from a correctly behaving `HashSet<Entity, EntityHash>`.
-unsafe impl EntitySetIterator for Iter<'_> {}
+unsafe impl EntitySetIterator for EntityHashSetIter<'_> {}
 
 /// Owning iterator over the items of an [`EntityHashSet`].
 ///
