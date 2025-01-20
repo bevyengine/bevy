@@ -80,7 +80,6 @@ pub mod prelude {
         name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
-        relationship::{Relationship, RelationshipTarget},
         removal_detection::RemovedComponents,
         result::{Error, Result},
         schedule::{
