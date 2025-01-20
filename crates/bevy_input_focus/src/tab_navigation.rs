@@ -23,6 +23,7 @@
 //! you can use the [`TabNavigation`] system parameter directly instead.
 //! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
+
 use bevy_app::{App, Plugin, Startup};
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectComponent;

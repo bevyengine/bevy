@@ -68,7 +68,7 @@ impl Plugin for ScenePlugin {
         // Register component hooks for DynamicSceneRoot
         app.world_mut()
             .register_component_hooks::<DynamicSceneRoot>()
-            .on_remove(|mut world, entity, _| {
+            .on_remove(|mut world, entity, _, _| {
                 let Some(handle) = world.get::<DynamicSceneRoot>(entity) else {
                     return;
                 };
@@ -87,7 +87,7 @@ impl Plugin for ScenePlugin {
         // Register component hooks for SceneRoot
         app.world_mut()
             .register_component_hooks::<SceneRoot>()
-            .on_remove(|mut world, entity, _| {
+            .on_remove(|mut world, entity, _, _| {
                 if let Some(&SceneInstance(scene_instance)) = world.get::<SceneInstance>(entity) {
                     let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
                         return;

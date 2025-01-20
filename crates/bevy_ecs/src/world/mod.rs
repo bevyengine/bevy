@@ -1080,6 +1080,18 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+        self.spawn_with_caller(
+            bundle,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        )
+    }
+
+    pub(crate) fn spawn_with_caller<B: Bundle>(
+        &mut self,
+        bundle: B,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    ) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
@@ -1090,7 +1102,7 @@ impl World {
                 entity,
                 bundle,
                 #[cfg(feature = "track_location")]
-                Location::caller(),
+                caller,
             )
         };
 
@@ -1105,7 +1117,7 @@ impl World {
 
         #[cfg(feature = "track_location")]
         self.entities
-            .set_spawned_or_despawned_by(entity.index(), Location::caller());
+            .set_spawned_or_despawned_by(entity.index(), caller);
 
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }

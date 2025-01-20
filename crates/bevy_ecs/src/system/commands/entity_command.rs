@@ -186,12 +186,19 @@ pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand {
 /// An [`EntityCommand`] that adds a dynamic component to an entity.
 #[track_caller]
 pub fn insert_by_id<T: Send + 'static>(component_id: ComponentId, value: T) -> impl EntityCommand {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |mut entity: EntityWorldMut| {
         // SAFETY:
         // - `component_id` safety is ensured by the caller
         // - `ptr` is valid within the `make` block
         OwningPtr::make(value, |ptr| unsafe {
-            entity.insert_by_id(component_id, ptr);
+            entity.insert_by_id_with_caller(
+                component_id,
+                ptr,
+                #[cfg(feature = "track_location")]
+                caller,
+            );
         });
     }
 }
@@ -214,39 +221,70 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
 }
 
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity.
+#[track_caller]
 pub fn remove<T: Bundle>() -> impl EntityCommand {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove::<T>();
+        entity.remove_with_caller::<T>(
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
 /// An [`EntityCommand`] that removes the components in a [`Bundle`] from an entity,
 /// as well as the required components for each component removed.
+#[track_caller]
 pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_with_requires::<T>();
+        entity.remove_with_requires_with_caller::<T>(
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
 /// An [`EntityCommand`] that removes a dynamic component from an entity.
+#[track_caller]
 pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |mut entity: EntityWorldMut| {
-        entity.remove_by_id(component_id);
+        entity.remove_by_id_with_caller(
+            component_id,
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
 /// An [`EntityCommand`] that removes all components from an entity.
+#[track_caller]
 pub fn clear() -> impl EntityCommand {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |mut entity: EntityWorldMut| {
-        entity.clear();
+        entity.clear_with_caller(
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
 /// An [`EntityCommand`] that removes all components from an entity,
 /// except for those in the given [`Bundle`].
+#[track_caller]
 pub fn retain<T: Bundle>() -> impl EntityCommand {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |mut entity: EntityWorldMut| {
-        entity.retain::<T>();
+        entity.retain_with_caller::<T>(
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
@@ -256,6 +294,7 @@ pub fn retain<T: Bundle>() -> impl EntityCommand {
 ///
 /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
 /// to despawn descendants. This results in "recursive despawn" behavior.
+#[track_caller]
 pub fn despawn() -> impl EntityCommand {
     #[cfg(feature = "track_location")]
     let caller = Location::caller();
@@ -269,11 +308,18 @@ pub fn despawn() -> impl EntityCommand {
 
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
 /// listening for events of type `E` targeting an entity
+#[track_caller]
 pub fn observe<E: Event, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
 ) -> impl EntityCommand {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |mut entity: EntityWorldMut| {
-        entity.observe(observer);
+        entity.observe_with_caller(
+            observer,
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
