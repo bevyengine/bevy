@@ -203,12 +203,6 @@ impl<'a> Deref for Iter<'a> {
     }
 }
 
-impl DerefMut for Iter<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Entity;
 
@@ -264,12 +258,6 @@ impl Deref for IntoIter {
     }
 }
 
-impl DerefMut for IntoIter {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl Iterator for IntoIter {
     type Item = Entity;
 
@@ -322,12 +310,6 @@ impl<'a> Deref for Drain<'a> {
     }
 }
 
-impl DerefMut for Drain<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a> Iterator for Drain<'a> {
     type Item = Entity;
 
@@ -374,12 +356,6 @@ impl<'a, F: FnMut(&Entity) -> bool> Deref for ExtractIf<'a, F> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<F: FnMut(&Entity) -> bool> DerefMut for ExtractIf<'_, F> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
