@@ -797,7 +797,7 @@ impl Mesh {
     ///
     /// # Errors
     ///
-    /// Errors out if the vertex attribute values of `other` are incompatible with `self`.
+    /// Returns [`Err(MergeMeshError)`](MergeMeshError) if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
     ///
     /// In that case, [`self`] is not modified.
