@@ -42,7 +42,7 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState, With},
     removal_detection::RemovedComponentEvents,
     resource::{Resource, ResourceEntity},
     result::Result,
@@ -1724,15 +1724,19 @@ impl World {
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
-        self.components
-            .get_resource_id(TypeId::of::<R>())
-            .and_then(|component_id| self.storages.resources.get(component_id))
-            .is_some_and(ResourceData::is_present)
+        let maybe_resource_query = self.try_query::<&ResourceEntity<R>>();
+
+        if let Some(mut query) = maybe_resource_query {
+            query.iter(self).next().is_some()
+        } else {
+            false
+        }
     }
 
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
+        // FIXME: migrate this method to use resource entities
         self.storages
             .resources
             .get(component_id)
@@ -1898,7 +1902,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource + Component<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -1914,28 +1918,27 @@ impl World {
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        // SAFETY:
-        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed mutably
-        unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
+        let mut resource_query = self.try_query_filtered::<&R, With<ResourceEntity<R>>>()?;
+        let resource = resource_query.get_single(self).ok()?;
+        Some(resource)
     }
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
     pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed mutably
-        unsafe { self.as_unsafe_world_cell_readonly().get_resource_ref() }
+        let mut resource_query = self.try_query_filtered::<Ref<R>, With<ResourceEntity<R>>>()?;
+        let resource = resource_query.get_single(self).ok()?;
+        Some(resource)
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` gives permission to access everything mutably
-        // - `&mut self` ensures nothing in world is borrowed
-        unsafe { self.as_unsafe_world_cell().get_resource_mut() }
+    pub fn get_resource_mut<R: Resource + Component<Mutability = Mutable>>(
+        &mut self,
+    ) -> Option<Mut<'_, R>> {
+        let mut resource_query = self.try_query_filtered::<&mut R, With<ResourceEntity<R>>>()?;
+        let resource = resource_query.get_single_mut(self).ok()?;
+        Some(resource)
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
