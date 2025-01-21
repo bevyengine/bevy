@@ -26,7 +26,6 @@ pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::*, Reflect};
@@ -145,7 +144,7 @@ impl<E: Event + Clone> Event for FocusedInput<E> {
 #[derive(QueryData)]
 /// These are for accessing components defined on the targeted entity
 pub struct WindowTraversal {
-    parent: Option<&'static Parent>,
+    parent: Option<&'static ChildOf>,
     window: Option<&'static Window>,
 }
 
@@ -280,7 +279,7 @@ pub trait IsFocused {
 /// When working with the entire [`World`], consider using the [`IsFocused`] instead.
 #[derive(SystemParam)]
 pub struct IsFocusedHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
     input_focus: Option<Res<'w, InputFocus>>,
     input_focus_visible: Option<Res<'w, InputFocusVisible>>,
 }
@@ -328,7 +327,7 @@ impl IsFocused for World {
             if e == entity {
                 return true;
             }
-            if let Some(parent) = self.entity(e).get::<Parent>().map(Parent::get) {
+            if let Some(parent) = self.entity(e).get::<ChildOf>().map(ChildOf::get) {
                 e = parent;
             } else {
                 return false;
@@ -356,7 +355,6 @@ mod tests {
     use bevy_ecs::{
         component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
     };
-    use bevy_hierarchy::BuildChildren;
     use bevy_input::{
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,

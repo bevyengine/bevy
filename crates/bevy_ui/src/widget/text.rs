@@ -1,13 +1,13 @@
 use crate::{
     ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiScale,
+    NodeMeasure, UiScale, UiTargetCamera,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
@@ -255,7 +255,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         ),
         With<Node>,
     >,
@@ -269,7 +269,7 @@ pub fn measure_text_system(
 
     for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
         let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
+            .map(UiTargetCamera::entity)
             .or(default_camera_entity)
         else {
             continue;

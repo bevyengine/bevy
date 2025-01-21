@@ -13,6 +13,8 @@ pub const ON_INSERT: ComponentId = ComponentId::new(1);
 pub const ON_REPLACE: ComponentId = ComponentId::new(2);
 /// [`ComponentId`] for [`OnRemove`]
 pub const ON_REMOVE: ComponentId = ComponentId::new(3);
+/// [`ComponentId`] for [`OnDespawn`]
+pub const ON_DESPAWN: ComponentId = ComponentId::new(4);
 
 /// Trigger emitted when a component is added to an entity. See [`crate::component::ComponentHooks::on_add`]
 /// for more information.
@@ -41,3 +43,10 @@ pub struct OnReplace;
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct OnRemove;
+
+/// Trigger emitted for each component on an entity when it is despawned. See [`crate::component::ComponentHooks::on_despawn`]
+/// for more information.
+#[derive(Event, Debug)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
+pub struct OnDespawn;
