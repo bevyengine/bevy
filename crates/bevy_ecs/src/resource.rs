@@ -20,7 +20,12 @@
 //! [`ResMut`]: crate::system::ResMut
 
 use crate as bevy_ecs;
+use crate::component::ComponentId;
+use crate::entity::Entity;
 use crate::prelude::{require, Component};
+use crate::query::With;
+use crate::world::DeferredWorld;
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 // The derive macro for the `Resource` trait
@@ -109,13 +114,42 @@ pub trait Resource: Component {}
 ///
 /// By contrast, the [`IsResource`] component is used to find all entities that store resources,
 /// regardless of the type of resource they store.
+///
+/// This component comes with a hook that ensures that at most one entity has this component for any given `R`:
+/// adding this component to an entity (or spawning an entity with this component) will despawn any other entity with this component.
 #[derive(Component, Debug)]
 #[require(IsResource)]
+#[component(on_insert = at_most_one_hook::<R>)]
 pub struct ResourceEntity<R: Resource>(PhantomData<R>);
 
 impl<R: Resource> Default for ResourceEntity<R> {
     fn default() -> Self {
         ResourceEntity(PhantomData)
+    }
+}
+
+fn at_most_one_hook<R: Resource>(
+    mut deferred_world: DeferredWorld,
+    entity: Entity,
+    _component_id: ComponentId,
+) {
+    let mut query = deferred_world
+        .try_query_filtered::<Entity, With<ResourceEntity<R>>>()
+        // The component is guaranteed to have been added to the world,
+        // since that's why this hook is running!
+        .unwrap();
+
+    let mut offending_entities = Vec::new();
+
+    for detected_entity in query.iter(&deferred_world) {
+        if detected_entity != entity {
+            offending_entities.push(detected_entity);
+        }
+    }
+
+    let mut commands = deferred_world.commands();
+    for offending_entity in offending_entities {
+        commands.entity(offending_entity).despawn();
     }
 }
 
@@ -128,6 +162,7 @@ pub struct IsResource;
 
 #[cfg(test)]
 mod tests {
+    use super::ResourceEntity;
     use crate as bevy_ecs;
     use crate::prelude::*;
 
@@ -139,5 +174,21 @@ mod tests {
         #[derive(Resource)]
         #[require(RA)]
         struct RB;
+    }
+
+    #[test]
+    fn at_most_one_resource_entity_exists() {
+        #[derive(Resource, Default)]
+        struct R;
+
+        let mut world = World::default();
+        world.init_resource::<R>();
+
+        let mut resource_query = world.query::<&ResourceEntity<R>>();
+        assert_eq!(resource_query.iter(&world).count(), 1);
+
+        world.insert_resource(R);
+        let mut resource_query = world.query::<&ResourceEntity<R>>();
+        assert_eq!(resource_query.iter(&world).count(), 1);
     }
 }
