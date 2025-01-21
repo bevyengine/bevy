@@ -3,7 +3,8 @@ use bevy_app::{App, SubApp};
 use bevy_ecs::{
     entity::Entity,
     query::{QueryEntityError, QueryState, ROQueryItem, ReadOnlyQueryData},
-    system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
+    resource::Resource,
+    system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
 use bevy_utils::TypeIdMap;
