@@ -215,8 +215,11 @@ impl Plugin for AtmospherePlugin {
     }
 }
 
-/// This component describes the atmosphere of a planet. Most atmospheric
-/// particles scatter and absorb light in two main ways:
+/// This component describes the atmosphere of a planet, and when added to a camera
+/// will enable atmospheric scattering for that camera. This is only compatible with
+/// HDR cameras.
+///
+/// Most atmospheric particles scatter and absorb light in two main ways:
 ///
 /// Rayleigh scattering occurs among very small particles, like individual gas
 /// molecules. It's wavelength dependent, and causes colors to separate out as

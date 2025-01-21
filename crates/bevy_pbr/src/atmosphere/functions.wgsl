@@ -1,7 +1,6 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
-#import bevy_render::maths::{PI, HALF_PI, PI_2}
-#import bevy_pbr::fast_math::{fast_acos, fast_atan2}
+#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_atan2}
 
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,

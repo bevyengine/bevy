@@ -20,20 +20,34 @@ fn main() {
 fn setup_camera_fog(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
+        // HDR is required for atmospheric scattering to be properly applied to the scene
         Camera {
             hdr: true,
             ..default()
         },
-        Exposure::SUNLIGHT,
-        Tonemapping::AcesFitted,
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        Bloom::NATURAL,
+
+        // This is the component that enables atmospheric scattering for a camera
         Atmosphere::EARTH,
+        // The scene is in units of 10km, so we need to scale up the
+        // aerial view lut distance and set the scene scale accordingly.
+        // Most usages of this feature will not need to adjust this.
         AtmosphereSettings {
             aerial_view_lut_max_distance: 3.2e5,
             scene_units_to_m: 1e+4,
             ..Default::default()
         },
+
+        // The directional light illuminance  used in this scene
+        // (the one recommended for use with this feature) is
+        // quite bright, so raising the exposure compensation helps
+        // bring the scene to a nicer brightness range.
+        Exposure::SUNLIGHT,
+        // Tonemapper chosen just because it looked good with the scene, any
+        // tonemapper would be fine :)
+        Tonemapping::AcesFitted,
+        // Bloom gives the sun a much more natural look.
+        Bloom::NATURAL,
     ));
 }
 
@@ -58,6 +72,11 @@ fn setup_terrain_scene(
     commands.spawn((
         DirectionalLight {
             shadows_enabled: true,
+            // lux::RAW_SUNLIGHT is recommended for use with this feature, since
+            // other values approximate sunlight *post-scattering* in various
+            // conditions. RAW_SUNLIGHT in comparison is the illuminance of the
+            // sun unfiltered by the atmosphere, so is the proper input for
+            // sunlight to be filtered by the atmosphere.
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
