@@ -1878,7 +1878,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch(values);
+        let error = world.try_insert_batch(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -1900,7 +1902,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch_if_new(values);
+        let error = world.try_insert_batch_if_new(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
