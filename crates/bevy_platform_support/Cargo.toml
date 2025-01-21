@@ -21,6 +21,7 @@ std = [
   "critical-section?/std",
   "portable-atomic?/std",
   "portable-atomic-util?/std",
+  "spin/std",
 ]
 
 alloc = ["portable-atomic-util?/alloc"]
@@ -31,7 +32,11 @@ critical-section = ["dep:critical-section", "portable-atomic?/critical-section"]
 
 ## `portable-atomic` provides additional platform support for atomic types and
 ## operations, even on targets without native support.
-portable-atomic = ["dep:portable-atomic", "dep:portable-atomic-util"]
+portable-atomic = [
+  "dep:portable-atomic",
+  "dep:portable-atomic-util",
+  "spin/portable-atomic",
+]
 
 [dependencies]
 critical-section = { version = "1.2.0", default-features = false, optional = true }
@@ -39,6 +44,14 @@ portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
 ], optional = true }
 portable-atomic-util = { version = "0.2.4", default-features = false, optional = true }
+spin = { version = "0.9.8", default-features = false, features = [
+  "mutex",
+  "spin_mutex",
+  "rwlock",
+  "once",
+  "lazy",
+  "barrier",
+] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { version = "1.1", default-features = false }

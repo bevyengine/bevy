@@ -63,7 +63,7 @@ static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
 type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
 
 #[cfg(not(feature = "std"))]
-type ScopeResult<T> = Arc<spin::Mutex<Option<T>>>;
+type ScopeResult<T> = Arc<bevy_platform_support::sync::Mutex<Option<T>>>;
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
