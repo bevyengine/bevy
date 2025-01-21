@@ -1,4 +1,23 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
+//!
+//! Under the hood, each resource of type `R` is stored in a dedicated entity in the world,
+//! with the data of type `R` stored as a component on that entity.
+//! These entities are marked with the [`ResourceEntity<R>`] component and the [`IsResource`] component.
+//! This strategy allows Bevy to reuse the existing ECS tools for working with resources:
+//! storage, querying, hooks, observers, relationships and more.
+//!
+//! While resources are components, not all resources are components!
+//! The [`Resource`] trait is used to mark components which can be used as such,
+//! and must be derived for any type that is to be used as a resource.
+//! The various methods for inserting and accessing resources require this trait bound (when working with Rust types),
+//! and the simplest, clearest way to access resource data in systems is to use the [`Res`] and [`ResMut`] system parameters.
+//!
+//! Because resources are *also* components, queries will find the component on the entity which stores the resource
+//! by default, and operate on it like any other entity. If this behavior is not desired, filter out
+//! entities with the [`IsResource`] component.
+//!
+//! [`Res`]: crate::system::Res
+//! [`ResMut`]: crate::system::ResMut
 
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
