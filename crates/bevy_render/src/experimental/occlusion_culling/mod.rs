@@ -59,6 +59,9 @@ impl Plugin for OcclusionCullingPlugin {
 ///
 /// Occlusion culling currently requires a `DepthPrepass`. If no depth prepass
 /// is present on the view, the [`OcclusionCulling`] component will be ignored.
+/// Additionally, occlusion culling is currently incompatible with deferred
+/// shading; including both [`bevy_core_pipeline::prepass::DeferredPrepass`] and
+/// [`OcclusionCulling`] results in unspecified behavior.
 ///
 /// The algorithm that Bevy uses is known as [*two-phase occlusion culling*].
 /// When you enable occlusion culling, Bevy splits the depth prepass into two:

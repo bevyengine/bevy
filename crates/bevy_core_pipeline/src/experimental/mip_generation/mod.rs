@@ -45,7 +45,7 @@ use crate::{
         graph::{Core3d, Node3d},
         prepare_core_3d_depth_textures,
     },
-    prepass::DepthPrepass,
+    prepass::{DeferredPrepass, DepthPrepass},
 };
 
 /// Identifies the `downsample_depth.wgsl` shader.
@@ -693,6 +693,7 @@ fn prepare_view_depth_pyramids(
             With<OcclusionCulling>,
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
+            Without<DeferredPrepass>,
         ),
     >,
 ) {

@@ -919,6 +919,7 @@ fn configure_occlusion_culling_view_targets(
             With<OcclusionCulling>,
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
+            Without<DeferredPrepass>,
         ),
     >,
 ) {

@@ -10,10 +10,13 @@
 
 use argh::FromArgs;
 use bevy::{
-    core_pipeline::prepass::DepthPrepass,
+    core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
+    pbr::DefaultOpaqueRendererMethod,
     prelude::*,
-    render::experimental::occlusion_culling::OcclusionCulling,
-    render::primitives::{Aabb, Sphere},
+    render::{
+        experimental::occlusion_culling::OcclusionCulling,
+        primitives::{Aabb, Sphere},
+    },
 };
 
 #[path = "../../helpers/camera_controller.rs"]
@@ -43,6 +46,9 @@ struct Args {
     /// enable occlusion culling
     #[argh(switch)]
     occlusion_culling: Option<bool>,
+    /// enable deferred shading
+    #[argh(switch)]
+    deferred: Option<bool>,
 }
 
 fn main() {
@@ -50,6 +56,8 @@ fn main() {
     let args: Args = argh::from_env();
     #[cfg(target_arch = "wasm32")]
     let args: Args = Args::from_args(&[], &[]).unwrap();
+
+    let deferred = args.deferred;
 
     let mut app = App::new();
     app.add_plugins((
@@ -72,6 +80,11 @@ fn main() {
     .insert_resource(args)
     .add_systems(Startup, setup)
     .add_systems(PreUpdate, setup_scene_after_load);
+
+    // If deferred shading was requested, turn it on.
+    if deferred == Some(true) {
+        app.insert_resource(DefaultOpaqueRendererMethod::deferred());
+    }
 
     #[cfg(feature = "animation")]
     app.add_plugins(animation_plugin::AnimationManipulationPlugin);
@@ -175,8 +188,19 @@ fn setup_scene_after_load(
         // The Z-prepass is currently required.
         if args.occlusion_culling == Some(true) {
             camera.insert((DepthPrepass, OcclusionCulling));
-        } else if args.depth_prepass == Some(true) {
+        }
+
+        // If the depth prepass was requested, include it.
+        if args.depth_prepass == Some(true) {
             camera.insert(DepthPrepass);
+        }
+
+        // If deferred shading was requested, include the prepass.
+        if args.deferred == Some(true) {
+            camera
+                .insert(Msaa::Off)
+                .insert(DepthPrepass)
+                .insert(DeferredPrepass);
         }
 
         // Spawn a default light if the scene does not have one
