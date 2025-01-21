@@ -16,7 +16,6 @@
     constants,
     MeshletBoundingSphere,
 }
-#import bevy_pbr::occlusion_culling
 #import bevy_render::maths::affine3_to_square
 
 /// Culls individual clusters (1 per thread) in two passes (two pass occlusion culling), and outputs a bitmask of which clusters survived.
@@ -83,15 +82,19 @@ fn cull_clusters(
     let occlusion_culling_bounding_sphere_center_view_space = (view.view_from_world * vec4(occlusion_culling_bounding_sphere_center.xyz, 1.0)).xyz;
 #endif
 
-    var aabb = project_view_space_sphere_to_screen_space_aabb(
-        occlusion_culling_bounding_sphere_center_view_space,
-        occlusion_culling_bounding_sphere_radius
-    );
-    let aabb_pixel_size = occlusion_culling::get_aabb_size_in_pixels(aabb, depth_pyramid);
-    var aabb_width_pixels = aabb_pixel_size.x;
-    var aabb_height_pixels = aabb_pixel_size.y;
-    let occluder_depth =
-        occlusion_culling::get_occluder_depth(aabb, aabb_pixel_size, depth_pyramid);
+    var aabb = project_view_space_sphere_to_screen_space_aabb(occlusion_culling_bounding_sphere_center_view_space, occlusion_culling_bounding_sphere_radius);
+    let depth_pyramid_size_mip_0 = vec2<f32>(textureDimensions(depth_pyramid, 0));
+    var aabb_width_pixels = (aabb.z - aabb.x) * depth_pyramid_size_mip_0.x;
+    var aabb_height_pixels = (aabb.w - aabb.y) * depth_pyramid_size_mip_0.y;
+    let depth_level = max(0, i32(ceil(log2(max(aabb_width_pixels, aabb_height_pixels))))); // TODO: Naga doesn't like this being a u32
+    let depth_pyramid_size = vec2<f32>(textureDimensions(depth_pyramid, depth_level));
+    let aabb_top_left = vec2<u32>(aabb.xy * depth_pyramid_size);
+
+    let depth_quad_a = textureLoad(depth_pyramid, aabb_top_left, depth_level).x;
+    let depth_quad_b = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 0u), depth_level).x;
+    let depth_quad_c = textureLoad(depth_pyramid, aabb_top_left + vec2(0u, 1u), depth_level).x;
+    let depth_quad_d = textureLoad(depth_pyramid, aabb_top_left + vec2(1u, 1u), depth_level).x;
+    let occluder_depth = min(min(depth_quad_a, depth_quad_b), min(depth_quad_c, depth_quad_d));
 
     // Check whether or not the cluster would be occluded if drawn
     var cluster_visible: bool;
