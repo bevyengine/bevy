@@ -151,7 +151,6 @@ pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("9afeaeab-7c45-43ce-b322-4b97799eaeb9");
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> =
     weak_handle!("815b8618-f557-4a96-91a5-a2fb7e249fb0");
-pub const PBR_AMBIENT_HANDLE: Handle<Shader> = weak_handle!("4a90b95b-112a-4a10-9145-7590d6f14260");
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("6cf57d9f-222a-429a-bba4-55ba9586e1d4");
 pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
@@ -261,12 +260,6 @@ impl Plugin for PbrPlugin {
             app,
             RGB9E5_FUNCTIONS_HANDLE,
             "render/rgb9e5.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            PBR_AMBIENT_HANDLE,
-            "render/pbr_ambient.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -382,6 +375,9 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    map_ambient_lights
+                        .in_set(SimulationLightSystems::MapAmbientLights)
+                        .after(CameraUpdateSystem),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystem),

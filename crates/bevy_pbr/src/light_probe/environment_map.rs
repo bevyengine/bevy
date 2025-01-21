@@ -44,7 +44,8 @@
 //!
 //! [several pre-filtered environment maps]: https://github.com/KhronosGroup/glTF-Sample-Environments
 
-use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_asset::{weak_handle, AssetId, Assets, Handle, RenderAssetUsages};
+use bevy_color::{Color, ColorToPacked, Srgba};
 use bevy_ecs::{
     component::Component, query::QueryItem, reflect::ReflectComponent, system::lifetimeless::Read,
 };
@@ -56,8 +57,9 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{self, uniform_buffer},
-        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, ShaderStages,
-        TextureSampleType, TextureView,
+        BindGroupLayoutEntryBuilder, Extent3d, Sampler, SamplerBindingType, Shader, ShaderStages,
+        TextureDimension, TextureFormat, TextureSampleType, TextureView, TextureViewDescriptor,
+        TextureViewDimension,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -112,6 +114,38 @@ pub struct EnvironmentMapLight {
     ///
     /// By default, this is set to true.
     pub affects_lightmapped_mesh_diffuse: bool,
+}
+
+impl EnvironmentMapLight {
+    pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
+        let color: Srgba = color.into();
+        let image = Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new_fill(
+                Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                &color.to_u8_array(),
+                TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        };
+        let handle = assets.add(image);
+
+        Self {
+            diffuse_map: handle.clone(),
+            specular_map: handle,
+            intensity: 1.0,
+            rotation: Quat::IDENTITY,
+            affects_lightmapped_mesh_diffuse: true,
+        }
+    }
 }
 
 impl Default for EnvironmentMapLight {
