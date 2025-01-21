@@ -13,21 +13,21 @@ bevy_ci_testing = ["serde", "ron"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_asset = { workspace = true }
-bevy_color = { workspace = true }
-bevy_diagnostic = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_input = { workspace = true }
-bevy_picking = { workspace = true }
-bevy_render = { workspace = true }
-bevy_reflect = { workspace = true }
-bevy_time = { workspace = true }
-bevy_text = { workspace = true }
-bevy_ui = { workspace = true }
-bevy_utils = { workspace = true }
-bevy_window = { workspace = true }
-bevy_state = { workspace = true }
+bevy_app = { workspace = true, default-features = true }
+bevy_asset = { workspace = true, default-features = true }
+bevy_color = { workspace = true, default-features = true }
+bevy_diagnostic = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_input = { workspace = true, default-features = true }
+bevy_picking = { workspace = true, default-features = true }
+bevy_render = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true }
+bevy_time = { workspace = true, default-features = true }
+bevy_text = { workspace = true, default-features = true }
+bevy_ui = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_window = { workspace = true, default-features = true }
+bevy_state = { workspace = true, default-features = true }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }

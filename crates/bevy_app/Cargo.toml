@@ -71,14 +71,14 @@ portable-atomic = [
 
 [dependencies]
 # bevy
-bevy_derive = { workspace = true }
-bevy_ecs = { workspace = true, default-features = false }
-bevy_reflect = { workspace = true, default-features = false, optional = true }
-bevy_utils = { workspace = true, default-features = false, features = [
+bevy_derive = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true }
+bevy_reflect = { workspace = true, optional = true }
+bevy_utils = { workspace = true, features = [
   "alloc",
 ] }
-bevy_tasks = { workspace = true, default-features = false, optional = true }
-bevy_platform_support = { workspace = true, default-features = false }
+bevy_tasks = { workspace = true, optional = true }
+bevy_platform_support = { workspace = true }
 
 # other
 downcast-rs = { version = "2", default-features = false }

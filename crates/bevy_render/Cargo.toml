@@ -34,29 +34,29 @@ detailed_trace = []
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_asset = { workspace = true }
-bevy_color = { workspace = true, features = [
+bevy_app = { workspace = true, default-features = true }
+bevy_asset = { workspace = true, default-features = true }
+bevy_color = { workspace = true, default-features = true, features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_derive = { workspace = true }
-bevy_diagnostic = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_encase_derive = { workspace = true }
-bevy_math = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_derive = { workspace = true, default-features = true }
+bevy_diagnostic = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_encase_derive = { workspace = true, default-features = true }
+bevy_math = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ] }
 bevy_render_macros = { path = "macros", version = "0.16.0-dev" }
-bevy_time = { workspace = true }
-bevy_transform = { workspace = true }
-bevy_window = { workspace = true }
-bevy_utils = { workspace = true }
-bevy_tasks = { workspace = true }
-bevy_image = { workspace = true }
-bevy_mesh = { workspace = true }
-bevy_platform_support = { workspace = true, default-features = false, features = [
+bevy_time = { workspace = true, default-features = true }
+bevy_transform = { workspace = true, default-features = true }
+bevy_window = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_tasks = { workspace = true, default-features = true }
+bevy_image = { workspace = true, default-features = true }
+bevy_mesh = { workspace = true, default-features = true }
+bevy_platform_support = { workspace = true, features = [
   "std",
 ] }
 

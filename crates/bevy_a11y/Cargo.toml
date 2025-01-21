@@ -10,11 +10,11 @@ keywords = ["bevy", "accessibility", "a11y"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_reflect = { workspace = true }
-bevy_input_focus = { workspace = true }
+bevy_app = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true }
+bevy_input_focus = { workspace = true, default-features = true }
 
 accesskit = "0.17"
 

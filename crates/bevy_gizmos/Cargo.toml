@@ -16,20 +16,20 @@ bevy_render = ["dep:bevy_render", "bevy_core_pipeline"]
 [dependencies]
 # Bevy
 bevy_gizmos_macros = { path = "macros", version = "0.16.0-dev" }
-bevy_pbr = { workspace = true, optional = true }
-bevy_sprite = { workspace = true, optional = true }
-bevy_app = { workspace = true }
-bevy_color = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_image = { workspace = true }
-bevy_math = { workspace = true }
-bevy_asset = { workspace = true }
-bevy_render = { workspace = true, optional = true }
-bevy_utils = { workspace = true }
-bevy_reflect = { workspace = true }
-bevy_core_pipeline = { workspace = true, optional = true }
-bevy_transform = { workspace = true }
-bevy_time = { workspace = true }
+bevy_pbr = { workspace = true, default-features = true, optional = true }
+bevy_sprite = { workspace = true, default-features = true, optional = true }
+bevy_app = { workspace = true, default-features = true }
+bevy_color = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_image = { workspace = true, default-features = true }
+bevy_math = { workspace = true, default-features = true }
+bevy_asset = { workspace = true, default-features = true }
+bevy_render = { workspace = true, default-features = true, optional = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true }
+bevy_core_pipeline = { workspace = true, default-features = true, optional = true }
+bevy_transform = { workspace = true, default-features = true }
+bevy_time = { workspace = true, default-features = true }
 
 # other
 bytemuck = "1.0"

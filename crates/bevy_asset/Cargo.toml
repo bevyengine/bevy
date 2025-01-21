@@ -20,13 +20,13 @@ trace = []
 
 [dependencies]
 bevy_asset_macros = { path = "macros", version = "0.16.0-dev" }
-bevy_app = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_app = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "uuid",
 ] }
-bevy_tasks = { workspace = true }
-bevy_utils = { workspace = true }
+bevy_tasks = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
 
 stackfuture = "0.3"
 atomicow = "1.0"
@@ -50,7 +50,7 @@ uuid = { version = "1.0", features = ["v4"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
-bevy_window = { workspace = true }
+bevy_window = { workspace = true, default-features = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -66,7 +66,7 @@ js-sys = "0.3"
 notify-debouncer-full = { version = "0.4.0", optional = true }
 
 [dev-dependencies]
-bevy_log = { workspace = true }
+bevy_log = { workspace = true, default-features = true }
 
 [lints]
 workspace = true

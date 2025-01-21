@@ -10,11 +10,11 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_input = { workspace = true }
-bevy_utils = { workspace = true }
-bevy_time = { workspace = true }
+bevy_app = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_input = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_time = { workspace = true, default-features = true }
 
 # other
 gilrs = "0.11.0"

@@ -12,7 +12,7 @@ keywords = ["bevy"]
 crate-type = ["dylib"]
 
 [dependencies]
-bevy_internal = { workspace = true, default-features = false }
+bevy_internal = { workspace = true }
 
 [lints]
 workspace = true

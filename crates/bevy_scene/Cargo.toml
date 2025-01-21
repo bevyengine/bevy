@@ -14,16 +14,16 @@ serialize = ["dep:serde", "uuid/serde", "bevy_ecs/serialize"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_asset = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_app = { workspace = true, default-features = true }
+bevy_asset = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ] }
-bevy_transform = { workspace = true }
-bevy_utils = { workspace = true }
-bevy_render = { workspace = true, optional = true }
+bevy_transform = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_render = { workspace = true, default-features = true, optional = true }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }

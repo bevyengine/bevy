@@ -12,7 +12,7 @@ keywords = ["bevy"]
 proc-macro = true
 
 [dependencies]
-bevy_macro_utils = { workspace = true }
+bevy_macro_utils = { workspace = true, default-features = true }
 
 syn = "2.0"
 proc-macro2 = "1.0"

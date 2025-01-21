@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 proc-macro = true
 
 [dependencies]
-bevy_macro_utils = { workspace = true }
+bevy_macro_utils = { workspace = true, default-features = true }
 
 syn = { version = "2.0", features = ["full"] }
 quote = "1.0"

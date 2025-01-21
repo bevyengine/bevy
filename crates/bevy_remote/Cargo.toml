@@ -14,14 +14,14 @@ http = ["dep:async-io", "dep:smol-hyper"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_ecs = { workspace = true, features = [
+bevy_app = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true, features = [
   "serialize",
 ] }
-bevy_reflect = { workspace = true }
-bevy_tasks = { workspace = true }
-bevy_utils = { workspace = true }
+bevy_reflect = { workspace = true, default-features = true }
+bevy_tasks = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
 
 # other
 anyhow = "1"

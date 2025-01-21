@@ -38,17 +38,17 @@ zstd = ["ruzstd"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_asset = { workspace = true }
-bevy_color = { workspace = true, features = [
+bevy_app = { workspace = true, default-features = true }
+bevy_asset = { workspace = true, default-features = true }
+bevy_color = { workspace = true, default-features = true, features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_math = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_math = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ], optional = true }
-bevy_utils = { workspace = true }
+bevy_utils = { workspace = true, default-features = true }
 
 # rendering
 image = { version = "0.25.2", default-features = false }
@@ -74,8 +74,8 @@ basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-bevy_ecs = { workspace = true }
-bevy_sprite = { workspace = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_sprite = { workspace = true, default-features = true }
 
 [lints]
 workspace = true

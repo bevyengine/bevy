@@ -10,17 +10,17 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_asset = { workspace = true }
-bevy_image = { workspace = true }
-bevy_math = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_asset = { workspace = true, default-features = true }
+bevy_image = { workspace = true, default-features = true }
+bevy_math = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ] }
-bevy_ecs = { workspace = true }
-bevy_transform = { workspace = true }
-bevy_mikktspace = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_utils = { workspace = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_transform = { workspace = true, default-features = true }
+bevy_mikktspace = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
 
 # other
 bitflags = { version = "2.3", features = ["serde"] }

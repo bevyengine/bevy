@@ -49,15 +49,15 @@ libm = ["bevy_math/libm"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true, default-features = false }
-bevy_ecs = { workspace = true, default-features = false }
-bevy_input = { workspace = true, default-features = false }
-bevy_math = { workspace = true, default-features = false }
-bevy_reflect = { workspace = true, default-features = false, features = [
+bevy_app = { workspace = true }
+bevy_ecs = { workspace = true }
+bevy_input = { workspace = true }
+bevy_math = { workspace = true }
+bevy_reflect = { workspace = true, features = [
   "glam",
   "smol_str",
 ], optional = true }
-bevy_utils = { workspace = true, default-features = false }
+bevy_utils = { workspace = true }
 
 # other
 serde = { version = "1.0", features = [

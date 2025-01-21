@@ -22,25 +22,25 @@ custom_cursor = ["bevy_image", "bevy_asset", "bytemuck", "wgpu-types"]
 
 [dependencies]
 # bevy
-bevy_a11y = { workspace = true }
-bevy_app = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_input = { workspace = true }
-bevy_input_focus = { workspace = true }
-bevy_log = { workspace = true }
-bevy_math = { workspace = true }
-bevy_reflect = { workspace = true }
-bevy_window = { workspace = true }
-bevy_utils = { workspace = true }
-bevy_tasks = { workspace = true }
-bevy_platform_support = { workspace = true, default-features = false, features = [
+bevy_a11y = { workspace = true, default-features = true }
+bevy_app = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_input = { workspace = true, default-features = true }
+bevy_input_focus = { workspace = true, default-features = true }
+bevy_log = { workspace = true, default-features = true }
+bevy_math = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true }
+bevy_window = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_tasks = { workspace = true, default-features = true }
+bevy_platform_support = { workspace = true, features = [
   "std",
 ] }
 
 # bevy optional
-bevy_asset = { workspace = true, optional = true }
-bevy_image = { workspace = true, optional = true }
+bevy_asset = { workspace = true, default-features = true, optional = true }
+bevy_image = { workspace = true, default-features = true, optional = true }
 
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6

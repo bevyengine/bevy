@@ -10,26 +10,26 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_a11y = { workspace = true }
-bevy_app = { workspace = true }
-bevy_asset = { workspace = true }
-bevy_color = { workspace = true }
-bevy_core_pipeline = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_image = { workspace = true }
-bevy_input = { workspace = true }
-bevy_math = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_a11y = { workspace = true, default-features = true }
+bevy_app = { workspace = true, default-features = true }
+bevy_asset = { workspace = true, default-features = true }
+bevy_color = { workspace = true, default-features = true }
+bevy_core_pipeline = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_image = { workspace = true, default-features = true }
+bevy_input = { workspace = true, default-features = true }
+bevy_math = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ] }
-bevy_render = { workspace = true }
-bevy_sprite = { workspace = true }
-bevy_text = { workspace = true }
-bevy_picking = { workspace = true, optional = true }
-bevy_transform = { workspace = true }
-bevy_window = { workspace = true }
-bevy_utils = { workspace = true }
+bevy_render = { workspace = true, default-features = true }
+bevy_sprite = { workspace = true, default-features = true }
+bevy_text = { workspace = true, default-features = true }
+bevy_picking = { workspace = true, default-features = true, optional = true }
+bevy_transform = { workspace = true, default-features = true }
+bevy_window = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
 
 # other
 taffy = { version = "0.7" }

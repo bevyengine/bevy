@@ -10,21 +10,21 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { workspace = true }
-bevy_asset = { workspace = true }
-bevy_color = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_log = { workspace = true }
-bevy_math = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_app = { workspace = true, default-features = true }
+bevy_asset = { workspace = true, default-features = true }
+bevy_color = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_log = { workspace = true, default-features = true }
+bevy_math = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
   "petgraph",
 ] }
-bevy_render = { workspace = true }
-bevy_time = { workspace = true }
-bevy_utils = { workspace = true }
-bevy_ecs = { workspace = true }
-bevy_transform = { workspace = true }
+bevy_render = { workspace = true, default-features = true }
+bevy_time = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
+bevy_transform = { workspace = true, default-features = true }
 
 # other
 petgraph = { version = "0.6", features = ["serde-1"] }

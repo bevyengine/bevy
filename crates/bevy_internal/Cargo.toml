@@ -266,28 +266,28 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 
 [dependencies]
 # bevy
-bevy_a11y = { workspace = true, optional = true }
-bevy_app = { workspace = true }
-bevy_derive = { workspace = true }
-bevy_diagnostic = { workspace = true }
-bevy_ecs = { workspace = true }
+bevy_a11y = { workspace = true, default-features = true, optional = true }
+bevy_app = { workspace = true, default-features = true }
+bevy_derive = { workspace = true, default-features = true }
+bevy_diagnostic = { workspace = true, default-features = true }
+bevy_ecs = { workspace = true, default-features = true }
 bevy_state = { path = "../bevy_state", optional = true, version = "0.16.0-dev" }
-bevy_input = { workspace = true }
-bevy_input_focus = { workspace = true }
-bevy_log = { workspace = true }
-bevy_math = { workspace = true, features = [
+bevy_input = { workspace = true, default-features = true }
+bevy_input_focus = { workspace = true, default-features = true }
+bevy_log = { workspace = true, default-features = true }
+bevy_math = { workspace = true, default-features = true, features = [
   "bevy_reflect",
 ] }
-bevy_platform_support = { workspace = true }
-bevy_ptr = { workspace = true }
-bevy_reflect = { workspace = true, features = [
+bevy_platform_support = { workspace = true, default-features = true }
+bevy_ptr = { workspace = true, default-features = true }
+bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ] }
-bevy_time = { workspace = true }
-bevy_transform = { workspace = true }
-bevy_utils = { workspace = true }
-bevy_window = { workspace = true, optional = true }
-bevy_tasks = { workspace = true }
+bevy_time = { workspace = true, default-features = true }
+bevy_transform = { workspace = true, default-features = true }
+bevy_utils = { workspace = true, default-features = true }
+bevy_window = { workspace = true, default-features = true, optional = true }
+bevy_tasks = { workspace = true, default-features = true }
 # bevy (optional)
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.16.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.16.0-dev" }
