@@ -161,7 +161,8 @@ mod tests {
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
         event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
-        system::{Local, Res, ResMut, Resource},
+        resource::Resource,
+        system::{Local, Res, ResMut},
     };
     use core::error::Error;
     use core::time::Duration;

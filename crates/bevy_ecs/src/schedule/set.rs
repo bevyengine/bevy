@@ -217,8 +217,8 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
+        resource::Resource,
         schedule::{tests::ResMut, Schedule},
-        system::Resource,
     };
 
     use super::*;

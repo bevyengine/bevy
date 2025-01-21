@@ -82,6 +82,7 @@ pub mod prelude {
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        resource::Resource,
         result::{Error, Result},
         schedule::{
             apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
@@ -90,7 +91,7 @@ pub mod prelude {
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
-            Res, ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
@@ -135,7 +136,7 @@ mod tests {
         entity::Entity,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
-        system::Resource,
+        resource::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
     use alloc::{
@@ -1224,7 +1225,7 @@ mod tests {
 
     #[test]
     fn resource() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
 
         #[derive(Resource, PartialEq, Debug)]
         struct Num(i32);

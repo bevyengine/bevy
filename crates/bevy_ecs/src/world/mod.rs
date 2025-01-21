@@ -44,10 +44,11 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
+    resource::Resource,
     result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Commands, Resource},
+    system::Commands,
     world::{
         command_queue::RawCommandQueue,
         error::{EntityFetchError, TryRunScheduleError},
@@ -3698,7 +3699,7 @@ mod tests {
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         entity::hash_set::EntityHashSet,
         ptr::OwningPtr,
-        system::Resource,
+        resource::Resource,
         world::error::EntityFetchError,
     };
     use alloc::{

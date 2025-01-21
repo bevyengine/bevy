@@ -3,7 +3,7 @@
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
-    system::Resource,
+    resource::Resource,
 };
 use alloc::borrow::ToOwned;
 use bevy_ptr::{Ptr, UnsafeCellDeref};

@@ -3,7 +3,7 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, AppExit, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
-    system::Resource,
+    resource::Resource,
     world::{Mut, World},
 };
 use bevy_tasks::ComputeTaskPool;

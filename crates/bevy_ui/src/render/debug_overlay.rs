@@ -9,7 +9,7 @@ use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::RenderEntity;
