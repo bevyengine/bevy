@@ -152,6 +152,7 @@ impl<'a> EntityCommands<'a> {
     /// traversing the relationship tracked in `S` in a breadth-first manner.
     ///
     /// # Warning
+    ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
     pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
