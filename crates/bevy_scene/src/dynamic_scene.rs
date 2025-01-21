@@ -205,7 +205,7 @@ mod tests {
         },
         hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
-        system::Resource,
+        resource::Resource,
         world::World,
     };
     use bevy_reflect::Reflect;

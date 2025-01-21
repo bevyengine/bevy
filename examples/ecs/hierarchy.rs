@@ -1,4 +1,8 @@
-//! Creates a hierarchy of parents and children entities.
+//! Demonstrates techniques for creating a hierarchy of parent and child entities.
+//!
+//! When [`DefaultPlugins`] are added to your app, systems are automatically added to propagate
+//! [`Transform`] and [`Visibility`] from parents to children down the hierarchy,
+//! resulting in a final [`GlobalTransform`] and [`InheritedVisibility`] component for each entity.
 
 use std::f32::consts::*;
 

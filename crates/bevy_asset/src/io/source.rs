@@ -8,7 +8,7 @@ use alloc::{
     sync::Arc,
 };
 use atomicow::CowArc;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_platform_support::collections::HashMap;
 use core::{fmt::Display, hash::Hash, time::Duration};
 use thiserror::Error;

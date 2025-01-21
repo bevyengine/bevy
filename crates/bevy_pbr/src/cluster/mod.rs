@@ -8,7 +8,8 @@ use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity},
     query::{With, Without},
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
 use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};

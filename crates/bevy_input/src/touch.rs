@@ -3,7 +3,8 @@
 use bevy_ecs::{
     entity::Entity,
     event::{Event, EventReader},
-    system::{ResMut, Resource},
+    resource::Resource,
+    system::ResMut,
 };
 use bevy_math::Vec2;
 use bevy_platform_support::collections::HashMap;

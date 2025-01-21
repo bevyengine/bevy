@@ -2,7 +2,7 @@ use crate::{
     render_resource::{Texture, TextureView},
     renderer::RenderDevice,
 };
-use bevy_ecs::{prelude::ResMut, system::Resource};
+use bevy_ecs::{prelude::ResMut, resource::Resource};
 use bevy_platform_support::collections::{hash_map::Entry, HashMap};
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 

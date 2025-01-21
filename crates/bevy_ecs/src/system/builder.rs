@@ -5,6 +5,7 @@ use variadics_please::all_tuples;
 use crate::{
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
+    resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
     },
@@ -15,7 +16,7 @@ use crate::{
 };
 use core::fmt::Debug;
 
-use super::{init_query_param, Res, ResMut, Resource, SystemState};
+use super::{init_query_param, Res, ResMut, SystemState};
 
 /// A builder that can create a [`SystemParam`].
 ///

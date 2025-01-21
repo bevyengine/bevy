@@ -7,8 +7,9 @@ use crate::{
     change_detection::MAX_CHANGE_AGE,
     entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
+    resource::Resource,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    system::{Local, Resource, SystemParam},
+    system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
 #[cfg(feature = "bevy_reflect")]

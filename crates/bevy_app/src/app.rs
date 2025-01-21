@@ -1423,8 +1423,9 @@ mod tests {
         event::{Event, EventWriter, Events},
         query::With,
         removal_detection::RemovedComponents,
+        resource::Resource,
         schedule::{IntoSystemConfigs, ScheduleLabel},
-        system::{Commands, Query, Resource},
+        system::{Commands, Query},
         world::{FromWorld, World},
     };
 

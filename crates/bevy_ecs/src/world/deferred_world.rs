@@ -9,7 +9,8 @@ use crate::{
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
-    system::{Commands, Query, Resource},
+    resource::Resource,
+    system::{Commands, Query},
     traversal::Traversal,
     world::{error::EntityFetchError, WorldEntityFetch},
 };

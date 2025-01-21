@@ -5,7 +5,7 @@ use crate::{
     },
     renderer::RenderContext,
 };
-use bevy_ecs::{define_label, intern::Interned, prelude::World, system::Resource};
+use bevy_ecs::{define_label, intern::Interned, prelude::World, resource::Resource};
 use bevy_platform_support::collections::HashMap;
 use core::fmt::Debug;
 

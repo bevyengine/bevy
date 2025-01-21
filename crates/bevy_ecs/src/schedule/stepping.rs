@@ -1,6 +1,7 @@
 use crate::{
+    resource::Resource,
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
 use bevy_platform_support::collections::HashMap;

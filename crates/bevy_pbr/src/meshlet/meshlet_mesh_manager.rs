@@ -6,7 +6,8 @@ use super::{
 use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_math::Vec2;

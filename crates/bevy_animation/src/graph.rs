@@ -14,7 +14,8 @@ use bevy_ecs::{
     component::Component,
     event::EventReader,
     reflect::ReflectComponent,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
 };
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};

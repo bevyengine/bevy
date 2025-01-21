@@ -521,7 +521,8 @@ impl AssetServer {
     ///
     /// ```
     /// use bevy_asset::{Assets, Handle, LoadedUntypedAsset};
-    /// use bevy_ecs::system::{Res, Resource};
+    /// use bevy_ecs::system::Res;
+    /// use bevy_ecs::resource::Resource;
     ///
     /// #[derive(Resource)]
     /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);

@@ -7,7 +7,8 @@ use bevy_ecs::{
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, ResMut, Resource, SystemState},
+    resource::Resource,
+    system::{Local, Query, ResMut, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};

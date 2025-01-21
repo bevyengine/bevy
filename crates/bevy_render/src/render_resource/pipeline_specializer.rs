@@ -5,7 +5,7 @@ use crate::{
         RenderPipelineDescriptor,
     },
 };
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_platform_support::{
     collections::{
         hash_map::{Entry, RawEntryMut, VacantEntry},

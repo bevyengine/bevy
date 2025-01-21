@@ -40,8 +40,9 @@ use bevy_ecs::{
     query::{Changed, Or},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::Image;

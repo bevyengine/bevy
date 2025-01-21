@@ -7,7 +7,8 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
-    system::{Resource, SystemParam},
+    resource::Resource,
+    system::SystemParam,
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_platform_support::collections::HashMap;

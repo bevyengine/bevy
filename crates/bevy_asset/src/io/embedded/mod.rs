@@ -9,7 +9,7 @@ use crate::io::{
     AssetSource, AssetSourceBuilders,
 };
 use alloc::boxed::Box;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]

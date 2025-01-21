@@ -1512,7 +1512,7 @@ mod tests {
         );
     }
     use super::*;
-    use bevy_ecs::{component::Component, system::Resource};
+    use bevy_ecs::{component::Component, resource::Resource};
     use bevy_reflect::Reflect;
 
     #[test]
