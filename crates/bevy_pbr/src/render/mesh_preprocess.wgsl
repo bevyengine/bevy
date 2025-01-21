@@ -98,11 +98,6 @@ struct LatePreprocessWorkItemIndirectParameters {
 #endif  // FRUSTUM_CULLING
 
 #ifdef OCCLUSION_CULLING
-// A bitfield of visibility for meshes. This is indexed by the
-// `PreprocessWorkItem::input_index`. A 0 indicates that the mesh isn't visible
-// and a 1 indicates that the mesh is visible.
-@group(0) @binding(9) var<storage, read_write> view_visibility: array<atomic<u32>>;
-
 @group(0) @binding(10) var depth_pyramid: texture_2d<f32>;
 
 #ifdef EARLY_PHASE
@@ -171,9 +166,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let input_index = work_items[instance_index].input_index;
     let output_index = work_items[instance_index].output_index;
     let indirect_parameters_index = work_items[instance_index].indirect_parameters_index;
-
-    let view_visibility_word_index = input_index / 32u;
-    let view_visibility_bitmask = 1u << (input_index % 32u);
 
     // Unpack the input matrix.
     let world_from_local_affine_transpose = current_input[input_index].world_from_local;

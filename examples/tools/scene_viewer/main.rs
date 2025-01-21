@@ -37,6 +37,9 @@ struct Args {
         default = "\"assets/models/FlightHelmet/FlightHelmet.gltf\".to_string()"
     )]
     scene_path: String,
+    /// enable a depth prepass
+    #[argh(switch)]
+    depth_prepass: Option<bool>,
     /// enable occlusion culling
     #[argh(switch)]
     occlusion_culling: Option<bool>,
@@ -172,6 +175,8 @@ fn setup_scene_after_load(
         // The Z-prepass is currently required.
         if args.occlusion_culling == Some(true) {
             camera.insert((DepthPrepass, OcclusionCulling));
+        } else if args.depth_prepass == Some(true) {
+            camera.insert(DepthPrepass);
         }
 
         // Spawn a default light if the scene does not have one

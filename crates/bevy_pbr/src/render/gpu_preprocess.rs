@@ -136,7 +136,11 @@ pub struct LateGpuPreprocessNode {
 pub struct EarlyPrepassBuildIndirectParametersNode {
     view_query: QueryState<
         Read<PreprocessBindGroups>,
-        (Without<SkipGpuPreprocess>, Without<NoIndirectDrawing>),
+        (
+            Without<SkipGpuPreprocess>,
+            Without<NoIndirectDrawing>,
+            With<DepthPrepass>,
+        ),
     >,
 }
 
@@ -151,7 +155,12 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
 pub struct LatePrepassBuildIndirectParametersNode {
     view_query: QueryState<
         Read<PreprocessBindGroups>,
-        (Without<SkipGpuPreprocess>, Without<NoIndirectDrawing>),
+        (
+            Without<SkipGpuPreprocess>,
+            Without<NoIndirectDrawing>,
+            With<DepthPrepass>,
+            With<OcclusionCulling>,
+        ),
     >,
 }
 
@@ -832,6 +841,12 @@ impl Node for EarlyPrepassBuildIndirectParametersNode {
     ) -> Result<(), NodeRunError> {
         let preprocess_pipelines = world.resource::<PreprocessPipelines>();
 
+        // If there are no views with a depth prepass enabled, we don't need to
+        // run this.
+        if self.view_query.iter_manual(world).next().is_none() {
+            return Ok(());
+        }
+
         run_build_indirect_parameters_node(
             render_context,
             world,
@@ -853,6 +868,12 @@ impl Node for LatePrepassBuildIndirectParametersNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let preprocess_pipelines = world.resource::<PreprocessPipelines>();
+
+        // If there are no views with occlusion culling enabled, we don't need
+        // to run this.
+        if self.view_query.iter_manual(world).next().is_none() {
+            return Ok(());
+        }
 
         run_build_indirect_parameters_node(
             render_context,

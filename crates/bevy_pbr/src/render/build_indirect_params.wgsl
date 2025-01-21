@@ -87,13 +87,19 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // dynamically reserve an index for the indirect parameters we're to
     // generate.
 #ifdef MULTI_DRAW_INDIRECT_COUNT_SUPPORTED
-    if (instance_count == 0u) {
-        return;
-    }
-
     // If this batch belongs to a batch set, then allocate space for the
     // indirect commands in that batch set.
     if (batch_set_index != 0xffffffffu) {
+        // Bail out now if there are no instances. Note that we can only bail if
+        // we're in a batch set. That's because only batch sets are drawn using
+        // `multi_draw_indirect_count`. If we aren't using
+        // `multi_draw_indirect_count`, then we need to continue in order to
+        // zero out the instance count; otherwise, it'll have garbage data in
+        // it.
+        if (instance_count == 0u) {
+            return;
+        }
+
         let indirect_parameters_base =
             indirect_batch_sets[batch_set_index].indirect_parameters_base;
         let indirect_parameters_offset =
