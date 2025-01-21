@@ -73,7 +73,7 @@ fn setup_terrain_scene(
             // lux::RAW_SUNLIGHT is recommended for use with this feature, since
             // other values approximate sunlight *post-scattering* in various
             // conditions. RAW_SUNLIGHT in comparison is the illuminance of the
-            // sun unfiltered by the atmosphere, so is the proper input for
+            // sun unfiltered by the atmosphere, so it is the proper input for
             // sunlight to be filtered by the atmosphere.
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
