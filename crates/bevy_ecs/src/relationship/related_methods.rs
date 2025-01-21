@@ -54,9 +54,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
-    pub fn insert_recursive<S: RelationshipTarget, B: Bundle + Clone>(
+    // We could keep track of a list of visited entities and track cycles,
+    // but this is not a very well-defined operation (or hard to write) for arbitrary relationships.
+    pub fn insert_recursive<S: RelationshipTarget>(
         &mut self,
-        bundle: B,
+        bundle: impl Bundle + Clone,
     ) -> &mut Self {
         self.insert(bundle.clone());
         if let Some(relationship_target) = self.get::<S>() {
@@ -65,7 +67,7 @@ impl<'w> EntityWorldMut<'w> {
                 self.world_scope(|world| {
                     world
                         .entity_mut(related)
-                        .insert_recursive::<S, B>(bundle.clone());
+                        .insert_recursive::<S>(bundle.clone());
                 });
             }
         }
@@ -135,13 +137,13 @@ impl<'a> EntityCommands<'a> {
     ///
     /// This method should only be called on relationships that form a tree-like structure.
     /// Any cycles will cause this method to loop infinitely.
-    pub fn insert_recursive<S: RelationshipTarget, B: Bundle + Clone>(
+    pub fn insert_recursive<S: RelationshipTarget>(
         &mut self,
-        bundle: B,
+        bundle: impl Bundle + Clone,
     ) -> &mut Self {
         let id = self.id();
         self.commands.queue(move |world: &mut World| {
-            world.entity_mut(id).insert_recursive::<S, B>(bundle);
+            world.entity_mut(id).insert_recursive::<S>(bundle);
         });
         self
     }
@@ -240,5 +242,54 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
     /// Returns a mutable reference to the underlying [`Commands`].
     pub fn commands_mut(&mut self) -> &mut Commands<'w, 'w> {
         &mut self.commands
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate as bevy_ecs;
+    use crate::prelude::{ChildOf, Children, Component};
+
+    #[derive(Component, Clone, Copy)]
+    struct TestComponent;
+
+    #[test]
+    fn insert_and_remove_recursive() {
+        let mut world = World::new();
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn(ChildOf(a)).id();
+        let c = world.spawn(ChildOf(a)).id();
+        let d = world.spawn(ChildOf(b)).id();
+
+        world
+            .entity_mut(a)
+            .insert_recursive::<Children>(TestComponent);
+
+        for entity in [a, b, c, d] {
+            assert!(world.entity(entity).contains::<TestComponent>());
+        }
+
+        world
+            .entity_mut(b)
+            .remove_recursive::<Children, TestComponent>();
+
+        // Parent
+        assert!(world.entity(a).contains::<TestComponent>());
+        // Target
+        assert!(!world.entity(b).contains::<TestComponent>());
+        // Sibling
+        assert!(world.entity(c).contains::<TestComponent>());
+        // Child
+        assert!(!world.entity(d).contains::<TestComponent>());
+
+        world
+            .entity_mut(a)
+            .remove_recursive::<Children, TestComponent>();
+
+        for entity in [a, b, c, d] {
+            assert!(!world.entity(entity).contains::<TestComponent>());
+        }
     }
 }
