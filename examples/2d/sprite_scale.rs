@@ -157,7 +157,7 @@ fn setup_texture_atlas(
         index: animation_indices_gabe.first,
     };
 
-    let sheets = [
+    let sprite_sheets = [
         SpriteSheet {
             size: Vec2::new(120., 50.),
             text: "Stretched".to_string(),
@@ -260,24 +260,24 @@ fn setup_texture_atlas(
         },
     ];
 
-    for sheet in sheets {
+    for sprite_sheet in sprite_sheets {
         let mut cmd = commands.spawn((
             Sprite {
-                image_mode: sheet.image_mode,
-                custom_size: Some(sheet.size),
-                ..Sprite::from_atlas_image(sheet.texture.clone(), sheet.atlas.clone())
+                image_mode: sprite_sheet.image_mode,
+                custom_size: Some(sprite_sheet.size),
+                ..Sprite::from_atlas_image(sprite_sheet.texture.clone(), sprite_sheet.atlas.clone())
             },
-            sheet.indices,
-            sheet.timer,
-            sheet.transform,
+            sprite_sheet.indices,
+            sprite_sheet.timer,
+            sprite_sheet.transform,
         ));
 
         cmd.with_children(|builder| {
             builder.spawn((
-                Text2d::new(sheet.text),
+                Text2d::new(sprite_sheet.text),
                 TextLayout::new_with_justify(JustifyText::Center),
                 TextFont::from_font_size(15.),
-                Transform::from_xyz(0., -0.5 * sheet.size.y - 10., 0.0),
+                Transform::from_xyz(0., -0.5 * sprite_sheet.size.y - 10., 0.0),
                 bevy::sprite::Anchor::TopCenter,
             ));
         });
