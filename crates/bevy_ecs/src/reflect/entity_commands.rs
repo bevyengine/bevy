@@ -2,7 +2,8 @@ use crate::{
     entity::Entity,
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
-    system::{EntityCommands, Resource},
+    resource::Resource,
+    system::EntityCommands,
     world::{EntityWorldMut, World},
 };
 use alloc::{borrow::Cow, boxed::Box};

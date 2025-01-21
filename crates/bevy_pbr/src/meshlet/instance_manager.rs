@@ -8,7 +8,8 @@ use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entities, Entity},
     event::EventReader,
     query::Has,
-    system::{Local, Query, Res, ResMut, Resource, SystemState},
+    resource::Resource,
+    system::{Local, Query, Res, ResMut, SystemState},
 };
 use bevy_render::{
     render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,

@@ -12,9 +12,10 @@ use crate::{
     entity::Entity,
     event::{Event, Events},
     observer::TriggerTargets,
+    resource::Resource,
     result::{Error, Result},
     schedule::ScheduleLabel,
-    system::{error_handler, IntoSystem, Resource, SystemId, SystemInput},
+    system::{error_handler, IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
