@@ -7,7 +7,7 @@ use crate::{
     where_clause_options::WhereClauseOptions,
     ReflectMeta, ReflectStruct,
 };
-use bevy_macro_utils::fq_std::{FQBox, FQClone, FQDefault, FQResult};
+use bevy_macro_utils::fq_std::{FQClone, FQDefault, FQResult};
 use proc_macro2::Span;
 use quote::{quote, ToTokens};
 use syn::{Field, Ident, Lit, LitInt, LitStr, Member};
@@ -257,9 +257,15 @@ fn get_active_fields(
                 };
 
                 let internal_error = if is_tuple {
-                    quote! {#bevy_reflect_path::FromReflectError::TupleIndexError(#accessor, #FQBox::new(err))}
+                    quote! {#bevy_reflect_path::FromReflectError::TupleIndexError(
+                        #accessor,
+                        #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(err)
+                    )}
                 } else {
-                    quote! {#bevy_reflect_path::FromReflectError::FieldError(::core::convert::Into::into(#accessor), #FQBox::new(err))}
+                    quote! {#bevy_reflect_path::FromReflectError::FieldError(
+                        ::core::convert::Into::into(#accessor),
+                        #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(err)
+                    )}
                 };
 
                 let get_field = quote! {

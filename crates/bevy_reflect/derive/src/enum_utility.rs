@@ -2,7 +2,7 @@ use crate::{
     derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
     ident::ident_or_index,
 };
-use bevy_macro_utils::fq_std::{FQBox, FQDefault, FQOption};
+use bevy_macro_utils::fq_std::{FQDefault, FQOption};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 
@@ -222,7 +222,10 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
             quote!(#bevy_reflect_path::FromReflectError::MissingTupleIndex(#index))
         };
 
-        quote!(#alias.ok_or_else(|| #bevy_reflect_path::FromReflectError::VariantError(::core::convert::Into::into(#variant_name), #FQBox::new(#error)))?)
+        quote!(#alias.ok_or_else(|| #bevy_reflect_path::FromReflectError::VariantError(
+            ::core::convert::Into::into(#variant_name),
+            #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#error)
+        ))?)
     }
 
     fn construct_field(&self, field: VariantField) -> TokenStream {
@@ -238,15 +241,24 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
 
         let error = if let Some(field_name) = &field.data.ident {
             let field_name = field_name.to_string();
-            quote!(#bevy_reflect_path::FromReflectError::FieldError(::core::convert::Into::into(#field_name), #FQBox::new(err)))
+            quote!(#bevy_reflect_path::FromReflectError::FieldError(
+                ::core::convert::Into::into(#field_name),
+                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(err)
+            ))
         } else {
             let index = field.declaration_index;
-            quote!(#bevy_reflect_path::FromReflectError::TupleIndexError(#index, #FQBox::new(err)))
+            quote!(#bevy_reflect_path::FromReflectError::TupleIndexError(
+                #index,
+                #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(err)
+            ))
         };
 
         quote! {
             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)
-                .map_err(|err| #bevy_reflect_path::FromReflectError::VariantError(::core::convert::Into::into(#variant_name), #FQBox::new(#error)))?
+                .map_err(|err| #bevy_reflect_path::FromReflectError::VariantError(
+                    ::core::convert::Into::into(#variant_name),
+                    #bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#error)
+                ))?
         }
     }
 }

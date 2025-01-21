@@ -135,7 +135,7 @@ impl<T: FromReflect> FromType<T> for ReflectFromReflect {
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum FromReflectError {
     #[error("attempted to convert `{}` to `{}`", .0.received, .0.expected)]
-    /// Attempted to convert the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    /// Attempted to convert the wrong [kind](crate::ReflectKind) to a type, e.g. a struct to a enum.
     MismatchedKinds(#[from] ReflectKindMismatchError),
 
     #[error("`{from_type}` is not `{to_type}`")]
