@@ -19,6 +19,10 @@
 //! [`Res`]: crate::system::Res
 //! [`ResMut`]: crate::system::ResMut
 
+use crate as bevy_ecs;
+use crate::prelude::{require, Component};
+use core::marker::PhantomData;
+
 // The derive macro for the `Resource` trait
 pub use bevy_ecs_macros::Resource;
 
@@ -92,3 +96,21 @@ pub use bevy_ecs_macros::Resource;
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
 pub trait Resource: Send + Sync + 'static {}
+
+/// A marker component for the entity that stores the resource of type `T`.
+///
+/// This component is automatically inserted when a resource of type `T` is inserted into the world,
+/// and can be used to find the entity that stores a particular resource.
+///
+/// By contrast, the [`IsResource`] component is used to find all entities that store resources,
+/// regardless of the type of resource they store.
+#[derive(Component, Default, Debug)]
+#[require(IsResource)]
+pub struct ResourceEntity<R: Resource>(PhantomData<R>);
+
+/// A marker component for entities which store resources.
+///
+/// By contrast, the [`ResourceEntity<R>`] component is used to find the entity that stores a particular resource.
+/// This component is required by the [`ResourceEntity<R>`] component, and will automatically be added.
+#[derive(Component, Default, Debug)]
+pub struct IsResource;
