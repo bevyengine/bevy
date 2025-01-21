@@ -1,5 +1,4 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![allow(unsafe_code)]
 
 extern crate alloc;
 

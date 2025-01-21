@@ -21,7 +21,10 @@ struct RunningRumble {
     /// A ref-counted handle to the specific force-feedback effect
     ///
     /// Dropping it will cause the effect to stop
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "We don't need to read this field, as its purpose is to keep the rumble effect going until the field is dropped."
+    )]
     effect: SyncCell<ff::Effect>,
 }
 

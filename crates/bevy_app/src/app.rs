@@ -32,6 +32,9 @@ use std::{
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
+    )]
     AppLabel,
     APP_LABEL_INTERNER
 );
@@ -104,6 +107,8 @@ impl Default for App {
         {
             app.init_resource::<AppTypeRegistry>();
             app.register_type::<Name>();
+            app.register_type::<ChildOf>();
+            app.register_type::<Children>();
         }
 
         #[cfg(feature = "reflect_functions")]
@@ -1357,7 +1362,7 @@ pub enum AppExit {
 }
 
 impl AppExit {
-    /// Creates a [`AppExit::Error`] with a error code of 1.
+    /// Creates a [`AppExit::Error`] with an error code of 1.
     #[must_use]
     pub const fn error() -> Self {
         Self::Error(NonZero::<u8>::MIN)
@@ -1733,7 +1738,7 @@ mod tests {
 
     #[test]
     fn app_exit_size() {
-        // There wont be many of them so the size isn't a issue but
+        // There wont be many of them so the size isn't an issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }

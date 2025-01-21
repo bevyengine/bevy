@@ -8,28 +8,9 @@
 // so that TAA works.
 
 #import bevy_pbr::mesh_types::{Mesh, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT}
-#import bevy_pbr::mesh_preprocess_types::IndirectParameters
+#import bevy_pbr::mesh_preprocess_types::{MeshInput, IndirectParametersMetadata}
 #import bevy_render::maths
 #import bevy_render::view::View
-
-// Per-frame data that the CPU supplies to the GPU.
-struct MeshInput {
-    // The model transform.
-    world_from_local: mat3x4<f32>,
-    // The lightmap UV rect, packed into 64 bits.
-    lightmap_uv_rect: vec2<u32>,
-    // Various flags.
-    flags: u32,
-    // The index of this mesh's `MeshInput` in the `previous_input` array, if
-    // applicable. If not present, this is `u32::MAX`.
-    previous_input_index: u32,
-    first_vertex_index: u32,
-    current_skin_index: u32,
-    previous_skin_index: u32,
-    // Low 16 bits: index of the material inside the bind group data.
-    // High 16 bits: index of the lightmap in the binding array.
-    material_and_lightmap_bind_group_slot: u32,
-}
 
 // Information about each mesh instance needed to cull it on GPU.
 //
@@ -68,7 +49,8 @@ struct PreprocessWorkItem {
 
 #ifdef INDIRECT
 // The array of indirect parameters for drawcalls.
-@group(0) @binding(4) var<storage, read_write> indirect_parameters: array<IndirectParameters>;
+@group(0) @binding(4) var<storage, read_write> indirect_parameters_metadata:
+    array<IndirectParametersMetadata>;
 #endif
 
 #ifdef FRUSTUM_CULLING
@@ -167,28 +149,15 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 
     // Figure out the output index. In indirect mode, this involves bumping the
-    // instance index in the indirect parameters structure. Otherwise, this
-    // index was directly supplied to us.
+    // instance index in the indirect parameters metadata, which
+    // `build_indirect_params.wgsl` will use to generate the actual indirect
+    // parameters. Otherwise, this index was directly supplied to us.
 #ifdef INDIRECT
     let batch_output_index =
-        atomicAdd(&indirect_parameters[indirect_parameters_index].instance_count, 1u);
-    let mesh_output_index = output_index + batch_output_index;
-
-    // If this is the first mesh in the batch, write the first instance index
-    // into the indirect parameters.
-    //
-    // We could have done this on CPU, but when we start retaining indirect
-    // parameters that will no longer be desirable, as the index of the first
-    // instance will change from frame to frame and we won't want the CPU to
-    // have to keep updating it.
-    if (batch_output_index == 0u) {
-        if (indirect_parameters[indirect_parameters_index].first_instance == 0xffffffffu) {
-            indirect_parameters[indirect_parameters_index].base_vertex_or_first_instance =
-                mesh_output_index;
-        } else {
-            indirect_parameters[indirect_parameters_index].first_instance = mesh_output_index;
-        }
-    }
+        atomicAdd(&indirect_parameters_metadata[indirect_parameters_index].instance_count, 1u);
+    let mesh_output_index =
+        indirect_parameters_metadata[indirect_parameters_index].base_output_index +
+        batch_output_index;
 #else   // INDIRECT
     let mesh_output_index = output_index;
 #endif  // INDIRECT

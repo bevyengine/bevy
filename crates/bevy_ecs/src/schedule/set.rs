@@ -20,12 +20,18 @@ use crate::{
 
 define_label!(
     /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(ScheduleLabel)]`"
+    )]
     ScheduleLabel,
     SCHEDULE_LABEL_INTERNER
 );
 
 define_label!(
     /// Types that identify logical groups of systems.
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(SystemSet)]`"
+    )]
     SystemSet,
     SYSTEM_SET_INTERNER,
     extra_methods: {
@@ -152,6 +158,12 @@ impl SystemSet for AnonymousSet {
 }
 
 /// Types that can be converted into a [`SystemSet`].
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If a system set needs to be returned from a function
+/// or stored somewhere, use [`SystemSet`] instead of this trait.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a system set",
     label = "invalid system set"

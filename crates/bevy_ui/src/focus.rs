@@ -1,5 +1,5 @@
 use crate::{
-    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiStack,
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, UiStack, UiTargetCamera,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -141,13 +141,12 @@ pub struct NodeQuery {
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     view_visibility: Option<&'static ViewVisibility>,
-    target_camera: Option<&'static TargetCamera>,
+    target_camera: Option<&'static UiTargetCamera>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
 /// Entities with a hidden [`ViewVisibility`] are always treated as released.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,
@@ -240,7 +239,7 @@ pub fn ui_focus_system(
             }
             let camera_entity = node
                 .target_camera
-                .map(TargetCamera::entity)
+                .map(UiTargetCamera::entity)
                 .or(default_camera_entity)?;
 
             let node_rect = Rect::from_center_size(

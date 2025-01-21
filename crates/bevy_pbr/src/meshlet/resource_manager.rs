@@ -7,7 +7,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::AnyOf,
     system::{Commands, Query, Res, ResMut, Resource},
 };
@@ -574,7 +574,6 @@ pub fn prepare_meshlet_per_frame_resources(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_meshlet_view_bind_groups(
     meshlet_mesh_manager: Res<MeshletMeshManager>,
     resource_manager: Res<ResourceManager>,

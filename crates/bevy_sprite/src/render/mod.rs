@@ -492,10 +492,6 @@ pub struct ImageBindGroups {
     values: HashMap<AssetId<Image>, BindGroup>,
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn queue_sprites(
     mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
@@ -504,8 +500,7 @@ pub fn queue_sprites(
     pipeline_cache: Res<PipelineCache>,
     extracted_sprites: Res<ExtractedSprites>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    views: Query<(
-        Entity,
+    mut views: Query<(
         &RenderVisibleEntities,
         &ExtractedView,
         &Msaa,
@@ -515,8 +510,9 @@ pub fn queue_sprites(
 ) {
     let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
-    for (view_entity, visible_entities, view, msaa, tonemapping, dither) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (visible_entities, view, msaa, tonemapping, dither) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -578,15 +574,12 @@ pub fn queue_sprites(
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn prepare_sprite_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -620,10 +613,6 @@ pub fn prepare_sprite_view_bind_groups(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn prepare_sprite_image_bind_groups(
     mut commands: Commands,
     mut previous_len: Local<usize>,

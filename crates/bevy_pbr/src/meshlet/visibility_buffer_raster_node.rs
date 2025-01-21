@@ -358,7 +358,6 @@ fn fill_cluster_buffers_pass(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
 fn cull_pass(
     label: &'static str,
     render_context: &mut RenderContext,
@@ -405,7 +404,6 @@ fn cull_pass(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn raster_pass(
     first_pass: bool,
     render_context: &mut RenderContext,

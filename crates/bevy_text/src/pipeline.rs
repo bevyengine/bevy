@@ -80,7 +80,6 @@ impl TextPipeline {
     /// Utilizes [`cosmic_text::Buffer`] to shape and layout text
     ///
     /// Negative or 0.0 font sizes will not be laid out.
-    #[allow(clippy::too_many_arguments)]
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<Font>,
@@ -171,8 +170,7 @@ impl TextPipeline {
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
-        buffer.set_metrics(font_system, metrics);
-        buffer.set_size(font_system, bounds.width, bounds.height);
+        buffer.set_metrics_and_size(font_system, metrics, bounds.width, bounds.height);
 
         buffer.set_wrap(
             font_system,
@@ -193,6 +191,14 @@ impl TextPipeline {
         }
         buffer.shape_until_scroll(font_system, false);
 
+        // Workaround for alignment not working for unbounded text.
+        // See https://github.com/pop-os/cosmic-text/issues/343
+        if bounds.width.is_none() && justify != JustifyText::Left {
+            let dimensions = buffer_dimensions(buffer);
+            // `set_size` causes a re-layout to occur.
+            buffer.set_size(font_system, Some(dimensions.x), bounds.height);
+        }
+
         // Recover the spans buffer.
         spans.clear();
         self.spans_buffer = spans
@@ -207,7 +213,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextLayoutInfo`], containing [`PositionedGlyph`]s
     /// which contain information for rendering the text.
-    #[allow(clippy::too_many_arguments)]
     pub fn queue_text<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
@@ -341,7 +346,6 @@ impl TextPipeline {
     ///
     /// Produces a [`TextMeasureInfo`] which can be used by a layout system
     /// to measure the text area on demand.
-    #[allow(clippy::too_many_arguments)]
     pub fn create_text_measure<'a>(
         &mut self,
         entity: Entity,

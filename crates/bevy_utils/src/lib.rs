@@ -26,12 +26,9 @@ pub mod synccell;
 pub mod syncunsafecell;
 
 mod default;
-mod object_safe;
-pub use object_safe::assert_object_safe;
 mod once;
 #[cfg(feature = "std")]
 mod parallel_queue;
-mod time;
 
 #[doc(hidden)]
 pub use once::OnceFlag;
@@ -61,8 +58,6 @@ pub use foldhash::fast::{FixedState, FoldHasher as DefaultHasher, RandomState};
 pub use hashbrown;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
-#[cfg(any(feature = "std", target_arch = "wasm32"))]
-pub use time::*;
 
 #[cfg(feature = "alloc")]
 use core::any::TypeId;

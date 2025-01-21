@@ -526,10 +526,6 @@ impl MeshAllocator {
     }
 
     /// A generic function that copies either vertex or index data into a slab.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-    )]
     fn copy_element_data(
         &mut self,
         mesh_id: &AssetId<Mesh>,
@@ -865,7 +861,7 @@ impl MeshAllocator {
 }
 
 impl GeneralSlab {
-    /// Creates a new growable slab big enough to hold an single element of
+    /// Creates a new growable slab big enough to hold a single element of
     /// `data_slot_count` size with the given `layout`.
     fn new(
         new_slab_id: SlabId,

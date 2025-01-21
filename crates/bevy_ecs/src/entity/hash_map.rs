@@ -1,3 +1,7 @@
+//! Contains the [`EntityHashMap`] type, a [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+//!
+//! This module is a lightweight wrapper around [`hashbrown`](bevy_utils::hashbrown)'s [`HashMap`] that is more performant for [`Entity`] keys.
+
 use core::{
     fmt::{self, Debug, Formatter},
     iter::FusedIterator,
@@ -165,12 +169,6 @@ impl<'a, V> Deref for Keys<'a, V> {
     }
 }
 
-impl<V> DerefMut for Keys<'_, V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a, V> Iterator for Keys<'a, V> {
     type Item = &'a Entity;
 
@@ -226,12 +224,6 @@ impl<V> Deref for IntoKeys<V> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<V> DerefMut for IntoKeys<V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

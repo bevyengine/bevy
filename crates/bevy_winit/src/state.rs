@@ -11,18 +11,20 @@ use bevy_ecs::{
     world::FromWorld,
 };
 #[cfg(feature = "custom_cursor")]
-use bevy_image::Image;
+use bevy_image::{Image, TextureAtlasLayout};
 use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
 use bevy_log::{error, trace, warn};
+#[cfg(feature = "custom_cursor")]
+use bevy_math::URect;
 use bevy_math::{ivec2, DVec2, Vec2};
+use bevy_platform_support::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 #[cfg(feature = "custom_cursor")]
 use bevy_utils::HashMap;
-use bevy_utils::Instant;
 use core::marker::PhantomData;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::EventLoopExtWebSys;
@@ -150,10 +152,17 @@ impl<T: Event> WinitAppRunnerState<T> {
 /// Identifiers for custom cursors used in caching.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum CustomCursorCacheKey {
-    /// An `AssetId` to a cursor.
-    Asset(AssetId<Image>),
+    /// A custom cursor with an image.
+    Image {
+        id: AssetId<Image>,
+        texture_atlas_layout_id: Option<AssetId<TextureAtlasLayout>>,
+        texture_atlas_index: Option<usize>,
+        flip_x: bool,
+        flip_y: bool,
+        rect: Option<URect>,
+    },
     #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-    /// An URL to a cursor.
+    /// A custom cursor with a URL.
     Url(String),
 }
 

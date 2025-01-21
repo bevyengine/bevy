@@ -42,7 +42,6 @@ use crate::{
 ///
 /// If any of these entities are missing required components, those will be added with their
 /// default values.
-#[allow(clippy::too_many_arguments)]
 pub fn create_windows<F: QueryFilter + 'static>(
     event_loop: &ActiveEventLoop,
     (
@@ -203,7 +202,6 @@ pub fn create_monitors(
     });
 }
 
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn despawn_windows(
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,

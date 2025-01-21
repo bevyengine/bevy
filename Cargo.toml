@@ -41,6 +41,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+too_many_arguments = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -52,6 +53,9 @@ too_long_first_doc_paragraph = "allow"
 std_instead_of_core = "warn"
 std_instead_of_alloc = "warn"
 alloc_instead_of_core = "warn"
+
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
@@ -82,6 +86,7 @@ type_complexity = "allow"
 undocumented_unsafe_blocks = "warn"
 unwrap_or_default = "warn"
 needless_lifetimes = "allow"
+too_many_arguments = "allow"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"
@@ -92,6 +97,9 @@ too_long_first_doc_paragraph = "allow"
 std_instead_of_core = "allow"
 std_instead_of_alloc = "allow"
 alloc_instead_of_core = "allow"
+
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
 
 [lints.rust]
 missing_docs = "warn"
@@ -944,6 +952,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "decal"
+path = "examples/3d/decal.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.decal]
+name = "Decal"
+description = "Decal rendering"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
 doc-scrape-examples = true
@@ -1231,9 +1250,14 @@ category = "3D Rendering"
 wasm = false
 setup = [
   [
+    "mkdir",
+    "-p",
+    "assets/external/models",
+  ],
+  [
     "curl",
     "-o",
-    "assets/models/bunny.meshlet_mesh",
+    "assets/external/models/bunny.meshlet_mesh",
     "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
   ],
 ]
@@ -1281,34 +1305,34 @@ category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox"
-path = "examples/animation/animated_fox.rs"
+name = "animated_mesh"
+path = "examples/animation/animated_mesh.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox]
-name = "Animated Fox"
-description = "Plays an animation from a skinned glTF"
+[package.metadata.example.animated_mesh]
+name = "Animated Mesh"
+description = "Plays an animation on a skinned glTF model of a fox"
 category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox_control"
-path = "examples/animation/animated_fox_control.rs"
+name = "animated_mesh_control"
+path = "examples/animation/animated_mesh_control.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox_control]
-name = "Animated Fox Control"
+[package.metadata.example.animated_mesh_control]
+name = "Animated Mesh Control"
 description = "Plays an animation from a skinned glTF with keyboard controls"
 category = "Animation"
 wasm = true
 
 [[example]]
-name = "animated_fox_events"
-path = "examples/animation/animated_fox_events.rs"
+name = "animated_mesh_events"
+path = "examples/animation/animated_mesh_events.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.animated_fox_events]
-name = "Animated Fox Events"
+[package.metadata.example.animated_mesh_events]
+name = "Animated Mesh Events"
 description = "Plays an animation from a skinned glTF with events"
 category = "Animation"
 wasm = true
@@ -2021,6 +2045,17 @@ doc-scrape-examples = true
 [package.metadata.example.parallel_query]
 name = "Parallel Query"
 description = "Illustrates parallel queries with `ParallelIterator`"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "relationships"
+path = "examples/ecs/relationships.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.relationships]
+name = "Relationships"
+description = "Define and work with custom relationships between entities"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -3310,6 +3345,18 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "custom_cursor_image"
+path = "examples/window/custom_cursor_image.rs"
+doc-scrape-examples = true
+required-features = ["custom_cursor"]
+
+[package.metadata.example.custom_cursor_image]
+name = "Custom Cursor Image"
+description = "Demonstrates creating an animated custom cursor from an image"
+category = "Window"
+wasm = true
+
+[[example]]
 name = "custom_user_event"
 path = "examples/window/custom_user_event.rs"
 doc-scrape-examples = true
@@ -4012,6 +4059,17 @@ doc-scrape-examples = true
 
 [package.metadata.example.tab_navigation]
 name = "Tab Navigation"
-description = "Demonstration of Tab Navigation"
+description = "Demonstration of Tab Navigation between UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "directional_navigation"
+path = "examples/ui/directional_navigation.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.directional_navigation]
+name = "Directional Navigation"
+description = "Demonstration of Directional Navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true

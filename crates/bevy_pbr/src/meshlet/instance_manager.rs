@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
-    entity::{Entities, Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entities, Entity},
     event::EventReader,
     query::Has,
     system::{Local, Query, Res, ResMut, Resource, SystemState},
@@ -81,7 +81,6 @@ impl InstanceManager {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn add_instance(
         &mut self,
         instance: MainEntity,

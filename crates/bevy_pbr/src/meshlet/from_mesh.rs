@@ -601,7 +601,6 @@ fn split_simplified_group_into_new_meshlets(
     new_meshlets_count
 }
 
-#[allow(clippy::too_many_arguments)]
 fn build_and_compress_per_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],

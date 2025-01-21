@@ -3,10 +3,8 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
+use bevy_platform_support::time::Instant;
 use core::time::Duration;
-
-#[cfg(any(target_arch = "wasm32", feature = "std"))]
-use bevy_utils::Instant;
 
 #[cfg(target_arch = "wasm32")]
 use {
@@ -100,7 +98,6 @@ impl Plugin for ScheduleRunnerPlugin {
                     let tick = move |app: &mut App,
                                      _wait: Option<Duration>|
                           -> Result<Option<Duration>, AppExit> {
-                        #[cfg(any(target_arch = "wasm32", feature = "std"))]
                         let start_time = Instant::now();
 
                         app.update();
@@ -109,10 +106,8 @@ impl Plugin for ScheduleRunnerPlugin {
                             return Err(exit);
                         };
 
-                        #[cfg(any(target_arch = "wasm32", feature = "std"))]
                         let end_time = Instant::now();
 
-                        #[cfg(any(target_arch = "wasm32", feature = "std"))]
                         if let Some(wait) = _wait {
                             let exe_time = end_time - start_time;
                             if exe_time < wait {
