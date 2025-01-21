@@ -65,7 +65,7 @@ pub fn event_propagation(criterion: &mut Criterion) {
 struct TestEvent<const N: usize> {}
 
 impl<const N: usize> Event for TestEvent<N> {
-    type Traversal = &'static Parent;
+    type Traversal = &'static ChildOf;
     const AUTO_PROPAGATE: bool = true;
 }
 

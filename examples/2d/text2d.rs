@@ -119,30 +119,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
     ));
 
-    for (text_anchor, color) in [
-        (Anchor::TopLeft, Color::Srgba(RED)),
-        (Anchor::TopRight, Color::Srgba(LIME)),
-        (Anchor::BottomRight, Color::Srgba(BLUE)),
-        (Anchor::BottomLeft, Color::Srgba(YELLOW)),
-    ] {
-        commands
-            .spawn((
-                Text2d::new(" Anchor".to_string()),
-                slightly_smaller_text_font.clone(),
-                Transform::from_translation(250. * Vec3::Y),
-                text_anchor,
-            ))
-            .with_child((
-                TextSpan("::".to_string()),
-                slightly_smaller_text_font.clone(),
-                TextColor(LIGHT_GREY.into()),
-            ))
-            .with_child((
-                TextSpan(format!("{text_anchor:?} ")),
-                slightly_smaller_text_font.clone(),
-                TextColor(color),
-            ));
-    }
+    commands
+        .spawn((
+            Sprite {
+                color: Color::Srgba(LIGHT_CYAN),
+                custom_size: Some(Vec2::new(10., 10.)),
+                ..Default::default()
+            },
+            Transform::from_translation(250. * Vec3::Y),
+        ))
+        .with_children(|commands| {
+            for (text_anchor, color) in [
+                (Anchor::TopLeft, Color::Srgba(RED)),
+                (Anchor::TopRight, Color::Srgba(LIME)),
+                (Anchor::BottomRight, Color::Srgba(BLUE)),
+                (Anchor::BottomLeft, Color::Srgba(YELLOW)),
+            ] {
+                commands
+                    .spawn((
+                        Text2d::new(" Anchor".to_string()),
+                        slightly_smaller_text_font.clone(),
+                        text_anchor,
+                    ))
+                    .with_child((
+                        TextSpan("::".to_string()),
+                        slightly_smaller_text_font.clone(),
+                        TextColor(LIGHT_GREY.into()),
+                    ))
+                    .with_child((
+                        TextSpan(format!("{text_anchor:?} ")),
+                        slightly_smaller_text_font.clone(),
+                        TextColor(color),
+                    ));
+            }
+        });
 }
 
 fn animate_translation(

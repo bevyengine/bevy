@@ -7,7 +7,7 @@ use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
     event::EventCursor,
-    hierarchy::Parent,
+    hierarchy::ChildOf,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     removal_detection::RemovedComponentEntity,
@@ -841,7 +841,7 @@ pub fn process_remote_reparent_request(
     // If `None`, remove the entities' parents.
     else {
         for entity in entities {
-            get_entity_mut(world, entity)?.remove::<Parent>();
+            get_entity_mut(world, entity)?.remove::<ChildOf>();
         }
     }
 

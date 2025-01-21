@@ -18,6 +18,7 @@ pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::WorldEntityFetch;
@@ -53,22 +54,14 @@ use crate::{
     },
 };
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, panic::Location};
 use log::warn;
-
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::{AtomicU32, Ordering};
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::{AtomicU32, Ordering};
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 #[cfg(feature = "track_location")]
 use bevy_ptr::UnsafeCellDeref;
-
-use core::panic::Location;
-
-use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
@@ -654,10 +647,10 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -675,7 +668,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
@@ -706,8 +699,8 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
     /// such as adding or removing components, or despawning the entity, only a
@@ -788,10 +781,10 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -811,7 +804,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
@@ -860,8 +853,8 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityRef>`](crate::entity::hash_map::EntityHashMap).
     ///
     /// # Errors
     ///
@@ -872,7 +865,7 @@ impl World {
     ///
     /// For examples, see [`World::entity`].
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     pub fn get_entity<F: WorldEntityFetch>(&self, entities: F) -> Result<F::Ref<'_>, Entity> {
         let cell = self.as_unsafe_world_cell_readonly();
@@ -891,8 +884,8 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
     /// such as adding or removing components, or despawning the entity, only a
@@ -910,7 +903,7 @@ impl World {
     ///
     /// For examples, see [`World::entity_mut`].
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
@@ -3665,7 +3658,26 @@ unsafe impl Sync for World {}
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
 ///
-/// [`FromWorld`] is automatically implemented for any type implementing [`Default`].
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`],
+/// and may also be derived for any struct whose fields all implement `FromWorld`:
+/// ```rs
+/// #[derive(Default)]
+/// struct A;
+///
+/// #[derive(Default)]
+/// struct B(Option<u32>)
+///
+/// struct C;
+///
+/// impl FromWorld for C {
+///     fn from_world(_world: &mut World) -> Self {
+///         Self
+///     }
+/// }
+///
+/// #[derive(FromWorld)]
+/// struct D(A, B, C);
+/// ```
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
     fn from_world(world: &mut World) -> Self;
@@ -3684,7 +3696,7 @@ mod tests {
     use crate::{
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
-        entity::EntityHashSet,
+        entity::hash_set::EntityHashSet,
         ptr::OwningPtr,
         system::Resource,
         world::error::EntityFetchError,

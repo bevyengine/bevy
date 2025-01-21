@@ -39,6 +39,7 @@ pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
+pub mod entity_disabling;
 pub mod event;
 pub mod hierarchy;
 pub mod identifier;
@@ -75,7 +76,7 @@ pub mod prelude {
         component::{require, Component},
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        hierarchy::{ChildSpawner, ChildSpawnerCommands, Children, Parent},
+        hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},

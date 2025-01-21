@@ -1,4 +1,8 @@
-//! Creates a hierarchy of parents and children entities.
+//! Demonstrates techniques for creating a hierarchy of parent and child entities.
+//!
+//! When [`DefaultPlugins`] are added to your app, systems are automatically added to propagate
+//! [`Transform`] and [`Visibility`] from parents to children down the hierarchy,
+//! resulting in a final [`GlobalTransform`] and [`InheritedVisibility`] component for each entity.
 
 use std::f32::consts::*;
 
@@ -67,7 +71,7 @@ fn rotate(
         }
 
         // To iterate through the entities children, just treat the Children component as a Vec
-        // Alternatively, you could query entities that have a Parent component
+        // Alternatively, you could query entities that have a ChildOf component
         for child in children {
             if let Ok(mut transform) = transform_query.get_mut(*child) {
                 transform.rotate_z(PI * time.delta_secs());

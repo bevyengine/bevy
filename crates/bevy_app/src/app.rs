@@ -32,6 +32,9 @@ use std::{
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
+    )]
     AppLabel,
     APP_LABEL_INTERNER
 );
@@ -104,7 +107,7 @@ impl Default for App {
         {
             app.init_resource::<AppTypeRegistry>();
             app.register_type::<Name>();
-            app.register_type::<Parent>();
+            app.register_type::<ChildOf>();
             app.register_type::<Children>();
         }
 
