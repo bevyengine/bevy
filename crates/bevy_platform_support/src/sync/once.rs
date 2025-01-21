@@ -48,13 +48,7 @@ mod once {
         pub fn set(&self, value: T) -> Result<(), T> {
             let mut value = Some(value);
 
-            self.inner.call_once(|| {
-                let Some(value) = value.take() else {
-                    unreachable!()
-                };
-
-                value
-            });
+            self.inner.call_once(|| value.take().unwrap());
 
             match value {
                 Some(value) => Err(value),
@@ -90,11 +84,7 @@ mod once {
 
                 core::mem::swap(&mut self.inner, &mut inner);
 
-                let Some(value) = inner.try_into_inner() else {
-                    unreachable!()
-                };
-
-                Some(value)
+                inner.try_into_inner()
             } else {
                 None
             }
@@ -125,10 +115,7 @@ mod once {
         fn clone(&self) -> OnceLock<T> {
             let cell = Self::new();
             if let Some(value) = self.get() {
-                match cell.set(value.clone()) {
-                    Ok(()) => (),
-                    Err(_) => unreachable!(),
-                }
+                cell.set(value.clone()).ok().unwrap();
             }
             cell
         }
@@ -137,10 +124,7 @@ mod once {
     impl<T> From<T> for OnceLock<T> {
         fn from(value: T) -> Self {
             let cell = Self::new();
-            match cell.set(value) {
-                Ok(()) => cell,
-                Err(_) => unreachable!(),
-            }
+            cell.set(value).map(move |_| cell).ok().unwrap()
         }
     }
 

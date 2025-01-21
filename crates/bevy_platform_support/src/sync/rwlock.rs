@@ -41,10 +41,7 @@ mod rwlock {
         ///
         /// See the standard library for further details.
         pub fn try_read(&self) -> TryLockResult<RwLockReadGuard<'_, T>> {
-            match self.inner.try_read() {
-                Some(guard) => Ok(guard),
-                None => Err(TryLockError::WouldBlock),
-            }
+            self.inner.try_read().ok_or(TryLockError::WouldBlock)
         }
 
         /// Locks this `RwLock` with exclusive write access, blocking the current
@@ -59,10 +56,7 @@ mod rwlock {
         ///
         /// See the standard library for further details.
         pub fn try_write(&self) -> TryLockResult<RwLockWriteGuard<'_, T>> {
-            match self.inner.try_write() {
-                Some(guard) => Ok(guard),
-                None => Err(TryLockError::WouldBlock),
-            }
+            self.inner.try_write().ok_or(TryLockError::WouldBlock)
         }
 
         /// Determines whether the lock is poisoned.

@@ -40,10 +40,7 @@ mod mutex {
         ///
         /// See the standard library for further details.
         pub fn try_lock(&self) -> TryLockResult<MutexGuard<'_, T>> {
-            match self.inner.try_lock() {
-                Some(lock) => Ok(lock),
-                None => Err(TryLockError::WouldBlock),
-            }
+            self.inner.try_lock().ok_or(TryLockError::WouldBlock)
         }
 
         /// Determines whether the mutex is poisoned.
