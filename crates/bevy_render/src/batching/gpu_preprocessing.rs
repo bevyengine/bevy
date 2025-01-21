@@ -382,12 +382,8 @@ pub struct LatePreprocessWorkItemIndirectParameters {
     /// determine the actual number of work items that exist in the late
     /// preprocessing work item buffer.
     work_item_count: u32,
-    /// Padding to a multiple of 64 bytes, needed on some GPUs.
-    pad_a: UVec4,
-    /// Padding to a multiple of 64 bytes, needed on some GPUs.
-    pad_b: UVec4,
-    /// Padding to a multiple of 64 bytes, needed on some GPUs.
-    pad_c: UVec4,
+    /// Padding to 64-byte boundaries for some hardware.
+    pad: UVec4,
 }
 
 impl Default for LatePreprocessWorkItemIndirectParameters {
@@ -397,9 +393,7 @@ impl Default for LatePreprocessWorkItemIndirectParameters {
             dispatch_y: 1,
             dispatch_z: 1,
             work_item_count: 0,
-            pad_a: UVec4::default(),
-            pad_b: UVec4::default(),
-            pad_c: UVec4::default(),
+            pad: default(),
         }
     }
 }
@@ -445,12 +439,10 @@ where
                     gpu_occlusion_culling: if gpu_occlusion_culling {
                         let late_indirect_parameters_indexed_offset =
                             late_indexed_indirect_parameters_buffer
-                                .push(LatePreprocessWorkItemIndirectParameters::default())
-                                * size_of::<LatePreprocessWorkItemIndirectParameters>();
+                                .push(LatePreprocessWorkItemIndirectParameters::default());
                         let late_indirect_parameters_non_indexed_offset =
                             late_non_indexed_indirect_parameters_buffer
-                                .push(LatePreprocessWorkItemIndirectParameters::default())
-                                * size_of::<LatePreprocessWorkItemIndirectParameters>();
+                                .push(LatePreprocessWorkItemIndirectParameters::default());
                         Some(GpuOcclusionCullingWorkItemBuffers {
                             late_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
                             late_non_indexed: UninitBufferVec::new(BufferUsages::STORAGE),

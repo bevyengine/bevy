@@ -41,9 +41,9 @@ use bevy_render::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
         BufferVec, CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        DynamicBindGroupLayoutEntries, PipelineCache, RawBufferVec, Shader, ShaderStages,
-        ShaderType, SpecializedComputePipeline, SpecializedComputePipelines, TextureSampleType,
-        UninitBufferVec,
+        DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec, Shader,
+        ShaderStages, ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
+        TextureSampleType, UninitBufferVec,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
@@ -665,6 +665,21 @@ impl Node for EarlyGpuPreprocessNode {
 
                         // Transform and cull indexed meshes if there are any.
                         if let Some(indexed_bind_group) = maybe_indexed_bind_group {
+                            if let PreprocessWorkItemBuffers::Indirect {
+                                gpu_occlusion_culling:
+                                    Some(GpuOcclusionCullingWorkItemBuffers {
+                                        late_indirect_parameters_indexed_offset,
+                                        ..
+                                    }),
+                                ..
+                            } = *work_item_buffers
+                            {
+                                compute_pass.set_push_constants(
+                                    0,
+                                    bytemuck::bytes_of(&late_indirect_parameters_indexed_offset),
+                                );
+                            }
+
                             compute_pass.set_bind_group(0, indexed_bind_group, &dynamic_offsets);
                             let workgroup_count = indexed_buffer.len().div_ceil(WORKGROUP_SIZE);
                             if workgroup_count > 0 {
@@ -674,6 +689,23 @@ impl Node for EarlyGpuPreprocessNode {
 
                         // Transform and cull non-indexed meshes if there are any.
                         if let Some(non_indexed_bind_group) = maybe_non_indexed_bind_group {
+                            if let PreprocessWorkItemBuffers::Indirect {
+                                gpu_occlusion_culling:
+                                    Some(GpuOcclusionCullingWorkItemBuffers {
+                                        late_indirect_parameters_non_indexed_offset,
+                                        ..
+                                    }),
+                                ..
+                            } = *work_item_buffers
+                            {
+                                compute_pass.set_push_constants(
+                                    0,
+                                    bytemuck::bytes_of(
+                                        &late_indirect_parameters_non_indexed_offset,
+                                    ),
+                                );
+                            }
+
                             compute_pass.set_bind_group(
                                 0,
                                 non_indexed_bind_group,
@@ -820,7 +852,8 @@ impl Node for LateGpuPreprocessNode {
                 );
                 compute_pass.dispatch_workgroups_indirect(
                     late_indexed_indirect_parameters_buffer,
-                    *late_indirect_parameters_indexed_offset as u64,
+                    (*late_indirect_parameters_indexed_offset as u64)
+                        * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
                 );
 
                 compute_pass.set_bind_group(
@@ -830,7 +863,8 @@ impl Node for LateGpuPreprocessNode {
                 );
                 compute_pass.dispatch_workgroups_indirect(
                     late_non_indexed_indirect_parameters_buffer,
-                    *late_indirect_parameters_non_indexed_offset as u64,
+                    (*late_indirect_parameters_non_indexed_offset as u64)
+                        * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
                 );
             }
         }
@@ -1131,7 +1165,14 @@ impl SpecializedComputePipeline for PreprocessPipeline {
                 .into(),
             ),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
+            push_constant_ranges: if key.contains(PreprocessPipelineKey::OCCLUSION_CULLING) {
+                vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..4,
+                }]
+            } else {
+                vec![]
+            },
             shader: MESH_PREPROCESS_SHADER_HANDLE,
             shader_defs,
             entry_point: "main".into(),
@@ -1768,8 +1809,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         let GpuOcclusionCullingWorkItemBuffers {
             late_indexed: ref late_indexed_work_item_buffer,
             late_non_indexed: ref late_non_indexed_work_item_buffer,
-            late_indirect_parameters_indexed_offset,
-            late_indirect_parameters_non_indexed_offset,
+            ..
         } = *gpu_occlusion_culling_work_item_buffers;
 
         let (view_depth_pyramid, previous_view_uniform_offset) =
@@ -1781,7 +1821,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 previous_view_uniform_offset,
                 indexed_work_item_buffer,
                 late_indexed_work_item_buffer,
-                late_indirect_parameters_indexed_offset,
             ),
 
             early_non_indexed: self.create_indirect_occlusion_culling_early_non_indexed_bind_group(
@@ -1789,21 +1828,18 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 previous_view_uniform_offset,
                 non_indexed_work_item_buffer,
                 late_non_indexed_work_item_buffer,
-                late_indirect_parameters_non_indexed_offset,
             ),
 
             late_indexed: self.create_indirect_occlusion_culling_late_indexed_bind_group(
                 view_depth_pyramid,
                 previous_view_uniform_offset,
                 late_indexed_work_item_buffer,
-                late_indirect_parameters_indexed_offset,
             ),
 
             late_non_indexed: self.create_indirect_occlusion_culling_late_non_indexed_bind_group(
                 view_depth_pyramid,
                 previous_view_uniform_offset,
                 late_non_indexed_work_item_buffer,
-                late_indirect_parameters_non_indexed_offset,
             ),
         })
     }
@@ -1816,7 +1852,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
         late_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
-        late_indirect_parameters_indexed_offset: u32,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
@@ -1886,7 +1921,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 12,
                                 BufferBinding {
                                     buffer: late_indexed_indirect_parameters_buffer,
-                                    offset: late_indirect_parameters_indexed_offset as u64,
+                                    offset: 0,
                                     size: NonZeroU64::new(size_of::<
                                         LatePreprocessWorkItemIndirectParameters,
                                     >()
@@ -1909,7 +1944,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
         late_non_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
-        late_indirect_parameters_non_indexed_offset: u32,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
@@ -1980,7 +2014,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 12,
                                 BufferBinding {
                                     buffer: late_non_indexed_indirect_parameters_buffer,
-                                    offset: late_indirect_parameters_non_indexed_offset as u64,
+                                    offset: 0,
                                     size: NonZeroU64::new(size_of::<
                                         LatePreprocessWorkItemIndirectParameters,
                                     >()
@@ -2002,7 +2036,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         late_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
-        late_indirect_parameters_indexed_offset: u32,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
@@ -2062,7 +2095,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 12,
                                 BufferBinding {
                                     buffer: late_indexed_indirect_parameters_buffer,
-                                    offset: late_indirect_parameters_indexed_offset as u64,
+                                    offset: 0,
                                     size: NonZeroU64::new(size_of::<
                                         LatePreprocessWorkItemIndirectParameters,
                                     >()
@@ -2084,7 +2117,6 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
         late_non_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
-        late_indirect_parameters_non_indexed_offset: u32,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
@@ -2145,7 +2177,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 12,
                                 BufferBinding {
                                     buffer: late_non_indexed_indirect_parameters_buffer,
-                                    offset: late_indirect_parameters_non_indexed_offset as u64,
+                                    offset: 0,
                                     size: NonZeroU64::new(size_of::<
                                         LatePreprocessWorkItemIndirectParameters,
                                     >()

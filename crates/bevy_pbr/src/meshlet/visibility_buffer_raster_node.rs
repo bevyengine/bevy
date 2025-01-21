@@ -150,7 +150,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             meshlet_view_resources.raster_cluster_rightmost_slot,
         );
         meshlet_view_resources.depth_pyramid.downsample_depth(
-            "early downsample depth",
+            "meshlet early downsample depth",
             render_context,
             meshlet_view_resources.view_size,
             &meshlet_view_bind_groups.downsample_depth,
@@ -202,7 +202,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             camera,
         );
         meshlet_view_resources.depth_pyramid.downsample_depth(
-            "late downsample depth",
+            "meshlet late downsample depth",
             render_context,
             meshlet_view_resources.view_size,
             &meshlet_view_bind_groups.downsample_depth,
@@ -270,7 +270,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 meshlet_view_resources.raster_cluster_rightmost_slot,
             );
             meshlet_view_resources.depth_pyramid.downsample_depth(
-                "late downsample depth",
+                "meshlet early shadow downsample depth",
                 render_context,
                 meshlet_view_resources.view_size,
                 &meshlet_view_bind_groups.downsample_depth,
@@ -315,7 +315,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 camera,
             );
             meshlet_view_resources.depth_pyramid.downsample_depth(
-                "main downsample depth",
+                "meshlet late shadow downsample depth",
                 render_context,
                 meshlet_view_resources.view_size,
                 &meshlet_view_bind_groups.downsample_depth,

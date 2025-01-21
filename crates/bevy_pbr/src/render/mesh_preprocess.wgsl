@@ -68,9 +68,7 @@ struct LatePreprocessWorkItemIndirectParameters {
     // This isn't the usual structure padding; it's needed because some hardware
     // requires indirect compute dispatch parameters to be aligned on 64-byte
     // boundaries.
-    pad_a: vec4<u32>,
-    pad_b: vec4<u32>,
-    pad_c: vec4<u32>,
+    pad: vec4<u32>,
 }
 
 // The current frame's `MeshInput`.
@@ -106,7 +104,9 @@ struct LatePreprocessWorkItemIndirectParameters {
 #endif  // EARLY_PHASE
 
 @group(0) @binding(12) var<storage, read_write> late_preprocess_work_item_indirect_parameters:
-    LatePreprocessWorkItemIndirectParameters; 
+    array<LatePreprocessWorkItemIndirectParameters>;
+
+var<push_constant> late_preprocess_work_item_indirect_offset: u32;
 #endif  // OCCLUSION_CULLING
 
 #ifdef FRUSTUM_CULLING
@@ -152,8 +152,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let instance_index = global_invocation_id.x;
 
 #ifdef LATE_PHASE
-    if (instance_index >=
-            atomicLoad(&late_preprocess_work_item_indirect_parameters.work_item_count)) {
+    if (instance_index >= atomicLoad(&late_preprocess_work_item_indirect_parameters[
+            late_preprocess_work_item_indirect_offset].work_item_count)) {
         return;
     }
 #else   // LATE_PHASE
@@ -272,14 +272,15 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         // that we examine it again in the late phase. After all, it's possible
         // that a mesh that was invisible last frame became visible in this
         // frame, and we need to handle that.
-        let output_work_item_index = atomicAdd(
-            &late_preprocess_work_item_indirect_parameters.work_item_count, 1u);
+        let output_work_item_index = atomicAdd(&late_preprocess_work_item_indirect_parameters[
+            late_preprocess_work_item_indirect_offset].work_item_count, 1u);
         if (output_work_item_index % 64u == 0u) {
             // Our workgroup size is 64, and the indirect parameters for the
             // late mesh preprocessing phase are counted in workgroups, so if
             // we're the first thread in this workgroup, bump the workgroup
             // count.
-            atomicAdd(&late_preprocess_work_item_indirect_parameters.dispatch_x, 1u);
+            atomicAdd(&late_preprocess_work_item_indirect_parameters[
+                late_preprocess_work_item_indirect_offset].dispatch_x, 1u);
         }
 
         // Enqueue a work item for the late prepass phase.
