@@ -11,8 +11,8 @@ use crate::{
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
-    storage::{ComponentSparseSet, Storages, Table},
     resource::Resource,
+    storage::{ComponentSparseSet, Storages, Table},
     world::RawCommandQueue,
 };
 use bevy_platform_support::sync::atomic::Ordering;
