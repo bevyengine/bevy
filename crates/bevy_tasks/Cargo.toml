@@ -32,9 +32,7 @@ portable-atomic = [
 ]
 
 [dependencies]
-bevy_platform_support = { workspace = true, features = [
-  "alloc",
-] }
+bevy_platform_support = { workspace = true, features = ["alloc"] }
 
 futures-lite = { version = "2.0.1", default-features = false, features = [
   "alloc",

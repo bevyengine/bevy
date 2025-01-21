@@ -56,9 +56,7 @@ bevy_utils = { workspace = true, default-features = true }
 bevy_tasks = { workspace = true, default-features = true }
 bevy_image = { workspace = true, default-features = true }
 bevy_mesh = { workspace = true, default-features = true }
-bevy_platform_support = { workspace = true, features = [
-  "std",
-] }
+bevy_platform_support = { workspace = true, features = ["std"] }
 
 # rendering
 image = { version = "0.25.2", default-features = false }

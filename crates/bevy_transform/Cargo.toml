@@ -22,9 +22,7 @@ derive_more = { version = "1", default-features = false, features = ["from"] }
 
 [dev-dependencies]
 bevy_tasks = { workspace = true, default-features = true }
-bevy_math = { workspace = true, features = [
-  "approx",
-] }
+bevy_math = { workspace = true, features = ["approx"] }
 approx = "0.5.1"
 
 [features]

@@ -10,9 +10,7 @@ keywords = ["bevy", "color"]
 rust-version = "1.83.0"
 
 [dependencies]
-bevy_math = { workspace = true, features = [
-  "curve",
-] }
+bevy_math = { workspace = true, features = ["curve"] }
 bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ], optional = true }

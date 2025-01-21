@@ -25,9 +25,7 @@ approx = { version = "0.5", default-features = false, optional = true }
 rand = { version = "0.8", default-features = false, optional = true }
 rand_distr = { version = "0.4.3", optional = true }
 smallvec = { version = "1.11" }
-bevy_reflect = { workspace = true, features = [
-  "glam",
-], optional = true }
+bevy_reflect = { workspace = true, features = ["glam"], optional = true }
 variadics_please = "1.1"
 
 [dev-dependencies]
@@ -36,9 +34,7 @@ approx = "0.5"
 rand = "0.8"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
-bevy_math = { workspace = true, features = [
-  "approx",
-] }
+bevy_math = { workspace = true, features = ["approx"] }
 glam = { version = "0.29", default-features = false, features = ["approx"] }
 
 [features]

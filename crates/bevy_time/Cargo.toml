@@ -21,9 +21,7 @@ bevy_ecs = { workspace = true, default-features = true, features = [
 bevy_reflect = { workspace = true, default-features = true, features = [
   "bevy",
 ], optional = true }
-bevy_platform_support = { workspace = true, features = [
-  "std",
-] }
+bevy_platform_support = { workspace = true, features = ["std"] }
 
 # other
 crossbeam-channel = "0.5.0"

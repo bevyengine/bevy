@@ -74,9 +74,7 @@ portable-atomic = [
 bevy_derive = { workspace = true, default-features = true }
 bevy_ecs = { workspace = true }
 bevy_reflect = { workspace = true, optional = true }
-bevy_utils = { workspace = true, features = [
-  "alloc",
-] }
+bevy_utils = { workspace = true, features = ["alloc"] }
 bevy_tasks = { workspace = true, optional = true }
 bevy_platform_support = { workspace = true }
 

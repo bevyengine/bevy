@@ -27,9 +27,7 @@ bevy_ecs = { workspace = true }
 bevy_input = { workspace = true }
 bevy_math = { workspace = true }
 bevy_window = { workspace = true }
-bevy_reflect = { workspace = true, features = [
-  "glam",
-], optional = true }
+bevy_reflect = { workspace = true, features = ["glam"], optional = true }
 
 # other
 thiserror = { version = "2", default-features = false }

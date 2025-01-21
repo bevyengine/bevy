@@ -101,13 +101,9 @@ portable-atomic = [
 bevy_ptr = { workspace = true, default-features = true }
 bevy_reflect = { workspace = true, optional = true }
 bevy_tasks = { workspace = true, optional = true }
-bevy_utils = { workspace = true, features = [
-  "alloc",
-] }
+bevy_utils = { workspace = true, features = ["alloc"] }
 bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
-bevy_platform_support = { workspace = true, features = [
-  "alloc",
-] }
+bevy_platform_support = { workspace = true, features = ["alloc"] }
 
 bitflags = { version = "2.3", default-features = false }
 concurrent-queue = { version = "2.5.0", default-features = false }

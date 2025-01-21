@@ -26,9 +26,7 @@ bevy_time = { workspace = true, default-features = true }
 bevy_transform = { workspace = true, default-features = true }
 bevy_utils = { workspace = true, default-features = true }
 bevy_window = { workspace = true, default-features = true }
-bevy_platform_support = { workspace = true, features = [
-  "std",
-] }
+bevy_platform_support = { workspace = true, features = ["std"] }
 
 # other
 crossbeam-channel = { version = "0.5", optional = true }

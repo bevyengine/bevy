@@ -83,13 +83,9 @@ portable-atomic = [
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
-bevy_utils = { workspace = true, features = [
-  "alloc",
-] }
+bevy_utils = { workspace = true, features = ["alloc"] }
 bevy_ptr = { workspace = true, default-features = true }
-bevy_platform_support = { workspace = true, features = [
-  "alloc",
-] }
+bevy_platform_support = { workspace = true, features = ["alloc"] }
 
 # used by bevy-utils, but it also needs reflect impls
 foldhash = { version = "0.1.3", default-features = false }

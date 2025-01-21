@@ -21,9 +21,7 @@ bevy_ecs = { workspace = true, default-features = true }
 bevy_time = { workspace = true, default-features = true }
 bevy_utils = { workspace = true, default-features = true }
 bevy_tasks = { workspace = true, default-features = true }
-bevy_platform_support = { workspace = true, features = [
-  "std",
-] }
+bevy_platform_support = { workspace = true, features = ["std"] }
 
 # other
 const-fnv1a-hash = "1.1.0"
