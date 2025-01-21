@@ -109,17 +109,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a camera
     commands.spawn(Camera2d);
 
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Showcases sprite 9 slice scaling and tiling features."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
-
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextFont {
         font: font.clone(),

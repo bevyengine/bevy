@@ -41,17 +41,6 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     // Spawn a camera
     commands.spawn(Camera2d);
 
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Example of how to draw to a texture from the CPU."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
-
     // create an image that we are going to draw into
     let mut image = Image::new_fill(
         // 2D image of size 256x256

@@ -62,17 +62,6 @@ fn setup(
 
     // Add a camera
     commands.spawn(Camera2d);
-
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Renders a glTF mesh in 2D with a custom vertex attribute."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
 }
 
 /// This custom material uses barycentric coordinates from

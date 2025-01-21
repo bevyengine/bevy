@@ -29,10 +29,7 @@ const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .add_systems(
-            Startup,
-            (setup_camera, setup_minimal_ui, setup_sprite, setup_mesh),
-        )
+        .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
         .add_systems(Update, (rotate, fit_canvas))
         .run();
 }
@@ -83,19 +80,6 @@ fn setup_mesh(
         Transform::from_xyz(25., 0., 2.).with_scale(Vec3::splat(32.)),
         Rotate,
         PIXEL_PERFECT_LAYERS,
-    ));
-}
-
-fn setup_minimal_ui(mut commands: Commands) {
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D"),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
     ));
 }
 

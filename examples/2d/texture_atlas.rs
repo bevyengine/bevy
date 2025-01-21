@@ -96,17 +96,6 @@ fn setup(
     // setup 2d scene
     commands.spawn(Camera2d);
 
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Generating four texture atlases (sprite sheets) from a folder containing individual sprites."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
-
     // padded textures are to the right, unpadded to the left
 
     // draw unpadded texture atlas

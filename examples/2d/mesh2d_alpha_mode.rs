@@ -23,17 +23,6 @@ fn setup(
     // Spawn a camera
     commands.spawn(Camera2d);
 
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Example that shows how transforms interact with alpha modes."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
-
     let texture_handle = asset_server.load("branding/icon.png");
     let mesh_handle = meshes.add(Rectangle::from_size(Vec2::splat(256.0)));
 

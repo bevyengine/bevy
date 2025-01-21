@@ -48,17 +48,6 @@ fn setup(
         },
     ));
 
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
-
     const UPPER_Y: f32 = 50.0;
     const LOWER_Y: f32 = -50.0;
     const FIRST_X: f32 = -375.0;

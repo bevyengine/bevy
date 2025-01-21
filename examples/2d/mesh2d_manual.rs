@@ -117,17 +117,6 @@ fn star(
 
     // Spawn the camera
     commands.spawn(Camera2d);
-
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Example of manual render of 2d items using a custom pipeline for 2d meshes."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
 }
 
 /// A marker component for colored 2d meshes

@@ -14,17 +14,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a camera
     commands.spawn(Camera2d);
 
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Demonstrates how to use transparency in 2D."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
-
     let sprite_handle = asset_server.load("branding/icon.png");
 
     commands.spawn(Sprite::from_image(sprite_handle.clone()));

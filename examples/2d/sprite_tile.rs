@@ -22,17 +22,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Spawn a camera
     commands.spawn(Camera2d);
 
-    // Create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Displays a single [`Sprite`] tiled in a grid, with a scaling animation."),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
-    ));
-
     commands.insert_resource(AnimationState {
         min: 128.0,
         max: 512.0,
