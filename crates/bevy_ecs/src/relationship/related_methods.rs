@@ -5,6 +5,7 @@ use crate::{
     system::{Commands, EntityCommands},
     world::{EntityWorldMut, World},
 };
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 impl<'w> EntityWorldMut<'w> {
@@ -45,6 +46,53 @@ impl<'w> EntityWorldMut<'w> {
         }
         self
     }
+
+    /// Inserts a component or bundle of components into the entity and all related entities,
+    /// traversing the relationship tracked in `S` in a breadth-first manner.
+    ///
+    /// # Warning
+    ///
+    /// This method should only be called on relationships that form a tree-like structure.
+    /// Any cycles will cause this method to loop infinitely.
+    pub fn insert_recursive<S: RelationshipTarget, B: Bundle + Clone>(
+        &mut self,
+        bundle: B,
+    ) -> &mut Self {
+        self.insert(bundle.clone());
+        if let Some(relationship_target) = self.get::<S>() {
+            let related_vec: Vec<Entity> = relationship_target.iter().collect();
+            for related in related_vec {
+                self.world_scope(|world| {
+                    world
+                        .entity_mut(related)
+                        .insert_recursive::<S, B>(bundle.clone());
+                });
+            }
+        }
+
+        self
+    }
+
+    /// Removes a component or bundle of components of type `B` from the entity and all related entities,
+    /// traversing the relationship tracked in `S` in a breadth-first manner.
+    ///
+    /// # Warning
+    ///
+    /// This method should only be called on relationships that form a tree-like structure.
+    /// Any cycles will cause this method to loop infinitely.
+    pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
+        self.remove::<B>();
+        if let Some(relationship_target) = self.get::<S>() {
+            let related_vec: Vec<Entity> = relationship_target.iter().collect();
+            for related in related_vec {
+                self.world_scope(|world| {
+                    world.entity_mut(related).remove_recursive::<S, B>();
+                });
+            }
+        }
+
+        self
+    }
 }
 
 impl<'a> EntityCommands<'a> {
@@ -76,6 +124,38 @@ impl<'a> EntityCommands<'a> {
         let id = self.id();
         self.commands.queue(move |world: &mut World| {
             world.entity_mut(id).despawn_related::<S>();
+        });
+        self
+    }
+
+    /// Inserts a component or bundle of components into the entity and all related entities,
+    /// traversing the relationship tracked in `S` in a breadth-first manner.
+    ///
+    /// # Warning
+    ///
+    /// This method should only be called on relationships that form a tree-like structure.
+    /// Any cycles will cause this method to loop infinitely.
+    pub fn insert_recursive<S: RelationshipTarget, B: Bundle + Clone>(
+        &mut self,
+        bundle: B,
+    ) -> &mut Self {
+        let id = self.id();
+        self.commands.queue(move |world: &mut World| {
+            world.entity_mut(id).insert_recursive::<S, B>(bundle);
+        });
+        self
+    }
+
+    /// Removes a component or bundle of components of type `B` from the entity and all related entities,
+    /// traversing the relationship tracked in `S` in a breadth-first manner.
+    ///
+    /// # Warning
+    /// This method should only be called on relationships that form a tree-like structure.
+    /// Any cycles will cause this method to loop infinitely.
+    pub fn remove_recursive<S: RelationshipTarget, B: Bundle>(&mut self) -> &mut Self {
+        let id = self.id();
+        self.commands.queue(move |world: &mut World| {
+            world.entity_mut(id).remove_recursive::<S, B>();
         });
         self
     }
