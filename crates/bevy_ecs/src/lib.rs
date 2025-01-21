@@ -52,6 +52,7 @@ pub mod query;
 pub mod reflect;
 pub mod relationship;
 pub mod removal_detection;
+pub mod resource;
 pub mod result;
 pub mod schedule;
 pub mod storage;
