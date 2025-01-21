@@ -1487,7 +1487,7 @@ impl Bundles {
     pub fn iter(&self) -> impl Iterator<Item = &BundleInfo> {
         self.bundle_infos.iter()
     }
-    
+
     /// Gets the metadata associated with a specific type of bundle.
     /// Returns `None` if the bundle is not registered with the world.
     #[inline]
