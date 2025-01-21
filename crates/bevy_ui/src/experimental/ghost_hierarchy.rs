@@ -2,14 +2,11 @@
 
 use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
 use core::marker::PhantomData;
 
-#[cfg(feature = "ghost_nodes")]
-use bevy_hierarchy::HierarchyQueryExt;
 #[cfg(feature = "ghost_nodes")]
 use smallvec::SmallVec;
 
@@ -46,17 +43,17 @@ impl GhostNode {
 #[cfg(feature = "ghost_nodes")]
 /// System param that allows iteration of all UI root nodes.
 ///
-/// A UI root node is either a [`Node`] without a [`Parent`], or with only [`GhostNode`] ancestors.
+/// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`GhostNode`] ancestors.
 #[derive(SystemParam)]
 pub struct UiRootNodes<'w, 's> {
-    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<Parent>)>,
-    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<Parent>)>,
+    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>,
+    root_ghost_node_query: Query<'w, 's, Entity, (With<GhostNode>, Without<ChildOf>)>,
     all_nodes_query: Query<'w, 's, Entity, With<Node>>,
     ui_children: UiChildren<'w, 's>,
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<Parent>)>;
+pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>;
 
 #[cfg(feature = "ghost_nodes")]
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -83,7 +80,7 @@ pub struct UiChildren<'w, 's> {
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
     ghost_nodes_query: Query<'w, 's, Entity, With<GhostNode>>,
-    parents_query: Query<'w, 's, &'static Parent>,
+    parents_query: Query<'w, 's, &'static ChildOf>,
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
@@ -92,7 +89,7 @@ pub struct UiChildren<'w, 's> {
 pub struct UiChildren<'w, 's> {
     ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    parents_query: Query<'w, 's, &'static Parent>,
+    parents_query: Query<'w, 's, &'static ChildOf>,
 }
 
 #[cfg(feature = "ghost_nodes")]
@@ -169,10 +166,7 @@ impl<'w, 's> UiChildren<'w, 's> {
 
     /// Returns the UI parent of the provided entity.
     pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
-        self.parents_query
-            .get(entity)
-            .ok()
-            .map(|parent| parent.entity())
+        self.parents_query.get(entity).ok().map(|parent| parent.0)
     }
 
     /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
@@ -222,7 +216,6 @@ mod tests {
         system::{Query, SystemState},
         world::World,
     };
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     use super::{GhostNode, Node, UiChildren, UiRootNodes};
 
