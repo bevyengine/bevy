@@ -63,6 +63,10 @@ pub use bevy_ecs_macros::Resource;
 /// ```
 ///
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
+/// [`World`]: crate::world::World
+/// [`Res`]: crate::system::Res
+/// [`ResMut`]: crate::system::ResMut
+/// [`SyncCell`]: bevy_utils::synccell::SyncCell
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a `Resource`",
     label = "invalid `Resource`",
