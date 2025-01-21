@@ -2,7 +2,7 @@ use crate as bevy_ecs;
 use alloc::vec::Vec;
 use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
-    system::Resource,
+    resource::Resource,
 };
 #[cfg(feature = "track_location")]
 use core::panic::Location;

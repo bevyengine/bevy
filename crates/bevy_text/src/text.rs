@@ -455,13 +455,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
         ),
     >,
     changed_spans: Query<
-        (Entity, Option<&Parent>, Has<TextLayout>),
+        (Entity, Option<&ChildOf>, Has<TextLayout>),
         (
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<Children>,
-                Changed<Parent>, // Included to detect broken text block hierarchies.
+                Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
             With<TextSpan>,
@@ -469,7 +469,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
         ),
     >,
     mut computed: Query<(
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&mut ComputedTextBlock>,
         Has<TextSpan>,
     )>,
@@ -515,7 +515,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a Parent \
+                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
                 break;

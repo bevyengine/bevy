@@ -26,11 +26,12 @@ use crate::{
     entity::{Entities, Entity, EntityCloneBuilder},
     event::Event,
     observer::{Observer, TriggerTargets},
+    resource::Resource,
     result::Error,
     schedule::ScheduleLabel,
     system::{
         command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
-        IntoObserverSystem, IntoSystem, RegisteredSystem, Resource, SystemId,
+        IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -2171,7 +2172,8 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::{require, Component},
-        system::{Commands, Resource},
+        resource::Resource,
+        system::Commands,
         world::{CommandQueue, FromWorld, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};

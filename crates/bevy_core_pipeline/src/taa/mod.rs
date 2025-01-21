@@ -10,8 +10,9 @@ use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;

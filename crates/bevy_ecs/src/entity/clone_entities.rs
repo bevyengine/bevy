@@ -1,24 +1,18 @@
 use alloc::{borrow::ToOwned, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
+use bevy_utils::{HashMap, HashSet};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
 
-use bevy_utils::{HashMap, HashSet};
-
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
     entity::Entity,
-    hierarchy::{Children, Parent},
+    hierarchy::{ChildOf, Children},
     query::DebugCheckedUnwrap,
     world::{DeferredWorld, World},
 };
@@ -637,11 +631,11 @@ impl<'w> EntityCloneBuilder<'w> {
     /// Sets the option to add cloned entity as a child to the parent entity.
     pub fn as_child(&mut self, as_child: bool) -> &mut Self {
         if as_child {
-            self.override_component_clone_handler::<Parent>(ComponentCloneHandler::custom_handler(
+            self.override_component_clone_handler::<ChildOf>(ComponentCloneHandler::custom_handler(
                 component_clone_parent,
             ))
         } else {
-            self.remove_component_clone_handler_override::<Parent>()
+            self.remove_component_clone_handler_override::<ChildOf>()
         }
     }
 
@@ -700,18 +694,21 @@ fn component_clone_children(world: &mut DeferredWorld, ctx: &mut ComponentCloneC
             .with_source_and_target(*child, child_clone);
         world.commands().queue(move |world: &mut World| {
             clone_entity.clone_entity(world);
-            world.entity_mut(child_clone).insert(Parent(parent));
+            world.entity_mut(child_clone).insert(ChildOf(parent));
         });
     }
 }
 
-/// Clone handler for the [`Parent`] component. Allows to add clone as a child to the parent entity.
+/// Clone handler for the [`ChildOf`] component. Allows to add clone as a child to the parent entity.
 fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
     let parent = ctx
-        .read_source_component::<Parent>()
+        .read_source_component::<ChildOf>()
         .map(|p| p.0)
-        .expect("Source entity must have Parent component");
-    world.commands().entity(ctx.target()).insert(Parent(parent));
+        .expect("Source entity must have a ChildOf component");
+    world
+        .commands()
+        .entity(ctx.target())
+        .insert(ChildOf(parent));
 }
 
 #[cfg(test)]

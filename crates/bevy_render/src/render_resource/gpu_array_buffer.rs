@@ -6,7 +6,7 @@ use crate::{
     render_resource::batched_uniform_buffer::BatchedUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_ecs::{prelude::Component, system::Resource};
+use bevy_ecs::{prelude::Component, resource::Resource};
 use core::marker::PhantomData;
 use encase::{private::WriteInto, ShaderSize, ShaderType};
 use nonmax::NonMaxU32;
