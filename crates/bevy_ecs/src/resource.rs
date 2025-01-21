@@ -109,9 +109,15 @@ pub trait Resource: Component {}
 ///
 /// By contrast, the [`IsResource`] component is used to find all entities that store resources,
 /// regardless of the type of resource they store.
-#[derive(Component, Default, Debug)]
+#[derive(Component, Debug)]
 #[require(IsResource)]
 pub struct ResourceEntity<R: Resource>(PhantomData<R>);
+
+impl<R: Resource> Default for ResourceEntity<R> {
+    fn default() -> Self {
+        ResourceEntity(PhantomData)
+    }
+}
 
 /// A marker component for entities which store resources.
 ///

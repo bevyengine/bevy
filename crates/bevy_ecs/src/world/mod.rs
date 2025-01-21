@@ -44,7 +44,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
-    resource::Resource,
+    resource::{Resource, ResourceEntity},
     result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -1584,29 +1584,13 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     #[track_caller]
+    // FIXME: this should be plumbed to the spawn call,
+    // but no infrastructure exists for that yet.
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
-        #[cfg(feature = "track_location")]
-        let caller = Location::caller();
         let component_id = self.components.register_resource::<R>();
-        if self
-            .storages
-            .resources
-            .get(component_id)
-            .is_none_or(|data| !data.is_present())
-        {
-            let value = R::from_world(self);
-            OwningPtr::make(value, |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R.
-                unsafe {
-                    self.insert_resource_by_id(
-                        component_id,
-                        ptr,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
-                }
-            });
-        }
+
+        let resource_data = R::from_world(self);
+        self.spawn((resource_data, ResourceEntity::<R>::default()));
         component_id
     }
 
@@ -1631,20 +1615,11 @@ impl World {
     pub(crate) fn insert_resource_with_caller<R: Resource>(
         &mut self,
         value: R,
-        #[cfg(feature = "track_location")] caller: &'static Location,
+        // FIXME: this should be plumbed to the spawn call,
+        // but no infrastructure exists for that yet.
+        #[cfg(feature = "track_location")] _caller: &'static Location,
     ) {
-        let component_id = self.components.register_resource::<R>();
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R.
-            unsafe {
-                self.insert_resource_by_id(
-                    component_id,
-                    ptr,
-                    #[cfg(feature = "track_location")]
-                    caller,
-                );
-            }
-        });
+        self.spawn((value, ResourceEntity::<R>::default()));
     }
 
     /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
@@ -2770,6 +2745,7 @@ impl World {
         value: OwningPtr<'_>,
         #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
+        // FIXME: migrate this function
         let change_tick = self.change_tick();
 
         let resource = self.initialize_resource_internal(component_id);
