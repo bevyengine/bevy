@@ -371,7 +371,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
@@ -382,7 +382,8 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     for (entity, uinode, transform, handle, inherited_visibility, clip, camera) in
         uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_single_camera)
+        else {
             continue;
         };
 

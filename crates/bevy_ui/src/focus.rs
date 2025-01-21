@@ -1,5 +1,5 @@
 use crate::{
-    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiStack,
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, UiStack, UiTargetCamera,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -141,7 +141,7 @@ pub struct NodeQuery {
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: Option<&'static TargetCamera>,
+    target_camera: Option<&'static UiTargetCamera>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -239,7 +239,7 @@ pub fn ui_focus_system(
             }
             let camera_entity = node
                 .target_camera
-                .map(TargetCamera::entity)
+                .map(UiTargetCamera::entity)
                 .or(default_camera_entity)?;
 
             let node_rect = Rect::from_center_size(

@@ -1,5 +1,6 @@
 # if crate A depends on crate B, B must come before A in this list
 crates=(
+    bevy_platform_support
     bevy_utils
     bevy_ptr
     bevy_macro_utils
@@ -20,7 +21,6 @@ crates=(
     bevy_asset
     bevy_audio
     bevy_diagnostic
-    bevy_hierarchy
     bevy_transform
     bevy_window
     bevy_encase_derive

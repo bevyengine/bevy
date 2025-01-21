@@ -51,7 +51,7 @@ pub struct NodeQuery {
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: Option<&'static TargetCamera>,
+    target_camera: Option<&'static UiTargetCamera>,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -132,7 +132,7 @@ pub fn ui_picking(
         }
         let Some(camera_entity) = node
             .target_camera
-            .map(TargetCamera::entity)
+            .map(UiTargetCamera::entity)
             .or(default_camera_entity)
         else {
             continue;
@@ -188,7 +188,7 @@ pub fn ui_picking(
         for node in node_query.iter_many(hovered_nodes) {
             let Some(camera_entity) = node
                 .target_camera
-                .map(TargetCamera::entity)
+                .map(UiTargetCamera::entity)
                 .or(default_camera_entity)
             else {
                 continue;

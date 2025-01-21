@@ -15,7 +15,7 @@ mod gilrs_system;
 mod rumble;
 
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_utils::{synccell::SyncCell, HashMap};

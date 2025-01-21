@@ -6,6 +6,11 @@ use crate::{
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
     UntypedHandle,
 };
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 use atomicow::CowArc;
 use bevy_ecs::world::World;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};

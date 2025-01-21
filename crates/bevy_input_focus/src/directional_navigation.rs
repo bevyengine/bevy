@@ -17,7 +17,7 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
     system::SystemParam,
 };
@@ -186,10 +186,11 @@ impl DirectionalNavigationMap {
     ///
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
-        for i in 0..entities.len() {
-            let a = entities[i];
-            let b = entities[(i + 1) % entities.len()];
-            self.add_symmetrical_edge(a, b, direction);
+        self.add_edges(entities, direction);
+        if let Some((first_entity, rest)) = entities.split_first() {
+            if let Some(last_entity) = rest.last() {
+                self.add_symmetrical_edge(*last_entity, *first_entity, direction);
+            }
         }
     }
 
@@ -227,14 +228,17 @@ impl DirectionalNavigation<'_> {
     /// If the result was `Ok`, the [`InputFocus`] resource is updated to the new focus as part of this method call.
     pub fn navigate(
         &mut self,
-        octant: CompassOctant,
+        direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
         if let Some(current_focus) = self.focus.0 {
-            if let Some(new_focus) = self.map.get_neighbor(current_focus, octant) {
+            if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
             } else {
-                Err(DirectionalNavigationError::NoNeighborInDirection)
+                Err(DirectionalNavigationError::NoNeighborInDirection {
+                    current_focus,
+                    direction,
+                })
             }
         } else {
             Err(DirectionalNavigationError::NoFocus)
@@ -249,8 +253,13 @@ pub enum DirectionalNavigationError {
     #[error("No focusable entity is currently set.")]
     NoFocus,
     /// No neighbor in the requested direction.
-    #[error("No neighbor in the requested direction.")]
-    NoNeighborInDirection,
+    #[error("No neighbor from {current_focus} in the {direction:?} direction.")]
+    NoNeighborInDirection {
+        /// The entity that was the focus when the error occurred.
+        current_focus: Entity,
+        /// The direction in which the navigation was attempted.
+        direction: CompassOctant,
+    },
 }
 
 #[cfg(test)]

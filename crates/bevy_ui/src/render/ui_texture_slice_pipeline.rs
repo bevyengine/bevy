@@ -256,7 +256,7 @@ pub fn extract_ui_texture_slices(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
             &ImageNode,
         )>,
     >,
@@ -265,7 +265,8 @@ pub fn extract_ui_texture_slices(
     let default_camera_entity = default_ui_camera.get();
 
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
+        else {
             continue;
         };
 

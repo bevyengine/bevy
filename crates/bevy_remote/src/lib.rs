@@ -199,7 +199,7 @@
 //! Mutate a field in a component.
 //!
 //! `params`:
-//! - `entity`: The ID of the entity to with the component to mutate.
+//! - `entity`: The ID of the entity with the component to mutate.
 //! - `component`: The component's [fully-qualified type name].
 //! - `path`: The path of the field within the component. See
 //!   [`GetPath`](bevy_reflect::GetPath#syntax) for more information on formatting this string.

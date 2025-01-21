@@ -16,7 +16,6 @@ criterion = { version = "0.5.1", features = ["html_reports"] }
 # Bevy crates
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs", features = ["multi_threaded"] }
-bevy_hierarchy = { path = "../crates/bevy_hierarchy" }
 bevy_math = { path = "../crates/bevy_math" }
 bevy_picking = { path = "../crates/bevy_picking", features = [
   "bevy_mesh_picking_backend",
