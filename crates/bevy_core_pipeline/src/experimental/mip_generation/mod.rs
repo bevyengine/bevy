@@ -80,11 +80,11 @@ impl Plugin for MipGenerationPlugin {
 
         render_app
             .init_resource::<SpecializedComputePipelines<DownsampleDepthPipeline>>()
-            .add_render_graph_node::<ViewNodeRunner<EarlyDownsampleDepthNode>>(
+            .add_render_graph_node::<ViewNodeRunner<DownsampleDepthNode>>(
                 Core3d,
                 Node3d::EarlyDownsampleDepth,
             )
-            .add_render_graph_node::<ViewNodeRunner<LateDownsampleDepthNode>>(
+            .add_render_graph_node::<ViewNodeRunner<DownsampleDepthNode>>(
                 Core3d,
                 Node3d::LateDownsampleDepth,
             )
@@ -127,22 +127,26 @@ impl Plugin for MipGenerationPlugin {
     }
 }
 
-/// The first node that produces a hierarchical Z-buffer, also known as a depth
+/// The nodes that produce a hierarchical Z-buffer, also known as a depth
 /// pyramid.
 ///
 /// This runs the single-pass downsampling (SPD) shader with the *min* filter in
 /// order to generate a series of mipmaps for the Z buffer. The resulting
 /// hierarchical Z buffer can be used for occlusion culling.
 ///
-/// This is the first hierarchical Z-buffer stage, which runs after the early
-/// prepass and before the late prepass. It prepares the Z-buffer for the
-/// bounding box tests that the late mesh preprocessing stage will perform.
+/// There are two instances of this node. The *early* downsample depth pass is
+/// the first hierarchical Z-buffer stage, which runs after the early prepass
+/// and before the late prepass. It prepares the Z-buffer for the bounding box
+/// tests that the late mesh preprocessing stage will perform. The *late*
+/// downsample depth pass runs at the end of the main phase. It prepares the
+/// Z-buffer for the occlusion culling that the early mesh preprocessing phase
+/// of the *next* frame will perform.
 ///
 /// This node won't do anything if occlusion culling isn't on.
 #[derive(Default)]
-pub struct EarlyDownsampleDepthNode;
+pub struct DownsampleDepthNode;
 
-impl ViewNode for EarlyDownsampleDepthNode {
+impl ViewNode for DownsampleDepthNode {
     type ViewQuery = (
         Read<ViewDepthPyramid>,
         Read<ViewDownsampleDepthBindGroup>,
@@ -151,7 +155,7 @@ impl ViewNode for EarlyDownsampleDepthNode {
 
     fn run<'w>(
         &self,
-        _: &mut RenderGraphContext,
+        render_graph_context: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (view_depth_pyramid, view_downsample_depth_bind_group, view_depth_texture): QueryItem<
             'w,
@@ -159,118 +163,57 @@ impl ViewNode for EarlyDownsampleDepthNode {
         >,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        downsample_depth(
-            "early downsample depth",
+        // Produce a depth pyramid from the current depth buffer for a single
+        // view. The resulting depth pyramid can be used for occlusion testing.
+
+        let downsample_depth_pipelines = world.resource::<DownsampleDepthPipelines>();
+        let pipeline_cache = world.resource::<PipelineCache>();
+
+        // Despite the name "single-pass downsampling", we actually need two
+        // passes because of the lack of `coherent` buffers in WGPU/WGSL.
+        // Between each pass, there's an implicit synchronization barrier.
+
+        // Fetch the appropriate pipeline ID, depending on whether the depth
+        // buffer is multisampled or not.
+        let (Some(first_downsample_depth_pipeline_id), Some(second_downsample_depth_pipeline_id)) =
+            (if view_depth_texture.texture.sample_count() > 1 {
+                (
+                    downsample_depth_pipelines.first_multisample.pipeline_id,
+                    downsample_depth_pipelines.second_multisample.pipeline_id,
+                )
+            } else {
+                (
+                    downsample_depth_pipelines.first.pipeline_id,
+                    downsample_depth_pipelines.second.pipeline_id,
+                )
+            })
+        else {
+            return Ok(());
+        };
+
+        // Fetch the pipelines for the two passes.
+        let (Some(first_downsample_depth_pipeline), Some(second_downsample_depth_pipeline)) = (
+            pipeline_cache.get_compute_pipeline(first_downsample_depth_pipeline_id),
+            pipeline_cache.get_compute_pipeline(second_downsample_depth_pipeline_id),
+        ) else {
+            return Ok(());
+        };
+
+        // Run the depth downsampling.
+        let view_size = uvec2(
+            view_depth_texture.texture.width(),
+            view_depth_texture.texture.height(),
+        );
+        view_depth_pyramid.downsample_depth(
+            &format!("{:?}", render_graph_context.label()),
             render_context,
-            view_depth_pyramid,
+            view_size,
             view_downsample_depth_bind_group,
-            view_depth_texture,
-            world,
-        )
+            first_downsample_depth_pipeline,
+            second_downsample_depth_pipeline,
+        );
+        Ok(())
     }
-}
-
-/// The second node that produces a hierarchical Z-buffer, also known as a depth
-/// pyramid.
-///
-/// This runs the single-pass downsampling (SPD) shader with the *min* filter in
-/// order to generate a series of mipmaps for the Z buffer. The resulting
-/// hierarchical Z buffer can be used for occlusion culling.
-///
-/// This is the second hierarchical Z-buffer stage, which runs at the end of the
-/// main phase. It prepares the Z-buffer for the occlusion culling that the
-/// early mesh preprocessing phase of the *next* frame will perform.
-///
-/// This node won't do anything if occlusion culling isn't on.
-#[derive(Default)]
-pub struct LateDownsampleDepthNode;
-
-impl ViewNode for LateDownsampleDepthNode {
-    type ViewQuery = (
-        Read<ViewDepthPyramid>,
-        Read<ViewDownsampleDepthBindGroup>,
-        Read<ViewDepthTexture>,
-    );
-
-    fn run<'w>(
-        &self,
-        _: &mut RenderGraphContext,
-        render_context: &mut RenderContext<'w>,
-        (view_depth_pyramid, view_downsample_depth_bind_group, view_depth_texture): QueryItem<
-            'w,
-            Self::ViewQuery,
-        >,
-        world: &'w World,
-    ) -> Result<(), NodeRunError> {
-        downsample_depth(
-            "late downsample depth",
-            render_context,
-            view_depth_pyramid,
-            view_downsample_depth_bind_group,
-            view_depth_texture,
-            world,
-        )
-    }
-}
-
-/// Produces a depth pyramid from the current depth buffer for a single view.
-///
-/// The resulting depth pyramid can be used for occlusion testing.
-fn downsample_depth(
-    label: &str,
-    render_context: &mut RenderContext,
-    view_depth_pyramid: &ViewDepthPyramid,
-    view_downsample_depth_bind_group: &ViewDownsampleDepthBindGroup,
-    view_depth_texture: &ViewDepthTexture,
-    world: &World,
-) -> Result<(), NodeRunError> {
-    let downsample_depth_pipelines = world.resource::<DownsampleDepthPipelines>();
-    let pipeline_cache = world.resource::<PipelineCache>();
-
-    // Despite the name "single-pass downsampling", we actually need two
-    // passes because of the lack of `coherent` buffers in WGPU/WGSL.
-    // Between each pass, there's an implicit synchronization barrier.
-
-    // Fetch the appropriate pipeline ID, depending on whether the depth
-    // buffer is multisampled or not.
-    let (Some(first_downsample_depth_pipeline_id), Some(second_downsample_depth_pipeline_id)) =
-        (if view_depth_texture.texture.sample_count() > 1 {
-            (
-                downsample_depth_pipelines.first_multisample.pipeline_id,
-                downsample_depth_pipelines.second_multisample.pipeline_id,
-            )
-        } else {
-            (
-                downsample_depth_pipelines.first.pipeline_id,
-                downsample_depth_pipelines.second.pipeline_id,
-            )
-        })
-    else {
-        return Ok(());
-    };
-
-    // Fetch the pipelines for the two passes.
-    let (Some(first_downsample_depth_pipeline), Some(second_downsample_depth_pipeline)) = (
-        pipeline_cache.get_compute_pipeline(first_downsample_depth_pipeline_id),
-        pipeline_cache.get_compute_pipeline(second_downsample_depth_pipeline_id),
-    ) else {
-        return Ok(());
-    };
-
-    // Run the depth downsampling.
-    let view_size = uvec2(
-        view_depth_texture.texture.width(),
-        view_depth_texture.texture.height(),
-    );
-    view_depth_pyramid.downsample_depth(
-        label,
-        render_context,
-        view_size,
-        view_downsample_depth_bind_group,
-        first_downsample_depth_pipeline,
-        second_downsample_depth_pipeline,
-    );
-    Ok(())
 }
 
 /// A single depth downsample pipeline.
