@@ -800,8 +800,8 @@ mod tests {
     fn run_system_invalid_params() {
         use crate::system::RegisteredSystemError;
 
+        #[derive(Resource)]
         struct T;
-        impl Resource for T {}
         fn system(_: Res<T>) {}
 
         let mut world = World::new();

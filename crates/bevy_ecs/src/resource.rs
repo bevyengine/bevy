@@ -32,6 +32,11 @@ pub use bevy_ecs_macros::Resource;
 ///
 /// Only one resource of each type can be stored in a [`World`] at any given time.
 ///
+/// # Deriving this trait
+///
+/// This trait can be derived! The derive macro also implements the [`Component`] trait for the type,
+/// and any attributes that are valid for the [`Component`] derive are also applied.
+///
 /// # Examples
 ///
 /// ```
@@ -95,7 +100,7 @@ pub use bevy_ecs_macros::Resource;
     label = "invalid `Resource`",
     note = "consider annotating `{Self}` with `#[derive(Resource)]`"
 )]
-pub trait Resource: Send + Sync + 'static {}
+pub trait Resource: Component {}
 
 /// A marker component for the entity that stores the resource of type `T`.
 ///
@@ -114,3 +119,19 @@ pub struct ResourceEntity<R: Resource>(PhantomData<R>);
 /// This component is required by the [`ResourceEntity<R>`] component, and will automatically be added.
 #[derive(Component, Default, Debug)]
 pub struct IsResource;
+
+#[cfg(test)]
+mod tests {
+    use crate as bevy_ecs;
+    use crate::prelude::*;
+
+    #[test]
+    fn resource_with_component_attributes() {
+        #[derive(Resource, Default)]
+        struct RA;
+
+        #[derive(Resource)]
+        #[require(RA)]
+        struct RB;
+    }
+}
