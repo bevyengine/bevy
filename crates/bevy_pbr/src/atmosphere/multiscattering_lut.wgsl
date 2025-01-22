@@ -35,8 +35,8 @@ fn uv_to_sphere(uv: vec2<f32>) -> vec3<f32> {
 }
 
 // Shared memory arrays for workgroup communication
-var<workgroup> MultiScatSharedMem: array<vec3<f32>, 64>;
-var<workgroup> LSharedMem: array<vec3<f32>, 64>;
+var<workgroup> multi_scat_shared_mem: array<vec3<f32>, 64>;
+var<workgroup> l_shared_mem: array<vec3<f32>, 64>;
 
 @compute 
 @workgroup_size(1, 1, 64)
@@ -52,16 +52,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // Calculate the contribution for this sample
     let sphere_solid_angle = 4.0 * PI;
     let sample_weight = sphere_solid_angle / 64.0;
-    MultiScatSharedMem[global_id.z] = ms_sample.f_ms * sample_weight;
-    LSharedMem[global_id.z] = ms_sample.l_2 * sample_weight;
+    multi_scat_shared_mem[global_id.z] = ms_sample.f_ms * sample_weight;
+    l_shared_mem[global_id.z] = ms_sample.l_2 * sample_weight;
 
     workgroupBarrier();
 
     // Parallel reduction bitshift to the right to divide by 2 each step
     for (var step = 32u; step > 0u; step >>= 1u) {
         if global_id.z < step {
-            MultiScatSharedMem[global_id.z] += MultiScatSharedMem[global_id.z + step];
-            LSharedMem[global_id.z] += LSharedMem[global_id.z + step];
+            multi_scat_shared_mem[global_id.z] += multi_scat_shared_mem[global_id.z + step];
+            l_shared_mem[global_id.z] += l_shared_mem[global_id.z + step];
         }
         workgroupBarrier();
     }
@@ -71,8 +71,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     // Apply isotropic phase function
-    let f_ms = MultiScatSharedMem[0] * FRAC_4_PI;
-    let l_2 = LSharedMem[0] * FRAC_4_PI;
+    let f_ms = multi_scat_shared_mem[0] * FRAC_4_PI;
+    let l_2 = l_shared_mem[0] * FRAC_4_PI;
     
     // Equation 10 from the paper: Geometric series for infinite scattering
     let psi_ms = l_2 / (1.0 - f_ms);
