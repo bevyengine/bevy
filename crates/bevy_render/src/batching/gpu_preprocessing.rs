@@ -1,15 +1,18 @@
 //! Batching functionality when GPU preprocessing is in use.
 
+use core::any::TypeId;
+
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{Has, With},
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource, StaticSystemParam},
+    system::{Query, Res, ResMut, StaticSystemParam},
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;
-use bevy_utils::default;
+use bevy_utils::{default, TypeIdMap};
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use tracing::error;
@@ -18,9 +21,9 @@ use wgpu::{BindingResource, BufferUsages, DownlevelFlags, Features};
 use crate::{
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
-        BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, PhaseItemExtraIndex,
-        SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases,
-        ViewSortedRenderPhases,
+        BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, PhaseItemBatchSetKey as _,
+        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
+        ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{Buffer, BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -39,10 +42,14 @@ impl Plugin for BatchingPlugin {
         };
 
         render_app
-            .insert_resource(IndirectParametersBuffer::new())
+            .insert_resource(IndirectParametersBuffers::new())
             .add_systems(
                 Render,
-                write_indirect_parameters_buffer.in_set(RenderSet::PrepareResourcesFlush),
+                write_indirect_parameters_buffers.in_set(RenderSet::PrepareResourcesFlush),
+            )
+            .add_systems(
+                Render,
+                clear_indirect_parameters_buffers.in_set(RenderSet::ManageViews),
             );
     }
 
@@ -137,7 +144,7 @@ where
     /// corresponds to each instance.
     ///
     /// This is keyed off each view. Each view has a separate buffer.
-    pub work_item_buffers: EntityHashMap<PreprocessWorkItemBuffer>,
+    pub work_item_buffers: EntityHashMap<TypeIdMap<PreprocessWorkItemBuffers>>,
 
     /// The uniform data inputs for the current frame.
     ///
@@ -265,16 +272,68 @@ where
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
-pub struct PreprocessWorkItemBuffer {
-    /// The buffer of work items.
-    pub buffer: BufferVec<PreprocessWorkItem>,
-    /// True if we're drawing directly instead of indirectly.
-    pub no_indirect_drawing: bool,
+pub enum PreprocessWorkItemBuffers {
+    /// The work items we use if we aren't using indirect drawing.
+    ///
+    /// Because we don't have to separate indexed from non-indexed meshes in
+    /// direct mode, we only have a single buffer here.
+    Direct(BufferVec<PreprocessWorkItem>),
+
+    /// The buffer of work items we use if we are using indirect drawing.
+    ///
+    /// We need to separate out indexed meshes from non-indexed meshes in this
+    /// case because the indirect parameters for these two types of meshes have
+    /// different sizes.
+    Indirect {
+        /// The buffer of work items corresponding to indexed meshes.
+        indexed: BufferVec<PreprocessWorkItem>,
+        /// The buffer of work items corresponding to non-indexed meshes.
+        non_indexed: BufferVec<PreprocessWorkItem>,
+    },
+}
+
+impl PreprocessWorkItemBuffers {
+    /// Creates a new set of buffers.
+    ///
+    /// `no_indirect_drawing` specifies whether we're drawing directly or
+    /// indirectly.
+    pub fn new(no_indirect_drawing: bool) -> Self {
+        if no_indirect_drawing {
+            PreprocessWorkItemBuffers::Direct(BufferVec::new(BufferUsages::STORAGE))
+        } else {
+            PreprocessWorkItemBuffers::Indirect {
+                indexed: BufferVec::new(BufferUsages::STORAGE),
+                non_indexed: BufferVec::new(BufferUsages::STORAGE),
+            }
+        }
+    }
+
+    /// Adds a new work item to the appropriate buffer.
+    ///
+    /// `indexed` specifies whether the work item corresponds to an indexed
+    /// mesh.
+    pub fn push(&mut self, indexed: bool, preprocess_work_item: PreprocessWorkItem) {
+        match *self {
+            PreprocessWorkItemBuffers::Direct(ref mut buffer) => {
+                buffer.push(preprocess_work_item);
+            }
+            PreprocessWorkItemBuffers::Indirect {
+                indexed: ref mut indexed_buffer,
+                non_indexed: ref mut non_indexed_buffer,
+            } => {
+                if indexed {
+                    indexed_buffer.push(preprocess_work_item);
+                } else {
+                    non_indexed_buffer.push(preprocess_work_item);
+                }
+            }
+        }
+    }
 }
 
 /// One invocation of the preprocessing shader: i.e. one mesh instance in a
 /// view.
-#[derive(Clone, Copy, Pod, Zeroable, ShaderType)]
+#[derive(Clone, Copy, Default, Pod, Zeroable, ShaderType)]
 #[repr(C)]
 pub struct PreprocessWorkItem {
     /// The index of the batch input data in the input buffer that the shader
@@ -284,112 +343,378 @@ pub struct PreprocessWorkItem {
     /// In direct mode, this is the index of the uniform. In indirect mode, this
     /// is the first index uniform in the batch set.
     pub output_index: u32,
-    /// The index of the [`IndirectParameters`] in the
-    /// [`IndirectParametersBuffer`].
+    /// The index of the [`IndirectParametersMetadata`] in the
+    /// `IndirectParametersBuffers::indexed_metadata` or
+    /// `IndirectParametersBuffers::non_indexed_metadata`.
     pub indirect_parameters_index: u32,
 }
 
-/// The `wgpu` indirect parameters structure.
+/// The `wgpu` indirect parameters structure that specifies a GPU draw command.
 ///
-/// This is actually a union of the two following structures:
-///
-/// ```
-/// #[repr(C)]
-/// struct ArrayIndirectParameters {
-///     vertex_count: u32,
-///     instance_count: u32,
-///     first_vertex: u32,
-///     first_instance: u32,
-/// }
-///
-/// #[repr(C)]
-/// struct ElementIndirectParameters {
-///     index_count: u32,
-///     instance_count: u32,
-///     first_vertex: u32,
-///     base_vertex: u32,
-///     first_instance: u32,
-/// }
-/// ```
-///
-/// We actually generally treat these two variants identically in code. To do
-/// that, we make the following two observations:
-///
-/// 1. `instance_count` is in the same place in both structures. So we can
-///     access it regardless of the structure we're looking at.
-///
-/// 2. The second structure is one word larger than the first. Thus we need to
-///     pad out the first structure by one word in order to place both structures in
-///     an array. If we pad out `ArrayIndirectParameters` by copying the
-///     `first_instance` field into the padding, then the resulting union structure
-///     will always have a read-only copy of `first_instance` in the final word. We
-///     take advantage of this in the shader to reduce branching.
+/// This is the variant for indexed meshes. We generate the instances of this
+/// structure in the `build_indirect_params.wgsl` compute shader.
 #[derive(Clone, Copy, Pod, Zeroable, ShaderType)]
 #[repr(C)]
-pub struct IndirectParameters {
-    /// For `ArrayIndirectParameters`, `vertex_count`; for
-    /// `ElementIndirectParameters`, `index_count`.
-    pub vertex_or_index_count: u32,
-
-    /// The number of instances we're going to draw.
-    ///
-    /// This field is in the same place in both structures.
+pub struct IndirectParametersIndexed {
+    /// The number of indices that this mesh has.
+    pub index_count: u32,
+    /// The number of instances we are to draw.
     pub instance_count: u32,
-
-    /// For `ArrayIndirectParameters`, `first_vertex`; for
-    /// `ElementIndirectParameters`, `first_index`.
-    pub first_vertex_or_first_index: u32,
-
-    /// For `ArrayIndirectParameters`, `first_instance`; for
-    /// `ElementIndirectParameters`, `base_vertex`.
-    pub base_vertex_or_first_instance: u32,
-
-    /// For `ArrayIndirectParameters`, this is padding; for
-    /// `ElementIndirectParameters`, this is `first_instance`.
-    ///
-    /// Conventionally, we copy `first_instance` into this field when padding
-    /// out `ArrayIndirectParameters`. That way, shader code can read this value
-    /// at the same place, regardless of the specific structure this represents.
+    /// The offset of the first index for this mesh in the index buffer slab.
+    pub first_index: u32,
+    /// The offset of the first vertex for this mesh in the vertex buffer slab.
+    pub base_vertex: u32,
+    /// The index of the first mesh instance in the `MeshUniform` buffer.
     pub first_instance: u32,
 }
 
-/// The buffer containing the list of [`IndirectParameters`], for draw commands.
-#[derive(Resource)]
-pub struct IndirectParametersBuffer {
-    /// The actual buffer.
-    buffer: RawBufferVec<IndirectParameters>,
+/// The `wgpu` indirect parameters structure that specifies a GPU draw command.
+///
+/// This is the variant for non-indexed meshes. We generate the instances of
+/// this structure in the `build_indirect_params.wgsl` compute shader.
+#[derive(Clone, Copy, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct IndirectParametersNonIndexed {
+    /// The number of vertices that this mesh has.
+    pub vertex_count: u32,
+    /// The number of instances we are to draw.
+    pub instance_count: u32,
+    /// The offset of the first vertex for this mesh in the vertex buffer slab.
+    pub base_vertex: u32,
+    /// The index of the first mesh instance in the `Mesh` buffer.
+    pub first_instance: u32,
 }
 
-impl IndirectParametersBuffer {
-    /// Creates the indirect parameters buffer.
-    pub fn new() -> IndirectParametersBuffer {
-        IndirectParametersBuffer {
-            buffer: RawBufferVec::new(BufferUsages::STORAGE | BufferUsages::INDIRECT),
+/// A structure, shared between CPU and GPU, that records how many instances of
+/// each mesh are actually to be drawn.
+///
+/// The CPU writes to this structure in order to initialize the fields other
+/// than [`Self::instance_count`]. The GPU mesh preprocessing shader increments
+/// the [`Self::instance_count`] as it determines that meshes are visible. The
+/// indirect parameter building shader reads this metadata in order to construct
+/// the indirect draw parameters.
+///
+/// Each batch will have one instance of this structure.
+#[derive(Clone, Copy, Default, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct IndirectParametersMetadata {
+    /// The index of the mesh in the array of `MeshInputUniform`s.
+    pub mesh_index: u32,
+
+    /// The index of the first instance of this mesh in the array of
+    /// `MeshUniform`s.
+    ///
+    /// Note that this is the *first* output index in this batch. Since each
+    /// instance of this structure refers to arbitrarily many instances, the
+    /// `MeshUniform`s corresponding to this batch span the indices
+    /// `base_output_index..(base_output_index + instance_count)`.
+    pub base_output_index: u32,
+
+    /// The index of the batch set that this batch belongs to in the
+    /// [`IndirectBatchSet`] buffer.
+    ///
+    /// A *batch set* is a set of meshes that may be multi-drawn together.
+    /// Multiple batches (and therefore multiple instances of
+    /// [`IndirectParametersMetadata`] structures) can be part of the same batch
+    /// set.
+    pub batch_set_index: u32,
+
+    /// The number of instances that have been judged potentially visible.
+    ///
+    /// The CPU sets this value to 0, and the GPU mesh preprocessing shader
+    /// increments it as it culls mesh instances.
+    pub instance_count: u32,
+}
+
+/// A structure, shared between CPU and GPU, that holds the number of on-GPU
+/// indirect draw commands for each *batch set*.
+///
+/// A *batch set* is a set of meshes that may be multi-drawn together.
+///
+/// If the current hardware and driver support `multi_draw_indirect_count`, the
+/// indirect parameters building shader increments
+/// [`Self::indirect_parameters_count`] as it generates indirect parameters. The
+/// `multi_draw_indirect_count` command reads
+/// [`Self::indirect_parameters_count`] in order to determine how many commands
+/// belong to each batch set.
+#[derive(Clone, Copy, Default, Pod, Zeroable, ShaderType)]
+#[repr(C)]
+pub struct IndirectBatchSet {
+    /// The number of indirect parameter commands (i.e. batches) in this batch
+    /// set.
+    ///
+    /// The CPU sets this value to 0 before uploading this structure to GPU. The
+    /// indirect parameters building shader increments this value as it creates
+    /// indirect parameters. Then the `multi_draw_indirect_count` command reads
+    /// this value in order to determine how many indirect draw commands to
+    /// process.
+    pub indirect_parameters_count: u32,
+
+    /// The offset within the `IndirectParametersBuffers::indexed_data` or
+    /// `IndirectParametersBuffers::non_indexed_data` of the first indirect draw
+    /// command for this batch set.
+    ///
+    /// The CPU fills out this value.
+    pub indirect_parameters_base: u32,
+}
+
+/// The buffers containing all the information that indirect draw commands
+/// (`multi_draw_indirect`, `multi_draw_indirect_count`) use to draw the scene.
+///
+/// In addition to the indirect draw buffers themselves, this structure contains
+/// the buffers that store [`IndirectParametersMetadata`], which are the
+/// structures that culling writes to so that the indirect parameter building
+/// pass can determine how many meshes are actually to be drawn.
+///
+/// These buffers will remain empty if indirect drawing isn't in use.
+#[derive(Resource)]
+pub struct IndirectParametersBuffers {
+    /// The GPU buffer that stores the indirect draw parameters for non-indexed
+    /// meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, while the
+    /// `multi_draw_indirect` or `multi_draw_indirect_count` commands read from
+    /// it to perform the draws.
+    non_indexed_data: UninitBufferVec<IndirectParametersNonIndexed>,
+
+    /// The GPU buffer that holds the data used to construct indirect draw
+    /// parameters for non-indexed meshes.
+    ///
+    /// The GPU mesh preprocessing shader writes to this buffer, and the
+    /// indirect parameters building shader reads this buffer to construct the
+    /// indirect draw parameters.
+    non_indexed_metadata: RawBufferVec<IndirectParametersMetadata>,
+
+    /// The GPU buffer that holds the number of indirect draw commands for each
+    /// phase of each view, for non-indexed meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, and the
+    /// `multi_draw_indirect_count` command reads from it in order to know how
+    /// many indirect draw commands to process.
+    non_indexed_batch_sets: RawBufferVec<IndirectBatchSet>,
+
+    /// The GPU buffer that stores the indirect draw parameters for indexed
+    /// meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, while the
+    /// `multi_draw_indirect` or `multi_draw_indirect_count` commands read from
+    /// it to perform the draws.
+    indexed_data: UninitBufferVec<IndirectParametersIndexed>,
+
+    /// The GPU buffer that holds the data used to construct indirect draw
+    /// parameters for indexed meshes.
+    ///
+    /// The GPU mesh preprocessing shader writes to this buffer, and the
+    /// indirect parameters building shader reads this buffer to construct the
+    /// indirect draw parameters.
+    indexed_metadata: RawBufferVec<IndirectParametersMetadata>,
+
+    /// The GPU buffer that holds the number of indirect draw commands for each
+    /// phase of each view, for indexed meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, and the
+    /// `multi_draw_indirect_count` command reads from it in order to know how
+    /// many indirect draw commands to process.
+    indexed_batch_sets: RawBufferVec<IndirectBatchSet>,
+}
+
+impl IndirectParametersBuffers {
+    /// Creates the indirect parameters buffers.
+    pub fn new() -> IndirectParametersBuffers {
+        IndirectParametersBuffers {
+            non_indexed_data: UninitBufferVec::new(BufferUsages::STORAGE | BufferUsages::INDIRECT),
+            non_indexed_metadata: RawBufferVec::new(BufferUsages::STORAGE),
+            non_indexed_batch_sets: RawBufferVec::new(
+                BufferUsages::STORAGE | BufferUsages::INDIRECT,
+            ),
+            indexed_data: UninitBufferVec::new(BufferUsages::STORAGE | BufferUsages::INDIRECT),
+            indexed_metadata: RawBufferVec::new(BufferUsages::STORAGE),
+            indexed_batch_sets: RawBufferVec::new(BufferUsages::STORAGE | BufferUsages::INDIRECT),
         }
     }
 
-    /// Returns the underlying GPU buffer.
+    /// Returns the GPU buffer that stores the indirect draw parameters for
+    /// indexed meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, while the
+    /// `multi_draw_indirect` or `multi_draw_indirect_count` commands read from
+    /// it to perform the draws.
     #[inline]
-    pub fn buffer(&self) -> Option<&Buffer> {
-        self.buffer.buffer()
+    pub fn indexed_data_buffer(&self) -> Option<&Buffer> {
+        self.indexed_data.buffer()
     }
 
-    /// Adds a new set of indirect parameters to the buffer.
-    pub fn allocate(&mut self, count: u32) -> u32 {
-        let length = self.buffer.len();
-        self.buffer.reserve_internal(count as usize);
+    /// Returns the GPU buffer that holds the data used to construct indirect
+    /// draw parameters for indexed meshes.
+    ///
+    /// The GPU mesh preprocessing shader writes to this buffer, and the
+    /// indirect parameters building shader reads this buffer to construct the
+    /// indirect draw parameters.
+    #[inline]
+    pub fn indexed_metadata_buffer(&self) -> Option<&Buffer> {
+        self.indexed_metadata.buffer()
+    }
+
+    /// Returns the GPU buffer that holds the number of indirect draw commands
+    /// for each phase of each view, for indexed meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, and the
+    /// `multi_draw_indirect_count` command reads from it in order to know how
+    /// many indirect draw commands to process.
+    #[inline]
+    pub fn indexed_batch_sets_buffer(&self) -> Option<&Buffer> {
+        self.indexed_batch_sets.buffer()
+    }
+
+    /// Returns the GPU buffer that stores the indirect draw parameters for
+    /// non-indexed meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, while the
+    /// `multi_draw_indirect` or `multi_draw_indirect_count` commands read from
+    /// it to perform the draws.
+    #[inline]
+    pub fn non_indexed_data_buffer(&self) -> Option<&Buffer> {
+        self.non_indexed_data.buffer()
+    }
+
+    /// Returns the GPU buffer that holds the data used to construct indirect
+    /// draw parameters for non-indexed meshes.
+    ///
+    /// The GPU mesh preprocessing shader writes to this buffer, and the
+    /// indirect parameters building shader reads this buffer to construct the
+    /// indirect draw parameters.
+    #[inline]
+    pub fn non_indexed_metadata_buffer(&self) -> Option<&Buffer> {
+        self.non_indexed_metadata.buffer()
+    }
+
+    /// Returns the GPU buffer that holds the number of indirect draw commands
+    /// for each phase of each view, for non-indexed meshes.
+    ///
+    /// The indirect parameters building shader writes to this buffer, and the
+    /// `multi_draw_indirect_count` command reads from it in order to know how
+    /// many indirect draw commands to process.
+    #[inline]
+    pub fn non_indexed_batch_sets_buffer(&self) -> Option<&Buffer> {
+        self.non_indexed_batch_sets.buffer()
+    }
+
+    /// Reserves space for `count` new batches corresponding to indexed meshes.
+    ///
+    /// This allocates in both the [`Self::indexed_metadata`] and
+    /// [`Self::indexed_data`] buffers.
+    fn allocate_indexed(&mut self, count: u32) -> u32 {
+        let length = self.indexed_data.len();
+        self.indexed_metadata.reserve_internal(count as usize);
         for _ in 0..count {
-            self.buffer.push(Zeroable::zeroed());
+            self.indexed_data.add();
+            self.indexed_metadata
+                .push(IndirectParametersMetadata::default());
         }
         length as u32
     }
 
-    pub fn set(&mut self, index: u32, value: IndirectParameters) {
-        self.buffer.set(index, value);
+    /// Reserves space for `count` new batches corresponding to non-indexed
+    /// meshes.
+    ///
+    /// This allocates in both the [`Self::non_indexed_metadata`] and
+    /// [`Self::non_indexed_data`] buffers.
+    fn allocate_non_indexed(&mut self, count: u32) -> u32 {
+        let length = self.non_indexed_data.len();
+        self.non_indexed_metadata.reserve_internal(count as usize);
+        for _ in 0..count {
+            self.non_indexed_data.add();
+            self.non_indexed_metadata
+                .push(IndirectParametersMetadata::default());
+        }
+        length as u32
+    }
+
+    /// Reserves space for `count` new batches.
+    ///
+    /// The `indexed` parameter specifies whether the meshes that these batches
+    /// correspond to are indexed or not.
+    pub fn allocate(&mut self, indexed: bool, count: u32) -> u32 {
+        if indexed {
+            self.allocate_indexed(count)
+        } else {
+            self.allocate_non_indexed(count)
+        }
+    }
+
+    /// Initializes the batch corresponding to an indexed mesh at the given
+    /// index with the given [`IndirectParametersMetadata`].
+    pub fn set_indexed(&mut self, index: u32, value: IndirectParametersMetadata) {
+        self.indexed_metadata.set(index, value);
+    }
+
+    /// Initializes the batch corresponding to a non-indexed mesh at the given
+    /// index with the given [`IndirectParametersMetadata`].
+    pub fn set_non_indexed(&mut self, index: u32, value: IndirectParametersMetadata) {
+        self.non_indexed_metadata.set(index, value);
+    }
+
+    /// Returns the number of batches currently allocated.
+    ///
+    /// The `indexed` parameter specifies whether the meshes that these batches
+    /// correspond to are indexed or not.
+    fn batch_count(&self, indexed: bool) -> usize {
+        if indexed {
+            self.indexed_batch_count()
+        } else {
+            self.non_indexed_batch_count()
+        }
+    }
+
+    /// Returns the number of batches corresponding to indexed meshes that are
+    /// currently allocated.
+    #[inline]
+    pub fn indexed_batch_count(&self) -> usize {
+        self.indexed_data.len()
+    }
+
+    /// Returns the number of batches corresponding to non-indexed meshes that
+    /// are currently allocated.
+    #[inline]
+    pub fn non_indexed_batch_count(&self) -> usize {
+        self.non_indexed_data.len()
+    }
+
+    /// Returns the number of batch sets currently allocated.
+    ///
+    /// The `indexed` parameter specifies whether the meshes that these batch
+    /// sets correspond to are indexed or not.
+    pub fn batch_set_count(&self, indexed: bool) -> usize {
+        if indexed {
+            self.indexed_batch_sets.len()
+        } else {
+            self.non_indexed_batch_sets.len()
+        }
+    }
+
+    /// Adds a new batch set to `Self::indexed_batch_sets` or
+    /// `Self::non_indexed_batch_sets` as appropriate.
+    ///
+    /// `indexed` specifies whether the meshes that these batch sets correspond
+    /// to are indexed or not. `indirect_parameters_base` specifies the offset
+    /// within `Self::indexed_data` or `Self::non_indexed_data` of the first
+    /// batch in this batch set.
+    pub fn add_batch_set(&mut self, indexed: bool, indirect_parameters_base: u32) {
+        if indexed {
+            self.indexed_batch_sets.push(IndirectBatchSet {
+                indirect_parameters_base,
+                indirect_parameters_count: 0,
+            });
+        } else {
+            self.non_indexed_batch_sets.push(IndirectBatchSet {
+                indirect_parameters_base,
+                indirect_parameters_count: 0,
+            });
+        }
     }
 }
 
-impl Default for IndirectParametersBuffer {
+impl Default for IndirectParametersBuffers {
     fn default() -> Self {
         Self::new()
     }
@@ -454,8 +779,20 @@ where
     /// Clears out the buffers in preparation for a new frame.
     pub fn clear(&mut self) {
         self.data_buffer.clear();
-        for work_item_buffer in self.work_item_buffers.values_mut() {
-            work_item_buffer.buffer.clear();
+
+        for view_work_item_buffers in self.work_item_buffers.values_mut() {
+            for phase_work_item_buffers in view_work_item_buffers.values_mut() {
+                match *phase_work_item_buffers {
+                    PreprocessWorkItemBuffers::Direct(ref mut buffer_vec) => buffer_vec.clear(),
+                    PreprocessWorkItemBuffers::Indirect {
+                        ref mut indexed,
+                        ref mut non_indexed,
+                    } => {
+                        indexed.clear();
+                        non_indexed.clear();
+                    }
+                }
+            }
         }
     }
 }
@@ -483,8 +820,11 @@ where
     /// The index of the first instance in this batch in the instance buffer.
     instance_start_index: u32,
 
+    /// True if the mesh in question has an index buffer; false otherwise.
+    indexed: bool,
+
     /// The index of the indirect parameters for this batch in the
-    /// [`IndirectParametersBuffer`].
+    /// [`IndirectParametersBuffers`].
     ///
     /// If CPU culling is being used, then this will be `None`.
     indirect_parameters_index: Option<NonMaxU32>,
@@ -505,8 +845,12 @@ where
     ///
     /// `instance_end_index` is the index of the last instance in this batch
     /// plus one.
-    fn flush<I>(self, instance_end_index: u32, phase: &mut SortedRenderPhase<I>)
-    where
+    fn flush<I>(
+        self,
+        instance_end_index: u32,
+        phase: &mut SortedRenderPhase<I>,
+        indirect_parameters_buffers: &mut IndirectParametersBuffers,
+    ) where
         I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     {
         let (batch_range, batch_extra_index) =
@@ -514,6 +858,11 @@ where
         *batch_range = self.instance_start_index..instance_end_index;
         *batch_extra_index =
             PhaseItemExtraIndex::maybe_indirect_parameters_index(self.indirect_parameters_index);
+
+        if let Some(indirect_parameters_index) = self.indirect_parameters_index {
+            indirect_parameters_buffers
+                .add_batch_set(self.indexed, indirect_parameters_index.into());
+        }
     }
 }
 
@@ -559,7 +908,7 @@ pub fn delete_old_work_item_buffers<GFBD>(
 /// trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
-    mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
+    mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
     mut views: Query<(Entity, &ExtractedView, Has<NoIndirectDrawing>)>,
     system_param_item: StaticSystemParam<GFBD::Param>,
@@ -580,23 +929,14 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         };
 
         // Create the work item buffer if necessary.
-        let work_item_buffer =
-            work_item_buffers
-                .entry(view)
-                .or_insert_with(|| PreprocessWorkItemBuffer {
-                    buffer: BufferVec::new(BufferUsages::STORAGE),
-                    no_indirect_drawing,
-                });
+        let work_item_buffer = work_item_buffers
+            .entry(view)
+            .or_insert_with(TypeIdMap::default)
+            .entry(TypeId::of::<I>())
+            .or_insert_with(|| PreprocessWorkItemBuffers::new(no_indirect_drawing));
 
         // Walk through the list of phase items, building up batches as we go.
         let mut batch: Option<SortedRenderBatch<GFBD>> = None;
-
-        // Allocate the indirect parameters if necessary.
-        let mut indirect_parameters_offset = if no_indirect_drawing {
-            None
-        } else {
-            Some(indirect_parameters_buffer.allocate(phase.items.len() as u32))
-        };
 
         let mut first_output_index = data_buffer.len() as u32;
 
@@ -605,6 +945,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             // this entity.
             let item = &phase.items[current_index];
             let entity = item.main_entity();
+            let item_is_indexed = item.indexed();
             let current_batch_input_index =
                 GFBD::get_index_and_compare_data(&system_param_item, entity);
 
@@ -615,7 +956,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             let Some((current_input_index, current_meta)) = current_batch_input_index else {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {
-                    batch.flush(data_buffer.len() as u32, phase);
+                    batch.flush(
+                        data_buffer.len() as u32,
+                        phase,
+                        &mut indirect_parameters_buffers,
+                    );
                 }
 
                 continue;
@@ -634,37 +979,42 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             });
 
             // Make space in the data buffer for this instance.
-            let item = &phase.items[current_index];
-            let entity = item.main_entity();
             let output_index = data_buffer.add() as u32;
 
             // If we can't batch, break the existing batch and make a new one.
             if !can_batch {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {
-                    batch.flush(output_index, phase);
+                    batch.flush(output_index, phase, &mut indirect_parameters_buffers);
                 }
 
+                let indirect_parameters_index = if no_indirect_drawing {
+                    None
+                } else if item_is_indexed {
+                    Some(indirect_parameters_buffers.allocate_indexed(1))
+                } else {
+                    Some(indirect_parameters_buffers.allocate_non_indexed(1))
+                };
+
                 // Start a new batch.
-                if let Some(indirect_parameters_offset) = indirect_parameters_offset {
-                    GFBD::write_batch_indirect_parameters(
-                        &system_param_item,
-                        &mut indirect_parameters_buffer,
-                        indirect_parameters_offset,
-                        entity,
+                if let Some(indirect_parameters_index) = indirect_parameters_index {
+                    GFBD::write_batch_indirect_parameters_metadata(
+                        current_input_index.into(),
+                        item_is_indexed,
+                        output_index,
+                        None,
+                        &mut indirect_parameters_buffers,
+                        indirect_parameters_index,
                     );
                 };
 
                 batch = Some(SortedRenderBatch {
                     phase_item_start_index: current_index as u32,
                     instance_start_index: output_index,
-                    indirect_parameters_index: indirect_parameters_offset.and_then(NonMaxU32::new),
+                    indexed: item_is_indexed,
+                    indirect_parameters_index: indirect_parameters_index.and_then(NonMaxU32::new),
                     meta: current_meta,
                 });
-
-                if let Some(ref mut indirect_parameters_offset) = indirect_parameters_offset {
-                    *indirect_parameters_offset += 1;
-                }
 
                 first_output_index = output_index;
             }
@@ -672,24 +1022,31 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             // Add a new preprocessing work item so that the preprocessing
             // shader will copy the per-instance data over.
             if let Some(batch) = batch.as_ref() {
-                work_item_buffer.buffer.push(PreprocessWorkItem {
-                    input_index: current_input_index.into(),
-                    output_index: if no_indirect_drawing {
-                        output_index
-                    } else {
-                        first_output_index
+                work_item_buffer.push(
+                    item_is_indexed,
+                    PreprocessWorkItem {
+                        input_index: current_input_index.into(),
+                        output_index: if no_indirect_drawing {
+                            output_index
+                        } else {
+                            first_output_index
+                        },
+                        indirect_parameters_index: match batch.indirect_parameters_index {
+                            Some(indirect_parameters_index) => indirect_parameters_index.into(),
+                            None => 0,
+                        },
                     },
-                    indirect_parameters_index: match batch.indirect_parameters_index {
-                        Some(indirect_parameters_index) => indirect_parameters_index.into(),
-                        None => 0,
-                    },
-                });
+                );
             }
         }
 
         // Flush the final batch if necessary.
         if let Some(batch) = batch.take() {
-            batch.flush(data_buffer.len() as u32, phase);
+            batch.flush(
+                data_buffer.len() as u32,
+                phase,
+                &mut indirect_parameters_buffers,
+            );
         }
     }
 }
@@ -697,7 +1054,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
 /// Creates batches for a render phase that uses bins.
 pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     gpu_array_buffer: ResMut<BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>>,
-    mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
+    mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
     mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
     mut views: Query<(Entity, &ExtractedView, Has<NoIndirectDrawing>)>,
     param: StaticSystemParam<GFBD::Param>,
@@ -720,18 +1077,18 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Create the work item buffer if necessary; otherwise, just mark it as
         // used this frame.
-        let work_item_buffer =
-            work_item_buffers
-                .entry(view)
-                .or_insert_with(|| PreprocessWorkItemBuffer {
-                    buffer: BufferVec::new(BufferUsages::STORAGE),
-                    no_indirect_drawing,
-                });
+        let work_item_buffer = work_item_buffers
+            .entry(view)
+            .or_insert_with(TypeIdMap::default)
+            .entry(TypeId::of::<BPI>())
+            .or_insert_with(|| PreprocessWorkItemBuffers::new(no_indirect_drawing));
 
         // Prepare multidrawables.
 
         for batch_set_key in &phase.multidrawable_mesh_keys {
             let mut batch_set = None;
+            let indirect_parameters_base =
+                indirect_parameters_buffers.batch_count(batch_set_key.indexed()) as u32;
             for (bin_key, bin) in &phase.multidrawable_mesh_values[batch_set_key] {
                 let first_output_index = data_buffer.len() as u32;
                 let mut batch: Option<BinnedRenderPhaseBatch> = None;
@@ -747,33 +1104,47 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         Some(ref mut batch) => {
                             // Append to the current batch.
                             batch.instance_range.end = output_index + 1;
-                            work_item_buffer.buffer.push(PreprocessWorkItem {
-                                input_index: input_index.into(),
-                                output_index: first_output_index,
-                                indirect_parameters_index: match batch.extra_index {
-                                    PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
-                                        range.start
-                                    }
-                                    PhaseItemExtraIndex::DynamicOffset(_)
-                                    | PhaseItemExtraIndex::None => 0,
+                            work_item_buffer.push(
+                                batch_set_key.indexed(),
+                                PreprocessWorkItem {
+                                    input_index: input_index.into(),
+                                    output_index: first_output_index,
+                                    indirect_parameters_index: match batch.extra_index {
+                                        PhaseItemExtraIndex::IndirectParametersIndex {
+                                            ref range,
+                                            ..
+                                        } => range.start,
+                                        PhaseItemExtraIndex::DynamicOffset(_)
+                                        | PhaseItemExtraIndex::None => 0,
+                                    },
                                 },
-                            });
+                            );
                         }
 
                         None => {
                             // Start a new batch, in indirect mode.
-                            let indirect_parameters_index = indirect_parameters_buffer.allocate(1);
-                            GFBD::write_batch_indirect_parameters(
-                                &system_param_item,
-                                &mut indirect_parameters_buffer,
-                                indirect_parameters_index,
-                                main_entity,
+                            let indirect_parameters_index =
+                                indirect_parameters_buffers.allocate(batch_set_key.indexed(), 1);
+                            let batch_set_index = NonMaxU32::new(
+                                indirect_parameters_buffers.batch_set_count(batch_set_key.indexed())
+                                    as u32,
                             );
-                            work_item_buffer.buffer.push(PreprocessWorkItem {
-                                input_index: input_index.into(),
-                                output_index: first_output_index,
+                            GFBD::write_batch_indirect_parameters_metadata(
+                                input_index.into(),
+                                batch_set_key.indexed(),
+                                output_index,
+                                batch_set_index,
+                                &mut indirect_parameters_buffers,
                                 indirect_parameters_index,
-                            });
+                            );
+                            work_item_buffer.push(
+                                batch_set_key.indexed(),
+                                PreprocessWorkItem {
+                                    input_index: input_index.into(),
+                                    output_index: first_output_index,
+                                    indirect_parameters_index,
+                                },
+                            );
                             batch = Some(BinnedRenderPhaseBatch {
                                 representative_entity: (entity, main_entity),
                                 instance_range: output_index..output_index + 1,
@@ -791,6 +1162,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             batch_set = Some(BinnedRenderPhaseBatchSet {
                                 batches: vec![batch],
                                 bin_key: bin_key.clone(),
+                                index: indirect_parameters_buffers
+                                    .batch_set_count(batch_set_key.indexed())
+                                    as u32,
                             });
                         }
                         Some(ref mut batch_set) => {
@@ -805,6 +1179,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             {
                 if let Some(batch_set) = batch_set {
                     batch_sets.push(batch_set);
+                    indirect_parameters_buffers
+                        .add_batch_set(batch_set_key.indexed(), indirect_parameters_base);
                 }
             }
         }
@@ -833,37 +1209,50 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         // tightly-packed buffer if GPU culling discards some of
                         // the instances. Otherwise, we can just write the
                         // output index directly.
-                        work_item_buffer.buffer.push(PreprocessWorkItem {
-                            input_index: input_index.into(),
-                            output_index: if no_indirect_drawing {
-                                output_index
-                            } else {
-                                first_output_index
+                        work_item_buffer.push(
+                            key.0.indexed(),
+                            PreprocessWorkItem {
+                                input_index: input_index.into(),
+                                output_index: if no_indirect_drawing {
+                                    output_index
+                                } else {
+                                    first_output_index
+                                },
+                                indirect_parameters_index: match batch.extra_index {
+                                    PhaseItemExtraIndex::IndirectParametersIndex {
+                                        range: ref indirect_parameters_range,
+                                        ..
+                                    } => indirect_parameters_range.start,
+                                    PhaseItemExtraIndex::DynamicOffset(_)
+                                    | PhaseItemExtraIndex::None => 0,
+                                },
                             },
-                            indirect_parameters_index: match batch.extra_index {
-                                PhaseItemExtraIndex::IndirectParametersIndex(ref range) => {
-                                    range.start
-                                }
-                                PhaseItemExtraIndex::DynamicOffset(_)
-                                | PhaseItemExtraIndex::None => 0,
-                            },
-                        });
+                        );
                     }
 
                     None if !no_indirect_drawing => {
                         // Start a new batch, in indirect mode.
-                        let indirect_parameters_index = indirect_parameters_buffer.allocate(1);
-                        GFBD::write_batch_indirect_parameters(
-                            &system_param_item,
-                            &mut indirect_parameters_buffer,
-                            indirect_parameters_index,
-                            main_entity,
+                        let indirect_parameters_index =
+                            indirect_parameters_buffers.allocate(key.0.indexed(), 1);
+                        let batch_set_index = NonMaxU32::new(
+                            indirect_parameters_buffers.batch_set_count(key.0.indexed()) as u32,
                         );
-                        work_item_buffer.buffer.push(PreprocessWorkItem {
-                            input_index: input_index.into(),
-                            output_index: first_output_index,
+                        GFBD::write_batch_indirect_parameters_metadata(
+                            input_index.into(),
+                            key.0.indexed(),
+                            output_index,
+                            batch_set_index,
+                            &mut indirect_parameters_buffers,
                             indirect_parameters_index,
-                        });
+                        );
+                        work_item_buffer.push(
+                            key.0.indexed(),
+                            PreprocessWorkItem {
+                                input_index: input_index.into(),
+                                output_index: first_output_index,
+                                indirect_parameters_index,
+                            },
+                        );
                         batch = Some(BinnedRenderPhaseBatch {
                             representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
@@ -875,11 +1264,14 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
                     None => {
                         // Start a new batch, in direct mode.
-                        work_item_buffer.buffer.push(PreprocessWorkItem {
-                            input_index: input_index.into(),
-                            output_index,
-                            indirect_parameters_index: 0,
-                        });
+                        work_item_buffer.push(
+                            key.0.indexed(),
+                            PreprocessWorkItem {
+                                input_index: input_index.into(),
+                                output_index,
+                                indirect_parameters_index: 0,
+                            },
+                        );
                         batch = Some(BinnedRenderPhaseBatch {
                             representative_entity: (entity, main_entity),
                             instance_range: output_index..output_index + 1,
@@ -905,6 +1297,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         vec.push(BinnedRenderPhaseBatchSet {
                             batches: vec![batch],
                             bin_key: key.1.clone(),
+                            index: indirect_parameters_buffers.batch_set_count(key.0.indexed())
+                                as u32,
                         });
                     }
                 }
@@ -918,8 +1312,16 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             // Allocate the indirect parameters if necessary.
             let mut indirect_parameters_offset = if no_indirect_drawing {
                 None
+            } else if key.0.indexed() {
+                Some(
+                    indirect_parameters_buffers
+                        .allocate_indexed(unbatchables.entities.len() as u32),
+                )
             } else {
-                Some(indirect_parameters_buffer.allocate(unbatchables.entities.len() as u32))
+                Some(
+                    indirect_parameters_buffers
+                        .allocate_non_indexed(unbatchables.entities.len() as u32),
+                )
             };
 
             for &(_, main_entity) in &unbatchables.entities {
@@ -932,32 +1334,43 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 if let Some(ref mut indirect_parameters_index) = indirect_parameters_offset {
                     // We're in indirect mode, so add an indirect parameters
                     // index.
-                    GFBD::write_batch_indirect_parameters(
-                        &system_param_item,
-                        &mut indirect_parameters_buffer,
-                        *indirect_parameters_index,
-                        main_entity,
-                    );
-                    work_item_buffer.buffer.push(PreprocessWorkItem {
-                        input_index: input_index.into(),
+                    GFBD::write_batch_indirect_parameters_metadata(
+                        input_index.into(),
+                        key.0.indexed(),
                         output_index,
-                        indirect_parameters_index: *indirect_parameters_index,
-                    });
+                        None,
+                        &mut indirect_parameters_buffers,
+                        *indirect_parameters_index,
+                    );
+                    work_item_buffer.push(
+                        key.0.indexed(),
+                        PreprocessWorkItem {
+                            input_index: input_index.into(),
+                            output_index,
+                            indirect_parameters_index: *indirect_parameters_index,
+                        },
+                    );
                     unbatchables
                         .buffer_indices
                         .add(UnbatchableBinnedEntityIndices {
                             instance_index: *indirect_parameters_index,
-                            extra_index: PhaseItemExtraIndex::IndirectParametersIndex(
-                                *indirect_parameters_index..(*indirect_parameters_index + 1),
-                            ),
+                            extra_index: PhaseItemExtraIndex::IndirectParametersIndex {
+                                range: *indirect_parameters_index..(*indirect_parameters_index + 1),
+                                batch_set_index: None,
+                            },
                         });
+                    indirect_parameters_buffers
+                        .add_batch_set(key.0.indexed(), *indirect_parameters_index);
                     *indirect_parameters_index += 1;
                 } else {
-                    work_item_buffer.buffer.push(PreprocessWorkItem {
-                        input_index: input_index.into(),
-                        output_index,
-                        indirect_parameters_index: 0,
-                    });
+                    work_item_buffer.push(
+                        key.0.indexed(),
+                        PreprocessWorkItem {
+                            input_index: input_index.into(),
+                            output_index,
+                            indirect_parameters_index: 0,
+                        },
+                    );
                     unbatchables
                         .buffer_indices
                         .add(UnbatchableBinnedEntityIndices {
@@ -980,7 +1393,7 @@ pub fn write_batched_instance_buffers<GFBD>(
 {
     let BatchedInstanceBuffers {
         ref mut data_buffer,
-        work_item_buffers: ref mut index_buffers,
+        ref mut work_item_buffers,
         ref mut current_input_buffer,
         ref mut previous_input_buffer,
     } = gpu_array_buffer.into_inner();
@@ -993,22 +1406,60 @@ pub fn write_batched_instance_buffers<GFBD>(
         .buffer
         .write_buffer(&render_device, &render_queue);
 
-    for index_buffer in index_buffers.values_mut() {
-        index_buffer
-            .buffer
-            .write_buffer(&render_device, &render_queue);
+    for view_work_item_buffers in work_item_buffers.values_mut() {
+        for phase_work_item_buffers in view_work_item_buffers.values_mut() {
+            match *phase_work_item_buffers {
+                PreprocessWorkItemBuffers::Direct(ref mut buffer_vec) => {
+                    buffer_vec.write_buffer(&render_device, &render_queue);
+                }
+                PreprocessWorkItemBuffers::Indirect {
+                    ref mut indexed,
+                    ref mut non_indexed,
+                } => {
+                    indexed.write_buffer(&render_device, &render_queue);
+                    non_indexed.write_buffer(&render_device, &render_queue);
+                }
+            }
+        }
     }
 }
 
-pub fn write_indirect_parameters_buffer(
+pub fn clear_indirect_parameters_buffers(
+    mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
+) {
+    indirect_parameters_buffers.indexed_data.clear();
+    indirect_parameters_buffers.indexed_metadata.clear();
+    indirect_parameters_buffers.indexed_batch_sets.clear();
+    indirect_parameters_buffers.non_indexed_data.clear();
+    indirect_parameters_buffers.non_indexed_metadata.clear();
+    indirect_parameters_buffers.non_indexed_batch_sets.clear();
+}
+
+pub fn write_indirect_parameters_buffers(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    mut indirect_parameters_buffer: ResMut<IndirectParametersBuffer>,
+    mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
 ) {
-    indirect_parameters_buffer
-        .buffer
+    indirect_parameters_buffers
+        .indexed_data
+        .write_buffer(&render_device);
+    indirect_parameters_buffers
+        .non_indexed_data
+        .write_buffer(&render_device);
+
+    indirect_parameters_buffers
+        .indexed_metadata
         .write_buffer(&render_device, &render_queue);
-    indirect_parameters_buffer.buffer.clear();
+    indirect_parameters_buffers
+        .non_indexed_metadata
+        .write_buffer(&render_device, &render_queue);
+
+    indirect_parameters_buffers
+        .indexed_batch_sets
+        .write_buffer(&render_device, &render_queue);
+    indirect_parameters_buffers
+        .non_indexed_batch_sets
+        .write_buffer(&render_device, &render_queue);
 }
 
 #[cfg(test)]

@@ -53,11 +53,8 @@ pub use visit_entities::*;
 mod hash;
 pub use hash::*;
 
-mod hash_map;
-mod hash_set;
-
-pub use hash_map::EntityHashMap;
-pub use hash_set::EntityHashSet;
+pub mod hash_map;
+pub mod hash_set;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -70,6 +67,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
+use bevy_platform_support::sync::atomic::Ordering;
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
@@ -79,26 +77,16 @@ use core::panic::Location;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::Ordering;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::Ordering;
-
-#[cfg(all(target_has_atomic = "64", not(feature = "portable-atomic")))]
-use core::sync::atomic::AtomicI64 as AtomicIdCursor;
-#[cfg(all(target_has_atomic = "64", feature = "portable-atomic"))]
-use portable_atomic::AtomicI64 as AtomicIdCursor;
+#[cfg(target_has_atomic = "64")]
+use bevy_platform_support::sync::atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
 /// Most modern platforms support 64-bit atomics, but some less-common platforms
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
-#[cfg(all(not(target_has_atomic = "64"), not(feature = "portable-atomic")))]
-use core::sync::atomic::AtomicIsize as AtomicIdCursor;
-#[cfg(all(not(target_has_atomic = "64"), feature = "portable-atomic"))]
-use portable_atomic::AtomicIsize as AtomicIdCursor;
+#[cfg(not(target_has_atomic = "64"))]
+use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -592,7 +580,14 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
+    )]
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -786,7 +781,14 @@ impl Entities {
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
-    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
+    )]
     pub fn reserve(&mut self, additional: u32) {
         self.verify_flushed();
 
@@ -1178,7 +1180,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
+    #[expect(
+        clippy::nonminimal_bool,
+        reason = "This intentionally tests all possible comparison operators as separate functions; thus, we don't want to rewrite these comparisons to use different operators."
+    )]
     fn entity_comparison() {
         assert_eq!(
             Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()),

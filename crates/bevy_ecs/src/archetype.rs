@@ -354,10 +354,12 @@ bitflags::bitflags! {
         const ON_INSERT_HOOK = (1 << 1);
         const ON_REPLACE_HOOK = (1 << 2);
         const ON_REMOVE_HOOK = (1 << 3);
-        const ON_ADD_OBSERVER = (1 << 4);
-        const ON_INSERT_OBSERVER = (1 << 5);
-        const ON_REPLACE_OBSERVER = (1 << 6);
-        const ON_REMOVE_OBSERVER = (1 << 7);
+        const ON_DESPAWN_HOOK = (1 << 4);
+        const ON_ADD_OBSERVER = (1 << 5);
+        const ON_INSERT_OBSERVER = (1 << 6);
+        const ON_REPLACE_OBSERVER = (1 << 7);
+        const ON_REMOVE_OBSERVER = (1 << 8);
+        const ON_DESPAWN_OBSERVER = (1 << 9);
     }
 }
 
@@ -672,6 +674,12 @@ impl Archetype {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_HOOK)
     }
 
+    /// Returns true if any of the components in this archetype have `on_despawn` hooks
+    #[inline]
+    pub fn has_despawn_hook(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DESPAWN_HOOK)
+    }
+
     /// Returns true if any of the components in this archetype have at least one [`OnAdd`] observer
     ///
     /// [`OnAdd`]: crate::world::OnAdd
@@ -702,6 +710,14 @@ impl Archetype {
     #[inline]
     pub fn has_remove_observer(&self) -> bool {
         self.flags().contains(ArchetypeFlags::ON_REMOVE_OBSERVER)
+    }
+
+    /// Returns true if any of the components in this archetype have at least one [`OnDespawn`] observer
+    ///
+    /// [`OnDespawn`]: crate::world::OnDespawn
+    #[inline]
+    pub fn has_despawn_observer(&self) -> bool {
+        self.flags().contains(ArchetypeFlags::ON_DESPAWN_OBSERVER)
     }
 }
 
@@ -750,7 +766,7 @@ struct ArchetypeComponents {
 ///
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
-/// [`Resource`]: crate::system::Resource
+/// [`Resource`]: crate::resource::Resource
 /// [many-to-many relationship]: https://en.wikipedia.org/wiki/Many-to-many_(data_model)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
@@ -789,7 +805,10 @@ pub struct Archetypes {
 pub struct ArchetypeRecord {
     /// Index of the component in the archetype's [`Table`](crate::storage::Table),
     /// or None if the component is a sparse set component.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "Currently unused, but planned to be used to implement a component index to improve performance of fragmenting relations."
+    )]
     pub(crate) column: Option<usize>,
 }
 
@@ -827,7 +846,10 @@ impl Archetypes {
 
     /// Fetches the total number of [`Archetype`]s within the world.
     #[inline]
-    #[allow(clippy::len_without_is_empty)] // the internal vec is never empty.
+    #[expect(
+        clippy::len_without_is_empty,
+        reason = "The internal vec is never empty"
+    )]
     pub fn len(&self) -> usize {
         self.archetypes.len()
     }

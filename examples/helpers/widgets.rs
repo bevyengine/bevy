@@ -53,7 +53,7 @@ pub fn main_ui_node() -> Node {
 /// The type parameter specifies the value that will be packaged up and sent in
 /// a [`WidgetClickEvent`] when the radio button is clicked.
 pub fn spawn_option_button<T>(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     option_value: T,
     option_name: &str,
     is_selected: bool,
@@ -107,8 +107,11 @@ pub fn spawn_option_button<T>(
 /// The user may change the setting to any one of the labeled `options`. The
 /// value of the given type parameter will be packaged up and sent as a
 /// [`WidgetClickEvent`] when one of the radio buttons is clicked.
-pub fn spawn_option_buttons<T>(parent: &mut ChildBuilder, title: &str, options: &[(T, &str)])
-where
+pub fn spawn_option_buttons<T>(
+    parent: &mut ChildSpawnerCommands,
+    title: &str,
+    options: &[(T, &str)],
+) where
     T: Clone + Send + Sync + 'static,
 {
     // Add the parent node for the row.
@@ -141,7 +144,7 @@ where
 /// Returns the `EntityCommands`, which allow further customization of the text
 /// style.
 pub fn spawn_ui_text<'a>(
-    parent: &'a mut ChildBuilder,
+    parent: &'a mut ChildSpawnerCommands,
     label: &str,
     color: Color,
 ) -> EntityCommands<'a> {

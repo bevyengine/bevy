@@ -4,7 +4,6 @@ use crate::{
 };
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
@@ -253,12 +252,12 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_spatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_nonspatial_remove {

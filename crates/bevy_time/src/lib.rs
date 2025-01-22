@@ -1,11 +1,6 @@
 #![doc = include_str!("../README.md")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -40,7 +35,7 @@ use bevy_ecs::{
     event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
     prelude::*,
 };
-use bevy_utils::Instant;
+use bevy_platform_support::time::Instant;
 use core::time::Duration;
 pub use crossbeam_channel::TrySendError;
 use crossbeam_channel::{Receiver, Sender};
@@ -166,7 +161,8 @@ mod tests {
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
         event::{Event, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents},
-        system::{Local, Res, ResMut, Resource},
+        resource::Resource,
+        system::{Local, Res, ResMut},
     };
     use core::error::Error;
     use core::time::Duration;

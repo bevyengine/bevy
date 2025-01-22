@@ -35,6 +35,7 @@ use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::mesh::allocator::SlabId;
+use bevy_render::render_phase::PhaseItemBatchSetKey;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_phase::{
@@ -182,6 +183,12 @@ pub struct OpaqueNoLightmap3dBatchSetKey {
     ///
     /// For non-mesh items, you can safely fill this with `None`.
     pub index_slab: Option<SlabId>,
+}
+
+impl PhaseItemBatchSetKey for OpaqueNoLightmap3dBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
 }
 
 // TODO: Try interning these.

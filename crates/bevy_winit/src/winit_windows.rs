@@ -1,7 +1,7 @@
 use bevy_a11y::AccessibilityRequested;
 use bevy_ecs::entity::Entity;
 
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_utils::HashMap;
 use bevy_window::{
     CursorGrabMode, MonitorSelection, Window, WindowMode, WindowPosition, WindowResolution,
@@ -126,6 +126,8 @@ impl WinitWindows {
             use winit::platform::windows::WindowAttributesExtWindows;
             winit_window_attributes =
                 winit_window_attributes.with_skip_taskbar(window.skip_taskbar);
+            winit_window_attributes =
+                winit_window_attributes.with_clip_children(window.clip_children);
         }
 
         #[cfg(target_os = "macos")]

@@ -22,11 +22,12 @@ use bevy_asset::{load_internal_asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::{require, Component},
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::ReflectComponent,
     query::With,
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::Mat4;

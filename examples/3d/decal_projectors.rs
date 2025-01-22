@@ -3,6 +3,7 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
 
+use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::window::SystemCursorIcon;
 use bevy::winit::cursor::CursorIcon;
 use bevy::{
@@ -237,7 +238,10 @@ fn spawn_buttons(commands: &mut Commands) {
 }
 
 /// Spawns a button that the user can drag to change a parameter.
-fn spawn_drag_button<'a>(commands: &'a mut ChildBuilder<'_>, label: &str) -> EntityCommands<'a> {
+fn spawn_drag_button<'a>(
+    commands: &'a mut RelatedSpawnerCommands<'_, ChildOf>,
+    label: &str,
+) -> EntityCommands<'a> {
     let mut kid = commands.spawn(Node {
         border: BUTTON_BORDER,
         justify_content: JustifyContent::Center,

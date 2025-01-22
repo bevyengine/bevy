@@ -12,7 +12,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Has,
-    system::{Commands, Query, Res, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
