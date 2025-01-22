@@ -22,11 +22,12 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::CompassOctant;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
 use thiserror::Error;
 
 use crate::InputFocus;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 
 /// A plugin that sets up the directional navigation systems and resources.
 #[derive(Default)]

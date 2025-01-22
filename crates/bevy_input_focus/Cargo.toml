@@ -10,7 +10,9 @@ keywords = ["bevy"]
 rust-version = "1.83.0"
 
 [features]
-default = ["bevy_reflect"]
+default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
+
+# Functionality
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = [
@@ -18,7 +20,52 @@ bevy_reflect = [
   "bevy_app/bevy_reflect",
   "bevy_ecs/bevy_reflect",
   "bevy_math/bevy_reflect",
+  "bevy_input/bevy_reflect",
+  "bevy_window/bevy_reflect",
 ]
+
+## Adds serialization support through `serde`.
+serialize = [
+  "bevy_ecs/serialize",
+  "bevy_math/serialize",
+  "bevy_input/serialize",
+  "bevy_window/serialize",
+]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "bevy_app/std",
+  "bevy_ecs/std",
+  "bevy_math/std",
+  "bevy_reflect/std",
+  "bevy_input/std",
+  "bevy_window/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_app/critical-section",
+  "bevy_ecs/critical-section",
+  "bevy_reflect?/critical-section",
+  "bevy_input/critical-section",
+]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
+portable-atomic = [
+  "bevy_app/portable-atomic",
+  "bevy_ecs/portable-atomic",
+  "bevy_reflect?/portable-atomic",
+  "bevy_input/portable-atomic",
+]
+
+## Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_math/libm", "bevy_window/libm"]
 
 [dependencies]
 # bevy
@@ -33,7 +80,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
 
 # other
 thiserror = { version = "2", default-features = false }
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+log = { version = "0.4", default-features = false }
 
 [dev-dependencies]
 smol_str = "0.2"

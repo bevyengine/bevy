@@ -4,6 +4,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 //! A UI-centric focus system for Bevy.
 //!
@@ -16,6 +17,11 @@
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
 //! which should depend on [`bevy_input_focus`](crate).
 
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
 pub mod directional_navigation;
 pub mod tab_navigation;
 
@@ -27,10 +33,11 @@ pub use autofocus::*;
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 
 /// Resource representing which entity has input focus, if any. Input events (other than pointer-like inputs) will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
