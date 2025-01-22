@@ -666,29 +666,23 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
         syn::Fields::Unit => Punctuated::new(),
     };
 
-    let field_initializers = match fields {
-        syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
-            quote!({ #field_initializers })
-        }
-        syn::Fields::Unit => quote!(#field_initializers),
+    let field_initializers: TokenStream2 = if !field_initializers.is_empty() {
+        quote!({ #field_initializers })
+    } else {
+        quote!(#field_initializers)
     };
 
-    match variant_ident {
-        Some(variant_ident) => TokenStream::from(quote! {
+    let field_initializers = match variant_ident {
+        Some(variant_ident) => quote!( Self::#variant_ident #field_initializers),
+        None => quote!( Self #field_initializers),
+    };
+
+    TokenStream::from(quote! {
             impl #impl_generics #bevy_ecs_path::world::FromWorld for #name #ty_generics #where_clauses {
                 fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
                     #[allow(clippy::init_numbered_fields)]
-                    Self::#variant_ident #field_initializers
+                    #field_initializers
                 }
             }
-        }),
-        None => TokenStream::from(quote! {
-            impl #impl_generics #bevy_ecs_path::world::FromWorld for #name #ty_generics #where_clauses {
-                fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
-                    #[allow(clippy::init_numbered_fields)]
-                    Self #field_initializers
-                }
-            }
-        }),
-    }
+    })
 }
