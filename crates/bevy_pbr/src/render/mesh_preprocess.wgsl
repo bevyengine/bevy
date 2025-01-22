@@ -208,8 +208,10 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let aabb_half_extents = mesh_culling_data[input_index].aabb_half_extents.xyz;
 
     // Initialize the AABB and the maximum depth.
-    var aabb = vec4(0.0);
-    var max_depth_view = 0.0;
+    let infinity = bitcast<f32>(0x7f800000u);
+    let neg_infinity = bitcast<f32>(0xff800000u);
+    var aabb = vec4(infinity, infinity, neg_infinity, neg_infinity);
+    var max_depth_view = neg_infinity;
 
     // Build up the AABB by taking each corner of this mesh's OBB, transforming
     // it, and updating the AABB and depth accordingly.
@@ -237,13 +239,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         let uv_pos = ndc_to_uv(ndc_pos.xy);
 
         // Update the AABB and maximum view-space depth.
-        if (i == 0u) {
-            aabb = vec4(uv_pos, uv_pos);
-            max_depth_view = view_pos.z;
-        } else {
-            aabb = vec4(min(aabb.xy, uv_pos), max(aabb.zw, uv_pos));
-            max_depth_view = max(max_depth_view, view_pos.z);
-        }
+        aabb = vec4(min(aabb.xy, uv_pos), max(aabb.zw, uv_pos));
+        max_depth_view = max(max_depth_view, view_pos.z);
     }
 
     // Clip to the near plane to avoid the NDC depth becoming negative.
