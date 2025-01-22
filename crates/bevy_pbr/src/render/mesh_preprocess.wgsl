@@ -269,9 +269,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     if (max_depth_ndc < occluder_depth_ndc) {
 #ifdef EARLY_PHASE
         // If this is the early phase, we need to make a note of this mesh so
-        // that we examine it again in the late phase. After all, it's possible
-        // that a mesh that was invisible last frame became visible in this
-        // frame, and we need to handle that.
+        // that we examine it again in the late phase, so that we handle the
+        // case in which a mesh that was invisible last frame became visible in
+        // this frame.
         let output_work_item_index = atomicAdd(&late_preprocess_work_item_indirect_parameters[
             late_preprocess_work_item_indirect_offset].work_item_count, 1u);
         if (output_work_item_index % 64u == 0u) {

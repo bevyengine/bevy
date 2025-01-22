@@ -1632,14 +1632,12 @@ pub fn write_batched_instance_buffers<GFBD>(
                         late_indirect_parameters_non_indexed_offset: _,
                     }) = *gpu_occlusion_culling
                     {
-                        if late_indexed.is_empty() {
-                            late_indexed.add();
+                        if !late_indexed.is_empty() {
+                            late_indexed.write_buffer(&render_device);
                         }
-                        if late_non_indexed.is_empty() {
-                            late_non_indexed.add();
+                        if !late_non_indexed.is_empty() {
+                            late_non_indexed.write_buffer(&render_device);
                         }
-                        late_indexed.write_buffer(&render_device);
-                        late_non_indexed.write_buffer(&render_device);
                     }
                 }
             }

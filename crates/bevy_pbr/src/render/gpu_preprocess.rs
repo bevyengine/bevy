@@ -819,6 +819,8 @@ impl Node for LateGpuPreprocessNode {
                     PreprocessWorkItemBuffers::Indirect {
                         gpu_occlusion_culling:
                             Some(GpuOcclusionCullingWorkItemBuffers {
+                                late_indexed: ref late_indexed_work_item_buffer,
+                                late_non_indexed: ref late_non_indexed_work_item_buffer,
                                 late_indirect_parameters_indexed_offset,
                                 late_indirect_parameters_non_indexed_offset,
                                 ..
@@ -845,27 +847,36 @@ impl Node for LateGpuPreprocessNode {
                 let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
                 dynamic_offsets.push(view_uniform_offset.offset);
 
-                compute_pass.set_bind_group(
-                    0,
-                    late_indexed_bind_group.as_deref(),
-                    &dynamic_offsets,
-                );
-                compute_pass.dispatch_workgroups_indirect(
-                    late_indexed_indirect_parameters_buffer,
-                    (*late_indirect_parameters_indexed_offset as u64)
-                        * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
-                );
+                // If there's no space reserved for work items, then don't
+                // bother doing the dispatch, as there can't possibly be any
+                // meshes of the given class (indexed or non-indexed) in this
+                // phase.
 
-                compute_pass.set_bind_group(
-                    0,
-                    late_non_indexed_bind_group.as_deref(),
-                    &dynamic_offsets,
-                );
-                compute_pass.dispatch_workgroups_indirect(
-                    late_non_indexed_indirect_parameters_buffer,
-                    (*late_indirect_parameters_non_indexed_offset as u64)
-                        * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
-                );
+                if !late_indexed_work_item_buffer.is_empty() {
+                    compute_pass.set_bind_group(
+                        0,
+                        late_indexed_bind_group.as_deref(),
+                        &dynamic_offsets,
+                    );
+                    compute_pass.dispatch_workgroups_indirect(
+                        late_indexed_indirect_parameters_buffer,
+                        (*late_indirect_parameters_indexed_offset as u64)
+                            * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
+                    );
+                }
+
+                if !late_non_indexed_work_item_buffer.is_empty() {
+                    compute_pass.set_bind_group(
+                        0,
+                        late_non_indexed_bind_group.as_deref(),
+                        &dynamic_offsets,
+                    );
+                    compute_pass.dispatch_workgroups_indirect(
+                        late_non_indexed_indirect_parameters_buffer,
+                        (*late_indirect_parameters_non_indexed_offset as u64)
+                            * (size_of::<LatePreprocessWorkItemIndirectParameters>() as u64),
+                    );
+                }
             }
         }
 
@@ -1922,10 +1933,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: late_indexed_indirect_parameters_buffer,
                                     offset: 0,
-                                    size: NonZeroU64::new(size_of::<
-                                        LatePreprocessWorkItemIndirectParameters,
-                                    >()
-                                        as u64),
+                                    size: NonZeroU64::new(
+                                        late_indexed_indirect_parameters_buffer.size(),
+                                    ),
                                 },
                             ),
                         )),
@@ -2015,10 +2025,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: late_non_indexed_indirect_parameters_buffer,
                                     offset: 0,
-                                    size: NonZeroU64::new(size_of::<
-                                        LatePreprocessWorkItemIndirectParameters,
-                                    >()
-                                        as u64),
+                                    size: NonZeroU64::new(
+                                        late_non_indexed_indirect_parameters_buffer.size(),
+                                    ),
                                 },
                             ),
                         )),
@@ -2096,10 +2105,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: late_indexed_indirect_parameters_buffer,
                                     offset: 0,
-                                    size: NonZeroU64::new(size_of::<
-                                        LatePreprocessWorkItemIndirectParameters,
-                                    >()
-                                        as u64),
+                                    size: NonZeroU64::new(
+                                        late_indexed_indirect_parameters_buffer.size(),
+                                    ),
                                 },
                             ),
                         )),
@@ -2178,10 +2186,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 BufferBinding {
                                     buffer: late_non_indexed_indirect_parameters_buffer,
                                     offset: 0,
-                                    size: NonZeroU64::new(size_of::<
-                                        LatePreprocessWorkItemIndirectParameters,
-                                    >()
-                                        as u64),
+                                    size: NonZeroU64::new(
+                                        late_non_indexed_indirect_parameters_buffer.size(),
+                                    ),
                                 },
                             ),
                         )),
