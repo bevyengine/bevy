@@ -286,7 +286,7 @@ pub fn measure_text_system(
                     * ui_scale.0,
             ),
         };
-        println!("scale factor = {scale_factor}");
+
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || computed.needs_rerender()
