@@ -23,6 +23,7 @@ std = [
   "portable-atomic-util?/std",
 ]
 
+## Allows access to the `alloc` crate.
 alloc = ["portable-atomic-util?/alloc"]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -33,7 +34,12 @@ critical-section = ["dep:critical-section", "portable-atomic?/critical-section"]
 ## operations, even on targets without native support.
 portable-atomic = ["dep:portable-atomic", "dep:portable-atomic-util"]
 
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+browser = ["dep:web-time", "dep:getrandom"]
+
 [dependencies]
+cfg-if = "1.0.0"
 critical-section = { version = "1.2.0", default-features = false, optional = true }
 portable-atomic = { version = "1", default-features = false, features = [
   "fallback",
@@ -41,8 +47,10 @@ portable-atomic = { version = "1", default-features = false, features = [
 portable-atomic-util = { version = "0.2.4", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-time = { version = "1.1", default-features = false }
-getrandom = { version = "0.2.0", default-features = false, features = ["js"] }
+web-time = { version = "1.1", default-features = false, optional = true }
+getrandom = { version = "0.2.0", default-features = false, optional = true, features = [
+  "js",
+] }
 
 [lints]
 workspace = true

@@ -1330,7 +1330,10 @@ type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
-        #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
+        #[cfg(all(
+            not(all(target_arch = "wasm32", feature = "browser")),
+            feature = "bevy_tasks"
+        ))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();

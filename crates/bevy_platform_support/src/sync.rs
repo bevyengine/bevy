@@ -16,15 +16,20 @@ pub mod atomic {
         AtomicU32, AtomicU64, AtomicU8, AtomicUsize, Ordering,
     };
 
-    #[cfg(not(feature = "portable-atomic"))]
-    use core::sync::atomic;
-
-    #[cfg(feature = "portable-atomic")]
-    use portable_atomic as atomic;
+    cfg_if::cfg_if! {
+        if #[cfg(feature = "portable-atomic")] {
+            use portable_atomic as atomic;
+        } else {
+            use core::sync::atomic;
+        }
+    }
 }
 
-#[cfg(all(feature = "alloc", feature = "portable-atomic"))]
-use portable_atomic_util as arc;
-
-#[cfg(all(feature = "alloc", not(feature = "portable-atomic")))]
-use alloc::sync as arc;
+#[cfg(feature = "alloc")]
+cfg_if::cfg_if! {
+    if #[cfg(feature = "portable-atomic")] {
+        use portable_atomic_util as arc;
+    } else {
+        use alloc::sync as arc;
+    }
+}

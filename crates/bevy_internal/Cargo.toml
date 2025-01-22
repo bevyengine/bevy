@@ -309,6 +309,18 @@ bevy_text = { path = "../bevy_text", optional = true, version = "0.16.0-dev" }
 bevy_ui = { path = "../bevy_ui", optional = true, version = "0.16.0-dev" }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.16.0-dev" }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
+  "browser",
+] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
+  "browser",
+] }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "browser",
+] }
+
 [lints]
 workspace = true
 

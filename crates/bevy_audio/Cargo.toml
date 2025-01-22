@@ -31,6 +31,10 @@ cpal = { version = "0.15", optional = true }
 rodio = { version = "0.20", default-features = false, features = [
   "wasm-bindgen",
 ] }
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
+  "browser",
+] }
 
 [features]
 mp3 = ["rodio/mp3"]
