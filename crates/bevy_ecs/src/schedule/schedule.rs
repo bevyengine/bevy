@@ -1,3 +1,7 @@
+#![expect(
+    clippy::module_inception,
+    reason = "This instance of module inception is being discussed; see #17344."
+)]
 use alloc::{
     boxed::Box,
     collections::BTreeSet,
@@ -19,9 +23,10 @@ use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
+    resource::Resource,
     result::Result,
     schedule::*,
-    system::{IntoSystem, Resource, ScheduleSystem},
+    system::{IntoSystem, ScheduleSystem},
     world::World,
 };
 
@@ -108,8 +113,13 @@ impl Schedules {
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
-        // label used when trace feature is enabled
-        #[allow(unused_variables)]
+        #[cfg_attr(
+            not(feature = "trace"),
+            expect(
+                unused_variables,
+                reason = "The `label` variable goes unused if the `trace` feature isn't active"
+            )
+        )]
         for (label, schedule) in &mut self.inner {
             #[cfg(feature = "trace")]
             let name = format!("{label:?}");

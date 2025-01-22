@@ -335,7 +335,7 @@ impl SystemBuffer for CommandQueue {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{self as bevy_ecs, system::Resource};
+    use crate::{self as bevy_ecs, resource::Resource};
     use alloc::{borrow::ToOwned, string::String, sync::Arc};
     use core::{
         panic::AssertUnwindSafe,
@@ -431,10 +431,10 @@ mod test {
         assert_eq!(world.entities().len(), 2);
     }
 
-    // This has an arbitrary value `String` stored to ensure
-    // when then command gets pushed, the `bytes` vector gets
-    // some data added to it.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "The inner string is used to ensure that, when the PanicCommand gets pushed to the queue, some data is written to the `bytes` vector."
+    )]
     struct PanicCommand(String);
     impl Command for PanicCommand {
         fn apply(self, _: &mut World) {
@@ -510,7 +510,10 @@ mod test {
         assert_is_send(SpawnCommand);
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how the CommandQueue reacts to padding added by rust's compiler."
+    )]
     struct CommandWithPadding(u8, u16);
     impl Command for CommandWithPadding {
         fn apply(self, _: &mut World) {}

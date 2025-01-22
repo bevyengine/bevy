@@ -1,10 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -20,7 +15,7 @@ mod gilrs_system;
 mod rumble;
 
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_utils::{synccell::SyncCell, HashMap};

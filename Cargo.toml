@@ -54,6 +54,9 @@ std_instead_of_core = "warn"
 std_instead_of_alloc = "warn"
 alloc_instead_of_core = "warn"
 
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
+
 [workspace.lints.rust]
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
@@ -94,6 +97,9 @@ too_long_first_doc_paragraph = "allow"
 std_instead_of_core = "allow"
 std_instead_of_alloc = "allow"
 alloc_instead_of_core = "allow"
+
+allow_attributes = "warn"
+allow_attributes_without_reason = "warn"
 
 [lints.rust]
 missing_docs = "warn"
@@ -946,6 +952,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "decal"
+path = "examples/3d/decal.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.decal]
+name = "Decal"
+description = "Decal rendering"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "deferred_rendering"
 path = "examples/3d/deferred_rendering.rs"
 doc-scrape-examples = true
@@ -1233,9 +1250,14 @@ category = "3D Rendering"
 wasm = false
 setup = [
   [
+    "mkdir",
+    "-p",
+    "assets/external/models",
+  ],
+  [
     "curl",
     "-o",
-    "assets/models/bunny.meshlet_mesh",
+    "assets/external/models/bunny.meshlet_mesh",
     "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
   ],
 ]
@@ -2023,6 +2045,17 @@ doc-scrape-examples = true
 [package.metadata.example.parallel_query]
 name = "Parallel Query"
 description = "Illustrates parallel queries with `ParallelIterator`"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "relationships"
+path = "examples/ecs/relationships.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.relationships]
+name = "Relationships"
+description = "Define and work with custom relationships between entities"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -3308,6 +3341,18 @@ doc-scrape-examples = true
 [package.metadata.example.clear_color]
 name = "Clear Color"
 description = "Creates a solid color window"
+category = "Window"
+wasm = true
+
+[[example]]
+name = "custom_cursor_image"
+path = "examples/window/custom_cursor_image.rs"
+doc-scrape-examples = true
+required-features = ["custom_cursor"]
+
+[package.metadata.example.custom_cursor_image]
+name = "Custom Cursor Image"
+description = "Demonstrates creating an animated custom cursor from an image"
 category = "Window"
 wasm = true
 

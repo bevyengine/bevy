@@ -166,6 +166,7 @@ fn queue_custom(
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

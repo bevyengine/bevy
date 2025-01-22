@@ -4,7 +4,6 @@ mod condition;
 mod config;
 mod executor;
 mod graph;
-#[allow(clippy::module_inception)]
 mod schedule;
 mod set;
 mod stepping;
@@ -23,8 +22,9 @@ mod tests {
     pub use crate as bevy_ecs;
     pub use crate::{
         prelude::World,
+        resource::Resource,
         schedule::{Schedule, SystemSet},
-        system::{Res, ResMut, Resource},
+        system::{Res, ResMut},
     };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]

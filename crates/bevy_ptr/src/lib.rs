@@ -2,11 +2,6 @@
 #![no_std]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![expect(unsafe_code, reason = "Raw pointers are inherently unsafe.")]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -294,7 +289,9 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
     /// # Safety
-    /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
+    /// * The data pointed to by this `Ptr` must be valid for writes.
+    /// * There must be no active references (mutable or otherwise) to the data underlying this `Ptr`.
+    /// * Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
         PtrMut(self.0, PhantomData)

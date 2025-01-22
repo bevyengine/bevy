@@ -5,7 +5,9 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::{AlphaMask2d, AlphaMask2dBinKey, Opaque2d, Opaque2dBinKey, Transparent2d},
+    core_2d::{
+        AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
+    },
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -26,15 +28,15 @@ use bevy_render::{
         ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, PipelineCache,
-        RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, BindingResources,
+        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
+    sync_world::{MainEntity, MainEntityHashMap},
     view::{ExtractedView, Msaa, RenderVisibleEntities, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_render::{render_resource::BindingResources, sync_world::MainEntityHashMap};
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
 use tracing::error;
@@ -279,14 +281,55 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
 
 pub fn extract_mesh_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
+    changed_meshes_query: Extract<
+        Query<
+            (Entity, &ViewVisibility, &MeshMaterial2d<M>),
+            Or<(Changed<ViewVisibility>, Changed<MeshMaterial2d<M>>)>,
+        >,
+    >,
+    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_materials_query: Extract<RemovedComponents<MeshMaterial2d<M>>>,
 ) {
-    material_instances.clear();
-
-    for (entity, view_visibility, material) in &query {
+    for (entity, view_visibility, material) in &changed_meshes_query {
         if view_visibility.get() {
-            material_instances.insert(entity.into(), material.id());
+            add_mesh_instance(entity, material, &mut material_instances);
+        } else {
+            remove_mesh_instance(entity, &mut material_instances);
         }
+    }
+
+    for entity in removed_visibilities_query
+        .read()
+        .chain(removed_materials_query.read())
+    {
+        // Only queue a mesh for removal if we didn't pick it up above.
+        // It's possible that a necessary component was removed and re-added in
+        // the same frame.
+        if !changed_meshes_query.contains(entity) {
+            remove_mesh_instance(entity, &mut material_instances);
+        }
+    }
+
+    // Adds or updates a mesh instance in the [`RenderMaterial2dInstances`]
+    // array.
+    fn add_mesh_instance<M>(
+        entity: Entity,
+        material: &MeshMaterial2d<M>,
+        material_instances: &mut RenderMaterial2dInstances<M>,
+    ) where
+        M: Material2d,
+    {
+        material_instances.insert(entity.into(), material.id());
+    }
+
+    // Removes a mesh instance from the [`RenderMaterial2dInstances`] array.
+    fn remove_mesh_instance<M>(
+        entity: Entity,
+        material_instances: &mut RenderMaterial2dInstances<M>,
+    ) where
+        M: Material2d,
+    {
+        material_instances.remove(&MainEntity::from(entity));
     }
 }
 
@@ -584,7 +627,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     opaque_phase.add(
-                        (),
+                        BatchSetKey2d {
+                            indexed: mesh.indexed(),
+                        },
                         bin_key,
                         (*render_entity, *visible_entity),
                         binned_render_phase_type,
@@ -598,7 +643,9 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     alpha_mask_phase.add(
-                        (),
+                        BatchSetKey2d {
+                            indexed: mesh.indexed(),
+                        },
                         bin_key,
                         (*render_entity, *visible_entity),
                         binned_render_phase_type,
@@ -617,6 +664,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        indexed: mesh.indexed(),
                     });
                 }
             }

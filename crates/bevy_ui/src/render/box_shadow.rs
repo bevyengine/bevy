@@ -3,8 +3,8 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
-    ResolvedBorderRadius, TargetCamera, TransparentUi, Val,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
+    ResolvedBorderRadius, TransparentUi, UiTargetCamera, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -245,7 +245,7 @@ pub fn extract_shadows(
             &ViewVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -382,6 +382,7 @@ pub fn queue_shadows(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }

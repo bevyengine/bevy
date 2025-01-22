@@ -255,7 +255,7 @@ pub fn extract_ui_texture_slices(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
             &ImageNode,
         )>,
     >,
@@ -380,6 +380,7 @@ pub fn queue_ui_slices(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }

@@ -1,4 +1,7 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to work with dynamic components"
+)]
 
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.

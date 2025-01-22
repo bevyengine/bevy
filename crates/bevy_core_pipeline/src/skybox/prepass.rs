@@ -5,7 +5,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, With},
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::{

@@ -1,14 +1,13 @@
 use crate::CalculatedClip;
 use crate::ComputedNode;
-use crate::TargetCamera;
-use bevy_asset::AssetId;
+use crate::UiTargetCamera;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
-use bevy_ecs::system::Resource;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
@@ -64,7 +63,7 @@ pub fn extract_debug_overlay(
             &ViewVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
