@@ -4,6 +4,9 @@ mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
 
+use alloc::format;
+use core::panic::Location;
+
 pub use related_methods::*;
 pub use relationship_query::*;
 pub use relationship_source_collection::*;
@@ -71,11 +74,17 @@ pub trait Relationship: Component + Sized {
     fn from(entity: Entity) -> Self;
 
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
-    fn on_insert(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_insert(
+        mut world: DeferredWorld,
+        entity: Entity,
+        _: ComponentId,
+        caller: Option<&'static Location<'static>>,
+    ) {
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if target_entity == entity {
             warn!(
-                "The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
@@ -93,7 +102,8 @@ pub trait Relationship: Component + Sized {
             }
         } else {
             warn!(
-                "The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
@@ -103,7 +113,12 @@ pub trait Relationship: Component + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_replace(
+        mut world: DeferredWorld,
+        entity: Entity,
+        _: ComponentId,
+        _: Option<&'static Location<'static>>,
+    ) {
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
             if let Some(mut relationship_target) =
@@ -164,7 +179,12 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_replace(
+        mut world: DeferredWorld,
+        entity: Entity,
+        _: ComponentId,
+        caller: Option<&'static Location<'static>>,
+    ) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
         // copying the RelationshipTarget collection
         // SAFETY: This only reads the Self component and queues Remove commands
@@ -180,7 +200,13 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                             .handle_error_with(error_handler::silent()),
                     );
                 } else {
-                    warn!("Tried to despawn non-existent entity {}", source_entity);
+                    warn!(
+                        "{}Tried to despawn non-existent entity {}",
+                        caller
+                            .map(|location| format!("{location}: "))
+                            .unwrap_or_default(),
+                        source_entity
+                    );
                 }
             }
         }
@@ -189,7 +215,12 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
-    fn on_despawn(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_despawn(
+        mut world: DeferredWorld,
+        entity: Entity,
+        _: ComponentId,
+        caller: Option<&'static Location<'static>>,
+    ) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
         // copying the RelationshipTarget collection
         // SAFETY: This only reads the Self component and queues despawn commands
@@ -205,7 +236,13 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                             .handle_error_with(error_handler::silent()),
                     );
                 } else {
-                    warn!("Tried to despawn non-existent entity {}", source_entity);
+                    warn!(
+                        "{}Tried to despawn non-existent entity {}",
+                        caller
+                            .map(|location| format!("{location}: "))
+                            .unwrap_or_default(),
+                        source_entity
+                    );
                 }
             }
         }
