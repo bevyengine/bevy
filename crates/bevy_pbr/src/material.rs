@@ -702,6 +702,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Camera3d>,
         Has<TemporalJitter>,
         Option<&Projection>,
+        Option<&DistanceFog>,
         (
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
@@ -723,6 +724,7 @@ pub fn queue_material_meshes<M: Material>(
         camera_3d,
         temporal_jitter,
         projection,
+        distance_fog,
         (has_environment_maps, has_irradiance_volumes),
         has_oit,
     ) in &views
@@ -813,6 +815,9 @@ pub fn queue_material_meshes<M: Material>(
         }
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if distance_fog.is_some() {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
         if let Some(camera_3d) = camera_3d {
             view_key |= screen_space_specular_transmission_pipeline_key(
