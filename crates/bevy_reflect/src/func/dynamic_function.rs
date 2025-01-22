@@ -55,7 +55,7 @@ type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send 
 /// let mut func: DynamicFunction = add.into_function();
 ///
 /// // Dynamically call it:
-/// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+/// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
@@ -161,12 +161,12 @@ impl<'env> DynamicFunction<'env> {
     /// func = func.with_overload(add::<f32>);
     ///
     /// // Test `i32`:
-    /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+    /// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     ///
     /// // Test `f32`:
-    /// let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+    /// let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     ///```
@@ -189,15 +189,15 @@ impl<'env> DynamicFunction<'env> {
     /// func = func.with_overload(add_3);
     ///
     /// // Test two arguments:
-    /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+    /// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     ///
     /// // Test three arguments:
     /// let args = ArgList::default()
-    ///     .push_owned(25_i32)
-    ///     .push_owned(75_i32)
-    ///     .push_owned(100_i32);
+    ///     .with_owned(25_i32)
+    ///     .with_owned(75_i32)
+    ///     .with_owned(100_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 200);
     /// ```
@@ -266,7 +266,7 @@ impl<'env> DynamicFunction<'env> {
     /// };
     ///
     /// let mut func = add.into_function().with_name("add");
-    /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+    /// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 123);
     /// ```

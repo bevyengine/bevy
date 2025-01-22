@@ -92,7 +92,7 @@ fn main() {
     // We have to manually specify the concrete generic type we want to use.
     let function = stringify::<i32>.into_function();
 
-    let args = ArgList::new().push_owned(123_i32);
+    let args = ArgList::new().with_owned(123_i32);
     let return_value = function.call(args).unwrap();
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<String>().unwrap(), "123");
@@ -106,7 +106,7 @@ fn main() {
         .with_overload(stringify::<f32>);
 
     // Now our `function` accepts both `i32` and `f32` arguments.
-    let args = ArgList::new().push_owned(1.23_f32);
+    let args = ArgList::new().with_owned(1.23_f32);
     let return_value = function.call(args).unwrap();
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<String>().unwrap(), "1.23");
@@ -119,9 +119,9 @@ fn main() {
         .with_overload(|a: i32, b: i32, c: i32| a + b + c);
 
     let args = ArgList::new()
-        .push_owned(1_i32)
-        .push_owned(2_i32)
-        .push_owned(3_i32);
+        .with_owned(1_i32)
+        .with_owned(2_i32)
+        .with_owned(3_i32);
     let return_value = function.call(args).unwrap();
     let value: Box<dyn PartialReflect> = return_value.unwrap_owned();
     assert_eq!(value.try_take::<i32>().unwrap(), 6);
