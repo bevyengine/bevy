@@ -141,9 +141,51 @@ impl EnvironmentMapLight {
         Self {
             diffuse_map: handle.clone(),
             specular_map: handle,
-            intensity: 1.0,
-            rotation: Quat::IDENTITY,
-            affects_lightmapped_mesh_diffuse: true,
+            ..Default::default()
+        }
+    }
+
+    pub fn hemispherical_gradient(
+        assets: &mut Assets<Image>,
+        top_color: Color,
+        bottom_color: Color,
+    ) -> Self {
+        let top_color: Srgba = top_color.into();
+        let bottom_color: Srgba = bottom_color.into();
+        let mid_color = (top_color + bottom_color) / 2.0;
+        let image = Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new(
+                Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                [
+                    mid_color,
+                    mid_color,
+                    top_color,
+                    bottom_color,
+                    mid_color,
+                    mid_color,
+                ]
+                .into_iter()
+                .flat_map(|x| x.to_u8_array())
+                .collect(),
+                TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        };
+        let handle = assets.add(image);
+
+        Self {
+            diffuse_map: handle.clone(),
+            specular_map: handle,
+            ..Default::default()
         }
     }
 }
