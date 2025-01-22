@@ -1878,7 +1878,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch(values);
+        let error = world.try_insert_batch(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -1900,7 +1902,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch_if_new(values);
+        let error = world.try_insert_batch_if_new(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -2026,8 +2030,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn(X).contains::<Y>());
@@ -2056,8 +2060,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _, _, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _, _, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn_empty().insert(X).contains::<Y>());

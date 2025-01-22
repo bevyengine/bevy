@@ -274,6 +274,7 @@ pub struct EntityCloner {
 
 impl EntityCloner {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
+    #[track_caller]
     pub fn clone_entity(&mut self, world: &mut World) {
         // SAFETY:
         // - `source_entity` is read-only.

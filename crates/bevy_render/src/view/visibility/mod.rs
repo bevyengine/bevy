@@ -2,6 +2,7 @@ mod range;
 mod render_layers;
 
 use core::any::TypeId;
+use core::panic::Location;
 
 use bevy_ecs::component::ComponentId;
 use bevy_ecs::entity::hash_set::EntityHashSet;
@@ -632,8 +633,12 @@ pub fn check_visibility(
 ///     ...
 /// }
 /// ```
-pub fn add_visibility_class<C>(mut world: DeferredWorld<'_>, entity: Entity, _: ComponentId)
-where
+pub fn add_visibility_class<C>(
+    mut world: DeferredWorld<'_>,
+    entity: Entity,
+    _: ComponentId,
+    _: Option<&Location>,
+) where
     C: 'static,
 {
     if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {

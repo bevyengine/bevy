@@ -22,8 +22,6 @@ use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::TypeIdMap;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -31,6 +29,7 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
+    panic::Location,
 };
 use disqualified::ShortName;
 use thiserror::Error;
@@ -305,6 +304,7 @@ pub use bevy_ecs_macros::require;
 /// # use bevy_ecs::world::DeferredWorld;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::component::ComponentId;
+/// # use core::panic::Location;
 /// #
 /// #[derive(Component)]
 /// #[component(on_add = my_on_add_hook)]
@@ -316,12 +316,12 @@ pub use bevy_ecs_macros::require;
 /// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
-/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId) {
+/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId, caller: Option<&Location>) {
 ///     // ...
 /// }
 ///
 /// // You can also omit writing some types using generics.
-/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2) {
+/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2, caller: Option<&Location>) {
 ///     // ...
 /// }
 /// ```
@@ -498,8 +498,10 @@ pub enum StorageType {
     SparseSet,
 }
 
-/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`
-pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
+/// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`.
+/// The caller location is `Some` if the `track_caller` feature is enabled.
+pub type ComponentHook =
+    for<'w> fn(DeferredWorld<'w>, Entity, ComponentId, Option<&'static Location<'static>>);
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
 ///
@@ -536,12 +538,12 @@ pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, Entity, ComponentId);
 /// let mut tracked_component_query = world.query::<&MyTrackedComponent>();
 /// assert!(tracked_component_query.iter(&world).next().is_none());
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id, _caller| {
 ///    let mut tracked_entities = world.resource_mut::<TrackedEntities>();
 ///   tracked_entities.0.insert(entity);
 /// });
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id, _caller| {
 ///   let mut tracked_entities = world.resource_mut::<TrackedEntities>();
 ///   tracked_entities.0.remove(&entity);
 /// });

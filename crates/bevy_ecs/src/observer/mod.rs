@@ -24,6 +24,9 @@ use core::{
 };
 use smallvec::SmallVec;
 
+#[cfg(feature = "track_location")]
+use core::panic::Location;
+
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`Trigger::propagate`] for more information.
@@ -137,6 +140,12 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// [`propagate`]: Trigger::propagate
     pub fn get_propagate(&self) -> bool {
         *self.propagate
+    }
+
+    /// Returns the source code location that triggered this observer.
+    #[cfg(feature = "track_location")]
+    pub fn caller(&self) -> &'static Location<'static> {
+        self.trigger.caller
     }
 }
 
@@ -311,6 +320,10 @@ pub struct ObserverTrigger {
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
     pub target: Entity,
+
+    /// The location of the source code that triggered the obserer.
+    #[cfg(feature = "track_location")]
+    pub caller: &'static Location<'static>,
 }
 
 impl ObserverTrigger {
@@ -387,6 +400,7 @@ impl Observers {
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
@@ -411,6 +425,8 @@ impl Observers {
                     event_type,
                     components: components.clone().collect(),
                     target,
+                    #[cfg(feature = "track_location")]
+                    caller,
                 },
                 data.into(),
                 propagate,
@@ -532,16 +548,38 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
-    pub fn trigger<E: Event>(&mut self, mut event: E) {
+    #[track_caller]
+    pub fn trigger<E: Event>(&mut self, event: E) {
+        self.trigger_with_caller(
+            event,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        );
+    }
+
+    pub(crate) fn trigger_with_caller<E: Event>(
+        &mut self,
+        mut event: E,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    ) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, ()) };
+        unsafe {
+            self.trigger_targets_dynamic_ref_with_caller(
+                event_id,
+                &mut event,
+                (),
+                #[cfg(feature = "track_location")]
+                caller,
+            );
+        }
     }
 
     /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
+    #[track_caller]
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
@@ -553,10 +591,33 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
-    pub fn trigger_targets<E: Event>(&mut self, mut event: E, targets: impl TriggerTargets) {
+    #[track_caller]
+    pub fn trigger_targets<E: Event>(&mut self, event: E, targets: impl TriggerTargets) {
+        self.trigger_targets_with_caller(
+            event,
+            targets,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        );
+    }
+
+    pub(crate) fn trigger_targets_with_caller<E: Event>(
+        &mut self,
+        mut event: E,
+        targets: impl TriggerTargets,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    ) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, targets) };
+        unsafe {
+            self.trigger_targets_dynamic_ref_with_caller(
+                event_id,
+                &mut event,
+                targets,
+                #[cfg(feature = "track_location")]
+                caller,
+            );
+        }
     }
 
     /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
@@ -564,6 +625,7 @@ impl World {
     ///
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
+    #[track_caller]
     pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
@@ -579,6 +641,7 @@ impl World {
     /// # Safety
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    #[track_caller]
     pub unsafe fn trigger_targets_dynamic<E: Event, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
@@ -600,11 +663,31 @@ impl World {
     /// # Safety
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    #[track_caller]
     pub unsafe fn trigger_targets_dynamic_ref<E: Event, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         event_data: &mut E,
         targets: Targets,
+    ) {
+        self.trigger_targets_dynamic_ref_with_caller(
+            event_id,
+            event_data,
+            targets,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        );
+    }
+
+    /// # Safety
+    ///
+    /// See `trigger_targets_dynamic_ref`
+    unsafe fn trigger_targets_dynamic_ref_with_caller<E: Event, Targets: TriggerTargets>(
+        &mut self,
+        event_id: ComponentId,
+        event_data: &mut E,
+        targets: Targets,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         let mut world = DeferredWorld::from(self);
         if targets.entities().is_empty() {
@@ -616,6 +699,8 @@ impl World {
                     targets.components(),
                     event_data,
                     false,
+                    #[cfg(feature = "track_location")]
+                    caller,
                 );
             };
         } else {
@@ -628,6 +713,8 @@ impl World {
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,
+                        #[cfg(feature = "track_location")]
+                        caller,
                     );
                 };
             }
@@ -756,6 +843,8 @@ impl World {
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
+    #[cfg(feature = "track_location")]
+    use core::panic::Location;
 
     use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
@@ -1509,6 +1598,40 @@ mod tests {
         world.flush();
 
         assert!(world.get_resource::<ResA>().is_some());
+    }
+
+    #[test]
+    #[cfg(feature = "track_location")]
+    #[track_caller]
+    fn observer_caller_location_event() {
+        #[derive(Event)]
+        struct EventA;
+
+        let caller = Location::caller();
+        let mut world = World::new();
+        world.add_observer(move |trigger: Trigger<EventA>| {
+            assert_eq!(trigger.caller(), caller);
+        });
+        world.trigger(EventA);
+    }
+
+    #[test]
+    #[cfg(feature = "track_location")]
+    #[track_caller]
+    fn observer_caller_location_command_archetype_move() {
+        #[derive(Component)]
+        struct Component;
+
+        let caller = Location::caller();
+        let mut world = World::new();
+        world.add_observer(move |trigger: Trigger<OnAdd, Component>| {
+            assert_eq!(trigger.caller(), caller);
+        });
+        world.add_observer(move |trigger: Trigger<OnRemove, Component>| {
+            assert_eq!(trigger.caller(), caller);
+        });
+        world.commands().spawn(Component).clear();
+        world.flush();
     }
 
     #[test]
