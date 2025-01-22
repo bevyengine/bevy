@@ -7,7 +7,6 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
-use crate::experimental::UiChildren;
 use crate::widget::ImageNode;
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
