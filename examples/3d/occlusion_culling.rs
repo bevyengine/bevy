@@ -7,6 +7,7 @@
 
 use std::{
     f32::consts::PI,
+    fmt::Write as _,
     result::Result,
     sync::{Arc, Mutex},
 };
@@ -30,6 +31,7 @@ use bevy::{
         Render, RenderApp, RenderPlugin, RenderSet,
     },
 };
+use bevy_render::{renderer::RenderAdapter, settings::WgpuFeatures};
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
@@ -103,7 +105,7 @@ struct IndirectParametersStagingBuffers {
 /// we don't require more precise synchronization than the lock because we don't
 /// really care how up-to-date the counter of culled meshes is. If it's off by a
 /// few frames, that's no big deal.
-#[derive(Clone, Resource, Default, Deref, DerefMut)]
+#[derive(Clone, Resource, Deref, DerefMut)]
 struct SavedIndirectParameters(Arc<Mutex<SavedIndirectParametersData>>);
 
 /// A CPU-side copy of the GPU buffer that stores the indirect draw parameters.
@@ -121,17 +123,34 @@ struct SavedIndirectParametersData {
     count: u32,
     /// True if occlusion culling is supported at all; false if it's not.
     occlusion_culling_supported: bool,
+    /// True if we support inspecting the number of meshes that were culled on
+    /// this platform; false if we don't.
+    ///
+    /// If `multi_draw_indirect_count` isn't supported, then we would have to
+    /// employ a more complicated approach in order to determine the number of
+    /// meshes that are occluded, and that would be out of scope for this
+    /// example.
+    occlusion_culling_introspection_supported: bool,
 }
 
-impl Default for SavedIndirectParametersData {
-    fn default() -> SavedIndirectParametersData {
-        SavedIndirectParametersData {
+impl FromWorld for SavedIndirectParameters {
+    fn from_world(world: &mut World) -> SavedIndirectParameters {
+        let render_adapter = world.resource::<RenderAdapter>();
+        SavedIndirectParameters(Arc::new(Mutex::new(SavedIndirectParametersData {
             data: vec![],
             count: 0,
             // This gets set to false in `readback_indirect_buffers` if we don't
             // support GPU preprocessing.
             occlusion_culling_supported: true,
-        }
+            // In order to determine how many meshes were culled, we look at the
+            // indirect count buffer that Bevy only populates if the platform
+            // supports `multi_draw_indirect_count`. So, if we don't have that
+            // feature, then we don't bother to display how many meshes were
+            // culled.
+            occlusion_culling_introspection_supported: render_adapter
+                .features()
+                .contains(WgpuFeatures::MULTI_DRAW_INDIRECT_COUNT),
+        })))
     }
 }
 
@@ -180,15 +199,6 @@ fn main() {
 
 impl Plugin for ReadbackIndirectParametersPlugin {
     fn build(&self, app: &mut App) {
-        // Create the `SavedIndirectParameters` resource that we're going to use
-        // to communicate between the thread that the GPU-to-CPU readback
-        // callback runs on and the main application threads. This resource is
-        // atomically reference counted. We store one reference to the
-        // `SavedIndirectParameters` in the main app and another reference in
-        // the render app.
-        let saved_indirect_parameters = SavedIndirectParameters::default();
-        app.insert_resource(saved_indirect_parameters.clone());
-
         // Fetch the render app.
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -196,8 +206,6 @@ impl Plugin for ReadbackIndirectParametersPlugin {
 
         render_app
             .init_resource::<IndirectParametersStagingBuffers>()
-            // Insert another reference to the `SavedIndirectParameters`.
-            .insert_resource(saved_indirect_parameters)
             .add_systems(ExtractSchedule, readback_indirect_parameters)
             .add_systems(
                 Render,
@@ -224,6 +232,26 @@ impl Plugin for ReadbackIndirectParametersPlugin {
                     Node3d::EndMainPassPostProcessing,
                 ),
             );
+    }
+
+    fn finish(&self, app: &mut App) {
+        // Create the `SavedIndirectParameters` resource that we're going to use
+        // to communicate between the thread that the GPU-to-CPU readback
+        // callback runs on and the main application threads. This resource is
+        // atomically reference counted. We store one reference to the
+        // `SavedIndirectParameters` in the main app and another reference in
+        // the render app.
+        let saved_indirect_parameters = SavedIndirectParameters::from_world(app.world_mut());
+        app.insert_resource(saved_indirect_parameters.clone());
+
+        // Fetch the render app.
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            // Insert another reference to the `SavedIndirectParameters`.
+            .insert_resource(saved_indirect_parameters);
     }
 }
 
@@ -486,7 +514,11 @@ fn update_status_text(
     // locking the data and therefore this will value will generally at least
     // one frame behind. This is fine; this app is just a demonstration after
     // all.
-    let (rendered_object_count, occlusion_culling_supported): (u32, bool) = {
+    let (
+        rendered_object_count,
+        occlusion_culling_supported,
+        occlusion_culling_introspection_supported,
+    ): (u32, bool, bool) = {
         let saved_indirect_parameters = saved_indirect_parameters.lock().unwrap();
         (
             saved_indirect_parameters
@@ -496,25 +528,38 @@ fn update_status_text(
                 .map(|indirect_parameters| indirect_parameters.instance_count)
                 .sum(),
             saved_indirect_parameters.occlusion_culling_supported,
+            saved_indirect_parameters.occlusion_culling_introspection_supported,
         )
     };
 
     // Change the text.
     for mut text in &mut texts {
+        text.0 = String::new();
         if !occlusion_culling_supported {
-            text.0 = "Occlusion culling not supported on this platform".to_owned();
-        } else {
-            text.0 = format!(
-                "Occlusion culling {} (Press Space to toggle)\n{}/{} meshes rendered",
-                if app_status.occlusion_culling {
-                    "ON"
-                } else {
-                    "OFF"
-                },
-                rendered_object_count,
-                total_mesh_count
-            );
+            text.0
+                .push_str("Occlusion culling not supported on this platform");
+            continue;
         }
+
+        let _ = writeln!(
+            &mut text.0,
+            "Occlusion culling {} (Press Space to toggle)",
+            if app_status.occlusion_culling {
+                "ON"
+            } else {
+                "OFF"
+            },
+        );
+
+        if !occlusion_culling_introspection_supported {
+            continue;
+        }
+
+        let _ = write!(
+            &mut text.0,
+            "{}/{} meshes rendered",
+            rendered_object_count, total_mesh_count
+        );
     }
 }
 
