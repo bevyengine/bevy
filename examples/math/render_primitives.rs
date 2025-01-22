@@ -187,12 +187,14 @@ const LINE2D: Line2d = Line2d { direction: Dir2::X };
 const LINE3D: Line3d = Line3d { direction: Dir3::X };
 
 const SEGMENT_2D: Segment2d = Segment2d {
-    direction: Dir2::X,
-    half_length: BIG_2D,
+    vertices: [Vec2::new(-BIG_2D / 2., 0.), Vec2::new(BIG_2D / 2., 0.)],
 };
+
 const SEGMENT_3D: Segment3d = Segment3d {
-    direction: Dir3::X,
-    half_length: BIG_3D,
+    vertices: [
+        Vec3::new(-BIG_3D / 2., 0., 0.),
+        Vec3::new(BIG_3D / 2., 0., 0.),
+    ],
 };
 
 const POLYLINE_2D: Polyline2d<4> = Polyline2d {
@@ -333,7 +335,7 @@ fn update_active_cameras(
     state: Res<State<CameraActive>>,
     camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
     camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
-    mut text: Query<&mut TargetCamera, With<HeaderNode>>,
+    mut text: Query<&mut UiTargetCamera, With<HeaderNode>>,
 ) {
     let (entity_2d, mut cam_2d) = camera_2d.into_inner();
     let (entity_3d, mut cam_3d) = camera_3d.into_inner();
@@ -349,7 +351,7 @@ fn update_active_cameras(
     };
 
     text.iter_mut().for_each(|mut target_camera| {
-        *target_camera = TargetCamera(active_camera);
+        *target_camera = UiTargetCamera(active_camera);
     });
 }
 
@@ -374,7 +376,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
                 top: Val::Px(5.0),
                 ..Default::default()
             },
-            TargetCamera(active_camera),
+            UiTargetCamera(active_camera),
         ))
         .with_children(|p| {
             p.spawn((

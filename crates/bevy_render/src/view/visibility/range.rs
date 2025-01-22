@@ -9,12 +9,13 @@ use core::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{Changed, With},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};
 use bevy_reflect::Reflect;

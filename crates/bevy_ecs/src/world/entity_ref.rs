@@ -10,9 +10,13 @@ use crate::{
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
+    resource::Resource,
     storage::Storages,
-    system::{IntoObserverSystem, Resource},
-    world::{error::EntityComponentError, DeferredWorld, Mut, World},
+    system::IntoObserverSystem,
+    world::{
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DeferredWorld, Mut, Ref,
+        World, ON_DESPAWN, ON_REMOVE, ON_REPLACE,
+    },
 };
 use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
@@ -27,8 +31,6 @@ use core::{
     mem::MaybeUninit,
 };
 use thiserror::Error;
-
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -2095,6 +2097,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// See [`World::despawn`] for more details.
     ///
+    /// # Note
+    ///
+    /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. This results in "recursive despawn" behavior.
+    ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
@@ -2104,6 +2111,15 @@ impl<'w> EntityWorldMut<'w> {
             #[cfg(feature = "track_location")]
             Location::caller(),
         );
+    }
+
+    /// Despawns the provided entity and its descendants.
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity.despawn(), which now automatically despawns recursively."
+    )]
+    pub fn despawn_recursive(self) {
+        self.despawn();
     }
 
     pub(crate) fn despawn_with_caller(
@@ -2123,6 +2139,10 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
+            if archetype.has_despawn_observer() {
+                deferred_world.trigger_observers(ON_DESPAWN, self.entity, archetype.components());
+            }
+            deferred_world.trigger_on_despawn(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
             }
@@ -5272,7 +5292,8 @@ mod tests {
             .resource_mut::<TestVec>()
             .0
             .push("OrdA hook on_insert");
-        world.commands().entity(entity).despawn();
+        world.commands().entity(entity).remove::<OrdA>();
+        world.commands().entity(entity).remove::<OrdB>();
     }
 
     fn ord_a_hook_on_replace(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
@@ -5380,12 +5401,12 @@ mod tests {
             "OrdB observer on_insert",
             "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
             "OrdA observer on_replace", // start of despawn
-            "OrdB observer on_replace",
             "OrdA hook on_replace",
-            "OrdB hook on_replace",
             "OrdA observer on_remove",
-            "OrdB observer on_remove",
             "OrdA hook on_remove",
+            "OrdB observer on_replace",
+            "OrdB hook on_replace",
+            "OrdB observer on_remove",
             "OrdB hook on_remove",
         ];
         world.flush();

@@ -288,7 +288,9 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 mod tests {
     use crate::{self as bevy_asset, AssetEvents, AssetPlugin, Handle};
+    use alloc::{vec, vec::Vec};
     use core::num::NonZero;
+    use std::println;
 
     use crate::{AssetApp, Assets};
     use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
@@ -296,7 +298,8 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         event::EventWriter,
-        system::{Commands, IntoSystem, Local, Query, Res, ResMut, Resource},
+        resource::Resource,
+        system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
     use bevy_reflect::TypePath;
 

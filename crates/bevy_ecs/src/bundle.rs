@@ -1044,7 +1044,6 @@ impl<'w> BundleInserter<'w> {
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
-        let table = self.table.as_mut();
         let archetype = self.archetype.as_ref();
 
         // SAFETY: All components in the bundle are guaranteed to exist in the World
@@ -1068,6 +1067,8 @@ impl<'w> BundleInserter<'w> {
                 );
             }
         }
+
+        let table = self.table.as_mut();
 
         // SAFETY: Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
@@ -1472,6 +1473,21 @@ pub struct Bundles {
 }
 
 impl Bundles {
+    /// The total number of [`Bundle`] registered in [`Storages`].
+    pub fn len(&self) -> usize {
+        self.bundle_infos.len()
+    }
+
+    /// Returns true if no [`Bundle`] registered in [`Storages`].
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Iterate over [`BundleInfo`].
+    pub fn iter(&self) -> impl Iterator<Item = &BundleInfo> {
+        self.bundle_infos.iter()
+    }
+
     /// Gets the metadata associated with a specific type of bundle.
     /// Returns `None` if the bundle is not registered with the world.
     #[inline]

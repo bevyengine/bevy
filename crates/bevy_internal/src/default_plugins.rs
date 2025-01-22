@@ -9,7 +9,6 @@ plugin_group! {
         bevy_diagnostic:::FrameCountPlugin,
         bevy_time:::TimePlugin,
         bevy_transform:::TransformPlugin,
-        bevy_hierarchy:::HierarchyPlugin,
         bevy_diagnostic:::DiagnosticsPlugin,
         bevy_input:::InputPlugin,
         #[custom(cfg(not(feature = "bevy_window")))]

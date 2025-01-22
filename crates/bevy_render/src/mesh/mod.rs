@@ -1,4 +1,3 @@
-use bevy_hierarchy::Children;
 use bevy_math::Vec3;
 pub use bevy_mesh::*;
 use morph::{MeshMorphWeights, MorphWeights};
@@ -16,13 +15,7 @@ use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
 use bevy_ecs::{
-    entity::Entity,
-    query::{Changed, With},
-    schedule::IntoSystemConfigs,
-    system::Query,
-};
-use bevy_ecs::{
-    query::Without,
+    prelude::*,
     system::{
         lifetimeless::{SRes, SResMut},
         SystemParamItem,

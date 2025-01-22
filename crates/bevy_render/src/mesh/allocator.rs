@@ -11,8 +11,9 @@ use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Res, ResMut, Resource},
+    system::{Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_utils::{default, HashMap, HashSet};

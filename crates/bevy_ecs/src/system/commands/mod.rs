@@ -26,11 +26,12 @@ use crate::{
     entity::{Entities, Entity, EntityCloneBuilder},
     event::Event,
     observer::{Observer, TriggerTargets},
+    resource::Resource,
     result::Error,
     schedule::ScheduleLabel,
     system::{
         command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
-        IntoObserverSystem, IntoSystem, RegisteredSystem, Resource, SystemId,
+        IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -704,7 +705,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
@@ -731,7 +732,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
@@ -758,7 +759,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, overwriting any existing components shared by the `Bundle`.
@@ -768,7 +769,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// and passing the bundle to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
     ///
-    /// This command silently fails by ignoring any entities that do not exist.
+    /// This command will send a warning if any of the given entities do not exist.
     ///
     /// For the panicking version, see [`insert_batch`](Self::insert_batch).
     #[track_caller]
@@ -777,13 +778,16 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(command::try_insert_batch(batch, InsertMode::Replace));
+        self.queue(
+            command::insert_batch(batch, InsertMode::Replace)
+                .handle_error_with(error_handler::warn()),
+        );
     }
 
     /// Pushes a [`Command`] to the queue for adding a [`Bundle`] type to a batch of [`Entities`](Entity).
     ///
     /// A batch can be any type that implements [`IntoIterator`] containing `(Entity, Bundle)` tuples,
-    /// such as a [`Vec<(Entity, Bundle)>`] or an array `[(Entity, Bundle); N]`.
+    /// such as a [`Vec<(Entity, Bundle)>`](alloc::vec::Vec) or an array `[(Entity, Bundle); N]`.
     ///
     /// When the command is applied, for each `(Entity, Bundle)` pair in the given batch,
     /// the `Bundle` is added to the `Entity`, except for any components already present on the `Entity`.
@@ -793,7 +797,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// and passing the bundle to [`insert_if_new`](EntityCommands::insert_if_new),
     /// but it is faster due to memory pre-allocation.
     ///
-    /// This command silently fails by ignoring any entities that do not exist.
+    /// This command will send a warning if any of the given entities do not exist.
     ///
     /// For the panicking version, see [`insert_batch_if_new`](Self::insert_batch_if_new).
     #[track_caller]
@@ -802,7 +806,9 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        self.queue(command::try_insert_batch(batch, InsertMode::Keep));
+        self.queue(
+            command::insert_batch(batch, InsertMode::Keep).handle_error_with(error_handler::warn()),
+        );
     }
 
     /// Pushes a [`Command`] to the queue for inserting a [`Resource`] in the [`World`] with an inferred value.
@@ -1699,8 +1705,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Note
     ///
-    /// This won't clean up external references to the entity (such as parent-child relationships
-    /// if you're using `bevy_hierarchy`), which may leave the world in an invalid state.
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     ///
     /// # Example
     ///
@@ -1723,11 +1729,24 @@ impl<'a> EntityCommands<'a> {
     pub fn despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), error_handler::warn());
     }
+    /// Despawns the provided entity and its descendants.
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity.despawn(), which now automatically despawns recursively."
+    )]
+    pub fn despawn_recursive(&mut self) {
+        self.despawn();
+    }
 
     /// Despawns the entity.
     ///
     /// This will not emit a warning if the entity does not exist, essentially performing
     /// the same function as [`Self::despawn`] without emitting warnings.
+    ///
+    /// # Note
+    ///
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that are configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     pub fn try_despawn(&mut self) {
         self.queue_handled(entity_command::despawn(), error_handler::silent());
     }
@@ -2153,7 +2172,8 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::{require, Component},
-        system::{Commands, Resource},
+        resource::Resource,
+        system::Commands,
         world::{CommandQueue, FromWorld, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
