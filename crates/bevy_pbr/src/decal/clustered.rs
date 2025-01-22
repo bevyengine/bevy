@@ -87,8 +87,8 @@ pub struct ClusteredDecal {
     /// The image that the clustered decal projects.
     ///
     /// This must be a 2D image. If it has an alpha channel, it'll be alpha
-    /// blended with the underlying surface and/or other decals. All images in
-    /// the scene must use the same sampler.
+    /// blended with the underlying surface and/or other decals. All decal
+    /// images in the scene must use the same sampler.
     pub image: Handle<Image>,
 
     /// An application-specific tag you can use for any purpose you want.

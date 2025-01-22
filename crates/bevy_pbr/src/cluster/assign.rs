@@ -257,7 +257,6 @@ pub(crate) fn assign_objects_to_clusters(
         ));
     }
 
-    // TODO: this should be "if supports_bindless" or something
     if binding_arrays_are_usable(&render_device, &render_adapter) {
         clusterable_objects.extend(decals_query.iter().map(|(entity, transform)| {
             ClusterableObjectAssignmentData {
