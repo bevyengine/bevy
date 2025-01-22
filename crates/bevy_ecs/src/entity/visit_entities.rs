@@ -58,7 +58,7 @@ impl VisitEntitiesMut for Entity {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        entity::{EntityHashMap, MapEntities, SceneEntityMapper},
+        entity::{hash_map::EntityHashMap, MapEntities, SceneEntityMapper},
         world::World,
     };
     use alloc::{string::String, vec, vec::Vec};
@@ -71,7 +71,6 @@ mod tests {
         ordered: Vec<Entity>,
         unordered: HashSet<Entity>,
         single: Entity,
-        #[allow(dead_code)]
         #[visit_entities(ignore)]
         not_an_entity: String,
     }

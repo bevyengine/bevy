@@ -1,15 +1,15 @@
 use crate::CalculatedClip;
 use crate::ComputedNode;
 use crate::DefaultUiCamera;
-use crate::TargetCamera;
+use crate::UiTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
-use bevy_ecs::system::Resource;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::RenderEntity;
@@ -54,7 +54,6 @@ impl Default for UiDebugOptions {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,
@@ -67,7 +66,7 @@ pub fn extract_debug_overlay(
             &ViewVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
@@ -76,17 +75,19 @@ pub fn extract_debug_overlay(
         return;
     }
 
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
         else {
             continue;
         };
 
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -105,7 +106,7 @@ pub fn extract_debug_overlay(
                     .filter(|_| !debug_options.show_clipped)
                     .map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity,
+                extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),

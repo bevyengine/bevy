@@ -6,14 +6,9 @@ use std::{
 };
 
 use crate::executor::FallibleTask;
+use bevy_platform_support::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 use crate::{
     block_on,
@@ -334,7 +329,7 @@ impl TaskPool {
         T: Send + 'static,
     {
         Self::THREAD_EXECUTOR.with(|scope_executor| {
-            // If a `external_executor` is passed use that. Otherwise get the executor stored
+            // If an `external_executor` is passed, use that. Otherwise, get the executor stored
             // in the `THREAD_EXECUTOR` thread local.
             if let Some(external_executor) = external_executor {
                 self.scope_with_executor_inner(

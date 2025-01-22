@@ -3,7 +3,7 @@ use core::fmt;
 use taffy::TaffyTree;
 
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
@@ -463,7 +463,10 @@ mod tests {
         );
     }
 
-    #[allow(unreachable_code)]
+    #[expect(
+        unreachable_code,
+        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
+    )]
     #[test]
     fn test_remove_camera_entities() {
         let mut ui_surface = UiSurface::default();
@@ -512,7 +515,10 @@ mod tests {
         assert_eq!(root_node_pair, None);
     }
 
-    #[allow(unreachable_code)]
+    #[expect(
+        unreachable_code,
+        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
+    )]
     #[test]
     fn test_remove_entities() {
         let mut ui_surface = UiSurface::default();
@@ -592,7 +598,10 @@ mod tests {
         assert_eq!(ui_surface.taffy.parent(child_node), Some(parent_node));
     }
 
-    #[allow(unreachable_code)]
+    #[expect(
+        unreachable_code,
+        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
+    )]
     #[test]
     fn test_set_camera_children() {
         let mut ui_surface = UiSurface::default();

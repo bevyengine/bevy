@@ -9,8 +9,9 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Local, Query, Res, ResMut, Resource},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
@@ -185,7 +186,6 @@ pub struct ViewLightProbesUniformOffset(u32);
 /// This information is parameterized by the [`LightProbeComponent`] type. This
 /// will either be [`EnvironmentMapLight`] for reflection probes or
 /// [`IrradianceVolume`] for irradiance volumes.
-#[allow(dead_code)]
 struct LightProbeInfo<C>
 where
     C: LightProbeComponent,

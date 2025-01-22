@@ -5,7 +5,9 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
-    core_2d::{AlphaMask2d, AlphaMask2dBinKey, Opaque2d, Opaque2dBinKey, Transparent2d},
+    core_2d::{
+        AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
+    },
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
@@ -15,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_math::FloatOrd;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -27,15 +28,15 @@ use bevy_render::{
         ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, PipelineCache,
-        RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
+        AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, BindingResources,
+        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
-    view::{ExtractedView, Msaa, ViewVisibility},
+    sync_world::{MainEntity, MainEntityHashMap},
+    view::{ExtractedView, Msaa, RenderVisibleEntities, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_render::{render_resource::BindingResources, sync_world::MainEntityHashMap};
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
 use tracing::error;
@@ -136,7 +137,10 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
     }
 
     /// Customizes the default [`RenderPipelineDescriptor`].
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     #[inline]
     fn specialize(
         descriptor: &mut RenderPipelineDescriptor,
@@ -277,14 +281,55 @@ impl<M: Material2d> Default for RenderMaterial2dInstances<M> {
 
 pub fn extract_mesh_materials_2d<M: Material2d>(
     mut material_instances: ResMut<RenderMaterial2dInstances<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial2d<M>), With<Mesh2d>>>,
+    changed_meshes_query: Extract<
+        Query<
+            (Entity, &ViewVisibility, &MeshMaterial2d<M>),
+            Or<(Changed<ViewVisibility>, Changed<MeshMaterial2d<M>>)>,
+        >,
+    >,
+    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_materials_query: Extract<RemovedComponents<MeshMaterial2d<M>>>,
 ) {
-    material_instances.clear();
-
-    for (entity, view_visibility, material) in &query {
+    for (entity, view_visibility, material) in &changed_meshes_query {
         if view_visibility.get() {
-            material_instances.insert(entity.into(), material.id());
+            add_mesh_instance(entity, material, &mut material_instances);
+        } else {
+            remove_mesh_instance(entity, &mut material_instances);
         }
+    }
+
+    for entity in removed_visibilities_query
+        .read()
+        .chain(removed_materials_query.read())
+    {
+        // Only queue a mesh for removal if we didn't pick it up above.
+        // It's possible that a necessary component was removed and re-added in
+        // the same frame.
+        if !changed_meshes_query.contains(entity) {
+            remove_mesh_instance(entity, &mut material_instances);
+        }
+    }
+
+    // Adds or updates a mesh instance in the [`RenderMaterial2dInstances`]
+    // array.
+    fn add_mesh_instance<M>(
+        entity: Entity,
+        material: &MeshMaterial2d<M>,
+        material_instances: &mut RenderMaterial2dInstances<M>,
+    ) where
+        M: Material2d,
+    {
+        material_instances.insert(entity.into(), material.id());
+    }
+
+    // Removes a mesh instance from the [`RenderMaterial2dInstances`] array.
+    fn remove_mesh_instance<M>(
+        entity: Entity,
+        material_instances: &mut RenderMaterial2dInstances<M>,
+    ) where
+        M: Material2d,
+    {
+        material_instances.remove(&MainEntity::from(entity));
     }
 }
 
@@ -465,7 +510,6 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
     opaque_draw_functions: Res<DrawFunctions<Opaque2d>>,
     alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask2d>>,
@@ -473,15 +517,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
+    (render_meshes, render_materials): (
+        Res<RenderAssets<RenderMesh>>,
+        Res<RenderAssets<PreparedMaterial2d<M>>>,
+    ),
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(
-        Entity,
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
@@ -495,14 +540,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, visible_entities, msaa, tonemapping, dither) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
-        let Some(opaque_phase) = opaque_render_phases.get_mut(&view_entity) else {
+        let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
-        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view_entity) else {
+        let Some(alpha_mask_phase) = alpha_mask_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -560,6 +607,17 @@ pub fn queue_material2d_meshes<M: Material2d>(
             mesh_instance.material_bind_group_id = material_2d.get_bind_group_id();
             let mesh_z = mesh_instance.transforms.world_from_local.translation.z;
 
+            // We don't support multidraw yet for 2D meshes, so we use this
+            // custom logic to generate the `BinnedRenderPhaseType` instead of
+            // `BinnedRenderPhaseType::mesh`, which can return
+            // `BinnedRenderPhaseType::MultidrawableMesh` if the hardware
+            // supports multidraw.
+            let binned_render_phase_type = if mesh_instance.automatic_batching {
+                BinnedRenderPhaseType::BatchableMesh
+            } else {
+                BinnedRenderPhaseType::UnbatchableMesh
+            };
+
             match material_2d.properties.alpha_mode {
                 AlphaMode2d::Opaque => {
                     let bin_key = Opaque2dBinKey {
@@ -569,9 +627,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     opaque_phase.add(
+                        BatchSetKey2d {
+                            indexed: mesh.indexed(),
+                        },
                         bin_key,
                         (*render_entity, *visible_entity),
-                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                        binned_render_phase_type,
                     );
                 }
                 AlphaMode2d::Mask(_) => {
@@ -582,9 +643,12 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         material_bind_group_id: material_2d.get_bind_group_id().0,
                     };
                     alpha_mask_phase.add(
+                        BatchSetKey2d {
+                            indexed: mesh.indexed(),
+                        },
                         bin_key,
                         (*render_entity, *visible_entity),
-                        BinnedRenderPhaseType::mesh(mesh_instance.automatic_batching),
+                        binned_render_phase_type,
                     );
                 }
                 AlphaMode2d::Blend => {
@@ -600,6 +664,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         // Batching is done in batch_and_prepare_render_phase
                         batch_range: 0..1,
                         extra_index: PhaseItemExtraIndex::None,
+                        indexed: mesh.indexed(),
                     });
                 }
             }

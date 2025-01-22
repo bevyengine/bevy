@@ -10,8 +10,9 @@ use bevy_ecs::{
     prelude::{require, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -752,17 +753,9 @@ fn prepare_ssao_bind_groups(
     }
 }
 
-#[allow(clippy::needless_range_loop)]
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {
-    let mut t = [[0; 64]; 64];
-
-    for x in 0..64 {
-        for y in 0..64 {
-            t[x][y] = hilbert_index(x as u16, y as u16);
-        }
-    }
-
-    t
+    use core::array::from_fn;
+    from_fn(|x| from_fn(|y| hilbert_index(x as u16, y as u16)))
 }
 
 // https://www.shadertoy.com/view/3tB3z3

@@ -45,6 +45,8 @@ use crate::{
 pub mod accessibility;
 mod converters;
 pub mod cursor;
+#[cfg(feature = "custom_cursor")]
+mod custom_cursor;
 mod state;
 mod system;
 mod winit_config;

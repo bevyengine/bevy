@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
-        .insert(PickingBehavior::IGNORE)
+        .insert(Pickable::IGNORE)
         .with_children(|parent| {
             // left vertical fill (border)
             parent
@@ -174,7 +174,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         Label,
                                         AccessibilityNode(Accessible::new(Role::ListItem)),
                                     ))
-                                    .insert(PickingBehavior {
+                                    .insert(Pickable {
                                         should_block_lower: false,
                                         ..default()
                                     });
@@ -236,7 +236,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     justify_content: JustifyContent::Center,
                     ..default()
                 })
-                .insert(PickingBehavior::IGNORE)
+                .insert(Pickable::IGNORE)
                 .with_children(|parent| {
                     parent
                         .spawn((
@@ -352,7 +352,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     padding: UiRect::all(Val::Px(10.)),
                     ..default()
                 })
-                .insert(PickingBehavior::IGNORE)
+                .insert(Pickable::IGNORE)
                 .with_children(|parent| {
                     for (flip_x, flip_y) in
                         [(false, false), (false, true), (true, true), (true, false)]
@@ -380,7 +380,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn toggle_debug_overlay(
     input: Res<ButtonInput<KeyCode>>,
     mut debug_options: ResMut<UiDebugOptions>,
-    mut root_node_query: Query<&mut Visibility, (With<Node>, Without<Parent>)>,
+    mut root_node_query: Query<&mut Visibility, (With<Node>, Without<ChildOf>)>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {

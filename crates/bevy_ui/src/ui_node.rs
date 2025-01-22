@@ -1812,11 +1812,9 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
-    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
-        // SAFETY: This is trivially safe as 1 is non-zero.
-        span: Some(unsafe { NonZero::<u16>::new_unchecked(1) }),
+        span: NonZero::<u16>::new(1),
         end: None,
     };
 
@@ -2615,9 +2613,9 @@ mod tests {
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
-pub struct TargetCamera(pub Entity);
+pub struct UiTargetCamera(pub Entity);
 
-impl TargetCamera {
+impl UiTargetCamera {
     pub fn entity(&self) -> Entity {
         self.0
     }
@@ -2627,7 +2625,7 @@ impl TargetCamera {
 ///
 /// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
 /// just for debug purposes and the user wants a way to choose the default [`Camera`]
-/// without having to add a [`TargetCamera`] to the root node.
+/// without having to add a [`UiTargetCamera`] to the root node.
 ///
 /// Another use is when the user wants the Ui to be in another window by default,
 /// all that is needed is to place this component on the camera
@@ -2651,7 +2649,7 @@ impl TargetCamera {
 ///             ..Default::default()
 ///         },
 ///         // We add the Marker here so all Ui will spawn in
-///         // another window if no TargetCamera is specified
+///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
 ///     ));
 /// }

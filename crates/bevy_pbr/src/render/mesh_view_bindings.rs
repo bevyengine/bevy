@@ -12,7 +12,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Has,
-    system::{Commands, Query, Res, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -488,7 +489,6 @@ pub struct MeshViewBindGroup {
     pub value: BindGroup,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

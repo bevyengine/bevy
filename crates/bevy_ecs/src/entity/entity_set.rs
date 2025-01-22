@@ -13,11 +13,7 @@ use core::{
 
 use super::Entity;
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
+use bevy_platform_support::sync::Arc;
 
 /// A trait for entity borrows.
 ///
@@ -382,25 +378,24 @@ impl<I: Iterator<Item: TrustedEntityBorrow> + Debug> Debug for UniqueEntityIter<
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    #[allow(unused_imports)]
     use crate::prelude::{Schedule, World};
 
-    #[allow(unused_imports)]
     use crate::component::Component;
+    use crate::entity::Entity;
     use crate::query::{QueryState, With};
     use crate::system::Query;
     use crate::world::Mut;
-    #[allow(unused_imports)]
     use crate::{self as bevy_ecs};
-    #[allow(unused_imports)]
-    use crate::{entity::Entity, world::unsafe_world_cell};
 
     use super::UniqueEntityIter;
 
     #[derive(Component, Clone)]
     pub struct Thing;
 
-    #[allow(clippy::iter_skip_zero)]
+    #[expect(
+        clippy::iter_skip_zero,
+        reason = "The `skip(0)` is used to ensure that the `Skip` iterator implements `EntitySet`, which is needed to pass the iterator as the `entities` parameter."
+    )]
     #[test]
     fn preserving_uniqueness() {
         let mut world = World::new();

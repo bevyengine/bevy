@@ -341,7 +341,7 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Camera to render this UI node to. By the time it is extracted,
     // it is defaulted to a single camera if only one exists.
     // Nodes with ambiguous camera will be ignored.
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
 }
 
@@ -371,20 +371,21 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
-    render_entity_lookup: Extract<Query<RenderEntity>>,
+    mapping: Extract<Query<RenderEntity>>,
 ) {
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
     for (entity, uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_single_camera)
+        else {
             continue;
         };
 
-        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -417,14 +418,13 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
                 },
                 border,
                 clip: clip.map(|clip| clip.clip),
-                camera_entity,
+                extracted_camera_entity,
                 main_entity: entity.into(),
             },
         );
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -605,7 +605,6 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
@@ -614,7 +613,8 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    views: Query<&ExtractedView>,
+    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -624,11 +624,18 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
-        let Ok(view) = views.get(extracted_uinode.camera_entity) else {
+
+        let Ok(default_camera_view) =
+            render_views.get_mut(extracted_uinode.extracted_camera_entity)
+        else {
             continue;
         };
-        let Some(transparent_phase) =
-            transparent_render_phases.get_mut(&extracted_uinode.camera_entity)
+
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
@@ -656,6 +663,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: false,
         });
     }
 }

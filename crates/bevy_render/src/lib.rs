@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![expect(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -72,7 +72,6 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
@@ -127,6 +126,8 @@ pub enum RenderSet {
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
+    /// Prepares extracted meshes.
+    PrepareMeshes,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
     /// Queue drawable entities as phase items in render phases ready for
@@ -175,6 +176,7 @@ impl Render {
         schedule.configure_sets(
             (
                 ExtractCommands,
+                PrepareMeshes,
                 ManageViews,
                 Queue,
                 PhaseSort,
@@ -186,7 +188,7 @@ impl Render {
                 .chain(),
         );
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
+        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
             QueueMeshes
                 .in_set(Queue)
@@ -349,7 +351,6 @@ impl Plugin for RenderPlugin {
         };
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
@@ -474,10 +475,8 @@ unsafe fn initialize_render_app(app: &mut App) {
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
-                (
-                    PipelineCache::process_pipeline_queue_system.before(render_system),
-                    render_system,
-                )
+                (PipelineCache::process_pipeline_queue_system, render_system)
+                    .chain()
                     .in_set(RenderSet::Render),
                 despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
             ),

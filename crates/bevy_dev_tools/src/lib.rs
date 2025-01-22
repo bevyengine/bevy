@@ -1,10 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -19,6 +14,8 @@ use bevy_app::prelude::*;
 pub mod ci_testing;
 
 pub mod fps_overlay;
+
+pub mod picking_debug;
 
 pub mod states;
 

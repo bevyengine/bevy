@@ -40,8 +40,9 @@ use bevy_ecs::{
     query::{Changed, Or},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::Image;
@@ -100,6 +101,13 @@ pub struct Lightmap {
     /// This field allows lightmaps for a variety of meshes to be packed into a
     /// single atlas.
     pub uv_rect: Rect,
+
+    /// Whether bicubic sampling should be used for sampling this lightmap.
+    ///
+    /// Bicubic sampling is higher quality, but slower, and may lead to light leaks.
+    ///
+    /// If true, the lightmap texture's sampler must be set to [`bevy_image::ImageSampler::linear`].
+    pub bicubic_sampling: bool,
 }
 
 /// Lightmap data stored in the render world.
@@ -126,6 +134,9 @@ pub(crate) struct RenderLightmap {
     ///
     /// If bindless lightmaps aren't in use, this will be 0.
     pub(crate) slot_index: LightmapSlotIndex,
+
+    // Whether or not bicubic sampling should be used for this lightmap.
+    pub(crate) bicubic_sampling: bool,
 }
 
 /// Stores data for all lightmaps in the render world.
@@ -237,6 +248,7 @@ fn extract_lightmaps(
                 lightmap.uv_rect,
                 slab_index,
                 slot_index,
+                lightmap.bicubic_sampling,
             ),
         );
 
@@ -296,12 +308,14 @@ impl RenderLightmap {
         uv_rect: Rect,
         slab_index: LightmapSlabIndex,
         slot_index: LightmapSlotIndex,
+        bicubic_sampling: bool,
     ) -> Self {
         Self {
             image,
             uv_rect,
             slab_index,
             slot_index,
+            bicubic_sampling,
         }
     }
 }
@@ -327,6 +341,7 @@ impl Default for Lightmap {
         Self {
             image: Default::default(),
             uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            bicubic_sampling: false,
         }
     }
 }

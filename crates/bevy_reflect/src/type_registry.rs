@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
-use alloc::sync::Arc;
 use alloc::{boxed::Box, string::String};
+use bevy_platform_support::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use core::{

@@ -86,7 +86,7 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
     }
 }
 
-/// Filter that selects entities with a `A` for an asset that changed
+/// Filter that selects entities with an `A` for an asset that changed
 /// after the system last ran, where `A` is a component that implements
 /// [`AsAssetId`].
 ///
@@ -114,8 +114,8 @@ impl<'w, A: AsAssetId> AssetChangeCheck<'w, A> {
 /// # Performance
 ///
 /// When at least one `A` is updated, this will
-/// read a hashmap once per entity with a `A` component. The
-/// runtime of the query is proportional to how many entities with a `A`
+/// read a hashmap once per entity with an `A` component. The
+/// runtime of the query is proportional to how many entities with an `A`
 /// it matches.
 ///
 /// If no `A` asset updated since the last time the system ran, then no lookups occur.
@@ -148,7 +148,7 @@ pub struct AssetChangedState<A: AsAssetId> {
     _asset: PhantomData<fn(A)>,
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     type Item<'w> = ();
@@ -233,11 +233,6 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         <&A>::update_component_access(&state.asset_id, access);
-        assert!(
-            !access.access().has_resource_write(state.resource_id),
-            "AssetChanged<{ty}> requires read-only access to AssetChanges<{ty}>",
-            ty = ShortName::of::<A>()
-        );
         access.add_resource_read(state.resource_id);
     }
 
@@ -269,7 +264,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 }
 
-#[allow(unsafe_code)]
+#[expect(unsafe_code, reason = "QueryFilter is an unsafe trait.")]
 /// SAFETY: read-only access
 unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
     const IS_ARCHETYPAL: bool = false;
@@ -293,7 +288,9 @@ unsafe impl<A: AsAssetId> QueryFilter for AssetChanged<A> {
 #[cfg(test)]
 mod tests {
     use crate::{self as bevy_asset, AssetEvents, AssetPlugin, Handle};
+    use alloc::{vec, vec::Vec};
     use core::num::NonZero;
+    use std::println;
 
     use crate::{AssetApp, Assets};
     use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
@@ -301,7 +298,8 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         event::EventWriter,
-        system::{Commands, IntoSystem, Local, Query, Res, ResMut, Resource},
+        resource::Resource,
+        system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
     use bevy_reflect::TypePath;
 

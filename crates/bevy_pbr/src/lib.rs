@@ -1,6 +1,6 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -26,6 +26,7 @@ pub mod experimental {
 
 mod cluster;
 mod components;
+pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -97,6 +98,8 @@ pub mod graph {
         GpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
+        /// Label for the indirect parameters building pass.
+        BuildIndirectParameters,
     }
 }
 
@@ -333,9 +336,11 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceReflectionsPlugin,
             ))
             .add_plugins((
+                decal::ForwardDecalPlugin,
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+                ExtractComponentPlugin::<AmbientLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,
@@ -434,7 +439,8 @@ impl Plugin for PbrPlugin {
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .init_resource::<LightMeta>();
+            .init_resource::<LightMeta>()
+            .init_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app

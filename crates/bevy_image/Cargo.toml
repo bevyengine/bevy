@@ -9,6 +9,10 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = ["bevy_reflect"]
+
+bevy_reflect = ["dep:bevy_reflect", "bevy_math/bevy_reflect"]
+
 # Image formats
 basis-universal = ["dep:basis-universal"]
 bmp = ["image/bmp"]
@@ -26,12 +30,15 @@ qoi = ["image/qoi"]
 tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
+serialize = ["bevy_reflect"]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
 zstd = ["ruzstd"]
 
 [dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
   "serialize",
@@ -40,7 +47,7 @@ bevy_color = { path = "../bevy_color", version = "0.16.0-dev", features = [
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
-] }
+], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 
 # rendering
@@ -55,6 +62,8 @@ wgpu = { version = "23.0.1", default-features = false }
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 futures-lite = "2.0.1"
+guillotiere = "0.6.0"
+rectangle-pack = "0.4"
 ddsfile = { version = "0.5.2", optional = true }
 ktx2 = { version = "0.3.0", optional = true }
 # For ktx2 supercompression
@@ -63,6 +72,10 @@ ruzstd = { version = "0.7.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.16.0-dev" }
 
 [lints]
 workspace = true

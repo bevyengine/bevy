@@ -1,4 +1,7 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "This module acts as a wrapper around the `raw_window_handle` crate, which exposes many unsafe interfaces; thus, we have to use unsafe code here."
+)]
 
 use alloc::sync::Arc;
 use bevy_ecs::prelude::Component;

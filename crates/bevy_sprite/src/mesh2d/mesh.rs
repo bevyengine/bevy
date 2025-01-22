@@ -18,7 +18,7 @@ use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
 use bevy_render::{
     batching::{
-        gpu_preprocessing::IndirectParameters,
+        gpu_preprocessing::IndirectParametersMetadata,
         no_gpu_preprocessing::{
             self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
             write_batched_instance_buffer, BatchedInstanceBuffer,
@@ -403,56 +403,33 @@ impl GetFullBatchData for Mesh2dPipeline {
         None
     }
 
-    fn write_batch_indirect_parameters(
-        (mesh_instances, meshes, mesh_allocator): &SystemParamItem<Self::Param>,
-        indirect_parameters_buffer: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffer,
+    fn write_batch_indirect_parameters_metadata(
+        input_index: u32,
+        indexed: bool,
+        base_output_index: u32,
+        batch_set_index: Option<NonMaxU32>,
+        indirect_parameters_buffer: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffers,
         indirect_parameters_offset: u32,
-        main_entity: MainEntity,
     ) {
-        let Some(mesh_instance) = mesh_instances.get(&main_entity) else {
-            return;
-        };
-        let Some(mesh) = meshes.get(mesh_instance.mesh_asset_id) else {
-            return;
-        };
-        let Some(vertex_buffer_slice) =
-            mesh_allocator.mesh_vertex_slice(&mesh_instance.mesh_asset_id)
-        else {
-            return;
-        };
-
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
-        let indirect_parameters = match mesh.buffer_info {
-            RenderMeshBufferInfo::Indexed {
-                count: index_count, ..
-            } => {
-                let Some(index_buffer_slice) =
-                    mesh_allocator.mesh_index_slice(&mesh_instance.mesh_asset_id)
-                else {
-                    return;
-                };
-                IndirectParameters {
-                    vertex_or_index_count: index_count,
-                    instance_count: 0,
-                    first_vertex_or_first_index: index_buffer_slice.range.start,
-                    base_vertex_or_first_instance: vertex_buffer_slice.range.start,
-                    first_instance: 0,
-                }
-            }
-            RenderMeshBufferInfo::NonIndexed => IndirectParameters {
-                vertex_or_index_count: mesh.vertex_count,
-                instance_count: 0,
-                first_vertex_or_first_index: vertex_buffer_slice.range.start,
-                base_vertex_or_first_instance: 0,
-                // Use `0xffffffff` as a placeholder to tell the mesh
-                // preprocessing shader that this is a non-indexed mesh.
-                first_instance: !0,
+        let indirect_parameters = IndirectParametersMetadata {
+            mesh_index: input_index,
+            base_output_index,
+            batch_set_index: match batch_set_index {
+                None => !0,
+                Some(batch_set_index) => u32::from(batch_set_index),
             },
+            instance_count: 0,
         };
 
-        indirect_parameters_buffer.set(indirect_parameters_offset, indirect_parameters);
+        if indexed {
+            indirect_parameters_buffer.set_indexed(indirect_parameters_offset, indirect_parameters);
+        } else {
+            indirect_parameters_buffer
+                .set_non_indexed(indirect_parameters_offset, indirect_parameters);
+        }
     }
 }
 
@@ -717,7 +694,6 @@ pub struct Mesh2dViewBindGroup {
     pub value: BindGroup,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_mesh2d_view_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

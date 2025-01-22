@@ -10,11 +10,11 @@ use bevy_asset::{
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
+    hierarchy::ChildSpawner,
     name::Name,
     world::World,
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_image::{
     CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
     ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
@@ -454,7 +454,10 @@ async fn load_gltf<'a, 'b, 'c>(
                         ReadOutputs::MorphTargetWeights(weights) => {
                             let weights: Vec<f32> = weights.into_f32().collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                #[expect(
+                                    clippy::unnecessary_map_on_constructor,
+                                    reason = "While the mapping is unnecessary, it is much more readable at this level of indentation. Additionally, mapping makes it more consistent with the other branches."
+                                )]
                                 Some(ConstantCurve::new(Interval::EVERYWHERE, weights))
                                     .map(WeightsCurve)
                                     .map(VariableCurve::new)
@@ -1368,10 +1371,13 @@ fn warn_on_differing_texture_transforms(
 }
 
 /// Loads a glTF node.
-#[allow(clippy::too_many_arguments, clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn load_node(
     gltf_node: &Node,
-    world_builder: &mut WorldChildBuilder,
+    child_spawner: &mut ChildSpawner,
     root_load_context: &LoadContext,
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
@@ -1393,7 +1399,7 @@ fn load_node(
     // of negative scale factors is odd. if so we will assign a copy of the material with face
     // culling inverted, rather than modifying the mesh data directly.
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
-    let mut node = world_builder.spawn((transform, Visibility::default()));
+    let mut node = child_spawner.spawn((transform, Visibility::default()));
 
     let name = node_name(gltf_node);
     node.insert(name.clone());
@@ -1723,7 +1729,10 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 ///
 /// This is a low-level function only used when the `gltf` crate has no support
 /// for an extension, forcing us to parse its texture references manually.
-#[allow(dead_code)]
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures"
+))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
     document: &Document,
@@ -1796,7 +1805,7 @@ fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
     }
 }
 
-/// Maps the texture address mode form glTF to wgpu.
+/// Maps the texture address mode from glTF to wgpu.
 fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     match gltf_address_mode {
         WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
@@ -1805,8 +1814,11 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     }
 }
 
-/// Maps the `primitive_topology` form glTF to `wgpu`.
-#[allow(clippy::result_large_err)]
+/// Maps the `primitive_topology` from glTF to `wgpu`.
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -1876,7 +1888,10 @@ struct GltfTreeIterator<'a> {
 }
 
 impl<'a> GltfTreeIterator<'a> {
-    #[allow(clippy::result_large_err)]
+    #[expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )]
     fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
         let nodes = gltf.nodes().collect::<Vec<_>>();
 
@@ -2088,7 +2103,14 @@ struct ClearcoatExtension {
 }
 
 impl ClearcoatExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2171,7 +2193,14 @@ struct AnisotropyExtension {
 }
 
 impl AnisotropyExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2264,7 +2293,7 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_ecs::{system::Resource, world::World};
+    use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
@@ -2305,7 +2334,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
-        #[expect(unused)]
+        #[expect(
+            dead_code,
+            reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
+        )]
         #[derive(Resource)]
         struct GltfHandle(Handle<Gltf>);
 

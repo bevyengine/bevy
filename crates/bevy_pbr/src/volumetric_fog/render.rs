@@ -13,7 +13,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::{BevyDefault, Image};
@@ -607,7 +608,6 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
 }
 
 /// Specializes volumetric fog pipelines for all views with that effect enabled.
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_volumetric_fog_pipelines(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,

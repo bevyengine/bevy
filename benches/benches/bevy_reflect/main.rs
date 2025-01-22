@@ -1,5 +1,3 @@
-#![expect(clippy::type_complexity)]
-
 use criterion::criterion_main;
 
 mod function;
