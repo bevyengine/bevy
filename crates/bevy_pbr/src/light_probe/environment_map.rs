@@ -174,7 +174,7 @@ impl EnvironmentMapLight {
                     mid_color,
                 ]
                 .into_iter()
-                .flat_map(|x| x.to_u8_array())
+                .flat_map(Srgba::to_u8_array)
                 .collect(),
                 TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
