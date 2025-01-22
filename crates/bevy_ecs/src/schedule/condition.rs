@@ -400,7 +400,8 @@ pub mod common_conditions {
         prelude::{Component, Query, With},
         query::QueryFilter,
         removal_detection::RemovedComponents,
-        system::{In, IntoSystem, Local, Res, Resource, System, SystemInput},
+        resource::Resource,
+        system::{In, IntoSystem, Local, Res, System, SystemInput},
     };
     use alloc::format;
 

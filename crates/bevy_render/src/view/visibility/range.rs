@@ -13,8 +13,9 @@ use bevy_ecs::{
     query::{Changed, With},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};
 use bevy_reflect::Reflect;
