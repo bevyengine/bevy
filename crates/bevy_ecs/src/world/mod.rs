@@ -42,7 +42,7 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState, With},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     resource::{Resource, ResourceEntity},
     result::Result,
@@ -1590,7 +1590,12 @@ impl World {
         let component_id = self.components.register_resource::<R>();
 
         let resource_data = R::from_world(self);
-        self.spawn((resource_data, ResourceEntity::<R>::default()));
+        let entity = self
+            .spawn((resource_data, ResourceEntity::<R>::default()))
+            .id();
+        self.components
+            .cache_resource_entity::<R>(&mut self.storages, entity);
+
         component_id
     }
 
@@ -1619,7 +1624,9 @@ impl World {
         // but no infrastructure exists for that yet.
         #[cfg(feature = "track_location")] _caller: &'static Location,
     ) {
-        self.spawn((value, ResourceEntity::<R>::default()));
+        let entity = self.spawn((value, ResourceEntity::<R>::default())).id();
+        self.components
+            .cache_resource_entity::<R>(&mut self.storages, entity);
     }
 
     /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
@@ -1692,10 +1699,14 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
-        // SAFETY: `component_id` was gotten via looking up the `R` type
-        unsafe { Some(ptr.read::<R>()) }
+        let maybe_resource_entity = self.components.remove_resource_entity::<R>();
+        if let Some(resource_entity) = maybe_resource_entity {
+            let data = self.entity_mut(resource_entity).take::<R>();
+            self.despawn(resource_entity);
+            data
+        } else {
+            None
+        }
     }
 
     /// Removes a `!Send` resource from the world and returns it, if present.
@@ -1918,17 +1929,15 @@ impl World {
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let mut resource_query = self.try_query_filtered::<&R, With<ResourceEntity<R>>>()?;
-        let resource = resource_query.get_single(self).ok()?;
-        Some(resource)
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        self.get::<R>(resource_entity)
     }
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
     pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
-        let mut resource_query = self.try_query_filtered::<Ref<R>, With<ResourceEntity<R>>>()?;
-        let resource = resource_query.get_single(self).ok()?;
-        Some(resource)
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        self.entity(resource_entity).get_ref::<R>()
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
@@ -1936,9 +1945,8 @@ impl World {
     pub fn get_resource_mut<R: Resource + Component<Mutability = Mutable>>(
         &mut self,
     ) -> Option<Mut<'_, R>> {
-        let mut resource_query = self.try_query_filtered::<&mut R, With<ResourceEntity<R>>>()?;
-        let resource = resource_query.get_single_mut(self).ok()?;
-        Some(resource)
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        self.get_mut::<R>(resource_entity)
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,

@@ -1116,6 +1116,9 @@ impl Default for ComponentCloneHandlers {
 pub struct Components {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
+    // Each resource corresponds to a single entity,
+    // and the resource data is stored as a component on that entity.
+    resource_entities: HashMap<ComponentId, Entity>,
     resource_indices: TypeIdMap<ComponentId>,
     component_clone_handlers: ComponentCloneHandlers,
 }
@@ -1210,6 +1213,61 @@ impl Components {
         }
         components.push(info);
         component_id
+    }
+
+    /// Store a new resource entity of type `R`.
+    #[inline]
+    pub(crate) fn cache_resource_entity<R: Resource>(
+        &mut self,
+        storages: &mut Storages,
+        entity: Entity,
+    ) {
+        let id = self.register_component::<R>(storages);
+        self.cache_resource_entity_by_id(entity, id);
+    }
+
+    /// Stores a new resource entity associated with the given component ID.
+    #[inline]
+    pub(crate) fn cache_resource_entity_by_id(&mut self, entity: Entity, id: ComponentId) {
+        self.resource_entities.insert(id, entity);
+    }
+
+    /// Removes the resource entity of type `R`.
+    #[inline]
+    pub(crate) fn remove_resource_entity<R: Resource>(&mut self) -> Option<Entity> {
+        let Some(id) = self.component_id::<R>() else {
+            // If the component ID was not found, we can't have registered an entity of this type.
+            return None;
+        };
+
+        self.remove_resource_entity_by_id(id)
+    }
+
+    /// Removes the resource entity associated with the given component ID.
+    #[inline]
+    pub(crate) fn remove_resource_entity_by_id(&mut self, id: ComponentId) -> Option<Entity> {
+        self.resource_entities.remove(&id)
+    }
+
+    /// Looks up the entity associated with the given resource by type.
+    ///
+    /// If no such entity exists, this will return `None`.
+    ///
+    /// Also see [`Components::get_resource_entity_by_id`].
+    #[inline]
+    pub fn get_resource_entity<R: Resource>(&self) -> Option<Entity> {
+        let id = self.component_id::<R>()?;
+        self.get_resource_entity_by_id(id)
+    }
+
+    /// Looks up the entity associated with the given resource by [`ComponentId`].
+    ///
+    /// If no such entity exists, this will return `None`.
+    ///
+    /// Also see [`Components::get_resource_entity`].
+    #[inline]
+    pub fn get_resource_entity_by_id(&self, id: ComponentId) -> Option<Entity> {
+        self.resource_entities.get(&id).copied()
     }
 
     /// Returns the number of components registered with this instance.
