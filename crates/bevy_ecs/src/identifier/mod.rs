@@ -216,7 +216,10 @@ mod tests {
 
     #[rustfmt::skip]
     #[test]
-    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
+    #[expect(
+        clippy::nonminimal_bool,
+        reason = "This intentionally tests all possible comparison operators as separate functions; thus, we don't want to rewrite these comparisons to use different operators."
+    )]
     fn id_comparison() {
         assert!(Identifier::new(123, 456, IdKind::Entity).unwrap() == Identifier::new(123, 456, IdKind::Entity).unwrap());
         assert!(Identifier::new(123, 456, IdKind::Placeholder).unwrap() == Identifier::new(123, 456, IdKind::Placeholder).unwrap());

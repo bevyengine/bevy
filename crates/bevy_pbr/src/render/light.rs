@@ -6,7 +6,7 @@ use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
     system::lifetimeless::Read,
 };
@@ -614,8 +614,18 @@ pub struct ViewShadowBindings {
     pub directional_light_depth_texture_view: TextureView,
 }
 
+/// A component that holds the shadow cascade views for all shadow cascades
+/// associated with a camera.
+///
+/// Note: Despite the name, this component actually holds the shadow cascade
+/// views, not the lights themselves.
 #[derive(Component)]
 pub struct ViewLightEntities {
+    /// The shadow cascade views for all shadow cascades associated with a
+    /// camera.
+    ///
+    /// Note: Despite the name, this component actually holds the shadow cascade
+    /// views, not the lights themselves.
     pub lights: Vec<Entity>,
 }
 
@@ -701,10 +711,12 @@ pub fn prepare_lights(
     views: Query<
         (
             Entity,
+            MainEntity,
             &ExtractedView,
             &ExtractedClusterConfig,
             Option<&RenderLayers>,
             Has<NoIndirectDrawing>,
+            Option<&AmbientLight>,
         ),
         With<Camera3d>,
     >,
@@ -1115,7 +1127,15 @@ pub fn prepare_lights(
     let mut live_views = EntityHashSet::with_capacity(views_count);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters, maybe_layers, no_indirect_drawing) in sorted_cameras
+    for (
+        entity,
+        camera_main_entity,
+        extracted_view,
+        clusters,
+        maybe_layers,
+        no_indirect_drawing,
+        maybe_ambient_override,
+    ) in sorted_cameras
         .0
         .iter()
         .filter_map(|sorted_camera| views.get(sorted_camera.entity).ok())
@@ -1138,6 +1158,7 @@ pub fn prepare_lights(
         );
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
+        let ambient_light = maybe_ambient_override.unwrap_or(&ambient_light);
         let mut gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
             ambient_color: Vec4::from_slice(&LinearRgba::from(ambient_light.color).to_f32_array())
@@ -1229,8 +1250,11 @@ pub fn prepare_lights(
                     })
                     .clone();
 
-                let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, face_index as u32);
+                let retained_view_entity = RetainedViewEntity::new(
+                    *light_main_entity,
+                    Some(camera_main_entity.into()),
+                    face_index as u32,
+                );
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
@@ -1334,7 +1358,8 @@ pub fn prepare_lights(
 
             let view_light_entity = light_view_entities[0];
 
-            let retained_view_entity = RetainedViewEntity::new(*light_main_entity, 0);
+            let retained_view_entity =
+                RetainedViewEntity::new(*light_main_entity, Some(camera_main_entity.into()), 0);
 
             commands.entity(view_light_entity).insert((
                 ShadowView {
@@ -1467,8 +1492,11 @@ pub fn prepare_lights(
                 frustum.half_spaces[4] =
                     HalfSpace::new(frustum.half_spaces[4].normal().extend(f32::INFINITY));
 
-                let retained_view_entity =
-                    RetainedViewEntity::new(*light_main_entity, cascade_index as u32);
+                let retained_view_entity = RetainedViewEntity::new(
+                    *light_main_entity,
+                    Some(camera_main_entity.into()),
+                    cascade_index as u32,
+                );
 
                 commands.entity(view_light_entity).insert((
                     ShadowView {
@@ -1753,6 +1781,12 @@ pub struct ShadowBatchSetKey {
     ///
     /// For non-mesh items, you can safely fill this with `None`.
     pub index_slab: Option<SlabId>,
+}
+
+impl PhaseItemBatchSetKey for ShadowBatchSetKey {
+    fn indexed(&self) -> bool {
+        self.index_slab.is_some()
+    }
 }
 
 /// Data used to bin each object in the shadow map phase.

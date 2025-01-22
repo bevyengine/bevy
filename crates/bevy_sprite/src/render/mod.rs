@@ -574,6 +574,7 @@ pub fn queue_sprites(
                 // batch_range and dynamic_offset will be calculated in prepare_sprites
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

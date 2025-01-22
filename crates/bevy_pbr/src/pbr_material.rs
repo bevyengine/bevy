@@ -23,8 +23,8 @@ pub enum UvChannel {
     Uv1,
 }
 
-/// A material with "standard" properties used in PBR lighting
-/// Standard property values with pictures here
+/// A material with "standard" properties used in PBR lighting.
+/// Standard property values with pictures here:
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
@@ -196,7 +196,7 @@ pub struct StandardMaterial {
     #[doc(alias = "specular_color")]
     pub specular_tint: Color,
 
-    /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”)
+    /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”).
     ///
     /// Implemented as a second, flipped [Lambertian diffuse](https://en.wikipedia.org/wiki/Lambertian_reflectance) lobe,
     /// which provides an inexpensive but plausible approximation of translucency for thin dielectric objects (e.g. paper,
@@ -234,7 +234,7 @@ pub struct StandardMaterial {
     #[cfg(feature = "pbr_transmission_textures")]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
-    /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
+    /// The amount of light transmitted _specularly_ through the material (i.e. via refraction).
     ///
     /// - When set to `0.0` (the default) no light is transmitted.
     /// - When set to `1.0` all light is transmitted through the material.
@@ -583,7 +583,7 @@ pub struct StandardMaterial {
     /// [`StandardMaterial::anisotropy_rotation`] to vary across the mesh.
     ///
     /// The [`KHR_materials_anisotropy` specification] defines the format that
-    /// this texture must take. To summarize: The direction vector is encoded in
+    /// this texture must take. To summarize: the direction vector is encoded in
     /// the red and green channels, while the strength is encoded in the blue
     /// channels. For the direction vector, the red and green channels map the
     /// color range [0, 1] to the vector range [-1, 1]. The direction vector

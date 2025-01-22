@@ -1,6 +1,6 @@
 use crate::DiagnosticPath;
 use bevy_app::prelude::*;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -64,7 +64,7 @@ pub mod internal {
     use std::{sync::Mutex, time::Instant};
 
     use bevy_app::{App, First, Startup, Update};
-    use bevy_ecs::system::Resource;
+    use bevy_ecs::resource::Resource;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
     use tracing::info;

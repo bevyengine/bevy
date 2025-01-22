@@ -28,7 +28,8 @@ use bevy_ecs::{
     prelude::{require, With},
     query::Has,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -1153,7 +1154,7 @@ pub fn extract_cameras(
                     hdr: camera.hdr,
                 },
                 ExtractedView {
-                    retained_view_entity: RetainedViewEntity::new(main_entity.into(), 0),
+                    retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
