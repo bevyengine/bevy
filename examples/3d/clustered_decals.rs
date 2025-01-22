@@ -12,8 +12,8 @@ use bevy::{
     input::mouse::AccumulatedMouseMotion,
     pbr::decal::clustered::ClusteredDecal,
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
-use bevy_render::render_resource::{AsBindGroup, ShaderRef};
 use ops::{acos, cos, sin};
 use widgets::{
     WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
