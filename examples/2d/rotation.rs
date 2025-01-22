@@ -54,7 +54,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_a_handle = asset_server.load("textures/simplespace/enemy_A.png");
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
-    // 2D orthographic camera
     commands.spawn(Camera2d);
 
     // Create a minimal UI explaining how to interact with the example

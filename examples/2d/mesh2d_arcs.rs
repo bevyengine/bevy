@@ -39,7 +39,6 @@ fn setup(
 ) {
     let material = materials.add(asset_server.load("branding/icon.png"));
 
-    // Spawn a camera
     commands.spawn((
         Camera2d,
         Camera {

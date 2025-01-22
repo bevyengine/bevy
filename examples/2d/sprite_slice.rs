@@ -106,7 +106,6 @@ fn spawn_sprites(
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Spawn a camera
     commands.spawn(Camera2d);
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");

@@ -50,7 +50,6 @@ fn setup(
     // Use only the subset of sprites in the sheet that make up the run animation
     let animation_indices = AnimationIndices { first: 1, last: 6 };
 
-    // Spawn a camera
     commands.spawn(Camera2d);
 
     commands.spawn((

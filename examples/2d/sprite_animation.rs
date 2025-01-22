@@ -87,7 +87,6 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    // Spawn a camera
     commands.spawn(Camera2d);
 
     // create a minimal UI explaining how to interact with the example

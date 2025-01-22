@@ -22,7 +22,6 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    // Spawn a camera
     commands.spawn((
         Camera2d,
         Camera {

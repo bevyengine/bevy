@@ -115,7 +115,6 @@ fn star(
         Mesh2d(meshes.add(star)),
     ));
 
-    // Spawn the camera
     commands.spawn(Camera2d);
 }
 

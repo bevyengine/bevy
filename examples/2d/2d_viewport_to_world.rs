@@ -30,7 +30,6 @@ fn draw_cursor(
 }
 
 fn setup(mut commands: Commands) {
-    // Spawn a camera
     commands.spawn(Camera2d);
 
     // Create a minimal UI explaining how to interact with the example

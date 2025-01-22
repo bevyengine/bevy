@@ -10,7 +10,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Spawn a camera
     commands.spawn(Camera2d);
 
     commands.spawn(Sprite::from_image(

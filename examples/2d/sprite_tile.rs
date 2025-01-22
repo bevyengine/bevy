@@ -19,7 +19,6 @@ struct AnimationState {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // Spawn a camera
     commands.spawn(Camera2d);
 
     commands.insert_resource(AnimationState {

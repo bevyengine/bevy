@@ -41,7 +41,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     };
     let text_justification = JustifyText::Center;
-    // 2d camera
     commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((

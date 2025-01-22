@@ -200,7 +200,6 @@ const OFFSET_X: f32 = 125.;
 const OFFSET_Y: f32 = 75.;
 
 fn setup(mut commands: Commands) {
-    // Spawn a camera
     commands.spawn(Camera2d);
 
     commands.spawn((
