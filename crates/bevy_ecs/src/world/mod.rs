@@ -3705,8 +3705,12 @@ unsafe impl Sync for World {}
 /// This can be helpful for complex initialization or context-aware defaults.
 ///
 /// [`FromWorld`] is automatically implemented for any type implementing [`Default`],
-/// and may also be derived for any struct whose fields all implement `FromWorld`:
+/// and may also be derived for:
+/// - any struct whose fields all implement `FromWorld`
+/// - any enum where one variant has the attribute #[from_world]
+///
 /// ```rs
+///
 /// #[derive(Default)]
 /// struct A;
 ///
@@ -3723,6 +3727,13 @@ unsafe impl Sync for World {}
 ///
 /// #[derive(FromWorld)]
 /// struct D(A, B, C);
+///
+/// #[Derive(FromWorld)]
+/// enum E {
+///     #[from_world]
+///     F,
+///     G
+/// }
 /// ```
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
