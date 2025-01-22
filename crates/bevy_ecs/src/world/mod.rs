@@ -1949,6 +1949,23 @@ impl World {
         self.get_mut::<R>(resource_entity)
     }
 
+    /// Gets mutable access to the resource of type `R`.
+    /// Returns `None` if the resource of type `R` does not exist.
+    ///
+    /// # Safety
+    ///
+    /// - `R` must be a mutable component
+    #[inline]
+    pub unsafe fn get_resource_mut_assume_mutable<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        let entity_world_mut = self.entity_mut(resource_entity);
+        // TODO: this conversion shouldn't be needed: `into_mut_assume_mutable` should exist on EntityWorldMut
+        let entity_mut = EntityMut::from(entity_world_mut);
+
+        // SAFETY: `R` is a mutable component, as asserted by the caller.
+        unsafe { entity_mut.into_mut_assume_mutable::<R>() }
+    }
+
     /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     ///
