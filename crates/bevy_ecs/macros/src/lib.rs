@@ -619,13 +619,31 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let struct_name = ast.ident;
     let (impl_generics, ty_generics, where_clauses) = ast.generics.split_for_impl();
 
-    let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
-        return syn::Error::new(
-            Span::call_site(),
-            "#[derive(FromWorld)]` only supports structs",
-        )
-        .into_compile_error()
-        .into();
+    let fields = match &ast.data {
+        Data::Struct(data) => &data.fields,
+        Data::Enum(data) => {
+            match data.variants.iter().find(|variant| 
+                variant.attrs.iter().any(|attr| attr.path().is_ident("from_world"))
+            ) {
+                Some(variant) => &variant.fields,
+                None => {
+                    return syn::Error::new(
+                        Span::call_site(),
+                        "No #[FromWorld] attribute was found on any of this enum's variants."
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            }
+        }
+        Data::Union(_) => {
+            return syn::Error::new(
+                Span::call_site(),
+                "#[derive(FromWorld)]` does not support unions",
+            )
+            .into_compile_error()
+            .into();
+        }
     };
 
     let field_init_expr = quote!(#bevy_ecs_path::world::FromWorld::from_world(world));
