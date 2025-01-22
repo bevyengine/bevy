@@ -8,6 +8,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
+    prelude::Local,
     query::With,
     resource::Resource,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
@@ -15,10 +16,12 @@ use bevy_ecs::{
 };
 use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
+use bevy_time::Time;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
     GlobalZIndex, Node, PositionType,
 };
+use std::time::Duration;
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -65,6 +68,8 @@ pub struct FpsOverlayConfig {
     pub text_color: Color,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
+    /// How often the FPS overlay re-renders.
+    pub refresh_interval: Duration,
 }
 
 impl Default for FpsOverlayConfig {
@@ -77,6 +82,7 @@ impl Default for FpsOverlayConfig {
             },
             text_color: Color::WHITE,
             enabled: true,
+            refresh_interval: Duration::from_millis(100),
         }
     }
 }
@@ -110,11 +116,19 @@ fn update_text(
     diagnostic: Res<DiagnosticsStore>,
     query: Query<Entity, With<FpsText>>,
     mut writer: TextUiWriter,
+    //
+    time: Res<Time>,
+    config: Res<FpsOverlayConfig>,
+    mut time_since_rerender: Local<Duration>,
 ) {
-    for entity in &query {
-        if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                *writer.text(entity, 1) = format!("{value:.2}");
+    *time_since_rerender += time.delta();
+    if *time_since_rerender >= config.refresh_interval {
+        *time_since_rerender = Duration::default();
+        for entity in &query {
+            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
+                if let Some(value) = fps.smoothed() {
+                    *writer.text(entity, 1) = format!("{value:.2}");
+                }
             }
         }
     }
