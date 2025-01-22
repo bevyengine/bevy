@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ContentSize, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure, UiCameraMap,
-    UiScale, UiTargetCamera,
+    ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
+    NodeMeasure, UiScale, UiTargetCamera,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -245,7 +245,8 @@ pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<&Camera>,
+    default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     mut text_query: Query<
         (
@@ -261,27 +262,31 @@ pub fn measure_text_system(
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
-    ui_camera_map: UiCameraMap,
 ) {
     scale_factors_buffer.clear();
 
-    let mut camera_mapper = ui_camera_map.get_mapper();
+    let default_camera_entity = default_ui_camera.get();
 
     for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
-        let Some(camera_entity) = camera_mapper.map(maybe_camera) else {
+        let Some(camera_entity) = maybe_camera
+            .map(UiTargetCamera::entity)
+            .or(default_camera_entity)
+        else {
             continue;
         };
+
         let scale_factor = match scale_factors_buffer.entry(camera_entity) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => *entry.insert(
                 camera_query
                     .get(camera_entity)
                     .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
+                    .and_then(|c| c.target_scaling_factor())
                     .unwrap_or(1.0)
                     * ui_scale.0,
             ),
         };
+        println!("scale factor = {scale_factor}");
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || computed.needs_rerender()

@@ -284,7 +284,6 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
         let camera_entity = camera
             .map(UiTargetCamera::entity)
             .or(self.default_camera_entity)?;
-
         if self.camera_entity != camera_entity {
             let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
                 return None;
