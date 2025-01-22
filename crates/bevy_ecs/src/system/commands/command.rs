@@ -265,9 +265,16 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
 }
 
 /// A [`Command`] that sends a global [`Trigger`](crate::observer::Trigger) without any targets.
+#[track_caller]
 pub fn trigger(event: impl Event) -> impl Command {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |world: &mut World| {
-        world.trigger(event);
+        world.trigger_with_caller(
+            event,
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
@@ -276,8 +283,15 @@ pub fn trigger_targets(
     event: impl Event,
     targets: impl TriggerTargets + Send + Sync + 'static,
 ) -> impl Command {
+    #[cfg(feature = "track_location")]
+    let caller = Location::caller();
     move |world: &mut World| {
-        world.trigger_targets(event, targets);
+        world.trigger_targets_with_caller(
+            event,
+            targets,
+            #[cfg(feature = "track_location")]
+            caller,
+        );
     }
 }
 
