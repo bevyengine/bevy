@@ -1,4 +1,4 @@
-//! Demonstrates decal projectors, which affix decals to surfaces.
+//! Demonstrates clustered decals, which affix decals to surfaces.
 
 use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
@@ -9,7 +9,7 @@ use bevy::winit::cursor::CursorIcon;
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     input::mouse::AccumulatedMouseMotion,
-    pbr::decal::projector::DecalProjector,
+    pbr::decal::clustered::ClusteredDecal,
     prelude::*,
 };
 use ops::{acos, cos, sin};
@@ -103,7 +103,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Bevy Decal Projectors Example".into(),
+                title: "Bevy Clustered Decals Example".into(),
                 ..default()
             }),
             ..default()
@@ -139,7 +139,7 @@ fn setup(
     spawn_cube(&mut commands, &mut meshes, &mut materials);
     spawn_camera(&mut commands);
     spawn_light(&mut commands);
-    spawn_decal_projectors(&mut commands, &asset_server);
+    spawn_decals(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands, &app_status);
 }
@@ -150,7 +150,7 @@ fn spawn_cube(
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
 ) {
-    // Rotate the cube a bit just to make it a bit more interesting.
+    // Rotate the cube a bit just to make it more interesting.
     let mut transform = Transform::IDENTITY;
     transform.rotate_y(FRAC_PI_3);
 
@@ -176,14 +176,15 @@ fn spawn_camera(commands: &mut Commands) {
         .insert(Selection::Camera);
 }
 
-fn spawn_decal_projectors(commands: &mut Commands, asset_server: &AssetServer) {
+/// Spawns the actual clustered decals.
+fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
     let image = asset_server.load("branding/icon.png");
 
     commands
-        .spawn(DecalProjector {
+        .spawn(ClusteredDecal {
             image: image.clone(),
         })
-        .insert(calculate_initial_projector_transform(
+        .insert(calculate_initial_decal_transform(
             vec3(1.0, 3.0, 5.0),
             Vec3::ZERO,
             Vec2::splat(1.1),
@@ -191,10 +192,10 @@ fn spawn_decal_projectors(commands: &mut Commands, asset_server: &AssetServer) {
         .insert(Selection::DecalA);
 
     commands
-        .spawn(DecalProjector {
+        .spawn(ClusteredDecal {
             image: image.clone(),
         })
-        .insert(calculate_initial_projector_transform(
+        .insert(calculate_initial_decal_transform(
             vec3(-2.0, -1.0, 4.0),
             Vec3::ZERO,
             Vec2::splat(2.0),
@@ -272,10 +273,10 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
         .insert(HelpText);
 }
 
-/// Draws the outlines that show the bounds of the decal projectors.
+/// Draws the outlines that show the bounds of the clustered decals.
 fn draw_gizmos(
     mut gizmos: Gizmos,
-    decals: Query<(&GlobalTransform, &Selection), With<DecalProjector>>,
+    decals: Query<(&GlobalTransform, &Selection), With<ClusteredDecal>>,
 ) {
     for (global_transform, selection) in &decals {
         let color = match *selection {
@@ -286,7 +287,7 @@ fn draw_gizmos(
 
         gizmos.primitive_3d(
             &Cuboid {
-                // Since the decal projector is a 1×1×1 cube in model space, its
+                // Since the clustered decal is a 1×1×1 cube in model space, its
                 // half-size is half of the scaling part of its transform.
                 half_size: global_transform.scale() * 0.5,
             },
@@ -299,8 +300,8 @@ fn draw_gizmos(
     }
 }
 
-/// Calculates the initial transform of the decal projector.
-fn calculate_initial_projector_transform(start: Vec3, looking_at: Vec3, size: Vec2) -> Transform {
+/// Calculates the initial transform of the clustered decal.
+fn calculate_initial_decal_transform(start: Vec3, looking_at: Vec3, size: Vec2) -> Transform {
     let direction = looking_at - start;
     let center = start + direction * 0.5;
     Transform::from_translation(center)

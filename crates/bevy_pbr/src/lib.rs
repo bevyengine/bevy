@@ -50,7 +50,7 @@ use bevy_color::{Color, LinearRgba};
 
 pub use cluster::*;
 pub use components::*;
-pub use decal::projector::DecalProjectorPlugin;
+pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -335,7 +335,7 @@ impl Plugin for PbrPlugin {
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
-                DecalProjectorPlugin,
+                ClusteredDecalPlugin,
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,

@@ -1,4 +1,4 @@
-// Support code for clustered decal projectors.
+// Support code for clustered decals.
 //
 // This module provides an iterator API, which you may wish to use in your own
 // shaders if you want clustered decals to provide textures other than the base

@@ -4075,12 +4075,12 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "decal_projectors"
-path = "examples/3d/decal_projectors.rs"
+name = "clustered_decals"
+path = "examples/3d/clustered_decals.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.decal_projectors]
-name = "Decal Projectors"
-description = "Demonstrates decal projectors"
+[package.metadata.example.clustered_decals]
+name = "Clustered Decals"
+description = "Demonstrates clustered decals"
 category = "3D Rendering"
 wasm = false

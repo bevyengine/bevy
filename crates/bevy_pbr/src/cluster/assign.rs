@@ -21,7 +21,7 @@ use bevy_utils::prelude::default;
 use tracing::warn;
 
 use crate::{
-    binding_arrays_are_usable, decal::projector::DecalProjector, prelude::EnvironmentMapLight,
+    binding_arrays_are_usable, decal::clustered::ClusteredDecal, prelude::EnvironmentMapLight,
     ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight, GlobalVisibleClusterableObjects,
     LightProbe, PointLight, SpotLight, ViewClusterBindings, VisibleClusterableObjects,
     VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
@@ -175,7 +175,7 @@ pub(crate) fn assign_objects_to_clusters(
         (Entity, &GlobalTransform, Has<EnvironmentMapLight>),
         With<LightProbe>,
     >,
-    decals_query: Query<(Entity, &GlobalTransform), With<DecalProjector>>,
+    decals_query: Query<(Entity, &GlobalTransform), With<ClusteredDecal>>,
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,

@@ -1,19 +1,18 @@
-//! Decal projectors, bounding regions that project textures onto surfaces.
+//! Clustered decals, bounding regions that project textures onto surfaces.
 //!
-//! A *decal projector* is a bounding box that projects a texture onto any
-//! surface within its bounds along the positive Z axis. In Bevy, decal
-//! projectors use the clustered forward rendering technique, so the types of
-//! decals they project are known as *clustered decals*.
+//! A *clustered decal* is a bounding box that projects a texture onto any
+//! surface within its bounds along the positive Z axis. In Bevy, clustered
+//! decals use the *clustered forward* rendering technique.
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
 //! used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
 //! with forward or deferred rendering and don't require a prepass.
 //!
-//! On their own, decal projectors only project a base color. You can, however,
-//! write a custom material in order to project other PBR texture types, like
-//! normal and emissive maps. See the documentation in `clustered.wgsl` for more
-//! information.
+//! On their own, clustered decals only project the base color of a texture. You
+//! can, however, write a custom material in order to project other PBR texture
+//! types, like normal and emissive maps. See the documentation in
+//! `clustered.wgsl` for more information.
 
 use core::{num::NonZero, ops::Deref};
 
@@ -64,15 +63,15 @@ pub(crate) const CLUSTERED_DECAL_SHADER_HANDLE: Handle<Shader> =
 /// limit can be increased.
 pub(crate) const MAX_VIEW_DECALS: usize = 16;
 
-/// A plugin that adds support for projected decals.
+/// A plugin that adds support for clustered decals.
 ///
-/// In environments where bindless textures aren't available, decal projectors
+/// In environments where bindless textures aren't available, clustered decals
 /// can still be added to a scene, but they won't project any decals.
-pub struct DecalProjectorPlugin;
+pub struct ClusteredDecalPlugin;
 
 /// An object that projects a decal onto surfaces within its bounds.
 ///
-/// Conceptually, a decal projector is a 1×1×1 cube centered on its origin. It
+/// Conceptually, a clustered decal is a 1×1×1 cube centered on its origin. It
 /// projects the given [`Self::image`] onto surfaces in the +Z direction (thus
 /// you may find [`Transform::looking_at`] useful).
 ///
@@ -84,8 +83,8 @@ pub struct DecalProjectorPlugin;
 #[reflect(Component, Debug)]
 #[require(Transform, Visibility, VisibilityClass)]
 #[component(on_add = view::add_visibility_class::<LightVisibilityClass>)]
-pub struct DecalProjector {
-    /// The image that the decal projector projects.
+pub struct ClusteredDecal {
+    /// The image that the clustered decal projects.
     ///
     /// This must be a 2D image. If it has an alpha channel, it'll be alpha
     /// blended with the underlying surface and/or other decals. All images in
@@ -105,7 +104,7 @@ pub struct RenderClusteredDecals {
     /// [`Self::binding_index_to_textures`] holds the inverse mapping.
     texture_to_binding_index: HashMap<AssetId<Image>, u32>,
     /// The information concerning each decal that we provide to the shader.
-    decals: Vec<ClusteredDecal>,
+    decals: Vec<RenderClusteredDecal>,
     /// Maps the [`bevy_render::sync_world::RenderEntity`] of each decal to the
     /// index of that decal in the [`Self::decals`] list.
     entity_to_decal_index: EntityHashMap<usize>,
@@ -138,7 +137,7 @@ pub(crate) struct RenderViewClusteredDecalBindGroupEntries<'a> {
 /// A render-world resource that holds the buffer of [`ClusteredDecal`]s ready
 /// to upload to the GPU.
 #[derive(Resource, Deref, DerefMut)]
-pub struct DecalsBuffer(RawBufferVec<ClusteredDecal>);
+pub struct DecalsBuffer(RawBufferVec<RenderClusteredDecal>);
 
 impl Default for DecalsBuffer {
     fn default() -> Self {
@@ -146,7 +145,7 @@ impl Default for DecalsBuffer {
     }
 }
 
-impl Plugin for DecalProjectorPlugin {
+impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
@@ -155,8 +154,8 @@ impl Plugin for DecalProjectorPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugins(ExtractComponentPlugin::<DecalProjector>::default())
-            .register_type::<DecalProjector>();
+        app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
+            .register_type::<ClusteredDecal>();
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -179,7 +178,7 @@ impl Plugin for DecalProjectorPlugin {
 /// The GPU data structure that stores information about each decal.
 #[derive(Clone, Copy, Default, ShaderType, Pod, Zeroable)]
 #[repr(C)]
-pub struct ClusteredDecal {
+pub struct RenderClusteredDecal {
     /// The inverse of the model matrix.
     ///
     /// The shader uses this in order to back-transform world positions into
@@ -200,7 +199,7 @@ pub fn extract_decals(
     decals: Extract<
         Query<(
             RenderEntity,
-            &DecalProjector,
+            &ClusteredDecal,
             &GlobalTransform,
             &ViewVisibility,
         )>,
@@ -211,14 +210,14 @@ pub fn extract_decals(
     render_decals.clear();
 
     // Loop over each decal.
-    for (decal_entity, decal_projector, global_transform, view_visibility) in &decals {
+    for (decal_entity, clustered_decal, global_transform, view_visibility) in &decals {
         // If the decal is invisible, skip it.
         if !view_visibility.get() {
             continue;
         }
 
         // Insert or add the image.
-        let image_index = render_decals.get_or_insert_image(&decal_projector.image.id());
+        let image_index = render_decals.get_or_insert_image(&clustered_decal.image.id());
 
         // Record the decal.
         let decal_index = render_decals.decals.len();
@@ -226,7 +225,7 @@ pub fn extract_decals(
             .entity_to_decal_index
             .insert(decal_entity, decal_index);
 
-        render_decals.decals.push(ClusteredDecal {
+        render_decals.decals.push(RenderClusteredDecal {
             local_from_world: global_transform.affine().inverse().into(),
             image_index,
             pad_a: 0,
@@ -238,7 +237,7 @@ pub fn extract_decals(
 
 /// Adds all decals in the scene to the [`GlobalClusterableObjectMeta`] table.
 fn prepare_decals(
-    decals: Query<Entity, With<DecalProjector>>,
+    decals: Query<Entity, With<ClusteredDecal>>,
     mut global_clusterable_object_meta: ResMut<GlobalClusterableObjectMeta>,
     render_decals: Res<RenderClusteredDecals>,
 ) {
@@ -265,7 +264,7 @@ pub(crate) fn get_bind_group_layout_entries(
 
     Some([
         // `decals`
-        binding_types::storage_buffer_read_only::<ClusteredDecal>(false),
+        binding_types::storage_buffer_read_only::<RenderClusteredDecal>(false),
         // `decal_textures`
         binding_types::texture_2d(TextureSampleType::Float { filterable: true })
             .count(NonZero::<u32>::new(MAX_VIEW_DECALS as u32).unwrap()),
@@ -358,7 +357,7 @@ fn upload_decals(
     // Make sure the buffer is non-empty.
     // Otherwise there won't be a buffer to bind.
     if decals_buffer.is_empty() {
-        decals_buffer.push(ClusteredDecal::default());
+        decals_buffer.push(RenderClusteredDecal::default());
     }
 
     decals_buffer.write_buffer(&render_device, &render_queue);

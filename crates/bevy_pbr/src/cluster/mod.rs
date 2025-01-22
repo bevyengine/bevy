@@ -204,7 +204,7 @@ struct ClusterableObjectCounts {
     reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
     irradiance_volumes: u32,
-    /// The number of decal projectors in the cluster.
+    /// The number of decals in the cluster.
     decals: u32,
 }
 

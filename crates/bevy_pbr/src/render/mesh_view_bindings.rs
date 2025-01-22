@@ -35,7 +35,7 @@ use environment_map::EnvironmentMapLight;
 use crate::{
     decal::{
         self,
-        projector::{
+        clustered::{
             DecalsBuffer, RenderClusteredDecals, RenderViewClusteredDecalBindGroupEntries,
         },
     },
@@ -338,7 +338,7 @@ fn layout_entries(
 
     // Clustered decals
     if let Some(clustered_decal_entries) =
-        decal::projector::get_bind_group_layout_entries(render_device, render_adapter)
+        decal::clustered::get_bind_group_layout_entries(render_device, render_adapter)
     {
         entries = entries.extend_with_indices((
             (23, clustered_decal_entries[0]),
