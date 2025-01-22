@@ -498,9 +498,18 @@ pub enum StorageType {
 }
 
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`.
-/// The caller location is `Some` if the `track_caller` feature is enabled.
-pub type ComponentHook =
-    for<'w> fn(DeferredWorld<'w>, Entity, ComponentId, Option<&'static Location<'static>>);
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, HookContext);
+
+/// Context provided to a [`ComponentHook`].
+#[derive(Clone, Copy, Debug)]
+pub struct HookContext {
+    /// The [`Entity`] this hook was invoked for.
+    pub entity: Entity,
+    /// The [`ComponentId`] this hook was invoked for.
+    pub component_id: ComponentId,
+    /// The caller location is `Some` if the `track_caller` feature is enabled.
+    pub caller: Option<&'static Location<'static>>,
+}
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
 ///
