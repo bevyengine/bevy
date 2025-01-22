@@ -10,7 +10,7 @@ use bevy_asset::{
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     hierarchy::ChildSpawner,
     name::Name,
     world::World,
@@ -2293,7 +2293,7 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_ecs::{system::Resource, world::World};
+    use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;

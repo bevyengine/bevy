@@ -13,7 +13,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::{BevyDefault, Image};

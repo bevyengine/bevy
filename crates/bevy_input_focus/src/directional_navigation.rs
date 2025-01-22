@@ -17,7 +17,7 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
     system::SystemParam,
 };

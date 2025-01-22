@@ -11,23 +11,17 @@ use crate::{
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
+    resource::Resource,
     storage::{ComponentSparseSet, Storages, Table},
-    system::Resource,
     world::RawCommandQueue,
 };
+use bevy_platform_support::sync::atomic::Ordering;
 use bevy_ptr::Ptr;
-#[cfg(feature = "track_location")]
-use bevy_ptr::UnsafeCellDeref;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, ptr};
 use thiserror::Error;
 
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::Ordering;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::Ordering;
+#[cfg(feature = "track_location")]
+use {bevy_ptr::UnsafeCellDeref, core::panic::Location};
 
 /// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
@@ -57,7 +51,7 @@ use portable_atomic::Ordering;
 /// ```
 /// use bevy_ecs::world::World;
 /// use bevy_ecs::change_detection::Mut;
-/// use bevy_ecs::system::Resource;
+/// use bevy_ecs::resource::Resource;
 /// use bevy_ecs::world::unsafe_world_cell::UnsafeWorldCell;
 ///
 /// // INVARIANT: existence of this struct means that users of it are the only ones being able to access resources in the world

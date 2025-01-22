@@ -1,7 +1,7 @@
 use core::ops::DerefMut;
 
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
 };
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
@@ -818,7 +818,9 @@ pub fn check_dir_light_mesh_visibility(
         for entities in defer_queue.iter_mut() {
             let mut iter = query.iter_many_mut(world, entities.iter());
             while let Some(mut view_visibility) = iter.fetch_next() {
-                view_visibility.set();
+                if !**view_visibility {
+                    view_visibility.set();
+                }
             }
         }
     });
@@ -940,12 +942,16 @@ pub fn check_point_light_mesh_visibility(
                                 if has_no_frustum_culling
                                     || frustum.intersects_obb(aabb, &model_to_world, true, true)
                                 {
-                                    view_visibility.set();
+                                    if !**view_visibility {
+                                        view_visibility.set();
+                                    }
                                     visible_entities.push(entity);
                                 }
                             }
                         } else {
-                            view_visibility.set();
+                            if !**view_visibility {
+                                view_visibility.set();
+                            }
                             for visible_entities in cubemap_visible_entities_local_queue.iter_mut()
                             {
                                 visible_entities.push(entity);
@@ -1025,11 +1031,15 @@ pub fn check_point_light_mesh_visibility(
                             if has_no_frustum_culling
                                 || frustum.intersects_obb(aabb, &model_to_world, true, true)
                             {
-                                view_visibility.set();
+                                if !**view_visibility {
+                                    view_visibility.set();
+                                }
                                 spot_visible_entities_local_queue.push(entity);
                             }
                         } else {
-                            view_visibility.set();
+                            if !**view_visibility {
+                                view_visibility.set();
+                            }
                             spot_visible_entities_local_queue.push(entity);
                         }
                     },

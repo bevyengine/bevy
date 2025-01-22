@@ -6,7 +6,8 @@ use crate::{
 use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
     prelude::EventWriter,
-    system::{Res, ResMut, Resource, SystemChangeTick},
+    resource::Resource,
+    system::{Res, ResMut, SystemChangeTick},
 };
 use bevy_reflect::{Reflect, TypePath};
 use bevy_utils::HashMap;
