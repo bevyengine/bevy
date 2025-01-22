@@ -126,7 +126,6 @@ impl_reflect_opaque!(::core::time::Duration(
     Deserialize,
     Default
 ));
-#[cfg(any(target_arch = "wasm32", feature = "std"))]
 impl_reflect_opaque!(::bevy_platform_support::time::Instant(
     Debug, Hash, PartialEq
 ));
