@@ -359,6 +359,7 @@ impl IsFocused for World {
 mod tests {
     use super::*;
 
+    use alloc::string::String;
     use bevy_ecs::{
         component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
     };
