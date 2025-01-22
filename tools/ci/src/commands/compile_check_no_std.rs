@@ -142,6 +142,22 @@ impl Prepare for CompileCheckNoStdCommand {
             "Please fix compiler errors in output above for bevy_transform no_std compatibility.",
         ));
 
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
+                "cargo check -p bevy_time --no-default-features --features bevy_reflect,serialize --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_transform no_std compatibility.",
+        ));
+
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
+                "cargo check -p bevy_input_focus --no-default-features --features libm,serialize,bevy_reflect --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_input no_std compatibility.",
+        ));
+
         commands
     }
 }
