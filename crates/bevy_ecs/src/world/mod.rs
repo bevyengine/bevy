@@ -3740,7 +3740,7 @@ unsafe impl Sync for World {}
 /// #[derive(FromWorld)]
 /// struct D(A, B, C);
 ///
-/// #[Derive(FromWorld)]
+/// #[derive(FromWorld)]
 /// enum E {
 ///     #[from_world]
 ///     F,
