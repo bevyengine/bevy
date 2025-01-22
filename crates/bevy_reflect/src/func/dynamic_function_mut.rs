@@ -456,9 +456,9 @@ mod tests {
         let mut func = func.with_name("add");
         assert_eq!(func.name().unwrap(), "add");
 
-        let args = ArgList::default().push_owned(25_i32);
+        let args = ArgList::default().with_owned(25_i32);
         func.call(args).unwrap();
-        let args = ArgList::default().push_owned(75_i16);
+        let args = ArgList::default().with_owned(75_i16);
         func.call(args).unwrap();
 
         drop(func);
@@ -477,11 +477,11 @@ mod tests {
 
         let mut func = add::<i32>.into_function_mut().with_overload(add::<f32>);
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
-        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     }

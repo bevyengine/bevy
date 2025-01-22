@@ -21,15 +21,15 @@ use alloc::{
 /// let mut baz = 789;
 /// let args = ArgList::new()
 ///   // Push an owned argument
-///   .push_owned(foo)
+///   .with_owned(foo)
 ///   // Push an owned and boxed argument
-///   .push_boxed(Box::new(foo))
+///   .with_boxed(Box::new(foo))
 ///   // Push a reference argument
-///   .push_ref(&bar)
+///   .with_ref(&bar)
 ///   // Push a mutable reference argument
-///   .push_mut(&mut baz)
+///   .with_mut(&mut baz)
 ///   // Push a manually constructed argument
-///   .push_arg(ArgValue::Ref(&3.14));
+///   .with_arg(ArgValue::Ref(&3.14));
 /// ```
 ///
 /// [arguments]: Arg
@@ -254,7 +254,7 @@ impl<'a> ArgList<'a> {
     /// let a = 1u32;
     /// let b = 2u32;
     /// let mut c = 3u32;
-    /// let mut args = ArgList::new().push_owned(a).push_ref(&b).push_mut(&mut c);
+    /// let mut args = ArgList::new().with_owned(a).with_ref(&b).with_mut(&mut c);
     ///
     /// let c = args.pop::<&mut u32>().unwrap();
     /// assert_eq!(*c, 3);
@@ -280,7 +280,7 @@ impl<'a> ArgList<'a> {
     /// ```
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
-    /// let mut args = ArgList::new().push_owned(value);
+    /// let mut args = ArgList::new().with_owned(value);
     /// let value = args.pop_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
@@ -299,7 +299,7 @@ impl<'a> ArgList<'a> {
     /// ```
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
-    /// let mut args = ArgList::new().push_ref(&value);
+    /// let mut args = ArgList::new().with_ref(&value);
     /// let value = args.pop_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
@@ -318,7 +318,7 @@ impl<'a> ArgList<'a> {
     /// ```
     /// # use bevy_reflect::func::ArgList;
     /// let mut value = 123u32;
-    /// let mut args = ArgList::new().push_mut(&mut value);
+    /// let mut args = ArgList::new().with_mut(&mut value);
     /// let value = args.pop_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```

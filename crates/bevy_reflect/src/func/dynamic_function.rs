@@ -532,10 +532,10 @@ mod tests {
             .with_overload(|a: i32, b: i32, c: i32| a + b + c);
 
         let args = ArgList::default()
-            .push_owned(1_i32)
-            .push_owned(2_i32)
-            .push_owned(3_i32)
-            .push_owned(4_i32);
+            .with_owned(1_i32)
+            .with_owned(2_i32)
+            .with_owned(3_i32)
+            .with_owned(4_i32);
 
         let error = func.call(args).unwrap_err();
 
@@ -653,11 +653,11 @@ mod tests {
         let func = func.with_name("add");
         assert_eq!(func.name().unwrap(), "add");
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
-        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     }
@@ -676,11 +676,11 @@ mod tests {
 
         let func = add::<i32>.into_function().with_overload(add::<f32>);
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
-        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     }
@@ -697,14 +697,14 @@ mod tests {
 
         let func = add_2.into_function().with_overload(add_3);
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
         let args = ArgList::default()
-            .push_owned(25_i32)
-            .push_owned(75_i32)
-            .push_owned(100_i32);
+            .with_owned(25_i32)
+            .with_owned(75_i32)
+            .with_owned(100_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 200);
     }
@@ -740,11 +740,11 @@ mod tests {
 
         let func = manual.with_overload(|a: u32, b: u32| a + b);
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
-        let args = ArgList::default().push_owned(25_u32).push_owned(75_u32);
+        let args = ArgList::default().with_owned(25_u32).with_owned(75_u32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<u32>().unwrap(), 100);
     }
@@ -757,7 +757,7 @@ mod tests {
 
         let func = add::<i32>.into_function().with_overload(add::<f32>);
 
-        let args = ArgList::default().push_owned(25_u32).push_owned(75_u32);
+        let args = ArgList::default().with_owned(25_u32).with_owned(75_u32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
