@@ -21,7 +21,7 @@ use bevy_ui::{
     widget::{Text, TextUiWriter},
     GlobalZIndex, Node, PositionType,
 };
-use std::time::Duration;
+use core::time::Duration;
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
