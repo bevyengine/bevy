@@ -829,8 +829,8 @@ impl Node for LateGpuPreprocessNode {
                         ..
                     },
                     Some(PhasePreprocessBindGroups::IndirectOcclusionCulling {
-                        late_indexed: ref late_indexed_bind_group,
-                        late_non_indexed: ref late_non_indexed_bind_group,
+                        late_indexed: ref maybe_late_indexed_bind_group,
+                        late_non_indexed: ref maybe_late_non_indexed_bind_group,
                         ..
                     }),
                     Some(late_indexed_indirect_parameters_buffer),
@@ -853,12 +853,14 @@ impl Node for LateGpuPreprocessNode {
                 // meshes of the given class (indexed or non-indexed) in this
                 // phase.
 
-                if !late_indexed_work_item_buffer.is_empty() {
-                    compute_pass.set_bind_group(
+                // Transform and cull indexed meshes if there are any.
+                if let Some(late_indexed_bind_group) = maybe_late_indexed_bind_group {
+                    compute_pass.set_push_constants(
                         0,
-                        late_indexed_bind_group.as_deref(),
-                        &dynamic_offsets,
+                        bytemuck::bytes_of(late_indirect_parameters_indexed_offset),
                     );
+
+                    compute_pass.set_bind_group(0, late_indexed_bind_group, &dynamic_offsets);
                     compute_pass.dispatch_workgroups_indirect(
                         late_indexed_indirect_parameters_buffer,
                         (*late_indirect_parameters_indexed_offset as u64)
@@ -866,12 +868,14 @@ impl Node for LateGpuPreprocessNode {
                     );
                 }
 
-                if !late_non_indexed_work_item_buffer.is_empty() {
-                    compute_pass.set_bind_group(
+                // Transform and cull non-indexed meshes if there are any.
+                if let Some(late_non_indexed_bind_group) = maybe_late_non_indexed_bind_group {
+                    compute_pass.set_push_constants(
                         0,
-                        late_non_indexed_bind_group.as_deref(),
-                        &dynamic_offsets,
+                        bytemuck::bytes_of(late_indirect_parameters_non_indexed_offset),
                     );
+
+                    compute_pass.set_bind_group(0, late_non_indexed_bind_group, &dynamic_offsets);
                     compute_pass.dispatch_workgroups_indirect(
                         late_non_indexed_indirect_parameters_buffer,
                         (*late_indirect_parameters_non_indexed_offset as u64)
