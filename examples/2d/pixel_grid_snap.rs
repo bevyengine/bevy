@@ -117,7 +117,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Camera {
             // render before the "main pass" camera
             order: -1,
-            target: RenderTarget::Image(image_handle.clone()),
+            target: RenderTarget::Image(image_handle.clone().into()),
             ..default()
         },
         Msaa::Off,
@@ -144,8 +144,11 @@ fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) 
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
-    mut projection: Single<&mut OrthographicProjection, With<OuterCamera>>,
+    mut projection: Single<&mut Projection, With<OuterCamera>>,
 ) {
+    let Projection::Orthographic(projection) = &mut **projection else {
+        return;
+    };
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;

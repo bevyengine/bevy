@@ -20,7 +20,7 @@
 //! counterpart.
 //!
 //! [`with_derivative`]: CurveWithDerivative::with_derivative
-//! [`by_ref`]: Curve::by_ref
+//! [`by_ref`]: crate::curve::CurveExt::by_ref
 
 pub mod adaptor_impls;
 

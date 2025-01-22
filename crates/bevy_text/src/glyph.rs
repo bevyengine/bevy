@@ -1,10 +1,9 @@
 //! This module exports types related to rendering glyphs.
 
 use bevy_asset::Handle;
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{IVec2, Vec2};
 use bevy_reflect::Reflect;
-use bevy_sprite::TextureAtlasLayout;
 
 /// A glyph of a font, typically representing a single character, positioned in screen space.
 ///

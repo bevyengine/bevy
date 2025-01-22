@@ -1,8 +1,6 @@
-use alloc::{borrow::Cow, boxed::Box, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box};
+use bevy_platform_support::sync::Arc;
 use core::fmt::{Debug, Formatter};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 use crate::func::{
     args::{ArgCount, ArgList},
@@ -381,6 +379,7 @@ impl<'env> IntoFunctionMut<'env, ()> for DynamicFunctionMut<'env> {
 mod tests {
     use super::*;
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
+    use alloc::vec;
     use core::ops::Add;
 
     #[test]

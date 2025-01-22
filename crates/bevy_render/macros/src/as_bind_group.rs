@@ -40,7 +40,7 @@ enum BindingState<'a> {
 }
 
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
-    let manifest = BevyManifest::default();
+    let manifest = BevyManifest::shared();
     let render_path = manifest.get_path("bevy_render");
     let image_path = manifest.get_path("bevy_image");
     let asset_path = manifest.get_path("bevy_asset");
@@ -131,6 +131,11 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             ));
         }
     };
+
+    // Count the number of sampler fields needed. We might have to disable
+    // bindless if bindless arrays take the GPU over the maximum number of
+    // samplers.
+    let mut sampler_binding_count = 0;
 
     // Read field-level attributes
     for field in fields {
@@ -341,6 +346,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         )
                     });
 
+                    sampler_binding_count += 1;
+
                     binding_layouts.push(quote! {
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
@@ -417,6 +424,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         )
                     });
 
+                    sampler_binding_count += 1;
+
                     binding_layouts.push(quote!{
                         #render_path::render_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
@@ -440,11 +449,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         Some(_) => {
             quote! {
                 let (#uniform_binding_type, #uniform_buffer_usages) =
-                    if render_device.features().contains(
-                        #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
-                        #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
-                    ) && render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
-                    !force_no_bindless {
+                    if Self::bindless_supported(render_device) && !force_no_bindless {
                         (
                             #render_path::render_resource::BufferBindingType::Storage { read_only: true },
                             #render_path::render_resource::BufferUsages::STORAGE,
@@ -483,7 +488,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #uniform_buffer_usages,
+                                usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
                         ))
@@ -529,7 +534,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
                             &#render_path::render_resource::BufferInitDescriptor {
                                 label: None,
-                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #uniform_buffer_usages,
+                                usage: #uniform_buffer_usages,
                                 contents: buffer.as_ref(),
                             },
                         ))
@@ -563,17 +568,38 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         (prepared_data.clone(), prepared_data)
     };
 
+    // Calculate the number of samplers that we need, so that we don't go over
+    // the limit on certain platforms. See
+    // https://github.com/bevyengine/bevy/issues/16988.
+    let samplers_needed = match attr_bindless_count {
+        Some(Lit::Int(ref bindless_count)) => match bindless_count.base10_parse::<u32>() {
+            Ok(bindless_count) => sampler_binding_count * bindless_count,
+            Err(_) => 0,
+        },
+        _ => 0,
+    };
+
     // Calculate the actual number of bindless slots, taking hardware
     // limitations into account.
     let (bindless_slot_count, actual_bindless_slot_count_declaration) = match attr_bindless_count {
         Some(bindless_count) => (
-            quote! { const BINDLESS_SLOT_COUNT: Option<u32> = Some(#bindless_count); },
             quote! {
-                let #actual_bindless_slot_count = if render_device.features().contains(
-                    #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
-                    #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
-                ) && render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
-                !force_no_bindless {
+                fn bindless_slot_count() -> Option<u32> {
+                    Some(#bindless_count)
+                }
+
+                fn bindless_supported(render_device: &#render_path::renderer::RenderDevice) -> bool {
+                    render_device.features().contains(
+                        #render_path::settings::WgpuFeatures::BUFFER_BINDING_ARRAY |
+                        #render_path::settings::WgpuFeatures::TEXTURE_BINDING_ARRAY
+                    ) &&
+                    render_device.limits().max_storage_buffers_per_shader_stage > 0 &&
+                        render_device.limits().max_samplers_per_shader_stage >= #samplers_needed
+                }
+            },
+            quote! {
+                let #actual_bindless_slot_count = if Self::bindless_supported(render_device) &&
+                        !force_no_bindless {
                     ::core::num::NonZeroU32::new(#bindless_count)
                 } else {
                     None

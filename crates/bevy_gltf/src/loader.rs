@@ -8,13 +8,13 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
-use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
+    hierarchy::ChildSpawner,
+    name::Name,
     world::World,
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_image::{
     CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
     ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
@@ -41,10 +41,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{
-    tracing::{error, info_span, warn},
-    HashMap, HashSet,
-};
+use bevy_utils::{HashMap, HashSet};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -60,6 +57,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+use tracing::{error, info_span, warn};
 #[cfg(feature = "bevy_animation")]
 use {
     bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
@@ -456,7 +454,10 @@ async fn load_gltf<'a, 'b, 'c>(
                         ReadOutputs::MorphTargetWeights(weights) => {
                             let weights: Vec<f32> = weights.into_f32().collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                #[expect(
+                                    clippy::unnecessary_map_on_constructor,
+                                    reason = "While the mapping is unnecessary, it is much more readable at this level of indentation. Additionally, mapping makes it more consistent with the other branches."
+                                )]
                                 Some(ConstantCurve::new(Interval::EVERYWHERE, weights))
                                     .map(WeightsCurve)
                                     .map(VariableCurve::new)
@@ -646,13 +647,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
                         warn!(
-                        "Ignoring attribute {:?} for skinned mesh {:?} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
                         semantic,
                         primitive_label
                     );
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                        error!("Skinned mesh {:?} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
+                        error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                     }
                 }
                 match convert_attribute(
@@ -704,17 +705,15 @@ async fn load_gltf<'a, 'b, 'c>(
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                 && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
             {
-                bevy_utils::tracing::debug!(
-                    "Automatically calculating missing vertex normals for geometry."
-                );
+                tracing::debug!("Automatically calculating missing vertex normals for geometry.");
                 let vertex_count_before = mesh.count_vertices();
                 mesh.duplicate_vertices();
                 mesh.compute_flat_normals();
                 let vertex_count_after = mesh.count_vertices();
                 if vertex_count_before != vertex_count_after {
-                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                    tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
                 } else {
-                    bevy_utils::tracing::debug!(
+                    tracing::debug!(
                         "Missing vertex normals in indexed geometry, computing them as flat."
                     );
                 }
@@ -728,7 +727,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && material_needs_tangents(&primitive.material())
             {
-                bevy_utils::tracing::debug!(
+                tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
                 );
 
@@ -737,9 +736,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 generate_tangents_span.in_scope(|| {
                     if let Err(err) = mesh.generate_tangents() {
                         warn!(
-                        "Failed to generate vertex tangents using the mikktspace algorithm: {:?}",
-                        err
-                    );
+                            "Failed to generate vertex tangents using the mikktspace algorithm: {}",
+                            err
+                        );
                     }
                 });
             }
@@ -923,7 +922,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 joints: joint_entities,
             });
         }
-        let loaded_scene = scene_load_context.finish(Scene::new(world), None);
+        let loaded_scene = scene_load_context.finish(Scene::new(world));
         let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
 
         if let Some(name) = scene.name() {
@@ -1372,10 +1371,13 @@ fn warn_on_differing_texture_transforms(
 }
 
 /// Loads a glTF node.
-#[allow(clippy::too_many_arguments, clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn load_node(
     gltf_node: &Node,
-    world_builder: &mut WorldChildBuilder,
+    child_spawner: &mut ChildSpawner,
     root_load_context: &LoadContext,
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
@@ -1397,7 +1399,7 @@ fn load_node(
     // of negative scale factors is odd. if so we will assign a copy of the material with face
     // culling inverted, rather than modifying the mesh data directly.
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
-    let mut node = world_builder.spawn((transform, Visibility::default()));
+    let mut node = child_spawner.spawn((transform, Visibility::default()));
 
     let name = node_name(gltf_node);
     node.insert(name.clone());
@@ -1727,7 +1729,10 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 ///
 /// This is a low-level function only used when the `gltf` crate has no support
 /// for an extension, forcing us to parse its texture references manually.
-#[allow(dead_code)]
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures"
+))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
     document: &Document,
@@ -1800,7 +1805,7 @@ fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
     }
 }
 
-/// Maps the texture address mode form glTF to wgpu.
+/// Maps the texture address mode from glTF to wgpu.
 fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     match gltf_address_mode {
         WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
@@ -1809,8 +1814,11 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     }
 }
 
-/// Maps the `primitive_topology` form glTF to `wgpu`.
-#[allow(clippy::result_large_err)]
+/// Maps the `primitive_topology` from glTF to `wgpu`.
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -1880,7 +1888,10 @@ struct GltfTreeIterator<'a> {
 }
 
 impl<'a> GltfTreeIterator<'a> {
-    #[allow(clippy::result_large_err)]
+    #[expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )]
     fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
         let nodes = gltf.nodes().collect::<Vec<_>>();
 
@@ -1912,7 +1923,7 @@ impl<'a> GltfTreeIterator<'a> {
                 if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())
                 {
                     warn!(
-                        "The glTF skin {:?} has {} joints, but the maximum supported is {}",
+                        "The glTF skin {} has {} joints, but the maximum supported is {}",
                         skin.name()
                             .map(ToString::to_string)
                             .unwrap_or_else(|| skin.index().to_string()),
@@ -2092,7 +2103,14 @@ struct ClearcoatExtension {
 }
 
 impl ClearcoatExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2175,7 +2193,14 @@ struct AnisotropyExtension {
 }
 
 impl AnisotropyExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2260,7 +2285,7 @@ mod test {
     use std::path::Path;
 
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
-    use bevy_app::App;
+    use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
         io::{
             memory::{Dir, MemoryAssetReader},
@@ -2268,8 +2293,7 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_core::TaskPoolPlugin;
-    use bevy_ecs::{system::Resource, world::World};
+    use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
@@ -2310,7 +2334,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
-        #[expect(unused)]
+        #[expect(
+            dead_code,
+            reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
+        )]
         #[derive(Resource)]
         struct GltfHandle(Handle<Gltf>);
 

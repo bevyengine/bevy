@@ -4,6 +4,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
+use bevy_platform_support::time::Instant;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -16,15 +17,13 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashSet, Instant,
-};
+use bevy_utils::HashSet;
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
     OitResolvePlugin,
 };
+use tracing::{trace, warn};
 
 use crate::core_3d::{
     graph::{Core3d, Node3d},
@@ -235,7 +234,6 @@ pub struct OrderIndependentTransparencySettingsOffset {
 /// This creates or resizes the oit buffers for each camera.
 /// It will always create one big buffer that's as big as the biggest buffer needed.
 /// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest.
-#[allow(clippy::type_complexity)]
 pub fn prepare_oit_buffers(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

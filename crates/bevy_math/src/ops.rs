@@ -8,9 +8,6 @@
 //! It also provides `no_std` compatible alternatives to certain floating-point
 //! operations which are not provided in the [`core`] library.
 
-#![allow(dead_code)]
-#![allow(clippy::disallowed_methods)]
-
 // Note: There are some Rust methods with unspecified precision without a `libm`
 // equivalent:
 // - `f32::powi` (integer powers)
@@ -23,6 +20,10 @@
 // - `f32::ln_gamma`
 
 #[cfg(not(feature = "libm"))]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
+)]
 mod std_ops {
 
     /// Raises a number to a floating point power.
@@ -519,6 +520,10 @@ mod libm_ops_for_no_std {
 }
 
 #[cfg(feature = "std")]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "Many of the disallowed methods are disallowed to force code to use the feature-conditional re-exports from this module, but this module itself is exempt from that rule."
+)]
 mod std_ops_for_no_std {
     //! Provides standardized names for [`f32`] operations which may not be
     //! supported on `no_std` platforms.

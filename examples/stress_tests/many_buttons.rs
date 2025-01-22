@@ -46,6 +46,10 @@ struct Args {
     /// at the start of each frame despawn any existing UI nodes and spawn a new UI tree
     #[argh(switch)]
     respawn: bool,
+
+    /// set the root node to display none, removing all nodes from the layout.
+    #[argh(switch)]
+    display_none: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -69,7 +73,7 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings {
@@ -153,6 +157,11 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands
         .spawn(Node {
+            display: if args.display_none {
+                Display::None
+            } else {
+                Display::Flex
+            },
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -203,7 +212,11 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     commands
         .spawn(Node {
-            display: Display::Grid,
+            display: if args.display_none {
+                Display::None
+            } else {
+                Display::Grid
+            },
             width: Val::Percent(100.),
             height: Val::Percent(100.0),
             grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
@@ -234,9 +247,8 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
         });
 }
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_button(
-    commands: &mut ChildBuilder,
+    commands: &mut ChildSpawnerCommands,
     background_color: Color,
     buttons: f32,
     column: usize,
@@ -283,6 +295,6 @@ fn spawn_button(
     }
 }
 
-fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<Parent>)>) {
-    commands.entity(*root_node).despawn_recursive();
+fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<ChildOf>)>) {
+    commands.entity(*root_node).despawn();
 }

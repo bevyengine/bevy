@@ -1,8 +1,12 @@
-use alloc::sync::Arc;
+use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
-use std::thread::{self, JoinHandle};
+use std::{
+    thread::{self, JoinHandle},
+    thread_local,
+};
 
 use crate::executor::FallibleTask;
+use bevy_platform_support::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
@@ -70,7 +74,17 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block running async tasks on the thread until the callback completes.
     pub fn on_thread_spawn(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        self.on_thread_spawn = Some(Arc::new(f));
+        #[cfg(feature = "portable-atomic")]
+        let arc = {
+            let boxed = Box::new(f);
+            let boxed: Box<dyn Fn() + Send + Sync + 'static> = boxed;
+            Arc::from(boxed)
+        };
+
+        #[cfg(not(feature = "portable-atomic"))]
+        let arc = Arc::new(f);
+
+        self.on_thread_spawn = Some(arc);
         self
     }
 
@@ -79,7 +93,17 @@ impl TaskPoolBuilder {
     /// This is called on the thread itself and has access to all thread-local storage.
     /// This will block thread termination until the callback completes.
     pub fn on_thread_destroy(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
-        self.on_thread_destroy = Some(Arc::new(f));
+        #[cfg(feature = "portable-atomic")]
+        let arc = {
+            let boxed = Box::new(f);
+            let boxed: Box<dyn Fn() + Send + Sync + 'static> = boxed;
+            Arc::from(boxed)
+        };
+
+        #[cfg(not(feature = "portable-atomic"))]
+        let arc = Arc::new(f);
+
+        self.on_thread_destroy = Some(arc);
         self
     }
 
@@ -305,7 +329,7 @@ impl TaskPool {
         T: Send + 'static,
     {
         Self::THREAD_EXECUTOR.with(|scope_executor| {
-            // If a `external_executor` is passed use that. Otherwise get the executor stored
+            // If an `external_executor` is passed, use that. Otherwise, get the executor stored
             // in the `THREAD_EXECUTOR` thread local.
             if let Some(external_executor) = external_executor {
                 self.scope_with_executor_inner(
@@ -669,7 +693,6 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
     use core::sync::atomic::{AtomicBool, AtomicI32, Ordering};

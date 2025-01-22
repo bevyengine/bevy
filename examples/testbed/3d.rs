@@ -138,6 +138,7 @@ mod light {
     }
 }
 
+#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod bloom {
     use bevy::{
         core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
@@ -191,6 +192,7 @@ mod bloom {
     }
 }
 
+#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod gltf {
     use bevy::prelude::*;
 

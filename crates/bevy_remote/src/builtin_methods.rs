@@ -7,20 +7,22 @@ use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
     event::EventCursor,
+    hierarchy::ChildOf,
     query::QueryBuilder,
-    reflect::{AppTypeRegistry, ReflectComponent},
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_hierarchy::BuildChildren as _;
 use bevy_reflect::{
+    prelude::ReflectDefault,
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    PartialReflect, TypeRegistration, TypeRegistry,
+    GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize,
+    TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::{json, Map, Value};
 
 use crate::{error_codes, BrpError, BrpResult};
 
@@ -48,11 +50,17 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
 
+/// The method path for a `bevy/mutate_component` request.
+pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/mutate_component";
+
 /// The method path for a `bevy/get+watch` request.
 pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
 
 /// The method path for a `bevy/list+watch` request.
 pub const BRP_LIST_AND_WATCH_METHOD: &str = "bevy/list+watch";
+
+/// The method path for a `bevy/registry/schema` request.
+pub const BRP_REGISTRY_SCHEMA_METHOD: &str = "bevy/registry/schema";
 
 /// `bevy/get`: Retrieves one or more components from the entity with the given
 /// ID.
@@ -92,6 +100,11 @@ pub struct BrpQueryParams {
     /// exclude from the results.
     #[serde(default)]
     pub filter: BrpQueryFilter,
+
+    /// An optional flag to fail when encountering an invalid component rather
+    /// than skipping it. Defaults to false.
+    #[serde(default)]
+    pub strict: bool,
 }
 
 /// `bevy/spawn`: Creates a new entity with the given components and responds
@@ -187,6 +200,28 @@ pub struct BrpListParams {
     pub entity: Entity,
 }
 
+/// `bevy/mutate_component`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpMutateParams {
+    /// The entity of the component to mutate.
+    pub entity: Entity,
+
+    /// The [full path] of the component to mutate.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub component: String,
+
+    /// The [path] of the field within the component.
+    ///
+    /// [path]: bevy_reflect::GetPath
+    pub path: String,
+
+    /// The value to insert at `path`.
+    pub value: Value,
+}
+
 /// Describes the data that is to be fetched in a query.
 #[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct BrpQuery {
@@ -228,6 +263,38 @@ pub struct BrpQueryFilter {
     ///
     /// [full path]: bevy_reflect::TypePath::type_path
     #[serde(default)]
+    pub with: Vec<String>,
+}
+
+/// Constraints that can be placed on a query to include or exclude
+/// certain definitions.
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
+pub struct BrpJsonSchemaQueryFilter {
+    /// The crate name of the type name of each component that must not be
+    /// present on the entity for it to be included in the results.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub without_crates: Vec<String>,
+
+    /// The crate name of the type name of each component that must be present
+    /// on the entity for it to be included in the results.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub with_crates: Vec<String>,
+
+    /// Constrain resource by type
+    #[serde(default)]
+    pub type_limit: JsonSchemaTypeLimit,
+}
+
+/// Additional [`BrpJsonSchemaQueryFilter`] constraints that can be placed on a query to include or exclude
+/// certain definitions.
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
+pub struct JsonSchemaTypeLimit {
+    /// Schema cannot have specified reflect types
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub without: Vec<String>,
+
+    /// Schema needs to have specified reflect types
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub with: Vec<String>,
 }
 
@@ -527,19 +594,22 @@ pub fn process_remote_query_request(In(params): In<Option<Value>>, world: &mut W
             has,
         },
         filter: BrpQueryFilter { without, with },
+        strict,
     } = parse_some(params)?;
 
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let components =
-        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
-    let option =
-        get_component_ids(&type_registry, world, option).map_err(BrpError::component_error)?;
-    let has = get_component_ids(&type_registry, world, has).map_err(BrpError::component_error)?;
-    let without =
-        get_component_ids(&type_registry, world, without).map_err(BrpError::component_error)?;
-    let with = get_component_ids(&type_registry, world, with).map_err(BrpError::component_error)?;
+    let components = get_component_ids(&type_registry, world, components, strict)
+        .map_err(BrpError::component_error)?;
+    let option = get_component_ids(&type_registry, world, option, strict)
+        .map_err(BrpError::component_error)?;
+    let has =
+        get_component_ids(&type_registry, world, has, strict).map_err(BrpError::component_error)?;
+    let without = get_component_ids(&type_registry, world, without, strict)
+        .map_err(BrpError::component_error)?;
+    let with = get_component_ids(&type_registry, world, with, strict)
+        .map_err(BrpError::component_error)?;
 
     let mut query = QueryBuilder::<FilteredEntityRef>::new(world);
     for (_, component) in &components {
@@ -649,6 +719,70 @@ pub fn process_remote_insert_request(
     Ok(Value::Null)
 }
 
+/// Handles a `bevy/mutate_component` request coming from a client.
+///
+/// This method allows you to mutate a single field inside an Entity's
+/// component.
+pub fn process_remote_mutate_component_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpMutateParams {
+        entity,
+        component,
+        path,
+        value,
+    } = parse_some(params)?;
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let type_registry = app_type_registry.read();
+
+    // Get the fully-qualified type names of the component to be mutated.
+    let component_type: &TypeRegistration = type_registry
+        .get_with_type_path(&component)
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component type: `{}`", component))
+        })?;
+
+    // Get the reflected representation of the component.
+    let mut reflected = component_type
+        .data::<ReflectComponent>()
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Component `{}` isn't registered.", component))
+        })?
+        .reflect_mut(world.entity_mut(entity))
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Cannot reflect component `{}`", component))
+        })?;
+
+    // Get the type of the field in the component that is to be
+    // mutated.
+    let value_type: &TypeRegistration = type_registry
+        .get_with_type_path(
+            reflected
+                .reflect_path(path.as_str())
+                .map_err(BrpError::component_error)?
+                .reflect_type_path(),
+        )
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component field type: `{}`", component))
+        })?;
+
+    // Get the reflected representation of the value to be inserted
+    // into the component.
+    let value: Box<dyn PartialReflect> = TypedReflectDeserializer::new(value_type, &type_registry)
+        .deserialize(&value)
+        .map_err(BrpError::component_error)?;
+
+    // Apply the mutation.
+    reflected
+        .reflect_path_mut(path.as_str())
+        .map_err(BrpError::component_error)?
+        .try_apply(value.as_ref())
+        .map_err(BrpError::component_error)?;
+
+    Ok(Value::Null)
+}
+
 /// Handles a `bevy/remove` request (remove components) coming from a client.
 pub fn process_remote_remove_request(
     In(params): In<Option<Value>>,
@@ -659,8 +793,8 @@ pub fn process_remote_remove_request(
     let app_type_registry = world.resource::<AppTypeRegistry>().clone();
     let type_registry = app_type_registry.read();
 
-    let component_ids =
-        get_component_ids(&type_registry, world, components).map_err(BrpError::component_error)?;
+    let component_ids = get_component_ids(&type_registry, world, components, true)
+        .map_err(BrpError::component_error)?;
 
     // Remove the components.
     let mut entity_world_mut = get_entity_mut(world, entity)?;
@@ -707,7 +841,7 @@ pub fn process_remote_reparent_request(
     // If `None`, remove the entities' parents.
     else {
         for entity in entities {
-            get_entity_mut(world, entity)?.remove_parent();
+            get_entity_mut(world, entity)?.remove::<ChildOf>();
         }
     }
 
@@ -793,6 +927,389 @@ pub fn process_remote_list_watching_request(
     }
 }
 
+/// Handles a `bevy/registry/schema` request (list all registry types in form of schema) coming from a client.
+pub fn export_registry_types(In(params): In<Option<Value>>, world: &World) -> BrpResult {
+    let filter: BrpJsonSchemaQueryFilter = match params {
+        None => Default::default(),
+        Some(params) => parse(params)?,
+    };
+
+    let types = world.resource::<AppTypeRegistry>();
+    let types = types.read();
+    let schemas = types
+        .iter()
+        .map(export_type)
+        .filter(|(_, schema)| {
+            if let Some(crate_name) = &schema.crate_name {
+                if !filter.with_crates.is_empty()
+                    && !filter.with_crates.iter().any(|c| crate_name.eq(c))
+                {
+                    return false;
+                }
+                if !filter.without_crates.is_empty()
+                    && filter.without_crates.iter().any(|c| crate_name.eq(c))
+                {
+                    return false;
+                }
+            }
+            if !filter.type_limit.with.is_empty()
+                && !filter
+                    .type_limit
+                    .with
+                    .iter()
+                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
+            {
+                return false;
+            }
+            if !filter.type_limit.without.is_empty()
+                && filter
+                    .type_limit
+                    .without
+                    .iter()
+                    .any(|c| schema.reflect_types.iter().any(|cc| c.eq(cc)))
+            {
+                return false;
+            }
+
+            true
+        })
+        .collect::<HashMap<String, JsonSchemaBevyType>>();
+
+    serde_json::to_value(schemas).map_err(BrpError::internal)
+}
+
+/// Exports schema info for a given type
+fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
+    let t = reg.type_info();
+    let binding = t.type_path_table();
+
+    let short_path = binding.short_path();
+    let type_path = binding.path();
+    let mut typed_schema = JsonSchemaBevyType {
+        reflect_types: get_registered_reflect_types(reg),
+        short_path: short_path.to_owned(),
+        type_path: type_path.to_owned(),
+        crate_name: binding.crate_name().map(str::to_owned),
+        module_path: binding.module_path().map(str::to_owned),
+        ..Default::default()
+    };
+    match t {
+        TypeInfo::Struct(info) => {
+            typed_schema.properties = info
+                .iter()
+                .map(|field| (field.name().to_owned(), field.ty().ref_type()))
+                .collect::<HashMap<_, _>>();
+            typed_schema.required = info
+                .iter()
+                .filter(|field| !field.type_path().starts_with("core::option::Option"))
+                .map(|f| f.name().to_owned())
+                .collect::<Vec<_>>();
+            typed_schema.additional_properties = Some(false);
+            typed_schema.schema_type = SchemaType::Object;
+            typed_schema.kind = SchemaKind::Struct;
+        }
+        TypeInfo::Enum(info) => {
+            typed_schema.kind = SchemaKind::Enum;
+
+            let simple = info
+                .iter()
+                .all(|variant| matches!(variant, VariantInfo::Unit(_)));
+            if simple {
+                typed_schema.schema_type = SchemaType::String;
+                typed_schema.one_of = info
+                    .iter()
+                    .map(|variant| match variant {
+                        VariantInfo::Unit(v) => v.name().into(),
+                        _ => unreachable!(),
+                    })
+                    .collect::<Vec<_>>();
+            } else {
+                typed_schema.schema_type = SchemaType::Object;
+                typed_schema.one_of = info
+                .iter()
+                .map(|variant| match variant {
+                    VariantInfo::Struct(v) => json!({
+                        "type": "object",
+                        "kind": "Struct",
+                        "typePath": format!("{}::{}", type_path, v.name()),
+                        "shortPath": v.name(),
+                        "properties": v
+                            .iter()
+                            .map(|field| (field.name().to_owned(), field.ref_type()))
+                            .collect::<Map<_, _>>(),
+                        "additionalProperties": false,
+                        "required": v
+                            .iter()
+                            .filter(|field| !field.type_path().starts_with("core::option::Option"))
+                            .map(NamedField::name)
+                            .collect::<Vec<_>>(),
+                    }),
+                    VariantInfo::Tuple(v) => json!({
+                        "type": "array",
+                        "kind": "Tuple",
+                        "typePath": format!("{}::{}", type_path, v.name()),
+                        "shortPath": v.name(),
+                        "prefixItems": v
+                            .iter()
+                            .map(SchemaJsonReference::ref_type)
+                            .collect::<Vec<_>>(),
+                        "items": false,
+                    }),
+                    VariantInfo::Unit(v) => json!({
+                        "typePath": format!("{}::{}", type_path, v.name()),
+                        "shortPath": v.name(),
+                    }),
+                })
+                .collect::<Vec<_>>();
+            }
+        }
+        TypeInfo::TupleStruct(info) => {
+            typed_schema.schema_type = SchemaType::Array;
+            typed_schema.kind = SchemaKind::TupleStruct;
+            typed_schema.prefix_items = info
+                .iter()
+                .map(SchemaJsonReference::ref_type)
+                .collect::<Vec<_>>();
+            typed_schema.items = Some(false.into());
+        }
+        TypeInfo::List(info) => {
+            typed_schema.schema_type = SchemaType::Array;
+            typed_schema.kind = SchemaKind::List;
+            typed_schema.items = info.item_ty().ref_type().into();
+        }
+        TypeInfo::Array(info) => {
+            typed_schema.schema_type = SchemaType::Array;
+            typed_schema.kind = SchemaKind::Array;
+            typed_schema.items = info.item_ty().ref_type().into();
+        }
+        TypeInfo::Map(info) => {
+            typed_schema.schema_type = SchemaType::Object;
+            typed_schema.kind = SchemaKind::Map;
+            typed_schema.key_type = info.key_ty().ref_type().into();
+            typed_schema.value_type = info.value_ty().ref_type().into();
+        }
+        TypeInfo::Tuple(info) => {
+            typed_schema.schema_type = SchemaType::Array;
+            typed_schema.kind = SchemaKind::Tuple;
+            typed_schema.prefix_items = info
+                .iter()
+                .map(SchemaJsonReference::ref_type)
+                .collect::<Vec<_>>();
+            typed_schema.items = Some(false.into());
+        }
+        TypeInfo::Set(info) => {
+            typed_schema.schema_type = SchemaType::Set;
+            typed_schema.kind = SchemaKind::Set;
+            typed_schema.items = info.value_ty().ref_type().into();
+        }
+        TypeInfo::Opaque(info) => {
+            typed_schema.schema_type = info.map_json_type();
+            typed_schema.kind = SchemaKind::Value;
+        }
+    };
+
+    (t.type_path().to_owned(), typed_schema)
+}
+
+fn get_registered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
+    // Vec could be moved to allow registering more types by game maker.
+    let registered_reflect_types: [(TypeId, &str); 5] = [
+        { (TypeId::of::<ReflectComponent>(), "Component") },
+        { (TypeId::of::<ReflectResource>(), "Resource") },
+        { (TypeId::of::<ReflectDefault>(), "Default") },
+        { (TypeId::of::<ReflectSerialize>(), "Serialize") },
+        { (TypeId::of::<ReflectDeserialize>(), "Deserialize") },
+    ];
+    let mut result = Vec::new();
+    for (id, name) in registered_reflect_types {
+        if reg.data_by_id(id).is_some() {
+            result.push(name.to_owned());
+        }
+    }
+    result
+}
+
+/// JSON Schema type for Bevy Registry Types
+/// It tries to follow this standard: <https://json-schema.org/specification>
+///
+/// To take the full advantage from info provided by Bevy registry it provides extra fields
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct JsonSchemaBevyType {
+    /// Bevy specific field, short path of the type.
+    pub short_path: String,
+    /// Bevy specific field, full path of the type.
+    pub type_path: String,
+    /// Bevy specific field, path of the module that type is part of.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub module_path: Option<String>,
+    /// Bevy specific field, name of the crate that type is part of.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub crate_name: Option<String>,
+    /// Bevy specific field, names of the types that type reflects.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub reflect_types: Vec<String>,
+    /// Bevy specific field, [`TypeInfo`] type mapping.
+    pub kind: SchemaKind,
+    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
+    ///
+    /// It contains type info of key of the Map.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub key_type: Option<Value>,
+    /// Bevy specific field, provided when [`SchemaKind`] `kind` field is equal to [`SchemaKind::Map`].
+    ///
+    /// It contains type info of value of the Map.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub value_type: Option<Value>,
+    /// The type keyword is fundamental to JSON Schema. It specifies the data type for a schema.
+    #[serde(rename = "type")]
+    pub schema_type: SchemaType,
+    /// The behavior of this keyword depends on the presence and annotation results of "properties"
+    /// and "patternProperties" within the same schema object.
+    /// Validation with "additionalProperties" applies only to the child
+    /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub additional_properties: Option<bool>,
+    /// Validation succeeds if, for each name that appears in both the instance and as a name
+    /// within this keyword's value, the child instance for that name successfully validates
+    /// against the corresponding schema.
+    #[serde(skip_serializing_if = "HashMap::is_empty", default)]
+    pub properties: HashMap<String, Value>,
+    /// An object instance is valid against this keyword if every item in the array is the name of a property in the instance.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub required: Vec<String>,
+    /// An instance validates successfully against this keyword if it validates successfully against exactly one schema defined by this keyword's value.
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub one_of: Vec<Value>,
+    /// Validation succeeds if each element of the instance validates against the schema at the same position, if any. This keyword does not constrain the length of the array. If the array is longer than this keyword's value, this keyword validates only the prefix of matching length.
+    ///
+    /// This keyword produces an annotation value which is the largest index to which this keyword
+    /// applied a subschema. The value MAY be a boolean true if a subschema was applied to every
+    /// index of the instance, such as is produced by the "items" keyword.
+    /// This annotation affects the behavior of "items" and "unevaluatedItems".
+    #[serde(skip_serializing_if = "Vec::is_empty", default)]
+    pub prefix_items: Vec<Value>,
+    /// This keyword applies its subschema to all instance elements at indexes greater
+    /// than the length of the "prefixItems" array in the same schema object,
+    /// as reported by the annotation result of that "prefixItems" keyword.
+    /// If no such annotation result exists, "items" applies its subschema to all
+    /// instance array elements.
+    ///
+    /// If the "items" subschema is applied to any positions within the instance array,
+    /// it produces an annotation result of boolean true, indicating that all remaining
+    /// array elements have been evaluated against this keyword's subschema.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub items: Option<Value>,
+}
+
+/// Kind of json schema, maps [`TypeInfo`] type
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+pub enum SchemaKind {
+    /// Struct
+    #[default]
+    Struct,
+    /// Enum type
+    Enum,
+    /// A key-value map
+    Map,
+    /// Array
+    Array,
+    /// List
+    List,
+    /// Fixed size collection of items
+    Tuple,
+    /// Fixed size collection of items with named fields
+    TupleStruct,
+    /// Set of unique values
+    Set,
+    /// Single value, eg. primitive types
+    Value,
+}
+
+/// Type of json schema
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum SchemaType {
+    /// Represents a string value.
+    String,
+    /// Represents a floating-point number.
+    Float,
+
+    /// Represents an unsigned integer.
+    Uint,
+
+    /// Represents a signed integer.
+    Int,
+
+    /// Represents an object with key-value pairs.
+    Object,
+
+    /// Represents an array of values.
+    Array,
+
+    /// Represents a boolean value (true or false).
+    Boolean,
+
+    /// Represents a set of unique values.
+    Set,
+
+    /// Represents a null value.
+    #[default]
+    Null,
+}
+
+/// Helper trait for generating json schema reference
+trait SchemaJsonReference {
+    /// Reference to another type in schema.
+    /// The value `$ref` is a URI-reference that is resolved against the schema.
+    fn ref_type(self) -> Value;
+}
+
+/// Helper trait for mapping bevy type path into json schema type
+trait SchemaJsonType {
+    /// Bevy Reflect type path
+    fn get_type_path(&self) -> &'static str;
+
+    /// JSON Schema type keyword from Bevy reflect type path into
+    fn map_json_type(&self) -> SchemaType {
+        match self.get_type_path() {
+            "bool" => SchemaType::Boolean,
+            "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => SchemaType::Uint,
+            "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => SchemaType::Int,
+            "f32" | "f64" => SchemaType::Float,
+            "char" | "str" | "alloc::string::String" => SchemaType::String,
+            _ => SchemaType::Object,
+        }
+    }
+}
+
+impl SchemaJsonType for OpaqueInfo {
+    fn get_type_path(&self) -> &'static str {
+        self.type_path()
+    }
+}
+
+impl SchemaJsonReference for &bevy_reflect::Type {
+    fn ref_type(self) -> Value {
+        let path = self.path();
+        json!({"type": json!({ "$ref": format!("#/$defs/{path}") })})
+    }
+}
+
+impl SchemaJsonReference for &bevy_reflect::UnnamedField {
+    fn ref_type(self) -> Value {
+        let path = self.type_path();
+        json!({"type": json!({ "$ref": format!("#/$defs/{path}") })})
+    }
+}
+
+impl SchemaJsonReference for &NamedField {
+    fn ref_type(self) -> Value {
+        let type_path = self.type_path();
+        json!({"type": json!({ "$ref": format!("#/$defs/{type_path}") }), "typePath": self.name()})
+    }
+}
+
 /// Immutably retrieves an entity from the [`World`], returning an error if the
 /// entity isn't present.
 fn get_entity(world: &World, entity: Entity) -> Result<EntityRef<'_>, BrpError> {
@@ -818,16 +1335,20 @@ fn get_component_ids(
     type_registry: &TypeRegistry,
     world: &World,
     component_paths: Vec<String>,
+    strict: bool,
 ) -> AnyhowResult<Vec<(TypeId, ComponentId)>> {
     let mut component_ids = vec![];
 
     for component_path in component_paths {
         let type_id = get_component_type_registration(type_registry, &component_path)?.type_id();
         let Some(component_id) = world.components().get_id(type_id) else {
-            return Err(anyhow!(
-                "Component `{}` isn't used in the world",
-                component_path
-            ));
+            if strict {
+                return Err(anyhow!(
+                    "Component `{}` isn't used in the world",
+                    component_path
+                ));
+            }
+            continue;
         };
 
         component_ids.push((type_id, component_id));
@@ -991,6 +1512,8 @@ mod tests {
         );
     }
     use super::*;
+    use bevy_ecs::{component::Component, resource::Resource};
+    use bevy_reflect::Reflect;
 
     #[test]
     fn serialization_tests() {
@@ -1001,8 +1524,205 @@ mod tests {
         });
         test_serialize_deserialize(BrpListWatchingResponse::default());
         test_serialize_deserialize(BrpQuery::default());
+        test_serialize_deserialize(BrpJsonSchemaQueryFilter::default());
+        test_serialize_deserialize(BrpJsonSchemaQueryFilter {
+            type_limit: JsonSchemaTypeLimit {
+                with: vec!["Resource".to_owned()],
+                ..Default::default()
+            },
+            ..Default::default()
+        });
         test_serialize_deserialize(BrpListParams {
             entity: Entity::from_raw(0),
         });
+    }
+
+    #[test]
+    fn reflect_export_struct() {
+        #[derive(Reflect, Resource, Default, Deserialize, Serialize)]
+        #[reflect(Resource, Default, Serialize, Deserialize)]
+        struct Foo {
+            a: f32,
+            b: Option<f32>,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Foo>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<Foo>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        println!("{}", &serde_json::to_string_pretty(&schema).unwrap());
+
+        assert!(
+            !schema.reflect_types.contains(&"Component".to_owned()),
+            "Should not be a component"
+        );
+        assert!(
+            schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should be a resource"
+        );
+        let _ = schema.properties.get("a").expect("Missing `a` field");
+        let _ = schema.properties.get("b").expect("Missing `b` field");
+        assert!(
+            schema.required.contains(&"a".to_owned()),
+            "Field a should be required"
+        );
+        assert!(
+            !schema.required.contains(&"b".to_owned()),
+            "Field b should not be required"
+        );
+    }
+
+    #[test]
+    fn reflect_export_enum() {
+        #[derive(Reflect, Component, Default, Deserialize, Serialize)]
+        #[reflect(Component, Default, Serialize, Deserialize)]
+        enum EnumComponent {
+            ValueOne(i32),
+            ValueTwo {
+                test: i32,
+            },
+            #[default]
+            NoValue,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<EnumComponent>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<EnumComponent>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        assert!(
+            schema.reflect_types.contains(&"Component".to_owned()),
+            "Should be a component"
+        );
+        assert!(
+            !schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should not be a resource"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
+    }
+
+    #[test]
+    fn reflect_export_struct_without_reflect_types() {
+        #[derive(Reflect, Component, Default, Deserialize, Serialize)]
+        enum EnumComponent {
+            ValueOne(i32),
+            ValueTwo {
+                test: i32,
+            },
+            #[default]
+            NoValue,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<EnumComponent>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<EnumComponent>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        assert!(
+            !schema.reflect_types.contains(&"Component".to_owned()),
+            "Should not be a component"
+        );
+        assert!(
+            !schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should not be a resource"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.one_of.len() == 3, "Should have 3 possible schemas");
+    }
+
+    #[test]
+    fn reflect_export_tuple_struct() {
+        #[derive(Reflect, Component, Default, Deserialize, Serialize)]
+        #[reflect(Component, Default, Serialize, Deserialize)]
+        struct TupleStructType(usize, i32);
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<TupleStructType>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<TupleStructType>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        println!("{}", &serde_json::to_string_pretty(&schema).unwrap());
+        assert!(
+            schema.reflect_types.contains(&"Component".to_owned()),
+            "Should be a component"
+        );
+        assert!(
+            !schema.reflect_types.contains(&"Resource".to_owned()),
+            "Should not be a resource"
+        );
+        assert!(schema.properties.is_empty(), "Should not have any field");
+        assert!(schema.prefix_items.len() == 2, "Should have 2 prefix items");
+    }
+
+    #[test]
+    fn reflect_export_serialization_check() {
+        #[derive(Reflect, Resource, Default, Deserialize, Serialize)]
+        #[reflect(Resource, Default)]
+        struct Foo {
+            a: f32,
+        }
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Foo>();
+        }
+        let type_registry = atr.read();
+        let foo_registration = type_registry
+            .get(TypeId::of::<Foo>())
+            .expect("SHOULD BE REGISTERED")
+            .clone();
+        let (_, schema) = export_type(&foo_registration);
+        let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
+        let value = json!({
+          "shortPath": "Foo",
+          "typePath": "bevy_remote::builtin_methods::tests::Foo",
+          "modulePath": "bevy_remote::builtin_methods::tests",
+          "crateName": "bevy_remote",
+          "reflectTypes": [
+            "Resource",
+            "Default",
+          ],
+          "kind": "Struct",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "a": {
+              "type": {
+                "$ref": "#/$defs/f32"
+              }
+            },
+          },
+          "required": [
+            "a"
+          ]
+        });
+        assert_eq!(schema_as_value, value);
     }
 }

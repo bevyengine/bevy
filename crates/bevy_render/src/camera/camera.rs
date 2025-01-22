@@ -1,3 +1,7 @@
+#![expect(
+    clippy::module_inception,
+    reason = "The parent module contains all things viewport-related, while this module handles cameras as a component. However, a rename/refactor which should clear up this lint is being discussed; see #17196."
+)]
 use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -9,8 +13,8 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, GpuCulling, Msaa, RenderLayers,
-        RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
+        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
+        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -18,27 +22,29 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, ComponentId, Mutable},
-    entity::Entity,
+    component::{Component, ComponentId},
+    entity::{Entity, EntityBorrow},
     event::EventReader,
     prelude::{require, With},
     query::Has,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{ops, vec2, Dir3, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{tracing::warn, warn_once, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
 /// Render viewport configuration for the [`Camera`] component.
@@ -281,8 +287,8 @@ pub enum ViewportConversionError {
 /// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
 /// graph will emit an error at runtime.
 ///
-/// [`Camera2d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_2d/struct.Camera2d.html
-/// [`Camera3d`]: https://docs.rs/crate/bevy_core_pipeline/latest/core_3d/struct.Camera3d.html
+/// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
+/// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug)]
 #[component(on_add = warn_on_no_render_graph)]
@@ -718,10 +724,35 @@ pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
     Window(WindowRef),
     /// Image to which the camera's view is rendered.
-    Image(Handle<Image>),
+    Image(ImageRenderTarget),
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
+}
+
+/// A render target that renders to an [`Image`].
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ImageRenderTarget {
+    /// The image to render to.
+    pub handle: Handle<Image>,
+    /// The scale factor of the render target image, corresponding to the scale
+    /// factor for a window target. This should almost always be 1.0.
+    pub scale_factor: FloatOrd,
+}
+
+impl From<Handle<Image>> for RenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self::Image(handle.into())
+    }
+}
+
+impl From<Handle<Image>> for ImageRenderTarget {
+    fn from(handle: Handle<Image>) -> Self {
+        Self {
+            handle,
+            scale_factor: FloatOrd(1.0),
+        }
+    }
 }
 
 impl Default for RenderTarget {
@@ -738,7 +769,7 @@ pub enum NormalizedRenderTarget {
     /// Window to which the camera's view is rendered.
     Window(NormalizedWindowRef),
     /// Image to which the camera's view is rendered.
-    Image(Handle<Image>),
+    Image(ImageRenderTarget),
     /// Texture View to which the camera's view is rendered.
     /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
     TextureView(ManualTextureViewHandle),
@@ -759,8 +790,8 @@ impl RenderTarget {
     /// Get a handle to the render target's image,
     /// or `None` if the render target is another variant.
     pub fn as_image(&self) -> Option<&Handle<Image>> {
-        if let Self::Image(handle) = self {
-            Some(handle)
+        if let Self::Image(image_target) = self {
+            Some(&image_target.handle)
         } else {
             None
         }
@@ -778,9 +809,9 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_view.as_ref()),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| &image.texture_view)
-            }
+            NormalizedRenderTarget::Image(image_target) => images
+                .get(&image_target.handle)
+                .map(|image| &image.texture_view),
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| &tex.texture_view)
             }
@@ -798,9 +829,9 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => windows
                 .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_format),
-            NormalizedRenderTarget::Image(image_handle) => {
-                images.get(image_handle).map(|image| image.texture_format)
-            }
+            NormalizedRenderTarget::Image(image_target) => images
+                .get(&image_target.handle)
+                .map(|image| image.texture_format),
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| tex.format)
             }
@@ -821,11 +852,11 @@ impl NormalizedRenderTarget {
                     physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
                 }),
-            NormalizedRenderTarget::Image(image_handle) => {
-                let image = images.get(image_handle)?;
+            NormalizedRenderTarget::Image(image_target) => {
+                let image = images.get(&image_target.handle)?;
                 Some(RenderTargetInfo {
                     physical_size: image.size(),
-                    scale_factor: 1.0,
+                    scale_factor: image_target.scale_factor.0,
                 })
             }
             NormalizedRenderTarget::TextureView(id) => {
@@ -847,8 +878,8 @@ impl NormalizedRenderTarget {
             NormalizedRenderTarget::Window(window_ref) => {
                 changed_window_ids.contains(&window_ref.entity())
             }
-            NormalizedRenderTarget::Image(image_handle) => {
-                changed_image_handles.contains(&image_handle.id())
+            NormalizedRenderTarget::Image(image_target) => {
+                changed_image_handles.contains(&image_target.handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
         }
@@ -858,13 +889,7 @@ impl NormalizedRenderTarget {
 /// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
 /// The system detects window creation, resize, and scale factor change events to update the camera
-/// projection if needed. It also queries any [`CameraProjection`] component associated with the same
-/// entity as the [`Camera`] one, to automatically update the camera projection matrix.
-///
-/// The system function is generic over the camera projection type, and only instances of
-/// [`OrthographicProjection`] and [`PerspectiveProjection`] are automatically added to
-/// the app, as well as the runtime-selected [`Projection`].
-/// The system runs during [`PostUpdate`](bevy_app::PostUpdate).
+/// [`Projection`] if needed.
 ///
 /// ## World Resources
 ///
@@ -873,8 +898,7 @@ impl NormalizedRenderTarget {
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
-#[allow(clippy::too_many_arguments)]
-pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
+pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
@@ -883,7 +907,7 @@ pub fn camera_system<T: CameraProjection + Component<Mutability = Mutable>>(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(&mut Camera, &mut T)>,
+    mut cameras: Query<(&mut Camera, &mut Projection)>,
 ) {
     let primary_window = primary_window.iter().next();
 
@@ -1022,6 +1046,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
+            Entity,
             RenderEntity,
             &Camera,
             &CameraRenderGraph,
@@ -1033,7 +1058,7 @@ pub fn extract_cameras(
             Option<&TemporalJitter>,
             Option<&RenderLayers>,
             Option<&Projection>,
-            Has<GpuCulling>,
+            Has<NoIndirectDrawing>,
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -1042,6 +1067,7 @@ pub fn extract_cameras(
 ) {
     let primary_window = primary_window.iter().next();
     for (
+        main_entity,
         render_entity,
         camera,
         camera_render_graph,
@@ -1053,7 +1079,7 @@ pub fn extract_cameras(
         temporal_jitter,
         render_layers,
         projection,
-        gpu_culling,
+        no_indirect_drawing,
     ) in query.iter()
     {
         if !camera.is_active {
@@ -1064,7 +1090,7 @@ pub fn extract_cameras(
                 TemporalJitter,
                 RenderLayers,
                 Projection,
-                GpuCulling,
+                NoIndirectDrawing,
                 ViewUniformOffset,
             )>();
             continue;
@@ -1128,6 +1154,7 @@ pub fn extract_cameras(
                     hdr: camera.hdr,
                 },
                 ExtractedView {
+                    retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,
@@ -1156,14 +1183,13 @@ pub fn extract_cameras(
                 commands.insert(perspective.clone());
             }
 
-            if gpu_culling {
-                if gpu_preprocessing_support.max_supported_mode == GpuPreprocessingMode::Culling {
-                    commands.insert(GpuCulling);
-                } else {
-                    warn_once!(
-                        "GPU culling isn't supported on this platform; ignoring `GpuCulling`."
-                    );
-                }
+            if no_indirect_drawing
+                || !matches!(
+                    gpu_preprocessing_support.max_supported_mode,
+                    GpuPreprocessingMode::Culling
+                )
+            {
+                commands.insert(NoIndirectDrawing);
             }
         };
     }
@@ -1196,10 +1222,7 @@ pub fn sort_cameras(
     // sort by order and ensure within an order, RenderTargets of the same type are packed together
     sorted_cameras
         .0
-        .sort_by(|c1, c2| match c1.order.cmp(&c2.order) {
-            core::cmp::Ordering::Equal => c1.target.cmp(&c2.target),
-            ord => ord,
-        });
+        .sort_by(|c1, c2| (c1.order, &c1.target).cmp(&(c2.order, &c2.target)));
     let mut previous_order_target = None;
     let mut ambiguities = <HashSet<_>>::default();
     let mut target_counts = <HashMap<_, _>>::default();

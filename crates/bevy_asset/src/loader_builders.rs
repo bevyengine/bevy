@@ -7,7 +7,7 @@ use crate::{
     Asset, AssetLoadError, AssetPath, ErasedAssetLoader, ErasedLoadedAsset, Handle, LoadContext,
     LoadDirectError, LoadedAsset, LoadedUntypedAsset, UntypedHandle,
 };
-use alloc::sync::Arc;
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc};
 use core::any::TypeId;
 
 // Utility type for handling the sources of reader references
@@ -428,7 +428,7 @@ impl<'builder, 'reader, T> NestedLoader<'_, '_, T, Immediate<'builder, 'reader>>
 
         let asset = self
             .load_context
-            .load_direct_internal(path.clone(), meta, &*loader, reader.as_mut())
+            .load_direct_internal(path.clone(), meta.as_ref(), &*loader, reader.as_mut())
             .await?;
         Ok((loader, asset))
     }

@@ -180,7 +180,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
                     )
                 })
                 .collect::<Vec<_>>();
-            entries.sort_by_key(|(type_path, _partial_reflect)| *type_path);
+            entries.sort_by_key(|(type_path, _)| *type_path);
             entries
         };
 
@@ -515,7 +515,7 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{Entity, EntityHashMap, VisitEntities, VisitEntitiesMut},
+        entity::{hash_map::EntityHashMap, Entity, VisitEntities, VisitEntitiesMut},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
         reflect::{AppTypeRegistry, ReflectMapEntities},
@@ -935,7 +935,7 @@ mod tests {
                 .entities
                 .iter()
                 .find(|dynamic_entity| dynamic_entity.entity == expected.entity)
-                .unwrap_or_else(|| panic!("missing entity (expected: `{:?}`)", expected.entity));
+                .unwrap_or_else(|| panic!("missing entity (expected: `{}`)", expected.entity));
 
             assert_eq!(expected.entity, received.entity, "entities did not match");
 

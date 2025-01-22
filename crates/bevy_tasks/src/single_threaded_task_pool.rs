@@ -1,19 +1,55 @@
 use alloc::{string::String, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
-
 #[cfg(feature = "std")]
+use std::thread_local;
+
+#[cfg(all(
+    feature = "std",
+    any(feature = "async_executor", feature = "edge_executor")
+))]
 use crate::executor::LocalExecutor;
 
-#[cfg(not(feature = "std"))]
+#[cfg(all(
+    not(feature = "std"),
+    any(feature = "async_executor", feature = "edge_executor")
+))]
 use crate::executor::Executor as LocalExecutor;
+
+#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
+mod dummy_executor {
+    use async_task::Task;
+    use core::{future::Future, marker::PhantomData};
+
+    /// Dummy implementation of a `LocalExecutor` to allow for a cleaner compiler error
+    /// due to missing feature flags.
+    #[doc(hidden)]
+    #[derive(Debug)]
+    pub struct LocalExecutor<'a>(PhantomData<fn(&'a ())>);
+
+    impl<'a> LocalExecutor<'a> {
+        /// Dummy implementation
+        pub const fn new() -> Self {
+            Self(PhantomData)
+        }
+
+        /// Dummy implementation
+        pub fn try_tick(&self) -> bool {
+            unimplemented!()
+        }
+
+        /// Dummy implementation
+        pub fn spawn<T: 'a>(&self, _: impl Future<Output = T> + 'a) -> Task<T> {
+            unimplemented!()
+        }
+    }
+}
+
+#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
+use dummy_executor::LocalExecutor;
 
 #[cfg(feature = "std")]
 thread_local! {
@@ -198,7 +234,7 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        #[cfg(all(target_arch = "wasm32", feature = "std"))]
+        #[cfg(target_arch = "wasm32")]
         return Task::wrap_future(future);
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "std"))]
@@ -210,7 +246,7 @@ impl TaskPool {
             Task::new(task)
         });
 
-        #[cfg(not(feature = "std"))]
+        #[cfg(all(not(target_arch = "wasm32"), not(feature = "std")))]
         return {
             let task = LOCAL_EXECUTOR.spawn(future);
             // Loop until all tasks are done

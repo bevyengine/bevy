@@ -1,11 +1,12 @@
 use super::GlobalTransform;
 use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
 use core::ops::Mul;
+
 #[cfg(feature = "bevy-support")]
-use {
-    bevy_ecs::{component::Component, prelude::require, reflect::ReflectComponent},
-    bevy_reflect::prelude::*,
-};
+use bevy_ecs::{component::Component, prelude::require};
+
+#[cfg(feature = "bevy_reflect")]
+use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -13,14 +14,12 @@ use {
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
-///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
 ///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// frame if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
@@ -38,14 +37,14 @@ use {
 /// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy-support", derive(Component), require(GlobalTransform))]
 #[cfg_attr(
-    feature = "bevy-support",
-    derive(Component, Reflect),
-    require(GlobalTransform),
+    feature = "bevy_reflect",
+    derive(Reflect),
     reflect(Component, Default, PartialEq, Debug)
 )]
 #[cfg_attr(
-    all(feature = "bevy-support", feature = "serialize"),
+    all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Transform {

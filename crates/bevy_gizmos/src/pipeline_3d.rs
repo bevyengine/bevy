@@ -13,8 +13,9 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
+    resource::Resource,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -30,7 +31,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
@@ -124,6 +125,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
             GizmoLineStyle::Dotted => "fragment_dotted",
+            GizmoLineStyle::Dashed { .. } => "fragment_dashed",
         };
 
         RenderPipelineDescriptor {
@@ -282,7 +284,6 @@ type DrawLineJointGizmo3d = (
     DrawLineJointGizmo,
 );
 
-#[allow(clippy::too_many_arguments)]
 fn queue_line_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<LineGizmoPipeline>,
@@ -291,8 +292,7 @@ fn queue_line_gizmos_3d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
+    views: Query<(
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -311,14 +311,14 @@ fn queue_line_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
+    ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -370,6 +370,7 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
 
@@ -391,13 +392,13 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn queue_line_joint_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<LineJointGizmoPipeline>,
@@ -406,8 +407,7 @@ fn queue_line_joint_gizmos_3d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
+    views: Query<(
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -425,14 +425,14 @@ fn queue_line_joint_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
+    ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -487,6 +487,7 @@ fn queue_line_joint_gizmos_3d(
                 distance: 0.,
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

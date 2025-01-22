@@ -1,9 +1,7 @@
-use bevy_ecs::{
-    component::Component, entity::Entity, event::Event, observer::Trigger, world::World,
-};
-use bevy_hierarchy::{BuildChildren, Parent};
+use core::hint::black_box;
 
-use criterion::{black_box, Criterion};
+use bevy_ecs::prelude::*;
+use criterion::Criterion;
 use rand::SeedableRng;
 use rand::{seq::IteratorRandom, Rng};
 use rand_chacha::ChaCha8Rng;
@@ -67,7 +65,7 @@ pub fn event_propagation(criterion: &mut Criterion) {
 struct TestEvent<const N: usize> {}
 
 impl<const N: usize> Event for TestEvent<N> {
-    type Traversal = &'static Parent;
+    type Traversal = &'static ChildOf;
     const AUTO_PROPAGATE: bool = true;
 }
 

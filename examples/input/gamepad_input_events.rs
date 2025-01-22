@@ -31,13 +31,13 @@ fn gamepad_events(
     }
     for axis_changed_event in axis_changed_events.read() {
         info!(
-            "{:?} of {:?} is changed to {}",
+            "{:?} of {} is changed to {}",
             axis_changed_event.axis, axis_changed_event.entity, axis_changed_event.value
         );
     }
     for button_changed_event in button_changed_events.read() {
         info!(
-            "{:?} of {:?} is changed to {}",
+            "{:?} of {} is changed to {}",
             button_changed_event.button, button_changed_event.entity, button_changed_event.value
         );
     }

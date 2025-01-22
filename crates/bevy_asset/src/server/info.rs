@@ -4,14 +4,20 @@ use crate::{
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
 };
-use alloc::sync::{Arc, Weak};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    sync::{Arc, Weak},
+    vec::Vec,
+};
 use bevy_ecs::world::World;
 use bevy_tasks::Task;
-use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
+use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use either::Either;
 use thiserror::Error;
+use tracing::warn;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -112,10 +118,6 @@ impl AssetInfos {
         .unwrap()
     }
 
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "Arguments needed so that both `create_loading_handle_untyped()` and `get_or_create_path_handle_internal()` may share code."
-    )]
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &TypeIdMap<AssetHandleProvider>,
@@ -443,7 +445,7 @@ impl AssetInfos {
             } else {
                 // the dependency id does not exist, which implies it was manually removed or never existed in the first place
                 warn!(
-                    "Dependency {:?} from asset {:?} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
+                    "Dependency {} from asset {} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
                     dep_id, loaded_asset_id
                 );
                 true

@@ -34,23 +34,23 @@ mod audio_output;
 mod audio_source;
 mod pitch;
 mod sinks;
+mod volume;
 
 /// The audio prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AudioBundle, AudioPlayer, AudioSink, AudioSinkPlayback, AudioSource, AudioSourceBundle,
-        Decodable, GlobalVolume, Pitch, PitchBundle, PlaybackSettings, SpatialAudioSink,
-        SpatialListener,
+        AudioPlayer, AudioSink, AudioSinkPlayback, AudioSource, Decodable, GlobalVolume, Pitch,
+        PlaybackSettings, SpatialAudioSink, SpatialListener,
     };
 }
 
 pub use audio::*;
 pub use audio_source::*;
 pub use pitch::*;
+pub use volume::*;
 
 pub use rodio::{cpal::Sample as CpalSample, source::Source, Sample};
 pub use sinks::*;

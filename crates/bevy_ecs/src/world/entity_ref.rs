@@ -3,21 +3,34 @@ use crate::{
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
-    entity::{Entities, Entity, EntityLocation},
+    entity::{
+        Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
+    },
     event::Event,
-    observer::{Observer, Observers},
+    observer::Observer,
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
+    resource::Resource,
     storage::Storages,
     system::IntoObserverSystem,
-    world::{error::EntityComponentError, DeferredWorld, Mut, World},
+    world::{
+        error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DeferredWorld, Mut, Ref,
+        World, ON_DESPAWN, ON_REMOVE, ON_REPLACE,
+    },
 };
+use alloc::vec::Vec;
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::{HashMap, HashSet};
-use core::{any::TypeId, marker::PhantomData, mem::MaybeUninit};
+#[cfg(feature = "track_location")]
+use core::panic::Location;
+use core::{
+    any::TypeId,
+    cmp::Ordering,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    mem::MaybeUninit,
+};
 use thiserror::Error;
-
-use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -38,7 +51,9 @@ use super::{unsafe_world_cell::UnsafeEntityCell, Ref, ON_REMOVE, ON_REPLACE};
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
 /// ```
 #[derive(Copy, Clone)]
-pub struct EntityRef<'w>(UnsafeEntityCell<'w>);
+pub struct EntityRef<'w> {
+    cell: UnsafeEntityCell<'w>,
+}
 
 impl<'w> EntityRef<'w> {
     /// # Safety
@@ -47,26 +62,26 @@ impl<'w> EntityRef<'w> {
     ///   at the same time as the returned [`EntityRef`].
     #[inline]
     pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
-        Self(cell)
+        Self { cell }
     }
 
     /// Returns the [ID](Entity) of the current entity.
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
-        self.0.id()
+        self.cell.id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
-        self.0.location()
+        self.cell.location()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        self.0.archetype()
+        self.cell.archetype()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -91,7 +106,7 @@ impl<'w> EntityRef<'w> {
     ///     [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.0.contains_id(component_id)
+        self.cell.contains_id(component_id)
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -103,7 +118,7 @@ impl<'w> EntityRef<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.0.contains_type_id(type_id)
+        self.cell.contains_type_id(type_id)
     }
 
     /// Gets access to the component of type `T` for the current entity.
@@ -111,7 +126,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.0.get::<T>() }
+        unsafe { self.cell.get::<T>() }
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -121,7 +136,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.0.get_ref::<T>() }
+        unsafe { self.cell.get_ref::<T>() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -129,7 +144,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.0.get_change_ticks::<T>() }
+        unsafe { self.cell.get_change_ticks::<T>() }
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -141,7 +156,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.0.get_change_ticks_by_id(component_id) }
+        unsafe { self.cell.get_change_ticks_by_id(component_id) }
     }
 
     /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
@@ -254,7 +269,7 @@ impl<'w> EntityRef<'w> {
         component_ids: F,
     ) -> Result<F::Ref<'w>, EntityComponentError> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { component_ids.fetch_ref(self.0) }
+        unsafe { component_ids.fetch_ref(self.cell) }
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
@@ -263,60 +278,67 @@ impl<'w> EntityRef<'w> {
     ///
     /// If the entity does not have the components required by the query `Q`.
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'w> {
-        self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
+        self.get_components::<Q>()
+            .expect("Query does not match the current entity")
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'w>> {
         // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.0.get_components::<Q>() }
+        unsafe { self.cell.get_components::<Q>() }
+    }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_location")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.cell.spawned_by()
     }
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityRef<'w> {
-    fn from(entity_mut: EntityWorldMut<'w>) -> EntityRef<'w> {
+    fn from(entity: EntityWorldMut<'w>) -> EntityRef<'w> {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityRef::new(entity_mut.into_unsafe_entity_cell()) }
+        unsafe { EntityRef::new(entity.into_unsafe_entity_cell()) }
     }
 }
 
 impl<'a> From<&'a EntityWorldMut<'_>> for EntityRef<'a> {
-    fn from(value: &'a EntityWorldMut<'_>) -> Self {
+    fn from(entity: &'a EntityWorldMut<'_>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
-        // - `&value` ensures no mutable accesses are active.
-        unsafe { EntityRef::new(value.as_unsafe_entity_cell_readonly()) }
+        // - `&entity` ensures no mutable accesses are active.
+        unsafe { EntityRef::new(entity.as_unsafe_entity_cell_readonly()) }
     }
 }
 
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
-    fn from(value: EntityMut<'w>) -> Self {
+    fn from(entity: EntityMut<'w>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        unsafe { EntityRef::new(value.0) }
+        unsafe { EntityRef::new(entity.cell) }
     }
 }
 
 impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
-    fn from(value: &'a EntityMut<'_>) -> Self {
+    fn from(entity: &'a EntityMut<'_>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all of the entity's components.
-        // - `&value` ensures there are no mutable accesses.
-        unsafe { EntityRef::new(value.0) }
+        // - `&entity` ensures there are no mutable accesses.
+        unsafe { EntityRef::new(entity.cell) }
     }
 }
 
 impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(value: FilteredEntityRef<'a>) -> Result<Self, Self::Error> {
-        if !value.access.has_read_all() {
+    fn try_from(entity: FilteredEntityRef<'a>) -> Result<Self, Self::Error> {
+        if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { EntityRef::new(entity.entity) })
         }
     }
 }
@@ -324,12 +346,12 @@ impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
 impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(value: &'a FilteredEntityRef<'_>) -> Result<Self, Self::Error> {
-        if !value.access.has_read_all() {
+    fn try_from(entity: &'a FilteredEntityRef<'_>) -> Result<Self, Self::Error> {
+        if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { EntityRef::new(entity.entity) })
         }
     }
 }
@@ -337,12 +359,12 @@ impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
 impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
-        if !value.access.has_read_all() {
+    fn try_from(entity: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { EntityRef::new(entity.entity) })
         }
     }
 }
@@ -350,15 +372,52 @@ impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
 impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(value: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
-        if !value.access.has_read_all() {
+    fn try_from(entity: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
             // SAFETY: check above guarantees read-only access to all components of the entity.
-            Ok(unsafe { EntityRef::new(value.entity) })
+            Ok(unsafe { EntityRef::new(entity.entity) })
         }
     }
 }
+
+impl PartialEq for EntityRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for EntityRef<'_> {}
+
+impl PartialOrd for EntityRef<'_> {
+    /// [`EntityRef`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for EntityRef<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for EntityRef<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for EntityRef<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for EntityRef<'_> {}
 
 /// Provides mutable access to a single entity and all of its components.
 ///
@@ -381,7 +440,9 @@ impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
 /// }
 /// # bevy_ecs::system::assert_is_system(disjoint_system);
 /// ```
-pub struct EntityMut<'w>(UnsafeEntityCell<'w>);
+pub struct EntityMut<'w> {
+    cell: UnsafeEntityCell<'w>,
+}
 
 impl<'w> EntityMut<'w> {
     /// # Safety
@@ -389,14 +450,20 @@ impl<'w> EntityMut<'w> {
     /// - No accesses to any of the entity's components may exist
     ///   at the same time as the returned [`EntityMut`].
     pub(crate) unsafe fn new(cell: UnsafeEntityCell<'w>) -> Self {
-        Self(cell)
+        Self { cell }
     }
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut EntityMut`, but you need `EntityMut`.
     pub fn reborrow(&mut self) -> EntityMut<'_> {
         // SAFETY: We have exclusive access to the entire entity and its components.
-        unsafe { Self::new(self.0) }
+        unsafe { Self::new(self.cell) }
+    }
+
+    /// Consumes `self` and returns read-only access to all of the entity's
+    /// components, with the world `'w` lifetime.
+    pub fn into_readonly(self) -> EntityRef<'w> {
+        EntityRef::from(self)
     }
 
     /// Gets read-only access to all of the entity's components.
@@ -408,19 +475,19 @@ impl<'w> EntityMut<'w> {
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(&self) -> Entity {
-        self.0.id()
+        self.cell.id()
     }
 
     /// Gets metadata indicating the location where the current entity is stored.
     #[inline]
     pub fn location(&self) -> EntityLocation {
-        self.0.location()
+        self.cell.location()
     }
 
     /// Returns the archetype that the current entity belongs to.
     #[inline]
     pub fn archetype(&self) -> &Archetype {
-        self.0.archetype()
+        self.cell.archetype()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -445,7 +512,7 @@ impl<'w> EntityMut<'w> {
     ///     [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
-        self.0.contains_id(component_id)
+        self.cell.contains_id(component_id)
     }
 
     /// Returns `true` if the current entity has a component with the type identified by `type_id`.
@@ -457,7 +524,7 @@ impl<'w> EntityMut<'w> {
     /// - If you have a [`ComponentId`] instead of a [`TypeId`], consider using [`Self::contains_id`].
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
-        self.0.contains_type_id(type_id)
+        self.cell.contains_type_id(type_id)
     }
 
     /// Gets access to the component of type `T` for the current entity.
@@ -473,14 +540,13 @@ impl<'w> EntityMut<'w> {
     ///
     /// If the entity does not have the components required by the query `Q`.
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
-        self.get_components::<Q>().expect(QUERY_MISMATCH_ERROR)
+        self.as_readonly().components::<Q>()
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
     /// or `None` if the entity does not have the components required by the query `Q`.
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
-        // SAFETY: We have read-only access to all components of this entity.
-        unsafe { self.0.get_components::<Q>() }
+        self.as_readonly().get_components::<Q>()
     }
 
     /// Consumes `self` and gets access to the component of type `T` with the
@@ -489,8 +555,7 @@ impl<'w> EntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn into_borrow<T: Component>(self) -> Option<&'w T> {
-        // SAFETY: consuming `self` implies exclusive access
-        unsafe { self.0.get() }
+        self.into_readonly().get()
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -509,8 +574,7 @@ impl<'w> EntityMut<'w> {
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
     pub fn into_ref<T: Component>(self) -> Option<Ref<'w, T>> {
-        // SAFETY: consuming `self` implies exclusive access
-        unsafe { self.0.get_ref() }
+        self.into_readonly().get_ref()
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -518,7 +582,7 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.0.get_mut() }
+        unsafe { self.cell.get_mut() }
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -529,8 +593,10 @@ impl<'w> EntityMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: &mut self implies exclusive access for duration of returned value
-        unsafe { self.0.get_mut_assume_mutable() }
+        // SAFETY:
+        // - &mut self implies exclusive access for duration of returned value
+        // - Caller ensures `T` is a mutable component
+        unsafe { self.cell.get_mut_assume_mutable() }
     }
 
     /// Consumes self and gets mutable access to the component of type `T`
@@ -539,7 +605,21 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
-        unsafe { self.0.get_mut() }
+        unsafe { self.cell.get_mut() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+        // SAFETY:
+        // - Consuming `self` implies exclusive access
+        // - Caller ensures `T` is a mutable component
+        unsafe { self.cell.get_mut_assume_mutable() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -612,10 +692,7 @@ impl<'w> EntityMut<'w> {
         self,
         component_ids: F,
     ) -> Result<F::Ref<'w>, EntityComponentError> {
-        // SAFETY:
-        // - We have read-only access to all components of this entity.
-        // - consuming `self` ensures that no references exist to this entity's components.
-        unsafe { component_ids.fetch_ref(self.0) }
+        self.into_readonly().get_by_id(component_ids)
     }
 
     /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
@@ -739,7 +816,7 @@ impl<'w> EntityMut<'w> {
         // SAFETY:
         // - `&mut self` ensures that no references exist to this entity's components.
         // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut(self.0) }
+        unsafe { component_ids.fetch_mut(self.cell) }
     }
 
     /// Returns [untyped mutable reference](MutUntyped) to component for
@@ -767,7 +844,7 @@ impl<'w> EntityMut<'w> {
         // SAFETY:
         // - The caller must ensure simultaneous access is limited
         // - to components that are mutually independent.
-        unsafe { component_ids.fetch_mut(self.0) }
+        unsafe { component_ids.fetch_mut(self.cell) }
     }
 
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
@@ -800,41 +877,47 @@ impl<'w> EntityMut<'w> {
         // SAFETY:
         // - consuming `self` ensures that no references exist to this entity's components.
         // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut(self.0) }
+        unsafe { component_ids.fetch_mut(self.cell) }
+    }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_location")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.cell.spawned_by()
     }
 }
 
 impl<'w> From<&'w mut EntityMut<'_>> for EntityMut<'w> {
-    fn from(value: &'w mut EntityMut<'_>) -> Self {
-        value.reborrow()
+    fn from(entity: &'w mut EntityMut<'_>) -> Self {
+        entity.reborrow()
     }
 }
 
 impl<'w> From<EntityWorldMut<'w>> for EntityMut<'w> {
-    fn from(value: EntityWorldMut<'w>) -> Self {
+    fn from(entity: EntityWorldMut<'w>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityMut::new(value.into_unsafe_entity_cell()) }
+        unsafe { EntityMut::new(entity.into_unsafe_entity_cell()) }
     }
 }
 
 impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
-    fn from(value: &'a mut EntityWorldMut<'_>) -> Self {
+    fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY: `EntityWorldMut` guarantees exclusive access to the entire world.
-        unsafe { EntityMut::new(value.as_unsafe_entity_cell()) }
+        unsafe { EntityMut::new(entity.as_unsafe_entity_cell()) }
     }
 }
 
 impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(value: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
-        if !value.access.has_read_all() {
+    fn try_from(entity: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+        if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
-        } else if !value.access.has_write_all() {
+        } else if !entity.access.has_write_all() {
             Err(TryFromFilteredError::MissingWriteAllAccess)
         } else {
             // SAFETY: check above guarantees exclusive access to all components of the entity.
-            Ok(unsafe { EntityMut::new(value.entity) })
+            Ok(unsafe { EntityMut::new(entity.entity) })
         }
     }
 }
@@ -842,17 +925,54 @@ impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
 impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(value: &'a mut FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
-        if !value.access.has_read_all() {
+    fn try_from(entity: &'a mut FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+        if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
-        } else if !value.access.has_write_all() {
+        } else if !entity.access.has_write_all() {
             Err(TryFromFilteredError::MissingWriteAllAccess)
         } else {
             // SAFETY: check above guarantees exclusive access to all components of the entity.
-            Ok(unsafe { EntityMut::new(value.entity) })
+            Ok(unsafe { EntityMut::new(entity.entity) })
         }
     }
 }
+
+impl PartialEq for EntityMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for EntityMut<'_> {}
+
+impl PartialOrd for EntityMut<'_> {
+    /// [`EntityMut`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for EntityMut<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for EntityMut<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for EntityMut<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for EntityMut<'_> {}
 
 /// A mutable reference to a particular [`Entity`], and the entire world.
 ///
@@ -876,12 +996,18 @@ impl<'w> EntityWorldMut<'w> {
     #[inline(never)]
     #[cold]
     fn panic_despawned(&self) -> ! {
-        panic!("Entity {} has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn.", self.entity);
+        panic!(
+            "Entity {} {}",
+            self.entity,
+            self.world
+                .entities()
+                .entity_does_not_exist_error_details(self.entity)
+        );
     }
 
     #[inline(always)]
     #[track_caller]
-    fn assert_not_despawned(&self) {
+    pub(crate) fn assert_not_despawned(&self) {
         if self.location.archetype_id == ArchetypeId::INVALID {
             self.panic_despawned();
         }
@@ -932,6 +1058,28 @@ impl<'w> EntityWorldMut<'w> {
             entity,
             location,
         }
+    }
+
+    /// Consumes `self` and returns read-only access to all of the entity's
+    /// components, with the world `'w` lifetime.
+    pub fn into_readonly(self) -> EntityRef<'w> {
+        EntityRef::from(self)
+    }
+
+    /// Gets read-only access to all of the entity's components.
+    pub fn as_readonly(&self) -> EntityRef<'_> {
+        EntityRef::from(self)
+    }
+
+    /// Consumes `self` and returns non-structural mutable access to all of the
+    /// entity's components, with the world `'w` lifetime.
+    pub fn into_mutable(self) -> EntityMut<'w> {
+        EntityMut::from(self)
+    }
+
+    /// Gets non-structural mutable access to all of the entity's components.
+    pub fn as_mutable(&mut self) -> EntityMut<'_> {
+        EntityMut::from(self)
     }
 
     /// Returns the [ID](Entity) of the current entity.
@@ -1022,7 +1170,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        EntityRef::from(self).get()
+        self.as_readonly().get()
     }
 
     /// Returns read-only components for the current entity that match the query `Q`.
@@ -1033,7 +1181,7 @@ impl<'w> EntityWorldMut<'w> {
     /// has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn components<Q: ReadOnlyQueryData>(&self) -> Q::Item<'_> {
-        EntityRef::from(self).components::<Q>()
+        self.as_readonly().components::<Q>()
     }
 
     /// Returns read-only components for the current entity that match the query `Q`,
@@ -1044,7 +1192,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_components<Q: ReadOnlyQueryData>(&self) -> Option<Q::Item<'_>> {
-        EntityRef::from(self).get_components::<Q>()
+        self.as_readonly().get_components::<Q>()
     }
 
     /// Consumes `self` and gets access to the component of type `T` with
@@ -1056,8 +1204,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_borrow<T: Component>(self) -> Option<&'w T> {
-        // SAFETY: consuming `self` implies exclusive access
-        unsafe { self.into_unsafe_entity_cell().get() }
+        self.into_readonly().get()
     }
 
     /// Gets access to the component of type `T` for the current entity,
@@ -1070,7 +1217,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
-        EntityRef::from(self).get_ref()
+        self.as_readonly().get_ref()
     }
 
     /// Consumes `self` and gets access to the component of type `T`
@@ -1084,7 +1231,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn into_ref<T: Component>(self) -> Option<Ref<'w, T>> {
-        EntityRef::from(self).get_ref()
+        self.into_readonly().get_ref()
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -1095,8 +1242,60 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: trait bound `Mutability = Mutable` ensures `T` is mutable
-        unsafe { self.get_mut_assume_mutable() }
+        self.as_mutable().into_mut()
+    }
+
+    /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
+    /// provided closure on it, returning the result if `T` was available.
+    /// This will trigger the `OnRemove` and `OnReplace` component hooks without
+    /// causing an archetype move.
+    ///
+    /// This is most useful with immutable components, where removal and reinsertion
+    /// is the only way to modify a value.
+    ///
+    /// If you do not need to ensure the above hooks are triggered, and your component
+    /// is mutable, prefer using [`get_mut`](EntityWorldMut::get_mut).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component, PartialEq, Eq, Debug)]
+    /// #[component(immutable)]
+    /// struct Foo(bool);
+    ///
+    /// # let mut world = World::default();
+    /// # world.register_component::<Foo>();
+    /// #
+    /// # let entity = world.spawn(Foo(false)).id();
+    /// #
+    /// # let mut entity = world.entity_mut(entity);
+    /// #
+    /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
+    /// #
+    /// entity.modify_component(|foo: &mut Foo| {
+    ///     foo.0 = true;
+    /// });
+    /// #
+    /// # assert_eq!(entity.get::<Foo>(), Some(&Foo(true)));
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn modify_component<T: Component, R>(&mut self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
+        self.assert_not_despawned();
+
+        let result = self
+            .world
+            .modify_component(self.entity, f)
+            .expect("entity access must be valid")?;
+
+        self.update_location();
+
+        Some(result)
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -1107,10 +1306,7 @@ impl<'w> EntityWorldMut<'w> {
     /// - `T` must be a mutable component
     #[inline]
     pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY:
-        // - &mut self implies exclusive access for duration of returned value
-        // - caller ensures T is mutable
-        unsafe { self.as_unsafe_entity_cell().get_mut_assume_mutable() }
+        self.as_mutable().into_mut_assume_mutable()
     }
 
     /// Consumes `self` and gets mutable access to the component of type `T`
@@ -1126,6 +1322,45 @@ impl<'w> EntityWorldMut<'w> {
         unsafe { self.into_unsafe_entity_cell().get_mut() }
     }
 
+    /// Gets a reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource`](EntityWorldMut::get_resource) instead if you want to handle this case.
+    #[inline]
+    #[track_caller]
+    pub fn resource<R: Resource>(&self) -> &R {
+        self.world.resource::<R>()
+    }
+
+    /// Gets a mutable reference to the resource of the given type
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`get_resource_mut`](World::get_resource_mut) instead if you want to handle this case.
+    ///
+    /// If you want to instead insert a value if the resource does not exist,
+    /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
+    #[inline]
+    #[track_caller]
+    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+        self.world.resource_mut::<R>()
+    }
+
+    /// Gets a reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource<R: Resource>(&self) -> Option<&R> {
+        self.world.get_resource()
+    }
+
+    /// Gets a mutable reference to the resource of the given type if it exists
+    #[inline]
+    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        self.world.get_resource_mut()
+    }
+
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
@@ -1134,7 +1369,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        EntityRef::from(self).get_change_ticks::<T>()
+        self.as_readonly().get_change_ticks::<T>()
     }
 
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
@@ -1149,7 +1384,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
-        EntityRef::from(self).get_change_ticks_by_id(component_id)
+        self.as_readonly().get_change_ticks_by_id(component_id)
     }
 
     /// Returns [untyped read-only reference(s)](Ptr) to component(s) for the
@@ -1180,7 +1415,7 @@ impl<'w> EntityWorldMut<'w> {
         &self,
         component_ids: F,
     ) -> Result<F::Ref<'_>, EntityComponentError> {
-        EntityRef::from(self).get_by_id(component_ids)
+        self.as_readonly().get_by_id(component_ids)
     }
 
     /// Consumes `self` and returns [untyped read-only reference(s)](Ptr) to
@@ -1212,10 +1447,7 @@ impl<'w> EntityWorldMut<'w> {
         self,
         component_ids: F,
     ) -> Result<F::Ref<'w>, EntityComponentError> {
-        // SAFETY:
-        // - We have read-only access to all components of this entity.
-        // - consuming `self` ensures that no references exist to this entity's components.
-        unsafe { component_ids.fetch_ref(self.into_unsafe_entity_cell()) }
+        self.into_readonly().get_by_id(component_ids)
     }
 
     /// Returns [untyped mutable reference(s)](MutUntyped) to component(s) for
@@ -1248,10 +1480,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_ids: F,
     ) -> Result<F::Mut<'_>, EntityComponentError> {
-        // SAFETY:
-        // - `&mut self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut(self.as_unsafe_entity_cell()) }
+        self.as_mutable().into_mut_by_id(component_ids)
     }
 
     /// Consumes `self` and returns [untyped mutable reference(s)](MutUntyped)
@@ -1285,10 +1514,7 @@ impl<'w> EntityWorldMut<'w> {
         self,
         component_ids: F,
     ) -> Result<F::Mut<'w>, EntityComponentError> {
-        // SAFETY:
-        // - consuming `self` ensures that no references exist to this entity's components.
-        // - We have exclusive access to all components of this entity.
-        unsafe { component_ids.fetch_mut(self.into_unsafe_entity_cell()) }
+        self.into_mutable().into_mut_by_id(component_ids)
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -1303,8 +1529,8 @@ impl<'w> EntityWorldMut<'w> {
         self.insert_with_caller(
             bundle,
             InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            #[cfg(feature = "track_location")]
+            Location::caller(),
         )
     }
 
@@ -1321,8 +1547,8 @@ impl<'w> EntityWorldMut<'w> {
         self.insert_with_caller(
             bundle,
             InsertMode::Keep,
-            #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            #[cfg(feature = "track_location")]
+            Location::caller(),
         )
     }
 
@@ -1333,7 +1559,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static core::panic::Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1342,7 +1568,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location =
             // SAFETY: location matches current entity. `T` matches `bundle_info`
             unsafe {
-                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_change_detection")] caller)
+                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_location")] caller)
             };
         self.world.flush();
         self.update_location();
@@ -1468,13 +1694,12 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: `archetype_id` exists because it is referenced in the old `EntityLocation` which is valid,
         // components exist in `bundle_info` because `Bundles::init_info` initializes a `BundleInfo` containing all components of the bundle type `T`
         let new_archetype_id = unsafe {
-            remove_bundle_from_archetype(
+            bundle_info.remove_bundle_from_archetype(
                 &mut world.archetypes,
                 storages,
                 components,
                 &world.observers,
                 old_location.archetype_id,
-                bundle_info,
                 false,
             )?
         };
@@ -1533,7 +1758,10 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
-        #[allow(clippy::undocumented_unsafe_blocks)] // TODO: document why this is safe
+        #[expect(
+            clippy::undocumented_unsafe_blocks,
+            reason = "Needs to be documented; see #17345."
+        )]
         unsafe {
             Self::move_entity_from_remove::<false>(
                 entity,
@@ -1560,7 +1788,6 @@ impl<'w> EntityWorldMut<'w> {
     /// when DROP is true removed components will be dropped otherwise they will be forgotten
     // We use a const generic here so that we are less reliant on
     // inlining for rustc to optimize out the `match DROP`
-    #[allow(clippy::too_many_arguments)]
     unsafe fn move_entity_from_remove<const DROP: bool>(
         entity: Entity,
         self_location: &mut EntityLocation,
@@ -1640,7 +1867,6 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Safety
     /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
-    #[allow(clippy::too_many_arguments)]
     unsafe fn remove_bundle(&mut self, bundle: BundleId) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
@@ -1650,17 +1876,17 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
         // and components in `bundle_info` must exist due to this function's safety invariants.
-        let new_archetype_id = remove_bundle_from_archetype(
-            &mut world.archetypes,
-            &mut world.storages,
-            &world.components,
-            &world.observers,
-            location.archetype_id,
-            bundle_info,
-            // components from the bundle that are not present on the entity are ignored
-            true,
-        )
-        .expect("intersections should always return a result");
+        let new_archetype_id = bundle_info
+            .remove_bundle_from_archetype(
+                &mut world.archetypes,
+                &mut world.storages,
+                &world.components,
+                &world.observers,
+                location.archetype_id,
+                // components from the bundle that are not present on the entity are ignored
+                true,
+            )
+            .expect("intersections should always return a result");
 
         if new_archetype_id == location.archetype_id {
             return location;
@@ -1820,6 +2046,31 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Removes a dynamic bundle from the entity if it exists.
+    ///
+    /// You should prefer to use the typed API [`EntityWorldMut::remove`] where possible.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any of the provided [`ComponentId`]s do not exist in the [`World`] or if the
+    /// entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
+        self.assert_not_despawned();
+        let components = &mut self.world.components;
+
+        let bundle_id = self
+            .world
+            .bundles
+            .init_dynamic_info(components, component_ids);
+
+        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
+        unsafe { self.remove_bundle(bundle_id) };
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
     /// Removes all components associated with the entity.
     ///
     /// # Panics
@@ -1846,10 +2097,35 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// See [`World::despawn`] for more details.
     ///
+    /// # Note
+    ///
+    /// This will also despawn any [`Children`](crate::hierarchy::Children) entities, and any other [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. This results in "recursive despawn" behavior.
+    ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
     pub fn despawn(self) {
+        self.despawn_with_caller(
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        );
+    }
+
+    /// Despawns the provided entity and its descendants.
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use entity.despawn(), which now automatically despawns recursively."
+    )]
+    pub fn despawn_recursive(self) {
+        self.despawn();
+    }
+
+    pub(crate) fn despawn_with_caller(
+        self,
+        #[cfg(feature = "track_location")] caller: &'static Location,
+    ) {
         self.assert_not_despawned();
         let world = self.world;
         let archetype = &world.archetypes[self.location.archetype_id];
@@ -1863,6 +2139,10 @@ impl<'w> EntityWorldMut<'w> {
 
         // SAFETY: All components in the archetype exist in world
         unsafe {
+            if archetype.has_despawn_observer() {
+                deferred_world.trigger_observers(ON_DESPAWN, self.entity, archetype.components());
+            }
+            deferred_world.trigger_on_despawn(archetype, self.entity, archetype.components());
             if archetype.has_replace_observer() {
                 deferred_world.trigger_observers(ON_REPLACE, self.entity, archetype.components());
             }
@@ -1938,6 +2218,16 @@ impl<'w> EntityWorldMut<'w> {
                 .set_entity_table_row(moved_location.archetype_row, table_row);
         }
         world.flush();
+
+        #[cfg(feature = "track_location")]
+        {
+            // SAFETY: No structural changes
+            unsafe {
+                world
+                    .entities_mut()
+                    .set_spawned_or_despawned_by(self.entity.index(), caller);
+            }
+        }
     }
 
     /// Ensures any commands triggered by the actions of Self are applied, equivalent to [`World::flush`]
@@ -2108,6 +2398,170 @@ impl<'w> EntityWorldMut<'w> {
         self.update_location();
         self
     }
+
+    /// Clones parts of an entity (components, observers, etc.) onto another entity,
+    /// configured through [`EntityCloneBuilder`].
+    ///
+    /// By default, the other entity will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// # let target = world.spawn_empty().id();
+    /// world.entity_mut(entity).clone_with(target, |builder| {
+    ///     builder.deny::<ComponentB>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(target), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(target), None);
+    /// ```
+    ///
+    /// See the following for more options:
+    /// - [`EntityCloneBuilder`]
+    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
+    /// - `CloneEntityHierarchyExt`
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn clone_with(
+        &mut self,
+        target: Entity,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        config(&mut builder);
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    /// Spawns a clone of this entity and returns the [`Entity`] of the clone.
+    ///
+    /// The clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// To configure cloning behavior (such as only cloning certain components),
+    /// use [`EntityWorldMut::clone_and_spawn_with`].
+    ///
+    /// # Panics
+    ///
+    /// If this entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn clone_and_spawn(&mut self) -> Entity {
+        self.clone_and_spawn_with(|_| {})
+    }
+
+    /// Spawns a clone of this entity and allows configuring cloning behavior
+    /// using [`EntityCloneBuilder`], returning the [`Entity`] of the clone.
+    ///
+    /// By default, the clone will receive all the components of the original that implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentA;
+    /// # #[derive(Component, Clone, PartialEq, Debug)]
+    /// # struct ComponentB;
+    /// # let mut world = World::new();
+    /// # let entity = world.spawn((ComponentA, ComponentB)).id();
+    /// let entity_clone = world.entity_mut(entity).clone_and_spawn_with(|builder| {
+    ///     builder.deny::<ComponentB>();
+    /// });
+    /// # assert_eq!(world.get::<ComponentA>(entity_clone), Some(&ComponentA));
+    /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
+    /// ```
+    ///
+    /// See the following for more options:
+    /// - [`EntityCloneBuilder`]
+    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
+    /// - `CloneEntityHierarchyExt`
+    ///
+    /// # Panics
+    ///
+    /// If this entity has been despawned while this `EntityWorldMut` is still alive.
+    pub fn clone_and_spawn_with(
+        &mut self,
+        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    ) -> Entity {
+        self.assert_not_despawned();
+
+        let entity_clone = self.world.entities.reserve_entity();
+        self.world.flush();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        config(&mut builder);
+        builder.clone_entity(self.entity, entity_clone);
+
+        self.world.flush();
+        self.update_location();
+        entity_clone
+    }
+
+    /// Clones the specified components of this entity and inserts them into another entity.
+    ///
+    /// Components can only be cloned if they implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        builder.deny_all().allow::<B>();
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    /// Clones the specified components of this entity and inserts them into another entity,
+    /// then removes the components from this entity.
+    ///
+    /// Components can only be cloned if they implement
+    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    ///
+    /// # Panics
+    ///
+    /// - If this entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the target entity does not exist.
+    pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+        self.assert_not_despawned();
+
+        let mut builder = EntityCloneBuilder::new(self.world);
+        builder.deny_all().allow::<B>();
+        builder.move_components(true);
+        builder.clone_entity(self.entity, target);
+
+        self.world.flush();
+        self.update_location();
+        self
+    }
+
+    /// Returns the source code location from which this entity has last been spawned.
+    #[cfg(feature = "track_location")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.world()
+            .entities()
+            .entity_get_spawned_or_despawned_by(self.entity)
+            .unwrap()
+    }
 }
 
 /// # Safety
@@ -2131,8 +2585,6 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     }
     deferred_world.trigger_on_remove(archetype, entity, bundle_info.iter_explicit_components());
 }
-
-const QUERY_MISMATCH_ERROR: &str = "Query does not match the current entity";
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
 ///
@@ -2641,23 +3093,29 @@ impl<'w> FilteredEntityRef<'w> {
             .then(|| unsafe { self.entity.get_by_id(component_id) })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_location")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
     #[inline]
-    fn from(entity_mut: FilteredEntityMut<'w>) -> Self {
+    fn from(entity: FilteredEntityMut<'w>) -> Self {
         // SAFETY:
         // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity_mut.entity, entity_mut.access) }
+        unsafe { FilteredEntityRef::new(entity.entity, entity.access) }
     }
 }
 
 impl<'a> From<&'a FilteredEntityMut<'_>> for FilteredEntityRef<'a> {
     #[inline]
-    fn from(entity_mut: &'a FilteredEntityMut<'_>) -> Self {
+    fn from(entity: &'a FilteredEntityMut<'_>) -> Self {
         // SAFETY:
         // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity_mut.entity, entity_mut.access.clone()) }
+        unsafe { FilteredEntityRef::new(entity.entity, entity.access.clone()) }
     }
 }
 
@@ -2668,7 +3126,7 @@ impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a> {
         unsafe {
             let mut access = Access::default();
             access.read_all();
-            FilteredEntityRef::new(entity.0, access)
+            FilteredEntityRef::new(entity.cell, access)
         }
     }
 }
@@ -2680,7 +3138,7 @@ impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a> {
         unsafe {
             let mut access = Access::default();
             access.read_all();
-            FilteredEntityRef::new(entity.0, access)
+            FilteredEntityRef::new(entity.cell, access)
         }
     }
 }
@@ -2692,7 +3150,7 @@ impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a> {
         unsafe {
             let mut access = Access::default();
             access.read_all();
-            FilteredEntityRef::new(entity.0, access)
+            FilteredEntityRef::new(entity.cell, access)
         }
     }
 }
@@ -2704,7 +3162,7 @@ impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a> {
         unsafe {
             let mut access = Access::default();
             access.read_all();
-            FilteredEntityRef::new(entity.0, access)
+            FilteredEntityRef::new(entity.cell, access)
         }
     }
 }
@@ -2732,6 +3190,43 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
         }
     }
 }
+
+impl PartialEq for FilteredEntityRef<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for FilteredEntityRef<'_> {}
+
+impl PartialOrd for FilteredEntityRef<'_> {
+    /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FilteredEntityRef<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for FilteredEntityRef<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for FilteredEntityRef<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for FilteredEntityRef<'_> {}
 
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
@@ -2962,6 +3457,12 @@ impl<'w> FilteredEntityMut<'w> {
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
             .flatten()
     }
+
+    /// Returns the source code location from which this entity has last been spawned.
+    #[cfg(feature = "track_location")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
@@ -2972,7 +3473,7 @@ impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
             let mut access = Access::default();
             access.read_all();
             access.write_all();
-            FilteredEntityMut::new(entity.0, access)
+            FilteredEntityMut::new(entity.cell, access)
         }
     }
 }
@@ -2985,7 +3486,7 @@ impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a> {
             let mut access = Access::default();
             access.read_all();
             access.write_all();
-            FilteredEntityMut::new(entity.0, access)
+            FilteredEntityMut::new(entity.cell, access)
         }
     }
 }
@@ -3016,6 +3517,43 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
+impl PartialEq for FilteredEntityMut<'_> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl Eq for FilteredEntityMut<'_> {}
+
+impl PartialOrd for FilteredEntityMut<'_> {
+    /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for FilteredEntityMut<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl Hash for FilteredEntityMut<'_> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl EntityBorrow for FilteredEntityMut<'_> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl TrustedEntityBorrow for FilteredEntityMut<'_> {}
+
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
 /// ([`EntityRef`]/[`EntityMut`]).
@@ -3033,7 +3571,6 @@ pub enum TryFromFilteredError {
 
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
-#[derive(Clone)]
 pub struct EntityRefExcept<'w, B>
 where
     B: Bundle,
@@ -3100,18 +3637,69 @@ where
             unsafe { self.entity.get_ref() }
         }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_location")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
 
 impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
 where
     B: Bundle,
 {
-    fn from(entity_mut: &'a EntityMutExcept<'_, B>) -> Self {
+    fn from(entity: &'a EntityMutExcept<'_, B>) -> Self {
         // SAFETY: All accesses that `EntityRefExcept` provides are also
         // accesses that `EntityMutExcept` provides.
-        unsafe { EntityRefExcept::new(entity_mut.entity) }
+        unsafe { EntityRefExcept::new(entity.entity) }
     }
 }
+
+impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+
+impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
+
+impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+    /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<B: Bundle> EntityBorrow for EntityRefExcept<'_, B> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl<B: Bundle> TrustedEntityBorrow for EntityRefExcept<'_, B> {}
 
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
@@ -3121,7 +3709,6 @@ where
 /// queries that might match entities that this query also matches. If you don't
 /// need access to all components, prefer a standard query with a
 /// [`crate::query::Without`] filter.
-#[derive(Clone)]
 pub struct EntityMutExcept<'w, B>
 where
     B: Bundle,
@@ -3208,7 +3795,50 @@ where
             unsafe { self.entity.get_mut() }
         }
     }
+
+    /// Returns the source code location from which this entity has been spawned.
+    #[cfg(feature = "track_location")]
+    pub fn spawned_by(&self) -> &'static Location<'static> {
+        self.entity.spawned_by()
+    }
 }
+
+impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
+    fn eq(&self, other: &Self) -> bool {
+        self.entity() == other.entity()
+    }
+}
+
+impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
+
+impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+    /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
+    /// and cannot discern between different worlds.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.entity().cmp(&other.entity())
+    }
+}
+
+impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.entity().hash(state);
+    }
+}
+
+impl<B: Bundle> EntityBorrow for EntityMutExcept<'_, B> {
+    fn entity(&self) -> Entity {
+        self.id()
+    }
+}
+
+// SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
+unsafe impl<B: Bundle> TrustedEntityBorrow for EntityMutExcept<'_, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where
@@ -3265,130 +3895,10 @@ unsafe fn insert_dynamic_bundle<
             location,
             bundle,
             InsertMode::Replace,
-            #[cfg(feature = "track_change_detection")]
-            core::panic::Location::caller(),
+            #[cfg(feature = "track_location")]
+            Location::caller(),
         )
     }
-}
-
-/// Removes a bundle from the given archetype and returns the resulting archetype (or None if the
-/// removal was invalid). in the event that adding the given bundle does not result in an Archetype
-/// change. Results are cached in the Archetype Graph to avoid redundant work.
-/// if `intersection` is false, attempting to remove a bundle with components _not_ contained in the
-/// current archetype will fail, returning None. if `intersection` is true, components in the bundle
-/// but not in the current archetype will be ignored
-///
-/// # Safety
-/// `archetype_id` must exist and components in `bundle_info` must exist
-unsafe fn remove_bundle_from_archetype(
-    archetypes: &mut Archetypes,
-    storages: &mut Storages,
-    components: &Components,
-    observers: &Observers,
-    archetype_id: ArchetypeId,
-    bundle_info: &BundleInfo,
-    intersection: bool,
-) -> Option<ArchetypeId> {
-    // check the archetype graph to see if the Bundle has been removed from this archetype in the
-    // past
-    let remove_bundle_result = {
-        let edges = archetypes[archetype_id].edges();
-        if intersection {
-            edges.get_remove_bundle(bundle_info.id())
-        } else {
-            edges.get_take_bundle(bundle_info.id())
-        }
-    };
-    let result = if let Some(result) = remove_bundle_result {
-        // this Bundle removal result is cached. just return that!
-        result
-    } else {
-        let mut next_table_components;
-        let mut next_sparse_set_components;
-        let next_table_id;
-        {
-            let current_archetype = &mut archetypes[archetype_id];
-            let mut removed_table_components = Vec::new();
-            let mut removed_sparse_set_components = Vec::new();
-            for component_id in bundle_info.iter_explicit_components() {
-                if current_archetype.contains(component_id) {
-                    // SAFETY: bundle components were already initialized by bundles.get_info
-                    let component_info = unsafe { components.get_info_unchecked(component_id) };
-                    match component_info.storage_type() {
-                        StorageType::Table => removed_table_components.push(component_id),
-                        StorageType::SparseSet => removed_sparse_set_components.push(component_id),
-                    }
-                } else if !intersection {
-                    // a component in the bundle was not present in the entity's archetype, so this
-                    // removal is invalid cache the result in the archetype
-                    // graph
-                    current_archetype
-                        .edges_mut()
-                        .insert_take_bundle(bundle_info.id(), None);
-                    return None;
-                }
-            }
-
-            // sort removed components so we can do an efficient "sorted remove". archetype
-            // components are already sorted
-            removed_table_components.sort_unstable();
-            removed_sparse_set_components.sort_unstable();
-            next_table_components = current_archetype.table_components().collect();
-            next_sparse_set_components = current_archetype.sparse_set_components().collect();
-            sorted_remove(&mut next_table_components, &removed_table_components);
-            sorted_remove(
-                &mut next_sparse_set_components,
-                &removed_sparse_set_components,
-            );
-
-            next_table_id = if removed_table_components.is_empty() {
-                current_archetype.table_id()
-            } else {
-                // SAFETY: all components in next_table_components exist
-                unsafe {
-                    storages
-                        .tables
-                        .get_id_or_insert(&next_table_components, components)
-                }
-            };
-        }
-
-        let new_archetype_id = archetypes.get_id_or_insert(
-            components,
-            observers,
-            next_table_id,
-            next_table_components,
-            next_sparse_set_components,
-        );
-        Some(new_archetype_id)
-    };
-    let current_archetype = &mut archetypes[archetype_id];
-    // cache the result in an edge
-    if intersection {
-        current_archetype
-            .edges_mut()
-            .insert_remove_bundle(bundle_info.id(), result);
-    } else {
-        current_archetype
-            .edges_mut()
-            .insert_take_bundle(bundle_info.id(), result);
-    }
-    result
-}
-
-fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
-    let mut remove_index = 0;
-    source.retain(|value| {
-        while remove_index < remove.len() && *value > remove[remove_index] {
-            remove_index += 1;
-        }
-
-        if remove_index < remove.len() {
-            *value != remove[remove_index]
-        } else {
-            true
-        }
-    });
 }
 
 /// Moves component data out of storage.
@@ -3686,8 +4196,14 @@ unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
+
+    #[cfg(feature = "track_location")]
+    use core::panic::Location;
+    #[cfg(feature = "track_location")]
+    use std::sync::OnceLock;
 
     use crate::{
         self as bevy_ecs,
@@ -3699,27 +4215,6 @@ mod tests {
     };
 
     use super::{EntityMutExcept, EntityRefExcept};
-
-    #[test]
-    fn sorted_remove() {
-        let mut a = vec![1, 2, 3, 4, 5, 6, 7];
-        let b = vec![1, 2, 3, 5, 7];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![4, 6]);
-
-        let mut a = vec![1];
-        let b = vec![1];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![]);
-
-        let mut a = vec![1];
-        let b = vec![2];
-        super::sorted_remove(&mut a, &b);
-
-        assert_eq!(a, vec![1]);
-    }
 
     #[derive(Component, Clone, Copy, Debug, PartialEq)]
     struct TestComponent(u32);
@@ -4718,9 +5213,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(
-        expected = "Entity 1v1 has been despawned, possibly by hooks or observers, so must not be accessed through EntityWorldMut after despawn."
-    )]
+    #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
         world.add_observer(
@@ -4799,7 +5292,8 @@ mod tests {
             .resource_mut::<TestVec>()
             .0
             .push("OrdA hook on_insert");
-        world.commands().entity(entity).despawn();
+        world.commands().entity(entity).remove::<OrdA>();
+        world.commands().entity(entity).remove::<OrdB>();
     }
 
     fn ord_a_hook_on_replace(mut world: DeferredWorld, _entity: Entity, _id: ComponentId) {
@@ -4907,15 +5401,220 @@ mod tests {
             "OrdB observer on_insert",
             "OrdB command on_add", // command added by OrdB hook on_add, needs to run before despawn command
             "OrdA observer on_replace", // start of despawn
-            "OrdB observer on_replace",
             "OrdA hook on_replace",
-            "OrdB hook on_replace",
             "OrdA observer on_remove",
-            "OrdB observer on_remove",
             "OrdA hook on_remove",
+            "OrdB observer on_replace",
+            "OrdB hook on_replace",
+            "OrdB observer on_remove",
             "OrdB hook on_remove",
         ];
         world.flush();
         assert_eq!(world.resource_mut::<TestVec>().0.as_slice(), &expected[..]);
+    }
+
+    #[test]
+    fn entity_world_mut_clone_and_move_components() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct B;
+
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct C(u32);
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        struct D;
+
+        let mut world = World::new();
+        let entity_a = world.spawn((A, B, C(5))).id();
+        let entity_b = world.spawn((A, C(4))).id();
+
+        world.entity_mut(entity_a).clone_components::<B>(entity_b);
+        assert_eq!(world.entity(entity_a).get::<B>(), Some(&B));
+        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B));
+
+        world.entity_mut(entity_a).move_components::<C>(entity_b);
+        assert_eq!(world.entity(entity_a).get::<C>(), None);
+        assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(5)));
+
+        assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
+        assert_eq!(world.entity(entity_b).get::<A>(), Some(&A));
+    }
+
+    #[test]
+    fn entity_world_mut_clone_with_move_and_require() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(C(|| C(3)))]
+        struct B;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(D)]
+        struct C(u32);
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        struct D;
+
+        let mut world = World::new();
+        let entity_a = world.spawn(A).id();
+        let entity_b = world.spawn_empty().id();
+
+        world.entity_mut(entity_a).clone_with(entity_b, |builder| {
+            builder.move_components(true);
+            builder.without_required_components(|builder| {
+                builder.deny::<A>();
+            });
+        });
+
+        assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
+        assert_eq!(world.entity(entity_b).get::<A>(), None);
+
+        assert_eq!(world.entity(entity_a).get::<B>(), None);
+        assert_eq!(world.entity(entity_b).get::<B>(), Some(&B));
+
+        assert_eq!(world.entity(entity_a).get::<C>(), None);
+        assert_eq!(world.entity(entity_b).get::<C>(), Some(&C(3)));
+
+        assert_eq!(world.entity(entity_a).get::<D>(), None);
+        assert_eq!(world.entity(entity_b).get::<D>(), Some(&D));
+    }
+
+    #[test]
+    #[cfg(feature = "track_location")]
+    fn update_despawned_by_after_observers() {
+        let mut world = World::new();
+
+        #[derive(Component)]
+        #[component(on_remove = get_tracked)]
+        struct C;
+
+        static TRACKED: OnceLock<&'static Location<'static>> = OnceLock::new();
+        fn get_tracked(world: DeferredWorld, entity: Entity, _: ComponentId) {
+            TRACKED.get_or_init(|| {
+                world
+                    .entities
+                    .entity_get_spawned_or_despawned_by(entity)
+                    .unwrap()
+            });
+        }
+
+        #[track_caller]
+        fn caller_spawn(world: &mut World) -> (Entity, &'static Location<'static>) {
+            let caller = Location::caller();
+            (world.spawn(C).id(), caller)
+        }
+        let (entity, spawner) = caller_spawn(&mut world);
+
+        assert_eq!(
+            spawner,
+            world
+                .entities()
+                .entity_get_spawned_or_despawned_by(entity)
+                .unwrap()
+        );
+
+        #[track_caller]
+        fn caller_despawn(world: &mut World, entity: Entity) -> &'static Location<'static> {
+            world.despawn(entity);
+            Location::caller()
+        }
+        let despawner = caller_despawn(&mut world, entity);
+
+        assert_eq!(spawner, *TRACKED.get().unwrap());
+        assert_eq!(
+            despawner,
+            world
+                .entities()
+                .entity_get_spawned_or_despawned_by(entity)
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn with_component_activates_hooks() {
+        use core::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+
+        #[derive(Component, PartialEq, Eq, Debug)]
+        #[component(immutable)]
+        struct Foo(bool);
+
+        static EXPECTED_VALUE: AtomicBool = AtomicBool::new(false);
+
+        static ADD_COUNT: AtomicU8 = AtomicU8::new(0);
+        static REMOVE_COUNT: AtomicU8 = AtomicU8::new(0);
+        static REPLACE_COUNT: AtomicU8 = AtomicU8::new(0);
+        static INSERT_COUNT: AtomicU8 = AtomicU8::new(0);
+
+        let mut world = World::default();
+
+        world.register_component::<Foo>();
+        world
+            .register_component_hooks::<Foo>()
+            .on_add(|world, entity, _| {
+                ADD_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_remove(|world, entity, _| {
+                REMOVE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_replace(|world, entity, _| {
+                REPLACE_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            })
+            .on_insert(|world, entity, _| {
+                INSERT_COUNT.fetch_add(1, Ordering::Relaxed);
+
+                assert_eq!(
+                    world.get(entity),
+                    Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
+                );
+            });
+
+        let entity = world.spawn(Foo(false)).id();
+
+        assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 1);
+
+        let mut entity = world.entity_mut(entity);
+
+        let archetype_pointer_before = &raw const *entity.archetype();
+
+        assert_eq!(entity.get::<Foo>(), Some(&Foo(false)));
+
+        entity.modify_component(|foo: &mut Foo| {
+            foo.0 = true;
+            EXPECTED_VALUE.store(foo.0, Ordering::Relaxed);
+        });
+
+        let archetype_pointer_after = &raw const *entity.archetype();
+
+        assert_eq!(entity.get::<Foo>(), Some(&Foo(true)));
+
+        assert_eq!(ADD_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(REMOVE_COUNT.load(Ordering::Relaxed), 0);
+        assert_eq!(REPLACE_COUNT.load(Ordering::Relaxed), 1);
+        assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 2);
+
+        assert_eq!(archetype_pointer_before, archetype_pointer_after);
     }
 }

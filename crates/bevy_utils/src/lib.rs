@@ -1,17 +1,16 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![expect(
-    unsafe_code,
-    reason = "Some utilities, such as futures and cells, require unsafe code."
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! General utilities for first-party [Bevy] engine crates.
 //!
 //! [Bevy]: https://bevyengine.org/
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
@@ -23,17 +22,16 @@ pub mod prelude {
     pub use crate::default;
 }
 
-pub mod futures;
 pub mod synccell;
 pub mod syncunsafecell;
 
 mod default;
-mod object_safe;
-pub use object_safe::assert_object_safe;
 mod once;
 #[cfg(feature = "std")]
 mod parallel_queue;
-mod time;
+
+#[doc(hidden)]
+pub use once::OnceFlag;
 
 /// For when you want a deterministic hasher.
 ///
@@ -60,11 +58,6 @@ pub use foldhash::fast::{FixedState, FoldHasher as DefaultHasher, RandomState};
 pub use hashbrown;
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
-pub use time::*;
-pub use tracing;
-
-#[cfg(feature = "alloc")]
-use alloc::boxed::Box;
 
 #[cfg(feature = "alloc")]
 use core::any::TypeId;
@@ -75,32 +68,6 @@ use core::{
     mem::ManuallyDrop,
     ops::Deref,
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-mod conditional_send {
-    /// Use [`ConditionalSend`] to mark an optional Send trait bound. Useful as on certain platforms (eg. Wasm),
-    /// futures aren't Send.
-    pub trait ConditionalSend: Send {}
-    impl<T: Send> ConditionalSend for T {}
-}
-
-#[cfg(target_arch = "wasm32")]
-#[expect(missing_docs, reason = "Not all docs are written yet (#3492).")]
-mod conditional_send {
-    pub trait ConditionalSend {}
-    impl<T> ConditionalSend for T {}
-}
-
-pub use conditional_send::*;
-
-/// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
-/// futures aren't Send.
-pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
-impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
-
-/// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
-#[cfg(feature = "alloc")]
-pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
 #[cfg(feature = "alloc")]
@@ -393,43 +360,13 @@ impl<F: FnOnce()> OnDrop<F> {
 
 impl<F: FnOnce()> Drop for OnDrop<F> {
     fn drop(&mut self) {
+        #![expect(
+            unsafe_code,
+            reason = "Taking from a ManuallyDrop requires unsafe code."
+        )]
         // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
         let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
         callback();
-    }
-}
-
-/// Calls the [`tracing::info!`] macro on a value.
-pub fn info<T: Debug>(data: T) {
-    tracing::info!("{:?}", data);
-}
-
-/// Calls the [`tracing::debug!`] macro on a value.
-pub fn dbg<T: Debug>(data: T) {
-    tracing::debug!("{:?}", data);
-}
-
-/// Processes a [`Result`] by calling the [`tracing::warn!`] macro in case of an [`Err`] value.
-pub fn warn<E: Debug>(result: Result<(), E>) {
-    if let Err(warn) = result {
-        tracing::warn!("{:?}", warn);
-    }
-}
-
-/// Processes a [`Result`] by calling the [`tracing::error!`] macro in case of an [`Err`] value.
-pub fn error<E: Debug>(result: Result<(), E>) {
-    if let Err(error) = result {
-        tracing::error!("{:?}", error);
-    }
-}
-
-/// Like [`tracing::trace`], but conditional on cargo feature `detailed_trace`.
-#[macro_export]
-macro_rules! detailed_trace {
-    ($($tts:tt)*) => {
-        if cfg!(feature = "detailed_trace") {
-            $crate::tracing::trace!($($tts)*);
-        }
     }
 }
 

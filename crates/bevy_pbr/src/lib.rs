@@ -1,7 +1,6 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -25,8 +24,9 @@ pub mod experimental {
     }
 }
 
-mod bundle;
 mod cluster;
+mod components;
+pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -47,10 +47,9 @@ mod volumetric_fog;
 use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
-use core::marker::PhantomData;
 
-pub use bundle::*;
 pub use cluster::*;
+pub use components::*;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -64,29 +63,17 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-#[allow(deprecated)]
-pub use volumetric_fog::{
-    FogVolume, FogVolumeBundle, VolumetricFog, VolumetricFogPlugin, VolumetricFogSettings,
-    VolumetricLight,
-};
+pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, VolumetricLight};
 
 /// The PBR prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        bundle::{
-            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
-            SpotLightBundle,
-        },
         fog::{DistanceFog, FogFalloff},
         light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
-        light_probe::{
-            environment_map::{EnvironmentMapLight, ReflectionProbeBundle},
-            LightProbe,
-        },
+        light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
@@ -111,6 +98,8 @@ pub mod graph {
         GpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
+        /// Label for the indirect parameters building pass.
+        BuildIndirectParameters,
     }
 }
 
@@ -122,10 +111,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{
-        CameraProjection, CameraUpdateSystem, OrthographicProjection, PerspectiveProjection,
-        Projection,
-    },
+    camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     render_asset::prepare_assets,
@@ -133,7 +119,7 @@ use bevy_render::{
     render_resource::Shader,
     sync_component::SyncComponentPlugin,
     texture::GpuImage,
-    view::{check_visibility, VisibilitySystems},
+    view::VisibilitySystems,
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -164,8 +150,8 @@ pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(26590
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2325134235233421);
 
-const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
-const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -342,9 +328,7 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                PbrProjectionPlugin::<Projection>::default(),
-                PbrProjectionPlugin::<PerspectiveProjection>::default(),
-                PbrProjectionPlugin::<OrthographicProjection>::default(),
+                PbrProjectionPlugin,
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
@@ -352,9 +336,11 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceReflectionsPlugin,
             ))
             .add_plugins((
+                decal::ForwardDecalPlugin,
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+                ExtractComponentPlugin::<AmbientLight>::default(),
             ))
             .configure_sets(
                 PostUpdate,
@@ -384,8 +370,7 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::AssignLightsToClusters)
                         .after(TransformSystem::TransformPropagate)
                         .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystem)
-                        .ambiguous_with(VisibilitySystems::VisibilityChangeDetect),
+                        .after(CameraUpdateSystem),
                     clear_directional_light_cascades
                         .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                         .after(TransformSystem::TransformPropagate)
@@ -399,8 +384,7 @@ impl Plugin for PbrPlugin {
                         // We assume that no entity will be both a directional light and a spot light,
                         // so these systems will run independently of one another.
                         // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_spot_light_frusta)
-                        .ambiguous_with(VisibilitySystems::VisibilityChangeDetect),
+                        .ambiguous_with(update_spot_light_frusta),
                     update_point_light_frusta
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
@@ -409,7 +393,6 @@ impl Plugin for PbrPlugin {
                         .in_set(SimulationLightSystems::UpdateLightFrusta)
                         .after(TransformSystem::TransformPropagate)
                         .after(SimulationLightSystems::AssignLightsToClusters),
-                    check_visibility::<WithLight>.in_set(VisibilitySystems::CheckVisibility),
                     (
                         check_dir_light_mesh_visibility,
                         check_point_light_mesh_visibility,
@@ -421,8 +404,7 @@ impl Plugin for PbrPlugin {
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                         // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
-                        .after(VisibilitySystems::CheckVisibility)
-                        .ambiguous_with(VisibilitySystems::VisibilityChangeDetect),
+                        .after(VisibilitySystems::CheckVisibility),
                 ),
             );
 
@@ -457,7 +439,8 @@ impl Plugin for PbrPlugin {
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .init_resource::<LightMeta>();
+            .init_resource::<LightMeta>()
+            .init_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app
@@ -485,20 +468,16 @@ impl Plugin for PbrPlugin {
     }
 }
 
-/// [`CameraProjection`] specific PBR functionality.
-pub struct PbrProjectionPlugin<T: CameraProjection + Component>(PhantomData<T>);
-impl<T: CameraProjection + Component> Plugin for PbrProjectionPlugin<T> {
+/// Camera projection PBR functionality.
+#[derive(Default)]
+pub struct PbrProjectionPlugin;
+impl Plugin for PbrProjectionPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             PostUpdate,
-            build_directional_light_cascades::<T>
+            build_directional_light_cascades
                 .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
                 .after(clear_directional_light_cascades),
         );
-    }
-}
-impl<T: CameraProjection + Component> Default for PbrProjectionPlugin<T> {
-    fn default() -> Self {
-        Self(Default::default())
     }
 }

@@ -228,7 +228,7 @@ fn create_texture_atlas(
         let id = handle.id().typed_unchecked::<Image>();
         let Some(texture) = textures.get(id) else {
             warn!(
-                "{:?} did not resolve to an `Image` asset.",
+                "{} did not resolve to an `Image` asset.",
                 handle.path().unwrap()
             );
             continue;

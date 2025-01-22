@@ -7,7 +7,7 @@
   entities: {
     4294967296: (
       components: {
-        "bevy_core::name::Name": (
+        "bevy_ecs::name::Name": (
           hash: 17588334858059901562,
           name: "joe",
         ),

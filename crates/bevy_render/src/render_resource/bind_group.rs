@@ -256,7 +256,8 @@ impl Deref for BindGroup {
 ///       shader Bevy will instead present a *binding array* of `COUNT` elements.
 ///       In your shader, the index of the element of each binding array
 ///       corresponding to the mesh currently being drawn can be retrieved with
-///       `mesh[in.instance_index].material_bind_group_slot`.
+///       `mesh[in.instance_index].material_and_lightmap_bind_group_slot &
+///       0xffffu`.
 ///     * Bindless uniforms don't exist, so in bindless mode all uniforms and
 ///       uniform buffers are automatically replaced with read-only storage
 ///       buffers.
@@ -337,7 +338,18 @@ pub trait AsBindGroup {
     /// Note that the *actual* slot count may be different from this value, due
     /// to platform limitations. For example, if bindless resources aren't
     /// supported on this platform, the actual slot count will be 1.
-    const BINDLESS_SLOT_COUNT: Option<u32> = None;
+    fn bindless_slot_count() -> Option<u32> {
+        None
+    }
+
+    /// True if the hardware *actually* supports bindless textures for this
+    /// type, taking the device and driver capabilities into account.
+    ///
+    /// If this type doesn't use bindless textures, then the return value from
+    /// this function is meaningless.
+    fn bindless_supported(_: &RenderDevice) -> bool {
+        true
+    }
 
     /// label
     fn label() -> Option<&'static str> {
@@ -402,7 +414,7 @@ pub trait AsBindGroup {
         )
     }
 
-    /// Returns a vec of bind group layout entries
+    /// Returns a vec of bind group layout entries.
     ///
     /// Set `force_no_bindless` to true to require that bindless textures *not*
     /// be used. `ExtendedMaterial` uses this in order to ensure that the base

@@ -5,19 +5,23 @@ use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
-    entity::{Entity, EntityCloner},
+    entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
+    resource::Resource,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    system::{Local, Resource, SystemParam},
+    system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
-use alloc::{borrow::Cow, sync::Arc};
+#[cfg(feature = "bevy_reflect")]
+use alloc::boxed::Box;
+use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
+use bevy_platform_support::sync::Arc;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     alloc::Layout,
@@ -413,7 +417,7 @@ pub trait Component: Send + Sync + 'static {
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
     fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::default()
+        ComponentCloneHandler::default_handler()
     }
 }
 
@@ -555,6 +559,7 @@ pub struct ComponentHooks {
     pub(crate) on_insert: Option<ComponentHook>,
     pub(crate) on_replace: Option<ComponentHook>,
     pub(crate) on_remove: Option<ComponentHook>,
+    pub(crate) on_despawn: Option<ComponentHook>,
 }
 
 impl ComponentHooks {
@@ -621,6 +626,16 @@ impl ComponentHooks {
             .expect("Component already has an on_remove hook")
     }
 
+    /// Register a [`ComponentHook`] that will be run for each component on an entity when it is despawned.
+    ///
+    /// # Panics
+    ///
+    /// Will panic if the component already has an `on_despawn` hook
+    pub fn on_despawn(&mut self, hook: ComponentHook) -> &mut Self {
+        self.try_on_despawn(hook)
+            .expect("Component already has an on_despawn hook")
+    }
+
     /// Attempt to register a [`ComponentHook`] that will be run when this component is added to an entity.
     ///
     /// This is a fallible version of [`Self::on_add`].
@@ -670,6 +685,19 @@ impl ComponentHooks {
             return None;
         }
         self.on_remove = Some(hook);
+        Some(self)
+    }
+
+    /// Attempt to register a [`ComponentHook`] that will be run for each component on an entity when it is despawned.
+    ///
+    /// This is a fallible version of [`Self::on_despawn`].
+    ///
+    /// Returns `None` if the component already has an `on_despawn` hook.
+    pub fn try_on_despawn(&mut self, hook: ComponentHook) -> Option<&mut Self> {
+        if self.on_despawn.is_some() {
+            return None;
+        }
+        self.on_despawn = Some(hook);
         Some(self)
     }
 }
@@ -766,6 +794,9 @@ impl ComponentInfo {
         }
         if self.hooks().on_remove.is_some() {
             flags.insert(ArchetypeFlags::ON_REMOVE_HOOK);
+        }
+        if self.hooks().on_despawn.is_some() {
+            flags.insert(ArchetypeFlags::ON_DESPAWN_HOOK);
         }
     }
 
@@ -975,18 +1006,45 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut DeferredWorld, &EntityCloner);
+pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
 
-/// An enum instructing how to clone a component.
-#[derive(Debug, Default)]
-pub enum ComponentCloneHandler {
-    #[default]
+/// A struct instructing which clone handler to use when cloning a component.
+#[derive(Debug)]
+pub struct ComponentCloneHandler(Option<ComponentCloneFn>);
+
+impl ComponentCloneHandler {
     /// Use the global default function to clone the component with this handler.
-    Default,
+    pub fn default_handler() -> Self {
+        Self(None)
+    }
+
     /// Do not clone the component. When a command to clone an entity is issued, component with this handler will be skipped.
-    Ignore,
+    pub fn ignore() -> Self {
+        Self(Some(component_clone_ignore))
+    }
+
+    /// Set clone handler based on `Clone` trait.
+    ///
+    /// If set as a handler for a component that is not the same as the one used to create this handler, it will panic.
+    pub fn clone_handler<C: Component + Clone>() -> Self {
+        Self(Some(component_clone_via_clone::<C>))
+    }
+
+    /// Set clone handler based on `Reflect` trait.
+    #[cfg(feature = "bevy_reflect")]
+    pub fn reflect_handler() -> Self {
+        Self(Some(component_clone_via_reflect))
+    }
+
     /// Set a custom handler for the component.
-    Custom(ComponentCloneFn),
+    pub fn custom_handler(handler: ComponentCloneFn) -> Self {
+        Self(Some(handler))
+    }
+
+    /// Get [`ComponentCloneFn`] representing this handler or `None` if set to default handler.
+    pub fn get_handler(&self) -> Option<ComponentCloneFn> {
+        self.0
+    }
 }
 
 /// A registry of component clone handlers. Allows to set global default and per-component clone function for all components in the world.
@@ -997,7 +1055,7 @@ pub struct ComponentCloneHandlers {
 }
 
 impl ComponentCloneHandlers {
-    /// Sets the default handler for this registry. All components with [`Default`](ComponentCloneHandler::Default) handler, as well as any component that does not have an
+    /// Sets the default handler for this registry. All components with [`default`](ComponentCloneHandler::default_handler) handler, as well as any component that does not have an
     /// explicitly registered clone function will use this handler.
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
@@ -1017,11 +1075,7 @@ impl ComponentCloneHandlers {
         if id.0 >= self.handlers.len() {
             self.handlers.resize(id.0 + 1, None);
         }
-        match handler {
-            ComponentCloneHandler::Default => self.handlers[id.0] = None,
-            ComponentCloneHandler::Ignore => self.handlers[id.0] = Some(component_clone_ignore),
-            ComponentCloneHandler::Custom(handler) => self.handlers[id.0] = Some(handler),
-        };
+        self.handlers[id.0] = handler.0;
     }
 
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
@@ -1870,14 +1924,14 @@ pub enum RequiredComponentsError {
 }
 
 /// A Required Component constructor. See [`Component`] for details.
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, &'static Location<'static>)>,
 );
 
 /// A Required Component constructor. See [`Component`] for details.
-#[cfg(not(feature = "track_change_detection"))]
+#[cfg(not(feature = "track_location"))]
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     pub Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity)>,
@@ -1900,7 +1954,7 @@ impl RequiredComponentConstructor {
         change_tick: Tick,
         table_row: TableRow,
         entity: Entity,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         (self.0)(
             table,
@@ -1908,7 +1962,7 @@ impl RequiredComponentConstructor {
             change_tick,
             table_row,
             entity,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2005,35 +2059,69 @@ impl RequiredComponents {
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {
-        let erased: RequiredComponentConstructor = RequiredComponentConstructor(Arc::new(
-            move |table,
-                  sparse_sets,
-                  change_tick,
-                  table_row,
-                  entity,
-                  #[cfg(feature = "track_change_detection")] caller| {
-                OwningPtr::make(constructor(), |ptr| {
-                    // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
-                    // pass in a valid table_row and entity requiring a C constructor
-                    // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
-                    // `ptr` points to valid `C` data, which matches the type associated with `component_id`
-                    unsafe {
-                        BundleInfo::initialize_required_component(
-                            table,
-                            sparse_sets,
-                            change_tick,
-                            table_row,
-                            entity,
-                            component_id,
-                            C::STORAGE_TYPE,
-                            ptr,
-                            #[cfg(feature = "track_change_detection")]
-                            caller,
-                        );
-                    }
-                });
-            },
-        ));
+        let erased: RequiredComponentConstructor = RequiredComponentConstructor({
+            // `portable-atomic-util` `Arc` is not able to coerce an unsized
+            // type like `std::sync::Arc` can. Creating a `Box` first does the
+            // coercion.
+            //
+            // This would be resolved by https://github.com/rust-lang/rust/issues/123430
+
+            #[cfg(feature = "portable-atomic")]
+            use alloc::boxed::Box;
+
+            #[cfg(feature = "track_location")]
+            type Constructor = dyn for<'a, 'b> Fn(
+                &'a mut Table,
+                &'b mut SparseSets,
+                Tick,
+                TableRow,
+                Entity,
+                &'static Location<'static>,
+            );
+
+            #[cfg(not(feature = "track_location"))]
+            type Constructor =
+                dyn for<'a, 'b> Fn(&'a mut Table, &'b mut SparseSets, Tick, TableRow, Entity);
+
+            #[cfg(feature = "portable-atomic")]
+            type Intermediate<T> = Box<T>;
+
+            #[cfg(not(feature = "portable-atomic"))]
+            type Intermediate<T> = Arc<T>;
+
+            let boxed: Intermediate<Constructor> = Intermediate::new(
+                move |table,
+                      sparse_sets,
+                      change_tick,
+                      table_row,
+                      entity,
+                      #[cfg(feature = "track_location")] caller| {
+                    OwningPtr::make(constructor(), |ptr| {
+                        // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
+                        // pass in a valid table_row and entity requiring a C constructor
+                        // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
+                        // `ptr` points to valid `C` data, which matches the type associated with `component_id`
+                        unsafe {
+                            BundleInfo::initialize_required_component(
+                                table,
+                                sparse_sets,
+                                change_tick,
+                                table_row,
+                                entity,
+                                component_id,
+                                C::STORAGE_TYPE,
+                                ptr,
+                                #[cfg(feature = "track_location")]
+                                caller,
+                            );
+                        }
+                    });
+                },
+            );
+
+            Arc::from(boxed)
+        });
+
         // SAFETY:
         // `component_id` matches the type initialized by the `erased` constructor above.
         // `erased` initializes a component for `component_id` in such a way that
@@ -2106,62 +2194,96 @@ pub fn enforce_no_required_components_recursion(
 ///
 /// See [`ComponentCloneHandlers`] for more details.
 pub fn component_clone_via_clone<C: Clone + Component>(
-    world: &mut DeferredWorld,
-    entity_cloner: &EntityCloner,
+    _world: &mut DeferredWorld,
+    ctx: &mut ComponentCloneCtx,
 ) {
-    let component = world
-        .entity(entity_cloner.source())
-        .get::<C>()
-        .expect("Component must exists on source entity")
-        .clone();
-    world
-        .commands()
-        .entity(entity_cloner.target())
-        .insert(component);
+    if let Some(component) = ctx.read_source_component::<C>() {
+        ctx.write_target_component(component.clone());
+    }
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using reflect.
 /// Can be [set](ComponentCloneHandlers::set_component_handler) as clone handler for any registered component,
 /// but only reflected components will be cloned.
 ///
-/// See [`ComponentCloneHandlers`] for more details.
+/// To clone a component using this handler, the following must be true:
+/// - World has [`AppTypeRegistry`](crate::reflect::AppTypeRegistry)
+/// - Component has [`TypeId`]
+/// - Component is registered
+/// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
+/// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
+///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
+///   
+/// If any of the conditions is not satisfied, the component will be skipped.
+///
+/// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(world: &mut DeferredWorld, entity_cloner: &EntityCloner) {
-    let component_id = entity_cloner.component_id();
-    let source = entity_cloner.source();
-    let target = entity_cloner.target();
-    world.commands().queue(move |world: &mut World| {
-        world.resource_scope::<crate::reflect::AppTypeRegistry, ()>(|world, registry| {
-            let registry = registry.read();
+pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let Some(registry) = ctx.type_registry() else {
+        return;
+    };
+    let Some(source_component_reflect) = ctx.read_source_component_reflect() else {
+        return;
+    };
+    let component_info = ctx.component_info();
+    // checked in read_source_component_reflect
+    let type_id = component_info.type_id().unwrap();
+    let registry = registry.read();
 
-            let component_info = world
-                .components()
-                .get_info(component_id)
-                .expect("Component must be registered");
-            let Some(type_id) = component_info.type_id() else {
-                return;
-            };
-            let Some(reflect_component) =
-                registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
-            else {
-                return;
-            };
-            let source_component = reflect_component
-                .reflect(world.get_entity(source).expect("Source entity must exist"))
-                .expect("Source entity must have reflected component")
-                .clone_value();
-            let mut target = world
-                .get_entity_mut(target)
-                .expect("Target entity must exist");
-            reflect_component.apply_or_insert(&mut target, &*source_component, &registry);
+    // Try to clone using ReflectFromReflect
+    if let Some(reflect_from_reflect) =
+        registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
+    {
+        if let Some(component) =
+            reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
+        {
+            drop(registry);
+            ctx.write_target_component_reflect(component);
+            return;
+        }
+    }
+    // Else, try to clone using ReflectDefault
+    if let Some(reflect_default) =
+        registry.get_type_data::<bevy_reflect::std_traits::ReflectDefault>(type_id)
+    {
+        let mut component = reflect_default.default();
+        component.apply(source_component_reflect.as_partial_reflect());
+        drop(registry);
+        ctx.write_target_component_reflect(component);
+        return;
+    }
+    // Otherwise, try to clone using ReflectFromWorld
+    if let Some(reflect_from_world) =
+        registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
+    {
+        let reflect_from_world = reflect_from_world.clone();
+        let source_component_cloned = source_component_reflect.clone_value();
+        let component_layout = component_info.layout();
+        let target = ctx.target();
+        let component_id = ctx.component_id();
+        world.commands().queue(move |world: &mut World| {
+            let mut component = reflect_from_world.from_world(world);
+            assert_eq!(type_id, (*component).type_id());
+            component.apply(source_component_cloned.as_partial_reflect());
+            // SAFETY:
+            // - component_id is from the same world as target entity
+            // - component is a valid value represented by component_id
+            unsafe {
+                let raw_component_ptr =
+                    core::ptr::NonNull::new_unchecked(Box::into_raw(component).cast::<u8>());
+                world
+                    .entity_mut(target)
+                    .insert_by_id(component_id, OwningPtr::new(raw_component_ptr));
+                alloc::alloc::dealloc(raw_component_ptr.as_ptr(), component_layout);
+            }
         });
-    });
+    }
 }
 
 /// Noop implementation of component clone handler function.
 ///
-/// See [`ComponentCloneHandlers`] for more details.
-pub fn component_clone_ignore(_world: &mut DeferredWorld, _entity_cloner: &EntityCloner) {}
+/// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
+pub fn component_clone_ignore(_world: &mut DeferredWorld, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]
@@ -2180,7 +2302,7 @@ pub trait ComponentCloneBase {
 }
 impl<C: Component> ComponentCloneBase for ComponentCloneSpecializationWrapper<C> {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::default()
+        ComponentCloneHandler::default_handler()
     }
 }
 
@@ -2191,6 +2313,6 @@ pub trait ComponentCloneViaClone {
 }
 impl<C: Clone + Component> ComponentCloneViaClone for &ComponentCloneSpecializationWrapper<C> {
     fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::Custom(component_clone_via_clone::<C>)
+        ComponentCloneHandler::clone_handler::<C>()
     }
 }

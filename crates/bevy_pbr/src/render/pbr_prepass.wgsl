@@ -6,6 +6,7 @@
     pbr_functions,
     pbr_functions::SampleBias,
     prepass_io,
+    mesh_bindings::mesh,
     mesh_view_bindings::view,
 }
 
@@ -28,6 +29,15 @@ fn fragment(
     let is_front = true;
 #else   // MESHLET_MESH_MATERIAL_PASS
 
+#ifdef BINDLESS
+    let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
+    let flags = pbr_bindings::material[slot].flags;
+    let uv_transform = pbr_bindings::material[slot].uv_transform;
+#else   // BINDLESS
+    let flags = pbr_bindings::material.flags;
+    let uv_transform = pbr_bindings::material.uv_transform;
+#endif  // BINDLESS
+
     // If we're in the crossfade section of a visibility range, conditionally
     // discard the fragment according to the visibility pattern.
 #ifdef VISIBILITY_RANGE_DITHER
@@ -45,8 +55,8 @@ fn fragment(
 
 #ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
-        let double_sided = (material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
+    if (flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
+        let double_sided = (flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u;
 
         let world_normal = pbr_functions::prepare_world_normal(
             in.world_normal,
@@ -62,9 +72,9 @@ fn fragment(
 
 // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
 #ifdef STANDARD_MATERIAL_NORMAL_MAP_UV_B
-        let uv = (material.uv_transform * vec3(in.uv_b, 1.0)).xy;
+        let uv = (uv_transform * vec3(in.uv_b, 1.0)).xy;
 #else
-        let uv = (material.uv_transform * vec3(in.uv, 1.0)).xy;
+        let uv = (uv_transform * vec3(in.uv, 1.0)).xy;
 #endif
 
         // Fill in the sample bias so we can sample from textures.
@@ -100,7 +110,7 @@ fn fragment(
         let TBN = pbr_functions::calculate_tbn_mikktspace(normal, in.world_tangent);
 
         normal = pbr_functions::apply_normal_mapping(
-            material.flags,
+            flags,
             TBN,
             double_sided,
             is_front,

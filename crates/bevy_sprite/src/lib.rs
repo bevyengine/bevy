@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
@@ -11,56 +10,43 @@
 
 extern crate alloc;
 
-mod bundle;
-mod dynamic_texture_atlas_builder;
 mod mesh2d;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod render;
 mod sprite;
-mod texture_atlas;
-mod texture_atlas_builder;
 mod texture_slice;
 
 /// The sprite prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        bundle::SpriteBundle,
         sprite::{Sprite, SpriteImageMode},
-        texture_atlas::{TextureAtlas, TextureAtlasLayout, TextureAtlasSources},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, ColorMesh2dBundle, MeshMaterial2d, TextureAtlasBuilder,
+        ColorMaterial, MeshMaterial2d,
     };
 }
 
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-pub use bundle::*;
-pub use dynamic_texture_atlas_builder::*;
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use render::*;
 pub use sprite::*;
-pub use texture_atlas::*;
-pub use texture_atlas_builder::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_image::Image;
+use bevy_ecs::prelude::*;
+use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_render::{
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    view::{check_visibility, NoFrustumCulling, VisibilitySystems},
+    view::{NoFrustumCulling, VisibilitySystems},
     ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
@@ -71,6 +57,14 @@ pub struct SpritePlugin {
     pub add_picking: bool,
 }
 
+#[expect(
+    clippy::allow_attributes,
+    reason = "clippy::derivable_impls is not always linted"
+)]
+#[allow(
+    clippy::derivable_impls,
+    reason = "Known false positive with clippy: <https://github.com/rust-lang/rust-clippy/issues/13160>"
+)]
 impl Default for SpritePlugin {
     fn default() -> Self {
         Self {
@@ -91,18 +85,6 @@ pub enum SpriteSystem {
     ComputeSlices,
 }
 
-/// A component that marks entities that aren't themselves sprites but become
-/// sprites during rendering.
-///
-/// Right now, this is used for `Text`.
-#[derive(Component, Reflect, Clone, Copy, Debug, Default)]
-#[reflect(Component, Default, Debug)]
-pub struct SpriteSource;
-
-/// A convenient alias for `Or<With<Sprite>, With<SpriteSource>>`, for use with
-/// [`bevy_render::view::VisibleEntities`].
-pub type WithSprite = Or<(With<Sprite>, With<SpriteSource>)>;
-
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
@@ -117,20 +99,17 @@ impl Plugin for SpritePlugin {
             "render/sprite_view_bindings.wgsl",
             Shader::from_wgsl
         );
-        app.init_asset::<TextureAtlasLayout>()
-            .register_asset_reflect::<TextureAtlasLayout>()
-            .register_type::<Sprite>()
+
+        if !app.is_plugin_added::<TextureAtlasPlugin>() {
+            app.add_plugins(TextureAtlasPlugin);
+        }
+
+        app.register_type::<Sprite>()
             .register_type::<SpriteImageMode>()
             .register_type::<TextureSlicer>()
             .register_type::<Anchor>()
-            .register_type::<TextureAtlas>()
             .register_type::<Mesh2d>()
-            .register_type::<SpriteSource>()
-            .add_plugins((
-                Mesh2dRenderPlugin,
-                ColorMaterialPlugin,
-                ExtractComponentPlugin::<SpriteSource>::default(),
-            ))
+            .add_plugins((Mesh2dRenderPlugin, ColorMaterialPlugin))
             .add_systems(
                 PostUpdate,
                 (
@@ -140,11 +119,6 @@ impl Plugin for SpritePlugin {
                         compute_slices_on_sprite_change,
                     )
                         .in_set(SpriteSystem::ComputeSlices),
-                    (
-                        check_visibility::<With<Mesh2d>>,
-                        check_visibility::<WithSprite>,
-                    )
-                        .in_set(VisibilitySystems::CheckVisibility),
                 ),
             );
 
@@ -234,18 +208,6 @@ pub fn calculate_bounds_2d(
             };
             commands.entity(entity).try_insert(aabb);
         }
-    }
-}
-
-impl ExtractComponent for SpriteSource {
-    type QueryData = ();
-
-    type QueryFilter = With<SpriteSource>;
-
-    type Out = SpriteSource;
-
-    fn extract_component(_: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
-        Some(SpriteSource)
     }
 }
 

@@ -7,7 +7,8 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{FromWorld, Res, ResMut},
-    system::{Resource, SystemParam},
+    resource::Resource,
+    system::SystemParam,
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_utils::HashMap;
@@ -135,7 +136,7 @@ fn fallback_image_new(
         texture_view,
         texture_format: image.texture_descriptor.format,
         sampler,
-        size: image.size(),
+        size: image.texture_descriptor.size,
         mip_level_count: image.texture_descriptor.mip_level_count,
     }
 }

@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 extern crate proc_macro;
@@ -13,12 +12,11 @@ mod world_query;
 use crate::{query_data::derive_query_data_impl, query_filter::derive_query_filter_impl};
 use bevy_macro_utils::{derive_label, ensure_no_collision, get_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
-use proc_macro2::Span;
-use proc_macro2::TokenStream as TokenStream2;
+use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, DeriveInput, GenericParam, Ident, Index, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, Token, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -285,142 +283,12 @@ pub fn derive_visit_entities(input: TokenStream) -> TokenStream {
     })
 }
 
-fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
-    (0..count)
-        .map(|i| Ident::new(&fmt_string(i), Span::call_site()))
-        .collect::<Vec<Ident>>()
-}
-
-#[proc_macro]
-pub fn impl_param_set(_input: TokenStream) -> TokenStream {
-    let mut tokens = TokenStream::new();
-    let max_params = 8;
-    let params = get_idents(|i| format!("P{i}"), max_params);
-    let metas = get_idents(|i| format!("m{i}"), max_params);
-    let mut param_fn_muts = Vec::new();
-    for (i, param) in params.iter().enumerate() {
-        let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
-        let index = Index::from(i);
-        let ordinal = match i {
-            1 => "1st".to_owned(),
-            2 => "2nd".to_owned(),
-            3 => "3rd".to_owned(),
-            x => format!("{x}th"),
-        };
-        let comment =
-            format!("Gets exclusive access to the {ordinal} parameter in this [`ParamSet`].");
-        param_fn_muts.push(quote! {
-            #[doc = #comment]
-            /// No other parameters may be accessed while this one is active.
-            pub fn #fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, #param> {
-                // SAFETY: systems run without conflicts with other systems.
-                // Conflicting params in ParamSet are not accessible at the same time
-                // ParamSets are guaranteed to not conflict with other SystemParams
-                unsafe {
-                    #param::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
-                }
-            }
-        });
-    }
-
-    for param_count in 1..=max_params {
-        let param = &params[0..param_count];
-        let meta = &metas[0..param_count];
-        let param_fn_mut = &param_fn_muts[0..param_count];
-        tokens.extend(TokenStream::from(quote! {
-            // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
-            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
-            where #(#param: ReadOnlySystemParam,)*
-            { }
-
-            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
-            // with any prior access, a panic will occur.
-            unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
-            {
-                type State = (#(#param::State,)*);
-                type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
-
-                // Note: We allow non snake case so the compiler don't complain about the creation of non_snake_case variables
-                #[allow(non_snake_case)]
-                fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-                    #(
-                        // Pretend to add each param to the system alone, see if it conflicts
-                        let mut #meta = system_meta.clone();
-                        #meta.component_access_set.clear();
-                        #meta.archetype_component_access.clear();
-                        #param::init_state(world, &mut #meta);
-                        // The variable is being defined with non_snake_case here
-                        let #param = #param::init_state(world, &mut system_meta.clone());
-                    )*
-                    // Make the ParamSet non-send if any of its parameters are non-send.
-                    if false #(|| !#meta.is_send())* {
-                        system_meta.set_non_send();
-                    }
-                    #(
-                        system_meta
-                            .component_access_set
-                            .extend(#meta.component_access_set);
-                        system_meta
-                            .archetype_component_access
-                            .extend(&#meta.archetype_component_access);
-                    )*
-                    (#(#param,)*)
-                }
-
-                unsafe fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    // SAFETY: The caller ensures that `archetype` is from the World the state was initialized from in `init_state`.
-                    unsafe { <(#(#param,)*) as SystemParam>::new_archetype(state, archetype, system_meta); }
-                }
-
-                fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
-                    <(#(#param,)*) as SystemParam>::apply(state, system_meta, world);
-                }
-
-                fn queue(state: &mut Self::State, system_meta: &SystemMeta, mut world: DeferredWorld) {
-                    <(#(#param,)*) as SystemParam>::queue(state, system_meta, world.reborrow());
-                }
-
-                #[inline]
-                unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
-                    system_meta: &SystemMeta,
-                    world: UnsafeWorldCell<'w>,
-                ) -> bool {
-                    <(#(#param,)*) as SystemParam>::validate_param(state, system_meta, world)
-                }
-
-                #[inline]
-                unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self::State,
-                    system_meta: &SystemMeta,
-                    world: UnsafeWorldCell<'w>,
-                    change_tick: Tick,
-                ) -> Self::Item<'w, 's> {
-                    ParamSet {
-                        param_states: state,
-                        system_meta: system_meta.clone(),
-                        world,
-                        change_tick,
-                    }
-                }
-            }
-
-            impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
-            {
-                #(#param_fn_mut)*
-            }
-        }));
-    }
-
-    tokens
-}
-
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
-    let syn::Data::Struct(syn::DataStruct {
+    let Data::Struct(DataStruct {
         fields: field_definitions,
         ..
     }) = ast.data
@@ -708,7 +576,7 @@ pub fn derive_system_set(input: TokenStream) -> TokenStream {
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {
-    BevyManifest::default().get_path("bevy_ecs")
+    BevyManifest::shared().get_path("bevy_ecs")
 }
 
 #[proc_macro_derive(Event)]
@@ -721,7 +589,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     component::derive_resource(input)
 }
 
-#[proc_macro_derive(Component, attributes(component))]
+#[proc_macro_derive(Component, attributes(component, relationship, relationship_target))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
 }
@@ -742,4 +610,47 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(SubStates, attributes(source))]
 pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
+}
+
+#[proc_macro_derive(FromWorld)]
+pub fn derive_from_world(input: TokenStream) -> TokenStream {
+    let bevy_ecs_path = bevy_ecs_path();
+    let ast = parse_macro_input!(input as DeriveInput);
+    let struct_name = ast.ident;
+    let (impl_generics, ty_generics, where_clauses) = ast.generics.split_for_impl();
+
+    let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
+        return syn::Error::new(
+            Span::call_site(),
+            "#[derive(FromWorld)]` only supports structs",
+        )
+        .into_compile_error()
+        .into();
+    };
+
+    let field_init_expr = quote!(#bevy_ecs_path::world::FromWorld::from_world(world));
+
+    let field_initializers: Punctuated<TokenStream2, Token![,]> = match fields {
+        syn::Fields::Named(fields_named) => fields_named
+            .named
+            .iter()
+            .map(|field| {
+                let ident = field.ident.clone().unwrap();
+                quote!(#ident: #field_init_expr)
+            })
+            .collect(),
+        syn::Fields::Unnamed(fields_unnamed) => (0..fields_unnamed.unnamed.len())
+            .map(|index| quote!(#index: #field_init_expr))
+            .collect(),
+        syn::Fields::Unit => Punctuated::new(),
+    };
+
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::world::FromWorld for #struct_name #ty_generics #where_clauses {
+            fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
+                #[allow(clippy::init_numbered_fields)]
+                Self { #field_initializers }
+            }
+        }
+    })
 }

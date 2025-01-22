@@ -3,24 +3,12 @@ use core::fmt::Debug;
 /// Unique identifier for a system or system set stored in a [`ScheduleGraph`].
 ///
 /// [`ScheduleGraph`]: crate::schedule::ScheduleGraph
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum NodeId {
     /// Identifier for a system.
     System(usize),
     /// Identifier for a system set.
     Set(usize),
-}
-
-impl PartialOrd for NodeId {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(Ord::cmp(self, other))
-    }
-}
-
-impl Ord for NodeId {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.cmp(other)
-    }
 }
 
 impl NodeId {

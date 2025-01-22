@@ -1,6 +1,6 @@
 use crate::DiagnosticPath;
 use bevy_app::prelude::*;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -64,10 +64,10 @@ pub mod internal {
     use std::{sync::Mutex, time::Instant};
 
     use bevy_app::{App, First, Startup, Update};
-    use bevy_ecs::system::Resource;
+    use bevy_ecs::resource::Resource;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
-    use bevy_utils::tracing::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
+    use tracing::info;
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
@@ -108,8 +108,8 @@ pub mod internal {
     ) {
         let sysinfo = sysinfo.get_or_insert_with(|| {
             Arc::new(Mutex::new(System::new_with_specifics(
-                RefreshKind::new()
-                    .with_cpu(CpuRefreshKind::new().with_cpu_usage())
+                RefreshKind::nothing()
+                    .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                     .with_memory(MemoryRefreshKind::everything()),
             )))
         });
@@ -129,7 +129,7 @@ pub mod internal {
             let task = thread_pool.spawn(async move {
                 let mut sys = sys.lock().unwrap();
 
-                sys.refresh_cpu_specifics(CpuRefreshKind::new().with_cpu_usage());
+                sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
                 sys.refresh_memory();
                 let current_cpu_usage = sys.global_cpu_usage().into();
                 // `memory()` fns return a value in bytes
@@ -166,9 +166,9 @@ pub mod internal {
     impl Default for SystemInfo {
         fn default() -> Self {
             let sys = System::new_with_specifics(
-                RefreshKind::new()
-                    .with_cpu(CpuRefreshKind::new())
-                    .with_memory(MemoryRefreshKind::new().with_ram()),
+                RefreshKind::nothing()
+                    .with_cpu(CpuRefreshKind::nothing())
+                    .with_memory(MemoryRefreshKind::nothing().with_ram()),
             );
 
             let system_info = SystemInfo {
@@ -210,7 +210,7 @@ pub mod internal {
     }
 
     fn setup_system() {
-        bevy_utils::tracing::warn!("This platform and/or configuration is not supported!");
+        tracing::warn!("This platform and/or configuration is not supported!");
     }
 
     impl Default for super::SystemInfo {

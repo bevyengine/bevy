@@ -1,15 +1,15 @@
+#[cfg(feature = "std")]
 mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use core::any::TypeId;
 
-pub use self::{
-    multi_threaded::{MainThreadExecutor, MultiThreadedExecutor},
-    simple::SimpleExecutor,
-    single_threaded::SingleThreadedExecutor,
-};
+pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
+
+#[cfg(feature = "std")]
+pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 
 use fixedbitset::FixedBitSet;
 
@@ -18,6 +18,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
+    result::Result,
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -53,6 +54,7 @@ pub enum ExecutorKind {
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
+    #[cfg(feature = "std")]
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
     MultiThreaded,
 }
@@ -72,9 +74,17 @@ pub struct SystemSchedule {
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system node id.
     /// Number of systems that the system immediately depends on.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     pub(super) system_dependencies: Vec<usize>,
     /// Indexed by system node id.
     /// List of systems that immediately depend on the system.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     pub(super) system_dependents: Vec<Vec<usize>>,
     /// Indexed by system node id.
     /// List of sets containing the system that have conditions
@@ -108,8 +118,14 @@ impl SystemSchedule {
 }
 
 /// See [`ApplyDeferred`].
-#[deprecated = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."]
-#[expect(non_upper_case_globals)]
+#[deprecated(
+    since = "0.16.0",
+    note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
+)]
+#[expect(
+    non_upper_case_globals,
+    reason = "This item is deprecated; as such, its previous name needs to stay."
+)]
 pub const apply_deferred: ApplyDeferred = ApplyDeferred;
 
 /// A special [`System`] that instructs the executor to call
@@ -146,7 +162,7 @@ pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
 
 impl System for ApplyDeferred {
     type In = ();
-    type Out = ();
+    type Out = Result<()>;
 
     fn name(&self) -> Cow<'static, str> {
         Cow::Borrowed("bevy_ecs::apply_deferred")
@@ -191,11 +207,13 @@ impl System for ApplyDeferred {
     ) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
+        Ok(())
     }
 
     fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
         // This system does nothing on its own. The executor will apply deferred
         // commands from other systems instead of running this system.
+        Ok(())
     }
 
     fn apply_deferred(&mut self, _world: &mut World) {}
@@ -247,7 +265,7 @@ mod __rust_begin_short_backtrace {
 
     use crate::{
         result::Result,
-        system::{ReadOnlySystem, ScheduleSystem, System},
+        system::{ReadOnlySystem, ScheduleSystem},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
@@ -262,6 +280,10 @@ mod __rust_begin_short_backtrace {
 
     /// # Safety
     /// See `ReadOnlySystem::run_unsafe`.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
@@ -292,7 +314,7 @@ mod tests {
         self as bevy_ecs,
         prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, In, IntoSystem, Res},
+        system::{Commands, Res, WithParamWarnPolicy},
         world::World,
     };
 
@@ -321,15 +343,11 @@ mod tests {
         schedule.set_executor_kind(executor);
         schedule.add_systems(
             (
-                // Combined systems get skipped together.
-                (|mut commands: Commands| {
-                    commands.insert_resource(R1);
-                })
-                .pipe(|_: In<()>, _: Res<R1>| {}),
                 // This system depends on a system that is always skipped.
-                |mut commands: Commands| {
+                (|mut commands: Commands| {
                     commands.insert_resource(R2);
-                },
+                })
+                .warn_param_missing(),
             )
                 .chain(),
         );
@@ -352,18 +370,20 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if(|_: Res<R1>| true));
+        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).warn_param_missing()));
         schedule.add_systems((
             // System gets skipped if system set run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R1);
             })
+            .warn_param_missing()
             .in_set(S1),
             // System gets skipped if run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R2);
             })
-            .run_if(|_: Res<R2>| true),
+            .warn_param_missing()
+            .run_if((|_: Res<R2>| true).warn_param_missing()),
         ));
         schedule.run(&mut world);
         assert!(world.get_resource::<R1>().is_none());

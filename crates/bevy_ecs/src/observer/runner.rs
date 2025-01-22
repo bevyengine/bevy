@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::any::Any;
 
 use crate::{
@@ -197,7 +198,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
-///     println!("Entity {:?} goes BOOM!", trigger.target());
+///     println!("Entity {} goes BOOM!", trigger.target());
 ///     commands.entity(trigger.target()).despawn();
 /// });
 ///
@@ -397,13 +398,13 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     _: ComponentId,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_type = world.register_component::<E>();
+        let event_id = E::register_component_id(world);
         let mut components = Vec::new();
         B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
             components.push(id);
         });
         let mut descriptor = ObserverDescriptor {
-            events: vec![event_type],
+            events: vec![event_id],
             components,
             ..Default::default()
         };

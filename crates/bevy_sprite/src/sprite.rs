@@ -4,18 +4,22 @@ use bevy_ecs::{
     component::{require, Component},
     reflect::ReflectComponent,
 };
-use bevy_image::Image;
+use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{sync_world::SyncToRenderWorld, view::Visibility};
+use bevy_render::{
+    sync_world::SyncToRenderWorld,
+    view::{self, Visibility, VisibilityClass},
+};
 use bevy_transform::components::Transform;
 
-use crate::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
+use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[require(Transform, Visibility, SyncToRenderWorld)]
+#[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass)]
 #[reflect(Component, Default, Debug)]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
@@ -226,10 +230,11 @@ mod tests {
     use bevy_asset::{Assets, RenderAssetUsages};
     use bevy_color::Color;
     use bevy_image::Image;
+    use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
     use bevy_render::render_resource::{Extent3d, TextureDimension, TextureFormat};
 
-    use crate::{Anchor, TextureAtlas, TextureAtlasLayout};
+    use crate::Anchor;
 
     use super::Sprite;
 

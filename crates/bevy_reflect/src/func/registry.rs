@@ -1,11 +1,8 @@
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::borrow::Cow;
+use bevy_platform_support::sync::Arc;
+use bevy_utils::HashMap;
 use core::fmt::Debug;
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
-
-use bevy_utils::HashMap;
 
 use crate::func::{
     ArgList, DynamicFunction, FunctionRegistrationError, FunctionResult, IntoFunction,
@@ -173,7 +170,7 @@ impl FunctionRegistry {
     ///   .register_with_name(core::any::type_name_of_val(&mul), mul)?
     ///   // Registering an existing function with a custom name
     ///   .register_with_name("my_crate::mul", mul)?;
-    ///   
+    ///
     /// // Be careful not to register anonymous functions with their type name.
     /// // This code works but registers the function with a non-unique name like `foo::bar::{{closure}}`
     /// registry.register_with_name(core::any::type_name_of_val(&div), div)?;
@@ -359,6 +356,7 @@ impl FunctionRegistryArc {
 mod tests {
     use super::*;
     use crate::func::{ArgList, IntoFunction};
+    use alloc::format;
 
     #[test]
     fn should_register_function() {

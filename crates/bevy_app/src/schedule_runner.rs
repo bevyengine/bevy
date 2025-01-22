@@ -3,11 +3,12 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
-use bevy_utils::{Duration, Instant};
+use bevy_platform_support::time::Instant;
+use core::time::Duration;
 
 #[cfg(target_arch = "wasm32")]
 use {
-    alloc::rc::Rc,
+    alloc::{boxed::Box, rc::Rc},
     core::cell::RefCell,
     wasm_bindgen::{prelude::*, JsCast},
 };
@@ -76,7 +77,7 @@ impl Plugin for ScheduleRunnerPlugin {
             let plugins_state = app.plugins_state();
             if plugins_state != PluginsState::Cleaned {
                 while app.plugins_state() == PluginsState::Adding {
-                    #[cfg(not(target_arch = "wasm32"))]
+                    #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
                     bevy_tasks::tick_global_task_pools_on_main_thread();
                 }
                 app.finish();
@@ -95,7 +96,7 @@ impl Plugin for ScheduleRunnerPlugin {
                 }
                 RunMode::Loop { wait } => {
                     let tick = move |app: &mut App,
-                                     wait: Option<Duration>|
+                                     _wait: Option<Duration>|
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
@@ -107,7 +108,7 @@ impl Plugin for ScheduleRunnerPlugin {
 
                         let end_time = Instant::now();
 
-                        if let Some(wait) = wait {
+                        if let Some(wait) = _wait {
                             let exe_time = end_time - start_time;
                             if exe_time < wait {
                                 return Ok(Some(wait - exe_time));
@@ -121,7 +122,10 @@ impl Plugin for ScheduleRunnerPlugin {
                     {
                         loop {
                             match tick(&mut app, wait) {
-                                Ok(Some(delay)) => std::thread::sleep(delay),
+                                Ok(Some(_delay)) => {
+                                    #[cfg(feature = "std")]
+                                    std::thread::sleep(_delay);
+                                }
                                 Ok(None) => continue,
                                 Err(exit) => return exit,
                             }

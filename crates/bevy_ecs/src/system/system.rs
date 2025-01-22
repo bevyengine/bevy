@@ -1,5 +1,9 @@
-use bevy_utils::tracing::warn;
+#![expect(
+    clippy::module_inception,
+    reason = "This instance of module inception is being discussed; see #17353."
+)]
 use core::fmt::Debug;
+use log::warn;
 use thiserror::Error;
 
 use crate::{
@@ -11,7 +15,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
 use core::any::TypeId;
 
 use super::IntoSystem;
@@ -400,7 +404,6 @@ mod tests {
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
 
-    #[allow(dead_code)]
     fn count_up(mut counter: ResMut<Counter>) {
         counter.0 += 1;
     }
@@ -416,7 +419,6 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
-    #[allow(dead_code)]
     fn spawn_entity(mut commands: Commands) {
         commands.spawn_empty();
     }
@@ -450,7 +452,7 @@ mod tests {
 
         let mut world = World::default();
         // This fails because `T` has not been added to the world yet.
-        let result = world.run_system_once(system);
+        let result = world.run_system_once(system.warn_param_missing());
 
         assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
     }

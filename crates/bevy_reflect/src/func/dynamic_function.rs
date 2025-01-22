@@ -8,16 +8,13 @@ use crate::{
         DynamicFunctionMut, Function, FunctionOverloadError, FunctionResult, IntoFunction,
         IntoFunctionMut,
     },
-    serde::Serializable,
     ApplyError, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, TypePath,
 };
-use alloc::{borrow::Cow, boxed::Box, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box};
+use bevy_platform_support::sync::Arc;
 use bevy_reflect_derive::impl_type_path;
 use core::fmt::{Debug, Formatter};
-
-#[cfg(not(feature = "std"))]
-use alloc::{boxed::Box, format, vec};
 
 /// An [`Arc`] containing a callback to a reflected function.
 ///
@@ -96,8 +93,21 @@ impl<'env> DynamicFunction<'env> {
         func: F,
         info: impl TryInto<FunctionInfo, Error: Debug>,
     ) -> Self {
+        let arc = Arc::new(func);
+
+        #[cfg(feature = "portable-atomic")]
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
+        // SAFETY:
+        // - Coercion from `T` to `dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env`
+        //   is valid as `T: for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send + Sync + 'env`
+        // - `Arc::from_raw` receives a valid pointer from a previous call to `Arc::into_raw`
+        let arc = unsafe { ArcFn::<'env>::from_raw(Arc::into_raw(arc) as *const _) };
+
         Self {
-            internal: DynamicFunctionInternal::new(Arc::new(func), info.try_into().unwrap()),
+            internal: DynamicFunctionInternal::new(arc, info.try_into().unwrap()),
         }
     }
 
@@ -428,10 +438,6 @@ impl PartialReflect for DynamicFunction<'static> {
         Debug::fmt(self, f)
     }
 
-    fn serializable(&self) -> Option<Serializable> {
-        None
-    }
-
     fn is_dynamic(&self) -> bool {
         true
     }
@@ -478,6 +484,7 @@ mod tests {
     use crate::func::signature::ArgumentSignature;
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
+    use alloc::{format, string::String, vec, vec::Vec};
     use bevy_utils::HashSet;
     use core::ops::Add;
 

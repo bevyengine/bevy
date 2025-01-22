@@ -1,4 +1,4 @@
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, format, vec::Vec};
 use core::marker::PhantomData;
 
 use crate::{
@@ -194,7 +194,7 @@ where
             // be called in parallel. Since mutable access to `world` only exists within
             // the scope of either closure, we can be sure they will never alias one another.
             |input| self.a.run(input, unsafe { world.world_mut() }),
-            #[allow(clippy::undocumented_unsafe_blocks)]
+            // SAFETY: See the above safety comment.
             |input| self.b.run(input, unsafe { world.world_mut() }),
         )
     }
@@ -214,7 +214,7 @@ where
     #[inline]
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
+        unsafe { self.a.validate_param_unsafe(world) }
     }
 
     fn initialize(&mut self, world: &mut World) {
@@ -433,7 +433,7 @@ where
 
     unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool {
         // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) && self.b.validate_param_unsafe(world) }
+        unsafe { self.a.validate_param_unsafe(world) }
     }
 
     fn validate_param(&mut self, world: &World) -> bool {

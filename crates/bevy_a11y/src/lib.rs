@@ -22,11 +22,10 @@ use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, Event, ReflectResource},
+    prelude::{Component, Event},
+    resource::Resource,
     schedule::SystemSet,
-    system::Resource,
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
 #[derive(Event, Deref, DerefMut)]
@@ -97,11 +96,6 @@ impl From<Node> for AccessibilityNode {
     }
 }
 
-/// Resource representing which entity has keyboard focus, if any.
-#[derive(Resource, Default, Deref, DerefMut, Reflect)]
-#[reflect(Resource, Default)]
-pub struct Focus(pub Option<Entity>);
-
 /// Set enum for the systems relating to accessibility
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum AccessibilitySystem {
@@ -115,11 +109,8 @@ pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<Focus>();
-
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
-            .init_resource::<Focus>()
             .allow_ambiguous_component::<AccessibilityNode>();
     }
 }

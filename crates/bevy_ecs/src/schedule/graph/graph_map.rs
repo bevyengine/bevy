@@ -4,6 +4,7 @@
 //!
 //! [`petgraph`]: https://docs.rs/petgraph/0.6.5/petgraph/
 
+use alloc::vec::Vec;
 use bevy_utils::{hashbrown::HashSet, FixedHasher};
 use core::{
     fmt,
@@ -31,7 +32,7 @@ pub type DiGraph<S = FixedHasher> = Graph<true, S>;
 /// `Graph<DIRECTED>` is a graph datastructure using an associative array
 /// of its node weights `NodeId`.
 ///
-/// It uses an combined adjacency list and sparse adjacency matrix
+/// It uses a combined adjacency list and sparse adjacency matrix
 /// representation, using **O(|N| + |E|)** space, and allows testing for edge
 /// existence in constant time.
 ///
@@ -124,7 +125,7 @@ where
     /// For a directed graph, the edge is directed from `a` to `b`.
     ///
     /// Inserts nodes `a` and/or `b` if they aren't already part of the graph.
-    pub(crate) fn add_edge(&mut self, a: NodeId, b: NodeId) {
+    pub fn add_edge(&mut self, a: NodeId, b: NodeId) {
         if self.edges.insert(Self::edge_key(a, b)) {
             // insert in the adjacency list if it's a new edge
             self.nodes
@@ -392,6 +393,7 @@ impl CompactNodeIdPair {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec;
 
     /// The `Graph` type _must_ preserve the order that nodes are inserted in if
     /// no removals occur. Removals are permitted to swap the latest node into the
@@ -435,7 +437,7 @@ mod tests {
         assert_eq!(graph.nodes().collect::<Vec<_>>(), vec![]);
     }
 
-    /// Nodes that have bidrectional edges (or any edge in the case of undirected graphs) are
+    /// Nodes that have bidirectional edges (or any edge in the case of undirected graphs) are
     /// considered strongly connected. A strongly connected component is a collection of
     /// nodes where there exists a path from any node to any other node in the collection.
     #[test]

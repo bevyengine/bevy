@@ -9,11 +9,12 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
 ))]
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
-use bevy_ecs::{reflect::ReflectResource, system::Resource};
+use bevy_ecs::{reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
+    hash::Hash,
     ops::{Deref, DerefMut},
     panic,
 };
@@ -36,7 +37,7 @@ pub enum GizmoLineJoint {
 }
 
 /// An enum used to configure the style of gizmo lines, similar to CSS line-style
-#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Reflect)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 #[non_exhaustive]
 pub enum GizmoLineStyle {
     /// A solid line without any decorators
@@ -44,6 +45,34 @@ pub enum GizmoLineStyle {
     Solid,
     /// A dotted line
     Dotted,
+    /// A dashed line with configurable gap and line sizes
+    Dashed {
+        /// The length of the gap in `line_width`s
+        gap_scale: f32,
+        /// The length of the visible line in `line_width`s
+        line_scale: f32,
+    },
+}
+
+impl Eq for GizmoLineStyle {}
+
+impl Hash for GizmoLineStyle {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Solid => {
+                0u64.hash(state);
+            }
+            Self::Dotted => 1u64.hash(state),
+            Self::Dashed {
+                gap_scale,
+                line_scale,
+            } => {
+                2u64.hash(state);
+                gap_scale.to_bits().hash(state);
+                line_scale.to_bits().hash(state);
+            }
+        }
+    }
 }
 
 /// A trait used to create gizmo configs groups.
