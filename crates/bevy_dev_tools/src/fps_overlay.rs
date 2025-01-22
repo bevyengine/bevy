@@ -116,7 +116,6 @@ fn update_text(
     diagnostic: Res<DiagnosticsStore>,
     query: Query<Entity, With<FpsText>>,
     mut writer: TextUiWriter,
-    //
     time: Res<Time>,
     config: Res<FpsOverlayConfig>,
     mut time_since_rerender: Local<Duration>,
