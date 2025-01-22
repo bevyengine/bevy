@@ -24,8 +24,9 @@ use bevy_ecs::{
     entity::Entity,
     prelude::resource_exists,
     query::{Has, QueryState, With, Without},
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::{

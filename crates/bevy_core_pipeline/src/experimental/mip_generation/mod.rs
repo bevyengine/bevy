@@ -15,8 +15,9 @@ use bevy_ecs::{
     entity::Entity,
     prelude::Without,
     query::{QueryItem, With},
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};

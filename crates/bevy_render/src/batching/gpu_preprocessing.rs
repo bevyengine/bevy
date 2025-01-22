@@ -6,8 +6,9 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity},
     query::{Has, With},
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource, StaticSystemParam},
+    system::{Query, Res, ResMut, StaticSystemParam},
     world::{FromWorld, World},
 };
 use bevy_encase_derive::ShaderType;

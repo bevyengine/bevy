@@ -5,7 +5,7 @@ use bevy_core_pipeline::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_ecs::{
-    system::Resource,
+    resource::Resource,
     world::{FromWorld, World},
 };
 use bevy_render::render_resource::*;

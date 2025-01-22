@@ -10,7 +10,8 @@ use bevy_ecs::{
     component::Component,
     entity::{hash_map::EntityHashMap, Entity},
     query::AnyOf,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{UVec2, Vec4Swizzles};
 use bevy_render::{
