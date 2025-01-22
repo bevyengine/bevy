@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
     ResolvedBorderRadius, TransparentUi, UiTargetCamera, Val,
 };
 use bevy_app::prelude::*;

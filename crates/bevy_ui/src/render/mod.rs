@@ -7,6 +7,7 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
+use crate::experimental::UiChildren;
 use crate::widget::ImageNode;
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
@@ -279,10 +280,10 @@ pub struct UiCameraMapper<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Returns the render entity corresponding to the given `TargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, camera: Option<&TargetCamera>) -> Option<Entity> {
+    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
+    pub fn map(&mut self, camera: Option<&UiTargetCamera>) -> Option<Entity> {
         let camera_entity = camera
-            .map(TargetCamera::entity)
+            .map(UiTargetCamera::entity)
             .or(self.default_camera_entity)?;
 
         if self.camera_entity != camera_entity {
@@ -483,8 +484,6 @@ pub fn extract_uinode_borders(
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    parent_clip_query: Extract<Query<&CalculatedClip>>,
-    ui_children: UiChildren,
     camera_map: Extract<UiCameraMap>,
 ) {
     let image = AssetId::<Image>::default();
