@@ -2,6 +2,11 @@ use crate::{
     First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
     SubApps,
 };
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
@@ -11,11 +16,15 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
-use derive_more::derive::{Display, Error};
+use log::debug;
+use thiserror::Error;
+
+#[cfg(feature = "trace")]
+use tracing::info_span;
+
+#[cfg(feature = "std")]
 use std::{
     panic::{catch_unwind, resume_unwind},
     process::{ExitCode, Termination},
@@ -23,6 +32,9 @@ use std::{
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
+    )]
     AppLabel,
     APP_LABEL_INTERNER
 );
@@ -32,9 +44,9 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub(crate) enum AppError {
-    #[display("duplicate plugin {plugin_name:?}")]
+    #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
 }
 
@@ -92,7 +104,12 @@ impl Default for App {
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<AppTypeRegistry>();
+        {
+            app.init_resource::<AppTypeRegistry>();
+            app.register_type::<Name>();
+            app.register_type::<ChildOf>();
+            app.register_type::<Children>();
+        }
 
         #[cfg(feature = "reflect_functions")]
         app.init_resource::<AppFunctionRegistry>();
@@ -124,7 +141,7 @@ impl App {
         Self {
             sub_apps: SubApps {
                 main: SubApp::new(),
-                sub_apps: HashMap::new(),
+                sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
         }
@@ -458,12 +475,21 @@ impl App {
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
-        let result = catch_unwind(AssertUnwindSafe(|| plugin.build(self)));
+
+        let f = AssertUnwindSafe(|| plugin.build(self));
+
+        #[cfg(feature = "std")]
+        let result = catch_unwind(f);
+
+        #[cfg(not(feature = "std"))]
+        f();
+
         self.main_mut()
             .plugin_names
             .insert(plugin.name().to_string());
         self.main_mut().plugin_build_depth -= 1;
 
+        #[cfg(feature = "std")]
         if let Err(payload) = result {
             resume_unwind(payload);
         }
@@ -1034,6 +1060,16 @@ impl App {
         &mut self.sub_apps.main
     }
 
+    /// Returns a reference to the [`SubApps`] collection.
+    pub fn sub_apps(&self) -> &SubApps {
+        &self.sub_apps
+    }
+
+    /// Returns a mutable reference to the [`SubApps`] collection.
+    pub fn sub_apps_mut(&mut self) -> &mut SubApps {
+        &mut self.sub_apps
+    }
+
     /// Returns a reference to the [`SubApp`] with the given label.
     ///
     /// # Panics
@@ -1294,7 +1330,7 @@ type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
     while app.plugins_state() == PluginsState::Adding {
-        #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(all(not(target_arch = "wasm32"), feature = "bevy_tasks"))]
         bevy_tasks::tick_global_task_pools_on_main_thread();
     }
     app.finish();
@@ -1326,7 +1362,7 @@ pub enum AppExit {
 }
 
 impl AppExit {
-    /// Creates a [`AppExit::Error`] with a error code of 1.
+    /// Creates a [`AppExit::Error`] with an error code of 1.
     #[must_use]
     pub const fn error() -> Self {
         Self::Error(NonZero::<u8>::MIN)
@@ -1364,6 +1400,7 @@ impl From<u8> for AppExit {
     }
 }
 
+#[cfg(feature = "std")]
 impl Termination for AppExit {
     fn report(self) -> ExitCode {
         match self {
@@ -1386,8 +1423,9 @@ mod tests {
         event::{Event, EventWriter, Events},
         query::With,
         removal_detection::RemovedComponents,
+        resource::Resource,
         schedule::{IntoSystemConfigs, ScheduleLabel},
-        system::{Commands, Query, Resource},
+        system::{Commands, Query},
         world::{FromWorld, World},
     };
 
@@ -1701,7 +1739,7 @@ mod tests {
 
     #[test]
     fn app_exit_size() {
-        // There wont be many of them so the size isn't a issue but
+        // There wont be many of them so the size isn't an issue but
         // it's nice they're so small let's keep it that way.
         assert_eq!(size_of::<AppExit>(), size_of::<u8>());
     }

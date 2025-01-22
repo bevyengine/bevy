@@ -5,7 +5,10 @@ use crate::{
     },
     PartialReflect, Reflect, TypePath,
 };
-use alloc::collections::VecDeque;
+use alloc::{
+    boxed::Box,
+    collections::vec_deque::{Iter, VecDeque},
+};
 
 /// A list of arguments that can be passed to a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///
@@ -323,6 +326,11 @@ impl<'a> ArgList<'a> {
         self.pop_arg()?.take_mut()
     }
 
+    /// Returns an iterator over the arguments in the list.
+    pub fn iter(&self) -> Iter<'_, Arg<'a>> {
+        self.list.iter()
+    }
+
     /// Returns the number of arguments in the list.
     pub fn len(&self) -> usize {
         self.list.len()
@@ -337,6 +345,7 @@ impl<'a> ArgList<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::string::String;
 
     #[test]
     fn should_push_arguments_in_order() {

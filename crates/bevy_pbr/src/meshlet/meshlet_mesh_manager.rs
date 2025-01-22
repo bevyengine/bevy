@@ -6,7 +6,8 @@ use super::{
 use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_math::Vec2;
@@ -47,7 +48,7 @@ impl FromWorld for MeshletMeshManager {
                 "meshlet_simplification_errors",
                 render_device,
             ),
-            meshlet_mesh_slices: HashMap::new(),
+            meshlet_mesh_slices: HashMap::default(),
         }
     }
 }

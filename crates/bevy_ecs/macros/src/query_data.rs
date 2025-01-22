@@ -36,10 +36,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
     let mut attributes = QueryDataAttributes::default();
     for attr in &ast.attrs {
-        if !attr
+        if attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
+            .is_none_or(|ident| ident != QUERY_DATA_ATTRIBUTE_NAME)
         {
             continue;
         }
@@ -382,7 +382,7 @@ fn read_world_query_field_info(field: &Field) -> syn::Result<QueryDataFieldInfo>
         if attr
             .path()
             .get_ident()
-            .map_or(false, |ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
+            .is_some_and(|ident| ident == QUERY_DATA_ATTRIBUTE_NAME)
         {
             return Err(syn::Error::new_spanned(
                 attr,

@@ -1,9 +1,10 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{math::bounding::Aabb2d, prelude::*, utils::HashMap};
+use bevy::{math::bounding::Aabb2d, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::{
+    collections::HashMap,
     env::VarError,
     hash::{DefaultHasher, Hash, Hasher},
     io::{self, BufRead, BufReader},

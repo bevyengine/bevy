@@ -10,7 +10,6 @@ fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins,))
         .init_state::<Scene>()
-        .enable_state_scoped_entities::<Scene>()
         .add_systems(OnEnter(Scene::Shapes), shapes::setup)
         .add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Text), text::setup)
@@ -20,6 +19,7 @@ fn main() {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
+#[states(scoped_entities)]
 enum Scene {
     #[default]
     Shapes,

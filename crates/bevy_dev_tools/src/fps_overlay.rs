@@ -9,17 +9,16 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::With,
+    resource::Resource,
     schedule::{common_conditions::resource_changed, IntoSystemConfigs},
-    system::{Commands, Query, Res, Resource},
+    system::{Commands, Query, Res},
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild};
 use bevy_render::view::Visibility;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_ui::{
     widget::{Text, TextUiWriter},
     GlobalZIndex, Node, PositionType,
 };
-use bevy_utils::default;
 
 /// [`GlobalZIndex`] used to render the fps overlay.
 ///
@@ -43,7 +42,7 @@ impl Plugin for FpsOverlayPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         // TODO: Use plugin dependencies, see https://github.com/bevyengine/bevy/issues/69
         if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
-            app.add_plugins(FrameTimeDiagnosticsPlugin);
+            app.add_plugins(FrameTimeDiagnosticsPlugin::default());
         }
         app.insert_resource(self.config.clone())
             .add_systems(Startup, setup)
@@ -74,7 +73,7 @@ impl Default for FpsOverlayConfig {
             text_config: TextFont {
                 font: Handle::<Font>::default(),
                 font_size: 32.0,
-                ..default()
+                ..Default::default()
             },
             text_color: Color::WHITE,
             enabled: true,
@@ -91,7 +90,7 @@ fn setup(mut commands: Commands, overlay_config: Res<FpsOverlayConfig>) {
             Node {
                 // We need to make sure the overlay doesn't affect the position of other UI nodes
                 position_type: PositionType::Absolute,
-                ..default()
+                ..Default::default()
             },
             // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),

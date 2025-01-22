@@ -117,12 +117,12 @@ fn on_add_mine(
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
-    let mine = query.get(trigger.entity()).unwrap();
+    let mine = query.get(trigger.target()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
-    index.map.entry(tile).or_default().insert(trigger.entity());
+    index.map.entry(tile).or_default().insert(trigger.target());
 }
 
 // Remove despawned mines from our index
@@ -131,23 +131,23 @@ fn on_remove_mine(
     query: Query<&Mine>,
     mut index: ResMut<SpatialIndex>,
 ) {
-    let mine = query.get(trigger.entity()).unwrap();
+    let mine = query.get(trigger.target()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
     index.map.entry(tile).and_modify(|set| {
-        set.remove(&trigger.entity());
+        set.remove(&trigger.target());
     });
 }
 
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
-    // If a triggered event is targeting a specific entity you can access it with `.entity()`
-    let id = trigger.entity();
+    // If a triggered event is targeting a specific entity you can access it with `.target()`
+    let id = trigger.target();
     let Some(mut entity) = commands.get_entity(id) else {
         return;
     };
-    info!("Boom! {:?} exploded.", id.index());
+    info!("Boom! {} exploded.", id.index());
     entity.despawn();
     let mine = query.get(id).unwrap();
     // Trigger another explosion cascade.

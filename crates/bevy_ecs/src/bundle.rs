@@ -6,8 +6,8 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::{
-        AddBundle, Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
-        SpawnBundleStatus,
+        Archetype, ArchetypeAfterBundleInsert, ArchetypeId, Archetypes, BundleComponentStatus,
+        ComponentStatus, SpawnBundleStatus,
     },
     component::{
         Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
@@ -20,11 +20,13 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, ON_ADD, ON_INSERT, ON_REPLACE},
 };
+use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_ptr::{ConstNonNull, OwningPtr};
-use bevy_utils::{all_tuples, HashMap, HashSet, TypeIdMap};
-#[cfg(feature = "track_change_detection")]
+use bevy_utils::{HashMap, HashSet, TypeIdMap};
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
+use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -226,6 +228,7 @@ unsafe impl<C: Component> Bundle for C {
             storages,
             required_components,
             0,
+            &mut Vec::new(),
         );
     }
 
@@ -243,6 +246,15 @@ impl<C: Component> DynamicBundle for C {
 
 macro_rules! tuple_impl {
     ($(#[$meta:meta])* $($name: ident),*) => {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY:
         // - `Bundle::component_ids` calls `ids` for each component type in the
@@ -251,43 +263,57 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, storages, ids);)*
             }
 
-            #[allow(unused_variables)]
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
             }
 
-            #[allow(unused_variables, unused_mut)]
-            #[allow(clippy::unused_unit)]
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
             unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
             where
                 F: FnMut(&mut T) -> OwningPtr<'_>
             {
-                #[allow(unused_unsafe)]
+                #[allow(
+                    unused_unsafe,
+                    reason = "Zero-length tuples will not run anything in the unsafe block. Additionally, rewriting this to move the () outside of the unsafe would require putting the safety comment inside the tuple, hurting readability of the code."
+                )]
                 // SAFETY: Rust guarantees that tuple calls are evaluated 'left to right'.
                 // https://doc.rust-lang.org/reference/expressions.html#evaluation-order-of-operands
                 unsafe { ($(<$name as Bundle>::from_components(ctx, func),)*) }
             }
 
             fn register_required_components(
-                _components: &mut Components,
-                _storages: &mut Storages,
-                _required_components: &mut RequiredComponents,
+                components: &mut Components,
+                storages: &mut Storages,
+                required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(_components, _storages, _required_components);)*
+                $(<$name as Bundle>::register_required_components(components, storages, required_components);)*
             }
         }
 
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
-            #[allow(unused_variables, unused_mut)]
             #[inline(always)]
             fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                #[allow(non_snake_case)]
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
                 let ($(mut $name,)*) = self;
                 $(
                     $name.get_components(&mut *func);
@@ -333,12 +359,12 @@ impl SparseSetIndex for BundleId {
     }
 }
 
-// What to do on insertion if component already exists
+/// What to do on insertion if a component already exists.
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum InsertMode {
+pub enum InsertMode {
     /// Any existing components of a matching type will be overwritten.
     Replace,
-    /// Any existing components of a matching type will kept unchanged.
+    /// Any existing components of a matching type will be left unchanged.
     Keep,
 }
 
@@ -380,7 +406,7 @@ impl BundleInfo {
 
         if deduped.len() != component_ids.len() {
             // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
-            let mut seen = HashSet::new();
+            let mut seen = <HashSet<_>>::default();
             let mut dups = Vec::new();
             for id in component_ids {
                 if !seen.insert(id) {
@@ -486,19 +512,21 @@ impl BundleInfo {
     /// # Safety
     ///
     /// `bundle_component_status` must return the "correct" [`ComponentStatus`] for each component
-    /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle being added)
+    /// in the [`Bundle`], with respect to the entity's original archetype (prior to the bundle being added).
+    ///
     /// For example, if the original archetype already has `ComponentA` and `T` also has `ComponentA`, the status
-    /// should be `Mutated`. If the original archetype does not have `ComponentA`, the status should be `Added`.
-    /// When "inserting" a bundle into an existing entity, [`AddBundle`]
-    /// should be used, which will report `Added` vs `Mutated` status based on the current archetype's structure.
+    /// should be `Existing`. If the original archetype does not have `ComponentA`, the status should be `Added`.
+    ///
+    /// When "inserting" a bundle into an existing entity, [`ArchetypeAfterBundleInsert`]
+    /// should be used, which will report `Added` vs `Existing` status based on the current archetype's structure.
+    ///
     /// When spawning a bundle, [`SpawnBundleStatus`] can be used instead, which removes the need
-    /// to look up the [`AddBundle`] in the archetype graph, which requires
+    /// to look up the [`ArchetypeAfterBundleInsert`] in the archetype graph, which requires
     /// ownership of the entity's current archetype.
     ///
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type
     #[inline]
-    #[allow(clippy::too_many_arguments)]
     unsafe fn write_components<'a, T: DynamicBundle, S: BundleComponentStatus>(
         &self,
         table: &mut Table,
@@ -510,7 +538,7 @@ impl BundleInfo {
         change_tick: Tick,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -529,14 +557,14 @@ impl BundleInfo {
                             table_row,
                             component_ptr,
                             change_tick,
-                            #[cfg(feature = "track_change_detection")]
+                            #[cfg(feature = "track_location")]
                             caller,
                         ),
                         (ComponentStatus::Existing, InsertMode::Replace) => column.replace(
                             table_row,
                             component_ptr,
                             change_tick,
-                            #[cfg(feature = "track_change_detection")]
+                            #[cfg(feature = "track_location")]
                             caller,
                         ),
                         (ComponentStatus::Existing, InsertMode::Keep) => {
@@ -555,7 +583,7 @@ impl BundleInfo {
                         entity,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -570,7 +598,7 @@ impl BundleInfo {
                 change_tick,
                 table_row,
                 entity,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -588,7 +616,6 @@ impl BundleInfo {
     /// This method _should not_ be called outside of [`BundleInfo::write_components`].
     /// For more information, read the [`BundleInfo::write_components`] safety docs.
     /// This function inherits the safety requirements defined there.
-    #[allow(clippy::too_many_arguments)]
     pub(crate) unsafe fn initialize_required_component(
         table: &mut Table,
         sparse_sets: &mut SparseSets,
@@ -598,7 +625,7 @@ impl BundleInfo {
         component_id: ComponentId,
         storage_type: StorageType,
         component_ptr: OwningPtr,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         {
             match storage_type {
@@ -611,7 +638,7 @@ impl BundleInfo {
                         table_row,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -624,7 +651,7 @@ impl BundleInfo {
                         entity,
                         component_ptr,
                         change_tick,
-                        #[cfg(feature = "track_change_detection")]
+                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -632,12 +659,15 @@ impl BundleInfo {
         }
     }
 
-    /// Adds a bundle to the given archetype and returns the resulting archetype. This could be the
-    /// same [`ArchetypeId`], in the event that adding the given bundle does not result in an
-    /// [`Archetype`] change. Results are cached in the [`Archetype`] graph to avoid redundant work.
+    /// Inserts a bundle into the given archetype and returns the resulting archetype.
+    /// This could be the same [`ArchetypeId`], in the event that inserting the given bundle
+    /// does not result in an [`Archetype`] change.
+    ///
+    /// Results are cached in the [`Archetype`] graph to avoid redundant work.
+    ///
     /// # Safety
     /// `components` must be the same components as passed in [`Self::new`]
-    pub(crate) unsafe fn add_bundle_to_archetype(
+    pub(crate) unsafe fn insert_bundle_into_archetype(
         &self,
         archetypes: &mut Archetypes,
         storages: &mut Storages,
@@ -645,8 +675,11 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
-        if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
-            return add_bundle_id;
+        if let Some(archetype_after_insert_id) = archetypes[archetype_id]
+            .edges()
+            .get_archetype_after_bundle_insert(self.id)
+        {
+            return archetype_after_insert_id;
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
@@ -691,8 +724,8 @@ impl BundleInfo {
 
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
             let edges = current_archetype.edges_mut();
-            // the archetype does not change when we add this bundle
-            edges.insert_add_bundle(
+            // The archetype does not change when we insert this bundle.
+            edges.cache_archetype_after_bundle_insert(
                 self.id,
                 archetype_id,
                 bundle_status,
@@ -705,16 +738,16 @@ impl BundleInfo {
             let table_id;
             let table_components;
             let sparse_set_components;
-            // the archetype changes when we add this bundle. prepare the new archetype and storages
+            // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
                 let current_archetype = &archetypes[archetype_id];
                 table_components = if new_table_components.is_empty() {
-                    // if there are no new table components, we can keep using this table
+                    // If there are no new table components, we can keep using this table.
                     table_id = current_archetype.table_id();
                     current_archetype.table_components().collect()
                 } else {
                     new_table_components.extend(current_archetype.table_components());
-                    // sort to ignore order while hashing
+                    // Sort to ignore order while hashing.
                     new_table_components.sort_unstable();
                     // SAFETY: all component ids in `new_table_components` exist
                     table_id = unsafe {
@@ -730,7 +763,7 @@ impl BundleInfo {
                     current_archetype.sparse_set_components().collect()
                 } else {
                     new_sparse_set_components.extend(current_archetype.sparse_set_components());
-                    // sort to ignore order while hashing
+                    // Sort to ignore order while hashing.
                     new_sparse_set_components.sort_unstable();
                     new_sparse_set_components
                 };
@@ -743,17 +776,131 @@ impl BundleInfo {
                 table_components,
                 sparse_set_components,
             );
-            // add an edge from the old archetype to the new archetype
-            archetypes[archetype_id].edges_mut().insert_add_bundle(
-                self.id,
-                new_archetype_id,
-                bundle_status,
-                added_required_components,
-                added,
-                existing,
-            );
+            // Add an edge from the old archetype to the new archetype.
+            archetypes[archetype_id]
+                .edges_mut()
+                .cache_archetype_after_bundle_insert(
+                    self.id,
+                    new_archetype_id,
+                    bundle_status,
+                    added_required_components,
+                    added,
+                    existing,
+                );
             new_archetype_id
         }
+    }
+
+    /// Removes a bundle from the given archetype and returns the resulting archetype
+    /// (or `None` if the removal was invalid).
+    /// This could be the same [`ArchetypeId`], in the event that removing the given bundle
+    /// does not result in an [`Archetype`] change.
+    ///
+    /// Results are cached in the [`Archetype`] graph to avoid redundant work.
+    ///
+    /// If `intersection` is false, attempting to remove a bundle with components not contained in the
+    /// current archetype will fail, returning `None`.
+    ///
+    /// If `intersection` is true, components in the bundle but not in the current archetype
+    /// will be ignored.
+    ///
+    /// # Safety
+    /// `archetype_id` must exist and components in `bundle_info` must exist
+    pub(crate) unsafe fn remove_bundle_from_archetype(
+        &self,
+        archetypes: &mut Archetypes,
+        storages: &mut Storages,
+        components: &Components,
+        observers: &Observers,
+        archetype_id: ArchetypeId,
+        intersection: bool,
+    ) -> Option<ArchetypeId> {
+        // Check the archetype graph to see if the bundle has been
+        // removed from this archetype in the past.
+        let archetype_after_remove_result = {
+            let edges = archetypes[archetype_id].edges();
+            if intersection {
+                edges.get_archetype_after_bundle_remove(self.id())
+            } else {
+                edges.get_archetype_after_bundle_take(self.id())
+            }
+        };
+        let result = if let Some(result) = archetype_after_remove_result {
+            // This bundle removal result is cached. Just return that!
+            result
+        } else {
+            let mut next_table_components;
+            let mut next_sparse_set_components;
+            let next_table_id;
+            {
+                let current_archetype = &mut archetypes[archetype_id];
+                let mut removed_table_components = Vec::new();
+                let mut removed_sparse_set_components = Vec::new();
+                for component_id in self.iter_explicit_components() {
+                    if current_archetype.contains(component_id) {
+                        // SAFETY: bundle components were already initialized by bundles.get_info
+                        let component_info = unsafe { components.get_info_unchecked(component_id) };
+                        match component_info.storage_type() {
+                            StorageType::Table => removed_table_components.push(component_id),
+                            StorageType::SparseSet => {
+                                removed_sparse_set_components.push(component_id);
+                            }
+                        }
+                    } else if !intersection {
+                        // A component in the bundle was not present in the entity's archetype, so this
+                        // removal is invalid. Cache the result in the archetype graph.
+                        current_archetype
+                            .edges_mut()
+                            .cache_archetype_after_bundle_take(self.id(), None);
+                        return None;
+                    }
+                }
+
+                // Sort removed components so we can do an efficient "sorted remove".
+                // Archetype components are already sorted.
+                removed_table_components.sort_unstable();
+                removed_sparse_set_components.sort_unstable();
+                next_table_components = current_archetype.table_components().collect();
+                next_sparse_set_components = current_archetype.sparse_set_components().collect();
+                sorted_remove(&mut next_table_components, &removed_table_components);
+                sorted_remove(
+                    &mut next_sparse_set_components,
+                    &removed_sparse_set_components,
+                );
+
+                next_table_id = if removed_table_components.is_empty() {
+                    current_archetype.table_id()
+                } else {
+                    // SAFETY: all components in next_table_components exist
+                    unsafe {
+                        storages
+                            .tables
+                            .get_id_or_insert(&next_table_components, components)
+                    }
+                };
+            }
+
+            let new_archetype_id = archetypes.get_id_or_insert(
+                components,
+                observers,
+                next_table_id,
+                next_table_components,
+                next_sparse_set_components,
+            );
+            Some(new_archetype_id)
+        };
+        let current_archetype = &mut archetypes[archetype_id];
+        // Cache the result in an edge.
+        if intersection {
+            current_archetype
+                .edges_mut()
+                .cache_archetype_after_bundle_remove(self.id(), result);
+        } else {
+            current_archetype
+                .edges_mut()
+                .cache_archetype_after_bundle_take(self.id(), result);
+        }
+        result
     }
 }
 
@@ -761,18 +908,24 @@ impl BundleInfo {
 pub(crate) struct BundleInserter<'w> {
     world: UnsafeWorldCell<'w>,
     bundle_info: ConstNonNull<BundleInfo>,
-    add_bundle: ConstNonNull<AddBundle>,
+    archetype_after_insert: ConstNonNull<ArchetypeAfterBundleInsert>,
     table: NonNull<Table>,
     archetype: NonNull<Archetype>,
-    result: InsertBundleResult,
+    archetype_move_type: ArchetypeMoveType,
     change_tick: Tick,
 }
 
-pub(crate) enum InsertBundleResult {
+/// The type of archetype move (or lack thereof) that will result from a bundle
+/// being inserted into an entity.
+pub(crate) enum ArchetypeMoveType {
+    /// If the entity already has all of the components that are being inserted,
+    /// its archetype won't change.
     SameArchetype,
-    NewArchetypeSameTable {
-        new_archetype: NonNull<Archetype>,
-    },
+    /// If only [`sparse set`](StorageType::SparseSet) components are being added,
+    /// the entity's archetype will change while keeping the same table.
+    NewArchetypeSameTable { new_archetype: NonNull<Archetype> },
+    /// If any [`table-stored`](StorageType::Table) components are being added,
+    /// both the entity's archetype and table will change.
     NewArchetypeNewTable {
         new_archetype: NonNull<Archetype>,
         new_table: NonNull<Table>,
@@ -807,7 +960,7 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
-        let new_archetype_id = bundle_info.add_bundle_to_archetype(
+        let new_archetype_id = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
@@ -816,32 +969,32 @@ impl<'w> BundleInserter<'w> {
         );
         if new_archetype_id == archetype_id {
             let archetype = &mut world.archetypes[archetype_id];
-            // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
-            let add_bundle = unsafe {
+            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
+            let archetype_after_insert = unsafe {
                 archetype
                     .edges()
-                    .get_add_bundle_internal(bundle_id)
+                    .get_archetype_after_bundle_insert_internal(bundle_id)
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
             let table = &mut world.storages.tables[table_id];
             Self {
-                add_bundle: add_bundle.into(),
+                archetype_after_insert: archetype_after_insert.into(),
                 archetype: archetype.into(),
                 bundle_info: bundle_info.into(),
                 table: table.into(),
-                result: InsertBundleResult::SameArchetype,
+                archetype_move_type: ArchetypeMoveType::SameArchetype,
                 change_tick,
                 world: world.as_unsafe_world_cell(),
             }
         } else {
             let (archetype, new_archetype) =
                 world.archetypes.get_2_mut(archetype_id, new_archetype_id);
-            // SAFETY: The edge is assured to be initialized when we called add_bundle_to_archetype
-            let add_bundle = unsafe {
+            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
+            let archetype_after_insert = unsafe {
                 archetype
                     .edges()
-                    .get_add_bundle_internal(bundle_id)
+                    .get_archetype_after_bundle_insert_internal(bundle_id)
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
@@ -849,11 +1002,11 @@ impl<'w> BundleInserter<'w> {
             if table_id == new_table_id {
                 let table = &mut world.storages.tables[table_id];
                 Self {
-                    add_bundle: add_bundle.into(),
+                    archetype_after_insert: archetype_after_insert.into(),
                     archetype: archetype.into(),
                     bundle_info: bundle_info.into(),
                     table: table.into(),
-                    result: InsertBundleResult::NewArchetypeSameTable {
+                    archetype_move_type: ArchetypeMoveType::NewArchetypeSameTable {
                         new_archetype: new_archetype.into(),
                     },
                     change_tick,
@@ -862,11 +1015,11 @@ impl<'w> BundleInserter<'w> {
             } else {
                 let (table, new_table) = world.storages.tables.get_2_mut(table_id, new_table_id);
                 Self {
-                    add_bundle: add_bundle.into(),
+                    archetype_after_insert: archetype_after_insert.into(),
                     archetype: archetype.into(),
                     bundle_info: bundle_info.into(),
                     table: table.into(),
-                    result: InsertBundleResult::NewArchetypeNewTable {
+                    archetype_move_type: ArchetypeMoveType::NewArchetypeNewTable {
                         new_archetype: new_archetype.into(),
                         new_table: new_table.into(),
                     },
@@ -887,11 +1040,10 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
-        let add_bundle = self.add_bundle.as_ref();
-        let table = self.table.as_mut();
+        let archetype_after_insert = self.archetype_after_insert.as_ref();
         let archetype = self.archetype.as_ref();
 
         // SAFETY: All components in the bundle are guaranteed to exist in the World
@@ -901,23 +1053,29 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = self.world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
-                deferred_world.trigger_on_replace(archetype, entity, add_bundle.iter_existing());
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         ON_REPLACE,
                         entity,
-                        add_bundle.iter_existing(),
+                        archetype_after_insert.iter_existing(),
                     );
                 }
+                deferred_world.trigger_on_replace(
+                    archetype,
+                    entity,
+                    archetype_after_insert.iter_existing(),
+                );
             }
         }
+
+        let table = self.table.as_mut();
 
         // SAFETY: Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = self.archetype.as_mut();
 
-        let (new_archetype, new_location) = match &mut self.result {
-            InsertBundleResult::SameArchetype => {
+        let (new_archetype, new_location) = match &mut self.archetype_move_type {
+            ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let sparse_sets = {
                     let world = self.world.world_mut();
@@ -927,20 +1085,20 @@ impl<'w> BundleInserter<'w> {
                 bundle_info.write_components(
                     table,
                     sparse_sets,
-                    add_bundle,
-                    add_bundle.required_components.iter(),
+                    archetype_after_insert,
+                    archetype_after_insert.required_components.iter(),
                     entity,
                     location.table_row,
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
                 (archetype, location)
             }
-            InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
+            ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
@@ -969,20 +1127,20 @@ impl<'w> BundleInserter<'w> {
                 bundle_info.write_components(
                     table,
                     sparse_sets,
-                    add_bundle,
-                    add_bundle.required_components.iter(),
+                    archetype_after_insert,
+                    archetype_after_insert.required_components.iter(),
                     entity,
                     result.table_row,
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
                 (new_archetype, new_location)
             }
-            InsertBundleResult::NewArchetypeNewTable {
+            ArchetypeMoveType::NewArchetypeNewTable {
                 new_archetype,
                 new_table,
             } => {
@@ -1020,7 +1178,7 @@ impl<'w> BundleInserter<'w> {
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
                 entities.set(entity.index(), new_location);
 
-                // if an entity was moved into this entity's table spot, update its table row
+                // If an entity was moved into this entity's table spot, update its table row.
                 if let Some(swapped_entity) = move_result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -1052,14 +1210,14 @@ impl<'w> BundleInserter<'w> {
                 bundle_info.write_components(
                     new_table,
                     sparse_sets,
-                    add_bundle,
-                    add_bundle.required_components.iter(),
+                    archetype_after_insert,
+                    archetype_after_insert.required_components.iter(),
                     entity,
                     move_result.new_row,
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_change_detection")]
+                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1074,39 +1232,47 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: All components in the bundle are guaranteed to exist in the World
         // as they must be initialized before creating the BundleInfo.
         unsafe {
-            deferred_world.trigger_on_add(new_archetype, entity, add_bundle.iter_added());
+            deferred_world.trigger_on_add(
+                new_archetype,
+                entity,
+                archetype_after_insert.iter_added(),
+            );
             if new_archetype.has_add_observer() {
-                deferred_world.trigger_observers(ON_ADD, entity, add_bundle.iter_added());
+                deferred_world.trigger_observers(
+                    ON_ADD,
+                    entity,
+                    archetype_after_insert.iter_added(),
+                );
             }
             match insert_mode {
                 InsertMode::Replace => {
-                    // insert triggers for both new and existing components if we're replacing them
+                    // Insert triggers for both new and existing components if we're replacing them.
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        add_bundle.iter_inserted(),
+                        archetype_after_insert.iter_inserted(),
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
                             entity,
-                            add_bundle.iter_inserted(),
+                            archetype_after_insert.iter_inserted(),
                         );
                     }
                 }
                 InsertMode::Keep => {
-                    // insert triggers only for new components if we're not replacing them (since
+                    // Insert triggers only for new components if we're not replacing them (since
                     // nothing is actually inserted).
                     deferred_world.trigger_on_insert(
                         new_archetype,
                         entity,
-                        add_bundle.iter_added(),
+                        archetype_after_insert.iter_added(),
                     );
                     if new_archetype.has_insert_observer() {
                         deferred_world.trigger_observers(
                             ON_INSERT,
                             entity,
-                            add_bundle.iter_added(),
+                            archetype_after_insert.iter_added(),
                         );
                     }
                 }
@@ -1153,7 +1319,7 @@ impl<'w> BundleSpawner<'w> {
         change_tick: Tick,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
-        let new_archetype_id = bundle_info.add_bundle_to_archetype(
+        let new_archetype_id = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
             &world.components,
@@ -1186,7 +1352,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -1211,7 +1377,7 @@ impl<'w> BundleSpawner<'w> {
                 self.change_tick,
                 bundle,
                 InsertMode::Replace,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
             entities.set(entity.index(), location);
@@ -1260,7 +1426,7 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
         bundle: T,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
@@ -1268,7 +1434,7 @@ impl<'w> BundleSpawner<'w> {
             self.spawn_non_existent(
                 entity,
                 bundle,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -1307,6 +1473,21 @@ pub struct Bundles {
 }
 
 impl Bundles {
+    /// The total number of [`Bundle`] registered in [`Storages`].
+    pub fn len(&self) -> usize {
+        self.bundle_infos.len()
+    }
+
+    /// Returns true if no [`Bundle`] registered in [`Storages`].
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Iterate over [`BundleInfo`].
+    pub fn iter(&self) -> impl Iterator<Item = &BundleInfo> {
+        self.bundle_infos.iter()
+    }
+
     /// Gets the metadata associated with a specific type of bundle.
     /// Returns `None` if the bundle is not registered with the world.
     #[inline]
@@ -1421,8 +1602,11 @@ impl Bundles {
             .or_insert_with(|| {
                 let (id, storages) =
                     initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids));
-                self.dynamic_bundle_storages
-                    .insert_unique_unchecked(id, storages);
+                // SAFETY: The ID always increases when new bundles are added, and so, the ID is unique.
+                unsafe {
+                    self.dynamic_bundle_storages
+                        .insert_unique_unchecked(id, storages);
+                }
                 (component_ids.into(), id)
             });
         *bundle_id
@@ -1477,10 +1661,26 @@ fn initialize_dynamic_bundle(
     (id, storage_types)
 }
 
+fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
+    let mut remove_index = 0;
+    source.retain(|value| {
+        while remove_index < remove.len() && *value > remove[remove_index] {
+            remove_index += 1;
+        }
+
+        if remove_index < remove.len() {
+            *value != remove[remove_index]
+        } else {
+            true
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
     use crate::{component::ComponentId, prelude::*, world::DeferredWorld};
+    use alloc::vec;
 
     #[derive(Component)]
     struct A;
@@ -1672,5 +1872,26 @@ mod tests {
         let entity = world.entity(id);
         assert!(entity.contains::<A>());
         assert_eq!(entity.get(), Some(&V("one")));
+    }
+
+    #[test]
+    fn sorted_remove() {
+        let mut a = vec![1, 2, 3, 4, 5, 6, 7];
+        let b = vec![1, 2, 3, 5, 7];
+        super::sorted_remove(&mut a, &b);
+
+        assert_eq!(a, vec![4, 6]);
+
+        let mut a = vec![1];
+        let b = vec![1];
+        super::sorted_remove(&mut a, &b);
+
+        assert_eq!(a, vec![]);
+
+        let mut a = vec![1];
+        let b = vec![2];
+        super::sorted_remove(&mut a, &b);
+
+        assert_eq!(a, vec![1]);
     }
 }

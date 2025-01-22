@@ -23,21 +23,22 @@ pub enum UvChannel {
     Uv1,
 }
 
-/// A material with "standard" properties used in PBR lighting
-/// Standard property values with pictures here
+/// A material with "standard" properties used in PBR lighting.
+/// Standard property values with pictures here:
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
+#[bindless(16)]
 #[reflect(Default, Debug)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
     /// Doubles as diffuse albedo for non-metallic, specular for metallic and a mix for everything
     /// in between. If used together with a `base_color_texture`, this is factored into the final
-    /// base color as `base_color * base_color_texture_value`
+    /// base color as `base_color * base_color_texture_value`.
     ///
     /// Defaults to [`Color::WHITE`].
     pub base_color: Color,
@@ -182,10 +183,10 @@ pub struct StandardMaterial {
     #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
-    /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”)
+    /// The amount of light transmitted _diffusely_ through the material (i.e. “translucency”).
     ///
     /// Implemented as a second, flipped [Lambertian diffuse](https://en.wikipedia.org/wiki/Lambertian_reflectance) lobe,
-    /// which provides an inexpensive but plausible approximation of translucency for thin dieletric objects (e.g. paper,
+    /// which provides an inexpensive but plausible approximation of translucency for thin dielectric objects (e.g. paper,
     /// leaves, some fabrics) or thicker volumetric materials with short scattering distances (e.g. porcelain, wax).
     ///
     /// For specular transmission usecases with refraction (e.g. glass) use the [`StandardMaterial::specular_transmission`] and
@@ -220,7 +221,7 @@ pub struct StandardMaterial {
     #[cfg(feature = "pbr_transmission_textures")]
     pub diffuse_transmission_texture: Option<Handle<Image>>,
 
-    /// The amount of light transmitted _specularly_ through the material (i.e. via refraction)
+    /// The amount of light transmitted _specularly_ through the material (i.e. via refraction).
     ///
     /// - When set to `0.0` (the default) no light is transmitted.
     /// - When set to `1.0` all light is transmitted through the material.
@@ -231,7 +232,7 @@ pub struct StandardMaterial {
     ///
     /// ## Performance
     ///
-    /// Specular transmission is implemented as a relatively expensive screen-space effect that allows ocluded objects to be seen through the material,
+    /// Specular transmission is implemented as a relatively expensive screen-space effect that allows occluded objects to be seen through the material,
     /// with distortion and blur effects.
     ///
     /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
@@ -463,7 +464,7 @@ pub struct StandardMaterial {
     ///
     /// Note that, if a clearcoat normal map isn't specified, the main normal
     /// map, if any, won't be applied to the clearcoat. If you want a normal map
-    /// that applies to both the main materal and to the clearcoat, specify it
+    /// that applies to both the main material and to the clearcoat, specify it
     /// in both [`StandardMaterial::normal_map_texture`] and this field.
     ///
     /// As this is a non-color map, it must not be loaded as sRGB.
@@ -521,7 +522,7 @@ pub struct StandardMaterial {
     /// [`StandardMaterial::anisotropy_rotation`] to vary across the mesh.
     ///
     /// The [`KHR_materials_anisotropy` specification] defines the format that
-    /// this texture must take. To summarize: The direction vector is encoded in
+    /// this texture must take. To summarize: the direction vector is encoded in
     /// the red and green channels, while the strength is encoded in the blue
     /// channels. For the direction vector, the red and green channels map the
     /// color range [0, 1] to the vector range [-1, 1]. The direction vector
@@ -1237,7 +1238,9 @@ impl From<&StandardMaterial> for StandardMaterialKey {
         }
 
         key.insert(StandardMaterialKey::from_bits_retain(
-            (material.depth_bias as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
+            // Casting to i32 first to ensure the full i32 range is preserved.
+            // (wgpu expects the depth_bias as an i32 when this is extracted in a later step)
+            (material.depth_bias as i32 as u64) << STANDARD_MATERIAL_KEY_DEPTH_BIAS_SHIFT,
         ));
         key
     }

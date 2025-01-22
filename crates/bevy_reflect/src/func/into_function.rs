@@ -63,6 +63,6 @@ mod tests {
     fn should_default_closure_name_to_none() {
         let c = 23;
         let func = (|a: i32, b: i32| a + b + c).into_function();
-        assert_eq!(func.info().name(), None);
+        assert!(func.name().is_none());
     }
 }

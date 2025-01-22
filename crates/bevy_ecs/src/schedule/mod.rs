@@ -3,27 +3,28 @@
 mod condition;
 mod config;
 mod executor;
-mod graph_utils;
-#[allow(clippy::module_inception)]
+mod graph;
 mod schedule;
 mod set;
 mod stepping;
 
-use self::graph_utils::*;
+use self::graph::*;
 pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
 
-pub use self::graph_utils::NodeId;
+pub use self::graph::NodeId;
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::{string::ToString, vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
     pub use crate as bevy_ecs;
     pub use crate::{
         prelude::World,
+        resource::Resource,
         schedule::{Schedule, SystemSet},
-        system::{Res, ResMut, Resource},
+        system::{Res, ResMut},
     };
 
     #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]

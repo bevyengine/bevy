@@ -1,6 +1,6 @@
 //! Shows text rendering with moving, rotating and scaling text.
 //!
-//! Note that this uses [`Text2dBundle`] to display text alongside your other entities in a 2D scene.
+//! Note that this uses [`Text2d`] to display text alongside your other entities in a 2D scene.
 //!
 //! For an example on how to render text as part of a user interface, independent from the world
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
@@ -111,27 +111,48 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Demonstrate font smoothing off
     commands.spawn((
-        Text2d::new("FontSmoothing::None"),
+        Text2d::new("This text has\nFontSmoothing::None\nAnd JustifyText::Center"),
         slightly_smaller_text_font
             .clone()
             .with_font_smoothing(FontSmoothing::None),
+        TextLayout::new_with_justify(JustifyText::Center),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
     ));
 
-    for (text_anchor, color) in [
-        (Anchor::TopLeft, Color::Srgba(RED)),
-        (Anchor::TopRight, Color::Srgba(LIME)),
-        (Anchor::BottomRight, Color::Srgba(BLUE)),
-        (Anchor::BottomLeft, Color::Srgba(YELLOW)),
-    ] {
-        commands.spawn((
-            Text2d::new(format!(" Anchor::{text_anchor:?} ")),
-            slightly_smaller_text_font.clone(),
-            TextColor(color),
+    commands
+        .spawn((
+            Sprite {
+                color: Color::Srgba(LIGHT_CYAN),
+                custom_size: Some(Vec2::new(10., 10.)),
+                ..Default::default()
+            },
             Transform::from_translation(250. * Vec3::Y),
-            text_anchor,
-        ));
-    }
+        ))
+        .with_children(|commands| {
+            for (text_anchor, color) in [
+                (Anchor::TopLeft, Color::Srgba(RED)),
+                (Anchor::TopRight, Color::Srgba(LIME)),
+                (Anchor::BottomRight, Color::Srgba(BLUE)),
+                (Anchor::BottomLeft, Color::Srgba(YELLOW)),
+            ] {
+                commands
+                    .spawn((
+                        Text2d::new(" Anchor".to_string()),
+                        slightly_smaller_text_font.clone(),
+                        text_anchor,
+                    ))
+                    .with_child((
+                        TextSpan("::".to_string()),
+                        slightly_smaller_text_font.clone(),
+                        TextColor(LIGHT_GREY.into()),
+                    ))
+                    .with_child((
+                        TextSpan(format!("{text_anchor:?} ")),
+                        slightly_smaller_text_font.clone(),
+                        TextColor(color),
+                    ));
+            }
+        });
 }
 
 fn animate_translation(

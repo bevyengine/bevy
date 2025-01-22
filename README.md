@@ -50,7 +50,7 @@ Before contributing or participating in discussions with the community, you shou
 
 ### Contributing
 
-If you'd like to help build Bevy, check out the **[Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)**.
+If you'd like to help build Bevy, check out the **[Contributor's Guide](https://bevyengine.org/learn/contribute/introduction)**.
 For simple problems, feel free to [open an issue](https://github.com/bevyengine/bevy/issues) or
 [PR](https://github.com/bevyengine/bevy/pulls) and tackle it yourself!
 

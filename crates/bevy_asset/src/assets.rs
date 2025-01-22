@@ -1,18 +1,20 @@
+use crate::asset_changed::AssetChanges;
 use crate::{
     self as bevy_asset, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
     UntypedHandle,
 };
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
     prelude::EventWriter,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut, SystemChangeTick},
 };
 use bevy_reflect::{Reflect, TypePath};
 use bevy_utils::HashMap;
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
-use derive_more::derive::{Display, Error};
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use uuid::Uuid;
 
 /// A generational runtime-only identifier for a specific [`Asset`] stored in [`Assets`]. This is optimized for efficient runtime
@@ -559,7 +561,24 @@ impl<A: Asset> Assets<A> {
     /// A system that applies accumulated asset change events to the [`Events`] resource.
     ///
     /// [`Events`]: bevy_ecs::event::Events
-    pub fn asset_events(mut assets: ResMut<Self>, mut events: EventWriter<AssetEvent<A>>) {
+    pub(crate) fn asset_events(
+        mut assets: ResMut<Self>,
+        mut events: EventWriter<AssetEvent<A>>,
+        asset_changes: Option<ResMut<AssetChanges<A>>>,
+        ticks: SystemChangeTick,
+    ) {
+        use AssetEvent::{Added, LoadedWithDependencies, Modified, Removed};
+
+        if let Some(mut asset_changes) = asset_changes {
+            for new_event in &assets.queued_events {
+                match new_event {
+                    Removed { id } | AssetEvent::Unused { id } => asset_changes.remove(id),
+                    Added { id } | Modified { id } | LoadedWithDependencies { id } => {
+                        asset_changes.insert(*id, ticks.this_run());
+                    }
+                };
+            }
+        }
         events.send_batch(assets.queued_events.drain(..));
     }
 
@@ -613,8 +632,8 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     }
 }
 
-#[derive(Error, Display, Debug)]
-#[display("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
+#[derive(Error, Debug)]
+#[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
 pub struct InvalidGenerationError {
     index: AssetIndex,
     current_generation: u32,

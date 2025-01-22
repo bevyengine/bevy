@@ -1,9 +1,11 @@
+use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
     event::{Event, EventReader, Events},
-    system::{Commands, Resource},
+    resource::Resource,
+    system::Commands,
     world::World,
 };
 use bevy_utils::HashMap;

@@ -85,10 +85,9 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             downsample_depth_second_shadow_view_pipeline,
             visibility_buffer_software_raster_pipeline,
             visibility_buffer_software_raster_depth_only_pipeline,
-            visibility_buffer_software_raster_depth_only_clamp_ortho,
             visibility_buffer_hardware_raster_pipeline,
             visibility_buffer_hardware_raster_depth_only_pipeline,
-            visibility_buffer_hardware_raster_depth_only_clamp_ortho,
+            visibility_buffer_hardware_raster_depth_only_unclipped_pipeline,
             resolve_depth_pipeline,
             resolve_depth_shadow_view_pipeline,
             resolve_material_depth_pipeline,
@@ -223,19 +222,12 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 continue;
             };
 
-            let (
-                shadow_visibility_buffer_software_raster_pipeline,
-                shadow_visibility_buffer_hardware_raster_pipeline,
-            ) = match light_type {
-                LightEntity::Directional { .. } => (
-                    visibility_buffer_software_raster_depth_only_clamp_ortho,
-                    visibility_buffer_hardware_raster_depth_only_clamp_ortho,
-                ),
-                _ => (
-                    visibility_buffer_software_raster_depth_only_pipeline,
-                    visibility_buffer_hardware_raster_depth_only_pipeline,
-                ),
-            };
+            let shadow_visibility_buffer_hardware_raster_pipeline =
+                if let LightEntity::Directional { .. } = light_type {
+                    visibility_buffer_hardware_raster_depth_only_unclipped_pipeline
+                } else {
+                    visibility_buffer_hardware_raster_depth_only_pipeline
+                };
 
             render_context.command_encoder().push_debug_group(&format!(
                 "meshlet_visibility_buffer_raster: {}",
@@ -270,7 +262,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
-                shadow_visibility_buffer_software_raster_pipeline,
+                visibility_buffer_software_raster_depth_only_pipeline,
                 shadow_visibility_buffer_hardware_raster_pipeline,
                 None,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
@@ -306,7 +298,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
-                shadow_visibility_buffer_software_raster_pipeline,
+                visibility_buffer_software_raster_depth_only_pipeline,
                 shadow_visibility_buffer_hardware_raster_pipeline,
                 None,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
@@ -366,7 +358,6 @@ fn fill_cluster_buffers_pass(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
 fn cull_pass(
     label: &'static str,
     render_context: &mut RenderContext,
@@ -413,7 +404,6 @@ fn cull_pass(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn raster_pass(
     first_pass: bool,
     render_context: &mut RenderContext,

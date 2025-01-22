@@ -25,9 +25,14 @@ mod tests {
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
+    use alloc::{
+        boxed::Box,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bevy_utils::{HashMap, HashSet};
-    use core::any::TypeId;
-    use core::{f32::consts::PI, ops::RangeInclusive};
+    use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::{Serialize, Serializer};
 
@@ -128,10 +133,10 @@ mod tests {
     }
 
     fn get_my_struct() -> MyStruct {
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(64, 32);
 
-        let mut set = HashSet::new();
+        let mut set = <HashSet<_>>::default();
         set.insert(64);
 
         MyStruct {
@@ -648,6 +653,7 @@ mod tests {
     mod functions {
         use super::*;
         use crate::func::{DynamicFunction, IntoFunction};
+        use alloc::string::ToString;
 
         #[test]
         fn should_not_serialize_function() {

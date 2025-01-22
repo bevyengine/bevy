@@ -195,7 +195,7 @@ fn main() {
 
         dynamic_set.remove(&"y");
 
-        let mut my_set: HashSet<&str> = HashSet::new();
+        let mut my_set: HashSet<&str> = HashSet::default();
         my_set.apply(&dynamic_set);
         assert_eq!(my_set, HashSet::from_iter(["x", "z"]));
     }
@@ -204,7 +204,7 @@ fn main() {
     {
         let dynamic_map = DynamicMap::from_iter([("x", 1u32), ("y", 2u32), ("z", 3u32)]);
 
-        let mut my_map: HashMap<&str, u32> = HashMap::new();
+        let mut my_map: HashMap<&str, u32> = HashMap::default();
         my_map.apply(&dynamic_map);
         assert_eq!(my_map.get("x"), Some(&1));
         assert_eq!(my_map.get("y"), Some(&2));

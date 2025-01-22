@@ -10,8 +10,9 @@ use bevy_ecs::{
     entity::Entity,
     query::{QueryItem, With},
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::{BevyDefault, Image};
@@ -112,7 +113,7 @@ pub struct ChromaticAberration {
     /// The size of the streaks around the edges of objects, as a fraction of
     /// the window size.
     ///
-    /// The default value is 0.2.
+    /// The default value is 0.02.
     pub intensity: f32,
 
     /// A cap on the number of texture samples that will be performed.

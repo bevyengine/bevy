@@ -1,25 +1,20 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, Node, Outline, OverflowAxis,
-    ScrollPosition, TargetCamera, UiScale, Val,
+    BorderRadius, ComputedNode, ContentSize, DefaultUiCamera, Display, LayoutConfig, Node, Outline,
+    OverflowAxis, ScrollPosition, UiScale, UiTargetCamera, Val,
 };
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashMap, EntityHashSet},
-    event::EventReader,
-    query::With,
-    removal_detection::RemovedComponents,
-    system::{Commands, Local, Query, Res, ResMut, SystemParam},
-    world::Ref,
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
+    prelude::*,
+    system::SystemParam,
 };
-use bevy_hierarchy::{Children, Parent};
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::tracing::warn;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
+use tracing::warn;
 use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
@@ -33,24 +28,18 @@ pub(crate) mod ui_surface;
 pub struct LayoutContext {
     pub scale_factor: f32,
     pub physical_size: Vec2,
-    pub min_size: f32,
-    pub max_size: f32,
 }
 
 impl LayoutContext {
     pub const DEFAULT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::ZERO,
-        min_size: 0.0,
-        max_size: 0.0,
     };
     /// create new a [`LayoutContext`] from the window's physical size and scale factor
     fn new(scale_factor: f32, physical_size: Vec2) -> Self {
         Self {
             scale_factor,
             physical_size,
-            min_size: physical_size.x.min(physical_size.y),
-            max_size: physical_size.x.max(physical_size.y),
         }
     }
 }
@@ -60,8 +49,6 @@ impl LayoutContext {
     pub const TEST_CONTEXT: Self = Self {
         scale_factor: 1.0,
         physical_size: Vec2::new(1000.0, 1000.0),
-        min_size: 0.0,
-        max_size: 1000.0,
     };
 }
 
@@ -71,11 +58,11 @@ impl Default for LayoutContext {
     }
 }
 
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum LayoutError {
-    #[display("Invalid hierarchy")]
+    #[error("Invalid hierarchy")]
     InvalidHierarchy,
-    #[display("Taffy error: {_0}")]
+    #[error("Taffy error: {0}")]
     TaffyError(taffy::TaffyError),
 }
 
@@ -104,7 +91,6 @@ struct CameraLayoutInfo {
 }
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
-#[allow(clippy::too_many_arguments)]
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
@@ -119,19 +105,21 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Option<&TargetCamera>,
+        Option<&UiTargetCamera>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
+    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
         &mut ComputedNode,
         &mut Transform,
         &Node,
+        Option<&LayoutConfig>,
         Option<&BorderRadius>,
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
+
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -144,8 +132,8 @@ pub fn ui_layout_system(
     let (cameras, default_ui_camera) = camera_data;
 
     let default_camera = default_ui_camera.get();
-    let camera_with_default = |target_camera: Option<&TargetCamera>| {
-        target_camera.map(TargetCamera::entity).or(default_camera)
+    let camera_with_default = |target_camera: Option<&UiTargetCamera>| {
+        target_camera.map(UiTargetCamera::entity).or(default_camera)
     };
 
     resized_windows.clear();
@@ -177,7 +165,7 @@ pub fn ui_layout_system(
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
                         warn!(
-                            "TargetCamera (of root UI node {entity:?}) is pointing to a camera {:?} which doesn't exist",
+                            "UiTargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
                         );
                         return;
@@ -193,7 +181,7 @@ pub fn ui_layout_system(
                     } else {
                         warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
-                            To fix this, add an explicit `TargetCamera` component to the root UI node {:?}",
+                            To fix this, add an explicit `UiTargetCamera` component to the root UI node {}",
                             entity
                         );
                     }
@@ -221,8 +209,7 @@ pub fn ui_layout_system(
                     || node.is_changed()
                     || content_size
                         .as_ref()
-                        .map(|c| c.is_changed() || c.measure.is_some())
-                        .unwrap_or(false)
+                        .is_some_and(|c| c.is_changed() || c.measure.is_some())
                 {
                     let layout_context = LayoutContext::new(
                         camera.scale_factor,
@@ -302,6 +289,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 &mut commands,
                 *root,
                 &mut ui_surface,
+                true,
                 None,
                 &mut node_transform_query,
                 &ui_children,
@@ -320,11 +308,13 @@ with UI components as a child of an entity without UI components, your UI layout
         commands: &mut Commands,
         entity: Entity,
         ui_surface: &mut UiSurface,
+        inherited_use_rounding: bool,
         root_size: Option<Vec2>,
         node_transform_query: &mut Query<(
             &mut ComputedNode,
             &mut Transform,
             &Node,
+            Option<&LayoutConfig>,
             Option<&BorderRadius>,
             Option<&Outline>,
             Option<&ScrollPosition>,
@@ -338,12 +328,17 @@ with UI components as a child of an entity without UI components, your UI layout
             mut node,
             mut transform,
             style,
+            maybe_layout_config,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
-            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity) else {
+            let use_rounding = maybe_layout_config
+                .map(|layout_config| layout_config.use_rounding)
+                .unwrap_or(inherited_use_rounding);
+
+            let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity, use_rounding) else {
                 return;
             };
 
@@ -364,6 +359,9 @@ with UI components as a child of an entity without UI components, your UI layout
                 node.unrounded_size = unrounded_size;
                 node.inverse_scale_factor = inverse_target_scale_factor;
             }
+
+            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
+            node.bypass_change_detection().content_size = content_size;
 
             let taffy_rect_to_border_rect = |rect: taffy::Rect<f32>| BorderRect {
                 left: rect.left,
@@ -431,27 +429,33 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+            let clamped_scroll_position = scroll_position.clamp(
+                Vec2::ZERO,
+                max_possible_offset * inverse_target_scale_factor,
+            );
 
             if clamped_scroll_position != scroll_position {
                 commands
                     .entity(entity)
-                    .insert(ScrollPosition::from(&clamped_scroll_position));
+                    .insert(ScrollPosition::from(clamped_scroll_position));
             }
+
+            let physical_scroll_position =
+                (clamped_scroll_position / inverse_target_scale_factor).round();
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
                     commands,
                     child_uinode,
                     ui_surface,
+                    use_rounding,
                     Some(viewport_size),
                     node_transform_query,
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
-                    clamped_scroll_position,
+                    physical_scroll_position,
                 );
             }
         }
@@ -464,24 +468,10 @@ mod tests {
 
     use bevy_asset::{AssetEvent, Assets};
     use bevy_core_pipeline::core_2d::Camera2d;
-    use bevy_ecs::{
-        entity::Entity,
-        event::Events,
-        prelude::{Commands, Component, In, Query, With},
-        query::Without,
-        schedule::{apply_deferred, IntoSystemConfigs, Schedule},
-        system::RunSystemOnce,
-        world::World,
-    };
-    use bevy_hierarchy::{
-        despawn_with_children_recursive, BuildChildren, ChildBuild, Children, Parent,
-    };
+    use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
-    use bevy_render::{
-        camera::{ManualTextureViews, OrthographicProjection},
-        prelude::Camera,
-    };
+    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
@@ -533,9 +523,9 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
                 sync_simple_transforms,
                 propagate_transforms,
@@ -573,7 +563,7 @@ mod tests {
         let mut ui_surface = world.resource_mut::<UiSurface>();
 
         for ui_entity in [ui_root, ui_child] {
-            let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+            let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
             assert_eq!(layout.size.width, WINDOW_WIDTH);
             assert_eq!(layout.size.height, WINDOW_HEIGHT);
         }
@@ -631,7 +621,7 @@ mod tests {
         let camera_entity = world.spawn(Camera2d).id();
 
         let ui_entity = world
-            .spawn((Node::default(), TargetCamera(camera_entity)))
+            .spawn((Node::default(), UiTargetCamera(camera_entity)))
             .id();
 
         // `ui_layout_system` should map `camera_entity` to a ui node in `UiSurface::camera_entity_to_taffy`
@@ -718,7 +708,7 @@ mod tests {
             ui_child_entities.len()
         );
 
-        let child_node_map = HashMap::from_iter(
+        let child_node_map = <HashMap<_, _>>::from_iter(
             ui_child_entities
                 .iter()
                 .map(|child_entity| (*child_entity, ui_surface.entity_to_taffy[child_entity])),
@@ -775,7 +765,7 @@ mod tests {
         }
 
         // despawn the parent entity and its descendants
-        despawn_with_children_recursive(&mut world, ui_parent_entity, true);
+        world.entity_mut(ui_parent_entity).despawn();
 
         ui_schedule.run(&mut world);
 
@@ -854,7 +844,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<Parent>>()
+            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
@@ -865,12 +855,12 @@ mod tests {
                     );
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
-                        "root ui node {entity:?} doesn't have a logical size"
+                        "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
                         global_transform.affine(),
                         GlobalTransform::default().affine(),
-                        "root ui node {entity:?} global transform is not populated"
+                        "root ui node {entity} global transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));
@@ -936,7 +926,7 @@ mod tests {
             for moving_ui_entity in moving_ui_query.iter() {
                 commands
                     .entity(moving_ui_entity)
-                    .insert(TargetCamera(target_camera_entity))
+                    .insert(UiTargetCamera(target_camera_entity))
                     .insert(Node {
                         position_type: PositionType::Absolute,
                         top: Val::Px(pos.y),
@@ -952,17 +942,17 @@ mod tests {
             new_pos: Vec2,
             expected_camera_entity: &Entity,
         ) {
-            world.run_system_once_with(new_pos, move_ui_node).unwrap();
+            world.run_system_once_with(move_ui_node, new_pos).unwrap();
             ui_schedule.run(world);
-            let (ui_node_entity, TargetCamera(target_camera_entity)) = world
-                .query_filtered::<(Entity, &TargetCamera), With<MovingUiNode>>()
+            let (ui_node_entity, UiTargetCamera(target_camera_entity)) = world
+                .query_filtered::<(Entity, &UiTargetCamera), With<MovingUiNode>>()
                 .get_single(world)
                 .expect("missing MovingUiNode");
             assert_eq!(expected_camera_entity, target_camera_entity);
             let mut ui_surface = world.resource_mut::<UiSurface>();
 
             let layout = ui_surface
-                .get_layout(ui_node_entity)
+                .get_layout(ui_node_entity, true)
                 .expect("failed to get layout")
                 .0;
 
@@ -1049,7 +1039,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let mut ui_surface = world.resource_mut::<UiSurface>();
-        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
 
         // the node should takes its size from the fixed size measure func
         assert_eq!(layout.size.width, content_size.x);
@@ -1078,7 +1068,7 @@ mod tests {
 
         // a node with a content size should have taffy context
         assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
-        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
 
@@ -1091,7 +1081,7 @@ mod tests {
         assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
-        let layout = ui_surface.get_layout(ui_entity).unwrap().0;
+        let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, 0.);
         assert_eq!(layout.size.height, 0.);
     }
@@ -1177,9 +1167,9 @@ mod tests {
         ui_schedule.add_systems(
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system::<OrthographicProjection>,
+                bevy_render::camera::camera_system,
                 update_target_camera_system,
-                apply_deferred,
+                ApplyDeferred,
                 ui_layout_system,
             )
                 .chain(),
@@ -1242,11 +1232,11 @@ mod tests {
         }
 
         let _ = world.run_system_once_with(
+            test_system,
             TestSystemParam {
                 camera_entity,
                 root_node_entity,
             },
-            test_system,
         );
 
         let ui_surface = world.resource::<UiSurface>();

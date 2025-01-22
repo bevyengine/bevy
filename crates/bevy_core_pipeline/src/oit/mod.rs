@@ -4,6 +4,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
+use bevy_platform_support::time::Instant;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -16,22 +17,20 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashSet, Instant,
-};
+use bevy_utils::HashSet;
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
     OitResolvePlugin,
 };
+use tracing::{trace, warn};
 
 use crate::core_3d::{
     graph::{Core3d, Node3d},
     Camera3d,
 };
 
-/// Module that defines the necesasry systems to resolve the OIT buffer and render it to the screen.
+/// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;
 
 /// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
@@ -68,6 +67,7 @@ impl Default for OrderIndependentTransparencySettings {
 // we can hook on_add to issue a warning in case `layer_count` is seemingly too high.
 impl Component for OrderIndependentTransparencySettings {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
         hooks.on_add(|world, entity, _| {
@@ -159,7 +159,7 @@ fn configure_depth_texture_usages(
 
     // Find all the render target that potentially uses OIT
     let primary_window = p.get_single().ok();
-    let mut render_target_has_oit = HashSet::new();
+    let mut render_target_has_oit = <HashSet<_>>::default();
     for (camera, has_oit) in &cameras {
         if has_oit {
             render_target_has_oit.insert(camera.target.normalize(primary_window));
@@ -185,7 +185,7 @@ fn check_msaa(cameras: Query<&Msaa, With<OrderIndependentTransparencySettings>>)
 }
 
 /// Holds the buffers that contain the data of all OIT layers.
-/// We use one big buffer for the entire app. Each camaera will reuse it so it will
+/// We use one big buffer for the entire app. Each camera will reuse it so it will
 /// always be the size of the biggest OIT enabled camera.
 #[derive(Resource)]
 pub struct OitBuffers {
@@ -234,7 +234,6 @@ pub struct OrderIndependentTransparencySettingsOffset {
 /// This creates or resizes the oit buffers for each camera.
 /// It will always create one big buffer that's as big as the biggest buffer needed.
 /// Cameras with smaller viewports or less layers will simply use the big buffer and ignore the rest.
-#[allow(clippy::type_complexity)]
 pub fn prepare_oit_buffers(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

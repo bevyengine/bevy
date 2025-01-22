@@ -11,7 +11,7 @@ use bevy_ecs::{
         *,
     },
 };
-use bevy_image::{BevyDefault, Image};
+use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -24,9 +24,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{
-    SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureAtlasLayout, TextureSlicer,
-};
+use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
@@ -232,7 +230,7 @@ pub struct ExtractedUiTextureSlice {
     pub atlas_rect: Option<Rect>,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub image_scale_mode: SpriteImageMode,
     pub flip_x: bool,
@@ -258,19 +256,21 @@ pub fn extract_ui_texture_slices(
             &GlobalTransform,
             &ViewVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
             &ImageNode,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
         else {
             continue;
         };
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
             continue;
         };
 
@@ -327,7 +327,7 @@ pub fn extract_ui_texture_slices(
                 },
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
-                camera_entity,
+                extracted_camera_entity,
                 image_scale_mode,
                 atlas_rect,
                 flip_x: image.flip_x,
@@ -339,22 +339,34 @@ pub fn extract_ui_texture_slices(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 pub fn queue_ui_slices(
     extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
     ui_slicer_pipeline: Res<UiTextureSlicePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiTextureSlicePipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    mut views: Query<(Entity, &ExtractedView)>,
+    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawUiTextureSlices>();
     for (entity, extracted_slicer) in extracted_ui_slicers.slices.iter() {
-        let Ok((view_entity, view)) = views.get_mut(extracted_slicer.camera_entity) else {
+        let Ok(default_camera_view) =
+            render_views.get_mut(extracted_slicer.extracted_camera_entity)
+        else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -373,12 +385,12 @@ pub fn queue_ui_slices(
                 entity.index(),
             ),
             batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::NONE,
+            extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_ui_slices(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -437,17 +449,17 @@ pub fn prepare_ui_slices(
                             && texture_slices.image != AssetId::default()
                             && batch_image_handle != texture_slices.image)
                         || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(texture_slices.camera_entity)
+                            != Some(texture_slices.extracted_camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
 
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: texture_slices.image,
-                                camera: texture_slices.camera_entity,
+                                camera: texture_slices.extracted_camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));
@@ -475,7 +487,7 @@ pub fn prepare_ui_slices(
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size.as_vec2();
+                            batch_image_size = gpu_image.size_2d().as_vec2();
                             existing_batch.as_mut().unwrap().1.image = texture_slices.image;
 
                             image_bind_groups
@@ -766,20 +778,20 @@ fn compute_texture_slices(
             ];
 
             let image_side_width = image_size.x * (slices[2] - slices[0]);
-            let image_side_height = image_size.y * (slices[2] - slices[1]);
-            let target_side_height = target_size.x * (border[2] - border[0]);
-            let target_side_width = target_size.y * (border[3] - border[1]);
+            let image_side_height = image_size.y * (slices[3] - slices[1]);
+            let target_side_width = target_size.x * (border[2] - border[0]);
+            let target_side_height = target_size.y * (border[3] - border[1]);
 
             // compute the number of times to repeat the side and center slices when tiling along each axis
             // if the returned value is `1.` the slice will be stretched to fill the axis.
             let repeat_side_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, sides_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, sides_scale_mode);
             let repeat_side_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, sides_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, sides_scale_mode);
             let repeat_center_x =
-                compute_tiled_subaxis(image_side_width, target_side_height, center_scale_mode);
+                compute_tiled_subaxis(image_side_width, target_side_width, center_scale_mode);
             let repeat_center_y =
-                compute_tiled_subaxis(image_side_height, target_side_width, center_scale_mode);
+                compute_tiled_subaxis(image_side_height, target_side_height, center_scale_mode);
 
             [
                 slices,

@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -534,6 +535,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Resu
 mod tests {
     use super::DynamicList;
     use crate::Reflect;
+    use alloc::{boxed::Box, vec};
     use core::assert_eq;
 
     #[test]

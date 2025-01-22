@@ -30,7 +30,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         sync_world::MainEntity,
-        view::{ExtractedView, NoFrustumCulling},
+        view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
         Render, RenderApp, RenderSet,
     },
 };
@@ -73,6 +73,10 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // We need this component because we use `draw_indexed` and `draw`
+        // instead of `draw_indirect_indexed` and `draw_indirect` in
+        // `DrawMeshInstanced::render`.
+        NoIndirectDrawing,
     ));
 }
 
@@ -119,7 +123,6 @@ struct InstanceData {
     color: [f32; 4],
 }
 
-#[allow(clippy::too_many_arguments)]
 fn queue_custom(
     transparent_3d_draw_functions: Res<DrawFunctions<Transparent3d>>,
     custom_pipeline: Res<CustomPipeline>,
@@ -129,12 +132,13 @@ fn queue_custom(
     render_mesh_instances: Res<RenderMeshInstances>,
     material_meshes: Query<(Entity, &MainEntity), With<InstanceMaterialData>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(Entity, &ExtractedView, &Msaa)>,
+    views: Query<(&ExtractedView, &Msaa)>,
 ) {
     let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
-    for (view_entity, view, msaa) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -161,7 +165,8 @@ fn queue_custom(
                 draw_function: draw_custom,
                 distance: rangefinder.distance_translation(&mesh_instance.translation),
                 batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

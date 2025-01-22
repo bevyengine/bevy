@@ -1,6 +1,4 @@
-#![expect(deprecated)]
-
-use crate::{AudioSourceBundle, Decodable};
+use crate::Decodable;
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use rodio::{
@@ -35,10 +33,3 @@ impl Decodable for Pitch {
         SineWave::new(self.frequency).take_duration(self.duration)
     }
 }
-
-/// Bundle for playing a bevy note sound
-#[deprecated(
-    since = "0.15.0",
-    note = "Use the `AudioPlayer<Pitch>` component instead. Inserting it will now also insert a `PlaybackSettings` component automatically."
-)]
-pub type PitchBundle = AudioSourceBundle<Pitch>;

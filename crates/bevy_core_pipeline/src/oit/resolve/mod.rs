@@ -6,7 +6,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
 };
 use bevy_image::BevyDefault as _;
@@ -22,7 +22,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::tracing::warn;
+use tracing::warn;
 
 use super::OitBuffers;
 
@@ -124,7 +124,6 @@ pub struct OitResolvePipelineKey {
     layer_count: i32,
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_oit_resolve_pipeline(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,

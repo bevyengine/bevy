@@ -24,7 +24,6 @@ pub use bevy_asset as asset;
 pub use bevy_audio as audio;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
-pub use bevy_core as core;
 #[cfg(feature = "bevy_core_pipeline")]
 pub use bevy_core_pipeline as core_pipeline;
 #[cfg(feature = "bevy_dev_tools")]
@@ -37,16 +36,17 @@ pub use bevy_gilrs as gilrs;
 pub use bevy_gizmos as gizmos;
 #[cfg(feature = "bevy_gltf")]
 pub use bevy_gltf as gltf;
-pub use bevy_hierarchy as hierarchy;
 #[cfg(feature = "bevy_image")]
 pub use bevy_image as image;
 pub use bevy_input as input;
+pub use bevy_input_focus as input_focus;
 pub use bevy_log as log;
 pub use bevy_math as math;
 #[cfg(feature = "bevy_pbr")]
 pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
 pub use bevy_picking as picking;
+pub use bevy_platform_support as platform_support;
 pub use bevy_ptr as ptr;
 pub use bevy_reflect as reflect;
 #[cfg(feature = "bevy_remote")]

@@ -80,7 +80,7 @@ struct Position { x: f32, y: f32 }
 
 fn print_position(query: Query<(Entity, &Position)>) {
     for (entity, position) in &query {
-        println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
+        println!("Entity {} is at position: x {}, y {}", entity, position.x, position.y);
     }
 }
 ```
@@ -172,7 +172,7 @@ struct Player;
 struct Alive;
 
 // Gets the Position component of all Entities with Player component and without the Alive
-// component. 
+// component.
 fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
     for position in &query {
     }
@@ -340,8 +340,8 @@ let mut world = World::new();
 let entity = world.spawn_empty().id();
 
 world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
-    println!("Entity {:?} goes BOOM!", trigger.entity());
-    commands.entity(trigger.entity()).despawn();
+    println!("Entity {} goes BOOM!", trigger.target());
+    commands.entity(trigger.target()).despawn();
 });
 
 world.flush();

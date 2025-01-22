@@ -1,4 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use core::hint::black_box;
+
+use criterion::{criterion_group, Criterion};
 
 use bevy_render::mesh::TorusMeshBuilder;
 
@@ -8,5 +10,4 @@ fn torus(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, torus,);
-criterion_main!(benches);
+criterion_group!(benches, torus);

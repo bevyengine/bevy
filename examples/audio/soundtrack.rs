@@ -113,8 +113,9 @@ fn fade_in(
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeIn>>,
     time: Res<Time>,
 ) {
-    for (audio, entity) in audio_sink.iter_mut() {
-        audio.set_volume(audio.volume() + time.delta_secs() / FADE_TIME);
+    for (mut audio, entity) in audio_sink.iter_mut() {
+        let current_volume = audio.volume();
+        audio.set_volume(current_volume + time.delta_secs() / FADE_TIME);
         if audio.volume() >= 1.0 {
             audio.set_volume(1.0);
             commands.entity(entity).remove::<FadeIn>();
@@ -129,10 +130,11 @@ fn fade_out(
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeOut>>,
     time: Res<Time>,
 ) {
-    for (audio, entity) in audio_sink.iter_mut() {
-        audio.set_volume(audio.volume() - time.delta_secs() / FADE_TIME);
+    for (mut audio, entity) in audio_sink.iter_mut() {
+        let current_volume = audio.volume();
+        audio.set_volume(current_volume - time.delta_secs() / FADE_TIME);
         if audio.volume() <= 0.0 {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
 }

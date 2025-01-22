@@ -1,31 +1,31 @@
 use crate::{
     ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiScale,
+    NodeMeasure, UiScale, UiTargetCamera,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::{Entity, EntityHashMap},
-    prelude::Component,
+    entity::{hash_map::EntityHashMap, Entity},
+    prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::camera::Camera;
-use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_utils::{tracing::error, Entry};
+use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
+use tracing::error;
 
 /// UI text system flags.
 ///
@@ -47,18 +47,6 @@ impl Default for TextNodeFlags {
         }
     }
 }
-
-/// [`TextBundle`] was removed in favor of required components.
-/// The core component is now [`Text`] which can contain a single text segment.
-/// Indexed access to segments can be done with the new [`TextUiReader`] and [`TextUiWriter`] system params.
-/// Additional segments can be added through children with [`TextSpan`](bevy_text::TextSpan).
-/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
-/// while node-related configuration uses [`TextNodeFlags`] component.
-#[deprecated(
-    since = "0.15.0",
-    note = "TextBundle has been migrated to required components. Follow the documentation for more information."
-)]
-pub struct TextBundle {}
 
 /// The top-level UI text component.
 ///
@@ -200,7 +188,6 @@ impl Measure for TextMeasure {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
@@ -254,7 +241,6 @@ fn create_text_measure<'a>(
 ///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
-#[allow(clippy::too_many_arguments)]
 pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
@@ -269,7 +255,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         ),
         With<Node>,
     >,
@@ -279,10 +265,12 @@ pub fn measure_text_system(
 ) {
     scale_factors_buffer.clear();
 
+    let default_camera_entity = default_ui_camera.get();
+
     for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
         let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
+            .map(UiTargetCamera::entity)
+            .or(default_camera_entity)
         else {
             continue;
         };
@@ -320,7 +308,6 @@ pub fn measure_text_system(
     core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
-#[allow(clippy::too_many_arguments)]
 #[inline]
 fn queue_text(
     entity: Entity,
@@ -392,7 +379,6 @@ fn queue_text(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
-#[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
