@@ -34,7 +34,7 @@ fn setup(mut commands: Commands) {
 
     // Create a minimal UI explaining how to interact with the example
     commands.spawn((
-        Text::new("Hover over the window to see the cursor."),
+        Text::new("Move the mouse to see the circle follow your cursor."),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
