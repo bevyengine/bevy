@@ -66,13 +66,11 @@ libm = ["bevy_math/libm"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
-bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
-  "glam",
-], default-features = false, optional = true }
+bevy_app = { workspace = true }
+bevy_ecs = { workspace = true }
+bevy_math = { workspace = true }
+bevy_utils = { workspace = true }
+bevy_reflect = { workspace = true, features = ["glam"], optional = true }
 
 # other
 serde = { version = "1", features = [
