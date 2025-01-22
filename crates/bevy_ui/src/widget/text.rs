@@ -281,7 +281,7 @@ pub fn measure_text_system(
                 camera_query
                     .get(camera_entity)
                     .ok()
-                    .and_then(|c| c.target_scaling_factor())
+                    .and_then(Camera::target_scaling_factor)
                     .unwrap_or(1.0)
                     * ui_scale.0,
             ),
