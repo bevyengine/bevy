@@ -28,7 +28,8 @@ use bevy_ecs::{
     prelude::{require, With},
     query::Has,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
@@ -42,6 +43,7 @@ use bevy_window::{
     WindowScaleFactorChanged,
 };
 use core::ops::Range;
+use core::panic::Location;
 use derive_more::derive::From;
 use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
@@ -331,9 +333,14 @@ pub struct Camera {
     pub sub_camera_view: Option<SubCameraView>,
 }
 
-fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId) {
+fn warn_on_no_render_graph(
+    world: DeferredWorld,
+    entity: Entity,
+    _: ComponentId,
+    caller: Option<&'static Location<'static>>,
+) {
     if !world.entity(entity).contains::<CameraRenderGraph>() {
-        warn!("Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
+        warn!("{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.", caller.map(|location|format!("{location}: ")).unwrap_or_default());
     }
 }
 

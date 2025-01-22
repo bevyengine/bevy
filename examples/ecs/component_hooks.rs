@@ -63,16 +63,22 @@ fn setup(world: &mut World) {
     world
         .register_component_hooks::<MyComponent>()
         // There are 4 component lifecycle hooks: `on_add`, `on_insert`, `on_replace` and `on_remove`
-        // A hook has 3 arguments:
+        // A hook has 4 arguments:
         // - a `DeferredWorld`, this allows access to resource and component data as well as `Commands`
         // - the entity that triggered the hook
         // - the component id of the triggering component, this is mostly used for dynamic components
+        // - the location of the code that caused the hook to trigger
         //
         // `on_add` will trigger when a component is inserted onto an entity without it
-        .on_add(|mut world, entity, component_id| {
+        .on_add(|mut world, entity, component_id, caller| {
             // You can access component data from within the hook
             let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!("Component: {component_id:?} added to: {entity} with value {value:?}");
+            println!(
+                "{component_id:?} added to {entity} with value {value:?}{}",
+                caller
+                    .map(|location| format!("due to {location}"))
+                    .unwrap_or_default()
+            );
             // Or access resources
             world
                 .resource_mut::<MyComponentIndex>()
@@ -82,21 +88,26 @@ fn setup(world: &mut World) {
         })
         // `on_insert` will trigger when a component is inserted onto an entity,
         // regardless of whether or not it already had it and after `on_add` if it ran
-        .on_insert(|world, _, _| {
+        .on_insert(|world, _, _, _| {
             println!("Current Index: {:?}", world.resource::<MyComponentIndex>());
         })
         // `on_replace` will trigger when a component is inserted onto an entity that already had it,
         // and runs before the value is replaced.
         // Also triggers when a component is removed from an entity, and runs before `on_remove`
-        .on_replace(|mut world, entity, _| {
+        .on_replace(|mut world, entity, _, _| {
             let value = world.get::<MyComponent>(entity).unwrap().0;
             world.resource_mut::<MyComponentIndex>().remove(&value);
         })
         // `on_remove` will trigger when a component is removed from an entity,
         // since it runs before the component is removed you can still access the component data
-        .on_remove(|mut world, entity, component_id| {
+        .on_remove(|mut world, entity, component_id, caller| {
             let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!("Component: {component_id:?} removed from: {entity} with value {value:?}");
+            println!(
+                "{component_id:?} removed from {entity} with value {value:?}{}",
+                caller
+                    .map(|location| format!("due to {location}"))
+                    .unwrap_or_default()
+            );
             // You can also issue commands through `.commands()`
             world.commands().entity(entity).despawn();
         });

@@ -23,6 +23,7 @@ use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
+    resource::Resource,
     result::Result,
     schedule::*,
     system::{IntoSystem, Resource, ScheduleSystem},

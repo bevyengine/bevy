@@ -16,8 +16,9 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryState, Without},
+    resource::Resource,
     schedule::{common_conditions::resource_exists, IntoSystemConfigs as _},
-    system::{lifetimeless::Read, Commands, Res, ResMut, Resource},
+    system::{lifetimeless::Read, Commands, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::{

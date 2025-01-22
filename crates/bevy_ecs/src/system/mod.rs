@@ -340,6 +340,7 @@ mod tests {
         prelude::{AnyOf, EntityRef},
         query::{AccessConflicts, Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
+        resource::Resource,
         result::Result,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
@@ -347,7 +348,7 @@ mod tests {
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, Single, StaticSystemParam, System, SystemState,
+            Single, StaticSystemParam, System, SystemState,
         },
         world::{EntityMut, FromWorld, World},
     };
@@ -398,7 +399,7 @@ mod tests {
 
     #[test]
     fn get_many_is_ordered() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
         const ENTITIES_COUNT: usize = 1000;
 
         #[derive(Resource)]
@@ -479,7 +480,7 @@ mod tests {
 
     #[test]
     fn changed_resource_system() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
 
         #[derive(Resource)]
         struct Flipper(bool);

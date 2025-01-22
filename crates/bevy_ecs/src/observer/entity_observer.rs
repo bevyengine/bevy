@@ -15,7 +15,7 @@ impl Component for ObservedBy {
     type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_remove(|mut world, entity, _| {
+        hooks.on_remove(|mut world, entity, _, _| {
             let observed_by = {
                 let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
                 core::mem::take(&mut component.0)
@@ -116,7 +116,8 @@ mod tests {
         entity::EntityCloneBuilder,
         event::Event,
         observer::{CloneEntityWithObserversExt, Trigger},
-        system::{ResMut, Resource},
+        resource::Resource,
+        system::ResMut,
         world::World,
     };
 
