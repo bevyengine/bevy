@@ -2196,7 +2196,6 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn clear_with_caller(
         &mut self,
-
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> &mut Self {
         self.assert_not_despawned();
