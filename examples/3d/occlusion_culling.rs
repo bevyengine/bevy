@@ -27,11 +27,11 @@ use bevy::{
         experimental::occlusion_culling::OcclusionCulling,
         render_graph::{self, NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
-        renderer::{RenderContext, RenderDevice},
+        renderer::{RenderAdapter, RenderContext, RenderDevice},
+        settings::WgpuFeatures,
         Render, RenderApp, RenderPlugin, RenderSet,
     },
 };
-use bevy_render::{renderer::RenderAdapter, settings::WgpuFeatures};
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
