@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
-    change_detection::MutUntyped,
+    change_detection::{MaybeLocation, MutUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{
         Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
@@ -21,8 +21,6 @@ use crate::{
 use alloc::vec::Vec;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     any::TypeId,
     cmp::Ordering,
@@ -290,8 +288,7 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_location")]
-    pub fn spawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> MaybeLocation {
         self.cell.spawned_by()
     }
 }
@@ -881,8 +878,7 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_location")]
-    pub fn spawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> MaybeLocation {
         self.cell.spawned_by()
     }
 }
@@ -1526,12 +1522,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.insert_with_caller(bundle, InsertMode::Replace, MaybeLocation::caller())
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
@@ -1544,12 +1535,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Keep,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.insert_with_caller(bundle, InsertMode::Keep, MaybeLocation::caller())
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
@@ -1559,7 +1545,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: T,
         mode: InsertMode,
-        #[cfg(feature = "track_location")] caller: &'static Location,
+        caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1568,7 +1554,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location =
             // SAFETY: location matches current entity. `T` matches `bundle_info`
             unsafe {
-                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_location")] caller)
+                bundle_inserter.insert(self.entity, self.location, bundle, mode,  caller)
             };
         self.world.flush();
         self.update_location();
@@ -1595,12 +1581,7 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
-        self.insert_by_id_with_caller(
-            component_id,
-            component,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.insert_by_id_with_caller(component_id, component, MaybeLocation::caller())
     }
 
     /// # Safety
@@ -1610,7 +1591,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         component_id: ComponentId,
         component: OwningPtr<'_>,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1633,7 +1614,6 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
-            #[cfg(feature = "track_location")]
             caller,
         );
         self.world.flush();
@@ -1684,8 +1664,7 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             iter_components,
             (*storage_types).iter().cloned(),
-            #[cfg(feature = "track_location")]
-            Location::caller(),
+            MaybeLocation::caller(),
         );
         *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
         self.world.flush();
@@ -1749,8 +1728,7 @@ impl<'w> EntityWorldMut<'w> {
                 old_archetype,
                 entity,
                 bundle_info,
-                #[cfg(feature = "track_location")]
-                Location::caller(),
+                MaybeLocation::caller(),
             );
         }
 
@@ -1891,11 +1869,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// # Safety
     /// - A `BundleInfo` with the corresponding `BundleId` must have been initialized.
-    unsafe fn remove_bundle(
-        &mut self,
-        bundle: BundleId,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> EntityLocation {
+    unsafe fn remove_bundle(&mut self, bundle: BundleId, caller: MaybeLocation) -> EntityLocation {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
@@ -1938,7 +1912,6 @@ impl<'w> EntityWorldMut<'w> {
                 old_archetype,
                 entity,
                 bundle_info,
-                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -1988,30 +1961,18 @@ impl<'w> EntityWorldMut<'w> {
     // TODO: BundleRemover?
     #[track_caller]
     pub fn remove<T: Bundle>(&mut self) -> &mut Self {
-        self.remove_with_caller::<T>(
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.remove_with_caller::<T>(MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn remove_with_caller<T: Bundle>(
-        &mut self,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> &mut Self {
+    pub(crate) fn remove_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
         self.assert_not_despawned();
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundle_info = self.world.bundles.register_info::<T>(components, storages);
 
         // SAFETY: the `BundleInfo` is initialized above
-        self.location = unsafe {
-            self.remove_bundle(
-                bundle_info,
-                #[cfg(feature = "track_location")]
-                caller,
-            )
-        };
+        self.location = unsafe { self.remove_bundle(bundle_info, caller) };
         self.world.flush();
         self.update_location();
         self
@@ -2024,15 +1985,12 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
-        self.remove_with_requires_with_caller::<T>(
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.remove_with_requires_with_caller::<T>(MaybeLocation::caller())
     }
 
     pub(crate) fn remove_with_requires_with_caller<T: Bundle>(
         &mut self,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
         let storages = &mut self.world.storages;
@@ -2042,13 +2000,7 @@ impl<'w> EntityWorldMut<'w> {
         let bundle_id = bundles.register_contributed_bundle_info::<T>(components, storages);
 
         // SAFETY: the dynamic `BundleInfo` is initialized above
-        self.location = unsafe {
-            self.remove_bundle(
-                bundle_id,
-                #[cfg(feature = "track_location")]
-                caller,
-            )
-        };
+        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
         self.world.flush();
         self.update_location();
         self
@@ -2063,17 +2015,11 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn retain<T: Bundle>(&mut self) -> &mut Self {
-        self.retain_with_caller::<T>(
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.retain_with_caller::<T>(MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn retain_with_caller<T: Bundle>(
-        &mut self,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> &mut Self {
+    pub(crate) fn retain_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
         self.assert_not_despawned();
         let archetypes = &mut self.world.archetypes;
         let storages = &mut self.world.storages;
@@ -2093,13 +2039,7 @@ impl<'w> EntityWorldMut<'w> {
         let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
 
         // SAFETY: the `BundleInfo` for the components to remove is initialized above
-        self.location = unsafe {
-            self.remove_bundle(
-                remove_bundle,
-                #[cfg(feature = "track_location")]
-                caller,
-            )
-        };
+        self.location = unsafe { self.remove_bundle(remove_bundle, caller) };
         self.world.flush();
         self.update_location();
         self
@@ -2115,18 +2055,14 @@ impl<'w> EntityWorldMut<'w> {
     /// entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove_by_id(&mut self, component_id: ComponentId) -> &mut Self {
-        self.remove_by_id_with_caller(
-            component_id,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.remove_by_id_with_caller(component_id, MaybeLocation::caller())
     }
 
     #[inline]
     pub(crate) fn remove_by_id_with_caller(
         &mut self,
         component_id: ComponentId,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
         let components = &mut self.world.components;
@@ -2137,13 +2073,7 @@ impl<'w> EntityWorldMut<'w> {
             .init_component_info(components, component_id);
 
         // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe {
-            self.remove_bundle(
-                bundle_id,
-                #[cfg(feature = "track_location")]
-                caller,
-            )
-        };
+        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
         self.world.flush();
         self.update_location();
         self
@@ -2168,13 +2098,7 @@ impl<'w> EntityWorldMut<'w> {
             .init_dynamic_info(components, component_ids);
 
         // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
-        unsafe {
-            self.remove_bundle(
-                bundle_id,
-                #[cfg(feature = "track_location")]
-                Location::caller(),
-            )
-        };
+        unsafe { self.remove_bundle(bundle_id, MaybeLocation::caller()) };
 
         self.world.flush();
         self.update_location();
@@ -2188,17 +2112,11 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn clear(&mut self) -> &mut Self {
-        self.clear_with_caller(
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.clear_with_caller(MaybeLocation::caller())
     }
 
     #[inline]
-    pub(crate) fn clear_with_caller(
-        &mut self,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> &mut Self {
+    pub(crate) fn clear_with_caller(&mut self, caller: MaybeLocation) -> &mut Self {
         self.assert_not_despawned();
         let component_ids: Vec<ComponentId> = self.archetype().components().collect();
         let components = &mut self.world.components;
@@ -2209,13 +2127,7 @@ impl<'w> EntityWorldMut<'w> {
             .init_dynamic_info(components, component_ids.as_slice());
 
         // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe {
-            self.remove_bundle(
-                bundle_id,
-                #[cfg(feature = "track_location")]
-                caller,
-            )
-        };
+        self.location = unsafe { self.remove_bundle(bundle_id, caller) };
         self.world.flush();
         self.update_location();
         self
@@ -2235,10 +2147,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn despawn(self) {
-        self.despawn_with_caller(
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        );
+        self.despawn_with_caller(MaybeLocation::caller());
     }
 
     /// Despawns the provided entity and its descendants.
@@ -2250,10 +2159,7 @@ impl<'w> EntityWorldMut<'w> {
         self.despawn();
     }
 
-    pub(crate) fn despawn_with_caller(
-        self,
-        #[cfg(feature = "track_location")] caller: &'static Location,
-    ) {
+    pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
         self.assert_not_despawned();
         let world = self.world;
         let archetype = &world.archetypes[self.location.archetype_id];
@@ -2272,7 +2178,6 @@ impl<'w> EntityWorldMut<'w> {
                     ON_DESPAWN,
                     self.entity,
                     archetype.components(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -2280,7 +2185,6 @@ impl<'w> EntityWorldMut<'w> {
                 archetype,
                 self.entity,
                 archetype.components(),
-                #[cfg(feature = "track_location")]
                 caller,
             );
             if archetype.has_replace_observer() {
@@ -2288,32 +2192,28 @@ impl<'w> EntityWorldMut<'w> {
                     ON_REPLACE,
                     self.entity,
                     archetype.components(),
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
+                    MaybeLocation::caller(),
                 );
             }
             deferred_world.trigger_on_replace(
                 archetype,
                 self.entity,
                 archetype.components(),
-                #[cfg(feature = "track_location")]
-                Location::caller(),
+                MaybeLocation::caller(),
             );
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
                     self.entity,
                     archetype.components(),
-                    #[cfg(feature = "track_location")]
-                    Location::caller(),
+                    MaybeLocation::caller(),
                 );
             }
             deferred_world.trigger_on_remove(
                 archetype,
                 self.entity,
                 archetype.components(),
-                #[cfg(feature = "track_location")]
-                Location::caller(),
+                MaybeLocation::caller(),
             );
         }
 
@@ -2383,14 +2283,11 @@ impl<'w> EntityWorldMut<'w> {
         }
         world.flush();
 
-        #[cfg(feature = "track_location")]
-        {
-            // SAFETY: No structural changes
-            unsafe {
-                world
-                    .entities_mut()
-                    .set_spawned_or_despawned_by(self.entity.index(), caller);
-            }
+        // SAFETY: No structural changes
+        unsafe {
+            world
+                .entities_mut()
+                .set_spawned_or_despawned_by(self.entity.index(), caller);
         }
     }
 
@@ -2556,24 +2453,17 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
-        self.observe_with_caller(
-            observer,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
     pub(crate) fn observe_with_caller<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        self.world.spawn_with_caller(
-            Observer::new(observer).with_entity(self.entity),
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        self.world
+            .spawn_with_caller(Observer::new(observer).with_entity(self.entity), caller);
         self.world.flush();
         self.update_location();
         self
@@ -2735,12 +2625,11 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns the source code location from which this entity has last been spawned.
-    #[cfg(feature = "track_location")]
-    pub fn spawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> MaybeLocation {
         self.world()
             .entities()
             .entity_get_spawned_or_despawned_by(self.entity)
-            .unwrap()
+            .map(|location| location.unwrap())
     }
 }
 
@@ -2751,14 +2640,13 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     archetype: &Archetype,
     entity: Entity,
     bundle_info: &BundleInfo,
-    #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    caller: MaybeLocation,
 ) {
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
             entity,
             bundle_info.iter_explicit_components(),
-            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2766,7 +2654,6 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
         archetype,
         entity,
         bundle_info.iter_explicit_components(),
-        #[cfg(feature = "track_location")]
         caller,
     );
     if archetype.has_remove_observer() {
@@ -2774,7 +2661,6 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
             ON_REMOVE,
             entity,
             bundle_info.iter_explicit_components(),
-            #[cfg(feature = "track_location")]
             caller,
         );
     }
@@ -2782,7 +2668,6 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
         archetype,
         entity,
         bundle_info.iter_explicit_components(),
-        #[cfg(feature = "track_location")]
         caller,
     );
 }
@@ -3296,8 +3181,7 @@ impl<'w> FilteredEntityRef<'w> {
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_location")]
-    pub fn spawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
 }
@@ -3660,8 +3544,7 @@ impl<'w> FilteredEntityMut<'w> {
     }
 
     /// Returns the source code location from which this entity has last been spawned.
-    #[cfg(feature = "track_location")]
-    pub fn spawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
 }
@@ -3840,8 +3723,7 @@ where
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_location")]
-    pub fn spawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
 }
@@ -3998,8 +3880,7 @@ where
     }
 
     /// Returns the source code location from which this entity has been spawned.
-    #[cfg(feature = "track_location")]
-    pub fn spawned_by(&self) -> &'static Location<'static> {
+    pub fn spawned_by(&self) -> MaybeLocation {
         self.entity.spawned_by()
     }
 }
@@ -4071,7 +3952,7 @@ unsafe fn insert_dynamic_bundle<
     location: EntityLocation,
     components: I,
     storage_types: S,
-    #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    caller: MaybeLocation,
 ) -> EntityLocation {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
@@ -4090,16 +3971,7 @@ unsafe fn insert_dynamic_bundle<
     };
 
     // SAFETY: location matches current entity.
-    unsafe {
-        bundle_inserter.insert(
-            entity,
-            location,
-            bundle,
-            InsertMode::Replace,
-            #[cfg(feature = "track_location")]
-            caller,
-        )
-    }
+    unsafe { bundle_inserter.insert(entity, location, bundle, InsertMode::Replace, caller) }
 }
 
 /// Moves component data out of storage.
@@ -4400,14 +4272,12 @@ mod tests {
     use alloc::{vec, vec::Vec};
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
-
-    #[cfg(feature = "track_location")]
-    use {core::panic::Location, std::sync::OnceLock};
+    use std::sync::OnceLock;
 
     use crate::component::HookContext;
     use crate::{
         self as bevy_ecs,
-        change_detection::MutUntyped,
+        change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
         prelude::*,
         system::{assert_is_system, RunSystemOnce as _},
@@ -5685,7 +5555,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "track_location")]
     fn update_despawned_by_after_observers() {
         let mut world = World::new();
 
@@ -5693,19 +5562,19 @@ mod tests {
         #[component(on_remove = get_tracked)]
         struct C;
 
-        static TRACKED: OnceLock<&'static Location<'static>> = OnceLock::new();
+        static TRACKED: OnceLock<MaybeLocation> = OnceLock::new();
         fn get_tracked(world: DeferredWorld, HookContext { entity, .. }: HookContext) {
             TRACKED.get_or_init(|| {
                 world
                     .entities
                     .entity_get_spawned_or_despawned_by(entity)
-                    .unwrap()
+                    .map(|l| l.unwrap())
             });
         }
 
         #[track_caller]
-        fn caller_spawn(world: &mut World) -> (Entity, &'static Location<'static>) {
-            let caller = Location::caller();
+        fn caller_spawn(world: &mut World) -> (Entity, MaybeLocation) {
+            let caller = MaybeLocation::caller();
             (world.spawn(C).id(), caller)
         }
         let (entity, spawner) = caller_spawn(&mut world);
@@ -5715,13 +5584,13 @@ mod tests {
             world
                 .entities()
                 .entity_get_spawned_or_despawned_by(entity)
-                .unwrap()
+                .map(|l| l.unwrap())
         );
 
         #[track_caller]
-        fn caller_despawn(world: &mut World, entity: Entity) -> &'static Location<'static> {
+        fn caller_despawn(world: &mut World, entity: Entity) -> MaybeLocation {
             world.despawn(entity);
-            Location::caller()
+            MaybeLocation::caller()
         }
         let despawner = caller_despawn(&mut world, entity);
 
@@ -5731,7 +5600,7 @@ mod tests {
             world
                 .entities()
                 .entity_get_spawned_or_despawned_by(entity)
-                .unwrap()
+                .map(|l| l.unwrap())
         );
     }
 
