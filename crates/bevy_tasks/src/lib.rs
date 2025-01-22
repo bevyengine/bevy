@@ -115,18 +115,16 @@ pub mod prelude {
     pub use crate::block_on;
 }
 
-#[cfg(feature = "std")]
-use core::num::NonZero;
-
 cfg_if::cfg_if! {
-    if #[cfg(feature = "async-io")] {
+    if #[cfg(feature = "std")] {
+        use core::num::NonZero;
+
         /// Gets the logical CPU core count available to the current process.
         ///
         /// This is identical to [`std::thread::available_parallelism`], except
         /// it will return a default value of 1 if it internally errors out.
         ///
         /// This will always return at least 1.
-        #[cfg(feature = "std")]
         pub fn available_parallelism() -> usize {
             std::thread::available_parallelism()
                 .map(NonZero::<usize>::get)
@@ -136,7 +134,6 @@ cfg_if::cfg_if! {
         /// Gets the logical CPU core count available to the current process.
         ///
         /// This will always return at least 1.
-        #[cfg(not(feature = "std"))]
         pub fn available_parallelism() -> usize {
             // Without access to std, assume a single thread is available
             1
