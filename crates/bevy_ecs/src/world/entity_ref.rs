@@ -10,8 +10,9 @@ use crate::{
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
     removal_detection::RemovedComponentEvents,
+    resource::Resource,
     storage::Storages,
-    system::{IntoObserverSystem, Resource},
+    system::IntoObserverSystem,
     world::{
         error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, DeferredWorld, Mut, Ref,
         World, ON_DESPAWN, ON_REMOVE, ON_REPLACE,

@@ -10,7 +10,8 @@ use core::{
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
-    system::{Deferred, ReadOnlySystemParam, Res, Resource, SystemBuffer, SystemMeta, SystemParam},
+    resource::Resource,
+    system::{Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};

@@ -7,7 +7,7 @@
 use crate::{
     change_detection::Mut,
     component::ComponentId,
-    system::Resource,
+    resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};

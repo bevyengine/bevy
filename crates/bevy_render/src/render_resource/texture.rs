@@ -2,7 +2,7 @@ use crate::define_atomic_id;
 use crate::renderer::WgpuWrapper;
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use core::ops::Deref;
 
 define_atomic_id!(TextureId);

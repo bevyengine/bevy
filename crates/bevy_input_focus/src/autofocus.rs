@@ -3,10 +3,11 @@
 use core::panic::Location;
 
 use bevy_ecs::{component::ComponentId, prelude::*, world::DeferredWorld};
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
 
 use crate::InputFocus;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 
 /// Indicates that this widget should automatically receive [`InputFocus`].
 ///

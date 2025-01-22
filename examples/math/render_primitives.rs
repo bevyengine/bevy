@@ -335,7 +335,7 @@ fn update_active_cameras(
     state: Res<State<CameraActive>>,
     camera_2d: Single<(Entity, &mut Camera), With<Camera2d>>,
     camera_3d: Single<(Entity, &mut Camera), (With<Camera3d>, Without<Camera2d>)>,
-    mut text: Query<&mut TargetCamera, With<HeaderNode>>,
+    mut text: Query<&mut UiTargetCamera, With<HeaderNode>>,
 ) {
     let (entity_2d, mut cam_2d) = camera_2d.into_inner();
     let (entity_3d, mut cam_3d) = camera_3d.into_inner();
@@ -351,7 +351,7 @@ fn update_active_cameras(
     };
 
     text.iter_mut().for_each(|mut target_camera| {
-        *target_camera = TargetCamera(active_camera);
+        *target_camera = UiTargetCamera(active_camera);
     });
 }
 
@@ -376,7 +376,7 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
                 top: Val::Px(5.0),
                 ..Default::default()
             },
-            TargetCamera(active_camera),
+            UiTargetCamera(active_camera),
         ))
         .with_children(|p| {
             p.spawn((

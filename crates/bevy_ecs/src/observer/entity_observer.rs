@@ -116,7 +116,8 @@ mod tests {
         entity::EntityCloneBuilder,
         event::Event,
         observer::{CloneEntityWithObserversExt, Trigger},
-        system::{ResMut, Resource},
+        resource::Resource,
+        system::ResMut,
         world::World,
     };
 

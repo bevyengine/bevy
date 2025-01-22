@@ -5,7 +5,7 @@ use core::any::TypeId;
 use core::panic::Location;
 
 use bevy_ecs::component::ComponentId;
-use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -38,7 +38,7 @@ use crate::{
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
-    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
+    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
     ///
     /// A root-level entity that is set to `Inherited` will be visible.
     #[default]
@@ -48,7 +48,7 @@ pub enum Visibility {
     /// An entity with `Visibility::Visible` will be unconditionally visible.
     ///
     /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
-    /// [`Parent`] entity is hidden.
+    /// [`ChildOf`] target entity is hidden.
     Visible,
 }
 
@@ -317,7 +317,7 @@ pub enum VisibilitySystems {
     /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
     UpdateFrusta,
     /// Label for the system propagating the [`InheritedVisibility`] in a
-    /// [`Parent`] / [`Children`] hierarchy.
+    /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.\
@@ -388,10 +388,10 @@ pub fn update_frusta(
 
 fn visibility_propagate_system(
     changed: Query<
-        (Entity, &Visibility, Option<&Parent>, Option<&Children>),
+        (Entity, &Visibility, Option<&ChildOf>, Option<&Children>),
         (
             With<InheritedVisibility>,
-            Or<(Changed<Visibility>, Changed<Parent>)>,
+            Or<(Changed<Visibility>, Changed<ChildOf>)>,
         ),
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
@@ -766,7 +766,7 @@ mod test {
             .entity_mut(parent2)
             .insert(Visibility::Visible);
         // Simulate a change in the parent component
-        app.world_mut().entity_mut(child2).insert(Parent(parent2)); // example of changing parent
+        app.world_mut().entity_mut(child2).insert(ChildOf(parent2)); // example of changing parent
 
         // Run the system again to propagate changes
         app.update();

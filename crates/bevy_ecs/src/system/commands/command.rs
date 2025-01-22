@@ -12,9 +12,10 @@ use crate::{
     entity::Entity,
     event::{Event, Events},
     observer::TriggerTargets,
+    resource::Resource,
     result::{Error, Result},
     schedule::ScheduleLabel,
-    system::{error_handler, IntoSystem, Resource, SystemId, SystemInput},
+    system::{error_handler, IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
@@ -125,46 +126,27 @@ where
 }
 
 /// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will panic.
+///
+/// If any entities do not exist in the world, this command will return a
+/// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError).
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-pub fn insert_batch<I, B>(batch: I, mode: InsertMode) -> impl Command
+pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command<Result>
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
     B: Bundle,
 {
     #[cfg(feature = "track_location")]
     let caller = Location::caller();
-    move |world: &mut World| {
-        world.insert_batch_with_caller(
-            batch,
-            mode,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
-    }
-}
-
-/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will ignore them.
-///
-/// This is more efficient than inserting the bundles individually.
-#[track_caller]
-pub fn try_insert_batch<I, B>(batch: I, mode: InsertMode) -> impl Command
-where
-    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-    B: Bundle,
-{
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |world: &mut World| {
+    move |world: &mut World| -> Result {
         world.try_insert_batch_with_caller(
             batch,
-            mode,
+            insert_mode,
             #[cfg(feature = "track_location")]
             caller,
-        );
+        )?;
+        Ok(())
     }
 }
 
