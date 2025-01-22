@@ -23,12 +23,12 @@
 
 // Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
-     // Only monochrome occlusion supported. May not be worth including at all.
-     // Some models have baked occlusion, GLTF only supports monochrome.
-     // Real time occlusion is applied in the deferred lighting pass.
-     // Deriving luminance via Rec. 709. coefficients
-     // https://en.wikipedia.org/wiki/Rec._709
-     let rec_709_coeffs = vec3<f32>(0.2126, 0.7152, 0.0722);
+    // Only monochrome occlusion supported. May not be worth including at all.
+    // Some models have baked occlusion, GLTF only supports monochrome.
+    // Real time occlusion is applied in the deferred lighting pass.
+    // Deriving luminance via Rec. 709. coefficients
+    // https://en.wikipedia.org/wiki/Rec._709
+    let rec_709_coeffs = vec3<f32>(0.2126, 0.7152, 0.0722);
     let diffuse_occlusion = dot(in.diffuse_occlusion, rec_709_coeffs);
     // Only monochrome specular supported.
     let reflectance = dot(in.material.reflectance, rec_709_coeffs);
