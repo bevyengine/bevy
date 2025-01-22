@@ -176,9 +176,9 @@ struct OrderIndependentTransparencySettings {
 struct ClusteredDecal {
     local_from_world: mat4x4<f32>,
     image_index: i32,
+    tag: u32,
     pad_a: u32,
     pad_b: u32,
-    pad_c: u32,
 }
 
 struct ClusteredDecals {

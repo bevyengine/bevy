@@ -10,9 +10,9 @@
 //! with forward or deferred rendering and don't require a prepass.
 //!
 //! On their own, clustered decals only project the base color of a texture. You
-//! can, however, write a custom material in order to project other PBR texture
-//! types, like normal and emissive maps. See the documentation in
-//! `clustered.wgsl` for more information.
+//! can, however, use the built-in *tag* field to customize the appearance of a
+//! clustered decal arbitrarily. See the documentation in `clustered.wgsl` for
+//! more information and the `clustered_decals` example for an example of use.
 
 use core::{num::NonZero, ops::Deref};
 
@@ -90,6 +90,11 @@ pub struct ClusteredDecal {
     /// blended with the underlying surface and/or other decals. All images in
     /// the scene must use the same sampler.
     pub image: Handle<Image>,
+
+    /// An application-specific tag you can use for any purpose you want.
+    ///
+    /// See the `clustered_decals` example for an example of use.
+    pub tag: u32,
 }
 
 /// Stores information about all the clustered decals in the scene.
@@ -186,12 +191,12 @@ pub struct RenderClusteredDecal {
     local_from_world: Mat4,
     /// The index of the decal texture in the binding array.
     image_index: u32,
+    /// A custom tag available for application-defined purposes.
+    tag: u32,
     /// Padding.
     pad_a: u32,
     /// Padding.
     pad_b: u32,
-    /// Padding.
-    pad_c: u32,
 }
 
 /// Extracts decals from the main world into the render world.
@@ -228,9 +233,9 @@ pub fn extract_decals(
         render_decals.decals.push(RenderClusteredDecal {
             local_from_world: global_transform.affine().inverse().into(),
             image_index,
+            tag: clustered_decal.tag,
             pad_a: 0,
             pad_b: 0,
-            pad_c: 0,
         });
     }
 }

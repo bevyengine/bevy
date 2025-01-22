@@ -41,6 +41,8 @@ struct ClusteredDecalIterator {
     texture_index: i32,
     // The UV coordinates at which to sample that decal texture.
     uv: vec2<f32>,
+    // A custom tag you can use for your own purposes.
+    tag: u32,
 
     // Private fields follow:
     // The current offset of the index in the `ClusterableObjectIndexRanges` list.
@@ -71,6 +73,7 @@ fn clustered_decal_iterator_new(
     return ClusteredDecalIterator(
         -1,
         vec2(0.0),
+        0u,
         // We subtract 1 because the first thing `decal_iterator_next` does is
         // add 1.
         i32((*clusterable_object_index_ranges).first_decal_offset) - 1,
@@ -103,6 +106,8 @@ fn clustered_decal_iterator_next(iterator: ptr<function, ClusteredDecalIterator>
             (*iterator).texture_index =
                 i32(mesh_view_bindings::clustered_decals.decals[decal_index].image_index);
             (*iterator).uv = decal_space_vector.xy * vec2(1.0, -1.0) + vec2(0.5);
+            (*iterator).tag =
+                mesh_view_bindings::clustered_decals.decals[decal_index].tag;
             return true;
         }
 

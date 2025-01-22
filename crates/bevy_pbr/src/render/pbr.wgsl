@@ -65,6 +65,7 @@ fn fragment(
     // alpha discard
     pbr_input.material.base_color = alpha_discard(pbr_input.material, pbr_input.material.base_color);
 
+    // clustered decals
     pbr_input.material.base_color = apply_decal_base_color(
         in.world_position.xyz,
         in.position.xy,

@@ -4,6 +4,7 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
 
 use bevy::ecs::relationship::RelatedSpawnerCommands;
+use bevy::pbr::{ExtendedMaterial, MaterialExtension};
 use bevy::window::SystemCursorIcon;
 use bevy::winit::cursor::CursorIcon;
 use bevy::{
@@ -12,6 +13,7 @@ use bevy::{
     pbr::decal::clustered::ClusteredDecal,
     prelude::*,
 };
+use bevy_render::render_resource::{AsBindGroup, ShaderRef};
 use ops::{acos, cos, sin};
 use widgets::{
     WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
@@ -20,6 +22,10 @@ use widgets::{
 
 #[path = "../helpers/widgets.rs"]
 mod widgets;
+
+/// The custom material shader that we use to demonstrate how to use the decal
+/// `tag` field.
+const SHADER_ASSET_PATH: &str = "shaders/custom_clustered_decal.wgsl";
 
 /// The speed at which the cube rotates, in radians per frame.
 const CUBE_ROTATION_SPEED: f32 = 0.02;
@@ -98,6 +104,17 @@ impl fmt::Display for DragMode {
 #[derive(Clone, Copy, Component)]
 struct HelpText;
 
+/// A shader extension that demonstrates how to use the `tag` field to customize
+/// the appearance of your decals.
+#[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
+struct CustomDecalExtension {}
+
+impl MaterialExtension for CustomDecalExtension {
+    fn fragment_shader() -> ShaderRef {
+        SHADER_ASSET_PATH.into()
+    }
+}
+
 /// Entry point.
 fn main() {
     App::new()
@@ -108,6 +125,9 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(MaterialPlugin::<
+            ExtendedMaterial<StandardMaterial, CustomDecalExtension>,
+        >::default())
         .init_resource::<AppStatus>()
         .add_event::<WidgetClickEvent<Selection>>()
         .add_systems(Startup, setup)
@@ -134,7 +154,7 @@ fn setup(
     asset_server: Res<AssetServer>,
     app_status: Res<AppStatus>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, CustomDecalExtension>>>,
 ) {
     spawn_cube(&mut commands, &mut meshes, &mut materials);
     spawn_camera(&mut commands);
@@ -148,7 +168,7 @@ fn setup(
 fn spawn_cube(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
-    materials: &mut Assets<StandardMaterial>,
+    materials: &mut Assets<ExtendedMaterial<StandardMaterial, CustomDecalExtension>>,
 ) {
     // Rotate the cube a bit just to make it more interesting.
     let mut transform = Transform::IDENTITY;
@@ -156,7 +176,13 @@ fn spawn_cube(
 
     commands
         .spawn(Mesh3d(meshes.add(Cuboid::new(3.0, 3.0, 3.0))))
-        .insert(MeshMaterial3d(materials.add(Color::from(SILVER))))
+        .insert(MeshMaterial3d(materials.add(ExtendedMaterial {
+            base: StandardMaterial {
+                base_color: SILVER.into(),
+                ..default()
+            },
+            extension: CustomDecalExtension {},
+        })))
         .insert(transform);
 }
 
@@ -183,6 +209,8 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(ClusteredDecal {
             image: image.clone(),
+            // Tint with red.
+            tag: 1,
         })
         .insert(calculate_initial_decal_transform(
             vec3(1.0, 3.0, 5.0),
@@ -194,6 +222,8 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
     commands
         .spawn(ClusteredDecal {
             image: image.clone(),
+            // Tint with blue.
+            tag: 2,
         })
         .insert(calculate_initial_decal_transform(
             vec3(-2.0, -1.0, 4.0),
