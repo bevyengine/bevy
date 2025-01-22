@@ -22,11 +22,12 @@ use bevy_ecs::{
     system::SystemParam,
 };
 use bevy_math::CompassOctant;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
 use thiserror::Error;
 
 use crate::InputFocus;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 
 /// A plugin that sets up the directional navigation systems and resources.
 #[derive(Default)]
@@ -130,7 +131,7 @@ impl DirectionalNavigationMap {
     /// it is more efficient than calling [`remove`](Self::remove) multiple times,
     /// as we can check for connections to all removed entities in a single pass.
     ///
-    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`].
+    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`](`alloc::vec::Vec`).
     pub fn remove_multiple(&mut self, entities: EntityHashSet) {
         for entity in &entities {
             self.neighbors.remove(entity);
