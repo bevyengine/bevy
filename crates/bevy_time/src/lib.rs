@@ -5,6 +5,12 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
 
 /// Common run conditions
 pub mod common_conditions;
@@ -37,9 +43,12 @@ use bevy_ecs::{
 };
 use bevy_platform_support::time::Instant;
 use core::time::Duration;
+
+#[cfg(feature = "std")]
 pub use crossbeam_channel::TrySendError;
+
+#[cfg(feature = "std")]
 use crossbeam_channel::{Receiver, Sender};
-use tracing::warn;
 
 /// Adds time functionality to Apps.
 #[derive(Default)]
@@ -106,14 +115,17 @@ pub enum TimeUpdateStrategy {
 }
 
 /// Channel resource used to receive time from the render world.
+#[cfg(feature = "std")]
 #[derive(Resource)]
 pub struct TimeReceiver(pub Receiver<Instant>);
 
 /// Channel resource used to send time from the render world.
+#[cfg(feature = "std")]
 #[derive(Resource)]
 pub struct TimeSender(pub Sender<Instant>);
 
 /// Creates channels used for sending time between the render world and the main world.
+#[cfg(feature = "std")]
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.
@@ -128,26 +140,32 @@ pub fn time_system(
     mut virtual_time: ResMut<Time<Virtual>>,
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
-    time_recv: Option<Res<TimeReceiver>>,
-    mut has_received_time: Local<bool>,
+    #[cfg(feature = "std")] time_recv: Option<Res<TimeReceiver>>,
+    #[cfg(feature = "std")] mut has_received_time: Local<bool>,
 ) {
-    let new_time = if let Some(time_recv) = time_recv {
-        // TODO: Figure out how to handle this when using pipelined rendering.
-        if let Ok(new_time) = time_recv.0.try_recv() {
-            *has_received_time = true;
-            new_time
-        } else {
-            if *has_received_time {
-                warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
-            }
-            Instant::now()
-        }
-    } else {
-        Instant::now()
-    };
-
     match update_strategy.as_ref() {
-        TimeUpdateStrategy::Automatic => real_time.update_with_instant(new_time),
+        TimeUpdateStrategy::Automatic => {
+            #[cfg(feature = "std")]
+            let new_time = if let Some(time_recv) = time_recv {
+                // TODO: Figure out how to handle this when using pipelined rendering.
+                if let Ok(new_time) = time_recv.0.try_recv() {
+                    *has_received_time = true;
+                    new_time
+                } else {
+                    if *has_received_time {
+                        log::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+                    }
+                    Instant::now()
+                }
+            } else {
+                Instant::now()
+            };
+
+            #[cfg(not(feature = "std"))]
+            let new_time = Instant::now();
+
+            real_time.update_with_instant(new_time);
+        }
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
     }
