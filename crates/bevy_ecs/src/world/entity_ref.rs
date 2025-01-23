@@ -4401,7 +4401,6 @@ mod tests {
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
 
-    use core::panic::Location;
     #[cfg(feature = "track_location")]
     use std::sync::OnceLock;
 

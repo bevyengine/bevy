@@ -299,7 +299,7 @@ pub use bevy_ecs_macros::require;
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
-/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::component::{Component, HookContext};
 /// # use bevy_ecs::world::DeferredWorld;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::component::ComponentId;
@@ -315,12 +315,12 @@ pub use bevy_ecs_macros::require;
 /// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
-/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId, caller: Option<&Location>) {
+/// fn my_on_add_hook(world: DeferredWorld, context: HookContext) {
 ///     // ...
 /// }
 ///
-/// // You can also omit writing some types using generics.
-/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2, caller: Option<&Location>) {
+/// // You can also destructure items directly in the signature
+/// fn my_on_insert_hook(world: DeferredWorld, HookContext { caller, .. }: HookContext) {
 ///     // ...
 /// }
 /// ```
