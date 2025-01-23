@@ -40,6 +40,7 @@ use crate::{
         RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity_disabling::{DefaultQueryFilters, Disabled},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
@@ -159,6 +160,11 @@ impl World {
 
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
+
+        let disabled = self.register_component::<Disabled>();
+        let mut filters = DefaultQueryFilters::default();
+        filters.set_disabled(disabled);
+        self.insert_resource(filters);
     }
     /// Creates a new empty [`World`].
     ///
@@ -3268,6 +3274,7 @@ impl World {
     /// # struct B(u32);
     /// #
     /// # let mut world = World::new();
+    /// # world.remove_resource::<bevy_ecs::entity_disabling::DefaultQueryFilters>();
     /// # world.insert_resource(A(1));
     /// # world.insert_resource(B(2));
     /// let mut total = 0;
@@ -3766,6 +3773,7 @@ mod tests {
         change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         entity::hash_set::EntityHashSet,
+        entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
         resource::Resource,
         world::error::EntityFetchError,
@@ -3955,6 +3963,7 @@ mod tests {
     #[test]
     fn iter_resources() {
         let mut world = World::new();
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3981,6 +3990,7 @@ mod tests {
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -4446,5 +4456,16 @@ mod tests {
             world.entities.entity_get_spawned_or_despawned_by(entity),
             None
         );
+    }
+
+    #[test]
+    fn new_world_has_disabling() {
+        let mut world = World::new();
+        world.spawn(Foo);
+        world.spawn((Foo, Disabled));
+        assert_eq!(1, world.query::<&Foo>().iter(&world).count());
+
+        world.remove_resource::<DefaultQueryFilters>();
+        assert_eq!(2, world.query::<&Foo>().iter(&world).count());
     }
 }

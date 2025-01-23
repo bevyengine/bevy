@@ -26,7 +26,13 @@ use crate::{
     component::{ComponentId, Components, StorageType},
     query::FilteredAccess,
 };
-use bevy_ecs_macros::Resource;
+use bevy_ecs_macros::{Component, Resource};
+
+/// A marker component for disabled entities. See [the module docs] for more info.
+///
+/// [the module docs]: crate::entity_disabling
+#[derive(Component)]
+pub struct Disabled;
 
 /// The default filters for all queries, these are used to globally exclude entities from queries.
 /// See the [module docs](crate::entity_disabling) for more info.
@@ -37,10 +43,6 @@ pub struct DefaultQueryFilters {
 }
 
 impl DefaultQueryFilters {
-    #[cfg_attr(
-        not(test),
-        expect(dead_code, reason = "No Disabled component exist yet")
-    )]
     /// Set the [`ComponentId`] for the entity disabling marker
     pub(crate) fn set_disabled(&mut self, component_id: ComponentId) -> Option<()> {
         if self.disabled.is_some() {
