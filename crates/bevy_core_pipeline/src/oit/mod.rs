@@ -70,11 +70,11 @@ impl Component for OrderIndependentTransparencySettings {
     type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, entity, _, caller| {
-            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(entity) {
+        hooks.on_add(|world, context| {
+            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
                 if value.layer_count > 32 {
                     warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.", 
-                        caller.map(|location|format!("{location}: ")).unwrap_or_default(),
+                        context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                         value.layer_count
                     );
                 }
