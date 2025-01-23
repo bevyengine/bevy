@@ -4,6 +4,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
+use bevy_platform_support::collections::HashSet;
 use bevy_platform_support::time::Instant;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -17,7 +18,6 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::HashSet;
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
@@ -70,10 +70,13 @@ impl Component for OrderIndependentTransparencySettings {
     type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, entity, _| {
-            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(entity) {
+        hooks.on_add(|world, context| {
+            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
                 if value.layer_count > 32 {
-                    warn!("OrderIndependentTransparencySettings layer_count set to {} might be too high.", value.layer_count);
+                    warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.", 
+                        context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
+                        value.layer_count
+                    );
                 }
             }
         });

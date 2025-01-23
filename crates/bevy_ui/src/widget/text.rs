@@ -16,6 +16,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::Vec2;
+use bevy_platform_support::collections::hash_map::Entry;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::camera::Camera;
 use bevy_text::{
@@ -23,7 +24,6 @@ use bevy_text::{
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
 use tracing::error;
 

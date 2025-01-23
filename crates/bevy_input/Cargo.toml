@@ -27,6 +27,7 @@ serialize = [
   "smol_str/serde",
   "bevy_ecs/serialize",
   "bevy_math/serialize",
+  "bevy_platform_support/serialize",
 ]
 
 ## Uses the small-string optimization provided by `smol_str`.
@@ -43,6 +44,7 @@ std = [
   "bevy_math/std",
   "bevy_utils/std",
   "bevy_reflect/std",
+  "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -51,6 +53,7 @@ critical-section = [
   "bevy_app/critical-section",
   "bevy_ecs/critical-section",
   "bevy_reflect?/critical-section",
+  "bevy_platform_support/critical-section",
 ]
 
 ## `portable-atomic` provides additional platform support for atomic types and
@@ -59,6 +62,7 @@ portable-atomic = [
   "bevy_app/portable-atomic",
   "bevy_ecs/portable-atomic",
   "bevy_reflect?/portable-atomic",
+  "bevy_platform_support/portable-atomic",
 ]
 
 ## Uses the `libm` maths library instead of the one provided in `std` and `core`.
@@ -73,6 +77,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "glam",
 ], default-features = false, optional = true }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
 serde = { version = "1", features = [
