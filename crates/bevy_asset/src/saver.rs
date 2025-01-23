@@ -4,8 +4,8 @@ use crate::{
 };
 use alloc::boxed::Box;
 use atomicow::CowArc;
+use bevy_platform_support::collections::HashMap;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use bevy_utils::HashMap;
 use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
 

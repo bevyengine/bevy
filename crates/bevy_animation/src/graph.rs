@@ -17,8 +17,8 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
-use bevy_utils::HashMap;
 use derive_more::derive::From;
 use petgraph::{
     graph::{DiGraph, NodeIndex},

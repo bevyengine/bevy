@@ -1,8 +1,11 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use alloc::{boxed::Box, string::String};
-use bevy_platform_support::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use bevy_platform_support::{
+    collections::{HashMap, HashSet},
+    sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
+};
 use bevy_ptr::{Ptr, PtrMut};
-use bevy_utils::{HashMap, HashSet, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
     fmt::Debug,
@@ -210,9 +213,11 @@ impl TypeRegistry {
         type_id: TypeId,
         get_registration: impl FnOnce() -> TypeRegistration,
     ) -> bool {
+        use bevy_platform_support::collections::hash_map::Entry;
+
         match self.registrations.entry(type_id) {
-            bevy_utils::Entry::Occupied(_) => false,
-            bevy_utils::Entry::Vacant(entry) => {
+            Entry::Occupied(_) => false,
+            Entry::Vacant(entry) => {
                 let registration = get_registration();
                 Self::update_registration_indices(
                     &registration,

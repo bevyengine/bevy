@@ -420,7 +420,7 @@ mod tests {
     fn hash<T: Hash>(data: &T) -> u64 {
         use core::hash::BuildHasher;
 
-        bevy_utils::FixedHasher.hash_one(data)
+        bevy_platform_support::hash::FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `AssetIds` should be equivalent to each other and themselves

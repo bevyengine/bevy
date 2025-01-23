@@ -1,6 +1,6 @@
 //! Contains the [`EntityHashSet`] type, a [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 //!
-//! This module is a lightweight wrapper around [`hashbrown`](bevy_utils::hashbrown)'s [`HashSet`] that is more performant for [`Entity`] keys.
+//! This module is a lightweight wrapper around Bevy's [`HashSet`] that is more performant for [`Entity`] keys.
 
 use core::{
     fmt::{self, Debug, Formatter},
@@ -12,9 +12,9 @@ use core::{
     },
 };
 
+use bevy_platform_support::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_set::{self, HashSet};
 
 use super::{Entity, EntityHash, EntitySetIterator};
 
