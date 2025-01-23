@@ -3,7 +3,7 @@ use alloc::{
     collections::{btree_map, btree_set},
     rc::Rc,
 };
-use bevy_utils::hashbrown::HashSet;
+use bevy_platform_support::collections::HashSet;
 
 use core::{
     array,

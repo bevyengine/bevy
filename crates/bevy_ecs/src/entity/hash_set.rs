@@ -12,9 +12,9 @@ use core::{
     },
 };
 
+use bevy_platform_support::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_set::{self, HashSet};
 
 use super::{Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator};
 
