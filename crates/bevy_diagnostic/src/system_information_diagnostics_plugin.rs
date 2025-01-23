@@ -61,15 +61,20 @@ pub struct SystemInfo {
     feature = "std",
 ))]
 pub mod internal {
-    use alloc::sync::Arc;
-    use bevy_ecs::{prelude::ResMut, system::Local};
-    use std::{sync::Mutex, time::Instant};
-
+    use alloc::{
+        format,
+        string::{String, ToString},
+        sync::Arc,
+        vec::Vec,
+    };
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
+    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_platform_support::time::Instant;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
-    use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
     use log::info;
+    use std::sync::Mutex;
+    use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
