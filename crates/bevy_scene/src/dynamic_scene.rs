@@ -365,7 +365,7 @@ mod tests {
         let mut dst_world = World::new();
         dst_world
             .register_component_hooks::<A>()
-            .on_add(|mut world, _, _| {
+            .on_add(|mut world, _| {
                 world.commands().spawn_empty();
             });
         dst_world.insert_resource(reg.clone());

@@ -25,9 +25,9 @@ use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
+use bevy_platform_support::collections::HashMap;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -50,7 +50,7 @@ pub struct NodeQuery {
     global_transform: &'static GlobalTransform,
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
-    view_visibility: Option<&'static ViewVisibility>,
+    inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: Option<&'static UiTargetCamera>,
 }
 
@@ -124,8 +124,8 @@ pub fn ui_picking(
 
         // Nodes that are not rendered should not be interactable
         if node
-            .view_visibility
-            .map(|view_visibility| view_visibility.get())
+            .inherited_visibility
+            .map(|inherited_visibility| inherited_visibility.get())
             != Some(true)
         {
             continue;

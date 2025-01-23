@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
+use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::sync::Arc;
-use bevy_utils::HashMap;
 use core::fmt::Debug;
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 

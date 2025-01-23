@@ -19,11 +19,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-#[cfg(feature = "std")]
-use std::sync::Mutex;
-
-#[cfg(not(feature = "std"))]
-use spin::mutex::Mutex;
+use bevy_platform_support::sync::Mutex;
 
 mod event;
 mod monitor;

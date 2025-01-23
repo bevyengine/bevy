@@ -7,6 +7,9 @@ use crate::Task;
 #[cfg(feature = "std")]
 use std::thread_local;
 
+#[cfg(not(feature = "std"))]
+use bevy_platform_support::sync::{Mutex, PoisonError};
+
 #[cfg(all(
     feature = "std",
     any(feature = "async_executor", feature = "edge_executor")
@@ -63,7 +66,7 @@ static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
 type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
 
 #[cfg(not(feature = "std"))]
-type ScopeResult<T> = Arc<spin::Mutex<Option<T>>>;
+type ScopeResult<T> = Arc<Mutex<Option<T>>>;
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -214,7 +217,7 @@ impl TaskPool {
 
                 #[cfg(not(feature = "std"))]
                 {
-                    let mut lock = result.lock();
+                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                     lock.take().unwrap()
                 }
             })
@@ -343,7 +346,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
 
             #[cfg(not(feature = "std"))]
             {
-                let mut lock = result.lock();
+                let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                 *lock = Some(temp_result);
             }
         };

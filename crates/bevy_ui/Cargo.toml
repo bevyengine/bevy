@@ -30,6 +30,9 @@ bevy_picking = { path = "../bevy_picking", version = "0.16.0-dev", optional = tr
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+] }
 
 # other
 taffy = { version = "0.7" }
@@ -44,7 +47,12 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
 default = []
-serialize = ["serde", "smallvec/serde", "bevy_math/serialize"]
+serialize = [
+  "serde",
+  "smallvec/serde",
+  "bevy_math/serialize",
+  "bevy_platform_support/serialize",
+]
 bevy_ui_picking_backend = ["bevy_picking"]
 bevy_ui_debug = []
 

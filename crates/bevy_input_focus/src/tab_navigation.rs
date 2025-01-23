@@ -23,9 +23,9 @@
 //! you can use the [`TabNavigation`] system parameter directly instead.
 //! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
+
+use alloc::vec::Vec;
 use bevy_app::{App, Plugin, Startup};
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -38,13 +38,17 @@ use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
 use bevy_window::PrimaryWindow;
+use log::warn;
 use thiserror::Error;
-use tracing::warn;
 
 use crate::{FocusedInput, InputFocus, InputFocusVisible};
+
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::prelude::ReflectComponent,
+    bevy_reflect::{prelude::*, Reflect},
+};
 
 /// A component which indicates that an entity wants to participate in tab navigation.
 ///

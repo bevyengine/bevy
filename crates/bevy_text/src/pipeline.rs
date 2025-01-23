@@ -8,9 +8,10 @@ use bevy_ecs::{
     system::ResMut,
 };
 use bevy_image::prelude::*;
+use bevy_log::{once, warn};
 use bevy_math::{UVec2, Vec2};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::HashMap;
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
@@ -139,6 +140,10 @@ impl TextPipeline {
 
             // Save spans that aren't zero-sized.
             if scale_factor <= 0.0 || text_font.font_size <= 0.0 {
+                once!(warn!(
+                    "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
+                ));
+
                 continue;
             }
             spans.push((span_index, span, text_font, face_info, color));
