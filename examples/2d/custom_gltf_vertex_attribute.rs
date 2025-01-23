@@ -63,7 +63,6 @@ fn setup(
         Transform::from_scale(150.0 * Vec3::ONE),
     ));
 
-    // Add a camera
     commands.spawn(Camera2d);
 }
 
