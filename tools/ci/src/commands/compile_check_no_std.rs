@@ -166,6 +166,14 @@ impl Prepare for CompileCheckNoStdCommand {
             "Please fix compiler errors in output above for bevy_a11y no_std compatibility.",
         ));
 
+        commands.push(PreparedCommand::new::<Self>(
+            cmd!(
+                sh,
+                "cargo check -p bevy_diagnostic --no-default-features --features serialize --target {target}"
+            ),
+            "Please fix compiler errors in output above for bevy_diagnostic no_std compatibility.",
+        ));
+
         commands
     }
 }
