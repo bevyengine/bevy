@@ -197,8 +197,9 @@ impl FromIterator<Entity> for EntityHashSet {
 
 impl FromEntitySetIterator<Entity> for EntityHashSet {
     fn from_entity_set_iter<I: EntitySet<Item = Entity>>(set_iter: I) -> Self {
-        let mut set = EntityHashSet::new();
-        for e in set_iter {
+        let iter = set_iter.into_iter();
+        let mut set = EntityHashSet::with_capacity(iter.size_hint().0);
+        for e in iter {
             // SAFETY: Every element in self is unique.
             unsafe { set.insert_unique_unchecked(e) };
         }
