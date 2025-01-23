@@ -165,7 +165,7 @@ pub fn time_system(
 
     match update_strategy.as_ref() {
         TimeUpdateStrategy::Automatic => {
-            real_time.update_with_instant(sent_time.unwrap_or_else(Instant::now))
+            real_time.update_with_instant(sent_time.unwrap_or_else(Instant::now));
         }
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),
