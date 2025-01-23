@@ -47,11 +47,8 @@ fn setup(
         },
     ));
 
-    const UPPER_Y: f32 = 50.0;
-    const LOWER_Y: f32 = -50.0;
-    const FIRST_X: f32 = -375.0;
-    const FIRST_Y: f32 = -20.0;
-    const OFFSET: f32 = 100.0;
+    const SPACING_X: f32 = 100.0;
+    const PADDING_X: f32 = 25.0;
     const NUM_SLICES: i32 = 8;
 
     // This draws NUM_SLICES copies of the Bevy logo as circular sectors and segments,
@@ -71,7 +68,11 @@ fn setup(
             Mesh2d(meshes.add(sector_mesh)),
             MeshMaterial2d(material.clone()),
             Transform {
-                translation: Vec3::new(FIRST_X + OFFSET * i as f32, FIRST_Y + 2.0 * UPPER_Y, 0.0),
+                translation: Vec3::new(
+                    PADDING_X + (SPACING_X * i as f32) - (SPACING_X * NUM_SLICES as f32 / 2.0),
+                    50.0,
+                    0.0,
+                ),
                 rotation: Quat::from_rotation_z(sector_angle),
                 ..default()
             },
@@ -95,7 +96,11 @@ fn setup(
             Mesh2d(meshes.add(segment_mesh)),
             MeshMaterial2d(material.clone()),
             Transform {
-                translation: Vec3::new(FIRST_X + OFFSET * i as f32, FIRST_Y + LOWER_Y, 0.0),
+                translation: Vec3::new(
+                    PADDING_X + (SPACING_X * i as f32) - (SPACING_X * NUM_SLICES as f32 / 2.0),
+                    -50.0,
+                    0.0,
+                ),
                 rotation: Quat::from_rotation_z(segment_angle),
                 ..default()
             },
