@@ -111,7 +111,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
         registry.get_type_data::<ReflectFromReflect>(TypeId::of::<T>())
     {
         // If it fails it's ok, we can continue checking `Default` and `FromWorld`.
-        if let Some(value) = reflect_from_reflect.from_reflect(reflected) {
+        if let Ok(value) = reflect_from_reflect.from_reflect(reflected) {
             return value
                 .take::<T>()
                 .unwrap_or_else(|_| different_type_error::<T>("FromReflect"));

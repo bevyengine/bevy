@@ -2246,7 +2246,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
     if let Some(reflect_from_reflect) =
         registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
     {
-        if let Some(component) =
+        if let Ok(component) =
             reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
         {
             drop(registry);

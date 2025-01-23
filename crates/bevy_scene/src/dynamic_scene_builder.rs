@@ -305,7 +305,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     // deserialize.
                     let component = type_registration
                         .data::<ReflectFromReflect>()
-                        .and_then(|fr| fr.from_reflect(component.as_partial_reflect()))
+                        .and_then(|fr| fr.from_reflect(component.as_partial_reflect()).ok())
                         .map(PartialReflect::into_partial_reflect)
                         .unwrap_or_else(|| component.clone_value());
 
@@ -373,7 +373,7 @@ impl<'w> DynamicSceneBuilder<'w> {
 
                 let resource = type_registration
                     .data::<ReflectFromReflect>()
-                    .and_then(|fr| fr.from_reflect(resource.as_partial_reflect()))
+                    .and_then(|fr| fr.from_reflect(resource.as_partial_reflect()).ok())
                     .map(PartialReflect::into_partial_reflect)
                     .unwrap_or_else(|| resource.clone_value());
 

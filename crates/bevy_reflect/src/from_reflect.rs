@@ -1,5 +1,7 @@
-use crate::{FromType, PartialReflect, Reflect};
-use alloc::boxed::Box;
+use crate::{FromType, PartialReflect, Reflect, ReflectKindMismatchError};
+use alloc::string::{String, ToString};
+use alloc::{boxed::Box, vec::Vec};
+use thiserror::Error;
 
 /// A trait that enables types to be dynamically constructed from reflected data.
 ///
@@ -28,7 +30,7 @@ use alloc::boxed::Box;
 )]
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Result<Self, FromReflectError>;
 
     /// Attempts to downcast the given value to `Self` using,
     /// constructing the value using [`from_reflect`] if that fails.
@@ -42,12 +44,12 @@ pub trait FromReflect: Reflect + Sized {
     /// [`DynamicList`]: crate::DynamicList
     fn take_from_reflect(
         reflect: Box<dyn PartialReflect>,
-    ) -> Result<Self, Box<dyn PartialReflect>> {
+    ) -> Result<Self, (FromReflectError, Box<dyn PartialReflect>)> {
         match reflect.try_take::<Self>() {
             Ok(value) => Ok(value),
             Err(value) => match Self::from_reflect(value.as_ref()) {
-                None => Err(value),
-                Some(value) => Ok(value),
+                Err(err) => Err((err, value)),
+                Ok(value) => Ok(value),
             },
         }
     }
@@ -104,7 +106,7 @@ pub trait FromReflect: Reflect + Sized {
 /// [`DynamicEnum`]: crate::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
-    from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,
+    from_reflect: fn(&dyn PartialReflect) -> Result<Box<dyn Reflect>, FromReflectError>,
 }
 
 impl ReflectFromReflect {
@@ -112,7 +114,10 @@ impl ReflectFromReflect {
     ///
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn Reflect>`.
-    pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn Reflect>> {
+    pub fn from_reflect(
+        &self,
+        reflect_value: &dyn PartialReflect,
+    ) -> Result<Box<dyn Reflect>, FromReflectError> {
         (self.from_reflect)(reflect_value)
     }
 }
@@ -123,6 +128,81 @@ impl<T: FromReflect> FromType<T> for ReflectFromReflect {
             from_reflect: |reflect_value| {
                 T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn Reflect>)
             },
+        }
+    }
+}
+
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum FromReflectError {
+    #[error("attempted to convert `{}` to `{}`", .0.received, .0.expected)]
+    /// Attempted to convert the wrong [kind](crate::ReflectKind) to a type, e.g. a struct to a enum.
+    MismatchedKinds(#[from] ReflectKindMismatchError),
+
+    #[error("`{from_type}` is not `{to_type}`")]
+    /// Tried to convert incompatible types.
+    MismatchedTypes {
+        from_type: Box<str>,
+        to_type: Box<str>,
+    },
+
+    #[error("attempted to convert type with {from_size} size to a type with {to_size} size")]
+    /// Attempted to convert to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
+    DifferentSize { from_size: usize, to_size: usize },
+
+    #[error("attempted to convert missing tuple index `{0}`")]
+    MissingTupleIndex(usize),
+
+    #[error("attempted to convert missing field `{0}`")]
+    MissingField(Box<str>),
+
+    #[error("attempted to convert missing enum variant `{0}`")]
+    MissingEnumVariant(Box<str>),
+
+    #[error("{} at path `{}`", self.leaf_error(), self.path())]
+    FieldError(Box<str>, Box<FromReflectError>),
+
+    #[error("{} at path `{}`", self.leaf_error(), self.path())]
+    TupleIndexError(usize, Box<FromReflectError>),
+
+    #[error("{} at path `{}`", self.leaf_error(), self.path())]
+    VariantError(Box<str>, Box<FromReflectError>),
+}
+
+impl FromReflectError {
+    fn leaf_error(&self) -> String {
+        match self {
+            FromReflectError::FieldError(_, error)
+            | FromReflectError::TupleIndexError(_, error)
+            | FromReflectError::VariantError(_, error) => error.leaf_error(),
+            other => other.to_string(),
+        }
+    }
+
+    fn path(&self) -> String {
+        self.reverse_path()
+            .iter()
+            .rev()
+            .fold(String::new(), |acc, x| acc + x)
+    }
+
+    fn reverse_path(&self) -> Vec<String> {
+        match self {
+            FromReflectError::FieldError(field, error) => {
+                let mut path = error.reverse_path();
+                path.push(".".to_string() + field);
+                path
+            }
+            FromReflectError::TupleIndexError(index, error) => {
+                let mut path = error.reverse_path();
+                path.push(".".to_string() + &index.to_string());
+                path
+            }
+            FromReflectError::VariantError(variant, error) => {
+                let mut path = error.reverse_path();
+                path.push("::".to_string() + variant);
+                path
+            }
+            _other => Vec::new(),
         }
     }
 }

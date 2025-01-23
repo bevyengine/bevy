@@ -30,6 +30,6 @@ mod tests {
     fn smolstr_should_from_reflect() {
         let smolstr = SmolStr::new("hello_world.rs");
         let output = <SmolStr as FromReflect>::from_reflect(&smolstr);
-        assert_eq!(Some(smolstr), output);
+        assert_eq!(Ok(smolstr), output);
     }
 }
