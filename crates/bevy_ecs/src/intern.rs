@@ -7,12 +7,7 @@
 use alloc::{borrow::ToOwned, boxed::Box};
 use core::{fmt::Debug, hash::Hash, ops::Deref};
 
-#[cfg(feature = "std")]
-use std::sync::{PoisonError, RwLock};
-
-#[cfg(not(feature = "std"))]
-use spin::rwlock::RwLock;
-
+use bevy_platform_support::sync::{PoisonError, RwLock};
 use bevy_utils::{FixedHasher, HashSet};
 
 /// An interned value. Will stay valid until the end of the program and will not drop.
@@ -143,11 +138,7 @@ impl<T: Internable + ?Sized> Interner<T> {
     /// will return [`Interned<T>`] using the same static reference.
     pub fn intern(&self, value: &T) -> Interned<T> {
         {
-            #[cfg(feature = "std")]
             let set = self.0.read().unwrap_or_else(PoisonError::into_inner);
-
-            #[cfg(not(feature = "std"))]
-            let set = self.0.read();
 
             if let Some(value) = set.get(value) {
                 return Interned(*value);
@@ -155,11 +146,7 @@ impl<T: Internable + ?Sized> Interner<T> {
         }
 
         {
-            #[cfg(feature = "std")]
             let mut set = self.0.write().unwrap_or_else(PoisonError::into_inner);
-
-            #[cfg(not(feature = "std"))]
-            let mut set = self.0.write();
 
             if let Some(value) = set.get(value) {
                 Interned(*value)

@@ -13,7 +13,6 @@ default = ["std", "async_executor"]
 std = [
   "futures-lite/std",
   "async-task/std",
-  "spin/std",
   "edge-executor?/std",
   "bevy_platform_support/std",
 ]
@@ -28,7 +27,6 @@ portable-atomic = [
   "bevy_platform_support/portable-atomic",
   "edge-executor?/portable-atomic",
   "async-task/portable-atomic",
-  "spin/portable_atomic",
 ]
 
 [dependencies]
@@ -40,11 +38,6 @@ futures-lite = { version = "2.0.1", default-features = false, features = [
   "alloc",
 ] }
 async-task = { version = "4.4.0", default-features = false }
-spin = { version = "0.9.8", default-features = false, features = [
-  "spin_mutex",
-  "rwlock",
-  "once",
-] }
 derive_more = { version = "1", default-features = false, features = [
   "deref",
   "deref_mut",
