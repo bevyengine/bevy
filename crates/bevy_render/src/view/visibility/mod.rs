@@ -2,9 +2,8 @@ mod range;
 mod render_layers;
 
 use core::any::TypeId;
-use core::panic::Location;
 
-use bevy_ecs::component::ComponentId;
+use bevy_ecs::component::HookContext;
 use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
@@ -635,9 +634,7 @@ pub fn check_visibility(
 /// ```
 pub fn add_visibility_class<C>(
     mut world: DeferredWorld<'_>,
-    entity: Entity,
-    _: ComponentId,
-    _: Option<&Location>,
+    HookContext { entity, .. }: HookContext,
 ) where
     C: 'static,
 {
