@@ -50,7 +50,7 @@ fn setup(
     const UPPER_Y: f32 = 50.0;
     const LOWER_Y: f32 = -50.0;
     const FIRST_X: f32 = -375.0;
-    const FIRST_Y: f32 = -40.0;
+    const FIRST_Y: f32 = -20.0;
     const OFFSET: f32 = 100.0;
     const NUM_SLICES: i32 = 8;
 
