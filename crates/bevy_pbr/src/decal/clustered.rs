@@ -30,6 +30,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::Mat4;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -45,7 +46,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
