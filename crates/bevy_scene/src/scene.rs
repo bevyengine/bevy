@@ -1,6 +1,7 @@
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
+    component::ComponentInfo,
     entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
@@ -61,6 +62,15 @@ impl Scene {
 
         // Resources archetype
         for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if world
+                .components()
+                .get_info(component_id)
+                .and_then(ComponentInfo::type_id)
+                .filter(|&type_id| World::is_internal_type(type_id))
+                .is_some()
+            {
+                continue;
+            }
             if !resource_data.is_present() {
                 continue;
             }

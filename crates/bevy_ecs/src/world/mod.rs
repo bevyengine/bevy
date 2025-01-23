@@ -3223,6 +3223,15 @@ impl World {
 }
 
 impl World {
+    /// Returns true if the type id is used internally, components and resources used internally
+    /// most likely should not be affected by things like saving and loading
+    pub fn is_internal_type(type_id: TypeId) -> bool {
+        if type_id == TypeId::of::<DefaultQueryFilters>() {
+            return true;
+        }
+        false
+    }
+
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
