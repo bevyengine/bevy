@@ -6,7 +6,8 @@ use crate::{
     TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use crate::{
-    DistanceFog, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset
+    DistanceFog, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
+    ViewLightsUniformOffset,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
