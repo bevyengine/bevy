@@ -4402,7 +4402,7 @@ mod tests {
     use core::panic::AssertUnwindSafe;
 
     #[cfg(feature = "track_location")]
-    use std::sync::OnceLock;
+    use {core::panic::Location, std::sync::OnceLock};
 
     use crate::component::HookContext;
     use crate::{
