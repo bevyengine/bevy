@@ -1809,7 +1809,8 @@ bitflags::bitflags! {
         const HAS_PREVIOUS_SKIN                 = 1 << 18;
         const HAS_PREVIOUS_MORPH                = 1 << 19;
         const OIT_ENABLED                       = 1 << 20;
-        const LAST_FLAG                         = Self::OIT_ENABLED.bits();
+        const DISTANCE_FOG                      = 1 << 21;
+        const LAST_FLAG                         = Self::DISTANCE_FOG.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -2266,6 +2267,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::VISIBILITY_RANGE_DITHER) {
             shader_defs.push("VISIBILITY_RANGE_DITHER".into());
+        }
+
+        if key.contains(MeshPipelineKey::DISTANCE_FOG) {
+            shader_defs.push("DISTANCE_FOG".into());
         }
 
         if self.binding_arrays_are_usable {
