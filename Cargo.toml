@@ -869,6 +869,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "atmosphere"
+path = "examples/3d/atmosphere.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.atmosphere]
+name = "Atmosphere"
+description = "A scene showcasing pbr atmospheric scattering"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
 doc-scrape-examples = true
