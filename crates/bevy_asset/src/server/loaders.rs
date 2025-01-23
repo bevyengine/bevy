@@ -4,8 +4,9 @@ use crate::{
 };
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
+use bevy_platform_support::collections::HashMap;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{HashMap, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use thiserror::Error;
 use tracing::warn;

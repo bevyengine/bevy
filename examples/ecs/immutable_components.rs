@@ -5,9 +5,9 @@ use bevy::{
         component::{ComponentDescriptor, ComponentId, HookContext, StorageType},
         world::DeferredWorld,
     },
+    platform_support::collections::HashMap,
     prelude::*,
     ptr::OwningPtr,
-    utils::HashMap,
 };
 use core::alloc::Layout;
 

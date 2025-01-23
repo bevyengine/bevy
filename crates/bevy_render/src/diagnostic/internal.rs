@@ -299,7 +299,7 @@ impl FrameData {
             .open_spans
             .iter()
             .filter(|v| v.thread_id == thread_id)
-            .last();
+            .next_back();
 
         let path_range = match &parent {
             Some(parent) if parent.path_range.end == self.path_components.len() => {
@@ -336,7 +336,7 @@ impl FrameData {
         let (index, _) = iter
             .enumerate()
             .filter(|(_, v)| v.thread_id == thread_id)
-            .last()
+            .next_back()
             .unwrap();
 
         let span = self.open_spans.swap_remove(index);

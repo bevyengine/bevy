@@ -19,6 +19,7 @@ serialize = [
   "bevy_ecs/serialize",
   "bevy_time/serialize",
   "bevy_utils/serde",
+  "bevy_platform_support/serialize",
 ]
 
 ## Disables diagnostics that are unsupported when Bevy is dynamically linked

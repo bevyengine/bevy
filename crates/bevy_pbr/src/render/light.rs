@@ -11,6 +11,7 @@ use bevy_ecs::{
     system::lifetimeless::Read,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -35,7 +36,7 @@ use bevy_render::{
     sync_world::{MainEntity, RenderEntity},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_utils::default;
 use core::{hash::Hash, ops::Range};
 #[cfg(feature = "trace")]
 use tracing::info_span;

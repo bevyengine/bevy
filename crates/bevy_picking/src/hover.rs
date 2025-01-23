@@ -16,8 +16,8 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::prelude::*;
-use bevy_utils::HashMap;
 
 type DepthSortedHits = Vec<(Entity, HitData)>;
 

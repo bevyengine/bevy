@@ -1,8 +1,8 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
+    platform_support::collections::{HashMap, HashSet},
     prelude::*,
-    utils::{HashMap, HashSet},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

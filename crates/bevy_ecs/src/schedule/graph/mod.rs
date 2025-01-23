@@ -2,7 +2,7 @@ use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 use smallvec::SmallVec;
 
-use bevy_utils::{HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
