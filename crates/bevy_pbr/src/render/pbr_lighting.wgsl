@@ -547,7 +547,7 @@ fn point_light(
 // light to give it the spot shape.
 //
 // The resulting value should be multiplied by the luminance that results from
-// treating the spot light as thought it were a point light (i.e. the results of
+// treating the spot light as though it were a point light (i.e. the results of
 // calling `point_light`).
 fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> f32 {
     let light = &view_bindings::clusterable_objects.data[light_id];
