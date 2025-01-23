@@ -3,3 +3,4 @@
 pub mod basic;
 pub mod css;
 pub mod tailwind;
+pub mod bevy;
