@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Create a minimal UI explaining how to interact with the example
     commands.spawn((
-        Text::new("Up Arrow: Move Forward \nLeft / Right Arrow: Turn"),
+        Text::new("Up Arrow: Move Forward\nLeft / Right Arrow: Turn"),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
