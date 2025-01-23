@@ -1,9 +1,4 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -83,8 +78,9 @@ pub mod prelude {
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
 use bevy_asset::{Asset, AssetApp, AssetId, Assets, Handle};
 use bevy_ecs::{
+    resource::Resource,
     schedule::{IntoSystemConfigs, SystemSet},
-    system::{Res, ResMut, Resource},
+    system::{Res, ResMut},
 };
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::TypePath;

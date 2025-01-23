@@ -1,15 +1,18 @@
 use core::ops::Deref;
+#[cfg(feature = "track_location")]
+use core::panic::Location;
 
 use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
-    component::{ComponentId, Mutable},
+    component::{ComponentId, HookContext, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
-    system::{Commands, Query, Resource},
+    resource::Resource,
+    system::{Commands, Query},
     traversal::Traversal,
     world::{error::EntityFetchError, WorldEntityFetch},
 };
@@ -125,9 +128,21 @@ impl<'w> DeferredWorld<'w> {
         // - ON_REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
-            self.trigger_on_replace(archetype, entity, [component_id].into_iter());
+            self.trigger_on_replace(
+                archetype,
+                entity,
+                [component_id].into_iter(),
+                #[cfg(feature = "track_location")]
+                Location::caller(),
+            );
             if archetype.has_replace_observer() {
-                self.trigger_observers(ON_REPLACE, entity, [component_id].into_iter());
+                self.trigger_observers(
+                    ON_REPLACE,
+                    entity,
+                    [component_id].into_iter(),
+                    #[cfg(feature = "track_location")]
+                    Location::caller(),
+                );
             }
         }
 
@@ -154,9 +169,21 @@ impl<'w> DeferredWorld<'w> {
         // - ON_REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
-            self.trigger_on_insert(archetype, entity, [component_id].into_iter());
+            self.trigger_on_insert(
+                archetype,
+                entity,
+                [component_id].into_iter(),
+                #[cfg(feature = "track_location")]
+                Location::caller(),
+            );
             if archetype.has_insert_observer() {
-                self.trigger_observers(ON_INSERT, entity, [component_id].into_iter());
+                self.trigger_observers(
+                    ON_INSERT,
+                    entity,
+                    [component_id].into_iter(),
+                    #[cfg(feature = "track_location")]
+                    Location::caller(),
+                );
             }
         }
 
@@ -189,8 +216,8 @@ impl<'w> DeferredWorld<'w> {
     /// For examples, see [`DeferredWorld::entity_mut`].
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
@@ -298,7 +325,7 @@ impl<'w> DeferredWorld<'w> {
     /// ## [`&EntityHashSet`]
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet, world::DeferredWorld};
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet, world::DeferredWorld};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -321,8 +348,8 @@ impl<'w> DeferredWorld<'w> {
     /// ```
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
@@ -502,13 +529,24 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         if archetype.has_add_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_add {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
+                    );
                 }
             }
         }
@@ -524,13 +562,24 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         if archetype.has_insert_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_insert {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
+                    );
                 }
             }
         }
@@ -546,13 +595,24 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         if archetype.has_replace_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_replace {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
+                    );
                 }
             }
         }
@@ -568,13 +628,57 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         if archetype.has_remove_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_remove {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    /// Triggers all `on_despawn` hooks for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_on_despawn(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    ) {
+        if archetype.has_despawn_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_despawn {
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
+                    );
                 }
             }
         }
@@ -590,6 +694,7 @@ impl<'w> DeferredWorld<'w> {
         event: ComponentId,
         target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
@@ -598,6 +703,8 @@ impl<'w> DeferredWorld<'w> {
             components,
             &mut (),
             &mut false,
+            #[cfg(feature = "track_location")]
+            caller,
         );
     }
 
@@ -613,6 +720,7 @@ impl<'w> DeferredWorld<'w> {
         components: &[ComponentId],
         data: &mut E,
         mut propagate: bool,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) where
         T: Traversal<E>,
     {
@@ -624,6 +732,8 @@ impl<'w> DeferredWorld<'w> {
                 components.iter().copied(),
                 data,
                 &mut propagate,
+                #[cfg(feature = "track_location")]
+                caller,
             );
             if !propagate {
                 break;

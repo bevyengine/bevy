@@ -254,9 +254,9 @@ pub fn extract_ui_texture_slices(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
             &ImageNode,
         )>,
     >,
@@ -264,8 +264,9 @@ pub fn extract_ui_texture_slices(
 ) {
     let default_camera_entity = default_ui_camera.get();
 
-    for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
+        else {
             continue;
         };
 
@@ -290,7 +291,7 @@ pub fn extract_ui_texture_slices(
         };
 
         // Skip invisible images
-        if !view_visibility.get()
+        if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {

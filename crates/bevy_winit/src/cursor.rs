@@ -15,7 +15,7 @@ use crate::{
 };
 use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "custom_cursor")]
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 #[cfg(feature = "custom_cursor")]
 use bevy_ecs::system::Res;
 use bevy_ecs::{
@@ -29,14 +29,15 @@ use bevy_ecs::{
     world::{OnRemove, Ref},
 };
 #[cfg(feature = "custom_cursor")]
-use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
-#[cfg(feature = "custom_cursor")]
-use bevy_math::URect;
+use bevy_image::{Image, TextureAtlasLayout};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
+
+#[cfg(feature = "custom_cursor")]
+pub use crate::custom_cursor::CustomCursor;
 
 pub(crate) struct CursorPlugin;
 
@@ -73,51 +74,6 @@ impl From<SystemCursorIcon> for CursorIcon {
     fn from(icon: SystemCursorIcon) -> Self {
         CursorIcon::System(icon)
     }
-}
-
-#[cfg(feature = "custom_cursor")]
-impl From<CustomCursor> for CursorIcon {
-    fn from(cursor: CustomCursor) -> Self {
-        CursorIcon::Custom(cursor)
-    }
-}
-
-#[cfg(feature = "custom_cursor")]
-/// Custom cursor image data.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
-pub enum CustomCursor {
-    /// Image to use as a cursor.
-    Image {
-        /// The image must be in 8 bit int or 32 bit float rgba. PNG images
-        /// work well for this.
-        handle: Handle<Image>,
-        /// The (optional) texture atlas used to render the image.
-        texture_atlas: Option<TextureAtlas>,
-        /// Whether the image should be flipped along its x-axis.
-        flip_x: bool,
-        /// Whether the image should be flipped along its y-axis.
-        flip_y: bool,
-        /// An optional rectangle representing the region of the image to
-        /// render, instead of rendering the full image. This is an easy one-off
-        /// alternative to using a [`TextureAtlas`].
-        ///
-        /// When used with a [`TextureAtlas`], the rect is offset by the atlas's
-        /// minimal (top-left) corner position.
-        rect: Option<URect>,
-        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
-        /// within the image bounds.
-        hotspot: (u16, u16),
-    },
-    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-    /// A URL to an image to use as the cursor.
-    Url {
-        /// Web URL to an image to use as the cursor. PNGs preferred. Cursor
-        /// creation can fail if the image is invalid or not reachable.
-        url: String,
-        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
-        /// within the image bounds.
-        hotspot: (u16, u16),
-    },
 }
 
 fn update_cursors(

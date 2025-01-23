@@ -1,14 +1,10 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 //! A UI-centric focus system for Bevy.
 //!
@@ -21,6 +17,11 @@
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
 //! which should depend on [`bevy_input_focus`](crate).
 
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
 pub mod directional_navigation;
 pub mod tab_navigation;
 
@@ -31,12 +32,12 @@ pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 
 /// Resource representing which entity has input focus, if any. Input events (other than pointer-like inputs) will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
@@ -150,7 +151,7 @@ impl<E: Event + Clone> Event for FocusedInput<E> {
 #[derive(QueryData)]
 /// These are for accessing components defined on the targeted entity
 pub struct WindowTraversal {
-    parent: Option<&'static Parent>,
+    parent: Option<&'static ChildOf>,
     window: Option<&'static Window>,
 }
 
@@ -285,7 +286,7 @@ pub trait IsFocused {
 /// When working with the entire [`World`], consider using the [`IsFocused`] instead.
 #[derive(SystemParam)]
 pub struct IsFocusedHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
     input_focus: Option<Res<'w, InputFocus>>,
     input_focus_visible: Option<Res<'w, InputFocusVisible>>,
 }
@@ -333,7 +334,7 @@ impl IsFocused for World {
             if e == entity {
                 return true;
             }
-            if let Some(parent) = self.entity(e).get::<Parent>().map(Parent::get) {
+            if let Some(parent) = self.entity(e).get::<ChildOf>().map(ChildOf::get) {
                 e = parent;
             } else {
                 return false;
@@ -358,10 +359,10 @@ impl IsFocused for World {
 mod tests {
     use super::*;
 
+    use alloc::string::String;
     use bevy_ecs::{
-        component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
+        component::HookContext, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
     };
-    use bevy_hierarchy::BuildChildren;
     use bevy_input::{
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,
@@ -373,7 +374,7 @@ mod tests {
     #[component(on_add = set_focus_on_add)]
     struct SetFocusOnAdd;
 
-    fn set_focus_on_add(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn set_focus_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let mut input_focus = world.resource_mut::<InputFocus>();
         input_focus.set(entity);
     }

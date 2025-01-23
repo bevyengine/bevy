@@ -4,7 +4,7 @@ use core::{hash::Hash, ops::Range};
 
 use crate::{
     BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
-    ResolvedBorderRadius, TargetCamera, TransparentUi, Val,
+    ResolvedBorderRadius, TransparentUi, UiTargetCamera, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -243,19 +243,19 @@ pub fn extract_shadows(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
-    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
-    {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_camera_entity) else {
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
+        else {
             continue;
         };
 
@@ -264,7 +264,7 @@ pub fn extract_shadows(
         };
 
         // Skip if no visible shadows
-        if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
+        if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 

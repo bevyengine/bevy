@@ -1,4 +1,3 @@
-use bevy_hierarchy::Children;
 use bevy_math::Vec3;
 pub use bevy_mesh::*;
 use morph::{MeshMorphWeights, MorphWeights};
@@ -16,19 +15,13 @@ use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
 use bevy_ecs::{
-    entity::Entity,
-    query::{Changed, With},
-    schedule::IntoSystemConfigs,
-    system::Query,
-};
-use bevy_ecs::{
-    query::Without,
+    prelude::*,
     system::{
         lifetimeless::{SRes, SResMut},
         SystemParamItem,
     },
 };
-pub use components::{Mesh2d, Mesh3d};
+pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d};
 use wgpu::IndexFormat;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -47,7 +40,7 @@ impl Plugin for MeshPlugin {
             .add_plugins(MeshAllocatorPlugin)
             .add_systems(
                 PostUpdate,
-                components::mark_3d_meshes_as_changed_if_their_assets_changed
+                mark_3d_meshes_as_changed_if_their_assets_changed
                     .ambiguous_with(VisibilitySystems::CalculateBounds),
             );
 

@@ -19,7 +19,7 @@ use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// frame if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///

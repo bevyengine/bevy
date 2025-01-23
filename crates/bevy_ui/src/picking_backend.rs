@@ -50,8 +50,8 @@ pub struct NodeQuery {
     global_transform: &'static GlobalTransform,
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
-    view_visibility: Option<&'static ViewVisibility>,
-    target_camera: Option<&'static TargetCamera>,
+    inherited_visibility: Option<&'static InheritedVisibility>,
+    target_camera: Option<&'static UiTargetCamera>,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -124,15 +124,15 @@ pub fn ui_picking(
 
         // Nodes that are not rendered should not be interactable
         if node
-            .view_visibility
-            .map(|view_visibility| view_visibility.get())
+            .inherited_visibility
+            .map(|inherited_visibility| inherited_visibility.get())
             != Some(true)
         {
             continue;
         }
         let Some(camera_entity) = node
             .target_camera
-            .map(TargetCamera::entity)
+            .map(UiTargetCamera::entity)
             .or(default_camera_entity)
         else {
             continue;
@@ -188,7 +188,7 @@ pub fn ui_picking(
         for node in node_query.iter_many(hovered_nodes) {
             let Some(camera_entity) = node
                 .target_camera
-                .map(TargetCamera::entity)
+                .map(UiTargetCamera::entity)
                 .or(default_camera_entity)
             else {
                 continue;

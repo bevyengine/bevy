@@ -13,8 +13,9 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
+    resource::Resource,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;

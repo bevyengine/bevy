@@ -4,7 +4,7 @@ use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_ecs::{
-    system::Resource,
+    resource::Resource,
     world::{FromWorld, World},
 };
 use bevy_render::render_resource::*;

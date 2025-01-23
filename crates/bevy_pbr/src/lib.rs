@@ -1,11 +1,6 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -31,6 +26,7 @@ pub mod experimental {
 
 mod cluster;
 mod components;
+pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -340,6 +336,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceReflectionsPlugin,
             ))
             .add_plugins((
+                decal::ForwardDecalPlugin,
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
@@ -442,7 +439,8 @@ impl Plugin for PbrPlugin {
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .init_resource::<LightMeta>();
+            .init_resource::<LightMeta>()
+            .init_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app

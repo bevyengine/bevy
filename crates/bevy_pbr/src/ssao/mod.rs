@@ -10,8 +10,9 @@ use bevy_ecs::{
     prelude::{require, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

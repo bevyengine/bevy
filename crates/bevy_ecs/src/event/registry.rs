@@ -4,7 +4,7 @@ use bevy_ecs::{
     change_detection::{DetectChangesMut, MutUntyped},
     component::{ComponentId, Tick},
     event::{Event, Events},
-    system::Resource,
+    resource::Resource,
     world::World,
 };
 
