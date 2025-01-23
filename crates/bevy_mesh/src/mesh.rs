@@ -802,7 +802,6 @@ impl Mesh {
     ///
     /// Returns [`Err(MergeMeshError)`](MergeMeshError) if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
-    #[allow(clippy::match_same_arms)]
     pub fn merge(&mut self, other: &Mesh) -> Result<(), MergeMeshError> {
         use VertexAttributeValues::*;
 
