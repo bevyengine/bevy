@@ -45,7 +45,9 @@ use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::UniformComponentPlugin,
-    render_resource::{ShaderType, SpecializedRenderPipelines},
+    render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -159,9 +161,18 @@ impl Plugin for AtmospherePlugin {
             return;
         };
 
-        if !render_app
-            .world()
-            .resource::<RenderAdapter>()
+        let render_adapter = render_app.world().resource::<RenderAdapter>();
+
+        if !render_adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::COMPUTE_SHADERS)
+        {
+            warn!("AtmospherePlugin not loaded. GPU lacks support for compute shaders.");
+            return;
+        }
+
+        if !render_adapter
             .get_texture_format_features(TextureFormat::Rgba16Float)
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
