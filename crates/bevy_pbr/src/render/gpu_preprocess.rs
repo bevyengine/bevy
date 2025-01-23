@@ -820,8 +820,6 @@ impl Node for LateGpuPreprocessNode {
                     PreprocessWorkItemBuffers::Indirect {
                         gpu_occlusion_culling:
                             Some(GpuOcclusionCullingWorkItemBuffers {
-                                late_indexed: ref late_indexed_work_item_buffer,
-                                late_non_indexed: ref late_non_indexed_work_item_buffer,
                                 late_indirect_parameters_indexed_offset,
                                 late_indirect_parameters_non_indexed_offset,
                                 ..
