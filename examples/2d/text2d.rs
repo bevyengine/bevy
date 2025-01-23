@@ -84,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextLayout::new(JustifyText::Left, LineBreak::WordBoundary),
                 // Wrap text in the rectangle
                 TextBounds::from(box_size),
-                // ensure the text is drawn on top of the box
+                // Ensure the text is drawn on top of the box
                 Transform::from_translation(Vec3::Z),
             ));
         });
@@ -103,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter),
                 // Wrap text in the rectangle
                 TextBounds::from(other_box_size),
-                // ensure the text is drawn on top of the box
+                // Ensure the text is drawn on top of the box
                 Transform::from_translation(Vec3::Z),
             ));
         });
