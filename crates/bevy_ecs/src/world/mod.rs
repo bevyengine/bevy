@@ -3716,7 +3716,7 @@ unsafe impl Sync for World {}
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
 ///
-/// [`FromWorld`] is automatically implemented for any type implementing [`Default`],
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`]
 /// and may also be derived for:
 /// - any struct whose fields all implement `FromWorld`
 /// - any enum where one variant has the attribute `#[from_world]`
