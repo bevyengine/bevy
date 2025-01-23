@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use alloc::{boxed::Box, string::String};
-use bevy_platform_support::sync::Arc;
+use bevy_platform_support::sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet, TypeIdMap};
 use core::{
@@ -10,12 +10,6 @@ use core::{
 };
 use downcast_rs::{impl_downcast, Downcast};
 use serde::Deserialize;
-
-#[cfg(feature = "std")]
-use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
-
-#[cfg(not(feature = "std"))]
-use spin::rwlock::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// A registry of [reflected] types.
 ///
@@ -46,12 +40,12 @@ pub struct TypeRegistryArc {
 
 impl Debug for TypeRegistryArc {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        let read_lock = self.internal.read();
-
-        #[cfg(feature = "std")]
-        let read_lock = read_lock.unwrap_or_else(PoisonError::into_inner);
-
-        read_lock.type_path_to_id.keys().fmt(f)
+        self.internal
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .type_path_to_id
+            .keys()
+            .fmt(f)
     }
 }
 
@@ -433,22 +427,14 @@ impl TypeRegistry {
 impl TypeRegistryArc {
     /// Takes a read lock on the underlying [`TypeRegistry`].
     pub fn read(&self) -> RwLockReadGuard<'_, TypeRegistry> {
-        let read_lock = self.internal.read();
-
-        #[cfg(feature = "std")]
-        let read_lock = read_lock.unwrap_or_else(PoisonError::into_inner);
-
-        read_lock
+        self.internal.read().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Takes a write lock on the underlying [`TypeRegistry`].
     pub fn write(&self) -> RwLockWriteGuard<'_, TypeRegistry> {
-        let write_lock = self.internal.write();
-
-        #[cfg(feature = "std")]
-        let write_lock = write_lock.unwrap_or_else(PoisonError::into_inner);
-
-        write_lock
+        self.internal
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 
