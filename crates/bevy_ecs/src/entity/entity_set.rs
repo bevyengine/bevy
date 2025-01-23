@@ -326,12 +326,14 @@ impl<T: TrustedEntityBorrow + Hash, S: BuildHasher + Default> FromEntitySetItera
 {
     fn from_entity_set_iter<I: EntitySet<Item = T>>(set_iter: I) -> Self {
         let iter = set_iter.into_iter();
-        let mut set = HashSet::<T, S>::with_capacity_and_hasher(iter.size_hint().0, S::default());
-        for e in iter {
+        let set = HashSet::<T, S>::with_capacity_and_hasher(iter.size_hint().0, S::default());
+        iter.fold(set, |mut set, e| {
             // SAFETY: Every element in self is unique.
-            unsafe { set.insert_unique_unchecked(e) };
-        }
-        set
+            unsafe {
+                set.insert_unique_unchecked(e);
+            }
+            set
+        })
     }
 }
 

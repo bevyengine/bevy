@@ -198,12 +198,14 @@ impl FromIterator<Entity> for EntityHashSet {
 impl FromEntitySetIterator<Entity> for EntityHashSet {
     fn from_entity_set_iter<I: EntitySet<Item = Entity>>(set_iter: I) -> Self {
         let iter = set_iter.into_iter();
-        let mut set = EntityHashSet::with_capacity(iter.size_hint().0);
-        for e in iter {
+        let set = EntityHashSet::with_capacity(iter.size_hint().0);
+        iter.fold(set, |mut set, e| {
             // SAFETY: Every element in self is unique.
-            unsafe { set.insert_unique_unchecked(e) };
-        }
-        set
+            unsafe {
+                set.insert_unique_unchecked(e);
+            }
+            set
+        })
     }
 }
 
