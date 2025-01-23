@@ -367,8 +367,7 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: gpu_readback::get_aligned_size(size.width, size.height, format.pixel_size() as u32)
-            as u64,
+        size: gpu_readback::get_aligned_size(size, format.pixel_size() as u32) as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -586,17 +585,18 @@ fn render_screenshot(
     texture_view: &wgpu::TextureView,
 ) {
     if let Some(prepared_state) = &prepared.get(entity) {
+        let extent = Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
         encoder.copy_texture_to_buffer(
             prepared_state.texture.as_image_copy(),
             wgpu::ImageCopyBuffer {
                 buffer: &prepared_state.buffer,
-                layout: gpu_readback::layout_data(width, height, texture_format),
+                layout: gpu_readback::layout_data(extent, texture_format),
             },
-            Extent3d {
-                width,
-                height,
-                ..Default::default()
-            },
+            extent,
         );
 
         if let Some(pipeline) = pipelines.get_render_pipeline(prepared_state.pipeline_id) {

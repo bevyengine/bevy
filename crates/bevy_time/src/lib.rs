@@ -144,28 +144,28 @@ pub fn time_system(
     #[cfg(feature = "std")] time_recv: Option<Res<TimeReceiver>>,
     #[cfg(feature = "std")] mut has_received_time: Local<bool>,
 ) {
+    #[cfg(feature = "std")]
+    // TODO: Figure out how to handle this when using pipelined rendering.
+    let sent_time = match time_recv.map(|res| res.0.try_recv()) {
+        Some(Ok(new_time)) => {
+            *has_received_time = true;
+            Some(new_time)
+        }
+        Some(Err(_)) => {
+            if *has_received_time {
+                log::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
+            }
+            None
+        }
+        None => None,
+    };
+
+    #[cfg(not(feature = "std"))]
+    let sent_time = None;
+
     match update_strategy.as_ref() {
         TimeUpdateStrategy::Automatic => {
-            #[cfg(feature = "std")]
-            let new_time = if let Some(time_recv) = time_recv {
-                // TODO: Figure out how to handle this when using pipelined rendering.
-                if let Ok(new_time) = time_recv.0.try_recv() {
-                    *has_received_time = true;
-                    new_time
-                } else {
-                    if *has_received_time {
-                        log::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
-                    }
-                    Instant::now()
-                }
-            } else {
-                Instant::now()
-            };
-
-            #[cfg(not(feature = "std"))]
-            let new_time = Instant::now();
-
-            real_time.update_with_instant(new_time);
+            real_time.update_with_instant(sent_time.unwrap_or_else(Instant::now));
         }
         TimeUpdateStrategy::ManualInstant(instant) => real_time.update_with_instant(*instant),
         TimeUpdateStrategy::ManualDuration(duration) => real_time.update_with_duration(*duration),

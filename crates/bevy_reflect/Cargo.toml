@@ -58,7 +58,6 @@ std = [
   "erased-serde/std",
   "downcast-rs/std",
   "serde/std",
-  "spin/std",
   "glam?/std",
   "smol_str?/std",
   "uuid?/std",
@@ -76,7 +75,6 @@ critical-section = [
 ## operations, even on targets without native support.
 portable-atomic = [
   "bevy_platform_support/portable-atomic",
-  "spin/portable_atomic",
   "bevy_utils/portable-atomic",
 ]
 
@@ -104,10 +102,6 @@ downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
-spin = { version = "0.9.8", default-features = false, features = [
-  "once",
-  "rwlock",
-] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }
 glam = { version = "0.29", default-features = false, features = [

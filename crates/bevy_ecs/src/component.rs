@@ -300,7 +300,7 @@ pub use bevy_ecs_macros::require;
 /// - `#[component(on_remove = on_remove_function)]`
 ///
 /// ```
-/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::component::{Component, HookContext};
 /// # use bevy_ecs::world::DeferredWorld;
 /// # use bevy_ecs::entity::Entity;
 /// # use bevy_ecs::component::ComponentId;
@@ -316,12 +316,12 @@ pub use bevy_ecs_macros::require;
 /// // #[component(on_replace = my_on_replace_hook, on_remove = my_on_remove_hook)]
 /// struct ComponentA;
 ///
-/// fn my_on_add_hook(world: DeferredWorld, entity: Entity, id: ComponentId, caller: Option<&Location>) {
+/// fn my_on_add_hook(world: DeferredWorld, context: HookContext) {
 ///     // ...
 /// }
 ///
-/// // You can also omit writing some types using generics.
-/// fn my_on_insert_hook<T1, T2>(world: DeferredWorld, _: T1, _: T2, caller: Option<&Location>) {
+/// // You can also destructure items directly in the signature
+/// fn my_on_insert_hook(world: DeferredWorld, HookContext { caller, .. }: HookContext) {
 ///     // ...
 /// }
 /// ```
@@ -499,9 +499,18 @@ pub enum StorageType {
 }
 
 /// The type used for [`Component`] lifecycle hooks such as `on_add`, `on_insert` or `on_remove`.
-/// The caller location is `Some` if the `track_caller` feature is enabled.
-pub type ComponentHook =
-    for<'w> fn(DeferredWorld<'w>, Entity, ComponentId, Option<&'static Location<'static>>);
+pub type ComponentHook = for<'w> fn(DeferredWorld<'w>, HookContext);
+
+/// Context provided to a [`ComponentHook`].
+#[derive(Clone, Copy, Debug)]
+pub struct HookContext {
+    /// The [`Entity`] this hook was invoked for.
+    pub entity: Entity,
+    /// The [`ComponentId`] this hook was invoked for.
+    pub component_id: ComponentId,
+    /// The caller location is `Some` if the `track_caller` feature is enabled.
+    pub caller: Option<&'static Location<'static>>,
+}
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
 ///
@@ -538,14 +547,14 @@ pub type ComponentHook =
 /// let mut tracked_component_query = world.query::<&MyTrackedComponent>();
 /// assert!(tracked_component_query.iter(&world).next().is_none());
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id, _caller| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, context| {
 ///    let mut tracked_entities = world.resource_mut::<TrackedEntities>();
-///   tracked_entities.0.insert(entity);
+///   tracked_entities.0.insert(context.entity);
 /// });
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id, _caller| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, context| {
 ///   let mut tracked_entities = world.resource_mut::<TrackedEntities>();
-///   tracked_entities.0.remove(&entity);
+///   tracked_entities.0.remove(&context.entity);
 /// });
 ///
 /// let entity = world.spawn(MyTrackedComponent).id();

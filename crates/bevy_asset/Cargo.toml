@@ -33,7 +33,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 
 stackfuture = "0.3"
 atomicow = "1.0"
-async-broadcast = "0.5"
+async-broadcast = "0.7.2"
 async-fs = "2.0"
 async-lock = "3.0"
 bitflags = { version = "2.3", features = ["serde"] }
