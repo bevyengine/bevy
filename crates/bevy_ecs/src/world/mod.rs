@@ -1983,38 +1983,16 @@ impl World {
     /// ```
     #[inline]
     #[track_caller]
-    pub fn get_resource_or_insert_with<R: Resource>(
+    pub fn get_resource_or_insert_with<R: Resource + Component<Mutability = Mutable>>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
-        #[cfg(feature = "track_location")]
-        let caller = Location::caller();
-        let change_tick = self.change_tick();
-        let last_change_tick = self.last_change_tick();
-
-        let component_id = self.components.register_resource::<R>();
-        let data = self.initialize_resource_internal(component_id);
-        if !data.is_present() {
-            OwningPtr::make(func(), |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R.
-                unsafe {
-                    data.insert(
-                        ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
-                }
-            });
+        if !self.contains_resource::<R>() {
+            let res = func();
+            self.insert_resource(res);
         }
 
-        // SAFETY: The resource must be present, as we would have inserted it if it was empty.
-        let data = unsafe {
-            data.get_mut(last_change_tick, change_tick)
-                .debug_checked_unwrap()
-        };
-        // SAFETY: The underlying type of the resource is `R`.
-        unsafe { data.with_type::<R>() }
+        self.resource_mut::<R>()
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -2050,47 +2028,14 @@ impl World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
-        #[cfg(feature = "track_location")]
-        let caller = Location::caller();
-        let change_tick = self.change_tick();
-        let last_change_tick = self.last_change_tick();
-
-        let component_id = self.components.register_resource::<R>();
-        if self
-            .storages
-            .resources
-            .get(component_id)
-            .is_none_or(|data| !data.is_present())
-        {
-            let value = R::from_world(self);
-            OwningPtr::make(value, |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R.
-                unsafe {
-                    self.insert_resource_by_id(
-                        component_id,
-                        ptr,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
-                }
-            });
+    pub fn get_resource_or_init<R: Resource + FromWorld + Component<Mutability = Mutable>>(
+        &mut self,
+    ) -> Mut<'_, R> {
+        if !self.contains_resource::<R>() {
+            self.init_resource::<R>();
         }
 
-        // SAFETY: The resource was just initialized if it was empty.
-        let data = unsafe {
-            self.storages
-                .resources
-                .get_mut(component_id)
-                .debug_checked_unwrap()
-        };
-        // SAFETY: The resource must be present, as we would have inserted it if it was empty.
-        let data = unsafe {
-            data.get_mut(last_change_tick, change_tick)
-                .debug_checked_unwrap()
-        };
-        // SAFETY: The underlying type of the resource is `R`.
-        unsafe { data.with_type::<R>() }
+        self.resource_mut::<R>()
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
