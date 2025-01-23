@@ -6,7 +6,7 @@ use crate::{
     TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use crate::{
-    MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset,
+    DistanceFog, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset, ViewLightsUniformOffset
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
@@ -328,6 +328,10 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
             shader_defs.push("HAS_PREVIOUS_MORPH".into());
         }
 
+        if key.contains(MeshPipelineKey::DISTANCE_FOG) {
+            shader_defs.push("DISTANCE_FOG".into());
+        }
+
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
 
@@ -437,6 +441,7 @@ pub fn prepare_deferred_lighting_pipelines(
             (
                 Has<ScreenSpaceAmbientOcclusion>,
                 Has<ScreenSpaceReflectionsUniform>,
+                Has<DistanceFog>,
             ),
             (
                 Has<NormalPrepass>,
@@ -455,7 +460,7 @@ pub fn prepare_deferred_lighting_pipelines(
         tonemapping,
         dither,
         shadow_filter_method,
-        (ssao, ssr),
+        (ssao, ssr, distance_fog),
         (normal_prepass, depth_prepass, motion_vector_prepass),
         has_environment_maps,
         has_irradiance_volumes,
@@ -506,6 +511,9 @@ pub fn prepare_deferred_lighting_pipelines(
         }
         if ssr {
             view_key |= MeshPipelineKey::SCREEN_SPACE_REFLECTIONS;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
 
         // We don't need to check to see whether the environment map is loaded
