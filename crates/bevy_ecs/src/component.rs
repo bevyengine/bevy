@@ -546,14 +546,14 @@ pub struct HookContext {
 /// let mut tracked_component_query = world.query::<&MyTrackedComponent>();
 /// assert!(tracked_component_query.iter(&world).next().is_none());
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, entity, _component_id, _caller| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_add(|mut world, context| {
 ///    let mut tracked_entities = world.resource_mut::<TrackedEntities>();
-///   tracked_entities.0.insert(entity);
+///   tracked_entities.0.insert(context.entity);
 /// });
 ///
-/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, entity, _component_id, _caller| {
+/// world.register_component_hooks::<MyTrackedComponent>().on_remove(|mut world, context| {
 ///   let mut tracked_entities = world.resource_mut::<TrackedEntities>();
-///   tracked_entities.0.remove(&entity);
+///   tracked_entities.0.remove(&context.entity);
 /// });
 ///
 /// let entity = world.spawn(MyTrackedComponent).id();
