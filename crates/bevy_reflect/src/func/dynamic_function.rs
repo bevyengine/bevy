@@ -485,7 +485,7 @@ mod tests {
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
     use alloc::{format, string::String, vec, vec::Vec};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
     use core::ops::Add;
 
     #[test]

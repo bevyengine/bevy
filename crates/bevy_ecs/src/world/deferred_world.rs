@@ -5,7 +5,7 @@ use core::panic::Location;
 use crate::{
     archetype::Archetype,
     change_detection::MutUntyped,
-    component::{ComponentId, Mutable},
+    component::{ComponentId, HookContext, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
@@ -538,12 +538,14 @@ impl<'w> DeferredWorld<'w> {
                 if let Some(hook) = hooks.on_add {
                     hook(
                         DeferredWorld { world: self.world },
-                        entity,
-                        component_id,
-                        #[cfg(feature = "track_location")]
-                        Some(caller),
-                        #[cfg(not(feature = "track_location"))]
-                        None,
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
                     );
                 }
             }
@@ -569,12 +571,14 @@ impl<'w> DeferredWorld<'w> {
                 if let Some(hook) = hooks.on_insert {
                     hook(
                         DeferredWorld { world: self.world },
-                        entity,
-                        component_id,
-                        #[cfg(feature = "track_location")]
-                        Some(caller),
-                        #[cfg(not(feature = "track_location"))]
-                        None,
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
                     );
                 }
             }
@@ -600,12 +604,14 @@ impl<'w> DeferredWorld<'w> {
                 if let Some(hook) = hooks.on_replace {
                     hook(
                         DeferredWorld { world: self.world },
-                        entity,
-                        component_id,
-                        #[cfg(feature = "track_location")]
-                        Some(caller),
-                        #[cfg(not(feature = "track_location"))]
-                        None,
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
                     );
                 }
             }
@@ -631,12 +637,14 @@ impl<'w> DeferredWorld<'w> {
                 if let Some(hook) = hooks.on_remove {
                     hook(
                         DeferredWorld { world: self.world },
-                        entity,
-                        component_id,
-                        #[cfg(feature = "track_location")]
-                        Some(caller),
-                        #[cfg(not(feature = "track_location"))]
-                        None,
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
                     );
                 }
             }
@@ -662,12 +670,14 @@ impl<'w> DeferredWorld<'w> {
                 if let Some(hook) = hooks.on_despawn {
                     hook(
                         DeferredWorld { world: self.world },
-                        entity,
-                        component_id,
-                        #[cfg(feature = "track_location")]
-                        Some(caller),
-                        #[cfg(not(feature = "track_location"))]
-                        None,
+                        HookContext {
+                            entity,
+                            component_id,
+                            #[cfg(feature = "track_location")]
+                            caller: Some(caller),
+                            #[cfg(not(feature = "track_location"))]
+                            caller: None,
+                        },
                     );
                 }
             }

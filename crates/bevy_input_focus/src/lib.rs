@@ -361,26 +361,20 @@ mod tests {
 
     use alloc::string::String;
     use bevy_ecs::{
-        component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
+        component::HookContext, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
     };
     use bevy_input::{
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,
     };
     use bevy_window::WindowResolution;
-    use core::panic::Location;
     use smol_str::SmolStr;
 
     #[derive(Component)]
     #[component(on_add = set_focus_on_add)]
     struct SetFocusOnAdd;
 
-    fn set_focus_on_add(
-        mut world: DeferredWorld,
-        entity: Entity,
-        _: ComponentId,
-        _: Option<&Location>,
-    ) {
+    fn set_focus_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let mut input_focus = world.resource_mut::<InputFocus>();
         input_focus.set(entity);
     }
