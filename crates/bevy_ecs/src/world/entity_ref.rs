@@ -2152,7 +2152,7 @@ impl<'w> EntityWorldMut<'w> {
             self.remove_bundle(
                 bundle_id,
                 #[cfg(feature = "track_location")]
-                caller,
+                Location::caller(),
             );
         }
         self.world.flush();
