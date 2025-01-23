@@ -562,7 +562,7 @@ pub struct Node {
 
     /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
     ///
-    /// `flex_basis` overrides `size` on the main axis if both are set, but it obeys the bounds defined by `min_size` and `max_size`.
+    /// `flex_basis` overrides `width` (if the main axis is horizontal) or `height` (if the main axis is vertical) when both are set, but it obeys the constraints defined by `min_width`/`min_height` and `max_width`/`max_height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
