@@ -47,7 +47,6 @@ fn setup(
                     slider: 0.5,
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
-                    corner_color: LinearRgba::NONE.to_f32_array().into(),
                 })),
                 BorderRadius::all(Val::Px(20.)),
                 // UI material nodes can have outlines and shadows like any other UI node
@@ -76,8 +75,6 @@ struct CustomUiMaterial {
     /// Color of the image's border
     #[uniform(4)]
     border_color: Vec4,
-    #[uniform(5)]
-    corner_color: Vec4,
 }
 
 impl UiMaterial for CustomUiMaterial {

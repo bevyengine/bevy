@@ -6,7 +6,6 @@
 @group(1) @binding(2) var material_color_texture: texture_2d<f32>;
 @group(1) @binding(3) var material_color_sampler: sampler;
 @group(1) @binding(4) var<uniform> border_color: vec4<f32>;
-@group(1) @binding(5) var<uniform> corner_color: vec4<f32>;
 
 
 @fragment
@@ -43,7 +42,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
         // determine if the point is inside the curved corner and return the corresponding color
         let q = radius - d;
         if radius < min(max(q.x, q.y), 0.0) + length(vec2(max(q.x, 0.0), max(q.y, 0.0))) {
-            return corner_color;
+            return vec4(0.0);
         } else {
             return border_color;
         }
