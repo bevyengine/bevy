@@ -16,7 +16,7 @@ use core::{
 use bevy_reflect::Reflect;
 use bevy_utils::hashbrown::hash_set::{self, HashSet};
 
-use super::{Entity, EntityHash, EntitySetIterator};
+use super::{Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator};
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -192,6 +192,17 @@ impl<const N: usize> From<[Entity; N]> for EntityHashSet {
 impl FromIterator<Entity> for EntityHashSet {
     fn from_iter<I: IntoIterator<Item = Entity>>(iterable: I) -> Self {
         Self(HashSet::from_iter(iterable))
+    }
+}
+
+impl FromEntitySetIterator<Entity> for EntityHashSet {
+    fn from_entity_set_iter<I: EntitySet<Item = Entity>>(set_iter: I) -> Self {
+        let mut set = EntityHashSet::new();
+        for e in set_iter {
+            // SAFETY: Every element in self is unique.
+            unsafe { set.insert_unique_unchecked(e) };
+        }
+        set
     }
 }
 
