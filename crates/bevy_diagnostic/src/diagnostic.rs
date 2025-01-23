@@ -1,4 +1,4 @@
-use alloc::{borrow::Cow, collections::VecDeque};
+use alloc::{borrow::Cow, collections::VecDeque, string::String};
 use core::{
     hash::{Hash, Hasher},
     time::Duration,
