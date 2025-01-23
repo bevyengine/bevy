@@ -543,14 +543,13 @@ fn point_light(
         (rangeAttenuation * derived_input.NdotL);
 }
 
-fn spot_light(
-    light_id: u32,
-    input: ptr<function, LightingInput>,
-    enable_diffuse: bool
-) -> vec3<f32> {
-    // reuse the point light calculations
-    let point_light = point_light(light_id, input, enable_diffuse);
-
+// Returns the additional attenuation that should be applied to the given spot
+// light to give it the spot shape.
+//
+// The resulting value should be multiplied by the luminance that results from
+// treating the spot light as thought it were a point light (i.e. the results of
+// calling `point_light`).
+fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> f32 {
     let light = &view_bindings::clusterable_objects.data[light_id];
 
     // reconstruct spot dir from x/z and y-direction flag
@@ -566,9 +565,7 @@ fn spot_light(
     // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
     let cd = dot(-spot_dir, normalize(light_to_frag));
     let attenuation = saturate(cd * (*light).light_custom_data.z + (*light).light_custom_data.w);
-    let spot_attenuation = attenuation * attenuation;
-
-    return point_light * spot_attenuation;
+    return attenuation * attenuation;
 }
 
 fn directional_light(

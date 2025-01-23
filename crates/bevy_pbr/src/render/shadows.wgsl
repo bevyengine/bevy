@@ -33,7 +33,7 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     let offset_position = frag_position.xyz + normal_offset + depth_offset;
 
     // similar largest-absolute-axis trick as above, but now with the offset fragment position
-    let frag_ls = offset_position.xyz - (*light).position_radius.xyz ;
+    let frag_ls = offset_position.xyz - (*light).position_radius.xyz;
     let abs_position_ls = abs(frag_ls);
     let major_axis_magnitude = max(abs_position_ls.x, max(abs_position_ls.y, abs_position_ls.z));
 
