@@ -174,7 +174,7 @@ struct AtmosphereSample {
 
 /// Samples atmosphere optical densities at a given radius
 fn sample_atmosphere(r: f32) -> AtmosphereSample {
-    let altitude = r - atmosphere.bottom_radius;
+    let altitude = clamp(r, atmosphere.bottom_radius, atmosphere.top_radius) - atmosphere.bottom_radius;
 
     // atmosphere values at altitude
     let mie_density = exp(-atmosphere.mie_density_exp_scale * altitude);
