@@ -16,7 +16,8 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
 use wgpu::{

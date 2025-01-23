@@ -4,7 +4,8 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use bevy_utils::{hashbrown::hash_map::Entry, TypeIdMap};
+use bevy_platform_support::collections::hash_map::Entry;
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use log::{debug, warn};
 

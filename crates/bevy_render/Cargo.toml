@@ -58,6 +58,7 @@ bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "std",
+  "serialize",
 ] }
 
 # rendering

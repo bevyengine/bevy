@@ -27,6 +27,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -44,7 +45,6 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_utils::HashMap;
 use core::{hash::Hash, marker::PhantomData};
 use tracing::error;
 

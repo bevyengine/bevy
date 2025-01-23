@@ -12,9 +12,9 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_math::Rect;
+use bevy_platform_support::collections::HashSet;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashSet;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(

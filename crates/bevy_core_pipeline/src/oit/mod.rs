@@ -4,6 +4,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
+use bevy_platform_support::collections::HashSet;
 use bevy_platform_support::time::Instant;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -17,7 +18,6 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::HashSet;
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},

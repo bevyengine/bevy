@@ -13,6 +13,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -24,7 +25,6 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::HashSet;
 use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;

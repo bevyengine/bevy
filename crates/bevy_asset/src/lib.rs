@@ -222,8 +222,8 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     world::FromWorld,
 };
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::HashSet;
 use core::any::TypeId;
 use tracing::error;
 
@@ -659,8 +659,8 @@ mod tests {
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
+    use bevy_platform_support::collections::HashMap;
     use bevy_reflect::TypePath;
-    use bevy_utils::HashMap;
     use core::time::Duration;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
