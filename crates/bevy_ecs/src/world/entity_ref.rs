@@ -1883,7 +1883,7 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: BundleId,
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> EntityLocation {
+    ) {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
