@@ -28,7 +28,7 @@ use log::warn;
 /// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does
 /// not already exist, and the "source" entity is automatically added to the [`RelationshipTarget`] collection (this is done via "component hooks").
 ///
-/// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`Parent`](crate::hierarchy::Parent)
+/// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`ChildOf`](crate::hierarchy::ChildOf)
 /// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipTarget`].
 ///
 /// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
@@ -38,10 +38,10 @@ use log::warn;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct Parent(pub Entity);
+/// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = Parent)]
+/// #[relationship_target(relationship = ChildOf)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
@@ -53,10 +53,10 @@ use log::warn;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct Parent(pub Entity);
+/// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = Parent, despawn_descendants)]
+/// #[relationship_target(relationship = ChildOf, despawn_descendants)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
@@ -130,12 +130,22 @@ pub trait Relationship: Component + Sized {
     }
 }
 
+/// The iterator type for the source entities in a [`RelationshipTarget`] collection,
+/// as defined in the [`RelationshipSourceCollection`] trait.
+pub type SourceIter<'w, R> =
+    <<R as RelationshipTarget>::Collection as RelationshipSourceCollection>::SourceIter<'w>;
+
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
+    ///
+    /// Check the list of types which implement [`RelationshipSourceCollection`] for the data structures that can be used inside of your component.
+    /// If you need a new collection type, you can implement the [`RelationshipSourceCollection`] trait
+    /// for a type you own which wraps the collection you want to use (to avoid the orphan rule),
+    /// or open an issue on the Bevy repository to request first-party support for your collection type.
     type Collection: RelationshipSourceCollection;
 
     /// Returns a reference to the stored [`RelationshipTarget::Collection`].
@@ -210,7 +220,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// Iterates the entities stored in this collection.
     #[inline]
-    fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
+    fn iter(&self) -> SourceIter<'_, Self> {
         self.collection().iter()
     }
 

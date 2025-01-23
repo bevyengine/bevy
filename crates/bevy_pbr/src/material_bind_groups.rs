@@ -7,7 +7,7 @@
 use crate::Material;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    system::Resource,
+    resource::Resource,
     world::{FromWorld, World},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};

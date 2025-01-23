@@ -9,7 +9,7 @@ pub use runner::*;
 use crate::{
     archetype::ArchetypeFlags,
     component::ComponentId,
-    entity::EntityHashMap,
+    entity::hash_map::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
@@ -800,9 +800,9 @@ mod tests {
     }
 
     #[derive(Component)]
-    struct Parent(Entity);
+    struct ChildOf(Entity);
 
-    impl<D> Traversal<D> for &'_ Parent {
+    impl<D> Traversal<D> for &'_ ChildOf {
         fn traverse(item: Self::Item<'_>, _: &D) -> Option<Entity> {
             Some(item.0)
         }
@@ -812,7 +812,7 @@ mod tests {
     struct EventPropagating;
 
     impl Event for EventPropagating {
-        type Traversal = &'static Parent;
+        type Traversal = &'static ChildOf;
 
         const AUTO_PROPAGATE: bool = true;
     }
@@ -1198,7 +1198,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
@@ -1225,7 +1225,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
@@ -1255,7 +1255,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
@@ -1285,7 +1285,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(
                 |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child");
@@ -1315,14 +1315,14 @@ mod tests {
             .id();
 
         let child_a = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_a");
             })
             .id();
 
         let child_b = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_b");
             })
@@ -1372,7 +1372,7 @@ mod tests {
             .id();
 
         let child_a = world
-            .spawn(Parent(parent_a))
+            .spawn(ChildOf(parent_a))
             .observe(
                 |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child_a");
@@ -1389,7 +1389,7 @@ mod tests {
             .id();
 
         let child_b = world
-            .spawn(Parent(parent_b))
+            .spawn(ChildOf(parent_b))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_b");
             })
@@ -1416,8 +1416,8 @@ mod tests {
         });
 
         let grandparent = world.spawn_empty().id();
-        let parent = world.spawn(Parent(grandparent)).id();
-        let child = world.spawn(Parent(parent)).id();
+        let parent = world.spawn(ChildOf(grandparent)).id();
+        let child = world.spawn(ChildOf(parent)).id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
@@ -1441,8 +1441,8 @@ mod tests {
         );
 
         let grandparent = world.spawn(A).id();
-        let parent = world.spawn(Parent(grandparent)).id();
-        let child = world.spawn((A, Parent(parent))).id();
+        let parent = world.spawn(ChildOf(grandparent)).id();
+        let child = world.spawn((A, ChildOf(parent))).id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
