@@ -363,7 +363,7 @@ fn get_current_videomode(monitor: &MonitorHandle) -> Option<VideoModeHandle> {
             mode.size() == monitor.size()
                 && Some(mode.refresh_rate_millihertz()) == monitor.refresh_rate_millihertz()
         })
-        .max_by_key(|mode| mode.bit_depth())
+        .max_by_key(VideoModeHandle::bit_depth)
 }
 
 pub(crate) fn attempt_grab(
