@@ -1,4 +1,3 @@
-use bevy_ecs::world::World;
 use bevy_utils::{hashbrown::hash_set::IntoIter, HashSet};
 use core::any::{Any, TypeId};
 
@@ -155,9 +154,6 @@ impl SceneFilter {
     ///
     /// [`Unset`]: SceneFilter::Unset
     pub fn is_allowed_by_id(&self, type_id: TypeId) -> bool {
-        if World::is_internal_type(type_id) {
-            return false;
-        }
         match self {
             Self::Unset => true,
             Self::Allowlist(list) => list.contains(&type_id),
