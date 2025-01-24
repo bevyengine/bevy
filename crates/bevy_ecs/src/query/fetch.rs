@@ -7,8 +7,7 @@ use crate::{
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
-        FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, SendMarker, Sendability, World
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -275,9 +274,9 @@ use variadics_please::all_tuples;
     label = "invalid `Query` data",
     note = "if `{Self}` is a component type, try using `&{Self}` or `&mut {Self}`"
 )]
-pub unsafe trait QueryData: WorldQuery {
+pub unsafe trait QueryData<S: Sendability = SendMarker>: WorldQuery<S> {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
-    type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
+    type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery<S>>::State>;
 }
 
 /// A [`QueryData`] that is read only.
