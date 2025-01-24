@@ -1,7 +1,7 @@
 //! Demonstrates using a custom extension to the `StandardMaterial` to create a repeating texture that avoids seams
 //! by using stochastic sampling. This example uses a custom shader to achieve the effect.
 use bevy::prelude::*;
-use bevy::image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor};
+use bevy::image::{ImageAddressMode, ImageSamplerDescriptor};
 use bevy::sprite::{Material2d, Material2dPlugin};
 use bevy_render::mesh::VertexAttributeValues;
 use bevy_render::render_resource::{AsBindGroup, ShaderRef};
