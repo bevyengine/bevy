@@ -764,13 +764,13 @@ wasm = true
 
 [[example]]
 name = "bounding_2d"
-path = "examples/2d/bounding_2d.rs"
+path = "examples/math/bounding_2d.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.bounding_2d]
-name = "2D Bounding Volume Intersections"
+name = "Bounding Volume Intersections (2D)"
 description = "Showcases bounding volumes and intersection tests"
-category = "2D Rendering"
+category = "Math"
 wasm = true
 
 [[example]]
