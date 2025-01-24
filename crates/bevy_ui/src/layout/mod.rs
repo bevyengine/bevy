@@ -92,7 +92,7 @@ struct CameraLayoutInfo {
 pub fn ui_layout_system(
     mut commands: Commands,
     mut buffers: Local<UiLayoutSystemBuffers>,
-    camera_data: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &Camera)>,
     ui_scale: Res<UiScale>,
     target_query: Query<(Entity, &ResolvedTargetCamera)>,
     mut ui_surface: ResMut<UiSurface>,
@@ -125,8 +125,6 @@ pub fn ui_layout_system(
         camera_layout_info,
     } = &mut *buffers;
 
-    let cameras = camera_data;
-
     let mut calculate_camera_layout_info = |camera: &Camera| {
         let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
         let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
@@ -144,7 +142,7 @@ pub fn ui_layout_system(
     target_query
         .iter_many(root_nodes.iter())
         .for_each(|(entity, target)| {
-                    let Ok((_, camera)) = cameras.get(target.0) else {
+                    let Ok((_, camera)) = camera_query.get(target.0) else {
                         warn!(
                             "UiTargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             target.0
@@ -184,7 +182,7 @@ pub fn ui_layout_system(
     ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
 
     // update camera children
-    for (camera_id, _) in cameras.iter() {
+    for (camera_id, _) in camera_query.iter() {
         let root_nodes =
             if let Some(CameraLayoutInfo { root_nodes, .. }) = camera_layout_info.get(&camera_id) {
                 root_nodes.iter().cloned()
