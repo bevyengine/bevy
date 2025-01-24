@@ -12,7 +12,9 @@ use core::{
 };
 use log::warn;
 
-struct CommandMeta {
+use super::{SendMarker, Sendability};
+
+struct CommandMeta<S: Sendability = SendMarker> {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
     ///
@@ -20,7 +22,7 @@ struct CommandMeta {
     ///
     /// Advances `cursor` by the size of `T` in bytes.
     consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
+        unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World<S>>>, cursor: &mut usize),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -82,7 +84,7 @@ impl CommandQueue {
     /// Execute the queued [`Command`]s in the world after applying any commands in the world's internal queue.
     /// This clears the queue.
     #[inline]
-    pub fn apply(&mut self, world: &mut World) {
+    pub fn apply<S: Sendability>(&mut self, world: &mut World<S>) {
         // flush the previously queued entities
         world.flush_entities();
 
@@ -220,7 +222,7 @@ impl RawCommandQueue {
     ///
     /// * Caller ensures that `self` has not outlived the underlying queue
     #[inline]
-    pub(crate) unsafe fn apply_or_drop_queued(&mut self, world: Option<NonNull<World>>) {
+    pub(crate) unsafe fn apply_or_drop_queued<S: Sendability>(&mut self, world: Option<NonNull<World<S>>>) {
         // SAFETY: If this is the command queue on world, world will not be dropped as we have a mutable reference
         // If this is not the command queue on world we have exclusive ownership and self will not be mutated
         let start = *self.cursor.as_ref();
@@ -318,16 +320,16 @@ impl Drop for CommandQueue {
     }
 }
 
-impl SystemBuffer for CommandQueue {
+impl<S: Sendability> SystemBuffer<S> for CommandQueue {
     #[inline]
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World<S>) {
         #[cfg(feature = "trace")]
         let _span_guard = _system_meta.commands_span.enter();
         self.apply(world);
     }
 
     #[inline]
-    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld) {
+    fn queue(&mut self, _system_meta: &SystemMeta, mut world: DeferredWorld<S>) {
         world.commands().append(self);
     }
 }

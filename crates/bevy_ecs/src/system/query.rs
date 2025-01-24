@@ -7,7 +7,7 @@ use crate::{
         QueryManyUniqueIter, QueryParIter, QuerySingleError, QueryState, ROQueryItem,
         ReadOnlyQueryData,
     },
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, SendMarker, Sendability},
 };
 use core::{
     marker::PhantomData,
@@ -373,15 +373,15 @@ use core::{
 /// [`Table`]: crate::storage::Table
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
-pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
+pub struct Query<'world, 'state, D: QueryData<S>, F: QueryFilter<S> = (), S: Sendability = SendMarker> {
     // SAFETY: Must have access to the components registered in `state`.
-    world: UnsafeWorldCell<'world>,
-    state: &'state QueryState<D, F>,
+    world: UnsafeWorldCell<'world, S>,
+    state: &'state QueryState<D, F, S>,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
+impl<D: QueryData<S>, F: QueryFilter<S>, S: Sendability> core::fmt::Debug for Query<'_, '_, D, F, S> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
@@ -393,7 +393,7 @@ impl<D: QueryData, F: QueryFilter> core::fmt::Debug for Query<'_, '_, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
+impl<'w, 's, D: QueryData<S>, F: QueryFilter<S>, S: Sendability> Query<'w, 's, D, F, S> {
     /// Creates a new query.
     ///
     /// # Panics
@@ -406,8 +406,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// called in ways that ensure the queries have unique mutable access.
     #[inline]
     pub(crate) unsafe fn new(
-        world: UnsafeWorldCell<'w>,
-        state: &'s QueryState<D, F>,
+        world: UnsafeWorldCell<'w, S>,
+        state: &'s QueryState<D, F, S>,
         last_run: Tick,
         this_run: Tick,
     ) -> Self {
@@ -426,7 +426,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// For example, `Query<(&mut D1, &D2, &mut D3), With<F>>` will become `Query<(&D1, &D2, &D3), With<F>>`.
     /// This can be useful when working around the borrow checker,
     /// or reusing functionality between systems via functions that accept query types.
-    pub fn to_readonly(&self) -> Query<'_, 's, D::ReadOnly, F> {
+    pub fn to_readonly(&self) -> Query<'_, 's, D::ReadOnly, F, S> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
         unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
@@ -456,7 +456,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     }
     /// }
     /// ```
-    pub fn reborrow(&mut self) -> Query<'_, 's, D, F> {
+    pub fn reborrow(&mut self) -> Query<'_, 's, D, F, S> {
         // SAFETY: this query is exclusively borrowed while the new one exists, so
         // no overlapping access can occur.
         unsafe { Query::new(self.world, self.state, self.last_run, self.this_run) }
@@ -489,7 +489,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// [`iter_mut`](Self::iter_mut) for mutable query items.
     #[inline]
-    pub fn iter(&self) -> QueryIter<'_, 's, D::ReadOnly, F> {
+    pub fn iter(&self) -> QueryIter<'_, 's, D::ReadOnly, F, S> {
         // SAFETY:
         // - `self.world` has permission to access the required components.
         // - The query is read-only, so it can be aliased even if it was originally mutable.
@@ -1761,7 +1761,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for &'w Query<'_, 's, D, F> {
+impl<'w, 's, D: QueryData<S>, F: QueryFilter<S>, S: Sendability> IntoIterator for &'w Query<'_, 's, D, F, S> {
     type Item = ROQueryItem<'w, D>;
     type IntoIter = QueryIter<'w, 's, D::ReadOnly, F>;
 

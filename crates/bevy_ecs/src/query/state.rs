@@ -10,11 +10,11 @@ use crate::{
         WorldQuery,
     },
     storage::{SparseSetIndex, TableId},
-    world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
+    world::{unsafe_world_cell::UnsafeWorldCell, SendMarker, Sendability, World, WorldId},
 };
 
 use alloc::vec::Vec;
-use core::{fmt, mem::MaybeUninit, ptr};
+use core::{fmt, marker::PhantomData, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
 use log::warn;
 #[cfg(feature = "trace")]
@@ -63,7 +63,7 @@ pub(super) union StorageId {
 // SAFETY NOTE:
 // Do not add any new fields that use the `D` or `F` generic parameters as this may
 // make `QueryState::as_transmuted_state` unsound if not done with care.
-pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
+pub struct QueryState<D: QueryData<S>, F: QueryFilter<S> = (), S: Sendability = SendMarker> {
     world_id: WorldId,
     pub(crate) archetype_generation: ArchetypeGeneration,
     /// Metadata about the [`Table`](crate::storage::Table)s matched by this query.
@@ -82,9 +82,10 @@ pub struct QueryState<D: QueryData, F: QueryFilter = ()> {
     pub(crate) filter_state: F::State,
     #[cfg(feature = "trace")]
     par_iter_span: Span,
+    _send_marker: PhantomData<S>,
 }
 
-impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
+impl<D: QueryData<S>, F: QueryFilter<S>, S: Sendability> fmt::Debug for QueryState<D, F, S> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("QueryState")
             .field("world_id", &self.world_id)
@@ -97,8 +98,8 @@ impl<D: QueryData, F: QueryFilter> fmt::Debug for QueryState<D, F> {
     }
 }
 
-impl<D: QueryData, F: QueryFilter> FromWorld for QueryState<D, F> {
-    fn from_world(world: &mut World) -> Self {
+impl<D: QueryData<S>, F: QueryFilter<S>, S: Sendability> FromWorld<S> for QueryState<D, F, S> {
+    fn from_world(world: &mut World<S>) -> Self {
         world.query_filtered()
     }
 }
@@ -156,9 +157,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     }
 }
 
-impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
+impl<D: QueryData<S>, F: QueryFilter<S>, S: Sendability> QueryState<D, F, S> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
-    pub fn new(world: &mut World) -> Self {
+    pub fn new(world: &mut World<S>) -> Self {
         let mut state = Self::new_uninitialized(world);
         state.update_archetypes(world);
         state
@@ -168,7 +169,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This function may fail if, for example,
     /// the components that make up this query have not been registered into the world.
-    pub fn try_new(world: &World) -> Option<Self> {
+    pub fn try_new(world: &World<S>) -> Option<Self> {
         let mut state = Self::try_new_uninitialized(world)?;
         state.update_archetypes(world);
         Some(state)
@@ -176,7 +177,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Identical to `new`, but it populates the provided `access` with the matched results.
     pub(crate) fn new_with_access(
-        world: &mut World,
+        world: &mut World<S>,
         access: &mut Access<ArchetypeComponentId>,
     ) -> Self {
         let mut state = Self::new_uninitialized(world);
@@ -212,7 +213,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
-    fn new_uninitialized(world: &mut World) -> Self {
+    fn new_uninitialized(world: &mut World<S>) -> Self {
         let fetch_state = D::init_state(world);
         let filter_state = F::init_state(world);
         Self::from_states_uninitialized(world, fetch_state, filter_state)
@@ -222,7 +223,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
-    fn try_new_uninitialized(world: &World) -> Option<Self> {
+    fn try_new_uninitialized(world: &World<S>) -> Option<Self> {
         let fetch_state = D::get_state(world.components())?;
         let filter_state = F::get_state(world.components())?;
         Some(Self::from_states_uninitialized(
@@ -237,7 +238,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `new_archetype` and its variants must be called on all of the World's archetypes before the
     /// state can return valid query results.
     fn from_states_uninitialized(
-        world: &World,
+        world: &World<S>,
         fetch_state: <D as WorldQuery>::State,
         filter_state: <F as WorldQuery>::State,
     ) -> Self {
@@ -402,7 +403,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
     #[inline]
-    pub fn update_archetypes(&mut self, world: &World) {
+    pub fn update_archetypes(&mut self, world: &World<S>) {
         self.update_archetypes_unsafe_world_cell(world.as_unsafe_world_cell_readonly());
     }
 
@@ -420,7 +421,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// # Panics
     ///
     /// If `world` does not match the one used to call `QueryState::new` for this instance.
-    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell) {
+    pub fn update_archetypes_unsafe_world_cell(&mut self, world: UnsafeWorldCell<S>) {
         self.validate_world(world.id());
         if self.component_access.required.is_empty() {
             let archetypes = world.archetypes();

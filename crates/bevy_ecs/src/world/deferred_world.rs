@@ -17,17 +17,17 @@ use crate::{
     world::{error::EntityFetchError, WorldEntityFetch},
 };
 
-use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
+use super::{unsafe_world_cell::UnsafeWorldCell, Mut, SendMarker, Sendability, World, ON_INSERT, ON_REPLACE};
 
 /// A [`World`] reference that disallows structural ECS changes.
 /// This includes initializing resources, registering components or spawning entities.
-pub struct DeferredWorld<'w> {
+pub struct DeferredWorld<'w, S: Sendability = SendMarker> {
     // SAFETY: Implementors must not use this reference to make structural changes
-    world: UnsafeWorldCell<'w>,
+    world: UnsafeWorldCell<'w, S>,
 }
 
-impl<'w> Deref for DeferredWorld<'w> {
-    type Target = World;
+impl<'w, S: Sendability> Deref for DeferredWorld<'w, S> {
+    type Target = World<S>;
 
     fn deref(&self) -> &Self::Target {
         // SAFETY: Structural changes cannot be made through &World
@@ -35,30 +35,30 @@ impl<'w> Deref for DeferredWorld<'w> {
     }
 }
 
-impl<'w> UnsafeWorldCell<'w> {
+impl<'w, S: Sendability> UnsafeWorldCell<'w, S> {
     /// Turn self into a [`DeferredWorld`]
     ///
     /// # Safety
     /// Caller must ensure there are no outstanding mutable references to world and no
     /// outstanding references to the world's command queue, resource or component data
     #[inline]
-    pub unsafe fn into_deferred(self) -> DeferredWorld<'w> {
+    pub unsafe fn into_deferred(self) -> DeferredWorld<'w, S> {
         DeferredWorld { world: self }
     }
 }
 
-impl<'w> From<&'w mut World> for DeferredWorld<'w> {
-    fn from(world: &'w mut World) -> DeferredWorld<'w> {
+impl<'w, S: Sendability> From<&'w mut World<S>> for DeferredWorld<'w, S> {
+    fn from(world: &'w mut World<S>) -> DeferredWorld<'w, S> {
         DeferredWorld {
             world: world.as_unsafe_world_cell(),
         }
     }
 }
 
-impl<'w> DeferredWorld<'w> {
+impl<'w, S: Sendability> DeferredWorld<'w, S> {
     /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
-    pub fn reborrow(&mut self) -> DeferredWorld {
+    pub fn reborrow(&mut self) -> DeferredWorld<S> {
         DeferredWorld { world: self.world }
     }
 
@@ -220,7 +220,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
-    pub fn get_entity_mut<F: WorldEntityFetch>(
+    pub fn get_entity_mut<F: WorldEntityFetch<S>>(
         &mut self,
         entities: F,
     ) -> Result<F::DeferredMut<'_>, EntityFetchError> {
@@ -352,7 +352,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
-    pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
+    pub fn entity_mut<F: WorldEntityFetch<S>>(&mut self, entities: F) -> F::DeferredMut<'_> {
         self.get_entity_mut(entities).unwrap()
     }
 
@@ -362,10 +362,10 @@ impl<'w> DeferredWorld<'w> {
     /// # Panics
     /// If state is from a different world then self
     #[inline]
-    pub fn query<'s, D: QueryData, F: QueryFilter>(
+    pub fn query<'s, D: QueryData<S>, F: QueryFilter<S>>(
         &mut self,
-        state: &'s mut QueryState<D, F>,
-    ) -> Query<'_, 's, D, F> {
+        state: &'s mut QueryState<D, F, S>,
+    ) -> Query<'_, 's, D, F, S> {
         state.validate_world(self.world.id());
         state.update_archetypes(self);
         // SAFETY: We ran validate_world to ensure our state matches
@@ -770,7 +770,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// - must only be used to make non-structural ECS changes
     #[inline]
-    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
+    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<S> {
         self.world
     }
 }

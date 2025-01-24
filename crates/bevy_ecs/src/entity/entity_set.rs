@@ -11,6 +11,8 @@ use core::{
     option, result,
 };
 
+use crate::world::{Sendability, SendMarker};
+
 use super::Entity;
 
 use bevy_platform_support::sync::Arc;
@@ -144,47 +146,47 @@ impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
 ///
 /// `x != y` must hold for any 2 elements returned by the iterator.
 /// This is always true for iterators that cannot return more than one element.
-pub unsafe trait EntitySetIterator: Iterator<Item: TrustedEntityBorrow> {}
+pub unsafe trait EntitySetIterator<S: Sendability = SendMarker>: Iterator<Item: TrustedEntityBorrow> {}
 
 // SAFETY:
 // A correct `BTreeMap` contains only unique keys.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeMap`.
-unsafe impl<K: TrustedEntityBorrow, V> EntitySetIterator for btree_map::Keys<'_, K, V> {}
+unsafe impl<K: TrustedEntityBorrow, V, S: Sendability> EntitySetIterator<S> for btree_map::Keys<'_, K, V> {}
 
 // SAFETY:
 // A correct `BTreeMap` contains only unique keys.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeMap`.
-unsafe impl<K: TrustedEntityBorrow, V> EntitySetIterator for btree_map::IntoKeys<K, V> {}
+unsafe impl<K: TrustedEntityBorrow, V, S: Sendability> EntitySetIterator<S> for btree_map::IntoKeys<K, V> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The sub-range maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for btree_set::Range<'_, T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for btree_set::Range<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "intersection" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator for btree_set::Intersection<'_, T> {}
+unsafe impl<T: TrustedEntityBorrow + Ord, S: Sendability> EntitySetIterator<S> for btree_set::Intersection<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "union" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator for btree_set::Union<'_, T> {}
+unsafe impl<T: TrustedEntityBorrow + Ord, S: Sendability> EntitySetIterator<S> for btree_set::Union<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "difference" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator for btree_set::Difference<'_, T> {}
+unsafe impl<T: TrustedEntityBorrow + Ord, S: Sendability> EntitySetIterator<S> for btree_set::Difference<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
 // The "symmetric difference" operation maintains uniqueness.
-unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator
+unsafe impl<T: TrustedEntityBorrow + Ord, S: Sendability> EntitySetIterator<S>
     for btree_set::SymmetricDifference<'_, T>
 {
 }
@@ -192,72 +194,72 @@ unsafe impl<T: TrustedEntityBorrow + Ord> EntitySetIterator
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for btree_set::Iter<'_, T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for btree_set::Iter<'_, T> {}
 
 // SAFETY:
 // A correct `BTreeSet` contains only unique elements.
 // TrustedEntityBorrow guarantees a trustworthy Ord impl for T, and thus a correct `BTreeSet`.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for btree_set::IntoIter<T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for btree_set::IntoIter<T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for option::Iter<'_, T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for option::Iter<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-// unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for option::IterMut<'_, T> {}
+// unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for option::IterMut<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for option::IntoIter<T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for option::IntoIter<T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for result::Iter<'_, T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for result::Iter<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-// unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for result::IterMut<'_, T> {}
+// unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for result::IterMut<'_, T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for result::IntoIter<T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for result::IntoIter<T> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for array::IntoIter<T, 1> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for array::IntoIter<T, 1> {}
 
 // SAFETY: This iterator does not return any elements.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for array::IntoIter<T, 0> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for array::IntoIter<T, 0> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow, F: FnOnce() -> T> EntitySetIterator for iter::OnceWith<F> {}
+unsafe impl<T: TrustedEntityBorrow, F: FnOnce() -> T, S: Sendability> EntitySetIterator<S> for iter::OnceWith<F> {}
 
 // SAFETY: This iterator only returns one element.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for iter::Once<T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for iter::Once<T> {}
 
 // SAFETY: This iterator does not return any elements.
-unsafe impl<T: TrustedEntityBorrow> EntitySetIterator for iter::Empty<T> {}
+unsafe impl<T: TrustedEntityBorrow, S: Sendability> EntitySetIterator<S> for iter::Empty<T> {}
 
 // SAFETY: Taking a mutable reference of an iterator has no effect on its elements.
-unsafe impl<I: EntitySetIterator + ?Sized> EntitySetIterator for &mut I {}
+unsafe impl<I: EntitySetIterator + ?Sized, S: Sendability> EntitySetIterator<S> for &mut I {}
 
 // SAFETY: Boxing an iterator has no effect on its elements.
-unsafe impl<I: EntitySetIterator + ?Sized> EntitySetIterator for Box<I> {}
+unsafe impl<I: EntitySetIterator + ?Sized, S: Sendability> EntitySetIterator<S> for Box<I> {}
 
 // SAFETY: TrustedEntityBorrow ensures that Copy does not affect equality, via its restrictions on Clone.
-unsafe impl<'a, T: 'a + TrustedEntityBorrow + Copy, I: EntitySetIterator<Item = &'a T>>
-    EntitySetIterator for iter::Copied<I>
+unsafe impl<'a, T: 'a + TrustedEntityBorrow + Copy, I: EntitySetIterator<Item = &'a T>, S: Sendability>
+    EntitySetIterator<S> for iter::Copied<I>
 {
 }
 
 // SAFETY: TrustedEntityBorrow ensures that Clone does not affect equality.
-unsafe impl<'a, T: 'a + TrustedEntityBorrow + Clone, I: EntitySetIterator<Item = &'a T>>
-    EntitySetIterator for iter::Cloned<I>
+unsafe impl<'a, T: 'a + TrustedEntityBorrow + Clone, I: EntitySetIterator<Item = &'a T>, S: Sendability>
+    EntitySetIterator<S> for iter::Cloned<I>
 {
 }
 
 // SAFETY: Discarding elements maintains uniqueness.
-unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> EntitySetIterator
+unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool, S: Sendability> EntitySetIterator<S>
     for iter::Filter<I, P>
 {
 }
 
 // SAFETY: Yielding only `None` after yielding it once can only remove elements, which maintains uniqueness.
-unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::Fuse<I> {}
+unsafe impl<I: EntitySetIterator, S: Sendability> EntitySetIterator<S> for iter::Fuse<I> {}
 
 // SAFETY:
 // Obtaining immutable references the elements of an iterator does not affect uniqueness.
@@ -268,10 +270,10 @@ unsafe impl<I: EntitySetIterator, F: FnMut(&<I as Iterator>::Item)> EntitySetIte
 }
 
 // SAFETY: Reversing an iterator does not affect uniqueness.
-unsafe impl<I: DoubleEndedIterator + EntitySetIterator> EntitySetIterator for iter::Rev<I> {}
+unsafe impl<I: DoubleEndedIterator + EntitySetIterator, S: Sendability> EntitySetIterator<S> for iter::Rev<I> {}
 
 // SAFETY: Discarding elements maintains uniqueness.
-unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::Skip<I> {}
+unsafe impl<I: EntitySetIterator, S: Sendability> EntitySetIterator<S> for iter::Skip<I> {}
 
 // SAFETY: Discarding elements maintains uniqueness.
 unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> EntitySetIterator
@@ -280,7 +282,7 @@ unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> Enti
 }
 
 // SAFETY: Discarding elements maintains uniqueness.
-unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::Take<I> {}
+unsafe impl<I: EntitySetIterator, S: Sendability> EntitySetIterator<S> for iter::Take<I> {}
 
 // SAFETY: Discarding elements maintains uniqueness.
 unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> EntitySetIterator
@@ -289,7 +291,7 @@ unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> Enti
 }
 
 // SAFETY: Discarding elements maintains uniqueness.
-unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::StepBy<I> {}
+unsafe impl<I: EntitySetIterator, S: Sendability> EntitySetIterator<S> for iter::StepBy<I> {}
 
 /// An iterator that yields unique entities.
 ///
@@ -340,7 +342,7 @@ impl<I: DoubleEndedIterator<Item: TrustedEntityBorrow>> DoubleEndedIterator
 impl<I: FusedIterator<Item: TrustedEntityBorrow>> FusedIterator for UniqueEntityIter<I> {}
 
 // SAFETY: The underlying iterator is ensured to only return unique elements by its construction.
-unsafe impl<I: Iterator<Item: TrustedEntityBorrow>> EntitySetIterator for UniqueEntityIter<I> {}
+unsafe impl<I: Iterator<Item: TrustedEntityBorrow>, S: Sendability> EntitySetIterator<S> for UniqueEntityIter<I> {}
 
 impl<T, I: Iterator<Item: TrustedEntityBorrow> + AsRef<[T]>> AsRef<[T]> for UniqueEntityIter<I> {
     fn as_ref(&self) -> &[T] {

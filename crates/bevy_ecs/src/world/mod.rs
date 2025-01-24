@@ -42,7 +42,7 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState, WorldQuery},
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     result::Result,
@@ -57,7 +57,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform_support::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, marker::PhantomData};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -86,7 +86,7 @@ use core::panic::Location;
 /// which are unique instances of a given type that don't belong to a specific Entity.
 /// There are also *non send resources*, which can only be accessed on the main thread.
 /// See [`Resource`] for usage.
-pub struct World {
+pub struct World<S: Sendability = SendMarker> {
     id: WorldId,
     pub(crate) entities: Entities,
     pub(crate) components: Components,
@@ -100,9 +100,10 @@ pub struct World {
     pub(crate) last_check_tick: Tick,
     pub(crate) last_trigger_id: u32,
     pub(crate) command_queue: RawCommandQueue,
+    _send_marker: PhantomData<S>,
 }
 
-impl Default for World {
+impl <S: Sendability> Default for World<S> {
     fn default() -> Self {
         let mut world = Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
@@ -120,13 +121,14 @@ impl Default for World {
             last_check_tick: Tick::new(0),
             last_trigger_id: 0,
             command_queue: RawCommandQueue::new(),
+            _send_marker: PhantomData::default(),
         };
         world.bootstrap();
         world
     }
 }
 
-impl Drop for World {
+impl <S: Sendability> Drop for World<S> {
     fn drop(&mut self) {
         // SAFETY: Not passing a pointer so the argument is always valid
         unsafe { self.command_queue.apply_or_drop_queued(None) };
@@ -139,7 +141,7 @@ impl Drop for World {
     }
 }
 
-impl World {
+impl <S: Sendability> World<S> {
     /// This performs initialization that _must_ happen for every [`World`] immediately upon creation (such as claiming specific component ids).
     /// This _must_ be run as part of constructing a [`World`], before it is returned to the caller.
     #[inline]
@@ -160,7 +162,19 @@ impl World {
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
     }
-    /// Creates a new empty [`World`].
+    /// Creates a new empty [`World`], which is, by default, accessible on multiple threads.
+    ///
+    /// # Examples
+    ///
+    /// To create a default new empty world:
+    /// ```
+    /// let world = World::new();
+    /// ```
+    ///
+    /// To create a new empty [`World`] that is exlusively accessible on the main thread (does **not** implement [`Send`] trait), use [`NonSendMarker`]:
+    /// ```
+    /// let world = World::<NonSendMarker>::new();
+    /// ```
     ///
     /// # Panics
     ///
@@ -172,6 +186,11 @@ impl World {
         World::default()
     }
 
+    #[inline]
+    pub fn has_send_trait(&self) -> bool {
+        S::HAS_SEND_TRAIT
+    }
+
     /// Retrieves this [`World`]'s unique ID
     #[inline]
     pub fn id(&self) -> WorldId {
@@ -180,13 +199,13 @@ impl World {
 
     /// Creates a new [`UnsafeWorldCell`] view with complete read+write access.
     #[inline]
-    pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
+    pub fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_, S> {
         UnsafeWorldCell::new_mutable(self)
     }
 
     /// Creates a new [`UnsafeWorldCell`] view with only read access to everything.
     #[inline]
-    pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_> {
+    pub fn as_unsafe_world_cell_readonly(&self) -> UnsafeWorldCell<'_, S> {
         UnsafeWorldCell::new_readonly(self)
     }
 
@@ -1491,7 +1510,7 @@ impl World {
     /// assert_eq!(matching_entities, vec![e2]);
     /// ```
     #[inline]
-    pub fn query_filtered<D: QueryData, F: QueryFilter>(&mut self) -> QueryState<D, F> {
+    pub fn query_filtered<D: QueryData<S>, F: QueryFilter<S>>(&mut self) -> QueryState<D, F, S> {
         QueryState::new(self)
     }
 
@@ -1542,7 +1561,7 @@ impl World {
     /// assert!(some_query.is_some());
     /// ```
     #[inline]
-    pub fn try_query<D: QueryData>(&self) -> Option<QueryState<D, ()>> {
+    pub fn try_query<D: QueryData<S>>(&self) -> Option<QueryState<D, (), S>> {
         self.try_query_filtered::<D, ()>()
     }
 
@@ -1569,7 +1588,7 @@ impl World {
     /// Requires only an immutable world reference, but may fail if, for example,
     /// the components that make up this query have not been registered into the world.
     #[inline]
-    pub fn try_query_filtered<D: QueryData, F: QueryFilter>(&self) -> Option<QueryState<D, F>> {
+    pub fn try_query_filtered<D: QueryData<S>, F: QueryFilter<S>>(&self) -> Option<QueryState<D, F, S>> {
         QueryState::try_new(self)
     }
 
@@ -1620,7 +1639,7 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     #[track_caller]
-    pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
+    pub fn init_resource<R: Resource + FromWorld<S>>(&mut self) -> ComponentId {
         #[cfg(feature = "track_location")]
         let caller = Location::caller();
         let component_id = self.components.register_resource::<R>();
@@ -3087,16 +3106,16 @@ impl World {
     pub fn last_change_tick_scope<T>(
         &mut self,
         last_change_tick: Tick,
-        f: impl FnOnce(&mut World) -> T,
+        f: impl FnOnce(&mut World<S>) -> T,
     ) -> T {
-        struct LastTickGuard<'a> {
-            world: &'a mut World,
+        struct LastTickGuard<'a, S: Sendability = SendMarker> {
+            world: &'a mut World<S>,
             last_tick: Tick,
         }
 
         // By setting the change tick in the drop impl, we ensure that
         // the change tick gets reset even if a panic occurs during the scope.
-        impl Drop for LastTickGuard<'_> {
+        impl<S: Sendability> Drop for LastTickGuard<'_, S> {
             fn drop(&mut self) {
                 self.world.last_change_tick = self.last_tick;
             }
@@ -3711,6 +3730,34 @@ unsafe impl Send for World {}
 // SAFETY: all methods on the world ensure that non-send resources are only accessible on the main thread
 unsafe impl Sync for World {}
 
+/// A trait indicating whether or not the [`World`] struct possesses the [`Send`] trait.
+pub trait Sendability: Copy + Clone {
+    /// Helper variable. This is set to `true` if [`World`] has [`Send`] trait, `false` otherwise.
+    const HAS_SEND_TRAIT: bool;
+}
+
+/// Marker to tag [`World`] as "sendable", which means it possesses the [`Send`] trait.
+///
+/// Initializing [`World`] will, by default, tag it with [`SendMarker`], so this tag will likely never need to be used by the user directly.
+#[derive(Copy, Clone)]
+pub struct SendMarker;
+unsafe impl Send for SendMarker {}
+impl Sendability for SendMarker {
+    const HAS_SEND_TRAIT: bool = true;
+}
+
+/// Marker to tag [`World`] as not "sendable", which means it does **not** possess the [`Send`] trait.
+///
+/// [`World`] is, by default, tagged with [`SendMarker`] and thus has [`Send`] implemented.
+/// This tag is used to override the default behavior and ensure [`World`] is `!Send`.
+#[derive(Copy, Clone)]
+pub struct NonSendMarker {
+    _phantom_marker: PhantomData<*const ()>
+}
+impl Sendability for NonSendMarker {
+    const HAS_SEND_TRAIT: bool = false;
+}
+
 /// Creates an instance of the type this trait is implemented for
 /// using data from the supplied [`World`].
 ///
@@ -3747,9 +3794,9 @@ unsafe impl Sync for World {}
 ///     G
 /// }
 /// ```
-pub trait FromWorld {
+pub trait FromWorld<S: Sendability = SendMarker> {
     /// Creates `Self` using data from the given [`World`].
-    fn from_world(world: &mut World) -> Self;
+    fn from_world(world: &mut World<S>) -> Self;
 }
 
 impl<T: Default> FromWorld for T {

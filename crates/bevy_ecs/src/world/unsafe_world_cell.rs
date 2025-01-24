@@ -1,6 +1,6 @@
 //! Contains types that allow disjoint mutable access to a [`World`].
 
-use super::{Mut, Ref, World, WorldId};
+use super::{Mut, Ref, SendMarker, Sendability, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -78,7 +78,7 @@ use {bevy_ptr::UnsafeCellDeref, core::panic::Location};
 /// }
 /// ```
 #[derive(Copy, Clone)]
-pub struct UnsafeWorldCell<'w>(*mut World, PhantomData<(&'w World, &'w UnsafeCell<World>)>);
+pub struct UnsafeWorldCell<'w, S: Sendability = SendMarker>(*mut World<S>, PhantomData<(&'w World<S>, &'w UnsafeCell<World<S>>)>);
 
 // SAFETY: `&World` and `&mut World` are both `Send`
 unsafe impl Send for UnsafeWorldCell<'_> {}
@@ -97,16 +97,16 @@ impl<'w> From<&'w World> for UnsafeWorldCell<'w> {
     }
 }
 
-impl<'w> UnsafeWorldCell<'w> {
+impl<'w, S: Sendability> UnsafeWorldCell<'w, S> {
     /// Creates a [`UnsafeWorldCell`] that can be used to access everything immutably
     #[inline]
-    pub(crate) fn new_readonly(world: &'w World) -> Self {
+    pub(crate) fn new_readonly(world: &'w World<S>) -> Self {
         Self(ptr::from_ref(world).cast_mut(), PhantomData)
     }
 
     /// Creates [`UnsafeWorldCell`] that can be used to access everything mutably
     #[inline]
-    pub(crate) fn new_mutable(world: &'w mut World) -> Self {
+    pub(crate) fn new_mutable(world: &'w mut World<S>) -> Self {
         Self(ptr::from_mut(world), PhantomData)
     }
 
@@ -154,7 +154,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// let archetypes = world_cell.archetypes();
     /// ```
     #[inline]
-    pub unsafe fn world_mut(self) -> &'w mut World {
+    pub unsafe fn world_mut(self) -> &'w mut World<S> {
         // SAFETY:
         // - caller ensures the created `&mut World` is the only borrow of world
         unsafe { &mut *self.0 }
@@ -168,7 +168,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - there must be no live exclusive borrows on world data
     /// - there must be no live exclusive borrow of world
     #[inline]
-    pub unsafe fn world(self) -> &'w World {
+    pub unsafe fn world(self) -> &'w World<S> {
         // SAFETY:
         // - caller ensures there is no `&mut World` this makes it okay to make a `&World`
         // - caller ensures there is no mutable borrows of world data, this means the caller cannot
@@ -185,7 +185,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// # Safety
     /// - must only be used to access world metadata
     #[inline]
-    pub unsafe fn world_metadata(self) -> &'w World {
+    pub unsafe fn world_metadata(self) -> &'w World<S> {
         // SAFETY: caller ensures that returned reference is not used to violate aliasing rules
         unsafe { self.unsafe_world() }
     }
@@ -202,7 +202,7 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - must not be used in a way that would conflict with any
     ///   live exclusive borrows on world data
     #[inline]
-    unsafe fn unsafe_world(self) -> &'w World {
+    unsafe fn unsafe_world(self) -> &'w World<S> {
         // SAFETY:
         // - caller ensures that the returned `&World` is not used in a way that would conflict
         //   with any existing mutable borrows of world data
@@ -632,7 +632,7 @@ impl<'w> UnsafeWorldCell<'w> {
     }
 }
 
-impl Debug for UnsafeWorldCell<'_> {
+impl<S: Sendability> Debug for UnsafeWorldCell<'_, S> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         // SAFETY: World's Debug implementation only accesses metadata.
         Debug::fmt(unsafe { self.world_metadata() }, f)

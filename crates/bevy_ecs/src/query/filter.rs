@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, SendMarker, Sendability, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData};
@@ -80,7 +80,7 @@ use variadics_please::all_tuples;
     label = "invalid `Query` filter",
     note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
-pub unsafe trait QueryFilter: WorldQuery {
+pub unsafe trait QueryFilter<S: Sendability = SendMarker>: WorldQuery<S> {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
     ///
@@ -139,7 +139,7 @@ pub struct With<T>(PhantomData<T>);
 /// This is sound because `fetch` does not access any components.
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
-unsafe impl<T: Component> WorldQuery for With<T> {
+unsafe impl<T: Component, S: Sendability> WorldQuery<S> for With<T> {
     type Item<'w> = ();
     type Fetch<'w> = ();
     type State = ComponentId;
@@ -150,7 +150,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     #[inline]
     unsafe fn init_fetch(
-        _world: UnsafeWorldCell,
+        _world: UnsafeWorldCell<S>,
         _state: &ComponentId,
         _last_run: Tick,
         _this_run: Tick,
@@ -189,7 +189,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
         access.and_with(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(world: &mut World<S>) -> ComponentId {
         world.register_component::<T>()
     }
 
@@ -206,7 +206,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 }
 
 // SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for With<T> {
+unsafe impl<T: Component, S: Sendability> QueryFilter<S> for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -250,7 +250,7 @@ pub struct Without<T>(PhantomData<T>);
 /// This is sound because `fetch` does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
-unsafe impl<T: Component> WorldQuery for Without<T> {
+unsafe impl<T: Component, S: Sendability> WorldQuery<S> for Without<T> {
     type Item<'w> = ();
     type Fetch<'w> = ();
     type State = ComponentId;
@@ -261,7 +261,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     #[inline]
     unsafe fn init_fetch(
-        _world: UnsafeWorldCell,
+        _world: UnsafeWorldCell<S>,
         _state: &ComponentId,
         _last_run: Tick,
         _this_run: Tick,
@@ -300,7 +300,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
         access.and_without(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(world: &mut World<S>) -> ComponentId {
         world.register_component::<T>()
     }
 
@@ -317,7 +317,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 }
 
 // SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for Without<T> {
+unsafe impl<T: Component, S: Sendability> QueryFilter<S> for Without<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -905,7 +905,7 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
 /// This is sound because `update_component_access` add read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<T: Component> WorldQuery for Changed<T> {
+unsafe impl<T: Component, S: Sendability> WorldQuery<S> for Changed<T> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangedFetch<'w, T>;
     type State = ComponentId;
@@ -920,7 +920,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     #[inline]
     unsafe fn init_fetch<'w>(
-        world: UnsafeWorldCell<'w>,
+        world: UnsafeWorldCell<'w, S>,
         &id: &ComponentId,
         last_run: Tick,
         this_run: Tick,
@@ -1013,7 +1013,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         access.add_component_read(id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(world: &mut World<S>) -> ComponentId {
         world.register_component::<T>()
     }
 

@@ -9,6 +9,8 @@ use crate::{
     },
 };
 
+use super::{SendMarker, Sendability};
+
 /// Types that can be used to fetch [`Entity`] references from a [`World`].
 ///
 /// Provided implementations are:
@@ -34,7 +36,7 @@ use crate::{
 /// - [`WorldEntityFetch::fetch_deferred_mut`] returns only non-structurally-mutable references.
 ///
 /// [`World`]: crate::world::World
-pub unsafe trait WorldEntityFetch {
+pub unsafe trait WorldEntityFetch<S: Sendability = SendMarker> {
     /// The read-only reference type returned by [`WorldEntityFetch::fetch_ref`].
     type Ref<'w>;
 
@@ -57,7 +59,7 @@ pub unsafe trait WorldEntityFetch {
     /// # Errors
     ///
     /// - Returns [`Entity`] if the entity does not exist.
-    unsafe fn fetch_ref(self, cell: UnsafeWorldCell<'_>) -> Result<Self::Ref<'_>, Entity>;
+    unsafe fn fetch_ref(self, cell: UnsafeWorldCell<'_, S>) -> Result<Self::Ref<'_>, Entity>;
 
     /// Returns mutable reference(s) to the entities with the given [`Entity`]
     /// IDs, as determined by `self`.
@@ -73,7 +75,7 @@ pub unsafe trait WorldEntityFetch {
     /// - Returns [`EntityFetchError::NoSuchEntity`] if the entity does not exist.
     /// - Returns [`EntityFetchError::AliasedMutability`] if the entity was
     ///   requested mutably more than once.
-    unsafe fn fetch_mut(self, cell: UnsafeWorldCell<'_>)
+    unsafe fn fetch_mut(self, cell: UnsafeWorldCell<'_, S>)
         -> Result<Self::Mut<'_>, EntityFetchError>;
 
     /// Returns mutable reference(s) to the entities with the given [`Entity`]
@@ -96,7 +98,7 @@ pub unsafe trait WorldEntityFetch {
     ///   requested mutably more than once.
     unsafe fn fetch_deferred_mut(
         self,
-        cell: UnsafeWorldCell<'_>,
+        cell: UnsafeWorldCell<'_, S>,
     ) -> Result<Self::DeferredMut<'_>, EntityFetchError>;
 }
 

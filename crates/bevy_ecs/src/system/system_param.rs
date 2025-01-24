@@ -13,8 +13,7 @@ use crate::{
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
-        FromWorld, World,
+        unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut, FromWorld, SendMarker, Sendability, World
     },
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
@@ -1206,11 +1205,11 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
 /// Types that implement `SystemBuffer` should take care to perform as many
 /// computations up-front as possible. Buffers cannot be applied in parallel,
 /// so you should try to minimize the time spent in [`SystemBuffer::apply`].
-pub trait SystemBuffer: FromWorld + Send + 'static {
+pub trait SystemBuffer<S: Sendability = SendMarker>: FromWorld<S> + Send + 'static {
     /// Applies any deferred mutations to the [`World`].
-    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World<S>);
     /// Queues any deferred mutations to be applied at the next [`ApplyDeferred`](crate::prelude::ApplyDeferred).
-    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld) {}
+    fn queue(&mut self, _system_meta: &SystemMeta, _world: DeferredWorld<S>) {}
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] during
