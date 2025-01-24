@@ -7,6 +7,7 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     view::Visibility,
+    view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;

@@ -139,7 +139,7 @@ pub struct NodeQuery {
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: Option<&'static UiTargetCamera>,
+    target_camera: &'static ResolvedTargetCamera,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity

@@ -5,7 +5,7 @@ use crate::{
     UiScale, Val,
 };
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut}, entity::{Entity, EntityHashMap}, hierarchy::{Children, Parent}, query::With, removal_detection::RemovedComponents, system::{Commands, Local, Query, Res, ResMut, SystemParam}, world::Ref
+    change_detection::{DetectChanges, DetectChangesMut}, entity::{hash_map::EntityHashMap, Entity}, hierarchy::{ChildOf, Children}, query::With, removal_detection::RemovedComponents, system::{Commands, Local, Query, Res, ResMut, SystemParam}, world::Ref
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::Camera;
