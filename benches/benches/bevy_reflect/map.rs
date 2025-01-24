@@ -1,8 +1,8 @@
 use core::{fmt::Write, hint::black_box, iter, time::Duration};
 
 use benches::bench;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{DynamicMap, Map};
-use bevy_utils::HashMap;
 use criterion::{
     criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
     Criterion, PlotConfiguration, Throughput,

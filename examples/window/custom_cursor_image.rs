@@ -3,8 +3,10 @@
 
 use std::time::Duration;
 
-use bevy::winit::cursor::CustomCursor;
-use bevy::{prelude::*, winit::cursor::CursorIcon};
+use bevy::{
+    prelude::*,
+    winit::cursor::{CursorIcon, CustomCursor, CustomCursorImage},
+};
 
 fn main() {
     App::new()
@@ -39,7 +41,7 @@ fn setup_cursor_icon(
     let animation_config = AnimationConfig::new(0, 199, 1, 4);
 
     commands.entity(*window).insert((
-        CursorIcon::Custom(CustomCursor::Image {
+        CursorIcon::Custom(CustomCursor::Image(CustomCursorImage {
             // Image to use as the cursor.
             handle: asset_server
                 .load("cursors/kenney_crosshairPack/Tilesheet/crosshairs_tilesheet_white.png"),
@@ -56,7 +58,7 @@ fn setup_cursor_icon(
             // The hotspot is the point in the cursor image that will be
             // positioned at the mouse cursor's position.
             hotspot: (0, 0),
-        }),
+        })),
         animation_config,
     ));
 }
@@ -112,15 +114,11 @@ impl AnimationConfig {
 /// `last_sprite_index`.
 fn execute_animation(time: Res<Time>, mut query: Query<(&mut AnimationConfig, &mut CursorIcon)>) {
     for (mut config, mut cursor_icon) in &mut query {
-        if let CursorIcon::Custom(CustomCursor::Image {
-            ref mut texture_atlas,
-            ..
-        }) = *cursor_icon
-        {
+        if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
             config.frame_timer.tick(time.delta());
 
             if config.frame_timer.finished() {
-                if let Some(atlas) = texture_atlas {
+                if let Some(atlas) = image.texture_atlas.as_mut() {
                     atlas.index += config.increment;
 
                     if atlas.index > config.last_sprite_index {
@@ -141,18 +139,19 @@ fn toggle_texture_atlas(
 ) {
     if input.just_pressed(KeyCode::KeyT) {
         for mut cursor_icon in &mut query {
-            if let CursorIcon::Custom(CustomCursor::Image {
-                ref mut texture_atlas,
-                ..
-            }) = *cursor_icon
-            {
-                *texture_atlas = match texture_atlas.take() {
+            if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
+                match image.texture_atlas.take() {
                     Some(a) => {
+                        // Save the current texture atlas.
                         *cached_atlas = Some(a.clone());
-                        None
                     }
-                    None => cached_atlas.take(),
-                };
+                    None => {
+                        // Restore the cached texture atlas.
+                        if let Some(cached_a) = cached_atlas.take() {
+                            image.texture_atlas = Some(cached_a);
+                        }
+                    }
+                }
             }
         }
     }
@@ -164,8 +163,8 @@ fn toggle_flip_x(
 ) {
     if input.just_pressed(KeyCode::KeyX) {
         for mut cursor_icon in &mut query {
-            if let CursorIcon::Custom(CustomCursor::Image { ref mut flip_x, .. }) = *cursor_icon {
-                *flip_x = !*flip_x;
+            if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
+                image.flip_x = !image.flip_x;
             }
         }
     }
@@ -177,8 +176,8 @@ fn toggle_flip_y(
 ) {
     if input.just_pressed(KeyCode::KeyY) {
         for mut cursor_icon in &mut query {
-            if let CursorIcon::Custom(CustomCursor::Image { ref mut flip_y, .. }) = *cursor_icon {
-                *flip_y = !*flip_y;
+            if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
+                image.flip_y = !image.flip_y;
             }
         }
     }
@@ -214,15 +213,15 @@ fn cycle_rect(input: Res<ButtonInput<KeyCode>>, mut query: Query<&mut CursorIcon
     ];
 
     for mut cursor_icon in &mut query {
-        if let CursorIcon::Custom(CustomCursor::Image { ref mut rect, .. }) = *cursor_icon {
+        if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
             let next_rect = SECTIONS
                 .iter()
                 .cycle()
-                .skip_while(|&&corner| corner != *rect)
+                .skip_while(|&&corner| corner != image.rect)
                 .nth(1) // move to the next element
                 .unwrap_or(&None);
 
-            *rect = *next_rect;
+            image.rect = *next_rect;
         }
     }
 }

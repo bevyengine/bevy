@@ -2,7 +2,7 @@
 //! the mouse pointer in various ways.
 
 #[cfg(feature = "custom_cursor")]
-use bevy::winit::cursor::CustomCursor;
+use bevy::winit::cursor::{CustomCursor, CustomCursorImage};
 use bevy::{
     diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
@@ -163,14 +163,11 @@ fn init_cursor_icons(
         SystemCursorIcon::Wait.into(),
         SystemCursorIcon::Text.into(),
         #[cfg(feature = "custom_cursor")]
-        CustomCursor::Image {
+        CustomCursor::Image(CustomCursorImage {
             handle: asset_server.load("branding/icon.png"),
-            texture_atlas: None,
-            flip_x: false,
-            flip_y: false,
-            rect: None,
             hotspot: (128, 128),
-        }
+            ..Default::default()
+        })
         .into(),
     ]));
 }

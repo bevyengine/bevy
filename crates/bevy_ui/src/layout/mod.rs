@@ -104,7 +104,7 @@ pub fn ui_layout_system(
         Ref<ResolvedTargetSize>,
         Ref<ResolvedScaleFactor>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<Parent>>), With<ComputedNode>>,
+    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
     mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
@@ -427,12 +427,13 @@ mod tests {
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_platform_support::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
     };
-    use bevy_utils::{prelude::default, HashMap};
+    use bevy_utils::prelude::default;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
         WindowScaleFactorChanged,
@@ -800,7 +801,7 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<Parent>>()
+            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,

@@ -4,12 +4,14 @@ mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
 
+use alloc::format;
+
 pub use related_methods::*;
 pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, ComponentId, Mutable},
+    component::{Component, HookContext, Mutable},
     entity::Entity,
     system::{
         command::HandleError,
@@ -28,7 +30,7 @@ use log::warn;
 /// component is inserted on an [`Entity`], the corresponding [`RelationshipTarget`] component is immediately inserted on the target component if it does
 /// not already exist, and the "source" entity is automatically added to the [`RelationshipTarget`] collection (this is done via "component hooks").
 ///
-/// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`Parent`](crate::hierarchy::Parent)
+/// A common example of a [`Relationship`] is the parent / child relationship. Bevy ECS includes a canonical form of this via the [`ChildOf`](crate::hierarchy::ChildOf)
 /// [`Relationship`] and the [`Children`](crate::hierarchy::Children) [`RelationshipTarget`].
 ///
 /// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
@@ -38,10 +40,10 @@ use log::warn;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct Parent(pub Entity);
+/// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = Parent)]
+/// #[relationship_target(relationship = ChildOf)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
@@ -53,10 +55,10 @@ use log::warn;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
 /// #[relationship(relationship_target = Children)]
-/// pub struct Parent(pub Entity);
+/// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = Parent, despawn_descendants)]
+/// #[relationship_target(relationship = ChildOf, despawn_descendants)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
@@ -71,11 +73,12 @@ pub trait Relationship: Component + Sized {
     fn from(entity: Entity) -> Self;
 
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
-    fn on_insert(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_insert(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if target_entity == entity {
             warn!(
-                "The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
@@ -93,7 +96,8 @@ pub trait Relationship: Component + Sized {
             }
         } else {
             warn!(
-                "The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
@@ -103,7 +107,7 @@ pub trait Relationship: Component + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_replace(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let target_entity = world.entity(entity).get::<Self>().unwrap().get();
         if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
             if let Some(mut relationship_target) =
@@ -130,12 +134,22 @@ pub trait Relationship: Component + Sized {
     }
 }
 
+/// The iterator type for the source entities in a [`RelationshipTarget`] collection,
+/// as defined in the [`RelationshipSourceCollection`] trait.
+pub type SourceIter<'w, R> =
+    <<R as RelationshipTarget>::Collection as RelationshipSourceCollection>::SourceIter<'w>;
+
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
+    ///
+    /// Check the list of types which implement [`RelationshipSourceCollection`] for the data structures that can be used inside of your component.
+    /// If you need a new collection type, you can implement the [`RelationshipSourceCollection`] trait
+    /// for a type you own which wraps the collection you want to use (to avoid the orphan rule),
+    /// or open an issue on the Bevy repository to request first-party support for your collection type.
     type Collection: RelationshipSourceCollection;
 
     /// Returns a reference to the stored [`RelationshipTarget::Collection`].
@@ -154,7 +168,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
         // copying the RelationshipTarget collection
         // SAFETY: This only reads the Self component and queues Remove commands
@@ -170,7 +184,13 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                             .handle_error_with(error_handler::silent()),
                     );
                 } else {
-                    warn!("Tried to despawn non-existent entity {}", source_entity);
+                    warn!(
+                        "{}Tried to despawn non-existent entity {}",
+                        caller
+                            .map(|location| format!("{location}: "))
+                            .unwrap_or_default(),
+                        source_entity
+                    );
                 }
             }
         }
@@ -179,7 +199,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
-    fn on_despawn(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
         // NOTE: this unsafe code is an optimization. We could make this safe, but it would require
         // copying the RelationshipTarget collection
         // SAFETY: This only reads the Self component and queues despawn commands
@@ -195,7 +215,13 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
                             .handle_error_with(error_handler::silent()),
                     );
                 } else {
-                    warn!("Tried to despawn non-existent entity {}", source_entity);
+                    warn!(
+                        "{}Tried to despawn non-existent entity {}",
+                        caller
+                            .map(|location| format!("{location}: "))
+                            .unwrap_or_default(),
+                        source_entity
+                    );
                 }
             }
         }
@@ -210,7 +236,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// Iterates the entities stored in this collection.
     #[inline]
-    fn iter(&self) -> impl DoubleEndedIterator<Item = Entity> {
+    fn iter(&self) -> SourceIter<'_, Self> {
         self.collection().iter()
     }
 

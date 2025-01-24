@@ -40,10 +40,11 @@ use bevy_ecs::{
     world::EntityMutExcept,
 };
 use bevy_math::FloatOrd;
+use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
-use bevy_utils::{HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap};
+use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
@@ -754,10 +755,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_utils::hashbrown::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_utils::hashbrown::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },

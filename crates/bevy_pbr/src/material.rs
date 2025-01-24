@@ -6,7 +6,7 @@ use crate::meshlet::{
     InstanceManager,
 };
 use crate::*;
-use bevy_asset::{Asset, AssetId, AssetServer};
+use bevy_asset::{Asset, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::{
     core_3d::{
         AlphaMask3d, Camera3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey,
@@ -27,23 +27,24 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::TemporalJitter,
     extract_resource::ExtractResource,
-    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::{self, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
     renderer::RenderDevice,
+    sync_world::MainEntity,
     view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
     Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_utils::hashbrown::hash_map::Entry;
 use core::{hash::Hash, marker::PhantomData};
 use tracing::error;
 
@@ -270,7 +271,13 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default());
+            .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default())
+            .add_systems(
+                PostUpdate,
+                mark_meshes_as_changed_if_their_materials_changed::<M>
+                    .ambiguous_with_all()
+                    .after(mesh::mark_3d_meshes_as_changed_if_their_assets_changed),
+            );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
@@ -282,7 +289,10 @@ where
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_mesh_materials::<M>)
+                .add_systems(
+                    ExtractSchedule,
+                    extract_mesh_materials::<M>.before(ExtractMeshesSet),
+                )
                 .add_systems(
                     Render,
                     queue_material_meshes::<M>
@@ -581,26 +591,64 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
-pub fn extract_mesh_materials<M: Material>(
+/// A system that ensures that
+/// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts meshes
+/// whose materials changed.
+///
+/// As [`crate::render::mesh::collect_meshes_for_gpu_building`] only considers
+/// meshes that were newly extracted, and it writes information from the
+/// [`RenderMeshMaterialIds`] into the
+/// [`crate::render::mesh::MeshInputUniform`], we must tell
+/// [`crate::render::mesh::extract_meshes_for_gpu_building`] to re-extract a
+/// mesh if its material changed. Otherwise, the material binding information in
+/// the [`crate::render::mesh::MeshInputUniform`] might not be updated properly.
+/// The easiest way to ensure that
+/// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts a mesh
+/// is to mark its [`Mesh3d`] as changed, so that's what this system does.
+fn mark_meshes_as_changed_if_their_materials_changed<M>(
+    mut changed_meshes_query: Query<&mut Mesh3d, Changed<MeshMaterial3d<M>>>,
+) where
+    M: Material,
+{
+    for mut mesh in &mut changed_meshes_query {
+        mesh.set_changed();
+    }
+}
+
+/// Fills the [`RenderMaterialInstances`] and [`RenderMeshMaterialIds`]
+/// resources from the meshes in the scene.
+fn extract_mesh_materials<M: Material>(
     mut material_instances: ResMut<RenderMaterialInstances<M>>,
     mut material_ids: ResMut<RenderMeshMaterialIds>,
-    mut material_bind_group_allocator: ResMut<MaterialBindGroupAllocator<M>>,
-    query: Extract<Query<(Entity, &ViewVisibility, &MeshMaterial3d<M>)>>,
+    changed_meshes_query: Extract<
+        Query<
+            (Entity, &ViewVisibility, &MeshMaterial3d<M>),
+            Or<(Changed<ViewVisibility>, Changed<MeshMaterial3d<M>>)>,
+        >,
+    >,
+    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_materials_query: Extract<RemovedComponents<MeshMaterial3d<M>>>,
 ) {
-    material_instances.clear();
-
-    for (entity, view_visibility, material) in &query {
+    for (entity, view_visibility, material) in &changed_meshes_query {
         if view_visibility.get() {
             material_instances.insert(entity.into(), material.id());
+            material_ids.insert(entity.into(), material.id().into());
+        } else {
+            material_instances.remove(&MainEntity::from(entity));
+            material_ids.remove(entity.into());
+        }
+    }
 
-            // Allocate a slot for this material in the bind group.
-            let material_id = material.id().untyped();
-            material_ids
-                .mesh_to_material
-                .insert(entity.into(), material_id);
-            if let Entry::Vacant(entry) = material_ids.material_to_binding.entry(material_id) {
-                entry.insert(material_bind_group_allocator.allocate());
-            }
+    for entity in removed_visibilities_query
+        .read()
+        .chain(removed_materials_query.read())
+    {
+        // Only queue a mesh for removal if we didn't pick it up above.
+        // It's possible that a necessary component was removed and re-added in
+        // the same frame.
+        if !changed_meshes_query.contains(entity) {
+            material_instances.remove(&MainEntity::from(entity));
+            material_ids.remove(entity.into());
         }
     }
 }
@@ -654,6 +702,7 @@ pub fn queue_material_meshes<M: Material>(
         Option<&Camera3d>,
         Has<TemporalJitter>,
         Option<&Projection>,
+        Has<DistanceFog>,
         (
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
@@ -675,6 +724,7 @@ pub fn queue_material_meshes<M: Material>(
         camera_3d,
         temporal_jitter,
         projection,
+        distance_fog,
         (has_environment_maps, has_irradiance_volumes),
         has_oit,
     ) in &views
@@ -765,6 +815,9 @@ pub fn queue_material_meshes<M: Material>(
         }
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
         if let Some(camera_3d) = camera_3d {
             view_key |= screen_space_specular_transmission_pipeline_key(
@@ -1019,6 +1072,14 @@ pub struct MaterialProperties {
     pub reads_view_transmission_texture: bool,
 }
 
+/// A resource that maps each untyped material ID to its binding.
+///
+/// This duplicates information in `RenderAssets<M>`, but it doesn't have the
+/// `M` type parameter, so it can be used in untyped contexts like
+/// [`crate::render::mesh::collect_meshes_for_gpu_building`].
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct RenderMaterialBindings(HashMap<UntypedAssetId, MaterialBindingId>);
+
 /// Data prepared for a [`Material`] instance.
 pub struct PreparedMaterial<M: Material> {
     pub binding: MaterialBindingId,
@@ -1033,8 +1094,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         SRes<RenderDevice>,
         SRes<MaterialPipeline<M>>,
         SRes<DefaultOpaqueRendererMethod>,
-        SRes<RenderMeshMaterialIds>,
         SResMut<MaterialBindGroupAllocator<M>>,
+        SResMut<RenderMaterialBindings>,
         M::Param,
     );
 
@@ -1045,19 +1106,15 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             render_device,
             pipeline,
             default_opaque_render_method,
-            mesh_material_ids,
             ref mut bind_group_allocator,
+            ref mut render_material_bindings,
             ref mut material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        // Fetch the material binding ID, so that we can write it in to the
-        // `PreparedMaterial`.
-        let Some(material_binding_id) = mesh_material_ids
-            .material_to_binding
-            .get(&material_id.untyped())
-        else {
-            return Err(PrepareAssetError::RetryNextUpdate(material));
-        };
+        // Allocate a material binding ID if needed.
+        let material_binding_id = *render_material_bindings
+            .entry(material_id.into())
+            .or_insert_with(|| bind_group_allocator.allocate());
 
         let method = match material.opaque_render_method() {
             OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
@@ -1077,10 +1134,10 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             false,
         ) {
             Ok(unprepared) => {
-                bind_group_allocator.init(render_device, *material_binding_id, unprepared);
+                bind_group_allocator.init(render_device, material_binding_id, unprepared);
 
                 Ok(PreparedMaterial {
-                    binding: *material_binding_id,
+                    binding: material_binding_id,
                     properties: MaterialProperties {
                         alpha_mode: material.alpha_mode(),
                         depth_bias: material.depth_bias(),
@@ -1110,13 +1167,13 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     Ok(prepared_bind_group) => {
                         // Store the resulting bind group directly in the slot.
                         bind_group_allocator.init_custom(
-                            *material_binding_id,
+                            material_binding_id,
                             prepared_bind_group.bind_group,
                             prepared_bind_group.data,
                         );
 
                         Ok(PreparedMaterial {
-                            binding: *material_binding_id,
+                            binding: material_binding_id,
                             properties: MaterialProperties {
                                 alpha_mode: material.alpha_mode(),
                                 depth_bias: material.depth_bias(),
@@ -1142,21 +1199,21 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
     }
 
     fn unload_asset(
-        asset_id: AssetId<Self::SourceAsset>,
-        (_, _, _, mesh_material_ids, ref mut bind_group_allocator, _): &mut SystemParamItem<
-            Self::Param,
-        >,
+        source_asset: AssetId<Self::SourceAsset>,
+        (
+            _,
+            _,
+            _,
+            ref mut bind_group_allocator,
+            ref mut render_material_bindings,
+            _,
+        ): &mut SystemParamItem<Self::Param>,
     ) {
-        // Mark this material's slot in the binding array as free.
-
-        let Some(material_binding_id) = mesh_material_ids
-            .material_to_binding
-            .get(&asset_id.untyped())
+        let Some(material_binding_id) = render_material_bindings.remove(&source_asset.untyped())
         else {
             return;
         };
-
-        bind_group_allocator.free(*material_binding_id);
+        bind_group_allocator.free(material_binding_id);
     }
 }
 

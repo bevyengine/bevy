@@ -240,7 +240,7 @@ pub fn extract_shadows(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
             &ResolvedTargetCamera,
@@ -249,15 +249,14 @@ pub fn extract_shadows(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera, ctx) in
-        &box_shadow_query
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera, ctx) in &box_shadow_query
     {
         let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 
         // Skip if no visible shadows
-        if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
+        if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 

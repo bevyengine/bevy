@@ -11,6 +11,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+
     commands.spawn(Sprite {
         image: asset_server.load("branding/bevy_bird_dark.png"),
         // Flip the logo to the left

@@ -10,7 +10,8 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_utils::{default, HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_utils::default;
 use core::fmt::{Debug, Write};
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
@@ -23,9 +24,10 @@ use crate::{
     self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
+    resource::Resource,
     result::Result,
     schedule::*,
-    system::{IntoSystem, Resource, ScheduleSystem},
+    system::{IntoSystem, ScheduleSystem},
     world::World,
 };
 

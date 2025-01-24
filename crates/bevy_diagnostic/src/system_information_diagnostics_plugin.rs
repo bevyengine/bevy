@@ -1,6 +1,7 @@
 use crate::DiagnosticPath;
+use alloc::string::String;
 use bevy_app::prelude::*;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 
 /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
 ///
@@ -56,18 +57,24 @@ pub struct SystemInfo {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "dynamic_linking")
+    not(feature = "dynamic_linking"),
+    feature = "std",
 ))]
 pub mod internal {
-    use alloc::sync::Arc;
-    use bevy_ecs::{prelude::ResMut, system::Local};
-    use std::{sync::Mutex, time::Instant};
-
+    use alloc::{
+        format,
+        string::{String, ToString},
+        sync::Arc,
+        vec::Vec,
+    };
     use bevy_app::{App, First, Startup, Update};
-    use bevy_ecs::system::Resource;
+    use bevy_ecs::resource::Resource;
+    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_platform_support::time::Instant;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
+    use log::info;
+    use std::sync::Mutex;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
-    use tracing::info;
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
 
@@ -200,9 +207,11 @@ pub mod internal {
         target_os = "android",
         target_os = "macos"
     ),
-    not(feature = "dynamic_linking")
+    not(feature = "dynamic_linking"),
+    feature = "std",
 )))]
 pub mod internal {
+    use alloc::string::ToString;
     use bevy_app::{App, Startup};
 
     pub(super) fn setup_plugin(app: &mut App) {
@@ -210,7 +219,7 @@ pub mod internal {
     }
 
     fn setup_system() {
-        tracing::warn!("This platform and/or configuration is not supported!");
+        log::warn!("This platform and/or configuration is not supported!");
     }
 
     impl Default for super::SystemInfo {

@@ -368,20 +368,22 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &ComputedNode,
             &GlobalTransform,
             &MaterialNode<M>,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             &ResolvedTargetCamera,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
+    for (entity, uinode, transform, handle, inherited_visibility, clip, camera) in
+        uinode_query.iter()
+    {
         let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
 
         // skip invisible nodes
-        if !view_visibility.get() {
+        if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
 

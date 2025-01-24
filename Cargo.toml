@@ -863,6 +863,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "atmosphere"
+path = "examples/3d/atmosphere.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.atmosphere]
+name = "Atmosphere"
+description = "A scene showcasing pbr atmospheric scattering"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "fog"
 path = "examples/3d/fog.rs"
 doc-scrape-examples = true
@@ -2049,6 +2060,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "relationships"
+path = "examples/ecs/relationships.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.relationships]
+name = "Relationships"
+description = "Define and work with custom relationships between entities"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "removal_detection"
 path = "examples/ecs/removal_detection.rs"
 doc-scrape-examples = true
@@ -2885,6 +2907,17 @@ doc-scrape-examples = true
 [package.metadata.example.many_text2d]
 name = "Many Text2d"
 description = "Displays many Text2d! Used for performance testing."
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_materials"
+path = "examples/stress_tests/many_materials.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_materials]
+name = "Many Animated Materials"
+description = "Benchmark to test rendering many animated materials"
 category = "Stress Tests"
 wasm = true
 

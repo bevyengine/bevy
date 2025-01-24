@@ -16,6 +16,7 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{Rect, UVec2};
+use bevy_platform_support::collections::HashSet;
 use bevy_render::camera::{Camera, ManualTextureViews};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;

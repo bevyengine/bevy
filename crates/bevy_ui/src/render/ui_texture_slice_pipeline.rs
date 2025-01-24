@@ -13,6 +13,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -26,7 +27,6 @@ use bevy_render::{
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
@@ -253,7 +253,7 @@ pub fn extract_ui_texture_slices(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             &ResolvedTargetCamera,
             &ImageNode,
@@ -261,7 +261,7 @@ pub fn extract_ui_texture_slices(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
-    for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
         let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
             continue;
         };
@@ -283,9 +283,10 @@ pub fn extract_ui_texture_slices(
         };
 
         // Skip invisible images
-        if !view_visibility.get()
+        if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+            || uinode.is_empty()
         {
             continue;
         }
