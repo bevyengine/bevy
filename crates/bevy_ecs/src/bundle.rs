@@ -211,7 +211,7 @@ pub trait DynamicBundle {
     fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
 }
 
-/// An operation on an [`Entity`] that occurs _after_ inserting a given [`Bundle`].
+/// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
 /// See [`DynamicBundle::Effect`].
 pub trait BundleEffect {
     /// Applies this effect to the given `entity`.
@@ -251,7 +251,7 @@ unsafe impl<C: Component> Bundle for C {
     }
 }
 
-/// SAFETY:
+// SAFETY:
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> BundleFromComponents for C {
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self

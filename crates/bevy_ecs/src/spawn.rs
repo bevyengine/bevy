@@ -353,6 +353,6 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 #[macro_export]
 macro_rules! related {
     ($relationship_target:ident [$($child:expr),*$(,)?]) => {
-       $relationship_target::spawn(($(Spawn($child)),*))
+       $relationship_target::spawn(($($crate::spawn::Spawn($child)),*))
     };
 }
