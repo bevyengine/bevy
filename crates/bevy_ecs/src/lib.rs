@@ -39,6 +39,7 @@ pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
+pub mod entity_disabling;
 pub mod event;
 pub mod hierarchy;
 pub mod identifier;
@@ -51,6 +52,7 @@ pub mod query;
 pub mod reflect;
 pub mod relationship;
 pub mod removal_detection;
+pub mod resource;
 pub mod result;
 pub mod schedule;
 pub mod storage;
@@ -75,11 +77,12 @@ pub mod prelude {
         component::{require, Component},
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
-        hierarchy::{ChildSpawner, ChildSpawnerCommands, Children, Parent},
+        hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
         observer::{CloneEntityWithObserversExt, Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        resource::Resource,
         result::{Error, Result},
         schedule::{
             apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
@@ -88,7 +91,7 @@ pub mod prelude {
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
-            Res, ResMut, Resource, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
             SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
@@ -133,7 +136,7 @@ mod tests {
         entity::Entity,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
-        system::Resource,
+        resource::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
     use alloc::{
@@ -143,8 +146,8 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
+    use bevy_platform_support::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use bevy_utils::HashSet;
     use core::{
         any::TypeId,
         marker::PhantomData,
@@ -1222,7 +1225,7 @@ mod tests {
 
     #[test]
     fn resource() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
 
         #[derive(Resource, PartialEq, Debug)]
         struct Num(i32);
@@ -1875,7 +1878,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch(values);
+        let error = world.try_insert_batch(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -1897,7 +1902,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch_if_new(values);
+        let error = world.try_insert_batch_if_new(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -2023,8 +2030,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn(X).contains::<Y>());
@@ -2053,8 +2060,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn_empty().insert(X).contains::<Y>());

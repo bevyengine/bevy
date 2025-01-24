@@ -1,3 +1,7 @@
+//! Contains the [`EntityHashSet`] type, a [`HashSet`] pre-configured to use [`EntityHash`] hashing.
+//!
+//! This module is a lightweight wrapper around Bevy's [`HashSet`] that is more performant for [`Entity`] keys.
+
 use core::{
     fmt::{self, Debug, Formatter},
     iter::FusedIterator,
@@ -8,9 +12,9 @@ use core::{
     },
 };
 
+use bevy_platform_support::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_set::{self, HashSet};
 
 use super::{Entity, EntityHash, EntitySetIterator};
 
@@ -36,6 +40,16 @@ impl EntityHashSet {
     /// [`HashSet::with_capacity_and_hasher(n, EntityHash)`]: HashSet::with_capacity_and_hasher
     pub fn with_capacity(n: usize) -> Self {
         Self(HashSet::with_capacity_and_hasher(n, EntityHash))
+    }
+
+    /// Returns the number of elements in the set.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
+    /// Returns `true` if the set contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 
     /// Returns the inner [`HashSet`].
@@ -203,12 +217,6 @@ impl<'a> Deref for Iter<'a> {
     }
 }
 
-impl DerefMut for Iter<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Entity;
 
@@ -264,12 +272,6 @@ impl Deref for IntoIter {
     }
 }
 
-impl DerefMut for IntoIter {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl Iterator for IntoIter {
     type Item = Entity;
 
@@ -322,12 +324,6 @@ impl<'a> Deref for Drain<'a> {
     }
 }
 
-impl DerefMut for Drain<'_> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
 impl<'a> Iterator for Drain<'a> {
     type Item = Entity;
 
@@ -374,12 +370,6 @@ impl<'a, F: FnMut(&Entity) -> bool> Deref for ExtractIf<'a, F> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<F: FnMut(&Entity) -> bool> DerefMut for ExtractIf<'_, F> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

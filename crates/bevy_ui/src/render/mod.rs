@@ -18,7 +18,7 @@ use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4Swizzles};
@@ -42,7 +42,7 @@ use bevy_render::{
     render_phase::{PhaseItem, PhaseItemExtraIndex},
     sync_world::{RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    view::ViewVisibility,
+    view::InheritedVisibility,
     ExtractSchedule, Render,
 };
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
@@ -50,9 +50,9 @@ use bevy_sprite::{BorderRect, SpriteAssetEvents};
 pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{HashMap, HashSet};
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
 use core::ops::Range;
@@ -285,7 +285,7 @@ pub fn extract_uinode_background_colors(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&UiTargetCamera>,
             &BackgroundColor,
@@ -294,7 +294,7 @@ pub fn extract_uinode_background_colors(
     mapping: Extract<Query<RenderEntity>>,
 ) {
     let default_camera_entity = default_ui_camera.get();
-    for (entity, uinode, transform, view_visibility, clip, camera, background_color) in
+    for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
         &uinode_query
     {
         let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
@@ -307,7 +307,7 @@ pub fn extract_uinode_background_colors(
         };
 
         // Skip invisible backgrounds
-        if !view_visibility.get() || background_color.0.is_fully_transparent() {
+        if !inherited_visibility.get() || background_color.0.is_fully_transparent() {
             continue;
         }
 
@@ -348,7 +348,7 @@ pub fn extract_uinode_images(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&UiTargetCamera>,
             &ImageNode,
@@ -357,7 +357,7 @@ pub fn extract_uinode_images(
     mapping: Extract<Query<RenderEntity>>,
 ) {
     let default_camera_entity = default_ui_camera.get();
-    for (entity, uinode, transform, view_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
         let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
         else {
             continue;
@@ -368,7 +368,7 @@ pub fn extract_uinode_images(
         };
 
         // Skip invisible images
-        if !view_visibility.get()
+        if !inherited_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
             || image.image_mode.uses_slices()
@@ -439,7 +439,7 @@ pub fn extract_uinode_borders(
             &Node,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&UiTargetCamera>,
             AnyOf<(&BorderColor, &Outline)>,
@@ -454,7 +454,7 @@ pub fn extract_uinode_borders(
         node,
         computed_node,
         global_transform,
-        view_visibility,
+        inherited_visibility,
         maybe_clip,
         maybe_camera,
         (maybe_border_color, maybe_outline),
@@ -472,7 +472,7 @@ pub fn extract_uinode_borders(
         };
 
         // Skip invisible borders and removed nodes
-        if !view_visibility.get() || node.display == Display::None {
+        if !inherited_visibility.get() || node.display == Display::None {
             continue;
         }
 
@@ -678,7 +678,7 @@ pub fn extract_text_sections(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&UiTargetCamera>,
             &ComputedTextBlock,
@@ -696,7 +696,7 @@ pub fn extract_text_sections(
         entity,
         uinode,
         global_transform,
-        view_visibility,
+        inherited_visibility,
         clip,
         camera,
         computed_block,
@@ -708,7 +708,7 @@ pub fn extract_text_sections(
         };
 
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if !view_visibility.get() || uinode.is_empty() {
+        if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
 

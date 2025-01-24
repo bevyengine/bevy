@@ -243,7 +243,7 @@ pub fn extract_shadows(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
             Option<&UiTargetCamera>,
@@ -253,8 +253,7 @@ pub fn extract_shadows(
 ) {
     let default_camera_entity = default_ui_camera.get();
 
-    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
-    {
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
         let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
         else {
             continue;
@@ -265,7 +264,7 @@ pub fn extract_shadows(
         };
 
         // Skip if no visible shadows
-        if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
+        if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 

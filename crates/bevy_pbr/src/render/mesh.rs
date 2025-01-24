@@ -17,6 +17,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_platform_support::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -38,13 +39,13 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     texture::DefaultImageSampler,
     view::{
-        NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, ViewTarget, ViewUniformOffset,
-        ViewVisibility, VisibilityRange,
+        self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, ViewTarget,
+        ViewUniformOffset, ViewVisibility, VisibilityRange,
     },
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap, Parallel};
+use bevy_utils::{default, Parallel};
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
 use tracing::{error, warn};
@@ -160,6 +161,10 @@ impl Plugin for MeshRenderPlugin {
                 .init_resource::<MorphIndices>()
                 .init_resource::<MeshCullingDataBuffer>()
                 .init_resource::<RenderMeshMaterialIds>()
+                .configure_sets(
+                    ExtractSchedule,
+                    ExtractMeshesSet.after(view::extract_visibility_ranges),
+                )
                 .add_systems(
                     ExtractSchedule,
                     (
@@ -172,7 +177,7 @@ impl Plugin for MeshRenderPlugin {
                 .add_systems(
                     Render,
                     (
-                        set_mesh_motion_vector_flags.in_set(RenderSet::PrepareAssets),
+                        set_mesh_motion_vector_flags.in_set(RenderSet::PrepareMeshes),
                         prepare_skins.in_set(RenderSet::PrepareResources),
                         prepare_morphs.in_set(RenderSet::PrepareResources),
                         prepare_mesh_bind_group.in_set(RenderSet::PrepareBindGroups),
@@ -220,9 +225,7 @@ impl Plugin for MeshRenderPlugin {
                             gpu_preprocessing::delete_old_work_item_buffers::<MeshPipeline>
                                 .in_set(RenderSet::PrepareResources),
                             collect_meshes_for_gpu_building
-                                .in_set(RenderSet::PrepareAssets)
-                                .after(allocator::allocate_and_free_meshes)
-                                .after(extract_skins)
+                                .in_set(RenderSet::PrepareMeshes)
                                 // This must be before
                                 // `set_mesh_motion_vector_flags` so it doesn't
                                 // overwrite those flags.
@@ -696,10 +699,7 @@ pub struct RenderMeshInstancesGpu(MainEntityHashMap<RenderMeshInstanceGpu>);
 #[derive(Resource, Default)]
 pub struct RenderMeshMaterialIds {
     /// Maps the mesh instance to the material ID.
-    pub(crate) mesh_to_material: MainEntityHashMap<UntypedAssetId>,
-    /// Maps the material ID to the binding ID, which describes the location of
-    /// that material bind group data in memory.
-    pub(crate) material_to_binding: HashMap<UntypedAssetId, MaterialBindingId>,
+    mesh_to_material: MainEntityHashMap<UntypedAssetId>,
 }
 
 impl RenderMeshMaterialIds {
@@ -709,15 +709,19 @@ impl RenderMeshMaterialIds {
     /// Meshes almost always have materials, but in very specific circumstances
     /// involving custom pipelines they won't. (See the
     /// `specialized_mesh_pipelines` example.)
-    fn mesh_material_binding_id(&self, entity: MainEntity) -> MaterialBindingId {
+    pub(crate) fn mesh_material(&self, entity: MainEntity) -> UntypedAssetId {
         self.mesh_to_material
             .get(&entity)
-            .and_then(|mesh_material_asset_id| {
-                self.material_to_binding
-                    .get(mesh_material_asset_id)
-                    .cloned()
-            })
-            .unwrap_or_default()
+            .cloned()
+            .unwrap_or(AssetId::<StandardMaterial>::invalid().into())
+    }
+
+    pub(crate) fn insert(&mut self, mesh_entity: MainEntity, material_id: UntypedAssetId) {
+        self.mesh_to_material.insert(mesh_entity, material_id);
+    }
+
+    pub(crate) fn remove(&mut self, main_entity: MainEntity) {
+        self.mesh_to_material.remove(&main_entity);
     }
 }
 
@@ -920,6 +924,7 @@ impl RenderMeshInstanceGpuBuilder {
         previous_input_buffer: &mut InstanceInputUniformBuffer<MeshInputUniform>,
         mesh_allocator: &MeshAllocator,
         mesh_material_ids: &RenderMeshMaterialIds,
+        render_material_bindings: &RenderMaterialBindings,
         render_lightmaps: &RenderLightmaps,
         skin_indices: &SkinIndices,
     ) -> u32 {
@@ -951,7 +956,11 @@ impl RenderMeshInstanceGpuBuilder {
         };
 
         // Look up the material index.
-        let mesh_material_binding_id = mesh_material_ids.mesh_material_binding_id(entity);
+        let mesh_material = mesh_material_ids.mesh_material(entity);
+        let mesh_material_binding_id = render_material_bindings
+            .get(&mesh_material)
+            .cloned()
+            .unwrap_or_default();
         self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
@@ -1394,6 +1403,7 @@ pub fn collect_meshes_for_gpu_building(
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     mesh_allocator: Res<MeshAllocator>,
     mesh_material_ids: Res<RenderMeshMaterialIds>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     render_lightmaps: Res<RenderLightmaps>,
     skin_indices: Res<SkinIndices>,
 ) {
@@ -1432,6 +1442,7 @@ pub fn collect_meshes_for_gpu_building(
                         previous_input_buffer,
                         &mesh_allocator,
                         &mesh_material_ids,
+                        &render_material_bindings,
                         &render_lightmaps,
                         &skin_indices,
                     );
@@ -1458,6 +1469,7 @@ pub fn collect_meshes_for_gpu_building(
                         previous_input_buffer,
                         &mesh_allocator,
                         &mesh_material_ids,
+                        &render_material_bindings,
                         &render_lightmaps,
                         &skin_indices,
                     );
@@ -1798,7 +1810,8 @@ bitflags::bitflags! {
         const HAS_PREVIOUS_SKIN                 = 1 << 18;
         const HAS_PREVIOUS_MORPH                = 1 << 19;
         const OIT_ENABLED                       = 1 << 20;
-        const LAST_FLAG                         = Self::OIT_ENABLED.bits();
+        const DISTANCE_FOG                      = 1 << 21;
+        const LAST_FLAG                         = Self::DISTANCE_FOG.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -2255,6 +2268,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::VISIBILITY_RANGE_DITHER) {
             shader_defs.push("VISIBILITY_RANGE_DITHER".into());
+        }
+
+        if key.contains(MeshPipelineKey::DISTANCE_FOG) {
+            shader_defs.push("DISTANCE_FOG".into());
         }
 
         if self.binding_arrays_are_usable {

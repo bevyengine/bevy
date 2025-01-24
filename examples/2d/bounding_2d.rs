@@ -201,6 +201,7 @@ const OFFSET_Y: f32 = 75.;
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
+
     commands.spawn((
         Transform::from_xyz(-OFFSET_X, OFFSET_Y, 0.),
         Shape::Circle(Circle::new(45.)),
@@ -259,7 +260,7 @@ fn setup(mut commands: Commands) {
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
+            top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },

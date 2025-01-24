@@ -126,8 +126,9 @@ impl_reflect_opaque!(::core::time::Duration(
     Deserialize,
     Default
 ));
-#[cfg(any(target_arch = "wasm32", feature = "std"))]
-impl_reflect_opaque!(::bevy_utils::Instant(Debug, Hash, PartialEq));
+impl_reflect_opaque!(::bevy_platform_support::time::Instant(
+    Debug, Hash, PartialEq
+));
 impl_reflect_opaque!(::core::num::NonZeroI128(
     Debug,
     Hash,
@@ -214,6 +215,11 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
 ));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>);
+
+// We check despite `portable-atomic` being enabled, if the standard library `Arc` is
+// also available, and implement Reflect for it.
+#[cfg(all(feature = "portable-atomic", target_has_atomic = "ptr"))]
 impl_reflect_opaque!(::alloc::sync::Arc<T: Send + Sync + ?Sized>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
@@ -559,6 +565,7 @@ macro_rules! impl_reflect_for_veclike {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<$ty>();
                 registration.insert::<ReflectFromPtr>(FromType::<$ty>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<$ty>::from_type());
                 registration
             }
 
@@ -803,11 +810,12 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
             V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-            S: TypePath + BuildHasher + Send + Sync,
+            S: TypePath + BuildHasher + Send + Sync + Default,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
                 registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                 registration
             }
 
@@ -856,10 +864,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
     >
 );
 
-impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
-impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
+impl_reflect_for_hashmap!(bevy_platform_support::collections::HashMap<K, V, S>);
+impl_type_path!(::bevy_platform_support::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashMap<K, V, S>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1028,11 +1036,12 @@ macro_rules! impl_reflect_for_hashset {
         impl<V, S> GetTypeRegistration for $ty
         where
             V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            S: TypePath + BuildHasher + Send + Sync,
+            S: TypePath + BuildHasher + Send + Sync + Default,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
                 registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                 registration
             }
 
@@ -1069,8 +1078,8 @@ macro_rules! impl_reflect_for_hashset {
     };
 }
 
-impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::FixedHasher);
+impl_type_path!(::bevy_platform_support::hash::NoOpHash);
+impl_type_path!(::bevy_platform_support::hash::FixedHasher);
 
 #[cfg(feature = "std")]
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
@@ -1084,10 +1093,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     >
 );
 
-impl_reflect_for_hashset!(::bevy_utils::hashbrown::HashSet<V,S>);
-impl_type_path!(::bevy_utils::hashbrown::HashSet<V, S>);
+impl_reflect_for_hashset!(::bevy_platform_support::collections::HashSet<V,S>);
+impl_type_path!(::bevy_platform_support::collections::HashSet<V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
@@ -1294,6 +1303,7 @@ where
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -1658,6 +1668,7 @@ impl GetTypeRegistration for Cow<'static, str> {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
@@ -2119,6 +2130,7 @@ impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -2412,6 +2424,7 @@ impl GetTypeRegistration for &'static Location<'static> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -2432,7 +2445,8 @@ mod tests {
         TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
-    use bevy_utils::{HashMap, Instant};
+    use bevy_platform_support::collections::HashMap;
+    use bevy_platform_support::time::Instant;
     use core::{
         f32::consts::{PI, TAU},
         time::Duration,

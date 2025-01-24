@@ -5,7 +5,8 @@ use core::{
 };
 use smallvec::SmallVec;
 
-use bevy_utils::{HashMap, HashSet, TypeIdMap};
+use bevy_platform_support::collections::{HashMap, HashSet, TypeIdMap};
+
 use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;

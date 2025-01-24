@@ -41,9 +41,10 @@ use core::{fmt::Debug, time::Duration};
 
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
-use bevy_utils::{HashMap, Instant};
 use bevy_window::Window;
 use tracing::debug;
 
@@ -77,7 +78,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
 /// propagates to the pointer's window and stops there.
 #[derive(QueryData)]
 pub struct PointerTraversal {
-    parent: Option<&'static Parent>,
+    parent: Option<&'static ChildOf>,
     window: Option<&'static Window>,
 }
 

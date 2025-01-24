@@ -5,16 +5,16 @@ use crate::UiTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
-use bevy_ecs::system::Resource;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::RenderEntity;
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::ViewVisibility;
+use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
@@ -63,7 +63,7 @@ pub fn extract_debug_overlay(
         Query<(
             Entity,
             &ComputedNode,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
             Option<&UiTargetCamera>,

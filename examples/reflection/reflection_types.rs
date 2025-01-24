@@ -2,9 +2,9 @@
 //! structs, tuples and vectors.
 
 use bevy::{
+    platform_support::collections::HashMap,
     prelude::*,
     reflect::{DynamicList, PartialReflect, ReflectRef},
-    utils::HashMap,
 };
 use serde::{Deserialize, Serialize};
 
