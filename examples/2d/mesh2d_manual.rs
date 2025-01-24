@@ -115,7 +115,6 @@ fn star(
         Mesh2d(meshes.add(star)),
     ));
 
-    // Spawn the camera
     commands.spawn(Camera2d);
 }
 
@@ -126,7 +125,7 @@ pub struct ColoredMesh2d;
 /// Custom pipeline for 2d meshes with vertex colors
 #[derive(Resource)]
 pub struct ColoredMesh2dPipeline {
-    /// this pipeline wraps the standard [`Mesh2dPipeline`]
+    /// This pipeline wraps the standard [`Mesh2dPipeline`]
     mesh2d_pipeline: Mesh2dPipeline,
 }
 

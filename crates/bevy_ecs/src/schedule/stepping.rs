@@ -1,9 +1,11 @@
 use crate::{
+    resource::Resource,
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_utils::{HashMap, TypeIdMap};
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
 use log::{info, warn};

@@ -6,10 +6,11 @@ use crate::{
 use alloc::{sync::Arc, vec::Vec};
 use bevy_ecs::{
     prelude::EventWriter,
-    system::{Res, ResMut, Resource, SystemChangeTick},
+    resource::Resource,
+    system::{Res, ResMut, SystemChangeTick},
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{Reflect, TypePath};
-use bevy_utils::HashMap;
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -594,7 +595,7 @@ impl<A: Asset> Assets<A> {
 pub struct AssetsMutIterator<'a, A: Asset> {
     queued_events: &'a mut Vec<AssetEvent<A>>,
     dense_storage: Enumerate<core::slice::IterMut<'a, Entry<A>>>,
-    hash_map: bevy_utils::hashbrown::hash_map::IterMut<'a, Uuid, A>,
+    hash_map: bevy_platform_support::collections::hash_map::IterMut<'a, Uuid, A>,
 }
 
 impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {

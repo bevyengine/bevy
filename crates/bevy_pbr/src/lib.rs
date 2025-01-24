@@ -24,6 +24,7 @@ pub mod experimental {
     }
 }
 
+mod atmosphere;
 mod cluster;
 mod components;
 pub mod decal;
@@ -48,6 +49,7 @@ use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 
+pub use atmosphere::*;
 pub use cluster::*;
 pub use components::*;
 pub use extended_material::*;
@@ -342,6 +344,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 ExtractComponentPlugin::<AmbientLight>::default(),
             ))
+            .add_plugins(AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (
@@ -439,7 +442,8 @@ impl Plugin for PbrPlugin {
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .init_resource::<LightMeta>();
+            .init_resource::<LightMeta>()
+            .init_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app

@@ -25,8 +25,8 @@ use alloc::{
 };
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
+use bevy_platform_support::collections::HashSet;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::HashSet;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
@@ -521,7 +521,8 @@ impl AssetServer {
     ///
     /// ```
     /// use bevy_asset::{Assets, Handle, LoadedUntypedAsset};
-    /// use bevy_ecs::system::{Res, Resource};
+    /// use bevy_ecs::system::Res;
+    /// use bevy_ecs::resource::Resource;
     ///
     /// #[derive(Resource)]
     /// struct LoadingUntypedHandle(Handle<LoadedUntypedAsset>);

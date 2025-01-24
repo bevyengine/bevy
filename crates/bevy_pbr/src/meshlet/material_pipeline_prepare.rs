@@ -13,6 +13,7 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::TemporalJitter,
     mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
@@ -20,7 +21,6 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
-use bevy_utils::{HashMap, HashSet};
 use core::hash::Hash;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
@@ -48,7 +48,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
-            Has<ScreenSpaceAmbientOcclusion>,
+            (Has<ScreenSpaceAmbientOcclusion>, Has<DistanceFog>),
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
@@ -73,7 +73,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         tonemapping,
         dither,
         shadow_filter_method,
-        ssao,
+        (ssao, distance_fog),
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         temporal_jitter,
         projection,
@@ -141,6 +141,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
 
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
         }
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);

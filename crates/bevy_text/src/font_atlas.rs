@@ -1,11 +1,11 @@
 use bevy_asset::{Assets, Handle};
 use bevy_image::{prelude::*, ImageSampler};
 use bevy_math::{IVec2, UVec2};
+use bevy_platform_support::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssetUsages,
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use bevy_utils::HashMap;
 
 use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
 

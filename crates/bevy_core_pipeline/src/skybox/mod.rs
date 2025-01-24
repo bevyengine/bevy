@@ -3,8 +3,9 @@ use bevy_asset::{load_internal_asset, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_math::{Mat4, Quat};

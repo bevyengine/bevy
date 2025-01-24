@@ -227,6 +227,11 @@ use core::{
 /// # struct ComponentA;
 /// # fn system(
 /// // This will panic!
+/// // EntityRef provides read access to ALL components on an entity.
+/// // When combined with &mut ComponentA in the same query, it creates
+/// // a conflict because EntityRef could read ComponentA while the &mut
+/// // attempts to modify it - violating Rust's borrowing rules of no
+/// // simultaneous read+write access.
 /// query: Query<(EntityRef, &mut ComponentA)>
 /// # ) {}
 /// # bevy_ecs::system::assert_system_does_not_conflict(system);
@@ -239,11 +244,18 @@ use core::{
 /// # struct ComponentB;
 /// # fn system(
 /// // This will not panic.
+/// // This creates a perfect separation where:
+/// // 1. First query reads entities that have ComponentA
+/// // 2. Second query modifies ComponentB only on entities that DON'T have ComponentA
+/// // Result: No entity can ever be accessed by both queries simultaneously
 /// query_a: Query<EntityRef, With<ComponentA>>,
 /// query_b: Query<&mut ComponentB, Without<ComponentA>>,
 /// # ) {}
 /// # bevy_ecs::system::assert_system_does_not_conflict(system);
 /// ```
+/// The fundamental rule: [`EntityRef`]'s ability to read all components means it can never
+/// coexist with mutable access. With/Without filters guarantee this by keeping the
+/// queries on completely separate entities.
 ///
 /// # Accessing query items
 ///
@@ -1890,7 +1902,7 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 /// [System parameter] that provides access to single entity's components, much like [`Query::single`]/[`Query::single_mut`].
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if zero or more than one matching entity exists.
-/// /// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<Single<D, F>>`] instead if zero or one matching entities can exist.
 ///
@@ -1926,7 +1938,7 @@ impl<'w, D: QueryData, F: QueryFilter> Single<'w, D, F> {
 /// [System parameter] that works very much like [`Query`] except it always contains at least one matching entity.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
-/// /// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
 /// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added) or [`Changed`](crate::query::Changed)

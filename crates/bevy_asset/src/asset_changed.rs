@@ -13,7 +13,7 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
 use tracing::error;
@@ -298,7 +298,8 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         event::EventWriter,
-        system::{Commands, IntoSystem, Local, Query, Res, ResMut, Resource},
+        resource::Resource,
+        system::{Commands, IntoSystem, Local, Query, Res, ResMut},
     };
     use bevy_reflect::TypePath;
 

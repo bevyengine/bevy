@@ -21,7 +21,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use components::{Mesh2d, Mesh3d};
+pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d};
 use wgpu::IndexFormat;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
@@ -40,7 +40,7 @@ impl Plugin for MeshPlugin {
             .add_plugins(MeshAllocatorPlugin)
             .add_systems(
                 PostUpdate,
-                components::mark_3d_meshes_as_changed_if_their_assets_changed
+                mark_3d_meshes_as_changed_if_their_assets_changed
                     .ambiguous_with(VisibilitySystems::CalculateBounds),
             );
 
