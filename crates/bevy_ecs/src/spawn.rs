@@ -117,7 +117,7 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
     }
 
     fn size_hint(&self) -> usize {
-        0
+        1
     }
 }
 
