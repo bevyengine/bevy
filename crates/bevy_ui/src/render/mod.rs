@@ -307,7 +307,10 @@ pub fn extract_uinode_background_colors(
         };
 
         // Skip invisible backgrounds
-        if !inherited_visibility.get() || background_color.0.is_fully_transparent() {
+        if !inherited_visibility.get()
+            || background_color.0.is_fully_transparent()
+            || uinode.is_empty()
+        {
             continue;
         }
 
@@ -372,6 +375,7 @@ pub fn extract_uinode_images(
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
             || image.image_mode.uses_slices()
+            || uinode.is_empty()
         {
             continue;
         }
