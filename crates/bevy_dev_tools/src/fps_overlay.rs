@@ -68,7 +68,9 @@ pub struct FpsOverlayConfig {
     pub text_color: Color,
     /// Displays the FPS overlay if true.
     pub enabled: bool,
-    /// How often the FPS overlay re-renders.
+    /// The period after which the FPS overlay re-renders.
+    ///
+    /// Defaults to once every 100 ms.
     pub refresh_interval: Duration,
 }
 
