@@ -133,7 +133,8 @@ impl EntityBorrow for NormalizedWindowRef {
 /// fn change_window_mode(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
 ///     // Query returns one window typically.
 ///     for mut window in windows.iter_mut() {
-///         window.mode = WindowMode::Fullscreen(MonitorSelection::Current);
+///         window.mode =
+///             WindowMode::Fullscreen(MonitorSelection::Current, VideoModeSelection::Current);
 ///     }
 /// }
 /// ```
