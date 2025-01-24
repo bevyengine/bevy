@@ -374,7 +374,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &ComputedNode,
             &GlobalTransform,
             &MaterialNode<M>,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&UiTargetCamera>,
         )>,
@@ -384,7 +384,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 
-    for (entity, computed_node, transform, handle, view_visibility, clip, camera) in
+    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
         uinode_query.iter()
     {
         let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_single_camera)
@@ -397,7 +397,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         };
 
         // skip invisible nodes
-        if !view_visibility.get() || computed_node.is_empty() {
+        if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
         }
 

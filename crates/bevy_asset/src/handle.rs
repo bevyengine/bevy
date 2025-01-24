@@ -515,8 +515,8 @@ pub enum UntypedAssetConversionError {
 #[cfg(test)]
 mod tests {
     use alloc::boxed::Box;
+    use bevy_platform_support::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
-    use bevy_utils::FixedHasher;
     use core::hash::BuildHasher;
 
     use super::*;
