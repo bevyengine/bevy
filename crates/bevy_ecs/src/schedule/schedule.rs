@@ -10,8 +10,8 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_platform_support::collections::{HashMap, HashSet, TypeIdMap};
-use bevy_utils::default;
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
@@ -31,7 +31,7 @@ use crate::{
     resource::Resource,
     result::Result,
     schedule::*,
-    system::{Resource, IntoSystem, ScheduleSystem},
+    system::ScheduleSystem,
     world::World,
 };
 
