@@ -325,7 +325,7 @@ pub fn validate_parent_has_component<C: Component>(
 #[macro_export]
 macro_rules! children {
     [$($child:expr),*$(,)?] => {
-       Children::spawn(($(Spawn($child)),*))
+       Children::spawn(($($crate::spawn::Spawn($child)),*))
     };
 }
 
