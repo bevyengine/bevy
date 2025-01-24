@@ -280,7 +280,7 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
 /// 1. Contains the [`RelationshipTarget`] component, pre-allocated with the necessary space for spawned entities.
 /// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Relationship`].
 pub trait SpawnRelated: RelationshipTarget {
-    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a [`SpawnableList`] of enities, each related to the bundle's entity
+    /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a [`SpawnableList`] of entities, each related to the bundle's entity
     /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
     ///
     /// See [`Spawn`], [`SpawnIter`], and [`SpawnWith`] for usage examples.
@@ -326,7 +326,7 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 /// Returns a [`SpawnRelatedBundle`] that will insert the given [`RelationshipTarget`], spawn a [`SpawnableList`] of entities with given bundles that
 /// relate to the [`RelationshipTarget`] entity via the [`RelationshipTarget::Relationship`] component, and reserve space in the [`RelationshipTarget`] for each spawned entity.
 ///
-/// The first argument is the [`RelationshipTarget`] type. Any additional arguments will be intepreted as bundles to be spawned.
+/// The first argument is the [`RelationshipTarget`] type. Any additional arguments will be interpreted as bundles to be spawned.
 ///
 /// Also see [`children`](crate::children) for a [`Children`](crate::hierarchy::Children)-specific equivalent.
 ///

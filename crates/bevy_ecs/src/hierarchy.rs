@@ -296,7 +296,7 @@ pub fn validate_parent_has_component<C: Component>(
 /// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
 /// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
 ///
-/// Any additional arguments will be intepreted as bundles to be spawned.
+/// Any additional arguments will be interpreted as bundles to be spawned.
 ///
 /// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
 ///
