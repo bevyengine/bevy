@@ -1,4 +1,5 @@
-//! Demonstrates using a custom extension to the `StandardMaterial` to modify the results of the builtin pbr shader.
+//! Demonstrates using a custom extension to the `StandardMaterial` to create a repeating texture that avoids seams
+//! by using stochastic sampling. This example uses a custom shader to achieve the effect.
 use bevy::prelude::*;
 use bevy::image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor};
 use bevy::sprite::{Material2d, Material2dPlugin};
@@ -23,23 +24,16 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    // mut materials: ResMut<Assets<CustomMaterial>>,
+    mut materials: ResMut<Assets<CustomMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
 ) {
     commands.spawn(Camera2d);
-
     let texture = asset_server.load("textures/rocks.png");
     commands.spawn((
         Mesh2d(meshes.add(repeating_quad(10.0))),
-        MeshMaterial2d(materials.add(ColorMaterial {
+        MeshMaterial2d(materials.add(CustomMaterial {
             texture: Some(texture),
-            ..default()
         })),
-        // MeshMaterial2d(materials.add(CustomMaterial {
-        //     texture: Some(texture),
-        // })),
         Transform::default(),
     ));
 }
