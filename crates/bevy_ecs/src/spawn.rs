@@ -83,8 +83,7 @@ impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> 
     }
 
     fn size_hint(&self) -> usize {
-        let (lower, upper) = self.0.size_hint();
-        upper.unwrap_or(lower)
+        self.0.size_hint().0
     }
 }
 
