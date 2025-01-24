@@ -1,5 +1,5 @@
 use crate::{
-    bundle::{Bundle, BundleSpawner},
+    bundle::{Bundle, BundleSpawner, NoBundleEffect},
     entity::{Entity, EntitySetIterator},
     world::World,
 };
@@ -25,7 +25,7 @@ where
 impl<'w, I> SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     #[inline]
     #[track_caller]
@@ -81,11 +81,15 @@ where
         let bundle = self.inner.next()?;
         // SAFETY: bundle matches spawner type
         unsafe {
-            Some(self.spawner.spawn(
-                bundle,
-                #[cfg(feature = "track_location")]
-                self.caller,
-            ))
+            Some(
+                self.spawner
+                    .spawn(
+                        bundle,
+                        #[cfg(feature = "track_location")]
+                        self.caller,
+                    )
+                    .0,
+            )
         }
     }
 
