@@ -3,7 +3,6 @@
 use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
 
-use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::pbr::{ExtendedMaterial, MaterialExtension};
 use bevy::window::SystemCursorIcon;
 use bevy::winit::cursor::CursorIcon;
@@ -174,23 +173,25 @@ fn spawn_cube(
     let mut transform = Transform::IDENTITY;
     transform.rotate_y(FRAC_PI_3);
 
-    commands
-        .spawn(Mesh3d(meshes.add(Cuboid::new(3.0, 3.0, 3.0))))
-        .insert(MeshMaterial3d(materials.add(ExtendedMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(3.0, 3.0, 3.0))),
+        MeshMaterial3d(materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color: SILVER.into(),
                 ..default()
             },
             extension: CustomDecalExtension {},
-        })))
-        .insert(transform);
+        })),
+        transform,
+    ));
 }
 
 /// Spawns the directional light.
 fn spawn_light(commands: &mut Commands) {
-    commands
-        .spawn(DirectionalLight::default())
-        .insert(Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y));
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// Spawns the camera.
@@ -206,31 +207,25 @@ fn spawn_camera(commands: &mut Commands) {
 fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
     let image = asset_server.load("branding/icon.png");
 
-    commands
-        .spawn(ClusteredDecal {
+    commands.spawn((
+        ClusteredDecal {
             image: image.clone(),
             // Tint with red.
             tag: 1,
-        })
-        .insert(calculate_initial_decal_transform(
-            vec3(1.0, 3.0, 5.0),
-            Vec3::ZERO,
-            Vec2::splat(1.1),
-        ))
-        .insert(Selection::DecalA);
+        },
+        calculate_initial_decal_transform(vec3(1.0, 3.0, 5.0), Vec3::ZERO, Vec2::splat(1.1)),
+        Selection::DecalA,
+    ));
 
-    commands
-        .spawn(ClusteredDecal {
+    commands.spawn((
+        ClusteredDecal {
             image: image.clone(),
             // Tint with blue.
             tag: 2,
-        })
-        .insert(calculate_initial_decal_transform(
-            vec3(-2.0, -1.0, 4.0),
-            Vec3::ZERO,
-            Vec2::splat(2.0),
-        ))
-        .insert(Selection::DecalB);
+        },
+        calculate_initial_decal_transform(vec3(-2.0, -1.0, 4.0), Vec3::ZERO, Vec2::splat(2.0)),
+        Selection::DecalB,
+    ));
 }
 
 /// Spawns the buttons at the bottom of the screen.
@@ -270,7 +265,7 @@ fn spawn_buttons(commands: &mut Commands) {
 
 /// Spawns a button that the user can drag to change a parameter.
 fn spawn_drag_button<'a>(
-    commands: &'a mut RelatedSpawnerCommands<'_, ChildOf>,
+    commands: &'a mut ChildSpawnerCommands,
     label: &str,
 ) -> EntityCommands<'a> {
     let mut kid = commands.spawn(Node {
@@ -280,27 +275,30 @@ fn spawn_drag_button<'a>(
         padding: BUTTON_PADDING,
         ..default()
     });
-    kid.insert(Button)
-        .insert(BackgroundColor(Color::BLACK))
-        .insert(BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE))
-        .insert(BUTTON_BORDER_COLOR)
-        .with_children(|parent| {
-            widgets::spawn_ui_text(parent, label, Color::WHITE);
-        });
+    kid.insert((
+        Button,
+        BackgroundColor(Color::BLACK),
+        BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
+        BUTTON_BORDER_COLOR,
+    ))
+    .with_children(|parent| {
+        widgets::spawn_ui_text(parent, label, Color::WHITE);
+    });
     kid
 }
 
 /// Spawns the help text at the top of the screen.
 fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands
-        .spawn(Text::new(create_help_string(app_status)))
-        .insert(Node {
+    commands.spawn((
+        Text::new(create_help_string(app_status)),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        })
-        .insert(HelpText);
+        },
+        HelpText,
+    ));
 }
 
 /// Draws the outlines that show the bounds of the clustered decals.

@@ -14,7 +14,7 @@ struct ClusterableObject {
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
     texture_index: u32,
-    pad_b: f32,
+    pad: f32,
 };
 
 const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u;
