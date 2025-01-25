@@ -632,7 +632,7 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 None => {
                     return syn::Error::new(
                         Span::call_site(),
-                        "No variant found with the attribute `#[from_world]`",
+                        "No variant found with the `#[from_world]` attribute",
                     )
                     .into_compile_error()
                     .into();
