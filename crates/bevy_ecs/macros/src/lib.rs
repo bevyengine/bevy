@@ -635,7 +635,7 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                         "No variant found with the attribute `#[from_world]`",
                     )
                     .into_compile_error()
-                    .into(); 
+                    .into();
                 }
             }
         }
