@@ -3,6 +3,8 @@
     reason = "The parent module contains all things viewport-related, while this module handles cameras as a component. However, a rename/refactor which should clear up this lint is being discussed; see #17196."
 )]
 use super::{ClearColorConfig, Projection};
+use crate::specialization::{EntitiesToSpecialize, RenderEntitiesToSpecialize};
+use crate::sync_world::MainEntity;
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -44,6 +46,7 @@ use bevy_window::{
 };
 use core::ops::Range;
 use derive_more::derive::From;
+use std::ops::Deref;
 use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 
@@ -296,6 +299,7 @@ pub enum ViewportConversionError {
     Frustum,
     CameraMainTextureUsages,
     VisibleEntities,
+    EntitiesToSpecialize,
     Transform,
     Visibility,
     Msaa,
@@ -1052,6 +1056,7 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
+            &EntitiesToSpecialize,
             &Frustum,
             Option<&ColorGrading>,
             Option<&Exposure>,
@@ -1073,6 +1078,7 @@ pub fn extract_cameras(
         camera_render_graph,
         transform,
         visible_entities,
+        entities_to_specialize,
         frustum,
         color_grading,
         exposure,
@@ -1134,6 +1140,18 @@ pub fn extract_cameras(
                     })
                     .collect(),
             };
+
+            let entities_to_specialize = RenderEntitiesToSpecialize {
+                entities: entities_to_specialize
+                    .entities
+                    .iter()
+                    .map(|(type_id, entities)| {
+                        let entities = entities.iter().copied().map(MainEntity::from).collect();
+                        (*type_id, entities)
+                    })
+                    .collect(),
+            };
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
@@ -1168,6 +1186,7 @@ pub fn extract_cameras(
                     color_grading,
                 },
                 render_visible_entities,
+                entities_to_specialize,
                 *frustum,
             ));
 

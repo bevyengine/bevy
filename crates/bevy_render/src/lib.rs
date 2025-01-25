@@ -46,6 +46,7 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
+pub mod specialization;
 
 /// The render prelude.
 ///
@@ -102,6 +103,7 @@ use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
+use crate::specialization::SpecializationPlugin;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -267,7 +269,9 @@ pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        app.init_asset::<Shader>()
+        app
+            .add_plugins(SpecializationPlugin)
+            .init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
         match &self.render_creation {

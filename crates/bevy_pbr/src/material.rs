@@ -6,6 +6,7 @@ use crate::meshlet::{
     InstanceManager,
 };
 use crate::*;
+use bevy_asset::prelude::AssetChanged;
 use bevy_asset::{Asset, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::{
     core_3d::{
@@ -20,6 +21,8 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::query::QueryItem;
+use bevy_ecs::system::lifetimeless::Read;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -30,6 +33,7 @@ use bevy_ecs::{
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::specialization::{CheckSpecialization, CheckSpecializationPlugin, EntitySpecializedSender};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::TemporalJitter,
@@ -271,7 +275,10 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
-            .add_plugins(RenderAssetPlugin::<PreparedMaterial<M>>::default())
+            .add_plugins((
+                RenderAssetPlugin::<PreparedMaterial<M>>::default(),
+                CheckSpecializationPlugin::<MeshMaterial3d<M>>::default(),
+            ))
             .add_systems(
                 PostUpdate,
                 mark_meshes_as_changed_if_their_materials_changed::<M>
@@ -591,6 +598,136 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
+impl<M: Material> CheckSpecialization for MeshMaterial3d<M> {
+    type ViewKey = MeshPipelineKey;
+    type VisibilityClass = Mesh3d;
+    type ViewKeyQueryData = (
+        Read<ExtractedView>,
+        Read<Msaa>,
+        Option<Read<Tonemapping>>,
+        Option<Read<DebandDither>>,
+        Option<Read<ShadowFilteringMethod>>,
+        Has<ScreenSpaceAmbientOcclusion>,
+        (
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
+        ),
+        Option<Read<Camera3d>>,
+        Has<TemporalJitter>,
+        Option<Read<Projection>>,
+        Has<DistanceFog>,
+        (
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
+        ),
+        Has<OrderIndependentTransparencySettings>,
+    );
+    type EntityQueryFilter = Or<(
+        Changed<Mesh3d>,
+        AssetChanged<Mesh3d>,
+        Changed<MeshMaterial3d<M>>,
+        AssetChanged<MeshMaterial3d<M>>,
+    )>;
+
+    fn get_view_key(
+        (
+            view,
+            msaa,
+            tonemapping,
+            dither,
+            shadow_filter_method,
+            ssao,
+            (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+            camera_3d,
+            temporal_jitter,
+            projection,
+            distance_fog,
+            (has_environment_maps, has_irradiance_volumes),
+            has_oit,
+        ): QueryItem<Self::ViewKeyQueryData>,
+    ) -> Self::ViewKey {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_hdr(view.hdr);
+
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if deferred_prepass {
+            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if temporal_jitter {
+            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
+        }
+
+        if has_environment_maps {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Custom(_) => MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD,
+            };
+        }
+
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+            }
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
+            }
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
+            }
+        }
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= MeshPipelineKey::DEBAND_DITHER;
+            }
+        }
+        if ssao {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
+        }
+        if let Some(camera_3d) = camera_3d {
+            view_key |= screen_space_specular_transmission_pipeline_key(
+                camera_3d.screen_space_specular_transmission_quality,
+            );
+        }
+
+        view_key
+    }
+}
+
 /// A system that ensures that
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts meshes
 /// whose materials changed.
@@ -676,16 +813,18 @@ pub fn queue_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    (mesh_allocator, material_bind_group_allocator, gpu_preprocessing_support): (
+    (mesh_allocator, material_bind_group_allocator, gpu_preprocessing_support, tx): (
         Res<MeshAllocator>,
         Res<MaterialBindGroupAllocator<M>>,
         Res<GpuPreprocessingSupport>,
+        ResMut<EntitySpecializedSender<MeshMaterial3d<M>>>,
     ),
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(
+        &MainEntity,
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
@@ -713,6 +852,7 @@ pub fn queue_material_meshes<M: Material>(
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (
+        main_view_entity,
         view,
         visible_entities,
         msaa,
@@ -896,6 +1036,7 @@ pub fn queue_material_meshes<M: Material>(
                 },
                 &mesh.layout,
             );
+            tx.send(visible_entity.entity(), main_view_entity.entity());
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
                 Err(err) => {

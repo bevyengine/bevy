@@ -3,7 +3,7 @@ use crate::{
     SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, AssetServer, Handle};
+use bevy_asset::{AsAssetId, Asset, AssetApp, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::{
         AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
@@ -199,6 +199,14 @@ impl<M: Material2d> From<MeshMaterial2d<M>> for AssetId<M> {
 impl<M: Material2d> From<&MeshMaterial2d<M>> for AssetId<M> {
     fn from(material: &MeshMaterial2d<M>) -> Self {
         material.id()
+    }
+}
+
+impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
+    type Asset = M;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
     }
 }
 
