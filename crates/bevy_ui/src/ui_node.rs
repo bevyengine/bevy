@@ -1064,7 +1064,7 @@ impl Overflow {
         }
     }
 
-    /// Hide overflowing items on both axes
+    /// Hide overflowing items on both axes by influencing layout and then clipping
     pub const fn hidden() -> Self {
         Self {
             x: OverflowAxis::Hidden,
@@ -1072,7 +1072,7 @@ impl Overflow {
         }
     }
 
-    /// Hide overflowing items on the x axis
+    /// Hide overflowing items on the x axis by influencing layout and then clipping
     pub const fn hidden_x() -> Self {
         Self {
             x: OverflowAxis::Hidden,
@@ -1080,7 +1080,7 @@ impl Overflow {
         }
     }
 
-    /// Hide overflowing items on the y axis
+    /// Hide overflowing items on the y axis by influencing layout and then clipping
     pub const fn hidden_y() -> Self {
         Self {
             x: OverflowAxis::Visible,
