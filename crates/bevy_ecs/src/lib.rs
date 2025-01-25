@@ -1531,6 +1531,7 @@ mod tests {
     #[test]
     fn filtered_query_access() {
         let mut world = World::new();
+        // We remove entity disabling so it doesn't affect our query filters
         world.remove_resource::<DefaultQueryFilters>();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 

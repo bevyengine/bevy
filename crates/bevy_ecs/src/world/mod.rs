@@ -3963,6 +3963,7 @@ mod tests {
     #[test]
     fn iter_resources() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
         world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
@@ -3990,6 +3991,7 @@ mod tests {
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
         world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
@@ -4465,6 +4467,7 @@ mod tests {
         world.spawn((Foo, Disabled));
         assert_eq!(1, world.query::<&Foo>().iter(&world).count());
 
+        // If we explicitly remove the resource, no entities should be filtered anymore
         world.remove_resource::<DefaultQueryFilters>();
         assert_eq!(2, world.query::<&Foo>().iter(&world).count());
     }
