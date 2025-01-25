@@ -3,8 +3,8 @@
 use bevy::image::{ImageAddressMode, ImageSamplerDescriptor};
 use bevy::prelude::*;
 use bevy::sprite::{Material2d, Material2dPlugin};
-use bevy_render::mesh::VertexAttributeValues;
-use bevy_render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::render::mesh::VertexAttributeValues;
+use bevy::render::render_resource::{AsBindGroup, ShaderRef};
 
 fn main() {
     App::new()

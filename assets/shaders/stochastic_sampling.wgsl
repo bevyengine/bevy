@@ -68,7 +68,7 @@ fn stochastic_sampling(uv: vec2<f32>, dx: vec2<f32>, dy: vec2<f32>, s: f32) -> v
     let offa = sin(vec2<f32>(3.0,7.0)*(i+0.0)); // can replace with any other hash
     let offb = sin(vec2<f32>(3.0,7.0)*(i+1.0)); // can replace with any other hash
 
-    // sample the two closest virtual pattersn
+    // sample the two closest virtual patterns
     let cola = textureSampleGrad(texture, texture_sampler, uv + s * offa, dx, dy);
     let colb = textureSampleGrad(texture, texture_sampler, uv + s * offb, dx, dy);
 
