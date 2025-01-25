@@ -2,9 +2,9 @@
 //! by using stochastic sampling. This example uses a custom shader to achieve the effect.
 use bevy::image::{ImageAddressMode, ImageSamplerDescriptor};
 use bevy::prelude::*;
-use bevy::sprite::{Material2d, Material2dPlugin};
 use bevy::render::mesh::VertexAttributeValues;
 use bevy::render::render_resource::{AsBindGroup, ShaderRef};
+use bevy::sprite::{Material2d, Material2dPlugin};
 
 fn main() {
     App::new()
