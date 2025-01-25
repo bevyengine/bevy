@@ -6,7 +6,7 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::{define_label, intern::Interned, prelude::World, resource::Resource};
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 use core::fmt::Debug;
 
 use super::{EdgeExistence, InternedRenderLabel, IntoRenderNodeArray};
@@ -680,7 +680,7 @@ mod tests {
         renderer::RenderContext,
     };
     use bevy_ecs::world::{FromWorld, World};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
 
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     enum TestLabel {

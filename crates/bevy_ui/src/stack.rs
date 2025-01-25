@@ -1,7 +1,7 @@
 //! This module contains the systems that update the stored UI nodes stack
 
 use bevy_ecs::prelude::*;
-use bevy_utils::HashSet;
+use bevy_platform_support::collections::HashSet;
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},

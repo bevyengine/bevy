@@ -612,14 +612,10 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
 }
 
-
 #[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();
     let ast = parse_macro_input!(input as DeriveInput);
-
-
-
     let name = ast.ident;
     let (impl_generics, ty_generics, where_clauses) = ast.generics.split_for_impl();
 

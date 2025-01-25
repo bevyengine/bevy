@@ -16,36 +16,40 @@ pub const ON_REMOVE: ComponentId = ComponentId::new(3);
 /// [`ComponentId`] for [`OnDespawn`]
 pub const ON_DESPAWN: ComponentId = ComponentId::new(4);
 
-/// Trigger emitted when a component is added to an entity. See [`crate::component::ComponentHooks::on_add`]
-/// for more information.
+/// Trigger emitted when a component is inserted onto an entity that does not already have that
+/// component. Runs before `OnInsert`.
+/// See [`crate::component::ComponentHooks::on_add`] for more information.
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct OnAdd;
 
-/// Trigger emitted when a component is inserted onto an entity. See [`crate::component::ComponentHooks::on_insert`]
-/// for more information.
+/// Trigger emitted when a component is inserted, regardless of whether or not the entity already
+/// had that component. Runs after `OnAdd`, if it ran.
+/// See [`crate::component::ComponentHooks::on_insert`] for more information.
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct OnInsert;
 
-/// Trigger emitted when a component is replaced on an entity. See [`crate::component::ComponentHooks::on_replace`]
-/// for more information.
+/// Trigger emitted when a component is inserted onto an entity that already has that component.
+/// Runs before the value is replaced, so you can still access the original component data.
+/// See [`crate::component::ComponentHooks::on_replace`] for more information.
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct OnReplace;
 
-/// Trigger emitted when a component is removed from an entity. See [`crate::component::ComponentHooks::on_remove`]
-/// for more information.
+/// Trigger emitted when a component is removed from an entity, and runs before the component is
+/// removed, so you can still access the component data.
+/// See [`crate::component::ComponentHooks::on_remove`] for more information.
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 pub struct OnRemove;
 
-/// Trigger emitted for each component on an entity when it is despawned. See [`crate::component::ComponentHooks::on_despawn`]
-/// for more information.
+/// Trigger emitted for each component on an entity when it is despawned.
+/// See [`crate::component::ComponentHooks::on_despawn`] for more information.
 #[derive(Event, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]

@@ -35,7 +35,7 @@ mod tests {
     use serde::{de::DeserializeSeed, Deserialize};
     use serde::{de::IgnoredAny, Deserializer};
 
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform_support::collections::{HashMap, HashSet};
 
     use crate::{
         self as bevy_reflect,

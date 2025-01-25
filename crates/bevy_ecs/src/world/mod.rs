@@ -3716,10 +3716,17 @@ unsafe impl Sync for World {}
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
 ///
+<<<<<<< HEAD
 /// [`FromWorld`] is automatically implemented for any type implementing [`Default`],
 /// and may also be derived for:
 /// - any struct whose fields all implement `FromWorld`
 /// - any enum where one variant has the attribute #\[from_world\]
+=======
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`]
+/// and may also be derived for:
+/// - any struct whose fields all implement `FromWorld`
+/// - any enum where one variant has the attribute `#[from_world]`
+>>>>>>> upstream/main
 ///
 /// ```rs
 ///
@@ -3740,7 +3747,11 @@ unsafe impl Sync for World {}
 /// #[derive(FromWorld)]
 /// struct D(A, B, C);
 ///
+<<<<<<< HEAD
 /// #[Derive(FromWorld)]
+=======
+/// #[derive(FromWorld)]
+>>>>>>> upstream/main
 /// enum E {
 ///     #[from_world]
 ///     F,
@@ -3778,7 +3789,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform_support::collections::{HashMap, HashSet};
     use core::{
         any::TypeId,
         panic,

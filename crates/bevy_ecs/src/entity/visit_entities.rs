@@ -62,7 +62,7 @@ mod tests {
         world::World,
     };
     use alloc::{string::String, vec, vec::Vec};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
 
     use super::*;
 

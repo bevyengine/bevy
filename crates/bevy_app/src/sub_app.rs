@@ -6,7 +6,7 @@ use bevy_ecs::{
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
     system::{SystemId, SystemInput},
 };
-use bevy_utils::{HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]

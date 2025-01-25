@@ -19,8 +19,8 @@ use crate::{
     },
 };
 use alloc::vec::Vec;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::{HashMap, HashSet};
 #[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
@@ -244,7 +244,7 @@ impl<'w> EntityRef<'w> {
     /// ## [`HashSet`] of [`ComponentId`]s
     ///
     /// ```
-    /// # use bevy_utils::HashSet;
+    /// # use bevy_platform_support::collections::HashSet;
     /// # use bevy_ecs::{prelude::*, component::ComponentId};
     /// #
     /// # #[derive(Component, PartialEq, Debug)]
@@ -787,7 +787,7 @@ impl<'w> EntityMut<'w> {
     /// ## [`HashSet`] of [`ComponentId`]s
     ///
     /// ```
-    /// # use bevy_utils::HashSet;
+    /// # use bevy_platform_support::collections::HashSet;
     /// # use bevy_ecs::{prelude::*, component::ComponentId};
     /// #
     /// # #[derive(Component, PartialEq, Debug)]
@@ -4401,10 +4401,10 @@ mod tests {
     use bevy_ptr::{OwningPtr, Ptr};
     use core::panic::AssertUnwindSafe;
 
-    use core::panic::Location;
     #[cfg(feature = "track_location")]
-    use std::sync::OnceLock;
+    use {core::panic::Location, std::sync::OnceLock};
 
+    use crate::component::HookContext;
     use crate::{
         self as bevy_ecs,
         change_detection::MutUntyped,
@@ -5482,22 +5482,12 @@ mod tests {
     #[component(on_add = ord_a_hook_on_add, on_insert = ord_a_hook_on_insert, on_replace = ord_a_hook_on_replace, on_remove = ord_a_hook_on_remove)]
     struct OrdA;
 
-    fn ord_a_hook_on_add(
-        mut world: DeferredWorld,
-        entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_a_hook_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         world.resource_mut::<TestVec>().0.push("OrdA hook on_add");
         world.commands().entity(entity).insert(OrdB);
     }
 
-    fn ord_a_hook_on_insert(
-        mut world: DeferredWorld,
-        entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_a_hook_on_insert(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
@@ -5506,24 +5496,14 @@ mod tests {
         world.commands().entity(entity).remove::<OrdB>();
     }
 
-    fn ord_a_hook_on_replace(
-        mut world: DeferredWorld,
-        _entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_a_hook_on_replace(mut world: DeferredWorld, _: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
             .push("OrdA hook on_replace");
     }
 
-    fn ord_a_hook_on_remove(
-        mut world: DeferredWorld,
-        _entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_a_hook_on_remove(mut world: DeferredWorld, _: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
@@ -5550,12 +5530,7 @@ mod tests {
     #[component(on_add = ord_b_hook_on_add, on_insert = ord_b_hook_on_insert, on_replace = ord_b_hook_on_replace, on_remove = ord_b_hook_on_remove)]
     struct OrdB;
 
-    fn ord_b_hook_on_add(
-        mut world: DeferredWorld,
-        _entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_b_hook_on_add(mut world: DeferredWorld, _: HookContext) {
         world.resource_mut::<TestVec>().0.push("OrdB hook on_add");
         world.commands().queue(|world: &mut World| {
             world
@@ -5565,36 +5540,21 @@ mod tests {
         });
     }
 
-    fn ord_b_hook_on_insert(
-        mut world: DeferredWorld,
-        _entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_b_hook_on_insert(mut world: DeferredWorld, _: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
             .push("OrdB hook on_insert");
     }
 
-    fn ord_b_hook_on_replace(
-        mut world: DeferredWorld,
-        _entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_b_hook_on_replace(mut world: DeferredWorld, _: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
             .push("OrdB hook on_replace");
     }
 
-    fn ord_b_hook_on_remove(
-        mut world: DeferredWorld,
-        _entity: Entity,
-        _id: ComponentId,
-        _caller: Option<&'static Location<'static>>,
-    ) {
+    fn ord_b_hook_on_remove(mut world: DeferredWorld, _: HookContext) {
         world
             .resource_mut::<TestVec>()
             .0
@@ -5734,7 +5694,7 @@ mod tests {
         struct C;
 
         static TRACKED: OnceLock<&'static Location<'static>> = OnceLock::new();
-        fn get_tracked(world: DeferredWorld, entity: Entity, _: ComponentId, _: Option<&Location>) {
+        fn get_tracked(world: DeferredWorld, HookContext { entity, .. }: HookContext) {
             TRACKED.get_or_init(|| {
                 world
                     .entities
@@ -5795,35 +5755,35 @@ mod tests {
         world.register_component::<Foo>();
         world
             .register_component_hooks::<Foo>()
-            .on_add(|world, entity, _, _| {
+            .on_add(|world, context| {
                 ADD_COUNT.fetch_add(1, Ordering::Relaxed);
 
                 assert_eq!(
-                    world.get(entity),
+                    world.get(context.entity),
                     Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
                 );
             })
-            .on_remove(|world, entity, _, _| {
+            .on_remove(|world, context| {
                 REMOVE_COUNT.fetch_add(1, Ordering::Relaxed);
 
                 assert_eq!(
-                    world.get(entity),
+                    world.get(context.entity),
                     Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
                 );
             })
-            .on_replace(|world, entity, _, _| {
+            .on_replace(|world, context| {
                 REPLACE_COUNT.fetch_add(1, Ordering::Relaxed);
 
                 assert_eq!(
-                    world.get(entity),
+                    world.get(context.entity),
                     Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
                 );
             })
-            .on_insert(|world, entity, _, _| {
+            .on_insert(|world, context| {
                 INSERT_COUNT.fetch_add(1, Ordering::Relaxed);
 
                 assert_eq!(
-                    world.get(entity),
+                    world.get(context.entity),
                     Some(&Foo(EXPECTED_VALUE.load(Ordering::Relaxed)))
                 );
             });

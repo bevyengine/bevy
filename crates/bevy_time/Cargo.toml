@@ -21,7 +21,11 @@ bevy_reflect = [
 ]
 
 ## Adds serialization support through `serde`.
-serialize = ["dep:serde", "bevy_ecs/serialize"]
+serialize = [
+  "dep:serde",
+  "bevy_ecs/serialize",
+  "bevy_platform_support/serialize",
+]
 
 # Platform Compatibility
 

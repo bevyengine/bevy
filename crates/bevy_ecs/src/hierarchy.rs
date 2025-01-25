@@ -14,7 +14,7 @@ use crate::reflect::{
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
-    component::{Component, ComponentId},
+    component::{Component, HookContext},
     entity::{Entity, VisitEntities},
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
@@ -22,8 +22,8 @@ use crate::{
 };
 use alloc::{format, string::String, vec::Vec};
 use bevy_ecs_macros::VisitEntitiesMut;
+use core::ops::Deref;
 use core::slice;
-use core::{ops::Deref, panic::Location};
 use disqualified::ShortName;
 use log::warn;
 
@@ -268,9 +268,7 @@ impl<'a> EntityCommands<'a> {
 /// contains component `C`. This will print a warning if the parent does not contain `C`.
 pub fn validate_parent_has_component<C: Component>(
     world: DeferredWorld,
-    entity: Entity,
-    _: ComponentId,
-    caller: Option<&'static Location<'static>>,
+    HookContext { entity, caller, .. }: HookContext,
 ) {
     let entity_ref = world.entity(entity);
     let Some(child_of) = entity_ref.get::<ChildOf>() else {

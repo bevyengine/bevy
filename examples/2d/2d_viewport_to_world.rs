@@ -31,4 +31,15 @@ fn draw_cursor(
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
+
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Move the mouse to see the circle follow your cursor."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }

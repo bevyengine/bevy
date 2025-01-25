@@ -18,9 +18,10 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{prelude::default, HashMap};
+use bevy_utils::prelude::default;
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
