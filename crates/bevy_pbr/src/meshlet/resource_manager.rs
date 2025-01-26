@@ -104,6 +104,7 @@ impl ResourceManager {
                     label: Some("meshlet_depth_pyramid_dummy_texture_view"),
                     format: Some(TextureFormat::R32Float),
                     dimension: Some(TextureViewDimension::D2),
+                    usage: None,
                     aspect: TextureAspect::All,
                     base_mip_level: 0,
                     mip_level_count: Some(1),
