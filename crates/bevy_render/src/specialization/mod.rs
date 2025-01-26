@@ -4,8 +4,10 @@ use crate::extract_resource::ExtractResource;
 use crate::render_resource::CachedRenderPipelineId;
 use crate::specialization::view::{SpecializeViewKey, ViewSpecializationTicks};
 use crate::sync_world::{MainEntity, MainEntityHashMap};
+use crate::view::VisibilitySystems;
 use crate::{Extract, ExtractSchedule, RenderApp};
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Last, Plugin, PostUpdate};
+use bevy_asset::AssetEvents;
 use bevy_ecs::component::{Component, Tick};
 use bevy_ecs::entity::{Entity, EntityBorrow, EntityHash};
 use bevy_ecs::prelude::SystemSet;
@@ -32,14 +34,55 @@ impl<M> Plugin for CheckSpecializationPlugin<M>
 where
     M: NeedsSpecialization,
 {
-    fn build(&self, _app: &mut App) {}
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Last,
+            check_entities_needing_specialization::<M>.after(AssetEvents),
+        )
+        .init_resource::<EntitiesNeedingSpecialization<M>>();
+    }
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_systems(ExtractSchedule, extract_entities_needs_specialization::<M>)
                 .init_resource::<EntitySpecializationTicks<M>>()
-                .init_resource::<SpecializedMaterialPipelineCache::<M>>();
+                .init_resource::<SpecializedMaterialPipelineCache<M>>();
+        }
+    }
+}
+
+fn check_entities_needing_specialization<M>(
+    mut thread_queues: Local<Parallel<Vec<Entity>>>,
+    mut needs_specialization: Query<(Entity, M::QueryData), M::QueryFilter>,
+    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
+) where
+    M: NeedsSpecialization,
+{
+    entities_needing_specialization.entities.clear();
+    needs_specialization.par_iter_mut().for_each_init(
+        || thread_queues.borrow_local_mut(),
+        |queue, (entity, item)| {
+            if M::needs_specialization(item) {
+                queue.push(entity.into());
+            }
+        },
+    );
+
+    thread_queues.drain_into(&mut entities_needing_specialization.entities);
+}
+
+#[derive(Clone, Resource, Debug)]
+pub struct EntitiesNeedingSpecialization<M> {
+    pub entities: Vec<Entity>,
+    _marker: PhantomData<M>,
+}
+
+impl<M> Default for EntitiesNeedingSpecialization<M> {
+    fn default() -> Self {
+        Self {
+            entities: Default::default(),
+            _marker: Default::default(),
         }
     }
 }
@@ -50,7 +93,7 @@ pub struct EntitySpecializationTicks<M> {
     _marker: PhantomData<M>,
 }
 
-impl <M> Default for EntitySpecializationTicks<M> {
+impl<M> Default for EntitySpecializationTicks<M> {
     fn default() -> Self {
         Self {
             entities: MainEntityHashMap::default(),
@@ -65,7 +108,8 @@ where
     M: NeedsSpecialization,
 {
     entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
-    view_specialization_ticks: Res<'w, ViewSpecializationTicks<<M as NeedsSpecialization>::ViewKey>>,
+    view_specialization_ticks:
+        Res<'w, ViewSpecializationTicks<<M as NeedsSpecialization>::ViewKey>>,
     specialized_material_pipeline_cache: ResMut<'w, SpecializedMaterialPipelineCache<M>>,
     ticks: SystemChangeTick,
 }
@@ -118,43 +162,26 @@ where
 }
 
 pub fn extract_entities_needs_specialization<M>(
-    mut thread_queues: Local<Parallel<Vec<MainEntity>>>,
-    mut needs_specialization: Extract<Query<(Entity, M::QueryData), M::QueryFilter>>,
+    mut entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
     ticks: SystemChangeTick,
 ) where
     M: NeedsSpecialization,
 {
-    needs_specialization.par_iter_mut().for_each_init(
-        || thread_queues.borrow_local_mut(),
-        |queue, (entity, item)| {
-            if M::needs_specialization(item) {
-                println!("Entity {:?} needs specialization", entity);
-                queue.push(entity.into());
-            }
-        },
-    );
-
-    let size = thread_queues.iter_mut().map(|queue| queue.len()).sum();
-    entity_specialization_ticks.entities.reserve(size);
-    let this_run = ticks.this_run();
-    for queue in thread_queues.iter_mut() {
-        for entity in queue.drain(..) {
-            // Update the entity's specialization tick with this run's tick
-            entity_specialization_ticks.entities.insert(entity, this_run);
-        }
+    for entity in &entities_needing_specialization.entities {
+        // Update the entity's specialization tick with this run's tick
+        entity_specialization_ticks
+            .entities
+            .insert((*entity).into(), ticks.this_run());
     }
 }
-
 
 pub trait NeedsSpecialization: Component {
     type ViewKey: SpecializeViewKey;
     type QueryData: ReadOnlyQueryData + 'static;
     type QueryFilter: QueryFilter + 'static;
 
-    fn needs_specialization(
-        item: ROQueryItem<'_, Self::QueryData>,
-    ) -> bool;
+    fn needs_specialization(item: ROQueryItem<'_, Self::QueryData>) -> bool;
 }
 
 #[derive(Resource)]
