@@ -5,7 +5,7 @@
 
 use crate::{
     curve::{Curve, CurveExt, FunctionCurve, Interval},
-    Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
+    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
 };
 
 use variadics_please::all_tuples_enumerated;
@@ -71,6 +71,42 @@ impl Ease for Dir3A {
         let difference_quat =
             Quat::from_rotation_arc(start.as_vec3a().into(), end.as_vec3a().into());
         Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
+    }
+}
+
+impl Ease for Isometry3d {
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| {
+            // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
+            // used are defined on the whole domain
+            Isometry3d {
+                rotation: Quat::interpolating_curve_unbounded(start.rotation, end.rotation)
+                    .sample_unchecked(t),
+                translation: crate::Vec3A::interpolating_curve_unbounded(
+                    start.translation,
+                    end.translation,
+                )
+                .sample_unchecked(t),
+            }
+        })
+    }
+}
+
+impl Ease for Isometry2d {
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| {
+            // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
+            // used are defined on the whole domain
+            Isometry2d {
+                rotation: Rot2::interpolating_curve_unbounded(start.rotation, end.rotation)
+                    .sample_unchecked(t),
+                translation: crate::Vec2::interpolating_curve_unbounded(
+                    start.translation,
+                    end.translation,
+                )
+                .sample_unchecked(t),
+            }
+        })
     }
 }
 
