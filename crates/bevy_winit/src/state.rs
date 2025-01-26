@@ -571,12 +571,17 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // If no windows exist, this will evaluate to `true`.
             let all_invisible = windows.iter().all(|w| !w.1.visible);
 
+            let app_is_exit = matches!(self.app_exit, Some(AppExit::Success));
+
+            // If all windows are invisible and the app is not exiting, need to update the app.
+            let need_update = all_invisible && !app_is_exit;
+
             // Not redrawing, but the timeout elapsed.
             //
             // Additional condition for Windows OS.
             // If no windows are visible, redraw calls will never succeed, which results in no app update calls being performed.
             // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
-            if !self.ran_update_since_last_redraw || all_invisible {
+            if !self.ran_update_since_last_redraw || need_update {
                 self.run_app_update();
                 #[cfg(feature = "custom_cursor")]
                 self.update_cursors(event_loop);
