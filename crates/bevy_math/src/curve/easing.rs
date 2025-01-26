@@ -663,6 +663,9 @@ impl EaseFunction {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Vec2, Vec3, Vec3A};
+    use approx::assert_abs_diff_eq;
+
     use super::*;
     const MONOTONIC_IN_OUT_INOUT: &[[EaseFunction; 3]] = {
         use EaseFunction::*;
@@ -754,5 +757,86 @@ mod tests {
                 "EaseFunction.{ef_inout:?}(½) was {mid:?}",
             );
         }
+    }
+
+    #[test]
+    fn ease_quats() {
+        let quat_start = Quat::from_axis_angle(Vec3::Z, 0.0);
+        let quat_end = Quat::from_axis_angle(Vec3::Z, 90.0);
+
+        let quat_curve = Quat::interpolating_curve_unbounded(quat_start, quat_end);
+
+        assert_abs_diff_eq!(
+            quat_curve.sample(0.0).unwrap(),
+            Quat::from_axis_angle(Vec3::Z, 0.0)
+        );
+        assert_abs_diff_eq!(
+            quat_curve.sample(0.5).unwrap(),
+            Quat::from_axis_angle(Vec3::Z, 45.0)
+        );
+        assert_abs_diff_eq!(
+            quat_curve.sample(1.0).unwrap(),
+            Quat::from_axis_angle(Vec3::Z, 90.0)
+        );
+    }
+
+    #[test]
+    fn ease_isometries_2d() {
+        let mk = Isometry2d::new;
+        let iso_2d_start = mk(Vec2::ZERO, Rot2::degrees(0.0));
+        let iso_2d_end = mk(Vec2::ONE, Rot2::degrees(90.0));
+
+        let iso_2d_curve = Isometry2d::interpolating_curve_unbounded(iso_2d_start, iso_2d_end);
+
+        assert_abs_diff_eq!(
+            iso_2d_curve.sample(-1.0).unwrap(),
+            mk(Vec2::ONE * -1.0, Rot2::degrees(-90.0))
+        );
+        assert_abs_diff_eq!(
+            iso_2d_curve.sample(0.0).unwrap(),
+            mk(Vec2::ZERO, Rot2::degrees(0.0))
+        );
+        assert_abs_diff_eq!(
+            iso_2d_curve.sample(0.5).unwrap(),
+            mk(Vec2::ONE * 0.5, Rot2::degrees(45.0))
+        );
+        assert_abs_diff_eq!(
+            iso_2d_curve.sample(1.0).unwrap(),
+            mk(Vec2::ONE, Rot2::degrees(90.0))
+        );
+        assert_abs_diff_eq!(
+            iso_2d_curve.sample(2.0).unwrap(),
+            mk(Vec2::ONE * 2.0, Rot2::degrees(180.0))
+        );
+    }
+
+    #[test]
+    fn ease_isometries_3d() {
+        let mk = Isometry3d::new;
+        let iso_3d_start = mk(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0));
+        let iso_3d_end = mk(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, 90.0));
+
+        let iso_3d_curve = Isometry3d::interpolating_curve_unbounded(iso_3d_start, iso_3d_end);
+
+        assert_abs_diff_eq!(
+            iso_3d_curve.sample(-1.0).unwrap(),
+            mk(Vec3A::ONE * -1.0, Quat::from_axis_angle(Vec3::Z, -90.0))
+        );
+        assert_abs_diff_eq!(
+            iso_3d_curve.sample(0.0).unwrap(),
+            mk(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0))
+        );
+        assert_abs_diff_eq!(
+            iso_3d_curve.sample(0.5).unwrap(),
+            mk(Vec3A::ONE * 0.5, Quat::from_axis_angle(Vec3::Z, 45.0))
+        );
+        assert_abs_diff_eq!(
+            iso_3d_curve.sample(1.0).unwrap(),
+            mk(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, 90.0))
+        );
+        assert_abs_diff_eq!(
+            iso_3d_curve.sample(2.0).unwrap(),
+            mk(Vec3A::ONE * 2.0, Quat::from_axis_angle(Vec3::Z, 180.0))
+        );
     }
 }
