@@ -36,7 +36,7 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Last,
+            PostUpdate,
             check_entities_needing_specialization::<M>.after(AssetEvents),
         )
         .init_resource::<EntitiesNeedingSpecialization<M>>();
