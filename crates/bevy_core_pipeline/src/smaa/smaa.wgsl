@@ -44,7 +44,7 @@
  * Here you'll find instructions to get the shader up and running as fast as
  * possible.
  *
- * IMPORTANTE NOTICE: when updating, remember to update both this file and the
+ * IMPORTANT NOTICE: when updating, remember to update both this file and the
  * precomputed textures! They may change from version to version.
  *
  * The shader has three passes, chained together as follows:
@@ -429,7 +429,7 @@ const SMAA_CORNER_ROUNDING: u32 = 25u;
 // "SMAA Presets".)
 
 /**
- * If there is an neighbor edge that has SMAA_LOCAL_CONTRAST_FACTOR times
+ * If there is a neighbor edge that has SMAA_LOCAL_CONTRAST_FACTOR times
  * bigger contrast than current edge, current edge will be discarded.
  *
  * This allows to eliminate spurious crossing edges, and is based on the fact
@@ -757,10 +757,10 @@ fn calculate_diag_weights(tex_coord: vec2<f32>, e: vec2<f32>, subsample_indices:
     let d_xz = search_diag_2(tex_coord, vec2(-1.0, -1.0), &end);
     if (textureSampleLevel(edges_texture, edges_sampler, tex_coord, 0.0, vec2(1, 0)).r > 0.0) {
         let d_yw = search_diag_2(tex_coord, vec2(1.0, 1.0), &end);
-        d = vec4(d.x, d_yw.x, d.z, d_yw.y);
+        d = vec4(d_xz.x, d_yw.x, d_xz.y, d_yw.y);
         d.y += f32(end.y > 0.9);
     } else {
-        d = vec4(d.x, 0.0, d.z, 0.0);
+        d = vec4(d_xz.x, 0.0, d_xz.y, 0.0);
     }
 
     if (d.x + d.y > 2.0) {  // d.x + d.y + 1 > 3

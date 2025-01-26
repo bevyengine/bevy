@@ -17,12 +17,12 @@ fn main() {
 
 fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Top-level grid (app frame)
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 // Use the CSS Grid algorithm for laying out this node
                 display: Display::Grid,
                 // Make node fill the entirety of its parent (in this case the window)
@@ -43,30 +43,28 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ],
                 ..default()
             },
-            background_color: BackgroundColor(Color::WHITE),
-            ..default()
-        })
+            BackgroundColor(Color::WHITE),
+        ))
         .with_children(|builder| {
             // Header
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn(
+                    Node {
                         display: Display::Grid,
                         // Make this node span two grid columns so that it takes up the entire top tow
                         grid_column: GridPlacement::span(2),
                         padding: UiRect::all(Val::Px(6.0)),
                         ..default()
                     },
-                    ..default()
-                })
+                )
                 .with_children(|builder| {
                     spawn_nested_text_bundle(builder, font.clone(), "Bevy CSS Grid Layout Example");
                 });
 
             // Main content grid (auto placed in row 2, column 1)
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         // Make the height of the node fill its parent
                         height: Val::Percent(100.0),
                         // Make the grid have a 1:1 aspect ratio meaning it will scale as an exact square
@@ -87,9 +85,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         column_gap: Val::Px(12.0),
                         ..default()
                     },
-                    background_color: BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+                ))
                 .with_children(|builder| {
                     // Note there is no need to specify the position for each grid item. Grid items that are
                     // not given an explicit position will be automatically positioned into the next available
@@ -116,8 +113,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             // Right side bar (auto placed in row 2, column 2)
             builder
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         display: Display::Grid,
                         // Align content towards the start (top) in the vertical axis
                         align_items: AlignItems::Start,
@@ -132,44 +129,38 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                         row_gap: Val::Px(10.),
                         ..default()
                     },
-                    background_color: BackgroundColor(BLACK.into()),
-                    ..default()
-                })
+                    BackgroundColor(BLACK.into()),
+                ))
                 .with_children(|builder| {
-                    builder.spawn(TextBundle::from_section(
-                        "Sidebar",
-                        TextStyle {
+                    builder.spawn((Text::new("Sidebar"),
+                        TextFont {
                             font: font.clone(),
-                            font_size: 24.0,
                             ..default()
                         },
                     ));
-                    builder.spawn(TextBundle::from_section(
-                        "A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely.",
-                        TextStyle {
+                    builder.spawn((Text::new("A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely. A paragraph of text which ought to wrap nicely."),
+                        TextFont {
                             font: font.clone(),
-                            font_size: 16.0,
+                            font_size: 13.0,
                             ..default()
                         },
                     ));
-                    builder.spawn(NodeBundle::default());
+                    builder.spawn(Node::default());
                 });
 
             // Footer / status bar
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     // Make this node span two grid column so that it takes up the entire bottom row
                     grid_column: GridPlacement::span(2),
                     ..default()
                 },
-                background_color: BackgroundColor(WHITE.into()),
-                ..default()
-            });
+                BackgroundColor(WHITE.into()),
+            ));
 
             // Modal (absolutely positioned on top of content - currently hidden: to view it, change its visibility)
-            builder.spawn(NodeBundle {
-                visibility: Visibility::Hidden,
-                style: Style {
+            builder.spawn((
+                Node {
                     position_type: PositionType::Absolute,
                     margin: UiRect {
                         top: Val::Px(100.),
@@ -182,41 +173,34 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     max_width: Val::Px(600.),
                     ..default()
                 },
-                background_color: BackgroundColor(Color::WHITE.with_alpha(0.8)),
-                ..default()
-            });
+                Visibility::Hidden,
+                BackgroundColor(Color::WHITE.with_alpha(0.8)),
+            ));
         });
 }
 
-/// Create a coloured rectangle node. The node has size as it is assumed that it will be
+/// Create a colored rectangle node. The node has size as it is assumed that it will be
 /// spawned as a child of a Grid container with `AlignItems::Stretch` and `JustifyItems::Stretch`
 /// which will allow it to take its size from the size of the grid area it occupies.
-fn item_rect(builder: &mut ChildBuilder, color: Srgba) {
+fn item_rect(builder: &mut ChildSpawnerCommands, color: Srgba) {
     builder
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 display: Display::Grid,
                 padding: UiRect::all(Val::Px(3.0)),
                 ..default()
             },
-            background_color: BackgroundColor(BLACK.into()),
-            ..default()
-        })
+            BackgroundColor(BLACK.into()),
+        ))
         .with_children(|builder| {
-            builder.spawn(NodeBundle {
-                background_color: BackgroundColor(color.into()),
-                ..default()
-            });
+            builder.spawn((Node::default(), BackgroundColor(color.into())));
         });
 }
 
-fn spawn_nested_text_bundle(builder: &mut ChildBuilder, font: Handle<Font>, text: &str) {
-    builder.spawn(TextBundle::from_section(
-        text,
-        TextStyle {
-            font,
-            font_size: 24.0,
-            color: Color::BLACK,
-        },
+fn spawn_nested_text_bundle(builder: &mut ChildSpawnerCommands, font: Handle<Font>, text: &str) {
+    builder.spawn((
+        Text::new(text),
+        TextFont { font, ..default() },
+        TextColor::BLACK,
     ));
 }

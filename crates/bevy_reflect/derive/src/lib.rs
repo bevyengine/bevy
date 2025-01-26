@@ -16,6 +16,7 @@
 
 extern crate proc_macro;
 
+mod attribute_parser;
 mod container_attributes;
 mod custom_attributes;
 mod derive_data;
@@ -24,25 +25,31 @@ mod documentation;
 mod enum_utility;
 mod field_attributes;
 mod from_reflect;
+mod generics;
+mod ident;
 mod impls;
-mod reflect_value;
+mod meta;
+mod reflect_opaque;
 mod registration;
+mod remote;
+mod result_sifter;
 mod serialization;
+mod string_expr;
+mod struct_utility;
 mod trait_reflection;
 mod type_path;
-mod utility;
+mod where_clause_options;
 
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ContainerAttributes;
 use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
 use proc_macro::TokenStream;
 use quote::quote;
-use reflect_value::ReflectValueDef;
+use reflect_opaque::ReflectOpaqueDef;
 use syn::{parse_macro_input, DeriveInput};
 use type_path::NamedTypePathDef;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
-pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 pub(crate) static TYPE_PATH_ATTRIBUTE_NAME: &str = "type_path";
 pub(crate) static TYPE_NAME_ATTRIBUTE_NAME: &str = "type_name";
 
@@ -61,6 +68,8 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
+
+    let assertions = impls::impl_assertions(&derive_data);
 
     let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
@@ -87,10 +96,10 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
                 None
             },
         ),
-        ReflectDerive::Value(meta) => (
-            impls::impl_value(&meta),
+        ReflectDerive::Opaque(meta) => (
+            impls::impl_opaque(&meta),
             if meta.from_reflect().should_auto_derive() {
-                Some(from_reflect::impl_value(&meta))
+                Some(from_reflect::impl_opaque(&meta))
             } else {
                 None
             },
@@ -100,7 +109,10 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
     TokenStream::from(quote! {
         const _: () = {
             #reflect_impls
+
             #from_reflect_impl
+
+            #assertions
         };
     })
 }
@@ -148,7 +160,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   the type's [`Debug`] implementation.
 ///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
 ///   `my_debug_func` is the path to a function matching the signature:
-///   `(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result`.
+///   `(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result`.
 /// * `#[reflect(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
 ///   the type's [`PartialEq`] implementation.
 ///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
@@ -166,10 +178,10 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 ///   a base value using its [`Default`] implementation avoiding issues with ignored fields
 ///   (for structs and tuple structs only).
 ///
-/// ## `#[reflect_value]`
+/// ## `#[reflect(opaque)]`
 ///
-/// The `#[reflect_value]` attribute (which may also take the form `#[reflect_value(Ident)]`),
-/// denotes that the item should implement `Reflect` as though it were a base value type.
+/// The `#[reflect(opaque)]` attribute denotes that the item should implement `Reflect` as an opaque type,
+/// hiding its structure and fields from the reflection API.
 /// This means that it will forgo implementing `Struct`, `TupleStruct`, or `Enum`.
 ///
 /// Furthermore, it requires that the type implements [`Clone`].
@@ -357,7 +369,7 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// ```
 ///
 /// [`reflect_trait`]: macro@reflect_trait
-#[proc_macro_derive(Reflect, attributes(reflect, reflect_value, type_path, type_name))]
+#[proc_macro_derive(Reflect, attributes(reflect, type_path, type_name))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     match_reflect_impls(ast, ReflectImplSource::DeriveLocalType)
@@ -410,7 +422,7 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
         }
         ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
         ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
-        ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
+        ReflectDerive::Opaque(meta) => from_reflect::impl_opaque(&meta),
     };
 
     TokenStream::from(quote! {
@@ -511,12 +523,97 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
     trait_reflection::reflect_trait(&args, input)
 }
 
+/// Generates a wrapper type that can be used to "derive `Reflect`" for remote types.
+///
+/// This works by wrapping the remote type in a generated wrapper that has the `#[repr(transparent)]` attribute.
+/// This allows the two types to be safely [transmuted] back-and-forth.
+///
+/// # Defining the Wrapper
+///
+/// Before defining the wrapper type, please note that it is _required_ that all fields of the remote type are public.
+/// The generated code will, at times, need to access or mutate them,
+/// and we do not currently have a way to assign getters/setters to each field
+/// (but this may change in the future).
+///
+/// The wrapper definition should match the remote type 1-to-1.
+/// This includes the naming and ordering of the fields and variants.
+///
+/// Generics and lifetimes do _not_ need to have the same names, however, they _do_ need to follow the same order.
+/// Additionally, whether generics are inlined or placed in a where clause should not matter.
+///
+/// Lastly, all macros and doc-comments should be placed __below__ this attribute.
+/// If they are placed above, they will not be properly passed to the generated wrapper type.
+///
+/// # Example
+///
+/// Given a remote type, `RemoteType`:
+///
+/// ```
+/// #[derive(Default)]
+/// struct RemoteType<T>
+/// where
+///   T: Default + Clone,
+/// {
+///   pub foo: T,
+///   pub bar: usize
+/// }
+/// ```
+///
+/// We would define our wrapper type as such:
+///
+/// ```ignore
+/// use external_crate::RemoteType;
+///
+/// #[reflect_remote(RemoteType<T>)]
+/// #[derive(Default)]
+/// pub struct WrapperType<T: Default + Clone> {
+///   pub foo: T,
+///   pub bar: usize
+/// }
+/// ```
+///
+/// Apart from all the reflection trait implementations, this generates something like the following:
+///
+/// ```ignore
+/// use external_crate::RemoteType;
+///
+/// #[derive(Default)]
+/// #[repr(transparent)]
+/// pub struct Wrapper<T: Default + Clone>(RemoteType<T>);
+/// ```
+///
+/// # Usage as a Field
+///
+/// You can tell `Reflect` to use a remote type's wrapper internally on fields of a struct or enum.
+/// This allows the real type to be used as usual while `Reflect` handles everything internally.
+/// To do this, add the `#[reflect(remote = path::to::MyType)]` attribute to your field:
+///
+/// ```ignore
+/// #[derive(Reflect)]
+/// struct SomeStruct {
+///   #[reflect(remote = RemoteTypeWrapper)]
+///   data: RemoteType
+/// }
+/// ```
+///
+/// ## Safety
+///
+/// When using the `#[reflect(remote = path::to::MyType)]` field attribute, be sure you are defining the correct wrapper type.
+/// Internally, this field will be unsafely [transmuted], and is only sound if using a wrapper generated for the remote type.
+/// This also means keeping your wrapper definitions up-to-date with the remote types.
+///
+/// [transmuted]: std::mem::transmute
+#[proc_macro_attribute]
+pub fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
+    remote::reflect_remote(args, input)
+}
+
 /// A macro used to generate reflection trait implementations for the given type.
 ///
-/// This is functionally the same as [deriving `Reflect`] using the `#[reflect_value]` container attribute.
+/// This is functionally the same as [deriving `Reflect`] using the `#[reflect(opaque)]` container attribute.
 ///
 /// The only reason for this macro's existence is so that `bevy_reflect` can easily implement the reflection traits
-/// on primitives and other Rust types internally.
+/// on primitives and other opaque types internally.
 ///
 /// Since this macro also implements `TypePath`, the type path must be explicit.
 /// See [`impl_type_path!`] for the exact syntax.
@@ -526,26 +623,26 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 /// Types can be passed with or without registering type data:
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// impl_reflect_value!(my_crate::Foo);
-/// impl_reflect_value!(my_crate::Bar(Debug, Default, Serialize, Deserialize));
+/// impl_reflect_opaque!(my_crate::Foo);
+/// impl_reflect_opaque!(my_crate::Bar(Debug, Default, Serialize, Deserialize));
 /// ```
 ///
 /// Generic types can also specify their parameters and bounds:
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// impl_reflect_value!(my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
+/// impl_reflect_opaque!(my_crate::Foo<T1, T2: Baz> where T1: Bar (Default, Serialize, Deserialize));
 /// ```
 ///
 /// Custom type paths can be specified:
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// impl_reflect_value!((in not_my_crate as NotFoo) Foo(Debug, Default));
+/// impl_reflect_opaque!((in not_my_crate as NotFoo) Foo(Debug, Default));
 /// ```
 ///
 /// [deriving `Reflect`]: Reflect
 #[proc_macro]
-pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input with ReflectValueDef::parse_reflect);
+pub fn impl_reflect_opaque(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input with ReflectOpaqueDef::parse_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
     let type_path = if def.type_path.leading_colon.is_none() && def.custom_path.is_none() {
@@ -563,8 +660,8 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     #[cfg(feature = "documentation")]
     let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
 
-    let reflect_impls = impls::impl_value(&meta);
-    let from_reflect_impl = from_reflect::impl_value(&meta);
+    let reflect_impls = impls::impl_opaque(&meta);
+    let from_reflect_impl = from_reflect::impl_opaque(&meta);
 
     TokenStream::from(quote! {
         const _: () = {
@@ -577,8 +674,8 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which
 /// the definitions of cannot be altered.
 ///
-/// This macro is an alternative to [`impl_reflect_value!`] and [`impl_from_reflect_value!`]
-/// which implement foreign types as Value types. Note that there is no `impl_from_reflect`,
+/// This macro is an alternative to [`impl_reflect_opaque!`] and [`impl_from_reflect_opaque!`]
+/// which implement foreign types as Opaque types. Note that there is no `impl_from_reflect`,
 /// as this macro will do the job of both. This macro implements them using one of the reflect
 /// variant traits (`bevy_reflect::{Struct, TupleStruct, Enum}`, etc.),
 /// which have greater functionality. The type being reflected must be in scope, as you cannot
@@ -616,26 +713,26 @@ pub fn impl_reflect(input: TokenStream) -> TokenStream {
 /// A macro used to generate a `FromReflect` trait implementation for the given type.
 ///
 /// This is functionally the same as [deriving `FromReflect`] on a type that [derives `Reflect`] using
-/// the `#[reflect_value]` container attribute.
+/// the `#[reflect(opaque)]` container attribute.
 ///
 /// The only reason this macro exists is so that `bevy_reflect` can easily implement `FromReflect` on
-/// primitives and other Rust types internally.
+/// primitives and other opaque types internally.
 ///
 /// Please note that this macro will not work with any type that [derives `Reflect`] normally
-/// or makes use of the [`impl_reflect_value!`] macro, as those macros also implement `FromReflect`
+/// or makes use of the [`impl_reflect_opaque!`] macro, as those macros also implement `FromReflect`
 /// by default.
 ///
 /// # Examples
 ///
 /// ```ignore (bevy_reflect is not accessible from this crate)
-/// impl_from_reflect_value!(foo<T1, T2: Baz> where T1: Bar);
+/// impl_from_reflect_opaque!(foo<T1, T2: Baz> where T1: Bar);
 /// ```
 ///
 /// [deriving `FromReflect`]: FromReflect
 /// [derives `Reflect`]: Reflect
 #[proc_macro]
-pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input with ReflectValueDef::parse_from_reflect);
+pub fn impl_from_reflect_opaque(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input with ReflectOpaqueDef::parse_from_reflect);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
     let type_path = if def.type_path.leading_colon.is_none()
@@ -652,7 +749,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     };
 
     let from_reflect_impl =
-        from_reflect::impl_value(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
+        from_reflect::impl_opaque(&ReflectMeta::new(type_path, def.traits.unwrap_or_default()));
 
     TokenStream::from(quote! {
         const _: () = {

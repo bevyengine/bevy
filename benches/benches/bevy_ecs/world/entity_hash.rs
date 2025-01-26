@@ -1,10 +1,7 @@
-use bevy_ecs::entity::{Entity, EntityHashSet};
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use bevy_ecs::entity::{hash_set::EntityHashSet, Entity};
+use criterion::{BenchmarkId, Criterion, Throughput};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-
-criterion_group!(benches, entity_set_build_and_lookup,);
-criterion_main!(benches);
 
 const SIZES: [usize; 5] = [100, 316, 1000, 3162, 10000];
 
@@ -33,7 +30,7 @@ pub fn entity_set_build_and_lookup(c: &mut Criterion) {
         // Get some random-but-consistent entities to use for all the benches below.
         let mut rng = ChaCha8Rng::seed_from_u64(size as u64);
         let entities =
-            Vec::from_iter(std::iter::repeat_with(|| make_entity(&mut rng, size)).take(size));
+            Vec::from_iter(core::iter::repeat_with(|| make_entity(&mut rng, size)).take(size));
 
         group.throughput(Throughput::Elements(size as u64));
         group.bench_function(BenchmarkId::new("entity_set_build", size), |bencher| {

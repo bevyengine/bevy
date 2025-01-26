@@ -1,14 +1,21 @@
-use std::f32::consts::{FRAC_PI_3, PI};
+use core::f32::consts::{FRAC_PI_3, PI};
 
 use super::{Circle, Measured2d, Measured3d, Primitive2d, Primitive3d};
-use crate::{Dir3, InvalidDirectionError, Mat3, Vec2, Vec3};
+use crate::{
+    ops::{self, FloatPow},
+    Dir3, InvalidDirectionError, Isometry3d, Mat3, Vec2, Vec3,
+};
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use glam::Quat;
 
-/// A sphere primitive
+#[cfg(feature = "alloc")]
+use alloc::{boxed::Box, vec::Vec};
+
+/// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -54,13 +61,13 @@ impl Sphere {
     pub fn closest_point(&self, point: Vec3) -> Vec3 {
         let distance_squared = point.length_squared();
 
-        if distance_squared <= self.radius.powi(2) {
+        if distance_squared <= self.radius.squared() {
             // The point is inside the sphere.
             point
         } else {
             // The point is outside the sphere.
             // Find the closest point on the surface of the sphere.
-            let dir_to_point = point / distance_squared.sqrt();
+            let dir_to_point = point / ops::sqrt(distance_squared);
             self.radius * dir_to_point
         }
     }
@@ -70,13 +77,13 @@ impl Measured3d for Sphere {
     /// Get the surface area of the sphere
     #[inline(always)]
     fn area(&self) -> f32 {
-        4.0 * PI * self.radius.powi(2)
+        4.0 * PI * self.radius.squared()
     }
 
     /// Get the volume of the sphere
     #[inline(always)]
     fn volume(&self) -> f32 {
-        4.0 * FRAC_PI_3 * self.radius.powi(3)
+        4.0 * FRAC_PI_3 * self.radius.cubed()
     }
 }
 
@@ -186,7 +193,7 @@ impl InfinitePlane3d {
     #[inline(always)]
     pub fn new<T: TryInto<Dir3>>(normal: T) -> Self
     where
-        <T as TryInto<Dir3>>::Error: std::fmt::Debug,
+        <T as TryInto<Dir3>>::Error: core::fmt::Debug,
     {
         Self {
             normal: normal
@@ -214,9 +221,119 @@ impl InfinitePlane3d {
 
         (Self { normal }, translation)
     }
+
+    /// Computes the shortest distance between a plane transformed with the given `isometry` and a
+    /// `point`. The result is a signed value; it's positive if the point lies in the half-space
+    /// that the plane's normal vector points towards.
+    #[inline]
+    pub fn signed_distance(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> f32 {
+        let isometry = isometry.into();
+        self.normal.dot(isometry.inverse() * point)
+    }
+
+    /// Injects the `point` into this plane transformed with the given `isometry`.
+    ///
+    /// This projects the point orthogonally along the shortest path onto the plane.
+    #[inline]
+    pub fn project_point(&self, isometry: impl Into<Isometry3d>, point: Vec3) -> Vec3 {
+        point - self.normal * self.signed_distance(isometry, point)
+    }
+
+    /// Computes an [`Isometry3d`] which transforms points from the plane in 3D space with the given
+    /// `origin` to the XY-plane.
+    ///
+    /// ## Guarantees
+    ///
+    /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
+    ///   the transformed geometry
+    /// * uses the least rotation possible to transform the geometry
+    /// * if two geometries are transformed with the same isometry, then the relations between
+    ///   them, like distances, are also preserved
+    /// * compared to projections, the transformation is lossless (up to floating point errors)
+    ///   reversible
+    ///
+    /// ## Non-Guarantees
+    ///
+    /// * the rotation used is generally not unique
+    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
+    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
+    ///   one
+    ///
+    /// See [`isometries_xy`] for example usescases.
+    ///
+    /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
+    /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
+    #[inline]
+    pub fn isometry_into_xy(&self, origin: Vec3) -> Isometry3d {
+        let rotation = Quat::from_rotation_arc(self.normal.as_vec3(), Vec3::Z);
+        let transformed_origin = rotation * origin;
+        Isometry3d::new(-Vec3::Z * transformed_origin.z, rotation)
+    }
+
+    /// Computes an [`Isometry3d`] which transforms points from the XY-plane to this plane with the
+    /// given `origin`.
+    ///
+    /// ## Guarantees
+    ///
+    /// * the transformation is a [congruence] meaning it will preserve all distances and angles of
+    ///   the transformed geometry
+    /// * uses the least rotation possible to transform the geometry
+    /// * if two geometries are transformed with the same isometry, then the relations between
+    ///   them, like distances, are also preserved
+    /// * compared to projections, the transformation is lossless (up to floating point errors)
+    ///   reversible
+    ///
+    /// ## Non-Guarantees
+    ///
+    /// * the rotation used is generally not unique
+    /// * the orientation of the transformed geometry in the XY plane might be arbitrary, to
+    ///   enforce some kind of alignment the user has to use an extra transformation ontop of this
+    ///   one
+    ///
+    /// See [`isometries_xy`] for example usescases.
+    ///
+    /// [congruence]: https://en.wikipedia.org/wiki/Congruence_(geometry)
+    /// [`isometries_xy`]: `InfinitePlane3d::isometries_xy`
+    #[inline]
+    pub fn isometry_from_xy(&self, origin: Vec3) -> Isometry3d {
+        self.isometry_into_xy(origin).inverse()
+    }
+
+    /// Computes both [isometries] which transforms points from the plane in 3D space with the
+    /// given `origin` to the XY-plane and back.
+    ///
+    /// [isometries]: `Isometry3d`
+    ///
+    /// # Example
+    ///
+    /// The projection and its inverse can be used to run 2D algorithms on flat shapes in 3D. The
+    /// workflow would usually look like this:
+    ///
+    /// ```
+    /// # use bevy_math::{Vec3, Dir3};
+    /// # use bevy_math::primitives::InfinitePlane3d;
+    ///
+    /// let triangle_3d @ [a, b, c] = [Vec3::X, Vec3::Y, Vec3::Z];
+    /// let center = (a + b + c) / 3.0;
+    ///
+    /// let plane = InfinitePlane3d::new(Vec3::ONE);
+    ///
+    /// let (to_xy, from_xy) = plane.isometries_xy(center);
+    ///
+    /// let triangle_2d = triangle_3d.map(|vec3| to_xy * vec3).map(|vec3| vec3.truncate());
+    ///
+    /// // apply some algorithm to `triangle_2d`
+    ///
+    /// let triangle_3d = triangle_2d.map(|vec2| vec2.extend(0.0)).map(|vec3| from_xy * vec3);
+    /// ```
+    #[inline]
+    pub fn isometries_xy(&self, origin: Vec3) -> (Isometry3d, Isometry3d) {
+        let projection = self.isometry_into_xy(origin);
+        (projection, projection.inverse())
+    }
 }
 
-/// An infinite line along a direction in 3D space.
+/// An infinite line going through the origin along a direction in 3D space.
 ///
 /// For a finite line: [`Segment3d`]
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -232,7 +349,7 @@ pub struct Line3d {
 }
 impl Primitive3d for Line3d {}
 
-/// A segment of a line along a direction in 3D space.
+/// A segment of a line going through the origin along a direction in 3D space.
 #[doc(alias = "LineSegment3d")]
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -242,22 +359,25 @@ impl Primitive3d for Line3d {}
     reflect(Serialize, Deserialize)
 )]
 pub struct Segment3d {
-    /// The direction of the line
-    pub direction: Dir3,
-    /// Half the length of the line segment. The segment extends by this amount in both
-    /// the given direction and its opposite direction
-    pub half_length: f32,
+    /// The endpoints of the line segment.
+    pub vertices: [Vec3; 2],
 }
 impl Primitive3d for Segment3d {}
 
 impl Segment3d {
+    /// Create a new `Segment3d` from its endpoints
+    #[inline(always)]
+    pub const fn new(point1: Vec3, point2: Vec3) -> Self {
+        Self {
+            vertices: [point1, point2],
+        }
+    }
+
     /// Create a new `Segment3d` from a direction and full length of the segment
     #[inline(always)]
-    pub fn new(direction: Dir3, length: f32) -> Self {
-        Self {
-            direction,
-            half_length: length / 2.0,
-        }
+    pub fn from_direction_and_length(direction: Dir3, length: f32) -> Self {
+        let half_length = length / 2.;
+        Self::new(direction * -half_length, direction * half_length)
     }
 
     /// Create a new `Segment3d` from its endpoints and compute its geometric center
@@ -266,27 +386,81 @@ impl Segment3d {
     ///
     /// Panics if `point1 == point2`
     #[inline(always)]
+    #[deprecated(since = "0.16.0", note = "Use the `new` constructor instead")]
     pub fn from_points(point1: Vec3, point2: Vec3) -> (Self, Vec3) {
-        let diff = point2 - point1;
-        let length = diff.length();
-
-        (
-            // We are dividing by the length here, so the vector is normalized.
-            Self::new(Dir3::new_unchecked(diff / length), length),
-            (point1 + point2) / 2.,
-        )
+        (Self::new(point1, point2), (point1 + point2) / 2.)
     }
 
     /// Get the position of the first point on the line segment
     #[inline(always)]
     pub fn point1(&self) -> Vec3 {
-        *self.direction * -self.half_length
+        self.vertices[0]
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
     pub fn point2(&self) -> Vec3 {
-        *self.direction * self.half_length
+        self.vertices[1]
+    }
+
+    /// Get the center of the segment
+    #[inline(always)]
+    #[doc(alias = "midpoint")]
+    pub fn center(&self) -> Vec3 {
+        (self.point1() + self.point2()) / 2.
+    }
+
+    /// Get the length of the segment
+    #[inline(always)]
+    pub fn length(&self) -> f32 {
+        self.point1().distance(self.point2())
+    }
+
+    /// Get the segment translated by a vector
+    #[inline(always)]
+    pub fn translated(&self, translation: Vec3) -> Segment3d {
+        Self::new(self.point1() + translation, self.point2() + translation)
+    }
+
+    /// Compute a new segment, based on the original segment rotated around the origin
+    #[inline(always)]
+    pub fn rotated(&self, rotation: Quat) -> Segment3d {
+        Segment3d::new(
+            rotation.mul_vec3(self.point1()),
+            rotation.mul_vec3(self.point2()),
+        )
+    }
+
+    /// Compute a new segment, based on the original segment rotated around a given point
+    #[inline(always)]
+    pub fn rotated_around(&self, rotation: Quat, point: Vec3) -> Segment3d {
+        // We offset our segment so that our segment is rotated as if from the origin, then we can apply the offset back
+        let offset = self.translated(-point);
+        let rotated = offset.rotated(rotation);
+        rotated.translated(point)
+    }
+
+    /// Compute a new segment, based on the original segment rotated around its center
+    #[inline(always)]
+    pub fn rotated_around_center(&self, rotation: Quat) -> Segment3d {
+        self.rotated_around(rotation, self.center())
+    }
+
+    /// Get the segment offset so that it's center is at the origin
+    #[inline(always)]
+    pub fn centered(&self) -> Segment3d {
+        let center = self.center();
+        self.translated(-center)
+    }
+
+    /// Get the segment with a new length
+    #[inline(always)]
+    pub fn resized(&self, length: f32) -> Segment3d {
+        let offset_from_origin = self.center();
+        let centered = self.centered();
+        let ratio = length / self.length();
+        let segment = Segment3d::new(centered.point1() * ratio, centered.point2() * ratio);
+        segment.translated(offset_from_origin)
     }
 }
 
@@ -329,14 +503,18 @@ impl<const N: usize> Polyline3d<N> {
 /// in a `Box<[Vec3]>`.
 ///
 /// For a version without alloc: [`Polyline3d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct BoxedPolyline3d {
     /// The vertices of the polyline
     pub vertices: Box<[Vec3]>,
 }
+
+#[cfg(feature = "alloc")]
 impl Primitive3d for BoxedPolyline3d {}
 
+#[cfg(feature = "alloc")]
 impl FromIterator<Vec3> for BoxedPolyline3d {
     fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
         let vertices: Vec<Vec3> = iter.into_iter().collect();
@@ -346,6 +524,7 @@ impl FromIterator<Vec3> for BoxedPolyline3d {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoxedPolyline3d {
     /// Create a new `BoxedPolyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
@@ -353,7 +532,8 @@ impl BoxedPolyline3d {
     }
 }
 
-/// A cuboid primitive, more commonly known as a box.
+/// A cuboid primitive, which is like a cube, except that the x, y, and z dimensions are not
+/// required to be the same.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -445,7 +625,7 @@ impl Measured3d for Cuboid {
     }
 }
 
-/// A cylinder primitive
+/// A cylinder primitive centered on the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -504,7 +684,7 @@ impl Cylinder {
     /// Get the surface area of one base of the cylinder
     #[inline(always)]
     pub fn base_area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 }
 
@@ -522,7 +702,7 @@ impl Measured3d for Cylinder {
     }
 }
 
-/// A 3D capsule primitive.
+/// A 3D capsule primitive centered on the origin
 /// A three-dimensional capsule is defined as a surface at a distance (radius) from a line
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -624,6 +804,10 @@ impl Default for Cone {
 }
 
 impl Cone {
+    /// Create a new [`Cone`] from a radius and height.
+    pub fn new(radius: f32, height: f32) -> Self {
+        Self { radius, height }
+    }
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
     pub fn base(&self) -> Circle {
@@ -637,7 +821,7 @@ impl Cone {
     #[inline(always)]
     #[doc(alias = "side_length")]
     pub fn slant_height(&self) -> f32 {
-        self.radius.hypot(self.height)
+        ops::hypot(self.radius, self.height)
     }
 
     /// Get the surface area of the side of the cone,
@@ -651,7 +835,7 @@ impl Cone {
     /// Get the surface area of the base of the cone
     #[inline(always)]
     pub fn base_area(&self) -> f32 {
-        PI * self.radius.powi(2)
+        PI * self.radius.squared()
     }
 }
 
@@ -723,6 +907,7 @@ pub enum TorusKind {
 }
 
 /// A torus primitive, often representing a ring or donut shape
+/// The set of points some distance from a circle centered at the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -810,9 +995,9 @@ impl Torus {
         }
 
         match self.major_radius.partial_cmp(&self.minor_radius).unwrap() {
-            std::cmp::Ordering::Greater => TorusKind::Ring,
-            std::cmp::Ordering::Equal => TorusKind::Horn,
-            std::cmp::Ordering::Less => TorusKind::Spindle,
+            core::cmp::Ordering::Greater => TorusKind::Ring,
+            core::cmp::Ordering::Equal => TorusKind::Horn,
+            core::cmp::Ordering::Less => TorusKind::Spindle,
         }
     }
 }
@@ -822,14 +1007,14 @@ impl Measured3d for Torus {
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
     fn area(&self) -> f32 {
-        4.0 * PI.powi(2) * self.major_radius * self.minor_radius
+        4.0 * PI.squared() * self.major_radius * self.minor_radius
     }
 
     /// Get the volume of the torus. Note that this only produces
     /// the expected result when the torus has a ring and isn't self-intersecting
     #[inline(always)]
     fn volume(&self) -> f32 {
-        2.0 * PI.powi(2) * self.major_radius * self.minor_radius.powi(2)
+        2.0 * PI.squared() * self.major_radius * self.minor_radius.squared()
     }
 }
 
@@ -1129,7 +1314,7 @@ impl Measured3d for Tetrahedron {
     /// Get the volume of the tetrahedron.
     #[inline(always)]
     fn volume(&self) -> f32 {
-        self.signed_volume().abs()
+        ops::abs(self.signed_volume())
     }
 }
 
@@ -1204,7 +1389,7 @@ mod tests {
 
         // Test rotation
         assert!(
-            (Quat::from_rotation_z(std::f32::consts::FRAC_PI_2) * Dir3::X)
+            (Quat::from_rotation_z(core::f32::consts::FRAC_PI_2) * Dir3::X)
                 .abs_diff_eq(Vec3::Y, 10e-6)
         );
     }
@@ -1251,10 +1436,58 @@ mod tests {
     }
 
     #[test]
-    fn infinite_plane_from_points() {
-        let (plane, translation) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
+    fn infinite_plane_math() {
+        let (plane, origin) = InfinitePlane3d::from_points(Vec3::X, Vec3::Z, Vec3::NEG_X);
         assert_eq!(*plane.normal, Vec3::NEG_Y, "incorrect normal");
-        assert_eq!(translation, Vec3::Z * 0.33333334, "incorrect translation");
+        assert_eq!(origin, Vec3::Z * 0.33333334, "incorrect translation");
+
+        let point_in_plane = Vec3::X + Vec3::Z;
+        assert_eq!(
+            plane.signed_distance(origin, point_in_plane),
+            0.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(origin, point_in_plane),
+            point_in_plane,
+            "incorrect point"
+        );
+
+        let point_outside = Vec3::Y;
+        assert_eq!(
+            plane.signed_distance(origin, point_outside),
+            -1.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(origin, point_outside),
+            Vec3::ZERO,
+            "incorrect point"
+        );
+
+        let point_outside = Vec3::NEG_Y;
+        assert_eq!(
+            plane.signed_distance(origin, point_outside),
+            1.0,
+            "incorrect distance"
+        );
+        assert_eq!(
+            plane.project_point(origin, point_outside),
+            Vec3::ZERO,
+            "incorrect point"
+        );
+
+        let area_f = |[a, b, c]: [Vec3; 3]| (a - b).cross(a - c).length() * 0.5;
+        let (proj, inj) = plane.isometries_xy(origin);
+
+        let triangle = [Vec3::X, Vec3::Y, Vec3::ZERO];
+        assert_eq!(area_f(triangle), 0.5, "incorrect area");
+
+        let triangle_proj = triangle.map(|vec3| proj * vec3);
+        assert_relative_eq!(area_f(triangle_proj), 0.5);
+
+        let triangle_proj_inj = triangle_proj.map(|vec3| inj * vec3);
+        assert_relative_eq!(area_f(triangle_proj_inj), 0.5);
     }
 
     #[test]
@@ -1408,7 +1641,7 @@ mod tests {
         assert_eq!(default_triangle.area(), 0.5, "incorrect area");
         assert_relative_eq!(
             default_triangle.perimeter(),
-            1.0 + 2.0 * 1.25_f32.sqrt(),
+            1.0 + 2.0 * ops::sqrt(1.25_f32),
             epsilon = 10e-9
         );
         assert_eq!(default_triangle.normal(), Ok(Dir3::Z), "incorrect normal");

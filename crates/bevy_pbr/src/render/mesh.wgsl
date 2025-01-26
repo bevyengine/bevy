@@ -1,4 +1,5 @@
 #import bevy_pbr::{
+    mesh_bindings::mesh,
     mesh_functions,
     skinning,
     morph::morph,
@@ -9,18 +10,21 @@
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
+    let first_vertex = mesh[vertex.instance_index].first_vertex_index;
+    let vertex_index = vertex.index - first_vertex;
+
     let weight_count = bevy_pbr::morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
         let weight = bevy_pbr::morph::weight_at(i);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph(vertex.index, bevy_pbr::morph::position_offset, i);
+        vertex.position += weight * morph(vertex_index, bevy_pbr::morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph(vertex.index, bevy_pbr::morph::normal_offset, i);
+        vertex.normal += weight * morph(vertex_index, bevy_pbr::morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph(vertex.index, bevy_pbr::morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph(vertex_index, bevy_pbr::morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
@@ -37,12 +41,18 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var vertex = vertex_no_morph;
 #endif
 
+    let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+
 #ifdef SKINNED
-    var world_from_local = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    var world_from_local = skinning::skin_model(
+        vertex.joint_indices,
+        vertex.joint_weights,
+        vertex_no_morph.instance_index
+    );
 #else
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416 .
-    var world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+    var world_from_local = mesh_world_from_local;
 #endif
 
 #ifdef VERTEX_NORMALS
@@ -92,7 +102,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 
 #ifdef VISIBILITY_RANGE_DITHER
     out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
-        vertex_no_morph.instance_index, world_from_local[3]);
+        vertex_no_morph.instance_index, mesh_world_from_local[3]);
 #endif
 
     return out;

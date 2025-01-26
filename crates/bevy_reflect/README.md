@@ -8,7 +8,7 @@
 
 This crate enables you to dynamically interact with Rust types:
 
-* Derive the Reflect traits
+* Derive the `Reflect` traits
 * Interact with fields using their names (for named structs) or indices (for tuple structs)
 * "Patch" your types with new values
 * Look up nested fields using "path strings"
@@ -18,10 +18,10 @@ This crate enables you to dynamically interact with Rust types:
 
 ## Features
 
-### Derive the Reflect traits
+### Derive the `Reflect` traits
 
 ```rust ignore
-// this will automatically implement the Reflect trait and the Struct trait (because the type is a struct)
+// this will automatically implement the `Reflect` trait and the `Struct` trait (because the type is a struct)
 #[derive(Reflect)]
 struct Foo {
     a: u32,
@@ -30,7 +30,7 @@ struct Foo {
     d: Vec<Baz>,
 }
 
-// this will automatically implement the Reflect trait and the TupleStruct trait (because the type is a tuple struct)
+// this will automatically implement the `Reflect` trait and the `TupleStruct` trait (because the type is a tuple struct)
 #[derive(Reflect)]
 struct Bar(String);
 

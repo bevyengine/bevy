@@ -1,40 +1,34 @@
+use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
     Extract,
 };
+use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_ecs::{
+    event::EventReader,
+    resource::Resource,
+    system::{Res, ResMut},
+};
+use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::hashbrown::hash_map::EntryRef;
-use bevy_utils::{
-    default,
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
+use bevy_utils::default;
+use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
-use std::{
-    borrow::Cow,
-    future::Future,
-    hash::Hash,
-    mem,
-    ops::Deref,
-    sync::{Arc, Mutex, PoisonError},
-};
+use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
+use tracing::{debug, error};
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
-use wgpu::{DownlevelFlags, Features, VertexBufferLayout as RawVertexBufferLayout};
-
-use crate::render_resource::resource_macros::*;
-
-render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
-render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
+use wgpu::{
+    DownlevelFlags, Features, PipelineCompilationOptions,
+    VertexBufferLayout as RawVertexBufferLayout,
+};
 
 /// A descriptor for a [`Pipeline`].
 ///
-/// Used to store an heterogenous collection of render and compute pipeline descriptors together.
+/// Used to store a heterogenous collection of render and compute pipeline descriptors together.
 #[derive(Debug)]
 pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
@@ -43,7 +37,7 @@ pub enum PipelineDescriptor {
 
 /// A pipeline defining the data layout and shader logic for a specific GPU task.
 ///
-/// Used to store an heterogenous collection of render and compute pipelines together.
+/// Used to store a heterogenous collection of render and compute pipelines together.
 #[derive(Debug)]
 pub enum Pipeline {
     RenderPipeline(RenderPipeline),
@@ -126,7 +120,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Box<[ShaderDefVal]>, ErasedShaderModule>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<WgpuWrapper<ShaderModule>>>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
@@ -170,66 +164,10 @@ impl ShaderDefVal {
 
 impl ShaderCache {
     fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
-        const CAPABILITIES: &[(Features, Capabilities)] = &[
-            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
-            (Features::SHADER_F64, Capabilities::FLOAT64),
-            (
-                Features::SHADER_PRIMITIVE_INDEX,
-                Capabilities::PRIMITIVE_INDEX,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-                Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-            ),
-            (
-                Features::TEXTURE_FORMAT_16BIT_NORM,
-                Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
-            ),
-            (Features::MULTIVIEW, Capabilities::MULTIVIEW),
-            (
-                Features::SHADER_EARLY_DEPTH_TEST,
-                Capabilities::EARLY_DEPTH_TEST,
-            ),
-        ];
-        let features = render_device.features();
-        let mut capabilities = Capabilities::empty();
-        for (feature, capability) in CAPABILITIES {
-            if features.contains(*feature) {
-                capabilities |= *capability;
-            }
-        }
-
-        const DOWNLEVEL_FLAGS_CAPABILITIES: &[(DownlevelFlags, Capabilities)] = &[
-            (
-                DownlevelFlags::CUBE_ARRAY_TEXTURES,
-                Capabilities::CUBE_ARRAY_TEXTURES,
-            ),
-            (
-                DownlevelFlags::MULTISAMPLED_SHADING,
-                Capabilities::MULTISAMPLED_SHADING,
-            ),
-            (
-                DownlevelFlags::CUBE_ARRAY_TEXTURES,
-                Capabilities::CUBE_ARRAY_TEXTURES,
-            ),
-        ];
-        for (downlevel_flag, capability) in DOWNLEVEL_FLAGS_CAPABILITIES {
-            if render_adapter
-                .get_downlevel_capabilities()
-                .flags
-                .contains(*downlevel_flag)
-            {
-                capabilities |= *capability;
-            }
-        }
+        let capabilities = get_capabilities(
+            render_device.features(),
+            render_adapter.get_downlevel_capabilities().flags,
+        );
 
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
@@ -274,14 +212,13 @@ impl ShaderCache {
         Ok(())
     }
 
-    #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
-    ) -> Result<ErasedShaderModule, PipelineCacheError> {
+    ) -> Result<Arc<WgpuWrapper<ShaderModule>>, PipelineCacheError> {
         let shader = self
             .shaders
             .get(&id)
@@ -324,7 +261,7 @@ impl ShaderCache {
                 ));
 
                 debug!(
-                    "processing shader {:?}, with shader defs {:?}",
+                    "processing shader {}, with shader defs {:?}",
                     id, shader_defs
                 );
                 let shader_source = match &shader.source {
@@ -369,7 +306,7 @@ impl ShaderCache {
                             },
                         )?;
 
-                        wgpu::ShaderSource::Naga(Cow::Owned(naga))
+                        ShaderSource::Naga(Cow::Owned(naga))
                     }
                 };
 
@@ -389,12 +326,12 @@ impl ShaderCache {
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    bevy_utils::futures::now_or_never(error)
+                    bevy_tasks::futures::now_or_never(error)
                 {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(ErasedShaderModule::new(shader_module))
+                entry.insert(Arc::new(WgpuWrapper::new(shader_module)))
             }
         };
 
@@ -466,7 +403,7 @@ impl ShaderCache {
 type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<LayoutCacheKey, ErasedPipelineLayout>,
+    layouts: HashMap<LayoutCacheKey, Arc<WgpuWrapper<PipelineLayout>>>,
 }
 
 impl LayoutCache {
@@ -475,22 +412,22 @@ impl LayoutCache {
         render_device: &RenderDevice,
         bind_group_layouts: &[BindGroupLayout],
         push_constant_ranges: Vec<PushConstantRange>,
-    ) -> ErasedPipelineLayout {
-        let bind_group_ids = bind_group_layouts.iter().map(|l| l.id()).collect();
+    ) -> Arc<WgpuWrapper<PipelineLayout>> {
+        let bind_group_ids = bind_group_layouts.iter().map(BindGroupLayout::id).collect();
         self.layouts
             .entry((bind_group_ids, push_constant_ranges))
             .or_insert_with_key(|(_, push_constant_ranges)| {
                 let bind_group_layouts = bind_group_layouts
                     .iter()
-                    .map(|l| l.value())
+                    .map(BindGroupLayout::value)
                     .collect::<Vec<_>>();
-                ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                Arc::new(WgpuWrapper::new(render_device.create_pipeline_layout(
                     &PipelineLayoutDescriptor {
                         bind_group_layouts: &bind_group_layouts,
                         push_constant_ranges,
                         ..default()
                     },
-                ))
+                )))
             })
             .clone()
     }
@@ -517,7 +454,7 @@ pub struct PipelineCache {
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
     /// If `true`, disables asynchronous pipeline compilation.
-    /// This has no effect on MacOS, wasm, or without the `multi_threaded` feature.
+    /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
     synchronous_pipeline_compilation: bool,
 }
 
@@ -729,6 +666,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+
         create_pipeline_task(
             async move {
                 let mut shader_cache = shader_cache.lock().unwrap();
@@ -791,25 +729,36 @@ impl PipelineCache {
                     )
                 });
 
+                // TODO: Expose the rest of this somehow
+                let compilation_options = PipelineCompilationOptions {
+                    constants: &default(),
+                    zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
+                };
+
                 let descriptor = RawRenderPipelineDescriptor {
                     multiview: None,
                     depth_stencil: descriptor.depth_stencil.clone(),
                     label: descriptor.label.as_deref(),
-                    layout: layout.as_deref(),
+                    layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     multisample: descriptor.multisample,
                     primitive: descriptor.primitive,
                     vertex: RawVertexState {
                         buffers: &vertex_buffer_layouts,
-                        entry_point: descriptor.vertex.entry_point.deref(),
+                        entry_point: Some(descriptor.vertex.entry_point.deref()),
                         module: &vertex_module,
+                        // TODO: Should this be the same as the fragment compilation options?
+                        compilation_options: compilation_options.clone(),
                     },
                     fragment: fragment_data
                         .as_ref()
                         .map(|(module, entry_point, targets)| RawFragmentState {
-                            entry_point,
+                            entry_point: Some(entry_point),
                             module,
                             targets,
+                            // TODO: Should this be the same as the vertex compilation options?
+                            compilation_options,
                         }),
+                    cache: None,
                 };
 
                 Ok(Pipeline::RenderPipeline(
@@ -828,6 +777,7 @@ impl PipelineCache {
         let device = self.device.clone();
         let shader_cache = self.shader_cache.clone();
         let layout_cache = self.layout_cache.clone();
+
         create_pipeline_task(
             async move {
                 let mut shader_cache = shader_cache.lock().unwrap();
@@ -858,9 +808,16 @@ impl PipelineCache {
 
                 let descriptor = RawComputePipelineDescriptor {
                     label: descriptor.label.as_deref(),
-                    layout: layout.as_deref(),
+                    layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
-                    entry_point: &descriptor.entry_point,
+                    entry_point: Some(&descriptor.entry_point),
+                    // TODO: Expose the rest of this somehow
+                    compilation_options: PipelineCompilationOptions {
+                        constants: &default(),
+                        zero_initialize_workgroup_memory: descriptor
+                            .zero_initialize_workgroup_memory,
+                    },
+                    cache: None,
                 };
 
                 Ok(Pipeline::ComputePipeline(
@@ -914,7 +871,7 @@ impl PipelineCache {
             }
 
             CachedPipelineState::Creating(ref mut task) => {
-                match bevy_utils::futures::check_ready(task) {
+                match bevy_tasks::futures::check_ready(task) {
                     Some(Ok(pipeline)) => {
                         cached_pipeline.state = CachedPipelineState::Ok(pipeline);
                         return;
@@ -961,7 +918,10 @@ impl PipelineCache {
         mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
-            #[allow(clippy::match_same_arms)]
+            #[expect(
+                clippy::match_same_arms,
+                reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
+            )]
             match event {
                 // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
@@ -1026,4 +986,89 @@ pub enum PipelineCacheError {
     ShaderImportNotYetAvailable,
     #[error("Could not create shader module: {0}")]
     CreateShaderModule(String),
+}
+
+// TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
+// https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
+// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
+/// Get the device's capabilities for use in `naga_oil`.
+fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
+    let mut capabilities = Capabilities::empty();
+    capabilities.set(
+        Capabilities::PUSH_CONSTANT,
+        features.contains(Features::PUSH_CONSTANTS),
+    );
+    capabilities.set(
+        Capabilities::FLOAT64,
+        features.contains(Features::SHADER_F64),
+    );
+    capabilities.set(
+        Capabilities::PRIMITIVE_INDEX,
+        features.contains(Features::SHADER_PRIMITIVE_INDEX),
+    );
+    capabilities.set(
+        Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    // TODO: This needs a proper wgpu feature
+    capabilities.set(
+        Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
+        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
+        features.contains(Features::TEXTURE_FORMAT_16BIT_NORM),
+    );
+    capabilities.set(
+        Capabilities::MULTIVIEW,
+        features.contains(Features::MULTIVIEW),
+    );
+    capabilities.set(
+        Capabilities::EARLY_DEPTH_TEST,
+        features.contains(Features::SHADER_EARLY_DEPTH_TEST),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64,
+        features.contains(Features::SHADER_INT64),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
+        features.intersects(
+            Features::SHADER_INT64_ATOMIC_MIN_MAX | Features::SHADER_INT64_ATOMIC_ALL_OPS,
+        ),
+    );
+    capabilities.set(
+        Capabilities::SHADER_INT64_ATOMIC_ALL_OPS,
+        features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
+    );
+    capabilities.set(
+        Capabilities::MULTISAMPLED_SHADING,
+        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
+    );
+    capabilities.set(
+        Capabilities::DUAL_SOURCE_BLENDING,
+        features.contains(Features::DUAL_SOURCE_BLENDING),
+    );
+    capabilities.set(
+        Capabilities::CUBE_ARRAY_TEXTURES,
+        downlevel.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP,
+        features.intersects(Features::SUBGROUP | Features::SUBGROUP_VERTEX),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP_BARRIER,
+        features.intersects(Features::SUBGROUP_BARRIER),
+    );
+    capabilities.set(
+        Capabilities::SUBGROUP_VERTEX_STAGE,
+        features.contains(Features::SUBGROUP_VERTEX),
+    );
+
+    capabilities
 }

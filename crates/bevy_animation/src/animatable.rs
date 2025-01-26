@@ -1,6 +1,7 @@
+//! Traits and type for interpolating between values.
+
 use crate::util;
 use bevy_color::{Laba, LinearRgba, Oklaba, Srgba, Xyza};
-use bevy_ecs::world::World;
 use bevy_math::*;
 use bevy_reflect::Reflect;
 use bevy_transform::prelude::Transform;
@@ -17,7 +18,7 @@ pub struct BlendInput<T> {
 
 /// An animatable value type.
 pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
-    /// Interpolates between `a` and `b` with  a interpolation factor of `time`.
+    /// Interpolates between `a` and `b` with an interpolation factor of `time`.
     ///
     /// The `time` parameter here may not be clamped to the range `[0.0, 1.0]`.
     fn interpolate(a: &Self, b: &Self, time: f32) -> Self;
@@ -26,10 +27,6 @@ pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
     ///
     /// Implementors should return a default value when no inputs are provided here.
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self;
-
-    /// Post-processes the value using resources in the [`World`].
-    /// Most animatable types do not need to implement this.
-    fn post_process(&mut self, _world: &World) {}
 }
 
 macro_rules! impl_float_animatable {
@@ -128,9 +125,8 @@ impl Animatable for bool {
     #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         inputs
-            .max_by(|a, b| FloatOrd(a.weight).cmp(&FloatOrd(b.weight)))
-            .map(|input| input.value)
-            .unwrap_or(false)
+            .max_by_key(|x| FloatOrd(x.weight))
+            .is_some_and(|input| input.value)
     }
 }
 
@@ -152,7 +148,8 @@ impl Animatable for Transform {
             if input.additive {
                 translation += input.weight * Vec3A::from(input.value.translation);
                 scale += input.weight * Vec3A::from(input.value.scale);
-                rotation = rotation.slerp(input.value.rotation, input.weight);
+                rotation =
+                    Quat::slerp(Quat::IDENTITY, input.value.rotation, input.weight) * rotation;
             } else {
                 translation = Vec3A::interpolate(
                     &translation,
@@ -184,9 +181,92 @@ impl Animatable for Quat {
     #[inline]
     fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
         let mut value = Self::IDENTITY;
-        for input in inputs {
-            value = Self::interpolate(&value, &input.value, input.weight);
+        for BlendInput {
+            weight,
+            value: incoming_value,
+            additive,
+        } in inputs
+        {
+            if additive {
+                value = Self::slerp(Self::IDENTITY, incoming_value, weight) * value;
+            } else {
+                value = Self::interpolate(&value, &incoming_value, weight);
+            }
         }
         value
     }
+}
+
+/// Evaluates a cubic Bézier curve at a value `t`, given two endpoints and the
+/// derivatives at those endpoints.
+///
+/// The derivatives are linearly scaled by `duration`.
+pub fn interpolate_with_cubic_bezier<T>(p0: &T, d0: &T, d3: &T, p3: &T, t: f32, duration: f32) -> T
+where
+    T: Animatable + Clone,
+{
+    // We're given two endpoints, along with the derivatives at those endpoints,
+    // and have to evaluate the cubic Bézier curve at time t using only
+    // (additive) blending and linear interpolation.
+    //
+    // Evaluating a Bézier curve via repeated linear interpolation when the
+    // control points are known is straightforward via [de Casteljau
+    // subdivision]. So the only remaining problem is to get the two off-curve
+    // control points. The [derivative of the cubic Bézier curve] is:
+    //
+    //      B′(t) = 3(1 - t)²(P₁ - P₀) + 6(1 - t)t(P₂ - P₁) + 3t²(P₃ - P₂)
+    //
+    // Setting t = 0 and t = 1 and solving gives us:
+    //
+    //      P₁ = P₀ + B′(0) / 3
+    //      P₂ = P₃ - B′(1) / 3
+    //
+    // These P₁ and P₂ formulas can be expressed as additive blends.
+    //
+    // So, to sum up, first we calculate the off-curve control points via
+    // additive blending, and then we use repeated linear interpolation to
+    // evaluate the curve.
+    //
+    // [de Casteljau subdivision]: https://en.wikipedia.org/wiki/De_Casteljau%27s_algorithm
+    // [derivative of the cubic Bézier curve]: https://en.wikipedia.org/wiki/B%C3%A9zier_curve#Cubic_B%C3%A9zier_curves
+
+    // Compute control points from derivatives.
+    let p1 = T::blend(
+        [
+            BlendInput {
+                weight: duration / 3.0,
+                value: (*d0).clone(),
+                additive: true,
+            },
+            BlendInput {
+                weight: 1.0,
+                value: (*p0).clone(),
+                additive: true,
+            },
+        ]
+        .into_iter(),
+    );
+    let p2 = T::blend(
+        [
+            BlendInput {
+                weight: duration / -3.0,
+                value: (*d3).clone(),
+                additive: true,
+            },
+            BlendInput {
+                weight: 1.0,
+                value: (*p3).clone(),
+                additive: true,
+            },
+        ]
+        .into_iter(),
+    );
+
+    // Use de Casteljau subdivision to evaluate.
+    let p0p1 = T::interpolate(p0, &p1, t);
+    let p1p2 = T::interpolate(&p1, &p2, t);
+    let p2p3 = T::interpolate(&p2, p3, t);
+    let p0p1p2 = T::interpolate(&p0p1, &p1p2, t);
+    let p1p2p3 = T::interpolate(&p1p2, &p2p3, t);
+    T::interpolate(&p0p1p2, &p1p2p3, t)
 }

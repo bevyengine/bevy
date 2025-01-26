@@ -1,38 +1,46 @@
 use crate::{
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
-    loader_builders::NestedLoader,
+    loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
     Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
     UntypedHandle,
 };
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
+use atomicow::CowArc;
 use bevy_ecs::world::World;
-use bevy_utils::{BoxedFuture, ConditionalSendFuture, CowArc, HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use core::any::{Any, TypeId};
 use downcast_rs::{impl_downcast, Downcast};
-use futures_lite::AsyncReadExt;
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
-use std::{
-    any::{Any, TypeId},
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Loads an [`Asset`] from a given byte [`Reader`]. This can accept [`AssetLoader::Settings`], which configure how the [`Asset`]
 /// should be loaded.
+///
+/// This trait is generally used in concert with [`AssetReader`](crate::io::AssetReader) to load assets from a byte source.
+///
+/// For a complementary version of this trait that can save assets, see [`AssetSaver`](crate::saver::AssetSaver).
 pub trait AssetLoader: Send + Sync + 'static {
     /// The top level [`Asset`] loaded by this [`AssetLoader`].
-    type Asset: crate::Asset;
+    type Asset: Asset;
     /// The settings type used by this [`AssetLoader`].
     type Settings: Settings + Default + Serialize + for<'a> Deserialize<'a>;
     /// The type of [error](`std::error::Error`) which could be encountered by this loader.
-    type Error: Into<Box<dyn std::error::Error + Send + Sync + 'static>>;
+    type Error: Into<Box<dyn core::error::Error + Send + Sync + 'static>>;
     /// Asynchronously loads [`AssetLoader::Asset`] (and any other labeled assets) from the bytes provided by [`Reader`].
-    fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader,
-        settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext,
+    fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &Self::Settings,
+        load_context: &mut LoadContext,
     ) -> impl ConditionalSendFuture<Output = Result<Self::Asset, Self::Error>>;
 
     /// Returns a list of extensions supported by this [`AssetLoader`], without the preceding dot.
@@ -47,12 +55,12 @@ pub trait ErasedAssetLoader: Send + Sync + 'static {
     /// Asynchronously loads the asset(s) from the bytes provided by [`Reader`].
     fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
-        meta: Box<dyn AssetMetaDyn>,
+        reader: &'a mut dyn Reader,
+        meta: &'a dyn AssetMetaDyn,
         load_context: LoadContext<'a>,
     ) -> BoxedFuture<
         'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
+        Result<ErasedLoadedAsset, Box<dyn core::error::Error + Send + Sync + 'static>>,
     >;
 
     /// Returns a list of extensions supported by this asset loader, without the preceding dot.
@@ -78,12 +86,12 @@ where
     /// Processes the asset in an asynchronous closure.
     fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
-        meta: Box<dyn AssetMetaDyn>,
+        reader: &'a mut dyn Reader,
+        meta: &'a dyn AssetMetaDyn,
         mut load_context: LoadContext<'a>,
     ) -> BoxedFuture<
         'a,
-        Result<ErasedLoadedAsset, Box<dyn std::error::Error + Send + Sync + 'static>>,
+        Result<ErasedLoadedAsset, Box<dyn core::error::Error + Send + Sync + 'static>>,
     > {
         Box::pin(async move {
             let settings = meta
@@ -93,8 +101,8 @@ where
                 .expect("AssetLoader settings should match the loader type");
             let asset = <L as AssetLoader>::load(self, reader, settings, &mut load_context)
                 .await
-                .map_err(|error| error.into())?;
-            Ok(load_context.finish(asset, Some(meta)).into())
+                .map_err(Into::into)?;
+            Ok(load_context.finish(asset).into())
         })
     }
 
@@ -115,7 +123,7 @@ where
     }
 
     fn type_name(&self) -> &'static str {
-        std::any::type_name::<L>()
+        core::any::type_name::<L>()
     }
 
     fn type_id(&self) -> TypeId {
@@ -123,7 +131,7 @@ where
     }
 
     fn asset_type_name(&self) -> &'static str {
-        std::any::type_name::<L::Asset>()
+        core::any::type_name::<L::Asset>()
     }
 
     fn asset_type_id(&self) -> TypeId {
@@ -145,13 +153,12 @@ pub struct LoadedAsset<A: Asset> {
     pub(crate) dependencies: HashSet<UntypedAssetId>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
-    pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
 }
 
 impl<A: Asset> LoadedAsset<A> {
     /// Create a new loaded asset. This will use [`VisitAssetDependencies`](crate::VisitAssetDependencies) to populate `dependencies`.
-    pub fn new_with_dependencies(value: A, meta: Option<Box<dyn AssetMetaDyn>>) -> Self {
-        let mut dependencies = HashSet::new();
+    pub fn new_with_dependencies(value: A) -> Self {
+        let mut dependencies = <HashSet<_>>::default();
         value.visit_dependencies(&mut |id| {
             dependencies.insert(id);
         });
@@ -160,7 +167,6 @@ impl<A: Asset> LoadedAsset<A> {
             dependencies,
             loader_dependencies: HashMap::default(),
             labeled_assets: HashMap::default(),
-            meta,
         }
     }
 
@@ -190,7 +196,7 @@ impl<A: Asset> LoadedAsset<A> {
 
 impl<A: Asset> From<A> for LoadedAsset<A> {
     fn from(asset: A) -> Self {
-        LoadedAsset::new_with_dependencies(asset, None)
+        LoadedAsset::new_with_dependencies(asset)
     }
 }
 
@@ -200,7 +206,6 @@ pub struct ErasedLoadedAsset {
     pub(crate) dependencies: HashSet<UntypedAssetId>,
     pub(crate) loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
     pub(crate) labeled_assets: HashMap<CowArc<'static, str>, LabeledAsset>,
-    pub(crate) meta: Option<Box<dyn AssetMetaDyn>>,
 }
 
 impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
@@ -210,7 +215,6 @@ impl<A: Asset> From<LoadedAsset<A>> for ErasedLoadedAsset {
             dependencies: asset.dependencies,
             loader_dependencies: asset.loader_dependencies,
             labeled_assets: asset.labeled_assets,
-            meta: asset.meta,
         }
     }
 }
@@ -252,7 +256,6 @@ impl ErasedLoadedAsset {
 
     /// Cast this loaded asset as the given type. If the type does not match,
     /// the original type-erased asset is returned.
-    #[allow(clippy::result_large_err)]
     pub fn downcast<A: Asset>(mut self) -> Result<LoadedAsset<A>, ErasedLoadedAsset> {
         match self.value.downcast::<A>() {
             Ok(value) => Ok(LoadedAsset {
@@ -260,7 +263,6 @@ impl ErasedLoadedAsset {
                 dependencies: self.dependencies,
                 loader_dependencies: self.loader_dependencies,
                 labeled_assets: self.labeled_assets,
-                meta: self.meta,
             }),
             Err(value) => {
                 self.value = value;
@@ -284,11 +286,15 @@ impl<A: Asset> AssetContainer for A {
     }
 
     fn asset_type_name(&self) -> &'static str {
-        std::any::type_name::<A>()
+        core::any::type_name::<A>()
     }
 }
 
-/// An error that occurs when attempting to call [`LoadContext::load_direct`]
+/// An error that occurs when attempting to call [`NestedLoader::load`] which
+/// is configured to work [immediately].
+///
+/// [`NestedLoader::load`]: crate::NestedLoader::load
+/// [immediately]: crate::Immediate
 #[derive(Error, Debug)]
 #[error("Failed to load dependency {dependency:?} {error}")]
 pub struct LoadDirectError {
@@ -306,6 +312,7 @@ pub enum DeserializeMetaError {
 }
 
 /// A context that provides access to assets in [`AssetLoader`]s, tracks dependencies, and collects asset load state.
+///
 /// Any asset state accessed by [`LoadContext`] will be tracked and stored for use in dependency events and asset preprocessing.
 pub struct LoadContext<'a> {
     pub(crate) asset_server: &'a AssetServer,
@@ -357,10 +364,10 @@ impl<'a> LoadContext<'a> {
     /// for i in 0..2 {
     ///     let mut labeled = load_context.begin_labeled_asset();
     ///     handles.push(std::thread::spawn(move || {
-    ///         (i.to_string(), labeled.finish(Image::default(), None))
+    ///         (i.to_string(), labeled.finish(Image::default()))
     ///     }));
     /// }
-
+    ///
     /// for handle in handles {
     ///     let (label, loaded_asset) = handle.join().unwrap();
     ///     load_context.add_loaded_labeled_asset(label, loaded_asset);
@@ -390,7 +397,7 @@ impl<'a> LoadContext<'a> {
     ) -> Handle<A> {
         let mut context = self.begin_labeled_asset();
         let asset = load(&mut context);
-        let loaded_asset = context.finish(asset, None);
+        let loaded_asset = context.finish(asset);
         self.add_loaded_labeled_asset(label, loaded_asset)
     }
 
@@ -442,15 +449,13 @@ impl<'a> LoadContext<'a> {
         !self.asset_server.get_handles_untyped(&path).is_empty()
     }
 
-    /// "Finishes" this context by populating the final [`Asset`] value (and the erased [`AssetMeta`] value, if it exists).
-    /// The relevant asset metadata collected in this context will be stored in the returned [`LoadedAsset`].
-    pub fn finish<A: Asset>(self, value: A, meta: Option<Box<dyn AssetMetaDyn>>) -> LoadedAsset<A> {
+    /// "Finishes" this context by populating the final [`Asset`] value.
+    pub fn finish<A: Asset>(self, value: A) -> LoadedAsset<A> {
         LoadedAsset {
             value,
             dependencies: self.dependencies,
             loader_dependencies: self.loader_dependencies,
             labeled_assets: self.labeled_assets,
-            meta,
         }
     }
 
@@ -517,9 +522,9 @@ impl<'a> LoadContext<'a> {
     pub(crate) async fn load_direct_internal(
         &mut self,
         path: AssetPath<'static>,
-        meta: Box<dyn AssetMetaDyn>,
+        meta: &dyn AssetMetaDyn,
         loader: &dyn ErasedAssetLoader,
-        reader: &mut Reader<'_>,
+        reader: &mut dyn Reader,
     ) -> Result<ErasedLoadedAsset, LoadDirectError> {
         let loaded_asset = self
             .asset_server
@@ -536,18 +541,15 @@ impl<'a> LoadContext<'a> {
                 dependency: path.clone(),
                 error,
             })?;
-        let info = loaded_asset
-            .meta
-            .as_ref()
-            .and_then(|m| m.processed_info().as_ref());
-        let hash = info.map(|i| i.full_hash).unwrap_or(Default::default());
+        let info = meta.processed_info().as_ref();
+        let hash = info.map(|i| i.full_hash).unwrap_or_default();
         self.loader_dependencies.insert(path, hash);
         Ok(loaded_asset)
     }
 
     /// Create a builder for loading nested assets in this context.
     #[must_use]
-    pub fn loader(&mut self) -> NestedLoader<'a, '_> {
+    pub fn loader(&mut self) -> NestedLoader<'a, '_, StaticTyped, Deferred> {
         NestedLoader::new(self)
     }
 
@@ -576,10 +578,9 @@ pub enum ReadAssetBytesError {
     #[error(transparent)]
     MissingProcessedAssetReaderError(#[from] MissingProcessedAssetReaderError),
     /// Encountered an I/O error while loading an asset.
-    #[error("Encountered an io error while loading asset at `{path}`: {source}")]
+    #[error("Encountered an io error while loading asset at `{}`: {source}", path.display())]
     Io {
         path: PathBuf,
-        #[source]
         source: std::io::Error,
     },
     #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]

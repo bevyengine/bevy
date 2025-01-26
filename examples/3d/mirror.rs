@@ -31,6 +31,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.0,
+            affects_lightmapped_meshes: false,
         })
         .add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<
@@ -76,11 +77,11 @@ fn setup(
         array::from_fn(|i| (plane_bounds[i].xyz() / plane_bounds[i].w).xy());
 
     // Main camera
-    commands.spawn(Camera3dBundle {
-        transform: camera_transform,
-        projection: Projection::Perspective(proj),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        camera_transform,
+        Projection::Perspective(proj),
+    ));
 
     // Householder matrix stuff
 
@@ -97,10 +98,12 @@ fn setup(
     );
 
     let inverse_linear_camera_transform = camera_transform.compute_affine().matrix3.inverse();
-    let mirror_near_plane_dist =
-        Ray3d::new(camera_origin, (camera_target - camera_origin).normalize())
-            .intersect_plane(Vec3::ZERO, InfinitePlane3d::new(mirror_rotation * Vec3::Y))
-            .expect("Ray missed mirror");
+    let mirror_near_plane_dist = Ray3d::new(
+        camera_origin,
+        Dir3::new(camera_target - camera_origin).unwrap_or(Dir3::Y),
+    )
+    .intersect_plane(Vec3::ZERO, InfinitePlane3d::new(mirror_rotation * Vec3::Y))
+    .expect("Ray missed mirror");
 
     // Y=-1 because the near plane is the opposite plane of the mirror.
     let mirror_proj_plane_normal =
@@ -120,7 +123,7 @@ fn setup(
     // of the screen. However, if the on-screen size of the portal is known to
     // be bounded, it can be useful to allocate a smaller texture, so we
     // demonstrate the technique here.
-    let aabb_2d = Aabb2d::from_point_cloud(Vec2::ZERO, Rot2::IDENTITY, &proj_plane_bounds);
+    let aabb_2d = Aabb2d::from_point_cloud(Isometry2d::IDENTITY, &proj_plane_bounds);
     let screen_space_aabb_2d = (vec4(aabb_2d.min.x, aabb_2d.max.y, aabb_2d.max.x, aabb_2d.min.y)
         * vec4(0.5, -0.5, 0.5, -0.5)
         + 0.5)
@@ -171,8 +174,9 @@ fn setup(
     mirror_proj.near_normal = mirror_proj_plane_normal;
 
     // Mirror camera
-    commands.spawn(Camera3dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Camera {
             order: -1,
             target: image.clone().into(),
             // Reflecting the model across the mirror will flip the winding of
@@ -181,10 +185,9 @@ fn setup(
             invert_culling: true,
             ..default()
         },
-        transform: reflected_transform,
-        projection: Projection::Perspective(mirror_proj),
-        ..default()
-    });
+        reflected_transform,
+        Projection::Perspective(mirror_proj),
+    ));
 
     // can't use a fox anymore because of https://github.com/bevyengine/bevy/issues/13796
     /*commands.spawn(SceneBundle {
@@ -192,24 +195,21 @@ fn setup(
         transform: Transform::from_xyz(-50.0, 0.0, -100.0),
         ..default()
     });*/
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh()),
-        transform: Transform::from_scale(vec3(80.0, 80.0, 80.0))
-            .with_translation(vec3(-50.0, 0.0, -100.0)),
-        material: standard_materials.add(Color::from(GOLDENROD)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh())),
+        Transform::from_scale(vec3(80.0, 80.0, 80.0)).with_translation(vec3(-50.0, 0.0, -100.0)),
+        MeshMaterial3d(standard_materials.add(Color::from(GOLDENROD))),
+    ));
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh()),
-        material: standard_materials.add(Color::from(RED)),
-        transform: Transform::from_xyz(10.0, 0.0, 10.0).with_scale(Vec3::splat(10.0)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0).mesh())),
+        MeshMaterial3d(standard_materials.add(Color::from(RED))),
+        Transform::from_xyz(10.0, 0.0, 10.0).with_scale(Vec3::splat(10.0)),
+    ));
 
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(1.0, 1.0)),
-        material: screen_space_texture_materials.add(ExtendedMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(1.0, 1.0))),
+        MeshMaterial3d(screen_space_texture_materials.add(ExtendedMaterial {
             base: StandardMaterial {
                 base_color_texture: Some(image),
                 ..default()
@@ -217,10 +217,9 @@ fn setup(
             extension: ScreenSpaceTextureExtension {
                 screen_rect: rounded_screen_space_aabb_2d,
             },
-        }),
-        transform: mirror_transform,
-        ..default()
-    });
+        })),
+        mirror_transform,
+    ));
 }
 
 impl MaterialExtension for ScreenSpaceTextureExtension {

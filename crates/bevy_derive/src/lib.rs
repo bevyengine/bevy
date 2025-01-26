@@ -1,5 +1,4 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
@@ -9,7 +8,6 @@
 
 extern crate proc_macro;
 
-mod app_plugin;
 mod bevy_main;
 mod derefs;
 mod enum_variant_meta;
@@ -17,19 +15,6 @@ mod enum_variant_meta;
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
 use quote::format_ident;
-
-/// Generates a dynamic plugin entry point function for the given `Plugin` type.
-///
-/// This is deprecated since 0.14. The current dynamic plugin system is unsound and will be removed in 0.15.
-#[proc_macro_derive(DynamicPlugin)]
-#[deprecated(
-    since = "0.14.0",
-    note = "The current dynamic plugin system is unsound and will be removed in 0.15."
-)]
-pub fn derive_dynamic_plugin(input: TokenStream) -> TokenStream {
-    #[allow(deprecated)]
-    app_plugin::derive_dynamic_plugin(input)
-}
 
 /// Implements [`Deref`] for structs. This is especially useful when utilizing the [newtype] pattern.
 ///
@@ -219,7 +204,7 @@ pub fn derive_enum_variant_meta(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(AppLabel)]
 pub fn derive_app_label(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
-    let mut trait_path = BevyManifest::default().get_path("bevy_app");
+    let mut trait_path = BevyManifest::shared().get_path("bevy_app");
     let mut dyn_eq_path = trait_path.clone();
     trait_path.segments.push(format_ident!("AppLabel").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());

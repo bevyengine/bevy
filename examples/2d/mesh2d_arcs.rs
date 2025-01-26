@@ -1,14 +1,17 @@
 //! Demonstrates UV mappings of the [`CircularSector`] and [`CircularSegment`] primitives.
 //!
 //! Also draws the bounding boxes and circles of the primitives.
+
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    color::palettes::css::{BLUE, DARK_SLATE_GREY, RED},
-    math::bounding::{Bounded2d, BoundingVolume},
+    color::palettes::css::{BLUE, GRAY, RED},
+    math::{
+        bounding::{Bounded2d, BoundingVolume},
+        Isometry2d,
+    },
     prelude::*,
     render::mesh::{CircularMeshUvMode, CircularSectorMeshBuilder, CircularSegmentMeshBuilder},
-    sprite::MaterialMesh2dBundle,
 };
 
 fn main() {
@@ -36,19 +39,17 @@ fn setup(
 ) {
     let material = materials.add(asset_server.load("branding/icon.png"));
 
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
-            clear_color: ClearColorConfig::Custom(DARK_SLATE_GREY.into()),
+    commands.spawn((
+        Camera2d,
+        Camera {
+            clear_color: ClearColorConfig::Custom(GRAY.into()),
             ..default()
         },
-        ..default()
-    });
+    ));
 
-    const UPPER_Y: f32 = 50.0;
-    const LOWER_Y: f32 = -50.0;
-    const FIRST_X: f32 = -450.0;
-    const OFFSET: f32 = 100.0;
     const NUM_SLICES: i32 = 8;
+    const SPACING_X: f32 = 100.0;
+    const OFFSET_X: f32 = SPACING_X * (NUM_SLICES - 1) as f32 / 2.0;
 
     // This draws NUM_SLICES copies of the Bevy logo as circular sectors and segments,
     // with successively larger angles up to a complete circle.
@@ -64,14 +65,11 @@ fn setup(
                 angle: sector_angle,
             });
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: meshes.add(sector_mesh).into(),
-                material: material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(FIRST_X + OFFSET * i as f32, 2.0 * UPPER_Y, 0.0),
-                    rotation: Quat::from_rotation_z(sector_angle),
-                    ..default()
-                },
+            Mesh2d(meshes.add(sector_mesh)),
+            MeshMaterial2d(material.clone()),
+            Transform {
+                translation: Vec3::new(SPACING_X * i as f32 - OFFSET_X, 50.0, 0.0),
+                rotation: Quat::from_rotation_z(sector_angle),
                 ..default()
             },
             DrawBounds(sector),
@@ -91,14 +89,11 @@ fn setup(
                 angle: -segment_angle,
             });
         commands.spawn((
-            MaterialMesh2dBundle {
-                mesh: meshes.add(segment_mesh).into(),
-                material: material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(FIRST_X + OFFSET * i as f32, LOWER_Y, 0.0),
-                    rotation: Quat::from_rotation_z(segment_angle),
-                    ..default()
-                },
+            Mesh2d(meshes.add(segment_mesh)),
+            MeshMaterial2d(material.clone()),
+            Transform {
+                translation: Vec3::new(SPACING_X * i as f32 - OFFSET_X, -50.0, 0.0),
+                rotation: Quat::from_rotation_z(segment_angle),
                 ..default()
             },
             DrawBounds(segment),
@@ -114,11 +109,12 @@ fn draw_bounds<Shape: Bounded2d + Send + Sync + 'static>(
         let (_, rotation, translation) = transform.to_scale_rotation_translation();
         let translation = translation.truncate();
         let rotation = rotation.to_euler(EulerRot::XYZ).2;
+        let isometry = Isometry2d::new(translation, Rot2::radians(rotation));
 
-        let aabb = shape.0.aabb_2d(translation, rotation);
-        gizmos.rect_2d(aabb.center(), 0.0, aabb.half_size() * 2.0, RED);
+        let aabb = shape.0.aabb_2d(isometry);
+        gizmos.rect_2d(aabb.center(), aabb.half_size() * 2.0, RED);
 
-        let bounding_circle = shape.0.bounding_circle(translation, rotation);
+        let bounding_circle = shape.0.bounding_circle(isometry);
         gizmos.circle_2d(bounding_circle.center, bounding_circle.radius(), BLUE);
     }
 }

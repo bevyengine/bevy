@@ -1,19 +1,21 @@
-use fixedbitset::FixedBitSet;
-use std::any::TypeId;
-use std::collections::HashMap;
-
 use crate::{
+    resource::Resource,
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut},
 };
-use bevy_utils::{
-    tracing::{error, info, warn},
-    TypeIdMap,
-};
+use alloc::vec::Vec;
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::TypeIdMap;
+use core::any::TypeId;
+use fixedbitset::FixedBitSet;
+use log::{info, warn};
 use thiserror::Error;
 
+#[cfg(not(feature = "bevy_debug_stepping"))]
+use log::error;
+
 #[cfg(test)]
-use bevy_utils::tracing::debug;
+use log::debug;
 
 use crate as bevy_ecs;
 
@@ -113,8 +115,8 @@ pub struct Stepping {
     updates: Vec<Update>,
 }
 
-impl std::fmt::Debug for Stepping {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for Stepping {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "Stepping {{ action: {:?}, schedules: {:?}, order: {:?}",
@@ -168,14 +170,8 @@ impl Stepping {
         if self.action == Action::RunAll {
             return None;
         }
-        let label = match self.schedule_order.get(self.cursor.schedule) {
-            None => return None,
-            Some(label) => label,
-        };
-        let state = match self.schedule_states.get(label) {
-            None => return None,
-            Some(state) => state,
-        };
+        let label = self.schedule_order.get(self.cursor.schedule)?;
+        let state = self.schedule_states.get(label)?;
         state
             .node_ids
             .get(self.cursor.system)
@@ -420,6 +416,10 @@ impl Stepping {
                     // transitions, and add debugging messages for permitted
                     // transitions.  Any action transition that falls through
                     // this match block will be performed.
+                    #[expect(
+                        clippy::match_same_arms,
+                        reason = "Readability would be negatively impacted by combining the `(Waiting, RunAll)` and `(Continue, RunAll)` match arms."
+                    )]
                     match (self.action, action) {
                         // ignore non-transition updates, and prevent a call to
                         // enable() from overwriting a step or continue call
@@ -691,7 +691,7 @@ impl ScheduleState {
         start: usize,
         mut action: Action,
     ) -> (FixedBitSet, Option<usize>) {
-        use std::cmp::Ordering;
+        use core::cmp::Ordering;
 
         // if our NodeId list hasn't been populated, copy it over from the
         // schedule
@@ -827,8 +827,9 @@ impl ScheduleState {
 #[cfg(all(test, feature = "bevy_debug_stepping"))]
 mod tests {
     use super::*;
-    use crate::prelude::*;
-    use crate::schedule::ScheduleLabel;
+    use crate::{prelude::*, schedule::ScheduleLabel};
+    use alloc::{format, vec};
+    use std::println;
 
     pub use crate as bevy_ecs;
 
@@ -868,7 +869,7 @@ mod tests {
             let systems: &Vec<&str> = $system_names;
 
             if (actual != expected) {
-                use std::fmt::Write as _;
+                use core::fmt::Write as _;
 
                 // mismatch, let's construct a human-readable message of what
                 // was returned
@@ -900,7 +901,7 @@ mod tests {
         ($schedule:expr, $skipped_systems:expr, $($system:expr),*) => {
             // pull an ordered list of systems in the schedule, and save the
             // system TypeId, and name.
-            let systems: Vec<(TypeId, std::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
+            let systems: Vec<(TypeId, alloc::borrow::Cow<'static, str>)> = $schedule.systems().unwrap()
                 .map(|(_, system)| {
                     (system.type_id(), system.name())
                 })

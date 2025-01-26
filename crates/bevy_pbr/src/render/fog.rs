@@ -11,7 +11,7 @@ use bevy_render::{
     Render, RenderApp, RenderSet,
 };
 
-use crate::{FogFalloff, FogSettings};
+use crate::{DistanceFog, FogFalloff};
 
 /// The GPU-side representation of the fog configuration that's sent as a uniform to the shader
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
@@ -51,7 +51,7 @@ pub fn prepare_fog(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
-    views: Query<(Entity, Option<&FogSettings>), With<ExtractedView>>,
+    views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -136,8 +136,8 @@ impl Plugin for FogPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, FOG_SHADER_HANDLE, "fog.wgsl", Shader::from_wgsl);
 
-        app.register_type::<FogSettings>();
-        app.add_plugins(ExtractComponentPlugin::<FogSettings>::default());
+        app.register_type::<DistanceFog>();
+        app.add_plugins(ExtractComponentPlugin::<DistanceFog>::default());
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

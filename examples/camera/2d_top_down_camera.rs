@@ -4,21 +4,18 @@
 //!
 //! | Key Binding          | Action        |
 //! |:---------------------|:--------------|
-//! | `Z`(azerty), `W`(US) | Move forward  |
-//! | `S`                  | Move backward |
-//! | `Q`(azerty), `A`(US) | Move left     |
+//! | `W`                  | Move up       |
+//! | `S`                  | Move down     |
+//! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
 
-use bevy::core_pipeline::bloom::BloomSettings;
-use bevy::math::vec3;
-use bevy::prelude::*;
-use bevy::sprite::{MaterialMesh2dBundle, Mesh2dHandle};
+use bevy::{core_pipeline::bloom::Bloom, prelude::*};
 
 /// Player movement speed factor.
 const PLAYER_SPEED: f32 = 100.;
 
-/// Camera lerp factor.
-const CAM_LERP_FACTOR: f32 = 2.;
+/// How quickly should the camera snap to the desired location.
+const CAMERA_DECAY_RATE: f32 = 2.;
 
 #[derive(Component)]
 struct Player;
@@ -37,92 +34,69 @@ fn setup_scene(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     // World where we move the player
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: Mesh2dHandle(meshes.add(Rectangle::new(1000., 700.))),
-        material: materials.add(Color::srgb(0.2, 0.2, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::new(1000., 700.))),
+        MeshMaterial2d(materials.add(Color::srgb(0.2, 0.2, 0.3))),
+    ));
 
     // Player
     commands.spawn((
         Player,
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Circle::new(25.)).into(),
-            material: materials.add(Color::srgb(6.25, 9.4, 9.1)), // RGB values exceed 1 to achieve a bright color for the bloom effect
-            transform: Transform {
-                translation: vec3(0., 0., 2.),
-                ..default()
-            },
+        Mesh2d(meshes.add(Circle::new(25.))),
+        MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))), // RGB values exceed 1 to achieve a bright color for the bloom effect
+        Transform::from_xyz(0., 0., 2.),
+    ));
+}
+
+fn setup_instructions(mut commands: Commands) {
+    commands.spawn((
+        Text::new("Move the light with WASD.\nThe camera will smoothly track the light."),
+        Node {
+            position_type: PositionType::Absolute,
+            bottom: Val::Px(12.0),
+            left: Val::Px(12.0),
             ..default()
         },
     ));
 }
 
-fn setup_instructions(mut commands: Commands) {
-    commands.spawn(
-        TextBundle::from_section(
-            "Move the light with ZQSD or WASD.\nThe camera will smoothly track the light.",
-            TextStyle::default(),
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
-}
-
 fn setup_camera(mut commands: Commands) {
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                hdr: true, // HDR is required for the bloom effect
-                ..default()
-            },
+        Camera2d,
+        Camera {
+            hdr: true, // HDR is required for the bloom effect
             ..default()
         },
-        BloomSettings::NATURAL,
+        Bloom::NATURAL,
     ));
 }
 
 /// Update the camera position by tracking the player.
 fn update_camera(
-    mut camera: Query<&mut Transform, (With<Camera2d>, Without<Player>)>,
-    player: Query<&Transform, (With<Player>, Without<Camera2d>)>,
+    mut camera: Single<&mut Transform, (With<Camera2d>, Without<Player>)>,
+    player: Single<&Transform, (With<Player>, Without<Camera2d>)>,
     time: Res<Time>,
 ) {
-    let Ok(mut camera) = camera.get_single_mut() else {
-        return;
-    };
-
-    let Ok(player) = player.get_single() else {
-        return;
-    };
-
     let Vec3 { x, y, .. } = player.translation;
     let direction = Vec3::new(x, y, camera.translation.z);
 
-    // Applies a smooth effect to camera movement using interpolation between
-    // the camera position and the player position on the x and y axes.
-    // Here we use the in-game time, to get the elapsed time (in seconds)
-    // since the previous update. This avoids jittery movement when tracking
-    // the player.
-    camera.translation = camera
+    // Applies a smooth effect to camera movement using stable interpolation
+    // between the camera position and the player position on the x and y axes.
+    camera
         .translation
-        .lerp(direction, time.delta_seconds() * CAM_LERP_FACTOR);
+        .smooth_nudge(&direction, CAMERA_DECAY_RATE, time.delta_secs());
 }
 
 /// Update the player position with keyboard inputs.
+/// Note that the approach used here is for demonstration purposes only,
+/// as the point of this example is to showcase the camera tracking feature.
+///
+/// A more robust solution for player movement can be found in `examples/movement/physics_in_fixed_timestep.rs`.
 fn move_player(
-    mut player: Query<&mut Transform, With<Player>>,
+    mut player: Single<&mut Transform, With<Player>>,
     time: Res<Time>,
     kb_input: Res<ButtonInput<KeyCode>>,
 ) {
-    let Ok(mut player) = player.get_single_mut() else {
-        return;
-    };
-
     let mut direction = Vec2::ZERO;
 
     if kb_input.pressed(KeyCode::KeyW) {
@@ -144,6 +118,6 @@ fn move_player(
     // Progressively update the player's position over time. Normalize the
     // direction vector to prevent it from exceeding a magnitude of 1 when
     // moving diagonally.
-    let move_delta = direction.normalize_or_zero() * PLAYER_SPEED * time.delta_seconds();
+    let move_delta = direction.normalize_or_zero() * PLAYER_SPEED * time.delta_secs();
     player.translation += move_delta.extend(0.);
 }

@@ -1,11 +1,11 @@
 //! System parameter for computing up-to-date [`GlobalTransform`]s.
 
 use bevy_ecs::{
+    hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
     system::{Query, SystemParam},
 };
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use thiserror::Error;
 
 use crate::components::{GlobalTransform, Transform};
@@ -18,7 +18,7 @@ use crate::components::{GlobalTransform, Transform};
 /// the last time the transform propagation systems ran.
 #[derive(SystemParam)]
 pub struct TransformHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
     transform_query: Query<'w, 's, &'static Transform>,
 }
 
@@ -51,8 +51,8 @@ impl<'w, 's> TransformHelper<'w, 's> {
 fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformError {
     use ComputeGlobalTransformError::*;
     match err {
-        QueryEntityError::QueryDoesNotMatch(entity) => MissingTransform(entity),
-        QueryEntityError::NoSuchEntity(entity) => {
+        QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
+        QueryEntityError::NoSuchEntity(entity, _) => {
             if ancestor {
                 MalformedHierarchy(entity)
             } else {
@@ -80,15 +80,14 @@ pub enum ComputeGlobalTransformError {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::TAU;
+    use alloc::{vec, vec::Vec};
+    use core::f32::consts::TAU;
 
     use bevy_app::App;
-    use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildWorldChildren;
+    use bevy_ecs::{hierarchy::ChildOf, system::SystemState};
     use bevy_math::{Quat, Vec3};
 
     use crate::{
-        bundles::TransformBundle,
         components::{GlobalTransform, Transform},
         helper::TransformHelper,
         plugins::TransformPlugin,
@@ -122,10 +121,10 @@ mod tests {
         let mut entity = None;
 
         for transform in transforms {
-            let mut e = app.world_mut().spawn(TransformBundle::from(transform));
+            let mut e = app.world_mut().spawn(transform);
 
             if let Some(entity) = entity {
-                e.set_parent(entity);
+                e.insert(ChildOf(entity));
             }
 
             entity = Some(e.id());

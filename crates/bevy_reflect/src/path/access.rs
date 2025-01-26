@@ -1,16 +1,17 @@
 //! Representation for individual element accesses within a path.
 
-use std::{borrow::Cow, fmt};
+use alloc::borrow::Cow;
+use core::fmt;
 
 use super::error::AccessErrorKind;
-use crate::{AccessError, Reflect, ReflectKind, ReflectMut, ReflectRef, VariantType};
+use crate::{AccessError, PartialReflect, ReflectKind, ReflectMut, ReflectRef, VariantType};
 
 type InnerResult<T> = Result<T, AccessErrorKind>;
 
 /// A singular element access within a path.
 /// Multiple accesses can be combined into a [`ParsedPath`](super::ParsedPath).
 ///
-/// Can be applied to a [`dyn Reflect`](Reflect) to get a reference to the targeted element.
+/// Can be applied to a [`dyn Reflect`](crate::Reflect) to get a reference to the targeted element.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Access<'a> {
     /// A name-based field access on a struct.
@@ -51,15 +52,18 @@ impl<'a> Access<'a> {
 
     pub(super) fn element<'r>(
         &self,
-        base: &'r dyn Reflect,
+        base: &'r dyn PartialReflect,
         offset: Option<usize>,
-    ) -> Result<&'r dyn Reflect, AccessError<'a>> {
+    ) -> Result<&'r dyn PartialReflect, AccessError<'a>> {
         self.element_inner(base)
             .and_then(|opt| opt.ok_or(AccessErrorKind::MissingField(base.reflect_kind())))
             .map_err(|err| err.with_access(self.clone(), offset))
     }
 
-    fn element_inner<'r>(&self, base: &'r dyn Reflect) -> InnerResult<Option<&'r dyn Reflect>> {
+    fn element_inner<'r>(
+        &self,
+        base: &'r dyn PartialReflect,
+    ) -> InnerResult<Option<&'r dyn PartialReflect>> {
         use ReflectRef::*;
 
         let invalid_variant =
@@ -105,9 +109,9 @@ impl<'a> Access<'a> {
 
     pub(super) fn element_mut<'r>(
         &self,
-        base: &'r mut dyn Reflect,
+        base: &'r mut dyn PartialReflect,
         offset: Option<usize>,
-    ) -> Result<&'r mut dyn Reflect, AccessError<'a>> {
+    ) -> Result<&'r mut dyn PartialReflect, AccessError<'a>> {
         let kind = base.reflect_kind();
 
         self.element_inner_mut(base)
@@ -117,8 +121,8 @@ impl<'a> Access<'a> {
 
     fn element_inner_mut<'r>(
         &self,
-        base: &'r mut dyn Reflect,
-    ) -> InnerResult<Option<&'r mut dyn Reflect>> {
+        base: &'r mut dyn PartialReflect,
+    ) -> InnerResult<Option<&'r mut dyn PartialReflect>> {
         use ReflectMut::*;
 
         let invalid_variant =

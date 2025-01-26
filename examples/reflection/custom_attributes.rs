@@ -1,8 +1,7 @@
 //! Demonstrates how to register and access custom attributes on reflected types.
 
 use bevy::reflect::{Reflect, TypeInfo, Typed};
-use std::any::TypeId;
-use std::ops::RangeInclusive;
+use std::{any::TypeId, ops::RangeInclusive};
 
 fn main() {
     // Bevy supports statically registering custom attribute data on reflected types,

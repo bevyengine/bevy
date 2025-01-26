@@ -7,7 +7,7 @@ use bevy::{
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
-        AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
+        AssetLoader, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,
@@ -81,11 +81,11 @@ impl AssetLoader for TextLoader {
     type Asset = Text;
     type Settings = TextSettings;
     type Error = std::io::Error;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        settings: &'a TextSettings,
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &TextSettings,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Text, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -113,7 +113,10 @@ struct CoolTextRon {
 #[derive(Asset, TypePath, Debug)]
 struct CoolText {
     text: String,
-    #[allow(unused)]
+    #[expect(
+        dead_code,
+        reason = "Used to show that our assets can hold handles to other assets"
+    )]
     dependencies: Vec<Handle<Text>>,
 }
 
@@ -135,11 +138,11 @@ impl AssetLoader for CoolTextLoader {
     type Settings = ();
     type Error = CoolTextLoaderError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a Self::Settings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &Self::Settings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<CoolText, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -148,7 +151,7 @@ impl AssetLoader for CoolTextLoader {
         for embedded in ron.embedded_dependencies {
             let loaded = load_context
                 .loader()
-                .direct()
+                .immediate()
                 .load::<Text>(&embedded)
                 .await?;
             base_text.push_str(&loaded.get().0);
@@ -159,7 +162,7 @@ impl AssetLoader for CoolTextLoader {
                 .with_settings(move |settings| {
                     *settings = settings_override.clone();
                 })
-                .direct()
+                .immediate()
                 .load::<Text>(&path)
                 .await?;
             base_text.push_str(&loaded.get().0);
@@ -211,11 +214,11 @@ impl AssetSaver for CoolTextSaver {
     type OutputLoader = TextLoader;
     type Error = std::io::Error;
 
-    async fn save<'a>(
-        &'a self,
-        writer: &'a mut Writer,
-        asset: SavedAsset<'a, Self::Asset>,
-        _settings: &'a Self::Settings,
+    async fn save(
+        &self,
+        writer: &mut Writer,
+        asset: SavedAsset<'_, Self::Asset>,
+        _settings: &Self::Settings,
     ) -> Result<TextSettings, Self::Error> {
         writer.write_all(asset.text.as_bytes()).await?;
         Ok(TextSettings::default())

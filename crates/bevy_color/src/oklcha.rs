@@ -2,7 +2,8 @@ use crate::{
     color_difference::EuclideanDistance, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hue, Hwba,
     Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::{ops, FloatPow, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in Oklch color space, with alpha
@@ -10,11 +11,11 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(PartialEq, Default))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Oklcha {
@@ -113,7 +114,7 @@ impl Mix for Oklcha {
         Self {
             lightness: self.lightness * n_factor + other.lightness * factor,
             chroma: self.chroma * n_factor + other.chroma * factor,
-            hue: self.hue * n_factor + other.hue * factor,
+            hue: crate::color_ops::lerp_hue(self.hue, other.hue, factor),
             alpha: self.alpha * n_factor + other.alpha * factor,
         }
     }
@@ -190,9 +191,9 @@ impl Luminance for Oklcha {
 impl EuclideanDistance for Oklcha {
     #[inline]
     fn distance_squared(&self, other: &Self) -> f32 {
-        (self.lightness - other.lightness).powi(2)
-            + (self.chroma - other.chroma).powi(2)
-            + (self.hue - other.hue).powi(2)
+        (self.lightness - other.lightness).squared()
+            + (self.chroma - other.chroma).squared()
+            + (self.hue - other.hue).squared()
     }
 }
 
@@ -259,8 +260,8 @@ impl From<Oklaba> for Oklcha {
             alpha,
         }: Oklaba,
     ) -> Self {
-        let chroma = a.hypot(b);
-        let hue = b.atan2(a).to_degrees();
+        let chroma = ops::hypot(a, b);
+        let hue = ops::atan2(b, a).to_degrees();
 
         let hue = if hue < 0.0 { hue + 360.0 } else { hue };
 
@@ -278,8 +279,9 @@ impl From<Oklcha> for Oklaba {
         }: Oklcha,
     ) -> Self {
         let l = lightness;
-        let a = chroma * hue.to_radians().cos();
-        let b = chroma * hue.to_radians().sin();
+        let (sin, cos) = ops::sin_cos(hue.to_radians());
+        let a = chroma * cos;
+        let b = chroma * sin;
 
         Oklaba::new(l, a, b, alpha)
     }

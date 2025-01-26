@@ -7,7 +7,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, Handle};
-use bevy_core::FrameCount;
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_time::Time;
@@ -74,8 +74,8 @@ fn prepare_globals_buffer(
     frame_count: Res<FrameCount>,
 ) {
     let buffer = globals_buffer.buffer.get_mut();
-    buffer.time = time.elapsed_seconds_wrapped();
-    buffer.delta_time = time.delta_seconds();
+    buffer.time = time.elapsed_secs_wrapped();
+    buffer.delta_time = time.delta_secs();
     buffer.frame_count = frame_count.0;
 
     globals_buffer

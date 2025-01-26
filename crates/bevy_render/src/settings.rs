@@ -1,11 +1,12 @@
 use crate::renderer::{
     RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
 };
-use std::borrow::Cow;
+use alloc::borrow::Cow;
+use std::path::PathBuf;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
-    Limits as WgpuLimits, PowerPreference,
+    Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
@@ -50,6 +51,10 @@ pub struct WgpuSettings {
     pub gles3_minor_version: Gles3MinorVersion,
     /// These are for controlling WGPU's debug information to eg. enable validation and shader debug info in release builds.
     pub instance_flags: InstanceFlags,
+    /// This hints to the WGPU device about the preferred memory allocation strategy.
+    pub memory_hints: MemoryHints,
+    /// The path to pass to wgpu for API call tracing. This only has an effect if wgpu's tracing functionality is enabled.
+    pub trace_path: Option<PathBuf>,
 }
 
 impl Default for WgpuSettings {
@@ -81,7 +86,11 @@ impl Default for WgpuSettings {
         {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
-            #[allow(unused_mut)]
+            #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
+            #[allow(
+                unused_mut,
+                reason = "This variable needs to be mutable if the `ci_limits` feature is enabled"
+            )]
             let mut limits = wgpu::Limits::default();
             #[cfg(feature = "ci_limits")]
             {
@@ -113,20 +122,25 @@ impl Default for WgpuSettings {
             dx12_shader_compiler: dx12_compiler,
             gles3_minor_version,
             instance_flags,
+            memory_hints: MemoryHints::default(),
+            trace_path: None,
         }
     }
 }
 
+#[derive(Clone)]
+pub struct RenderResources(
+    pub RenderDevice,
+    pub RenderQueue,
+    pub RenderAdapterInfo,
+    pub RenderAdapter,
+    pub RenderInstance,
+);
+
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
-    Manual(
-        RenderDevice,
-        RenderQueue,
-        RenderAdapterInfo,
-        RenderAdapter,
-        RenderInstance,
-    ),
+    Manual(RenderResources),
     /// Lets the rendering plugin create resources itself.
     Automatic(WgpuSettings),
 }
@@ -140,7 +154,13 @@ impl RenderCreation {
         adapter: RenderAdapter,
         instance: RenderInstance,
     ) -> Self {
-        Self::Manual(device, queue, adapter_info, adapter, instance)
+        RenderResources(device, queue, adapter_info, adapter, instance).into()
+    }
+}
+
+impl From<RenderResources> for RenderCreation {
+    fn from(value: RenderResources) -> Self {
+        Self::Manual(value)
     }
 }
 

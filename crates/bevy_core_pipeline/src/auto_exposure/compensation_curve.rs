@@ -32,6 +32,7 @@ pub struct AutoExposureCompensationCurve {
     /// Each value in the LUT is a `u8` representing a normalized exposure compensation value:
     /// * `0` maps to `min_compensation`
     /// * `255` maps to `max_compensation`
+    ///
     /// The position in the LUT corresponds to the normalized log luminance value.
     /// * `0` maps to `min_log_lum`
     /// * `LUT_SIZE - 1` maps to `max_log_lum`
@@ -41,6 +42,9 @@ pub struct AutoExposureCompensationCurve {
 /// Various errors that can occur when constructing an [`AutoExposureCompensationCurve`].
 #[derive(Error, Debug)]
 pub enum AutoExposureCompensationCurveError {
+    /// The curve couldn't be built in the first place.
+    #[error("curve could not be constructed from the given data")]
+    InvalidCurve,
     /// A discontinuity was found in the curve.
     #[error("discontinuity found between curve segments")]
     DiscontinuityFound,
@@ -98,7 +102,9 @@ impl AutoExposureCompensationCurve {
     where
         T: CubicGenerator<Vec2>,
     {
-        let curve = curve.to_curve();
+        let Ok(curve) = curve.to_curve() else {
+            return Err(AutoExposureCompensationCurveError::InvalidCurve);
+        };
 
         let min_log_lum = curve.position(0.0).x;
         let max_log_lum = curve.position(curve.segments().len() as f32).x;
@@ -130,7 +136,10 @@ impl AutoExposureCompensationCurve {
                 let lut_inv_range = 1.0 / (lut_end - lut_begin);
 
                 // Iterate over all LUT entries whose pixel centers fall within the current segment.
-                #[allow(clippy::needless_range_loop)]
+                #[expect(
+                    clippy::needless_range_loop,
+                    reason = "This for-loop also uses `i` to calculate a value `t`."
+                )]
                 for i in lut_begin.ceil() as usize..=lut_end.floor() as usize {
                     let t = (i as f32 - lut_begin) * lut_inv_range;
                     lut[i] = previous.y.lerp(current.y, t);
@@ -185,6 +194,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
 
     fn prepare_asset(
         source: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(

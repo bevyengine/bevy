@@ -1,15 +1,15 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "This module acts as a wrapper around the `raw_window_handle` crate, which exposes many unsafe interfaces; thus, we have to use unsafe code here."
+)]
 
+use alloc::sync::Arc;
 use bevy_ecs::prelude::Component;
+use bevy_platform_support::sync::Mutex;
+use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
-};
-use std::{
-    any::Any,
-    marker::PhantomData,
-    ops::Deref,
-    sync::{Arc, Mutex},
 };
 
 /// A wrapper over a window.
@@ -52,9 +52,9 @@ impl<W: 'static> Deref for WindowWrapper<W> {
 pub struct RawHandleWrapper {
     _window: Arc<dyn Any + Send + Sync>,
     /// Raw handle to a window.
-    pub window_handle: RawWindowHandle,
+    window_handle: RawWindowHandle,
     /// Raw handle to the display server.
-    pub display_handle: RawDisplayHandle,
+    display_handle: RawDisplayHandle,
 }
 
 impl RawHandleWrapper {
@@ -77,6 +77,41 @@ impl RawHandleWrapper {
     /// operations off of the main thread. The caller must ensure the [`RawHandleWrapper`] is only used in valid contexts.
     pub unsafe fn get_handle(&self) -> ThreadLockedRawWindowHandleWrapper {
         ThreadLockedRawWindowHandleWrapper(self.clone())
+    }
+
+    /// Gets the stored window handle.
+    pub fn get_window_handle(&self) -> RawWindowHandle {
+        self.window_handle
+    }
+
+    /// Sets the window handle.
+    ///
+    /// # Safety
+    ///
+    /// The passed in [`RawWindowHandle`] must be a valid window handle.
+    // NOTE: The use of an explicit setter instead of a getter for a mutable reference is to limit the amount of time unsoundness can happen.
+    //       If we handed out a mutable reference the user would have to maintain safety invariants throughout its lifetime. For consistency
+    //       we also prefer to handout copies of the handles instead of immutable references.
+    pub unsafe fn set_window_handle(&mut self, window_handle: RawWindowHandle) -> &mut Self {
+        self.window_handle = window_handle;
+
+        self
+    }
+
+    /// Gets the stored display handle
+    pub fn get_display_handle(&self) -> RawDisplayHandle {
+        self.display_handle
+    }
+
+    /// Sets the display handle.
+    ///
+    /// # Safety
+    ///
+    /// The passed in [`RawDisplayHandle`] must be a valid display handle.
+    pub fn set_display_handle(&mut self, display_handle: RawDisplayHandle) -> &mut Self {
+        self.display_handle = display_handle;
+
+        self
     }
 }
 

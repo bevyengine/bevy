@@ -1,5 +1,4 @@
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
+use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
@@ -7,10 +6,11 @@ use bevy_render::{
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewUniformOffset},
 };
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use crate::skybox::prepass::{RenderSkyboxPrepassPipeline, SkyboxPrepassBindGroup};
 
@@ -27,8 +27,8 @@ pub struct PrepassNode;
 
 impl ViewNode for PrepassNode {
     type ViewQuery = (
-        Entity,
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewDepthTexture,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
@@ -43,8 +43,8 @@ impl ViewNode for PrepassNode {
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         (
-            view,
             camera,
+            extracted_view,
             view_depth_texture,
             view_prepass_textures,
             view_uniform_offset,
@@ -63,8 +63,8 @@ impl ViewNode for PrepassNode {
         };
 
         let (Some(opaque_prepass_phase), Some(alpha_mask_prepass_phase)) = (
-            opaque_prepass_phases.get(&view),
-            alpha_mask_prepass_phases.get(&view),
+            opaque_prepass_phases.get(&extracted_view.retained_view_entity),
+            alpha_mask_prepass_phases.get(&extracted_view.retained_view_entity),
         ) else {
             return Ok(());
         };
@@ -120,19 +120,29 @@ impl ViewNode for PrepassNode {
             }
 
             // Opaque draws
-            if !opaque_prepass_phase.batchable_keys.is_empty()
-                || !opaque_prepass_phase.unbatchable_keys.is_empty()
+            if !opaque_prepass_phase.multidrawable_mesh_keys.is_empty()
+                || !opaque_prepass_phase.batchable_mesh_keys.is_empty()
+                || !opaque_prepass_phase.unbatchable_mesh_keys.is_empty()
             {
                 #[cfg(feature = "trace")]
                 let _opaque_prepass_span = info_span!("opaque_prepass").entered();
-                opaque_prepass_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) = opaque_prepass_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!("Error encountered while rendering the opaque prepass phase {err:?}");
+                }
             }
 
             // Alpha masked draws
             if !alpha_mask_prepass_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
-                alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) =
+                    alpha_mask_prepass_phase.render(&mut render_pass, world, view_entity)
+                {
+                    error!(
+                        "Error encountered while rendering the alpha mask prepass phase {err:?}"
+                    );
+                }
             }
 
             // Skybox draw using a fullscreen triangle
@@ -162,7 +172,7 @@ impl ViewNode for PrepassNode {
             pass_span.end(&mut render_pass);
             drop(render_pass);
 
-            // Copy prepass depth to the main depth texture if deferred isn't going to
+            // After rendering to the view depth texture, copy it to the prepass depth texture if deferred isn't going to
             if deferred_prepass.is_none() {
                 if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
                     command_encoder.copy_texture_to_texture(

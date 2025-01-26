@@ -3,11 +3,19 @@
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
-    system::Resource,
+    resource::Resource,
 };
+use alloc::borrow::ToOwned;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
-use std::mem;
-use std::ops::{Deref, DerefMut};
+use core::{
+    mem,
+    ops::{Deref, DerefMut},
+};
+#[cfg(feature = "track_location")]
+use {
+    bevy_ptr::ThinSlicePtr,
+    core::{cell::UnsafeCell, panic::Location},
+};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -63,6 +71,10 @@ pub trait DetectChanges {
     /// [`SystemChangeTick`](crate::system::SystemChangeTick)
     /// [`SystemParam`](crate::system::SystemParam).
     fn last_changed(&self) -> Tick;
+
+    /// The location that last caused this to change.
+    #[cfg(feature = "track_location")]
+    fn changed_by(&self) -> &'static Location<'static>;
 }
 
 /// Types that implement reliable change detection.
@@ -94,7 +106,6 @@ pub trait DetectChanges {
 ///    resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
-///
 pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///
@@ -167,6 +178,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # assert!(!score_changed.run((), &mut world));
     /// ```
     #[inline]
+    #[track_caller]
     fn set_if_neq(&mut self, value: Self::Inner) -> bool
     where
         Self::Inner: Sized + PartialEq,
@@ -226,7 +238,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// # score_changed.initialize(&mut world);
     /// # score_changed.run((), &mut world);
     /// #
-    /// # let mut score_changed_event = IntoSystem::into_system(on_event::<ScoreChanged>());
+    /// # let mut score_changed_event = IntoSystem::into_system(on_event::<ScoreChanged>);
     /// # score_changed_event.initialize(&mut world);
     /// # score_changed_event.run((), &mut world);
     /// #
@@ -257,6 +269,55 @@ pub trait DetectChangesMut: DetectChanges {
             None
         }
     }
+
+    /// Overwrites this smart pointer with a clone of the given value, if and only if `*self != value`.
+    /// Returns `true` if the value was overwritten, and returns `false` if it was not.
+    ///
+    /// This method is useful when the caller only has a borrowed form of `Inner`,
+    /// e.g. when writing a `&str` into a `Mut<String>`.
+    ///
+    /// # Examples
+    /// ```
+    /// # extern crate alloc;
+    /// # use alloc::borrow::ToOwned;
+    /// # use bevy_ecs::{prelude::*, schedule::common_conditions::resource_changed};
+    /// #[derive(Resource)]
+    /// pub struct Message(String);
+    ///
+    /// fn update_message(mut message: ResMut<Message>) {
+    ///     // Set the score to zero, unless it is already zero.
+    ///     ResMut::map_unchanged(message, |Message(msg)| msg).clone_from_if_neq("another string");
+    /// }
+    /// # let mut world = World::new();
+    /// # world.insert_resource(Message("initial string".into()));
+    /// # let mut message_changed = IntoSystem::into_system(resource_changed::<Message>);
+    /// # message_changed.initialize(&mut world);
+    /// # message_changed.run((), &mut world);
+    /// #
+    /// # let mut schedule = Schedule::default();
+    /// # schedule.add_systems(update_message);
+    /// #
+    /// # // first time `reset_score` runs, the score is changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(message_changed.run((), &mut world));
+    /// # // second time `reset_score` runs, the score is not changed.
+    /// # schedule.run(&mut world);
+    /// # assert!(!message_changed.run((), &mut world));
+    /// ```
+    fn clone_from_if_neq<T>(&mut self, value: &T) -> bool
+    where
+        T: ToOwned<Owned = Self::Inner> + ?Sized,
+        Self::Inner: PartialEq<T>,
+    {
+        let old = self.bypass_change_detection();
+        if old != value {
+            value.clone_into(old);
+            self.set_changed();
+            true
+        } else {
+            false
+        }
+    }
 }
 
 macro_rules! change_detection_impl {
@@ -279,6 +340,12 @@ macro_rules! change_detection_impl {
             #[inline]
             fn last_changed(&self) -> Tick {
                 *self.ticks.changed
+            }
+
+            #[inline]
+            #[cfg(feature = "track_location")]
+            fn changed_by(&self) -> &'static Location<'static> {
+                self.changed_by
             }
         }
 
@@ -306,13 +373,23 @@ macro_rules! change_detection_mut_impl {
             type Inner = $target;
 
             #[inline]
+            #[track_caller]
             fn set_changed(&mut self) {
                 *self.ticks.changed = self.ticks.this_run;
+                #[cfg(feature = "track_location")]
+                {
+                    *self.changed_by = Location::caller();
+                }
             }
 
             #[inline]
+            #[track_caller]
             fn set_last_changed(&mut self, last_changed: Tick) {
                 *self.ticks.changed = last_changed;
+                #[cfg(feature = "track_location")]
+                {
+                    *self.changed_by = Location::caller();
+                }
             }
 
             #[inline]
@@ -323,8 +400,13 @@ macro_rules! change_detection_mut_impl {
 
         impl<$($generics),* : ?Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
             #[inline]
+            #[track_caller]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
+                #[cfg(feature = "track_location")]
+                {
+                    *self.changed_by = Location::caller();
+                }
                 self.value
             }
         }
@@ -361,7 +443,9 @@ macro_rules! impl_methods {
                         changed: self.ticks.changed,
                         last_run: self.ticks.last_run,
                         this_run: self.ticks.this_run,
-                    }
+                    },
+                    #[cfg(feature = "track_location")]
+                    changed_by: self.changed_by,
                 }
             }
 
@@ -391,7 +475,23 @@ macro_rules! impl_methods {
                 Mut {
                     value: f(self.value),
                     ticks: self.ticks,
+                    #[cfg(feature = "track_location")]
+                    changed_by: self.changed_by,
                 }
+            }
+
+            /// Optionally maps to an inner value by applying a function to the contained reference.
+            /// This is useful in a situation where you need to convert a `Mut<T>` to a `Mut<U>`, but only if `T` contains `U`.
+            ///
+            /// As with `map_unchanged`, you should never modify the argument passed to the closure.
+            pub fn filter_map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> Option<&mut U>) -> Option<Mut<'w, U>> {
+                let value = f(self.value);
+                value.map(|value| Mut {
+                    value,
+                    ticks: self.ticks,
+                    #[cfg(feature = "track_location")]
+                    changed_by: self.changed_by,
+                })
             }
 
             /// Allows you access to the dereferenced value of this pointer without immediately
@@ -408,10 +508,10 @@ macro_rules! impl_methods {
 
 macro_rules! impl_debug {
     ($name:ident < $( $generics:tt ),+ >, $($traits:ident)?) => {
-        impl<$($generics),* : ?Sized $(+ $traits)?> std::fmt::Debug for $name<$($generics),*>
-            where T: std::fmt::Debug
+        impl<$($generics),* : ?Sized $(+ $traits)?> core::fmt::Debug for $name<$($generics),*>
+            where T: core::fmt::Debug
         {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                 f.debug_tuple(stringify!($name))
                     .field(&self.value)
                     .finish()
@@ -493,14 +593,15 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 ///
 /// If you need a unique mutable borrow, use [`ResMut`] instead.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
-/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
-///
-/// Use `Option<Res<T>>` instead if the resource might not always exist.
+/// Use [`Option<Res<T>>`] instead if the resource might not always exist.
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'static Location<'static>,
 }
 
 impl<'w, T: Resource> Res<'w, T> {
@@ -508,11 +609,16 @@ impl<'w, T: Resource> Res<'w, T> {
     ///
     /// Note that unless you actually need an instance of `Res<T>`, you should
     /// prefer to just convert it to `&T` which can be freely copied.
-    #[allow(clippy::should_implement_trait)]
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "As this struct derefs to the inner resource, a `Clone` trait implementation would interfere with the common case of cloning the inner content. (A similar case of this happening can be found with `std::cell::Ref::clone()`.)"
+    )]
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
             ticks: this.ticks.clone(),
+            #[cfg(feature = "track_location")]
+            changed_by: this.changed_by,
         }
     }
 
@@ -529,6 +635,21 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
         Self {
             value: res.value,
             ticks: res.ticks.into(),
+            #[cfg(feature = "track_location")]
+            changed_by: res.changed_by,
+        }
+    }
+}
+
+impl<'w, T: Resource> From<Res<'w, T>> for Ref<'w, T> {
+    /// Convert a `Res` into a `Ref`. This allows keeping the change-detection feature of `Ref`
+    /// while losing the specificity of `Res` for resources.
+    fn from(res: Res<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: res.changed_by,
         }
     }
 }
@@ -553,14 +674,15 @@ impl_debug!(Res<'w, T>, Resource);
 ///
 /// If you need a shared borrow, use [`Res`] instead.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
-/// Panics when used as a [`SystemParam`](crate::system::SystemParam) if the resource does not exist.
-///
-/// Use `Option<ResMut<T>>` instead if the resource might not always exist.
+/// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
@@ -600,6 +722,8 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: other.changed_by,
         }
     }
 }
@@ -611,14 +735,15 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// the scheduler to instead run the system on the main thread so that it doesn't send the resource
 /// over to another thread.
 ///
-/// # Panics
+/// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
-///
-/// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
+/// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
 change_detection_impl!(NonSendMut<'w, T>, T,);
@@ -633,6 +758,8 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
         Mut {
             value: other.value,
             ticks: other.ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: other.changed_by,
         }
     }
 }
@@ -664,6 +791,8 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
 pub struct Ref<'w, T: ?Sized> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'static Location<'static>,
 }
 
 impl<'w, T: ?Sized> Ref<'w, T> {
@@ -680,6 +809,8 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         Ref {
             value: f(self.value),
             ticks: self.ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
         }
     }
 
@@ -700,6 +831,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         changed: &'w Tick,
         last_run: Tick,
         this_run: Tick,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> Ref<'w, T> {
         Ref {
             value,
@@ -709,6 +841,8 @@ impl<'w, T: ?Sized> Ref<'w, T> {
                 last_run,
                 this_run,
             },
+            #[cfg(feature = "track_location")]
+            changed_by: caller,
         }
     }
 }
@@ -790,6 +924,8 @@ impl_debug!(Ref<'w, T>,);
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
 impl<'w, T: ?Sized> Mut<'w, T> {
@@ -814,6 +950,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         last_changed: &'w mut Tick,
         last_run: Tick,
         this_run: Tick,
+        #[cfg(feature = "track_location")] caller: &'w mut &'static Location<'static>,
     ) -> Self {
         Self {
             value,
@@ -823,6 +960,8 @@ impl<'w, T: ?Sized> Mut<'w, T> {
                 last_run,
                 this_run,
             },
+            #[cfg(feature = "track_location")]
+            changed_by: caller,
         }
     }
 }
@@ -832,6 +971,8 @@ impl<'w, T: ?Sized> From<Mut<'w, T>> for Ref<'w, T> {
         Self {
             value: mut_ref.value,
             ticks: mut_ref.ticks.into(),
+            #[cfg(feature = "track_location")]
+            changed_by: mut_ref.changed_by,
         }
     }
 }
@@ -877,6 +1018,8 @@ impl_debug!(Mut<'w, T>,);
 pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
 impl<'w> MutUntyped<'w> {
@@ -901,6 +1044,8 @@ impl<'w> MutUntyped<'w> {
                 last_run: self.ticks.last_run,
                 this_run: self.ticks.this_run,
             },
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
         }
     }
 
@@ -951,6 +1096,8 @@ impl<'w> MutUntyped<'w> {
         Mut {
             value: f(self.value),
             ticks: self.ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
         }
     }
 
@@ -963,6 +1110,9 @@ impl<'w> MutUntyped<'w> {
             // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
             value: unsafe { self.value.deref_mut() },
             ticks: self.ticks,
+            // SAFETY: `caller` is `Aligned`.
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
         }
     }
 }
@@ -986,29 +1136,46 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     fn last_changed(&self) -> Tick {
         *self.ticks.changed
     }
+
+    #[inline]
+    #[cfg(feature = "track_location")]
+    fn changed_by(&self) -> &'static Location<'static> {
+        self.changed_by
+    }
 }
 
 impl<'w> DetectChangesMut for MutUntyped<'w> {
     type Inner = PtrMut<'w>;
 
     #[inline]
+    #[track_caller]
     fn set_changed(&mut self) {
         *self.ticks.changed = self.ticks.this_run;
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by = Location::caller();
+        }
     }
 
     #[inline]
+    #[track_caller]
     fn set_last_changed(&mut self, last_changed: Tick) {
         *self.ticks.changed = last_changed;
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by = Location::caller();
+        }
     }
 
     #[inline]
+    #[track_caller]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
     }
 }
 
-impl std::fmt::Debug for MutUntyped<'_> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for MutUntyped<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("MutUntyped")
             .field(&self.value.as_ptr())
             .finish()
@@ -1020,16 +1187,71 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
         MutUntyped {
             value: value.value.into(),
             ticks: value.ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: value.changed_by,
         }
     }
 }
+
+/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_location` feature is
+/// enabled, and the unit type `()` when it is not.
+///
+/// This is primarily used in places where `#[cfg(...)]` attributes are not allowed, such as
+/// function return types. Because unit is a zero-sized type, it is the equivalent of not using a
+/// `Location` at all.
+///
+/// Please use this type sparingly: prefer normal `#[cfg(...)]` attributes when possible.
+#[cfg(feature = "track_location")]
+pub(crate) type MaybeLocation = &'static Location<'static>;
+
+/// A type alias to [`&'static Location<'static>`](std::panic::Location) when the `track_location` feature is
+/// enabled, and the unit type `()` when it is not.
+///
+/// This is primarily used in places where `#[cfg(...)]` attributes are not allowed, such as
+/// function return types. Because unit is a zero-sized type, it is the equivalent of not using a
+/// `Location` at all.
+///
+/// Please use this type sparingly: prefer normal `#[cfg(...)]` attributes when possible.
+#[cfg(not(feature = "track_location"))]
+pub(crate) type MaybeLocation = ();
+
+/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_location`
+/// feature is enabled, and the unit type `()` when it is not.
+///
+/// See [`MaybeLocation`] for further information.
+#[cfg(feature = "track_location")]
+pub(crate) type MaybeUnsafeCellLocation<'a> = &'a UnsafeCell<&'static Location<'static>>;
+
+/// A type alias to `&UnsafeCell<&'static Location<'static>>` when the `track_location`
+/// feature is enabled, and the unit type `()` when it is not.
+///
+/// See [`MaybeLocation`] for further information.
+#[cfg(not(feature = "track_location"))]
+pub(crate) type MaybeUnsafeCellLocation<'a> = ();
+
+/// A type alias to `ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>` when the
+/// `track_location` feature is enabled, and the unit type `()` when it is not.
+///
+/// See [`MaybeLocation`] for further information.
+#[cfg(feature = "track_location")]
+pub(crate) type MaybeThinSlicePtrLocation<'w> =
+    ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>;
+
+/// A type alias to `ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>` when the
+/// `track_location` feature is enabled, and the unit type `()` when it is not.
+///
+/// See [`MaybeLocation`] for further information.
+#[cfg(not(feature = "track_location"))]
+pub(crate) type MaybeThinSlicePtrLocation<'w> = ();
 
 #[cfg(test)]
 mod tests {
     use bevy_ecs_macros::Resource;
     use bevy_ptr::PtrMut;
     use bevy_reflect::{FromType, ReflectFromPtr};
-    use std::ops::{Deref, DerefMut};
+    use core::ops::{Deref, DerefMut};
+    #[cfg(feature = "track_location")]
+    use core::panic::Location;
 
     use crate::{
         self as bevy_ecs,
@@ -1037,7 +1259,7 @@ mod tests {
             Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
-        system::{IntoSystem, Query, System},
+        system::{IntoSystem, Single, System},
         world::World,
     };
 
@@ -1067,12 +1289,12 @@ mod tests {
 
     #[test]
     fn change_expiration() {
-        fn change_detected(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_detected(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
-        fn change_expired(query: Query<Ref<C>>) -> bool {
-            query.single().is_changed()
+        fn change_expired(query: Option<Single<Ref<C>>>) -> bool {
+            query.unwrap().is_changed()
         }
 
         let mut world = World::new();
@@ -1160,9 +1382,14 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut res = R {};
+        #[cfg(feature = "track_location")]
+        let mut caller = Location::caller();
+
         let res_mut = ResMut {
             value: &mut res,
             ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: &mut caller,
         };
 
         let into_mut: Mut<R> = res_mut.into();
@@ -1179,6 +1406,8 @@ mod tests {
             changed: Tick::new(3),
         };
         let mut res = R {};
+        #[cfg(feature = "track_location")]
+        let mut caller = Location::caller();
 
         let val = Mut::new(
             &mut res,
@@ -1186,6 +1415,8 @@ mod tests {
             &mut component_ticks.changed,
             Tick::new(2), // last_run
             Tick::new(4), // this_run
+            #[cfg(feature = "track_location")]
+            &mut caller,
         );
 
         assert!(!val.is_added());
@@ -1205,9 +1436,14 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut res = R {};
+        #[cfg(feature = "track_location")]
+        let mut caller = Location::caller();
+
         let non_send_mut = NonSendMut {
             value: &mut res,
             ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: &mut caller,
         };
 
         let into_mut: Mut<R> = non_send_mut.into();
@@ -1236,9 +1472,14 @@ mod tests {
         };
 
         let mut outer = Outer(0);
+        #[cfg(feature = "track_location")]
+        let mut caller = Location::caller();
+
         let ptr = Mut {
             value: &mut outer,
             ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: &mut caller,
         };
         assert!(!ptr.is_changed());
 
@@ -1321,9 +1562,14 @@ mod tests {
         };
 
         let mut value: i32 = 5;
+        #[cfg(feature = "track_location")]
+        let mut caller = Location::caller();
+
         let value = MutUntyped {
             value: PtrMut::from(&mut value),
             ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: &mut caller,
         };
 
         let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
@@ -1354,9 +1600,14 @@ mod tests {
             this_run: Tick::new(4),
         };
         let mut c = C {};
+        #[cfg(feature = "track_location")]
+        let mut caller = Location::caller();
+
         let mut_typed = Mut {
             value: &mut c,
             ticks,
+            #[cfg(feature = "track_location")]
+            changed_by: &mut caller,
         };
 
         let into_mut: MutUntyped = mut_typed.into();

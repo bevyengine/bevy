@@ -3,7 +3,7 @@
 use std::f32::consts::TAU;
 
 use bevy::{
-    diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -23,7 +23,8 @@ fn main() {
             }),
             ..default()
         }),
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
+        LogDiagnosticsPlugin::default(),
     ))
     .insert_resource(WinitSettings {
         focused_mode: UpdateMode::Continuous,
@@ -70,7 +71,7 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
         for i in 0..(config.line_count / SYSTEM_COUNT) {
             let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
-            let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
+            let vector = Vec2::from(ops::sin_cos(angle)).extend(ops::sin(time.elapsed_secs()));
             let start_color = LinearRgba::rgb(vector.x, vector.z, 0.5);
             let end_color = LinearRgba::rgb(-vector.z, -vector.y, 0.5);
 
@@ -82,32 +83,31 @@ fn system(config: Res<Config>, time: Res<Time>, mut draw: Gizmos) {
 fn setup(mut commands: Commands) {
     warn!(include_str!("warning_string.txt"));
 
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
-fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
-    let mut text = query.single_mut();
-
+fn ui_system(mut text: Single<&mut Text>, config: Res<Config>, diag: Res<DiagnosticsStore>) {
     let Some(fps) = diag
         .get(&FrameTimeDiagnosticsPlugin::FPS)
-        .and_then(|fps| fps.smoothed())
+        .and_then(Diagnostic::smoothed)
     else {
         return;
     };
 
-    text.sections[0].value = format!(
+    text.0 = format!(
         "Line count: {}\n\
         FPS: {:.0}\n\n\
         Controls:\n\

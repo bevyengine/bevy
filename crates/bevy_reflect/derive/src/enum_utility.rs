@@ -1,6 +1,7 @@
-use crate::derive_data::StructField;
-use crate::field_attributes::DefaultBehavior;
-use crate::{derive_data::ReflectEnum, utility::ident_or_index};
+use crate::{
+    derive_data::ReflectEnum, derive_data::StructField, field_attributes::DefaultBehavior,
+    ident::ident_or_index,
+};
 use bevy_macro_utils::fq_std::{FQDefault, FQOption};
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
@@ -79,12 +80,14 @@ pub(crate) trait VariantBuilder: Sized {
     /// * `this`: The identifier of the enum
     /// * `field`: The field to access
     fn on_active_field(&self, this: &Ident, field: VariantField) -> TokenStream {
+        let bevy_reflect_path = self.reflect_enum().meta().bevy_reflect_path();
         let field_accessor = self.access_field(this, field);
 
         let alias = field.alias;
+        let field_ty = field.field.reflected_type();
         let field_constructor = self.construct_field(field);
 
-        match &field.field.attrs.default {
+        let construction = match &field.field.attrs.default {
             DefaultBehavior::Func(path) => quote! {
                 if let #FQOption::Some(#alias) = #field_accessor {
                     #field_constructor
@@ -109,6 +112,14 @@ pub(crate) trait VariantBuilder: Sized {
                     #field_constructor
                 }}
             }
+        };
+
+        if field.field.attrs().remote.is_some() {
+            quote! {
+                <#field_ty as #bevy_reflect_path::ReflectRemote>::into_remote(#construction)
+            }
+        } else {
+            construction
         }
     }
 
@@ -200,7 +211,7 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
 
     fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
-        let field_ty = &field.field.data.ty;
+        let field_ty = field.field.reflected_type();
         let alias = field.alias;
 
         quote! {
@@ -209,7 +220,7 @@ impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
     }
 }
 
-/// Generates the enum variant output data needed to build the `Reflect::try_apply` implementation.
+/// Generates the enum variant output data needed to build the `PartialReflect::try_apply` implementation.
 pub(crate) struct TryApplyVariantBuilder<'a> {
     reflect_enum: &'a ReflectEnum<'a>,
 }
@@ -251,7 +262,7 @@ impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
     fn construct_field(&self, field: VariantField) -> TokenStream {
         let bevy_reflect_path = self.reflect_enum.meta().bevy_reflect_path();
         let alias = field.alias;
-        let field_ty = &field.field.data.ty;
+        let field_ty = field.field.reflected_type();
 
         quote! {
             <#field_ty as #bevy_reflect_path::FromReflect>::from_reflect(#alias)

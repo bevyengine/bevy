@@ -1,7 +1,7 @@
 use crate::Stopwatch;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.
 ///
@@ -118,6 +118,13 @@ impl Timer {
     #[inline]
     pub fn elapsed_secs(&self) -> f32 {
         self.stopwatch.elapsed_secs()
+    }
+
+    /// Returns the time elapsed on the timer as an `f64`.
+    /// See also [`Timer::elapsed`](Timer::elapsed).
+    #[inline]
+    pub fn elapsed_secs_f64(&self) -> f64 {
+        self.stopwatch.elapsed_secs_f64()
     }
 
     /// Sets the elapsed time of the timer without any other considerations.
@@ -299,7 +306,7 @@ impl Timer {
 
     /// Returns `true` if the timer is paused.
     ///
-    /// See also [`Stopwatch::paused`](Stopwatch::paused).
+    /// See also [`Stopwatch::is_paused`](Stopwatch::is_paused).
     ///
     /// # Examples
     /// ```
@@ -313,7 +320,7 @@ impl Timer {
     /// ```
     #[inline]
     pub fn paused(&self) -> bool {
-        self.stopwatch.paused()
+        self.stopwatch.is_paused()
     }
 
     /// Resets the timer. The reset doesn't affect the `paused` state of the timer.
@@ -440,7 +447,6 @@ pub enum TimerMode {
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp)]
 mod tests {
     use super::*;
 
@@ -450,6 +456,7 @@ mod tests {
         // Tick once, check all attributes
         t.tick(Duration::from_secs_f32(0.25));
         assert_eq!(t.elapsed_secs(), 0.25);
+        assert_eq!(t.elapsed_secs_f64(), 0.25);
         assert_eq!(t.duration(), Duration::from_secs_f32(10.0));
         assert!(!t.finished());
         assert!(!t.just_finished());
@@ -472,6 +479,7 @@ mod tests {
         t.unpause();
         t.tick(Duration::from_secs_f32(500.0));
         assert_eq!(t.elapsed_secs(), 10.0);
+        assert_eq!(t.elapsed_secs_f64(), 10.0);
         assert!(t.finished());
         assert!(t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 1);
@@ -480,6 +488,7 @@ mod tests {
         // Continuing to tick when finished should only change just_finished
         t.tick(Duration::from_secs_f32(1.0));
         assert_eq!(t.elapsed_secs(), 10.0);
+        assert_eq!(t.elapsed_secs_f64(), 10.0);
         assert!(t.finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
@@ -493,6 +502,7 @@ mod tests {
         // Tick once, check all attributes
         t.tick(Duration::from_secs_f32(0.75));
         assert_eq!(t.elapsed_secs(), 0.75);
+        assert_eq!(t.elapsed_secs_f64(), 0.75);
         assert_eq!(t.duration(), Duration::from_secs_f32(2.0));
         assert!(!t.finished());
         assert!(!t.just_finished());
@@ -503,6 +513,7 @@ mod tests {
         // Tick past the end and make sure elapsed wraps
         t.tick(Duration::from_secs_f32(1.5));
         assert_eq!(t.elapsed_secs(), 0.25);
+        assert_eq!(t.elapsed_secs_f64(), 0.25);
         assert!(t.finished());
         assert!(t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 1);
@@ -511,6 +522,7 @@ mod tests {
         // Continuing to tick should turn off both finished & just_finished for repeating timers
         t.tick(Duration::from_secs_f32(1.0));
         assert_eq!(t.elapsed_secs(), 1.25);
+        assert_eq!(t.elapsed_secs_f64(), 1.25);
         assert!(!t.finished());
         assert!(!t.just_finished());
         assert_eq!(t.times_finished_this_tick(), 0);
@@ -525,6 +537,7 @@ mod tests {
         t.tick(Duration::from_secs_f32(3.5));
         assert_eq!(t.times_finished_this_tick(), 3);
         assert_eq!(t.elapsed_secs(), 0.5);
+        assert_eq!(t.elapsed_secs_f64(), 0.5);
         assert!(t.finished());
         assert!(t.just_finished());
         t.tick(Duration::from_secs_f32(0.2));

@@ -1,5 +1,5 @@
-use bevy_utils::all_tuples_with_size;
-use std::num::NonZeroU32;
+use core::num::NonZero;
+use variadics_please::all_tuples_with_size;
 use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 
 /// Helper for constructing bind group layouts.
@@ -130,7 +130,7 @@ use wgpu::{BindGroupLayoutEntry, BindingType, ShaderStages};
 pub struct BindGroupLayoutEntryBuilder {
     ty: BindingType,
     visibility: Option<ShaderStages>,
-    count: Option<NonZeroU32>,
+    count: Option<NonZero<u32>>,
 }
 
 impl BindGroupLayoutEntryBuilder {
@@ -139,7 +139,7 @@ impl BindGroupLayoutEntryBuilder {
         self
     }
 
-    pub fn count(mut self, count: NonZeroU32) -> Self {
+    pub fn count(mut self, count: NonZero<u32>) -> Self {
         self.count = Some(count);
         self
     }
@@ -198,7 +198,7 @@ impl BindGroupLayoutEntries<1> {
     }
 }
 
-impl<const N: usize> std::ops::Deref for BindGroupLayoutEntries<N> {
+impl<const N: usize> core::ops::Deref for BindGroupLayoutEntries<N> {
     type Target = [BindGroupLayoutEntry];
     fn deref(&self) -> &[BindGroupLayoutEntry] {
         &self.entries
@@ -222,7 +222,7 @@ impl IntoBindGroupLayoutEntryBuilder for BindingType {
 impl IntoBindGroupLayoutEntryBuilder for BindGroupLayoutEntry {
     fn into_bind_group_layout_entry_builder(self) -> BindGroupLayoutEntryBuilder {
         if self.binding != u32::MAX {
-            bevy_utils::tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
+            tracing::warn!("The BindGroupLayoutEntries api ignores the binding index when converting a raw wgpu::BindGroupLayoutEntry. You can ignore this warning by setting it to u32::MAX.");
         }
         BindGroupLayoutEntryBuilder {
             ty: self.ty,
@@ -242,7 +242,8 @@ pub trait IntoBindGroupLayoutEntryBuilderArray<const N: usize> {
     fn into_array(self) -> [BindGroupLayoutEntryBuilder; N];
 }
 macro_rules! impl_to_binding_type_slice {
-    ($N: expr, $(($T: ident, $I: ident)),*) => {
+    ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
+        $(#[$meta])*
         impl<$($T: IntoBindGroupLayoutEntryBuilder),*> IntoBindGroupLayoutEntryBuilderArray<$N> for ($($T,)*) {
             #[inline]
             fn into_array(self) -> [BindGroupLayoutEntryBuilder; $N] {
@@ -252,7 +253,14 @@ macro_rules! impl_to_binding_type_slice {
         }
     }
 }
-all_tuples_with_size!(impl_to_binding_type_slice, 1, 32, T, s);
+all_tuples_with_size!(
+    #[doc(fake_variadic)]
+    impl_to_binding_type_slice,
+    1,
+    32,
+    T,
+    s
+);
 
 pub trait IntoIndexedBindGroupLayoutEntryBuilderArray<const N: usize> {
     fn into_array(self) -> [(u32, BindGroupLayoutEntryBuilder); N];
@@ -272,7 +280,7 @@ all_tuples_with_size!(impl_to_indexed_binding_type_slice, 1, 32, T, n, s);
 
 impl<const N: usize> IntoBindGroupLayoutEntryBuilderArray<N> for [BindGroupLayoutEntry; N] {
     fn into_array(self) -> [BindGroupLayoutEntryBuilder; N] {
-        self.map(|x| x.into_bind_group_layout_entry_builder())
+        self.map(IntoBindGroupLayoutEntryBuilder::into_bind_group_layout_entry_builder)
     }
 }
 
@@ -340,7 +348,7 @@ impl DynamicBindGroupLayoutEntries {
     }
 }
 
-impl std::ops::Deref for DynamicBindGroupLayoutEntries {
+impl core::ops::Deref for DynamicBindGroupLayoutEntries {
     type Target = [BindGroupLayoutEntry];
 
     fn deref(&self) -> &[BindGroupLayoutEntry] {
@@ -352,8 +360,8 @@ pub mod binding_types {
     use crate::render_resource::{
         BufferBindingType, SamplerBindingType, TextureSampleType, TextureViewDimension,
     };
+    use core::num::NonZero;
     use encase::ShaderType;
-    use std::num::NonZeroU64;
     use wgpu::{StorageTextureAccess, TextureFormat};
 
     use super::*;
@@ -364,7 +372,7 @@ pub mod binding_types {
 
     pub fn storage_buffer_sized(
         has_dynamic_offset: bool,
-        min_binding_size: Option<NonZeroU64>,
+        min_binding_size: Option<NonZero<u64>>,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Buffer {
             ty: BufferBindingType::Storage { read_only: false },
@@ -382,7 +390,7 @@ pub mod binding_types {
 
     pub fn storage_buffer_read_only_sized(
         has_dynamic_offset: bool,
-        min_binding_size: Option<NonZeroU64>,
+        min_binding_size: Option<NonZero<u64>>,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Buffer {
             ty: BufferBindingType::Storage { read_only: true },
@@ -398,7 +406,7 @@ pub mod binding_types {
 
     pub fn uniform_buffer_sized(
         has_dynamic_offset: bool,
-        min_binding_size: Option<NonZeroU64>,
+        min_binding_size: Option<NonZero<u64>>,
     ) -> BindGroupLayoutEntryBuilder {
         BindingType::Buffer {
             ty: BufferBindingType::Uniform,
@@ -545,6 +553,18 @@ pub mod binding_types {
             access,
             format,
             view_dimension: TextureViewDimension::D2Array,
+        }
+        .into_bind_group_layout_entry_builder()
+    }
+
+    pub fn texture_storage_3d(
+        format: TextureFormat,
+        access: StorageTextureAccess,
+    ) -> BindGroupLayoutEntryBuilder {
+        BindingType::StorageTexture {
+            access,
+            format,
+            view_dimension: TextureViewDimension::D3,
         }
         .into_bind_group_layout_entry_builder()
     }

@@ -38,9 +38,9 @@
 //!
 //! In any case, the [`Rng`] used as the source of randomness must be provided explicitly.
 
-use std::f32::consts::{PI, TAU};
+use core::f32::consts::{PI, TAU};
 
-use crate::{primitives::*, NormedVectorSpace, Vec2, Vec3};
+use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
 use rand::{
     distributions::{Distribution, WeightedIndex},
     Rng,
@@ -61,7 +61,7 @@ pub trait ShapeSample {
     /// let square = Rectangle::new(2.0, 2.0);
     ///
     /// // Returns a Vec2 with both x and y between -1 and 1.
-    /// println!("{:?}", square.sample_interior(&mut rand::thread_rng()));
+    /// println!("{}", square.sample_interior(&mut rand::thread_rng()));
     /// ```
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
@@ -76,7 +76,7 @@ pub trait ShapeSample {
     ///
     /// // Returns a Vec2 where one of the coordinates is at ±1,
     /// //  and the other is somewhere between -1 and 1.
-    /// println!("{:?}", square.sample_boundary(&mut rand::thread_rng()));
+    /// println!("{}", square.sample_boundary(&mut rand::thread_rng()));
     /// ```
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output;
 
@@ -92,7 +92,7 @@ pub trait ShapeSample {
     ///
     /// // Iterate over points randomly drawn from `square`'s interior:
     /// for random_val in square.interior_dist().sample_iter(rng).take(5) {
-    ///     println!("{:?}", random_val);
+    ///     println!("{}", random_val);
     /// }
     /// ```
     fn interior_dist(self) -> impl Distribution<Self::Output>
@@ -114,7 +114,7 @@ pub trait ShapeSample {
     ///
     /// // Iterate over points randomly drawn from `square`'s boundary:
     /// for random_val in square.boundary_dist().sample_iter(rng).take(5) {
-    ///     println!("{:?}", random_val);
+    ///     println!("{}", random_val);
     /// }
     /// ```
     fn boundary_dist(self) -> impl Distribution<Self::Output>
@@ -154,40 +154,42 @@ impl ShapeSample for Circle {
         // https://mathworld.wolfram.com/DiskPointPicking.html
         let theta = rng.gen_range(0.0..TAU);
         let r_squared = rng.gen_range(0.0..=(self.radius * self.radius));
-        let r = r_squared.sqrt();
-        Vec2::new(r * theta.cos(), r * theta.sin())
+        let r = ops::sqrt(r_squared);
+        let (sin, cos) = ops::sin_cos(theta);
+        Vec2::new(r * cos, r * sin)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec2 {
         let theta = rng.gen_range(0.0..TAU);
-        Vec2::new(self.radius * theta.cos(), self.radius * theta.sin())
+        let (sin, cos) = ops::sin_cos(theta);
+        Vec2::new(self.radius * cos, self.radius * sin)
     }
+}
+
+/// Boundary sampling for unit-spheres
+#[inline]
+fn sample_unit_sphere_boundary<R: Rng + ?Sized>(rng: &mut R) -> Vec3 {
+    let z = rng.gen_range(-1f32..=1f32);
+    let (a_sin, a_cos) = ops::sin_cos(rng.gen_range(-PI..=PI));
+    let c = ops::sqrt(1f32 - z * z);
+    let x = a_sin * c;
+    let y = a_cos * c;
+
+    Vec3::new(x, y, z)
 }
 
 impl ShapeSample for Sphere {
     type Output = Vec3;
 
     fn sample_interior<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // https://mathworld.wolfram.com/SpherePointPicking.html
-        let theta = rng.gen_range(0.0..TAU);
-        let phi = rng.gen_range(-1.0_f32..1.0).acos();
         let r_cubed = rng.gen_range(0.0..=(self.radius * self.radius * self.radius));
-        let r = r_cubed.cbrt();
-        Vec3 {
-            x: r * phi.sin() * theta.cos(),
-            y: r * phi.sin() * theta.sin(),
-            z: r * phi.cos(),
-        }
+        let r = ops::cbrt(r_cubed);
+
+        r * sample_unit_sphere_boundary(rng)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        let theta = rng.gen_range(0.0..TAU);
-        let phi = rng.gen_range(-1.0_f32..1.0).acos();
-        Vec3 {
-            x: self.radius * phi.sin() * theta.cos(),
-            y: self.radius * phi.sin() * theta.sin(),
-            z: self.radius * phi.cos(),
-        }
+        self.radius * sample_unit_sphere_boundary(rng)
     }
 }
 
@@ -200,10 +202,11 @@ impl ShapeSample for Annulus {
 
         // Like random sampling for a circle, radius is weighted by the square.
         let r_squared = rng.gen_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
-        let r = r_squared.sqrt();
+        let r = ops::sqrt(r_squared);
         let theta = rng.gen_range(0.0..TAU);
+        let (sin, cos) = ops::sin_cos(theta);
 
-        Vec2::new(r * theta.cos(), r * theta.sin())
+        Vec2::new(r * cos, r * sin)
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
@@ -286,7 +289,7 @@ fn sample_triangle_interior<P: NormedVectorSpace, R: Rng + ?Sized>(
     let ab = b - a;
     let ac = c - a;
 
-    // Generate random points on a parallelipiped and reflect so that
+    // Generate random points on a parallelepiped and reflect so that
     // we can use the points that lie outside the triangle
     let u = rng.gen_range(0.0..=1.0);
     let v = rng.gen_range(0.0..=1.0);
@@ -390,7 +393,7 @@ impl ShapeSample for Tetrahedron {
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Self::Output {
         let triangles = self.faces();
-        let areas = triangles.iter().map(|t| t.area());
+        let areas = triangles.iter().map(Measured2d::area);
 
         if areas.clone().sum::<f32>() > 0.0 {
             // There is at least one triangle with nonzero area, so this unwrap succeeds.
@@ -417,7 +420,7 @@ impl ShapeSample for Cylinder {
     }
 
     fn sample_boundary<R: Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // This uses the area of the ends divided by the overall surface area (optimised)
+        // This uses the area of the ends divided by the overall surface area (optimized)
         // [2 (\pi r^2)]/[2 (\pi r^2) + 2 \pi r h] = r/(r + h)
         if self.radius + 2.0 * self.half_height > 0.0 {
             if rng.gen_bool((self.radius / (self.radius + 2.0 * self.half_height)) as f64) {
@@ -447,8 +450,7 @@ impl ShapeSample for Capsule2d {
         if capsule_area > 0.0 {
             // Check if the random point should be inside the rectangle
             if rng.gen_bool((rectangle_area / capsule_area) as f64) {
-                let rectangle = Rectangle::new(self.radius, self.half_length * 2.0);
-                rectangle.sample_interior(rng)
+                self.to_inner_rectangle().sample_interior(rng)
             } else {
                 let circle = Circle::new(self.radius);
                 let point = circle.sample_interior(rng);
@@ -624,8 +626,8 @@ mod tests {
         for _ in 0..5000 {
             let point = circle.sample_boundary(&mut rng);
 
-            let angle = f32::atan(point.y / point.x) + PI / 2.0;
-            let wedge = (angle * 8.0 / PI).floor() as usize;
+            let angle = ops::atan(point.y / point.x) + PI / 2.0;
+            let wedge = ops::floor(angle * 8.0 / PI) as usize;
             wedge_hits[wedge] += 1;
         }
 

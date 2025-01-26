@@ -7,20 +7,22 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{Extent3d, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
+use core::ops::Range;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use std::ops::Range;
+use tracing::info_span;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transmissive3d`]
-/// [`SortedRenderPhase`].
+/// [`ViewSortedRenderPhases`].
 #[derive(Default)]
 pub struct MainTransmissivePass3dNode;
 
 impl ViewNode for MainTransmissivePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static Camera3d,
         &'static ViewTarget,
         Option<&'static ViewTransmissionTexture>,
@@ -31,7 +33,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, camera_3d, target, transmission, depth): QueryItem<Self::ViewQuery>,
+        (camera, view, camera_3d, target, transmission, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -42,7 +44,7 @@ impl ViewNode for MainTransmissivePass3dNode {
             return Ok(());
         };
 
-        let Some(transmissive_phase) = transmissive_phases.get(&view_entity) else {
+        let Some(transmissive_phase) = transmissive_phases.get(&view.retained_view_entity) else {
             return Ok(());
         };
 
@@ -98,7 +100,11 @@ impl ViewNode for MainTransmissivePass3dNode {
                     }
 
                     // render items in range
-                    transmissive_phase.render_range(&mut render_pass, world, view_entity, range);
+                    if let Err(err) =
+                        transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
+                    {
+                        error!("Error encountered while rendering the transmissive phase {err:?}");
+                    }
                 }
             } else {
                 let mut render_pass =
@@ -108,7 +114,9 @@ impl ViewNode for MainTransmissivePass3dNode {
                     render_pass.set_camera_viewport(viewport);
                 }
 
-                transmissive_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the transmissive phase {err:?}");
+                }
             }
         }
 

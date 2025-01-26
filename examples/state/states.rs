@@ -46,26 +46,24 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 }
 
 fn setup_menu(mut commands: Commands) {
     let button_entity = commands
-        .spawn(NodeBundle {
-            style: Style {
-                // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
+        .spawn(Node {
+            // center button
+            width: Val::Percent(100.),
+            height: Val::Percent(100.),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn(ButtonBundle {
-                    style: Style {
+                .spawn((
+                    Button,
+                    Node {
                         width: Val::Px(150.),
                         height: Val::Px(65.),
                         // horizontally center child text
@@ -74,17 +72,16 @@ fn setup_menu(mut commands: Commands) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
-                    image: UiImage::default().with_color(NORMAL_BUTTON),
-                    ..default()
-                })
+                    BackgroundColor(NORMAL_BUTTON),
+                ))
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Play",
-                        TextStyle {
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
+                    parent.spawn((
+                        Text::new("Play"),
+                        TextFont {
+                            font_size: 33.0,
                             ..default()
                         },
+                        TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     ));
                 });
         })
@@ -95,35 +92,32 @@ fn setup_menu(mut commands: Commands) {
 fn menu(
     mut next_state: ResMut<NextState<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut image) in &mut interaction_query {
+    for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                image.color = PRESSED_BUTTON;
+                *color = PRESSED_BUTTON.into();
                 next_state.set(AppState::InGame);
             }
             Interaction::Hovered => {
-                image.color = HOVERED_BUTTON;
+                *color = HOVERED_BUTTON.into();
             }
             Interaction::None => {
-                image.color = NORMAL_BUTTON;
+                *color = NORMAL_BUTTON.into();
             }
         }
     }
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn_recursive();
+    commands.entity(menu_data.button_entity).despawn();
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
+    commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
 }
 
 const SPEED: f32 = 100.0;
@@ -148,7 +142,7 @@ fn movement(
         }
 
         if direction != Vec3::ZERO {
-            transform.translation += direction.normalize() * SPEED * time.delta_seconds();
+            transform.translation += direction.normalize() * SPEED * time.delta_secs();
         }
     }
 }
@@ -156,7 +150,7 @@ fn movement(
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
     for mut sprite in &mut query {
         let new_color = LinearRgba {
-            blue: (time.elapsed_seconds() * 0.5).sin() + 2.0,
+            blue: ops::sin(time.elapsed_secs() * 0.5) + 2.0,
             ..LinearRgba::from(sprite.color)
         };
 

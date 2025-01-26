@@ -1,5 +1,5 @@
 use bevy_derive::DerefMut;
-use std::ops::Deref;
+use core::ops::Deref;
 
 #[derive(DerefMut)]
 //~^ E0308

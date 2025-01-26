@@ -1,6 +1,6 @@
 //@check-pass
 use bevy_reflect::{FromType, Reflect};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 #[derive(Clone)]
 struct ReflectMyTrait;
@@ -12,7 +12,7 @@ impl<T> FromType<T> for ReflectMyTrait {
 }
 
 #[derive(Reflect)]
-#[reflect(MyTrait, where T: std::fmt::Debug)]
+#[reflect(MyTrait, where T: core::fmt::Debug)]
 pub struct Foo<T> {
     value: String,
     #[reflect(ignore)]
@@ -29,7 +29,7 @@ pub struct Bar<T> {
 
 #[derive(Reflect)]
 #[reflect(MyTrait)]
-#[reflect(where T: std::fmt::Debug)]
+#[reflect(where T: core::fmt::Debug)]
 pub struct Baz<T> {
     value: String,
     #[reflect(ignore)]

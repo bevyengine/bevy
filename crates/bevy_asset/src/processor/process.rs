@@ -1,19 +1,23 @@
-use crate::io::SliceReader;
 use crate::{
     io::{
         AssetReaderError, AssetWriterError, MissingAssetWriterError,
-        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, Writer,
+        MissingProcessedAssetReaderError, MissingProcessedAssetWriterError, SliceReader, Writer,
     },
     meta::{AssetAction, AssetMeta, AssetMetaDyn, ProcessDependencyInfo, ProcessedInfo, Settings},
     processor::AssetProcessor,
     saver::{AssetSaver, SavedAsset},
-    transformer::{AssetTransformer, TransformedAsset},
+    transformer::{AssetTransformer, IdentityAssetTransformer, TransformedAsset},
     AssetLoadError, AssetLoader, AssetPath, DeserializeMetaError, ErasedLoadedAsset,
     MissingAssetLoaderForExtensionError, MissingAssetLoaderForTypeNameError,
 };
-use bevy_utils::{BoxedFuture, ConditionalSendFuture};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    string::{String, ToString},
+};
+use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
+use core::marker::PhantomData;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 use thiserror::Error;
 
 /// Asset "processor" logic that reads input asset bytes (stored on [`ProcessContext`]), processes the value in some way,
@@ -28,11 +32,11 @@ pub trait Process: Send + Sync + Sized + 'static {
     type OutputLoader: AssetLoader;
     /// Processes the asset stored on `context` in some way using the settings stored on `meta`. The results are written to `writer`. The
     /// final written processed asset is loadable using [`Process::OutputLoader`]. This load will use the returned [`AssetLoader::Settings`].
-    fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext,
+    fn process(
+        &self,
+        context: &mut ProcessContext,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &mut Writer,
     ) -> impl ConditionalSendFuture<
         Output = Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError>,
     >;
@@ -47,6 +51,11 @@ pub trait Process: Send + Sync + Sized + 'static {
 /// an [`AssetSaver`] that allows you save any `S` asset. However you can
 /// also implement [`Process`] directly if [`LoadTransformAndSave`] feels limiting or unnecessary.
 ///
+/// If your [`Process`] does not need to transform the [`Asset`], you can use [`IdentityAssetTransformer`] as `T`.
+/// This will directly return the input [`Asset`], allowing your [`Process`] to directly load and then save an [`Asset`].
+/// However, this pattern should only be used for cases such as file format conversion.
+/// Otherwise, consider refactoring your [`AssetLoader`] and [`AssetSaver`] to isolate the transformation step into an explicit [`AssetTransformer`].
+///
 /// This uses [`LoadTransformAndSaveSettings`] to configure the processor.
 ///
 /// [`Asset`]: crate::Asset
@@ -58,6 +67,18 @@ pub struct LoadTransformAndSave<
     transformer: T,
     saver: S,
     marker: PhantomData<fn() -> L>,
+}
+
+impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S>
+    for LoadTransformAndSave<L, IdentityAssetTransformer<L::Asset>, S>
+{
+    fn from(value: S) -> Self {
+        LoadTransformAndSave {
+            transformer: IdentityAssetTransformer::new(),
+            saver: value,
+            marker: PhantomData,
+        }
+    }
 }
 
 /// Settings for the [`LoadTransformAndSave`] [`Process::Settings`] implementation.
@@ -89,40 +110,6 @@ impl<
     }
 }
 
-/// A flexible [`Process`] implementation that loads the source [`Asset`] using the `L` [`AssetLoader`], then
-/// saves that `L` asset using the `S` [`AssetSaver`].
-///
-/// This is a specialized use case of [`LoadTransformAndSave`] and is useful where there is no asset manipulation
-/// such as when compressing assets.
-///
-/// This uses [`LoadAndSaveSettings`] to configure the processor.
-///
-/// [`Asset`]: crate::Asset
-pub struct LoadAndSave<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> {
-    saver: S,
-    marker: PhantomData<fn() -> L>,
-}
-
-impl<L: AssetLoader, S: AssetSaver<Asset = L::Asset>> From<S> for LoadAndSave<L, S> {
-    fn from(value: S) -> Self {
-        LoadAndSave {
-            saver: value,
-            marker: PhantomData,
-        }
-    }
-}
-
-/// Settings for the [`LoadAndSave`] [`Process::Settings`] implementation.
-///
-/// `LoaderSettings` corresponds to [`AssetLoader::Settings`] and `SaverSettings` corresponds to [`AssetSaver::Settings`].
-#[derive(Serialize, Deserialize, Default)]
-pub struct LoadAndSaveSettings<LoaderSettings, SaverSettings> {
-    /// The [`AssetLoader::Settings`] for [`LoadAndSave`].
-    pub loader_settings: LoaderSettings,
-    /// The [`AssetSaver::Settings`] for [`LoadAndSave`].
-    pub saver_settings: SaverSettings,
-}
-
 /// An error that is encountered during [`Process::process`].
 #[derive(Error, Debug)]
 pub enum ProcessError {
@@ -131,13 +118,16 @@ pub enum ProcessError {
     #[error(transparent)]
     MissingAssetLoaderForTypeName(#[from] MissingAssetLoaderForTypeNameError),
     #[error("The processor '{0}' does not exist")]
+    #[from(ignore)]
     MissingProcessor(String),
     #[error("Encountered an AssetReader error for '{path}': {err}")]
+    #[from(ignore)]
     AssetReaderError {
         path: AssetPath<'static>,
         err: AssetReaderError,
     },
     #[error("Encountered an AssetWriter error for '{path}': {err}")]
+    #[from(ignore)]
     AssetWriterError {
         path: AssetPath<'static>,
         err: AssetWriterError,
@@ -149,6 +139,7 @@ pub enum ProcessError {
     #[error(transparent)]
     MissingProcessedAssetWriterError(#[from] MissingProcessedAssetWriterError),
     #[error("Failed to read asset metadata for {path}: {err}")]
+    #[from(ignore)]
     ReadAssetMetaError {
         path: AssetPath<'static>,
         err: AssetReaderError,
@@ -160,9 +151,11 @@ pub enum ProcessError {
     #[error("The wrong meta type was passed into a processor. This is probably an internal implementation error.")]
     WrongMetaType,
     #[error("Encountered an error while saving the asset: {0}")]
-    AssetSaveError(#[from] Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[from(ignore)]
+    AssetSaveError(Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Encountered an error while transforming the asset: {0}")]
-    AssetTransformError(Box<dyn std::error::Error + Send + Sync + 'static>),
+    #[from(ignore)]
+    AssetTransformError(Box<dyn core::error::Error + Send + Sync + 'static>),
     #[error("Assets without extensions are not supported.")]
     ExtensionRequired,
 }
@@ -177,17 +170,17 @@ where
         LoadTransformAndSaveSettings<Loader::Settings, Transformer::Settings, Saver::Settings>;
     type OutputLoader = Saver::OutputLoader;
 
-    async fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext<'_>,
+    async fn process(
+        &self,
+        context: &mut ProcessContext<'_>,
         meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
+        writer: &mut Writer,
     ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
         let AssetAction::Process { settings, .. } = meta.asset else {
             return Err(ProcessError::WrongMetaType);
         };
         let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-            loader: std::any::type_name::<Loader>().to_string(),
+            loader: core::any::type_name::<Loader>().to_string(),
             settings: settings.loader_settings,
         });
         let pre_transformed_asset = TransformedAsset::<Loader::Asset>::from_loaded(
@@ -204,36 +197,6 @@ where
         let saved_asset =
             SavedAsset::<Transformer::AssetOutput>::from_transformed(&post_transformed_asset);
 
-        let output_settings = self
-            .saver
-            .save(writer, saved_asset, &settings.saver_settings)
-            .await
-            .map_err(|error| ProcessError::AssetSaveError(error.into()))?;
-        Ok(output_settings)
-    }
-}
-
-impl<Loader: AssetLoader, Saver: AssetSaver<Asset = Loader::Asset>> Process
-    for LoadAndSave<Loader, Saver>
-{
-    type Settings = LoadAndSaveSettings<Loader::Settings, Saver::Settings>;
-    type OutputLoader = Saver::OutputLoader;
-
-    async fn process<'a>(
-        &'a self,
-        context: &'a mut ProcessContext<'_>,
-        meta: AssetMeta<(), Self>,
-        writer: &'a mut Writer,
-    ) -> Result<<Self::OutputLoader as AssetLoader>::Settings, ProcessError> {
-        let AssetAction::Process { settings, .. } = meta.asset else {
-            return Err(ProcessError::WrongMetaType);
-        };
-        let loader_meta = AssetMeta::<Loader, ()>::new(AssetAction::Load {
-            loader: std::any::type_name::<Loader>().to_string(),
-            settings: settings.loader_settings,
-        });
-        let loaded_asset = context.load_source_asset(loader_meta).await?;
-        let saved_asset = SavedAsset::<Loader::Asset>::from_loaded(&loaded_asset).unwrap();
         let output_settings = self
             .saver
             .save(writer, saved_asset, &settings.saver_settings)
@@ -274,7 +237,7 @@ impl<P: Process> ErasedProcessor for P {
             let loader_settings = <P as Process>::process(self, context, *meta, writer).await?;
             let output_meta: Box<dyn AssetMetaDyn> =
                 Box::new(AssetMeta::<P::OutputLoader, ()>::new(AssetAction::Load {
-                    loader: std::any::type_name::<P::OutputLoader>().to_string(),
+                    loader: core::any::type_name::<P::OutputLoader>().to_string(),
                     settings: loader_settings,
                 }));
             Ok(output_meta)
@@ -288,7 +251,7 @@ impl<P: Process> ErasedProcessor for P {
 
     fn default_meta(&self) -> Box<dyn AssetMetaDyn> {
         Box::new(AssetMeta::<(), P>::new(AssetAction::Process {
-            processor: std::any::type_name::<P>().to_string(),
+            processor: core::any::type_name::<P>().to_string(),
             settings: P::Settings::default(),
         }))
     }
@@ -344,18 +307,11 @@ impl<'a> ProcessContext<'a> {
         meta: AssetMeta<L, ()>,
     ) -> Result<ErasedLoadedAsset, AssetLoadError> {
         let server = &self.processor.server;
-        let loader_name = std::any::type_name::<L>();
+        let loader_name = core::any::type_name::<L>();
         let loader = server.get_asset_loader_with_type_name(loader_name).await?;
         let mut reader = SliceReader::new(self.asset_bytes);
         let loaded_asset = server
-            .load_with_meta_loader_and_reader(
-                self.path,
-                Box::new(meta),
-                &*loader,
-                &mut reader,
-                false,
-                true,
-            )
+            .load_with_meta_loader_and_reader(self.path, &meta, &*loader, &mut reader, false, true)
             .await?;
         for (path, full_hash) in &loaded_asset.loader_dependencies {
             self.new_processed_info

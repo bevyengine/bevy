@@ -1,4 +1,5 @@
-use std::{cell::RefCell, ops::DerefMut};
+use alloc::vec::Vec;
+use core::{cell::RefCell, ops::DerefMut};
 use thread_local::ThreadLocal;
 
 /// A cohesive set of thread-local values of a given type.
@@ -13,7 +14,7 @@ pub struct Parallel<T: Send> {
 impl<T: Send> Parallel<T> {
     /// Gets a mutable iterator over all of the per-thread queues.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
-        self.locals.iter_mut().map(|cell| cell.get_mut())
+        self.locals.iter_mut().map(RefCell::get_mut)
     }
 
     /// Clears all of the stored thread local values.
@@ -51,14 +52,12 @@ where
     /// chunk will be dropped, and the rest of the undrained elements will remain.
     ///
     /// The ordering is not guaranteed.
-    pub fn drain<B>(&mut self) -> impl Iterator<Item = T> + '_
-    where
-        B: FromIterator<T>,
-    {
+    pub fn drain(&mut self) -> impl Iterator<Item = T> + '_ {
         self.locals.iter_mut().flat_map(|item| item.take())
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: Send> Parallel<Vec<T>> {
     /// Collect all enqueued items from all threads and appends them to the end of a
     /// single Vec.

@@ -1,16 +1,13 @@
 //! This example illustrates the [`UiScale`] resource from `bevy_ui`.
 
-use bevy::{color::palettes::css::*, prelude::*, text::TextSettings, utils::Duration};
+use bevy::{color::palettes::css::*, prelude::*};
+use core::time::Duration;
 
 const SCALE_TIME: u64 = 400;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(TextSettings {
-            allow_dynamic_font_size: true,
-            ..default()
-        })
         .insert_resource(TargetScale {
             start_scale: 1.0,
             target_scale: 1.0,
@@ -25,17 +22,16 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
-    let text_style = TextStyle {
-        font_size: 16.,
-        color: Color::BLACK,
+    let text_font = TextFont {
+        font_size: 13.,
         ..default()
     };
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 width: Val::Percent(50.0),
                 height: Val::Percent(50.0),
                 position_type: PositionType::Absolute,
@@ -45,41 +41,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: ANTIQUE_WHITE.into(),
-            ..default()
-        })
+            BackgroundColor(ANTIQUE_WHITE.into()),
+        ))
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Px(40.0),
                         height: Val::Px(40.0),
                         ..default()
                     },
-                    background_color: RED.into(),
-                    ..default()
-                })
+                    BackgroundColor(RED.into()),
+                ))
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section("Size!", text_style));
+                    parent.spawn((Text::new("Size!"), text_font, TextColor::BLACK));
                 });
-            parent.spawn(NodeBundle {
-                style: Style {
+            parent.spawn((
+                Node {
                     width: Val::Percent(15.0),
                     height: Val::Percent(15.0),
                     ..default()
                 },
-                background_color: BLUE.into(),
-                ..default()
-            });
-            parent.spawn(ImageBundle {
-                style: Style {
+                BackgroundColor(BLUE.into()),
+            ));
+            parent.spawn((
+                ImageNode::new(asset_server.load("branding/icon.png")),
+                Node {
                     width: Val::Px(30.0),
                     height: Val::Px(30.0),
                     ..default()
                 },
-                image: asset_server.load("branding/icon.png").into(),
-                ..default()
-            });
+            ));
         });
 }
 
@@ -143,6 +135,6 @@ fn ease_in_expo(x: f32) -> f32 {
     if x == 0. {
         0.
     } else {
-        2.0f32.powf(5. * x - 5.)
+        ops::powf(2.0f32, 5. * x - 5.)
     }
 }

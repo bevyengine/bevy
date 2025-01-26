@@ -13,14 +13,20 @@
 //!
 //! * Clicking anywhere moves the object.
 
-use bevy::color::palettes::css::*;
-use bevy::core_pipeline::Skybox;
-use bevy::math::{uvec3, vec3};
-use bevy::pbr::irradiance_volume::IrradianceVolume;
-use bevy::pbr::{ExtendedMaterial, MaterialExtension, NotShadowCaster};
-use bevy::prelude::*;
-use bevy::render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
-use bevy::window::PrimaryWindow;
+use bevy::{
+    color::palettes::css::*,
+    core_pipeline::Skybox,
+    math::{uvec3, vec3},
+    pbr::{
+        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
+    },
+    prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    window::PrimaryWindow,
+};
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/irradiance_volume_voxel_visualization.wgsl";
 
 // Rotation speed in radians per frame.
 const ROTATION_SPEED: f32 = 0.2;
@@ -154,6 +160,7 @@ fn main() {
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 0.0,
+            ..default()
         })
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, create_cubes)
@@ -221,94 +228,77 @@ fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<App
 }
 
 fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
-    commands.spawn(SceneBundle {
-        scene: assets.main_scene.clone(),
-        ..SceneBundle::default()
-    });
+    commands.spawn(SceneRoot(assets.main_scene.clone()));
 }
 
 fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(Skybox {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),
+        Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
-        });
+            ..default()
+        },
+    ));
 }
 
 fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(SpatialBundle {
-            transform: Transform::from_matrix(VOXEL_FROM_WORLD),
-            ..SpatialBundle::default()
-        })
-        .insert(IrradianceVolume {
+    commands.spawn((
+        Transform::from_matrix(VOXEL_FROM_WORLD),
+        IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
-        })
-        .insert(LightProbe);
+            ..default()
+        },
+        LightProbe,
+    ));
 }
 
 fn spawn_light(commands: &mut Commands) {
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 250000.0,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0762, 5.9039, 1.0055),
-        ..default()
-    });
+        Transform::from_xyz(4.0762, 5.9039, 1.0055),
+    ));
 }
 
 fn spawn_sphere(commands: &mut Commands, assets: &ExampleAssets) {
     commands
-        .spawn(PbrBundle {
-            mesh: assets.main_sphere.clone(),
-            material: assets.main_sphere_material.clone(),
-            transform: Transform::from_xyz(0.0, SPHERE_SCALE, 0.0)
-                .with_scale(Vec3::splat(SPHERE_SCALE)),
-            ..default()
-        })
+        .spawn((
+            Mesh3d(assets.main_sphere.clone()),
+            MeshMaterial3d(assets.main_sphere_material.clone()),
+            Transform::from_xyz(0.0, SPHERE_SCALE, 0.0).with_scale(Vec3::splat(SPHERE_SCALE)),
+        ))
         .insert(MainObject);
 }
 
 fn spawn_voxel_cube_parent(commands: &mut Commands) {
-    commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::Hidden,
-            ..default()
-        })
-        .insert(VoxelCubeParent);
+    commands.spawn((Visibility::Hidden, Transform::default(), VoxelCubeParent));
 }
 
 fn spawn_fox(commands: &mut Commands, assets: &ExampleAssets) {
-    commands
-        .spawn(SceneBundle {
-            scene: assets.fox.clone(),
-            visibility: Visibility::Hidden,
-            transform: Transform::from_scale(Vec3::splat(FOX_SCALE)),
-            ..default()
-        })
-        .insert(MainObject);
+    commands.spawn((
+        SceneRoot(assets.fox.clone()),
+        Visibility::Hidden,
+        Transform::from_scale(Vec3::splat(FOX_SCALE)),
+        MainObject,
+    ));
 }
 
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn(
-        TextBundle {
-            text: app_status.create_text(),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        app_status.create_text(),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 // A system that updates the help text.
@@ -345,17 +335,14 @@ impl AppStatus {
             ExampleModel::Fox => SWITCH_TO_SPHERE_HELP_TEXT,
         };
 
-        Text::from_section(
-            format!(
-                "{}\n{}\n{}\n{}\n{}",
-                CLICK_TO_MOVE_HELP_TEXT,
-                voxels_help_text,
-                irradiance_volume_help_text,
-                rotation_help_text,
-                switch_mesh_help_text
-            ),
-            TextStyle::default(),
+        format!(
+            "{CLICK_TO_MOVE_HELP_TEXT}\n\
+            {voxels_help_text}\n\
+            {irradiance_volume_help_text}\n\
+            {rotation_help_text}\n\
+            {switch_mesh_help_text}"
         )
+        .into()
     }
 }
 
@@ -370,7 +357,7 @@ fn rotate_camera(
     }
 
     for mut transform in camera_query.iter_mut() {
-        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_seconds())
+        transform.translation = Vec2::from_angle(ROTATION_SPEED * time.delta_secs())
             .rotate(transform.translation.xz())
             .extend(transform.translation.y)
             .xzy();
@@ -383,11 +370,8 @@ fn rotate_camera(
 fn change_main_object(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-    mut sphere_query: Query<
-        &mut Visibility,
-        (With<MainObject>, With<Handle<Mesh>>, Without<Handle<Scene>>),
-    >,
-    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<Handle<Scene>>)>,
+    mut sphere_query: Query<&mut Visibility, (With<MainObject>, With<Mesh3d>, Without<SceneRoot>)>,
+    mut fox_query: Query<&mut Visibility, (With<MainObject>, With<SceneRoot>)>,
 ) {
     if !keyboard.just_pressed(KeyCode::Tab) {
         return;
@@ -449,6 +433,7 @@ fn toggle_irradiance_volumes(
         commands.entity(light_probe).insert(IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
+            ..default()
         });
         ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;
@@ -471,11 +456,7 @@ fn handle_mouse_clicks(
     if !buttons.pressed(MouseButton::Left) {
         return;
     }
-    let Some(mouse_position) = windows
-        .iter()
-        .next()
-        .and_then(|window| window.cursor_position())
-    else {
+    let Some(mouse_position) = windows.iter().next().and_then(Window::cursor_position) else {
         return;
     };
     let Some((camera, camera_transform)) = cameras.iter().next() else {
@@ -483,7 +464,7 @@ fn handle_mouse_clicks(
     };
 
     // Figure out where the user clicked on the plane.
-    let Some(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
+    let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
     let Some(ray_distance) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y)) else {
@@ -491,7 +472,7 @@ fn handle_mouse_clicks(
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
 
-    // Move all the main objeccts.
+    // Move all the main objects.
     for mut transform in main_objects.iter_mut() {
         transform.translation = vec3(
             plane_intersection.x,
@@ -532,12 +513,12 @@ impl FromWorld for ExampleAssets {
 fn play_animations(
     mut commands: Commands,
     assets: Res<ExampleAssets>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Without<Handle<AnimationGraph>>>,
+    mut players: Query<(Entity, &mut AnimationPlayer), Without<AnimationGraphHandle>>,
 ) {
     for (entity, mut player) in players.iter_mut() {
         commands
             .entity(entity)
-            .insert(assets.fox_animation_graph.clone());
+            .insert(AnimationGraphHandle(assets.fox_animation_graph.clone()));
         player.play(assets.fox_animation_node).repeat();
     }
 }
@@ -596,13 +577,12 @@ fn create_cubes(
                     let uvw = (uvec3(x, y, z).as_vec3() + 0.5) * scale - 0.5;
                     let pos = global_transform.transform_point(uvw);
                     let voxel_cube = commands
-                        .spawn(MaterialMeshBundle {
-                            mesh: example_assets.voxel_cube.clone(),
-                            material: voxel_cube_material.clone(),
-                            transform: Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
+                        .spawn((
+                            Mesh3d(example_assets.voxel_cube.clone()),
+                            MeshMaterial3d(voxel_cube_material.clone()),
+                            Transform::from_scale(Vec3::splat(VOXEL_CUBE_SCALE))
                                 .with_translation(pos),
-                            ..default()
-                        })
+                        ))
                         .insert(VoxelCube)
                         .insert(NotShadowCaster)
                         .id();
@@ -650,6 +630,6 @@ fn toggle_voxel_visibility(
 
 impl MaterialExtension for VoxelVisualizationExtension {
     fn fragment_shader() -> ShaderRef {
-        "shaders/irradiance_volume_voxel_visualization.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 }

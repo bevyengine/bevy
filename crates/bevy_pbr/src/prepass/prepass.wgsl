@@ -1,5 +1,6 @@
 #import bevy_pbr::{
     prepass_bindings,
+    mesh_bindings::mesh,
     mesh_functions,
     prepass_io::{Vertex, VertexOutput, FragmentOutput},
     skinning,
@@ -15,18 +16,21 @@
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
+    let first_vertex = mesh[vertex.instance_index].first_vertex_index;
+    let vertex_index = vertex.index - first_vertex;
+
     let weight_count = morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
         let weight = morph::weight_at(i);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        vertex.position += weight * morph::morph(vertex_index, morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph::morph(vertex.index, morph::normal_offset, i);
+        vertex.normal += weight * morph::morph(vertex_index, morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph::morph(vertex.index, morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph::morph(vertex_index, morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
@@ -62,20 +66,26 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var vertex = vertex_no_morph;
 #endif
 
+    let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+
 #ifdef SKINNED
-    var world_from_local = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    var world_from_local = skinning::skin_model(
+        vertex.joint_indices,
+        vertex.joint_weights,
+        vertex_no_morph.instance_index
+    );
 #else // SKINNED
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    var world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+    var world_from_local = mesh_world_from_local;
 #endif // SKINNED
 
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
     out.position = position_world_to_clip(out.world_position.xyz);
-#ifdef DEPTH_CLAMP_ORTHO
-    out.clip_position_unclamped = out.position;
-    out.position.z = min(out.position.z, 1.0);
-#endif // DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
+    out.unclipped_depth = out.position.z;
+    out.position.z = min(out.position.z, 1.0); // Clamp depth to avoid clipping
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
 #ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
@@ -136,6 +146,7 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     let prev_model = skinning::skin_prev_model(
         prev_vertex.joint_indices,
         prev_vertex.joint_weights,
+        vertex_no_morph.instance_index
     );
 #else   // HAS_PREVIOUS_SKIN
     let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
@@ -157,6 +168,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.instance_index = vertex_no_morph.instance_index;
 #endif
 
+#ifdef VISIBILITY_RANGE_DITHER
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex_no_morph.instance_index, mesh_world_from_local[3]);
+#endif  // VISIBILITY_RANGE_DITHER
+
     return out;
 }
 
@@ -169,9 +185,9 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
 
-#ifdef DEPTH_CLAMP_ORTHO
-    out.frag_depth = in.clip_position_unclamped.z;
-#endif // DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
+    out.frag_depth = in.unclipped_depth;
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
 #ifdef MOTION_VECTOR_PREPASS
     let clip_position_t = view.unjittered_clip_from_world * in.world_position;

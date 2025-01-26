@@ -7,19 +7,21 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`]
-/// [`SortedRenderPhase`].
+/// [`ViewSortedRenderPhases`].
 #[derive(Default)]
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -27,7 +29,7 @@ impl ViewNode for MainTransparentPass3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, target, depth): QueryItem<Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
@@ -38,7 +40,7 @@ impl ViewNode for MainTransparentPass3dNode {
             return Ok(());
         };
 
-        let Some(transparent_phase) = transparent_phases.get(&view_entity) else {
+        let Some(transparent_phase) = transparent_phases.get(&view.retained_view_entity) else {
             return Ok(());
         };
 
@@ -70,7 +72,9 @@ impl ViewNode for MainTransparentPass3dNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+                error!("Error encountered while rendering the transparent phase {err:?}");
+            }
 
             pass_span.end(&mut render_pass);
         }

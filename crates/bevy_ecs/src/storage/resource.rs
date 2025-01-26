@@ -1,9 +1,17 @@
-use crate::archetype::ArchetypeComponentId;
-use crate::change_detection::{MutUntyped, TicksMut};
-use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
-use crate::storage::{blob_vec::BlobVec, SparseSet};
+use crate::{
+    archetype::ArchetypeComponentId,
+    change_detection::{MaybeLocation, MaybeUnsafeCellLocation, MutUntyped, TicksMut},
+    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    storage::{blob_vec::BlobVec, SparseSet},
+};
+use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use std::{cell::UnsafeCell, mem::ManuallyDrop, thread::ThreadId};
+#[cfg(feature = "track_location")]
+use core::panic::Location;
+use core::{cell::UnsafeCell, mem::ManuallyDrop};
+
+#[cfg(feature = "std")]
+use std::thread::ThreadId;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
@@ -14,17 +22,28 @@ pub struct ResourceData<const SEND: bool> {
     data: ManuallyDrop<BlobVec>,
     added_ticks: UnsafeCell<Tick>,
     changed_ticks: UnsafeCell<Tick>,
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     type_name: String,
     id: ArchetypeComponentId,
+    #[cfg(feature = "std")]
     origin_thread_id: Option<ThreadId>,
+    #[cfg(feature = "track_location")]
+    changed_by: UnsafeCell<&'static Location<'static>>,
 }
 
 impl<const SEND: bool> Drop for ResourceData<SEND> {
     fn drop(&mut self) {
-        if self.is_present() {
+        // For Non Send resources we need to validate that correct thread
+        // is dropping the resource. This validation is not needed in case
+        // of SEND resources. Or if there is no data.
+        if !SEND && self.is_present() {
             // If this thread is already panicking, panicking again will cause
             // the entire process to abort. In this case we choose to avoid
             // dropping or checking this altogether and just leak the column.
+            #[cfg(feature = "std")]
             if std::thread::panicking() {
                 return;
             }
@@ -53,6 +72,8 @@ impl<const SEND: bool> ResourceData<SEND> {
         if SEND {
             return;
         }
+
+        #[cfg(feature = "std")]
         if self.origin_thread_id != Some(std::thread::current().id()) {
             // Panic in tests, as testing for aborting is nearly impossible
             panic!(
@@ -62,6 +83,10 @@ impl<const SEND: bool> ResourceData<SEND> {
                 std::thread::current().id()
             );
         }
+
+        // TODO: Handle no_std non-send.
+        // Currently, no_std is single-threaded only, so this is safe to ignore.
+        // To support no_std multithreading, an alternative will be required.
     }
 
     /// Returns true if the resource is populated.
@@ -109,7 +134,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     #[inline]
-    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
+    pub(crate) fn get_with_ticks(
+        &self,
+    ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
         self.is_present().then(|| {
             self.validate_access();
             (
@@ -119,6 +146,10 @@ impl<const SEND: bool> ResourceData<SEND> {
                     added: &self.added_ticks,
                     changed: &self.changed_ticks,
                 },
+                #[cfg(feature = "track_location")]
+                &self.changed_by,
+                #[cfg(not(feature = "track_location"))]
+                (),
             )
         })
     }
@@ -129,12 +160,15 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not accessed from the
     /// original thread it was inserted in.
     pub(crate) fn get_mut(&mut self, last_run: Tick, this_run: Tick) -> Option<MutUntyped<'_>> {
-        let (ptr, ticks) = self.get_with_ticks()?;
+        let (ptr, ticks, _caller) = self.get_with_ticks()?;
         Some(MutUntyped {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe { TicksMut::from_tick_cells(ticks, last_run, this_run) },
+            #[cfg(feature = "track_location")]
+            // SAFETY: We have exclusive access to the underlying storage.
+            changed_by: unsafe { _caller.deref_mut() },
         })
     }
 
@@ -148,7 +182,12 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
     #[inline]
-    pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: Tick) {
+    pub(crate) unsafe fn insert(
+        &mut self,
+        value: OwningPtr<'_>,
+        change_tick: Tick,
+        #[cfg(feature = "track_location")] caller: &'static Location,
+    ) {
         if self.is_present() {
             self.validate_access();
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
@@ -158,6 +197,7 @@ impl<const SEND: bool> ResourceData<SEND> {
                 self.data.replace_unchecked(Self::ROW, value);
             }
         } else {
+            #[cfg(feature = "std")]
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
@@ -165,6 +205,10 @@ impl<const SEND: bool> ResourceData<SEND> {
             *self.added_ticks.deref_mut() = change_tick;
         }
         *self.changed_ticks.deref_mut() = change_tick;
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by.deref_mut() = caller;
+        }
     }
 
     /// Inserts a value into the resource with a pre-existing change tick. If a
@@ -181,6 +225,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_ticks: ComponentTicks,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
         if self.is_present() {
             self.validate_access();
@@ -191,6 +236,7 @@ impl<const SEND: bool> ResourceData<SEND> {
                 self.data.replace_unchecked(Self::ROW, value);
             }
         } else {
+            #[cfg(feature = "std")]
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
@@ -198,6 +244,10 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
         *self.added_ticks.deref_mut() = change_ticks.added;
         *self.changed_ticks.deref_mut() = change_ticks.changed;
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by.deref_mut() = caller;
+        }
     }
 
     /// Removes a value from the resource, if present.
@@ -207,7 +257,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted from.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks, MaybeLocation)> {
         if !self.is_present() {
             return None;
         }
@@ -216,6 +266,13 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
         // SAFETY: We've already validated that the row is present.
         let res = unsafe { self.data.swap_remove_and_forget_unchecked(Self::ROW) };
+
+        // SAFETY: This function is being called through an exclusive mutable reference to Self
+        #[cfg(feature = "track_location")]
+        let caller = unsafe { *self.changed_by.deref_mut() };
+        #[cfg(not(feature = "track_location"))]
+        let caller = ();
+
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
         // makes it sound to read these ticks.
         unsafe {
@@ -225,6 +282,7 @@ impl<const SEND: bool> ResourceData<SEND> {
                     added: self.added_ticks.read(),
                     changed: self.changed_ticks.read(),
                 },
+                caller,
             ))
         }
     }
@@ -250,7 +308,7 @@ impl<const SEND: bool> ResourceData<SEND> {
 
 /// The backing store for all [`Resource`]s stored in the [`World`].
 ///
-/// [`Resource`]: crate::system::Resource
+/// [`Resource`]: crate::resource::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Resources<const SEND: bool> {
@@ -332,7 +390,10 @@ impl<const SEND: bool> Resources<SEND> {
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
                 type_name: String::from(component_info.name()),
                 id: f(),
+                #[cfg(feature = "std")]
                 origin_thread_id: None,
+                #[cfg(feature = "track_location")]
+                changed_by: UnsafeCell::new(Location::caller())
             }
         })
     }
