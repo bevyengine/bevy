@@ -136,6 +136,12 @@ pbr_anisotropy_texture = [
 # Percentage-closer soft shadows
 experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
 
+# Specular textures in `StandardMaterial`:
+pbr_specular_textures = [
+  "bevy_pbr?/pbr_specular_textures",
+  "bevy_gltf?/pbr_specular_textures",
+]
+
 # Optimise for WebGL2
 webgl = [
   "bevy_core_pipeline?/webgl",
