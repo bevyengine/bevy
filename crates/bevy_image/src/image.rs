@@ -1663,4 +1663,25 @@ mod test {
             Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
         ));
     }
+
+    #[test]
+    fn get_set_pixel_2d_with_layers() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 5,
+                height: 10,
+                depth_or_array_layers: 3,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        image.set_color_at_3d(0, 0, 0, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(0, 0, 0), Ok(Color::WHITE)));
+        image.set_color_at_3d(2, 3, 1, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(2, 3, 1), Ok(Color::WHITE)));
+        image.set_color_at_3d(4, 9, 2, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(4, 9, 2), Ok(Color::WHITE)));
+    }
 }
