@@ -772,17 +772,6 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
 }
 
 pub fn queue_prepass_material_meshes<M: Material>(
-    (
-        opaque_draw_functions,
-        alpha_mask_draw_functions,
-        opaque_deferred_draw_functions,
-        alpha_mask_deferred_draw_functions,
-    ): (
-        Res<DrawFunctions<Opaque3dPrepass>>,
-        Res<DrawFunctions<AlphaMask3dPrepass>>,
-        Res<DrawFunctions<Opaque3dDeferred>>,
-        Res<DrawFunctions<AlphaMask3dDeferred>>,
-    ),
     prepass_pipeline: Res<PrepassPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -815,22 +804,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    let opaque_draw_prepass = opaque_draw_functions
-        .read()
-        .get_id::<DrawPrepass<M>>()
-        .unwrap();
-    let alpha_mask_draw_prepass = alpha_mask_draw_functions
-        .read()
-        .get_id::<DrawPrepass<M>>()
-        .unwrap();
-    let opaque_draw_deferred = opaque_deferred_draw_functions
-        .read()
-        .get_id::<DrawPrepass<M>>()
-        .unwrap();
-    let alpha_mask_draw_deferred = alpha_mask_deferred_draw_functions
-        .read()
-        .get_id::<DrawPrepass<M>>()
-        .unwrap();
     for (
         extracted_view,
         visible_entities,
@@ -985,7 +958,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                     if deferred {
                         opaque_deferred_phase.as_mut().unwrap().add(
                             OpaqueNoLightmap3dBatchSetKey {
-                                draw_function: opaque_draw_deferred,
+                                draw_function: material.properties.deferred_draw_function_id.unwrap(),
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
                                 vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1005,7 +978,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         opaque_phase.add(
                             OpaqueNoLightmap3dBatchSetKey {
-                                draw_function: opaque_draw_prepass,
+                                draw_function: material.properties.prepass_draw_function_id.unwrap(),
                                 pipeline: pipeline_id,
                                 material_bind_group_index: Some(material.binding.group.0),
                                 vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1028,7 +1001,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: alpha_mask_draw_deferred,
+                            draw_function: material.properties.deferred_draw_function_id.unwrap(),
                             pipeline: pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),
@@ -1050,7 +1023,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                         let (vertex_slab, index_slab) =
                             mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
                         let batch_set_key = OpaqueNoLightmap3dBatchSetKey {
-                            draw_function: alpha_mask_draw_prepass,
+                            draw_function: material.properties.prepass_draw_function_id.unwrap(),
                             pipeline: pipeline_id,
                             material_bind_group_index: Some(material.binding.group.0),
                             vertex_slab: vertex_slab.unwrap_or_default(),

@@ -815,7 +815,7 @@ pub fn specialize_material_meshes<M: Material>(
                 }
             };
 
-            specialized_piplines.insert_specialized_material_pipeline(
+            specialized_piplines.insert_pipeline(
                 *view_entity,
                 *visible_entity,
                 pipeline_id,

@@ -96,7 +96,7 @@ where
             || entity_tick.is_newer_than(*last_specialized_tick, self.ticks.this_run())
     }
 
-    pub fn insert_specialized_material_pipeline(
+    pub fn insert_pipeline(
         &mut self,
         view_entity: MainEntity,
         entity: MainEntity,
