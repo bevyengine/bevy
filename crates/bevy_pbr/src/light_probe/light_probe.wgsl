@@ -52,7 +52,7 @@ fn query_light_probe(
     var end_offset: u32;
     if is_irradiance_volume {
         start_offset = (*clusterable_object_index_ranges).first_irradiance_volume_index_offset;
-        end_offset = (*clusterable_object_index_ranges).last_clusterable_object_index_offset;
+        end_offset = (*clusterable_object_index_ranges).first_decal_offset;
     } else {
         start_offset = (*clusterable_object_index_ranges).first_reflection_probe_index_offset;
         end_offset = (*clusterable_object_index_ranges).first_irradiance_volume_index_offset;

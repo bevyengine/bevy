@@ -1,17 +1,28 @@
 mod prepass_bindings;
 
-use crate::material_bind_groups::MaterialBindGroupAllocator;
+use crate::{
+    alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
+    material_bind_groups::MaterialBindGroupAllocator, queue_material_meshes,
+    setup_morph_and_skinning_defs, skin, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
+    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
+    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
+    SetMaterialBindGroup, SetMeshBindGroup, StandardMaterial,
+};
+use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
+    alpha::AlphaMode,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    render_asset::prepare_assets,
     render_resource::binding_types::uniform_buffer,
     renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{load_internal_asset, AssetServer};
+use bevy_asset::{load_internal_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -41,7 +52,8 @@ use crate::meshlet::{
     prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
     MeshletMesh3d,
 };
-use crate::*;
+#[cfg(feature = "meshlet")]
+use crate::ShadowView;
 
 use bevy_render::view::RenderVisibleEntities;
 use core::{hash::Hash, marker::PhantomData};
