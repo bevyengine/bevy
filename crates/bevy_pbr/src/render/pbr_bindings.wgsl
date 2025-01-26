@@ -77,3 +77,17 @@
 @group(2) @binding(26) var clearcoat_normal_sampler: sampler;
 #endif  // BINDLESS
 #endif  // PBR_MULTI_LAYER_MATERIAL_TEXTURES_SUPPORTED
+
+#ifdef PBR_SPECULAR_TEXTURES_SUPPORTED
+#ifdef BINDLESS
+@group(2) @binding(27) var specular_texture: binding_array<texture_2d<f32>, 16>;
+@group(2) @binding(28) var specular_sampler: binding_array<sampler, 16>;
+@group(2) @binding(29) var specular_tint_texture: binding_array<texture_2d<f32>, 16>;
+@group(2) @binding(30) var specular_tint_sampler: binding_array<sampler, 16>;
+#else
+@group(2) @binding(27) var specular_texture: texture_2d<f32>;
+@group(2) @binding(28) var specular_sampler: sampler;
+@group(2) @binding(29) var specular_tint_texture: texture_2d<f32>;
+@group(2) @binding(30) var specular_tint_sampler: sampler;
+#endif  // BINDLESS
+#endif  // PBR_SPECULAR_TEXTURES_SUPPORTED
