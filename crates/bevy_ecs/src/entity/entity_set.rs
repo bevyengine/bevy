@@ -3,10 +3,12 @@ use alloc::{
     collections::{btree_map, btree_set},
     rc::Rc,
 };
+use bevy_platform_support::collections::HashSet;
 
 use core::{
     array,
     fmt::{Debug, Formatter},
+    hash::{BuildHasher, Hash},
     iter::{self, FusedIterator},
     option, result,
 };
@@ -144,7 +146,21 @@ impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
 ///
 /// `x != y` must hold for any 2 elements returned by the iterator.
 /// This is always true for iterators that cannot return more than one element.
-pub unsafe trait EntitySetIterator: Iterator<Item: TrustedEntityBorrow> {}
+pub unsafe trait EntitySetIterator: Iterator<Item: TrustedEntityBorrow> {
+    /// Transforms an `EntitySetIterator` into a collection.
+    ///
+    /// This is a specialized form of [`collect`], for collections which benefit from the uniqueness guarantee.
+    /// When present, this should always be preferred over [`collect`].
+    ///
+    /// [`collect`]: Iterator::collect
+    //  FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow `Iterator::collect`
+    fn collect_set<B: FromEntitySetIterator<Self::Item>>(self) -> B
+    where
+        Self: Sized,
+    {
+        FromEntitySetIterator::from_entity_set_iter(self)
+    }
+}
 
 // SAFETY:
 // A correct `BTreeMap` contains only unique keys.
@@ -290,6 +306,36 @@ unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> Enti
 
 // SAFETY: Discarding elements maintains uniqueness.
 unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::StepBy<I> {}
+
+/// Conversion from an `EntitySetIterator`.
+///
+/// Some collections, while they can be constructed from plain iterators,
+/// benefit strongly from the additional uniqeness guarantee [`EntitySetIterator`] offers.
+/// Mirroring [`Iterator::collect`]/[`FromIterator::from_iter`], [`EntitySetIterator::collect_set`] and
+/// `FromEntitySetIterator::from_entity_set_iter` can be used for construction.
+///
+/// See also: [`EntitySet`].
+// FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow `FromIterator::from_iter`
+pub trait FromEntitySetIterator<A: TrustedEntityBorrow>: FromIterator<A> {
+    /// Creates a value from an [`EntitySetIterator`].
+    fn from_entity_set_iter<T: EntitySet<Item = A>>(set_iter: T) -> Self;
+}
+
+impl<T: TrustedEntityBorrow + Hash, S: BuildHasher + Default> FromEntitySetIterator<T>
+    for HashSet<T, S>
+{
+    fn from_entity_set_iter<I: EntitySet<Item = T>>(set_iter: I) -> Self {
+        let iter = set_iter.into_iter();
+        let set = HashSet::<T, S>::with_capacity_and_hasher(iter.size_hint().0, S::default());
+        iter.fold(set, |mut set, e| {
+            // SAFETY: Every element in self is unique.
+            unsafe {
+                set.insert_unique_unchecked(e);
+            }
+            set
+        })
+    }
+}
 
 /// An iterator that yields unique entities.
 ///

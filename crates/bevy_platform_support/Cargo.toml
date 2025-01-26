@@ -41,7 +41,7 @@ critical-section = ["dep:critical-section", "portable-atomic?/critical-section"]
 portable-atomic = [
   "dep:portable-atomic",
   "dep:portable-atomic-util",
-  "spin/portable-atomic",
+  "spin/portable_atomic",
 ]
 
 [dependencies]
