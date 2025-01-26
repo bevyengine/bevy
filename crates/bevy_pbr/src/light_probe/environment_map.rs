@@ -117,6 +117,7 @@ pub struct EnvironmentMapLight {
 }
 
 impl EnvironmentMapLight {
+    /// An environment map with a uniform color, useful for uniform ambient lighting.
     pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
         let color: Srgba = color.into();
         let image = Image {
@@ -145,6 +146,8 @@ impl EnvironmentMapLight {
         }
     }
 
+    /// An environment map with a hemispherical gradient, fading between the sky and ground colors
+    /// at the horizon. Useful as a very simple 'sky'.
     pub fn hemispherical_gradient(
         assets: &mut Assets<Image>,
         top_color: Color,
