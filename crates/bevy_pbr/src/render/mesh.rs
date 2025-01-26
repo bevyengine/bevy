@@ -2054,6 +2054,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "pbr_anisotropy_texture") {
             shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
         }
+        if cfg!(feature = "pbr_specular_textures") {
+            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
@@ -2281,6 +2284,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if IRRADIANCE_VOLUMES_ARE_USABLE {
             shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
+        }
+
+        if self.binding_arrays_are_usable {
+            shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {

@@ -392,7 +392,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         };
 
         // skip invisible nodes
-        if !inherited_visibility.get() {
+        if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
 

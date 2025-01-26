@@ -120,6 +120,7 @@ Example | Description
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
+[Sprite Scale](../examples/2d/sprite_scale.rs) | Shows how a sprite can be scaled into a rectangle while keeping the aspect ratio
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
 [Sprite Slice](../examples/2d/sprite_slice.rs) | Showcases slicing sprites into sections that can be scaled independently via the 9-patch technique
 [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
@@ -138,12 +139,14 @@ Example | Description
 [Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
 [Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
+[Atmosphere](../examples/3d/atmosphere.rs) | A scene showcasing pbr atmospheric scattering
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
+[Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
@@ -177,6 +180,7 @@ Example | Description
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
+[Specular Tint](../examples/3d/specular_tint.rs) | Demonstrates specular tints and maps
 [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
@@ -467,6 +471,7 @@ cargo run --release --example <example name>
 Example | Description
 --- | ---
 [Bevymark](../examples/stress_tests/bevymark.rs) | A heavy sprite rendering workload to benchmark your system with Bevy
+[Many Animated Materials](../examples/stress_tests/many_materials.rs) | Benchmark to test rendering many animated materials
 [Many Animated Sprites](../examples/stress_tests/many_animated_sprites.rs) | Displays many animated sprites in a grid arrangement with slight offsets to their animation timers. Used for performance testing.
 [Many Buttons](../examples/stress_tests/many_buttons.rs) | Test rendering of many UI elements
 [Many Cameras & Lights](../examples/stress_tests/many_cameras_lights.rs) | Test rendering of many cameras and lights

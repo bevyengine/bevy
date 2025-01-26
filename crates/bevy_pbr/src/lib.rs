@@ -24,6 +24,7 @@ pub mod experimental {
     }
 }
 
+mod atmosphere;
 mod cluster;
 mod components;
 pub mod decal;
@@ -48,8 +49,10 @@ use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 
+pub use atmosphere::*;
 pub use cluster::*;
 pub use components::*;
+pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -150,8 +153,8 @@ pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(26590
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2325134235233421);
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 26;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 27;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -334,6 +337,7 @@ impl Plugin for PbrPlugin {
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
+                ClusteredDecalPlugin,
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,
@@ -342,6 +346,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 ExtractComponentPlugin::<AmbientLight>::default(),
             ))
+            .add_plugins(AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (
