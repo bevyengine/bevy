@@ -103,7 +103,6 @@ use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
-use crate::specialization::SpecializationPlugin;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -270,7 +269,6 @@ impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
         app
-            .add_plugins(SpecializationPlugin)
             .init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
