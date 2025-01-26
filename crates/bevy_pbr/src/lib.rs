@@ -72,7 +72,7 @@ pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, Volumetr
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[allow(deprecated)]
+    #[expect(deprecated)]
     #[doc(hidden)]
     pub use crate::light::AmbientLight;
     #[doc(hidden)]
@@ -304,7 +304,7 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
 
-        #[allow(deprecated)]
+        #[expect(deprecated)]
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
