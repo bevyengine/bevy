@@ -13,7 +13,8 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 use bevy_math::UVec4;
-use bevy_utils::{default, hashbrown::hash_map::Entry, TypeIdMap};
+use bevy_platform_support::collections::hash_map::Entry;
+use bevy_utils::{default, TypeIdMap};
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
 use tracing::error;
