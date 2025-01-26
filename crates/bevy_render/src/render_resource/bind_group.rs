@@ -48,8 +48,8 @@ impl PartialEq for BindGroup {
 
 impl Eq for BindGroup {}
 
-impl std::hash::Hash for BindGroup {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl core::hash::Hash for BindGroup {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.id.0.hash(state);
     }
 }

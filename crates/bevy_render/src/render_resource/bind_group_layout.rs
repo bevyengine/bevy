@@ -27,8 +27,8 @@ impl PartialEq for BindGroupLayout {
 
 impl Eq for BindGroupLayout {}
 
-impl std::hash::Hash for BindGroupLayout {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+impl core::hash::Hash for BindGroupLayout {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.id.0.hash(state);
     }
 }
