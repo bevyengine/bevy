@@ -16,7 +16,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, Token, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -632,7 +632,7 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
                 None => {
                     return syn::Error::new(
                         Span::call_site(),
-                        "No #[from_world] attribute was found on any of this enum's variants.",
+                        "No variant found with the `#[from_world]` attribute",
                     )
                     .into_compile_error()
                     .into();
@@ -650,37 +650,20 @@ pub fn derive_from_world(input: TokenStream) -> TokenStream {
     };
 
     let field_init_expr = quote!(#bevy_ecs_path::world::FromWorld::from_world(world));
-
-    let field_initializers: Punctuated<TokenStream2, Token![,]> = match fields {
-        syn::Fields::Named(fields_named) => fields_named
-            .named
-            .iter()
-            .map(|field| {
-                let ident = field.ident.clone().unwrap();
-                quote!(#ident: #field_init_expr)
-            })
-            .collect(),
-        syn::Fields::Unnamed(fields_unnamed) => (0..fields_unnamed.unnamed.len())
-            .map(|index| quote!(#index: #field_init_expr))
-            .collect(),
-        syn::Fields::Unit => Punctuated::new(),
-    };
-
-    let field_initializers: TokenStream2 = if !field_initializers.is_empty() {
-        quote!({ #field_initializers })
-    } else {
-        quote!(#field_initializers)
-    };
+    let members = fields.members();
 
     let field_initializers = match variant_ident {
-        Some(variant_ident) => quote!( Self::#variant_ident #field_initializers),
-        None => quote!( Self #field_initializers),
+        Some(variant_ident) => quote!( Self::#variant_ident {
+            #(#members: #field_init_expr),*
+        }),
+        None => quote!( Self {
+            #(#members: #field_init_expr),*
+        }),
     };
 
     TokenStream::from(quote! {
             impl #impl_generics #bevy_ecs_path::world::FromWorld for #name #ty_generics #where_clauses {
                 fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
-                    #[allow(clippy::init_numbered_fields)]
                     #field_initializers
                 }
             }
