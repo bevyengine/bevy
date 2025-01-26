@@ -1,6 +1,6 @@
 //! Contains the [`EntityHashSet`] type, a [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 //!
-//! This module is a lightweight wrapper around [`hashbrown`](bevy_utils::hashbrown)'s [`HashSet`] that is more performant for [`Entity`] keys.
+//! This module is a lightweight wrapper around Bevy's [`HashSet`] that is more performant for [`Entity`] keys.
 
 use core::{
     fmt::{self, Debug, Formatter},
@@ -12,11 +12,11 @@ use core::{
     },
 };
 
+use bevy_platform_support::collections::hash_set::{self, HashSet};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_set::{self, HashSet};
 
-use super::{Entity, EntityHash, EntitySetIterator};
+use super::{Entity, EntityHash, EntitySet, EntitySetIterator, FromEntitySetIterator};
 
 /// A [`HashSet`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -192,6 +192,20 @@ impl<const N: usize> From<[Entity; N]> for EntityHashSet {
 impl FromIterator<Entity> for EntityHashSet {
     fn from_iter<I: IntoIterator<Item = Entity>>(iterable: I) -> Self {
         Self(HashSet::from_iter(iterable))
+    }
+}
+
+impl FromEntitySetIterator<Entity> for EntityHashSet {
+    fn from_entity_set_iter<I: EntitySet<Item = Entity>>(set_iter: I) -> Self {
+        let iter = set_iter.into_iter();
+        let set = EntityHashSet::with_capacity(iter.size_hint().0);
+        iter.fold(set, |mut set, e| {
+            // SAFETY: Every element in self is unique.
+            unsafe {
+                set.insert_unique_unchecked(e);
+            }
+            set
+        })
     }
 }
 

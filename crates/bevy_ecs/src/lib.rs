@@ -146,8 +146,8 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
+    use bevy_platform_support::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use bevy_utils::HashSet;
     use core::{
         any::TypeId,
         marker::PhantomData,

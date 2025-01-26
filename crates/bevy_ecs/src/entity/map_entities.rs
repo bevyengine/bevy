@@ -23,7 +23,7 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
 ///
-/// [`HashSet<Entity>`]: bevy_utils::HashSet
+/// [`HashSet<Entity>`]: bevy_platform_support::collections::HashSet
 ///
 /// ## Example
 ///

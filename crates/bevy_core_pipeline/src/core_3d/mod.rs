@@ -85,6 +85,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -105,7 +106,6 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{HashMap, HashSet};
 use nonmax::NonMaxU32;
 use tracing::warn;
 

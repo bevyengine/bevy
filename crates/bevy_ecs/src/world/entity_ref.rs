@@ -19,8 +19,8 @@ use crate::{
     },
 };
 use alloc::vec::Vec;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
-use bevy_utils::{HashMap, HashSet};
 #[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
@@ -244,7 +244,7 @@ impl<'w> EntityRef<'w> {
     /// ## [`HashSet`] of [`ComponentId`]s
     ///
     /// ```
-    /// # use bevy_utils::HashSet;
+    /// # use bevy_platform_support::collections::HashSet;
     /// # use bevy_ecs::{prelude::*, component::ComponentId};
     /// #
     /// # #[derive(Component, PartialEq, Debug)]
@@ -787,7 +787,7 @@ impl<'w> EntityMut<'w> {
     /// ## [`HashSet`] of [`ComponentId`]s
     ///
     /// ```
-    /// # use bevy_utils::HashSet;
+    /// # use bevy_platform_support::collections::HashSet;
     /// # use bevy_ecs::{prelude::*, component::ComponentId};
     /// #
     /// # #[derive(Component, PartialEq, Debug)]

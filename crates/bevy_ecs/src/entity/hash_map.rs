@@ -1,6 +1,6 @@
 //! Contains the [`EntityHashMap`] type, a [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 //!
-//! This module is a lightweight wrapper around [`hashbrown`](bevy_utils::hashbrown)'s [`HashMap`] that is more performant for [`Entity`] keys.
+//! This module is a lightweight wrapper around Bevy's [`HashMap`] that is more performant for [`Entity`] keys.
 
 use core::{
     fmt::{self, Debug, Formatter},
@@ -9,9 +9,9 @@ use core::{
     ops::{Deref, DerefMut, Index},
 };
 
+use bevy_platform_support::collections::hash_map::{self, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_map::{self, HashMap};
 
 use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 

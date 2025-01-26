@@ -15,8 +15,8 @@ use crate::{
     world::{DeferredWorld, *},
 };
 use alloc::vec::Vec;
+use bevy_platform_support::collections::HashMap;
 use bevy_ptr::Ptr;
-use bevy_utils::HashMap;
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -846,8 +846,8 @@ mod tests {
     #[cfg(feature = "track_location")]
     use core::panic::Location;
 
+    use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
-    use bevy_utils::HashMap;
 
     use crate as bevy_ecs;
     use crate::component::ComponentId;
