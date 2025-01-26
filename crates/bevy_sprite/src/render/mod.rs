@@ -102,7 +102,7 @@ impl FromWorld for SpritePipeline {
             render_queue.write_texture(
                 texture.as_image_copy(),
                 &image.data,
-                ImageDataLayout {
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,

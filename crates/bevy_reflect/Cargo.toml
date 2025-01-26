@@ -116,7 +116,7 @@ uuid = { version = "1.0", default-features = false, optional = true, features = 
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "23", features = ["serde"], optional = true }
+wgpu-types = { version = "24", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.8.0"

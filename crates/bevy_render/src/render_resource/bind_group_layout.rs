@@ -1,6 +1,5 @@
 use crate::define_atomic_id;
 use crate::renderer::WgpuWrapper;
-use alloc::sync::Arc;
 use core::ops::Deref;
 
 define_atomic_id!(BindGroupLayoutId);
@@ -8,7 +7,7 @@ define_atomic_id!(BindGroupLayoutId);
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {
     id: BindGroupLayoutId,
-    value: Arc<WgpuWrapper<wgpu::BindGroupLayout>>,
+    value: WgpuWrapper<wgpu::BindGroupLayout>,
 }
 
 impl PartialEq for BindGroupLayout {
@@ -33,7 +32,7 @@ impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
             id: BindGroupLayoutId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
