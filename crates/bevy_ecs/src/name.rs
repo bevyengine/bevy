@@ -6,20 +6,6 @@ use alloc::{
     borrow::{Cow, ToOwned},
     string::String,
 };
-use bevy_platform_support::hash::FixedHasher;
-use core::{
-    hash::{BuildHasher, Hash, Hasher},
-    ops::Deref,
-};
-
-#[cfg(feature = "serialize")]
-use {
-    alloc::string::ToString,
-    serde::{
-        de::{Error, Visitor},
-        Deserialize, Deserializer, Serialize, Serializer,
-    },
-};
 
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -30,85 +16,129 @@ use {
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Component used to identify an entity. Stores a hash for faster comparisons.
-///
-/// The hash is eagerly re-computed upon each update to the name.
+/// Component used to identify an entity.
 ///
 /// [`Name`] should not be treated as a globally unique identifier for entities,
-/// as multiple entities can have the same name.  [`Entity`] should be
+/// as multiple entities can have the same name. [`Entity`] should be
 /// used instead as the default unique identifier.
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Component, Default, Debug)
 )]
 #[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    serde(transparent)
+)]
+#[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
 )]
-pub struct Name {
-    hash: u64, // Won't be serialized
-    name: Cow<'static, str>,
-}
+pub struct Name(Cow<'static, str>);
 
 impl Default for Name {
     fn default() -> Self {
-        Name::new("")
+        Name(Cow::Borrowed(""))
     }
 }
 
 impl Name {
     /// Creates a new [`Name`] from any string-like type.
-    ///
-    /// The internal hash will be computed immediately.
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
-        let name = name.into();
-        let mut name = Name { name, hash: 0 };
-        name.update_hash();
-        name
+        Self(name.into())
     }
 
-    /// Sets the entity's name.
+    /// Creates a new [`Name`] from a statically allocated string.
     ///
-    /// The internal hash will be re-computed.
-    #[inline(always)]
-    pub fn set(&mut self, name: impl Into<Cow<'static, str>>) {
-        *self = Name::new(name);
+    /// This never allocates.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::name::Name;
+    /// const MY_NAME: Name = Name::new_static("ComponentName");
+    /// # assert_eq!(Name::new("ComponentName"), MY_NAME);
+    /// ```
+    pub const fn new_static(name: &'static str) -> Self {
+        Self(Cow::Borrowed(name))
     }
 
-    /// Updates the name of the entity in place.
+    /// Acquires a mutable reference to the inner [`String`].
     ///
     /// This will allocate a new string if the name was previously
     /// created from a borrow.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::name::Name;
+    /// let mut name = Name::new("my_component_name");
+    /// name.to_mut().make_ascii_uppercase();
+    ///
+    /// # assert_eq!(name.as_str(), "MY_COMPONENT_NAME");
+    /// ```
     #[inline(always)]
-    pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
-        f(self.name.to_mut());
-        self.update_hash();
+    pub fn to_mut(&mut self) -> &mut String {
+        self.0.to_mut()
     }
 
     /// Gets the name of the entity as a `&str`.
     #[inline(always)]
     pub fn as_str(&self) -> &str {
-        &self.name
+        &self.0
     }
+}
 
-    fn update_hash(&mut self) {
-        self.hash = FixedHasher.hash_one(&self.name);
+impl core::ops::Deref for Name {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 
 impl core::fmt::Display for Name {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        core::fmt::Display::fmt(&self.name, f)
+        core::fmt::Display::fmt(&self.0, f)
     }
 }
 
-impl core::fmt::Debug for Name {
+// Conversions from strings
+
+impl From<&str> for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        core::fmt::Debug::fmt(&self.name, f)
+    fn from(name: &str) -> Self {
+        Name::new(name.to_owned())
+    }
+}
+impl From<String> for Name {
+    #[inline(always)]
+    fn from(name: String) -> Self {
+        Name::new(name)
+    }
+}
+
+// Conversions to strings
+
+impl AsRef<str> for Name {
+    #[inline(always)]
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+impl From<&Name> for String {
+    #[inline(always)]
+    fn from(val: &Name) -> String {
+        val.as_str().to_owned()
+    }
+}
+impl From<Name> for String {
+    #[inline(always)]
+    fn from(val: Name) -> String {
+        val.0.into_owned()
     }
 }
 
@@ -148,115 +178,6 @@ impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
             Some(name) => core::fmt::Display::fmt(name, f),
             None => core::fmt::Display::fmt(&self.entity, f),
         }
-    }
-}
-
-// Conversions from strings
-
-impl From<&str> for Name {
-    #[inline(always)]
-    fn from(name: &str) -> Self {
-        Name::new(name.to_owned())
-    }
-}
-impl From<String> for Name {
-    #[inline(always)]
-    fn from(name: String) -> Self {
-        Name::new(name)
-    }
-}
-
-// Conversions to strings
-
-impl AsRef<str> for Name {
-    #[inline(always)]
-    fn as_ref(&self) -> &str {
-        &self.name
-    }
-}
-impl From<&Name> for String {
-    #[inline(always)]
-    fn from(val: &Name) -> String {
-        val.as_str().to_owned()
-    }
-}
-impl From<Name> for String {
-    #[inline(always)]
-    fn from(val: Name) -> String {
-        val.name.into_owned()
-    }
-}
-
-impl Hash for Name {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.name.hash(state);
-    }
-}
-
-impl PartialEq for Name {
-    fn eq(&self, other: &Self) -> bool {
-        if self.hash != other.hash {
-            // Makes the common case of two strings not been equal very fast
-            return false;
-        }
-
-        self.name.eq(&other.name)
-    }
-}
-
-impl Eq for Name {}
-
-impl PartialOrd for Name {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for Name {
-    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
-        self.name.cmp(&other.name)
-    }
-}
-
-impl Deref for Name {
-    type Target = str;
-
-    fn deref(&self) -> &Self::Target {
-        self.name.as_ref()
-    }
-}
-
-#[cfg(feature = "serialize")]
-impl Serialize for Name {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(self.as_str())
-    }
-}
-
-#[cfg(feature = "serialize")]
-impl<'de> Deserialize<'de> for Name {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        deserializer.deserialize_str(NameVisitor)
-    }
-}
-
-#[cfg(feature = "serialize")]
-struct NameVisitor;
-
-#[cfg(feature = "serialize")]
-impl<'de> Visitor<'de> for NameVisitor {
-    type Value = Name;
-
-    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
-        formatter.write_str(core::any::type_name::<Name>())
-    }
-
-    fn visit_str<E: Error>(self, v: &str) -> Result<Self::Value, E> {
-        Ok(Name::new(v.to_string()))
-    }
-
-    fn visit_string<E: Error>(self, v: String) -> Result<Self::Value, E> {
-        Ok(Name::new(v))
     }
 }
 
