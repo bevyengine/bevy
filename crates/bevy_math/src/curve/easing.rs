@@ -770,10 +770,23 @@ mod tests {
             quat_curve.sample(0.0).unwrap(),
             Quat::from_axis_angle(Vec3::Z, 0.0)
         );
-        assert_abs_diff_eq!(
-            quat_curve.sample(0.5).unwrap(),
-            Quat::from_axis_angle(Vec3::Z, 45.0)
-        );
+        // {
+        //     let (before_mid_axis, before_mid_angle) =
+        //         quat_curve.sample(0.25).unwrap().to_axis_angle();
+        //     assert_abs_diff_eq!(before_mid_axis, Vec3::Z);
+        //     assert_abs_diff_eq!(before_mid_angle.to_degrees(), 22.5);
+        // }
+        {
+            // doesnt work ?!
+            let (mid_axis, mid_angle) = quat_curve.sample(0.5).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(mid_angle.to_degrees(), 45.0);
+        }
+        // {
+        //     let (after_mid_axis, after_mid_angle) = quat_curve.sample(0.75).unwrap().to_axis_angle();
+        //     assert_abs_diff_eq!(after_mid_axis, Vec3::Z);
+        //     assert_abs_diff_eq!(after_mid_angle.to_degrees(), 67.5);
+        // }
         assert_abs_diff_eq!(
             quat_curve.sample(1.0).unwrap(),
             Quat::from_axis_angle(Vec3::Z, 90.0)
