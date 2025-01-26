@@ -2,8 +2,7 @@
 
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::TextureViewDescriptor;
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat, TextureViewDimension};
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat, TextureViewDimension, TextureViewDescriptor};
 #[cfg(debug_assertions)]
 use {bevy_utils::once, tracing::warn};
 
@@ -283,8 +282,7 @@ pub fn dds_format_to_texture_format(
 
 #[cfg(test)]
 mod test {
-    use wgpu::util::TextureDataOrder;
-    use wgpu_types::{TextureDescriptor, TextureDimension, TextureFormat};
+    use wgpu_types::{TextureDescriptor, TextureDimension, TextureFormat, TextureDataOrder};
 
     use crate::CompressedImageFormats;
 

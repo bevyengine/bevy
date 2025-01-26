@@ -60,6 +60,12 @@ pub struct SurfaceTexture {
     value: WgpuWrapper<wgpu::SurfaceTexture>,
 }
 
+impl SurfaceTexture {
+   pub fn present(self) {
+        self.value.into_inner().present()
+    }
+}
+
 impl TextureView {
     /// Returns the [`TextureViewId`].
     #[inline]

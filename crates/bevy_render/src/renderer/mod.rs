@@ -92,7 +92,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
                 // though `present()` doesn't present the frame, it schedules it to be presented
                 // by wgpu.
                 // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
-                surface_texture.clone().present();
+                surface_texture.present();
             }
         }
 
