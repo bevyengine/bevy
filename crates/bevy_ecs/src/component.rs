@@ -32,6 +32,7 @@ use core::{
     panic::Location,
 };
 use disqualified::ShortName;
+use std::sync::RwLock;
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
@@ -1714,6 +1715,15 @@ impl Components {
     }
 }
 
+/// This wrapper around [`Components`] enables synchronized use.
+#[derive(Debug, Default)]
+pub struct SyncedComponents {
+    components: Components,
+    new_components: RwLock<Components>,
+}
+
+impl SyncedComponents {}
+
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
 ///
@@ -2225,7 +2235,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
 /// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
-///   
+///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
