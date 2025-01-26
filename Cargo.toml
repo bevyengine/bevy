@@ -4124,3 +4124,14 @@ name = "Directional Navigation"
 description = "Demonstration of Directional Navigation between UI elements"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "clustered_decals"
+path = "examples/3d/clustered_decals.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.clustered_decals]
+name = "Clustered Decals"
+description = "Demonstrates clustered decals"
+category = "3D Rendering"
+wasm = false
