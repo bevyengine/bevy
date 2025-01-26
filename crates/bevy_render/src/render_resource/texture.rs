@@ -62,7 +62,7 @@ pub struct SurfaceTexture {
 
 impl SurfaceTexture {
     pub fn present(self) {
-        self.value.into_inner().present()
+        self.value.into_inner().present();
     }
 }
 
