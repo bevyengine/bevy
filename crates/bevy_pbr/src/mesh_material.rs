@@ -58,7 +58,7 @@ impl<M: Material> From<&MeshMaterial3d<M>> for AssetId<M> {
     }
 }
 
-impl <M: Material> AsAssetId for MeshMaterial3d<M> {
+impl<M: Material> AsAssetId for MeshMaterial3d<M> {
     type Asset = M;
 
     fn as_asset_id(&self) -> AssetId<Self::Asset> {

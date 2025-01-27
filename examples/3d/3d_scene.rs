@@ -43,9 +43,4 @@ fn setup(
     ));
 }
 
-fn update_meshes(
-    mut meshes: ResMut<Assets<Mesh>>,
-    query: Query<(&Mesh3d)>,
-) {
-
-}
+fn update_meshes(mut meshes: ResMut<Assets<Mesh>>, query: Query<(&Mesh3d)>) {}

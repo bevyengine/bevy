@@ -267,8 +267,7 @@ pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        app
-            .init_asset::<Shader>()
+        app.init_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>();
 
         match &self.render_creation {
