@@ -370,6 +370,8 @@ fn upload_decals(
 
 /// Returns true if clustered decals are usable on the current platform or false
 /// otherwise.
+///
+/// Clustered decals are currently disabled on MacOS and iOS due to insufficient texture bindings and limited bindless support in wgpu.
 pub fn clustered_decals_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
