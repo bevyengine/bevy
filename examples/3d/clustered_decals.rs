@@ -2,8 +2,9 @@
 
 use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
+use std::process;
 
-use bevy::pbr::{ExtendedMaterial, MaterialExtension};
+use bevy::pbr::{decal, ExtendedMaterial, MaterialExtension};
 use bevy::window::SystemCursorIcon;
 use bevy::winit::cursor::CursorIcon;
 use bevy::{
@@ -13,6 +14,7 @@ use bevy::{
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef},
 };
+use bevy_render::renderer::{RenderAdapter, RenderDevice};
 use ops::{acos, cos, sin};
 use widgets::{
     WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
@@ -152,9 +154,17 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     app_status: Res<AppStatus>,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, CustomDecalExtension>>>,
 ) {
+    // Error out if clustered decals aren't supported on the current platform.
+    if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
+        eprintln!("Clustered decals aren't usable on this platform.");
+        process::exit(1);
+    }
+
     spawn_cube(&mut commands, &mut meshes, &mut materials);
     spawn_camera(&mut commands);
     spawn_light(&mut commands);
