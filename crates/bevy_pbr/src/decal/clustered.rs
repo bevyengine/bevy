@@ -6,8 +6,8 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
-//! or deferred rendering and don't require a prepass.
+//! used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+//! with forward or deferred rendering and don't require a prepass.
 //!
 //! On their own, clustered decals only project the base color of a texture. You
 //! can, however, use the built-in *tag* field to customize the appearance of a
@@ -77,8 +77,8 @@ pub struct ClusteredDecalPlugin;
 ///
 /// Clustered decals are the highest-quality types of decals that Bevy supports,
 /// but they require bindless textures. This means that they presently can't be
-/// used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
-/// or deferred rendering and don't require a prepass.
+/// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+/// with forward or deferred rendering and don't require a prepass.
 #[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
 #[reflect(Component, Debug)]
 #[require(Transform, Visibility, VisibilityClass)]
@@ -263,7 +263,7 @@ pub(crate) fn get_bind_group_layout_entries(
 ) -> Option<[BindGroupLayoutEntryBuilder; 3]> {
     // If binding arrays aren't supported on the current platform, we have no
     // bind group layout entries.
-    if !binding_arrays_are_usable(render_device, render_adapter) {
+    if !clustered_decals_are_usable(render_device, render_adapter) {
         return None;
     }
 
@@ -290,7 +290,7 @@ impl<'a> RenderViewClusteredDecalBindGroupEntries<'a> {
         render_adapter: &RenderAdapter,
     ) -> Option<RenderViewClusteredDecalBindGroupEntries<'a>> {
         // Skip the entries if decals are unsupported on the current platform.
-        if !binding_arrays_are_usable(render_device, render_adapter) {
+        if !clustered_decals_are_usable(render_device, render_adapter) {
             return None;
         }
 
@@ -366,4 +366,20 @@ fn upload_decals(
     }
 
     decals_buffer.write_buffer(&render_device, &render_queue);
+}
+
+/// Returns true if clustered decals are usable on the current platform or false
+/// otherwise.
+///
+/// Clustered decals are currently disabled on macOS and iOS due to insufficient
+/// texture bindings and limited bindless support in `wgpu`.
+pub fn clustered_decals_are_usable(
+    render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
+) -> bool {
+    // Disable binding arrays on Metal. There aren't enough texture bindings available.
+    // See issue #17553.
+    // Re-enable this when `wgpu` has first-class bindless.
+    binding_arrays_are_usable(render_device, render_adapter)
+        && cfg!(not(any(target_os = "macos", target_os = "ios")))
 }

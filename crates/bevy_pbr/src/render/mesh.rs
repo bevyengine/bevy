@@ -1528,6 +1528,9 @@ pub struct MeshPipeline {
     /// This affects whether reflection probes can be used.
     pub binding_arrays_are_usable: bool,
 
+    /// Whether clustered decals are usable on the current render device.
+    pub clustered_decals_are_usable: bool,
+
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
@@ -1589,6 +1592,10 @@ impl FromWorld for MeshPipeline {
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
+            clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
+                &render_device,
+                &render_adapter,
+            ),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
         }
     }
@@ -2295,7 +2302,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
         }
 
-        if self.binding_arrays_are_usable {
+        if self.clustered_decals_are_usable {
             shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
         }
 
