@@ -23,8 +23,11 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Tick;
+use bevy_ecs::entity::EntityHash;
 use bevy_ecs::query::{QueryItem, ROQueryItem};
 use bevy_ecs::system::lifetimeless::Read;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -35,10 +38,6 @@ use bevy_ecs::{
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::specialization::view::ViewKeyCache;
-use bevy_render::specialization::{
-    MeshMaterialSpecializationPlugin, NeedsSpecialization, SpecializePipelines,
-};
 use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -55,7 +54,9 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
+use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
+use std::ops::{Deref, DerefMut};
 use tracing::error;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
@@ -281,10 +282,12 @@ where
     fn build(&self, app: &mut App) {
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
-            .add_plugins((
-                RenderAssetPlugin::<PreparedMaterial<M>>::default(),
-                MeshMaterialSpecializationPlugin::<MeshMaterial3d<M>>::default(),
-            ))
+            .init_resource::<EntitiesNeedingSpecialization<M>>()
+            .add_systems(
+                PostUpdate,
+                check_entities_needing_specialization::<M>.after(AssetEvents),
+            )
+            .add_plugins((RenderAssetPlugin::<PreparedMaterial<M>>::default(),))
             .add_systems(
                 PostUpdate,
                 mark_meshes_as_changed_if_their_materials_changed::<M>
@@ -301,6 +304,8 @@ where
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<EntitySpecializationTicks<M>>()
+                .init_resource::<SpecializedMaterialPipelineCache<M>>()
                 .init_resource::<DrawFunctions<Shadow>>()
                 .init_resource::<RenderMaterialInstances<M>>()
                 .add_render_command::<Shadow, DrawPrepass<M>>()
@@ -311,7 +316,10 @@ where
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_mesh_materials::<M>.before(ExtractMeshesSet),
+                    (
+                        extract_mesh_materials::<M>.before(ExtractMeshesSet),
+                        extract_entities_needs_specialization::<M>,
+                    ),
                 )
                 .add_systems(
                     Render,
@@ -627,27 +635,6 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
-impl<M> NeedsSpecialization for MeshMaterial3d<M>
-where
-    M: Material,
-    M::Data: PartialEq + Eq + Hash + Clone,
-{
-    type ViewKey = MeshPipelineKey;
-    type Pipeline = MaterialPipeline<M>;
-    type QueryData = ();
-    type QueryFilter = Or<(
-        Changed<Mesh3d>,
-        AssetChanged<Mesh3d>,
-        Changed<MeshMaterial3d<M>>,
-        AssetChanged<MeshMaterial3d<M>>,
-    )>;
-
-    fn needs_specialization(_item: ROQueryItem<'_, Self::QueryData>) -> bool {
-        // Matching the filter is enough to trigger specialization.
-        true
-    }
-}
-
 /// A system that ensures that
 /// [`crate::render::mesh::extract_meshes_for_gpu_building`] re-extracts meshes
 /// whose materials changed.
@@ -709,8 +696,107 @@ fn extract_mesh_materials<M: Material>(
         }
     }
 }
-/// For each view, iterates over all the meshes visible from that view and adds
-/// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
+
+pub fn extract_entities_needs_specialization<M>(
+    mut entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    ticks: SystemChangeTick,
+) where
+    M: Material,
+{
+    for entity in &entities_needing_specialization.entities {
+        // Update the entity's specialization tick with this run's tick
+        entity_specialization_ticks
+            .entities
+            .insert((*entity).into(), ticks.this_run());
+    }
+}
+
+#[derive(Clone, Resource, Debug)]
+pub struct EntitiesNeedingSpecialization<M> {
+    pub entities: Vec<Entity>,
+    _marker: PhantomData<M>,
+}
+
+impl<M> Default for EntitiesNeedingSpecialization<M> {
+    fn default() -> Self {
+        Self {
+            entities: Default::default(),
+            _marker: Default::default(),
+        }
+    }
+}
+
+#[derive(Clone, Resource, Debug)]
+pub struct EntitySpecializationTicks<M> {
+    pub entities: MainEntityHashMap<Tick>,
+    _marker: PhantomData<M>,
+}
+
+impl<M> Default for EntitySpecializationTicks<M> {
+    fn default() -> Self {
+        Self {
+            entities: MainEntityHashMap::default(),
+            _marker: Default::default(),
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct SpecializedMaterialPipelineCache<M> {
+    map: HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
+    marker: PhantomData<M>,
+}
+
+impl<M> Default for SpecializedMaterialPipelineCache<M> {
+    fn default() -> Self {
+        Self {
+            map: HashMap::default(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<M> Deref for SpecializedMaterialPipelineCache<M> {
+    type Target = HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.map
+    }
+}
+
+impl<M> DerefMut for SpecializedMaterialPipelineCache<M> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.map
+    }
+}
+
+fn check_entities_needing_specialization<M>(
+    mut thread_queues: Local<Parallel<Vec<Entity>>>,
+    mut needs_specialization: Query<
+        Entity,
+        Or<(
+            Changed<Mesh3d>,
+            AssetChanged<Mesh3d>,
+            Changed<MeshMaterial3d<M>>,
+            AssetChanged<MeshMaterial3d<M>>,
+        )>,
+    >,
+    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
+) where
+    M: Material,
+{
+    entities_needing_specialization.entities.clear();
+    needs_specialization.par_iter_mut().for_each_init(
+        || thread_queues.borrow_local_mut(),
+        |queue, entity| {
+            queue.push(entity.into());
+        },
+    );
+
+    thread_queues.drain_into(&mut entities_needing_specialization.entities);
+}
+
 pub fn specialize_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
@@ -718,21 +804,28 @@ pub fn specialize_material_meshes<M: Material>(
     render_material_instances: Res<RenderMaterialInstances<M>>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     (
+        material_bind_group_allocator,
         mut opaque_render_phases,
         mut alpha_mask_render_phases,
         mut transmissive_render_phases,
         mut transparent_render_phases,
     ): (
+        Res<MaterialBindGroupAllocator<M>>,
         ResMut<ViewBinnedRenderPhases<Opaque3d>>,
         ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
         ResMut<ViewSortedRenderPhases<Transmissive3d>>,
         ResMut<ViewSortedRenderPhases<Transparent3d>>,
     ),
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
-    view_key_cache: Res<ViewKeyCache<MeshPipelineKey>>,
-    mut specialized_pipelines: SpecializePipelines<MeshMaterial3d<M>>,
+    view_key_cache: Res<ViewKeyCache>,
+    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
+    view_specialization_ticks: Res<ViewSpecializationTicks>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
+    pipeline: Res<MaterialPipeline<M>>,
+    pipeline_cache: Res<PipelineCache>,
+    ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -750,7 +843,25 @@ pub fn specialize_material_meshes<M: Material>(
         };
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            if !specialized_pipelines.needs_specialization(*view_entity, *visible_entity) {
+            let view_tick = view_specialization_ticks
+                .get(view_entity)
+                .expect("View entity not found in specialization ticks");
+            let entity_tick = entity_specialization_ticks
+                .entities
+                .get(visible_entity)
+                .expect("Entity not found in specialization ticks");
+            let last_specialized_tick = specialized_material_pipeline_cache
+                .get(&(*view_entity, *visible_entity))
+                .map(|(tick, _)| *tick);
+            let needs_specialization =
+                last_specialized_tick.map_or(true, |last_specialized_tick| {
+                    let view_changed =
+                        view_tick.is_newer_than(last_specialized_tick, ticks.this_run());
+                    let entity_changed =
+                        entity_tick.is_newer_than(last_specialized_tick, ticks.this_run());
+                    view_changed || entity_changed
+                });
+            if !needs_specialization {
                 continue;
             }
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
@@ -821,7 +932,19 @@ pub fn specialize_material_meshes<M: Material>(
                     .get_extra_data(material.binding.slot)
                     .clone(),
             };
-            specialized_pipelines.specialize_pipeline((*view_entity, *visible_entity), key, mesh);
+            let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, key, &mesh.layout);
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    return;
+                }
+            };
+
+            specialized_material_pipeline_cache.insert(
+                (*view_entity, *visible_entity),
+                (ticks.this_run(), pipeline_id),
+            );
         }
     }
 }
@@ -839,7 +962,7 @@ pub fn queue_material_meshes<M: Material>(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
-    specialized_pipelines: SpecializePipelines<MeshMaterial3d<M>>,
+    specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -861,8 +984,9 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some(pipeline_id) =
-                specialized_pipelines.get_pipeline(*view_entity, *visible_entity)
+            let Some(pipeline_id) = specialized_material_pipeline_cache
+                .get(&(*view_entity, *visible_entity))
+                .map(|(_, pipeline_id)| *pipeline_id)
             else {
                 continue;
             };

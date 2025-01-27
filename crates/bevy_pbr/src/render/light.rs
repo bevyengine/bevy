@@ -16,10 +16,6 @@ use bevy_ecs::{
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::extract_resource::ExtractResource;
-use bevy_render::specialization::view::{GetViewKey, ViewKeyCache, ViewSpecializationTicks};
-use bevy_render::specialization::{
-    EntitiesNeedingSpecialization, EntitySpecializationTicks, NeedsSpecialization,
-};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -1595,7 +1591,7 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 pub fn check_entities_needing_specialization<M: Material>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
-    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<MeshMaterial3d<M>>>,
+    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
     entities_needing_specialization.entities.clear();
@@ -1716,7 +1712,7 @@ pub fn specialize_shadows<M: Material>(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<MeshMaterial3d<M>>>,
+    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,

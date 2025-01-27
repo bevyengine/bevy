@@ -46,7 +46,6 @@ pub mod sync_component;
 pub mod sync_world;
 pub mod texture;
 pub mod view;
-pub mod specialization;
 
 /// The render prelude.
 ///

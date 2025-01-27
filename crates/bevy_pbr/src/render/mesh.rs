@@ -1,5 +1,3 @@
-use core::mem::size_of;
-
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
@@ -46,8 +44,10 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel};
+use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
+use std::marker::PhantomData;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
@@ -68,13 +68,15 @@ use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
+use bevy_ecs::component::Tick;
 use bevy_ecs::query::QueryItem;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_render::camera::TemporalJitter;
+use bevy_render::extract_resource::ExtractResource;
 use bevy_render::prelude::Msaa;
-use bevy_render::specialization::view::{GetViewKey, SpecializeViewsPlugin};
-use bevy_render::specialization::NeedsSpecialization;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
+use bevy_render::RenderSet::PrepareAssets;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
@@ -216,9 +218,14 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .add_plugins(SpecializeViewsPlugin::<MeshPipelineKey>::default())
+                .init_resource::<ViewKeyCache>()
+                .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
-                .init_resource::<SkinUniforms>();
+                .init_resource::<SkinUniforms>()
+                .add_systems(
+                    Render,
+                    check_views_need_specialization.in_set(PrepareAssets),
+                );
 
             let gpu_preprocessing_support =
                 render_app.world().resource::<GpuPreprocessingSupport>();
@@ -296,13 +303,22 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
-impl GetViewKey for MeshPipelineKey {
-    type QueryData = (
-        Read<ExtractedView>,
-        Read<Msaa>,
-        Option<Read<Tonemapping>>,
-        Option<Read<DebandDither>>,
-        Option<Read<ShadowFilteringMethod>>,
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewKeyCache(MainEntityHashMap<MeshPipelineKey>);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
+
+pub fn check_views_need_specialization(
+    mut view_key_cache: ResMut<ViewKeyCache>,
+    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    mut views: Query<(
+        &MainEntity,
+        &ExtractedView,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ShadowFilteringMethod>,
         Has<ScreenSpaceAmbientOcclusion>,
         (
             Has<NormalPrepass>,
@@ -310,34 +326,35 @@ impl GetViewKey for MeshPipelineKey {
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
         ),
-        Option<Read<Camera3d>>,
+        Option<&Camera3d>,
         Has<TemporalJitter>,
-        Option<Read<Projection>>,
+        Option<&Projection>,
         Has<DistanceFog>,
         (
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<RenderViewLightProbes<IrradianceVolume>>,
         ),
         Has<OrderIndependentTransparencySettings>,
-    );
-
-    fn get_view_key(
-        (
-            view,
-            msaa,
-            tonemapping,
-            dither,
-            shadow_filter_method,
-            ssao,
-            (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-            camera_3d,
-            temporal_jitter,
-            projection,
-            distance_fog,
-            (has_environment_maps, has_irradiance_volumes),
-            has_oit,
-        ): QueryItem<Self::QueryData>,
-    ) -> Self {
+    )>,
+    ticks: SystemChangeTick,
+) {
+    for (
+        view_entity,
+        view,
+        msaa,
+        tonemapping,
+        dither,
+        shadow_filter_method,
+        ssao,
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        camera_3d,
+        temporal_jitter,
+        projection,
+        distance_fog,
+        (has_environment_maps, has_irradiance_volumes),
+        has_oit,
+    ) in views.iter_mut()
+    {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
 
@@ -413,8 +430,15 @@ impl GetViewKey for MeshPipelineKey {
                 camera_3d.screen_space_specular_transmission_quality,
             );
         }
-
-        view_key
+        if let Some(current_key) = view_key_cache.get_mut(view_entity) {
+            if *current_key != view_key {
+                view_key_cache.insert(*view_entity, view_key);
+                view_specialization_ticks.insert(*view_entity, ticks.this_run());
+            }
+        } else {
+            view_key_cache.insert(*view_entity, view_key);
+            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+        }
     }
 }
 

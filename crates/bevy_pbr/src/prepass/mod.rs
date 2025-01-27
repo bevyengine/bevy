@@ -62,8 +62,6 @@ use bevy_ecs::system::SystemChangeTick;
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::extract_resource::ExtractResource;
-use bevy_render::specialization::view::{GetViewKey, ViewKeyCache, ViewSpecializationTicks};
-use bevy_render::specialization::EntitySpecializationTicks;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSet::PrepareAssets;
@@ -202,7 +200,7 @@ where
             .init_resource::<ViewPrepassSpecializationTicks>()
             .init_resource::<ViewKeyPrepassCache>()
             .init_resource::<SpecializedPrepassMaterialPipelineCache<M>>()
-            .init_resource::<EntitySpecializationTicks<MeshMaterial3d<M>>>()
+            .init_resource::<EntitySpecializationTicks<M>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_render_command::<Opaque3dDeferred, DrawPrepass<M>>()
@@ -797,6 +795,21 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     }
 }
 
+#[derive(Clone, Resource, Debug)]
+pub struct EntitySpecializationTicks<M> {
+    pub entities: MainEntityHashMap<Tick>,
+    _marker: PhantomData<M>,
+}
+
+impl<M> Default for EntitySpecializationTicks<M> {
+    fn default() -> Self {
+        Self {
+            entities: MainEntityHashMap::default(),
+            _marker: Default::default(),
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct SpecializedPrepassMaterialPipelineCache<M> {
     map: HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
@@ -915,7 +928,7 @@ pub fn specialize_prepass_material_meshes<M>(
         ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
         Res<PipelineCache>,
         Res<ViewPrepassSpecializationTicks>,
-        Res<EntitySpecializationTicks<MeshMaterial3d<M>>>,
+        Res<EntitySpecializationTicks<M>>,
     ),
 ) where
     M: Material,
