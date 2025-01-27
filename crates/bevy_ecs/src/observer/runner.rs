@@ -399,7 +399,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     world.commands().queue(move |world: &mut World| {
         let event_id = E::register_component_id(world);
         let mut components = Vec::new();
-        B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
+        B::component_ids(&mut world.components, &mut |id| {
             components.push(id);
         });
         let mut descriptor = ObserverDescriptor {

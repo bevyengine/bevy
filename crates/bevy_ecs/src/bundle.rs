@@ -151,11 +151,7 @@ use variadics_please::all_tuples;
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
-    fn component_ids(
-        components: &mut Components,
-        storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
-    );
+    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId));
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
@@ -176,7 +172,6 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Registers components that are required by the components in this [`Bundle`].
     fn register_required_components(
         _components: &mut Components,
-        _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
     );
 }
@@ -198,12 +193,8 @@ pub trait DynamicBundle {
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(
-        components: &mut Components,
-        storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
-    ) {
-        ids(components.register_component::<C>(storages));
+    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId)) {
+        ids(components.register_component::<C>());
     }
 
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
@@ -219,14 +210,12 @@ unsafe impl<C: Component> Bundle for C {
 
     fn register_required_components(
         components: &mut Components,
-        storages: &mut Storages,
         required_components: &mut RequiredComponents,
     ) {
-        let component_id = components.register_component::<C>(storages);
+        let component_id = components.register_component::<C>();
         <C as Component>::register_required_components(
             component_id,
             components,
-            storages,
             required_components,
             0,
             &mut Vec::new(),
@@ -264,8 +253,8 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, storages, ids);)*
+            fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId)){
+                $(<$name as Bundle>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
@@ -291,10 +280,9 @@ macro_rules! tuple_impl {
 
             fn register_required_components(
                 components: &mut Components,
-                storages: &mut Storages,
                 required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(components, storages, required_components);)*
+                $(<$name as Bundle>::register_required_components(components, required_components);)*
             }
         }
 
@@ -940,9 +928,7 @@ impl<'w> BundleInserter<'w> {
         archetype_id: ArchetypeId,
         change_tick: Tick,
     ) -> Self {
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut world.components, &mut world.storages);
+        let bundle_id = world.bundles.register_info::<T>(&mut world.components);
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
@@ -1318,9 +1304,7 @@ pub(crate) struct BundleSpawner<'w> {
 impl<'w> BundleSpawner<'w> {
     #[inline]
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut world.components, &mut world.storages);
+        let bundle_id = world.bundles.register_info::<T>(&mut world.components);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -1532,15 +1516,11 @@ impl Bundles {
     /// Registers a new [`BundleInfo`] for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_info<T: Bundle>(
-        &mut self,
-        components: &mut Components,
-        storages: &mut Storages,
-    ) -> BundleId {
+    pub(crate) fn register_info<T: Bundle>(&mut self, components: &mut Components) -> BundleId {
         let bundle_infos = &mut self.bundle_infos;
         let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
-            T::component_ids(components, storages, &mut |id| component_ids.push(id));
+            T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures:
@@ -1560,12 +1540,11 @@ impl Bundles {
     pub(crate) fn register_contributed_bundle_info<T: Bundle>(
         &mut self,
         components: &mut Components,
-        storages: &mut Storages,
     ) -> BundleId {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
             id
         } else {
-            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            let explicit_bundle_id = self.register_info::<T>(components);
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {

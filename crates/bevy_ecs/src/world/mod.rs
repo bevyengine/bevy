@@ -246,7 +246,7 @@ impl World {
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.components.register_component::<T>(&mut self.storages)
+        self.components.register_component::<T>()
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
@@ -523,7 +523,7 @@ impl World {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
-            .register_component_with_descriptor(&mut self.storages, descriptor)
+            .register_component_with_descriptor(descriptor)
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -2256,9 +2256,7 @@ impl World {
 
         let change_tick = self.change_tick();
 
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+        let bundle_id = self.bundles.register_info::<B>(&mut self.components);
         enum SpawnOrInsert<'w> {
             Spawn(BundleSpawner<'w>),
             Insert(BundleInserter<'w>, ArchetypeId),
@@ -2449,9 +2447,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+        let bundle_id = self.bundles.register_info::<B>(&mut self.components);
 
         let mut batch_iter = batch.into_iter();
 
@@ -2601,9 +2597,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+        let bundle_id = self.bundles.register_info::<B>(&mut self.components);
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -3179,9 +3173,7 @@ impl World {
     /// component in the bundle.
     #[inline]
     pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
-        let id = self
-            .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
+        let id = self.bundles.register_info::<B>(&mut self.components);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }

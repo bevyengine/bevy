@@ -1709,7 +1709,7 @@ impl<'w> EntityWorldMut<'w> {
         let world = &mut self.world;
         let storages = &mut world.storages;
         let components = &mut world.components;
-        let bundle_id = world.bundles.register_info::<T>(components, storages);
+        let bundle_id = world.bundles.register_info::<T>(components);
         // SAFETY: We just ensured this bundle exists
         let bundle_info = unsafe { world.bundles.get_unchecked(bundle_id) };
         let old_location = self.location;
@@ -2000,9 +2000,8 @@ impl<'w> EntityWorldMut<'w> {
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let storages = &mut self.world.storages;
         let components = &mut self.world.components;
-        let bundle_info = self.world.bundles.register_info::<T>(components, storages);
+        let bundle_info = self.world.bundles.register_info::<T>(components);
 
         // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe {
@@ -2035,11 +2034,10 @@ impl<'w> EntityWorldMut<'w> {
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundles = &mut self.world.bundles;
 
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(components, storages);
+        let bundle_id = bundles.register_contributed_bundle_info::<T>(components);
 
         // SAFETY: the dynamic `BundleInfo` is initialized above
         self.location = unsafe {
@@ -2076,10 +2074,9 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         self.assert_not_despawned();
         let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
         let components = &mut self.world.components;
 
-        let retained_bundle = self.world.bundles.register_info::<T>(components, storages);
+        let retained_bundle = self.world.bundles.register_info::<T>(components);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_location = self.location;

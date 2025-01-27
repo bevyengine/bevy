@@ -151,7 +151,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 <#ident as #bevy_ecs_path::component::Component>::register_required_components(
                     requiree,
                     components,
-                    storages,
                     required_components,
                     inheritance_depth + 1,
                     recursion_check_stack
@@ -161,7 +160,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 Some(RequireFunc::Path(func)) => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
-                            storages,
                             required_components,
                             || { let x: #ident = #func().into(); x },
                             inheritance_depth,
@@ -172,7 +170,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 Some(RequireFunc::Closure(func)) => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
-                            storages,
                             required_components,
                             || { let x: #ident = (#func)().into(); x },
                             inheritance_depth,
@@ -183,7 +180,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 None => {
                     register_required.push(quote! {
                         components.register_required_components_manual::<Self, #ident>(
-                            storages,
                             required_components,
                             <#ident as Default>::default,
                             inheritance_depth,
@@ -219,13 +215,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
                 components: &mut #bevy_ecs_path::component::Components,
-                storages: &mut #bevy_ecs_path::storage::Storages,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
                 inheritance_depth: u16,
                 recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
             ) {
                 #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
-                let self_id = components.register_component::<Self>(storages);
+                let self_id = components.register_component::<Self>();
                 recursion_check_stack.push(self_id);
                 #(#register_required)*
                 #(#register_recursive_requires)*
