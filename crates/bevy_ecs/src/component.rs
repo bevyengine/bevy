@@ -1383,7 +1383,16 @@ impl Components {
 
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
-        self.components.get_mut(id.0).map(|info| &mut info.hooks)
+        if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
+            self.new_components
+                .get_mut()
+                .unwrap()
+                .components
+                .get_mut(index_in_new)
+                .map(|info| &mut info.hooks)
+        } else {
+            Some(&mut self.old_components.components[id.0].hooks)
+        }
     }
 
     #[inline]
@@ -1391,9 +1400,16 @@ impl Components {
         &mut self,
         id: ComponentId,
     ) -> Option<&mut RequiredComponents> {
-        self.components
-            .get_mut(id.0)
-            .map(|info| &mut info.required_components)
+        if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
+            self.new_components
+                .get_mut()
+                .unwrap()
+                .components
+                .get_mut(index_in_new)
+                .map(|info| &mut info.required_components)
+        } else {
+            Some(&mut self.old_components.components[id.0].required_components)
+        }
     }
 
     /// Registers the given component `R` and [required components] inherited from it as required by `T`.

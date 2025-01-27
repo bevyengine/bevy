@@ -245,7 +245,7 @@ impl World {
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
-    pub fn register_component<T: Component>(&mut self) -> ComponentId {
+    pub fn register_component<T: Component>(&self) -> ComponentId {
         self.components.register_component::<T>()
     }
 
