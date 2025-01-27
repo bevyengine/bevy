@@ -29,11 +29,11 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
-    ops::DerefMut,
+    ops::{Deref, DerefMut},
     panic::Location,
 };
 use disqualified::ShortName;
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockReadGuard};
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
@@ -1141,6 +1141,30 @@ pub struct ComponentsData {
     component_clone_handlers: ComponentCloneHandlers,
 }
 
+// TODO: replace ComponentInfoRef with https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html when it is stableized.
+
+/// A reference to a particular component's info.
+pub enum ComponentInfoRef<'a> {
+    /// the requested data was registered a while ago.
+    Old(&'a ComponentInfo),
+    /// the requested data needs to be synchronized
+    New {
+        data: RwLockReadGuard<'a, ComponentsData>,
+        index: usize,
+    },
+}
+
+impl Deref for ComponentInfoRef<'_> {
+    type Target = ComponentInfo;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            ComponentInfoRef::Old(info) => info,
+            ComponentInfoRef::New { data, index } => &data.components[*index],
+        }
+    }
+}
+
 impl Default for Components {
     fn default() -> Self {
         Self {
@@ -1331,31 +1355,30 @@ impl Components {
         (component_id, index)
     }
 
+    /// if this is true, the component has been registered recently
+    #[inline]
+    pub fn is_new(&self, id: ComponentId) -> bool {
+        self.old_components.len() <= id.0
+    }
+
     /// Gets the metadata associated with the given component.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0)
-    }
-
-    /// Returns the name associated with the given component.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
-    #[inline]
-    pub fn get_name(&self, id: ComponentId) -> Option<&str> {
-        self.get_info(id).map(ComponentInfo::name)
-    }
-
-    /// Gets the metadata associated with the given component.
-    /// # Safety
-    ///
-    /// `id` must be a valid [`ComponentId`]
-    #[inline]
-    pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
-        debug_assert!(id.index() < self.components.len());
-        // SAFETY: The caller ensures `id` is valid.
-        unsafe { self.components.get_unchecked(id.0) }
+    pub fn get_info(&self, id: ComponentId) -> Option<ComponentInfoRef<'_>> {
+        if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
+            let new = self.new_components.read().unwrap();
+            if new.len() <= index_in_new {
+                None
+            } else {
+                Some(ComponentInfoRef::New {
+                    data: new,
+                    index: index_in_new,
+                })
+            }
+        } else {
+            Some(ComponentInfoRef::Old(&self.old_components.components[id.0]))
+        }
     }
 
     #[inline]
@@ -1628,11 +1651,6 @@ impl Components {
     }
 
     #[inline]
-    pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&HashSet<ComponentId>> {
-        self.components.get(id.0).map(|info| &info.required_by)
-    }
-
-    #[inline]
     pub(crate) fn get_required_by_mut(
         &mut self,
         id: ComponentId,
@@ -1642,20 +1660,15 @@ impl Components {
             .map(|info| &mut info.required_by)
     }
 
-    /// Retrieves the [`ComponentCloneHandlers`]. Can be used to get clone functions for components.
-    pub fn get_component_clone_handlers(&self) -> &ComponentCloneHandlers {
-        &self.component_clone_handlers
-    }
-
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        &mut self.component_clone_handlers
-    }
-
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied()
+        if let Some(old) = self.old_components.indices.get(&type_id) {
+            Some(*old)
+        } else {
+            let new = self.new_components.read().unwrap();
+            new.indices.get(&type_id).cloned()
+        }
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -1724,12 +1737,12 @@ impl Components {
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
-    }
-
-    /// Gets an iterator over all components registered with this instance.
-    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter()
+        if let Some(old) = self.old_components.resource_indices.get(&type_id) {
+            Some(*old)
+        } else {
+            let new = self.new_components.read().unwrap();
+            new.resource_indices.get(&type_id).cloned()
+        }
     }
 }
 
