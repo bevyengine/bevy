@@ -111,6 +111,10 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
+        #[expect(
+            clippy::match_same_arms,
+            reason = "Provide different comments for each case"
+        )]
         match error {
             bevy_time::TrySendError::Full(_) => {
                 // ignore full errors, the main world is probably updating at a slower rate than the render world

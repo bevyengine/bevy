@@ -1,4 +1,5 @@
-use std::sync::{Arc, Mutex};
+use alloc::sync::Arc;
+use std::sync::Mutex;
 
 use bevy_app::{App, AppExit, AppLabel, DontUpdateOnUpdate, Plugin, SubApp};
 use bevy_ecs::{
@@ -186,7 +187,7 @@ impl Plugin for PipelinedRenderingPlugin {
                         if let Some(render_app) = render_app {
                             match command {
                                 SharedRenderCommand::FinalizeExtract => {
-                                    render_app.finalize_extract()
+                                    render_app.finalize_extract();
                                 }
                                 SharedRenderCommand::Render => {
                                     #[cfg(feature = "trace")]
