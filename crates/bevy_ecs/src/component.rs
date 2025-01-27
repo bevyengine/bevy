@@ -29,6 +29,7 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
+    ops::DerefMut,
     panic::Location,
 };
 use disqualified::ShortName;
@@ -407,7 +408,7 @@ pub trait Component: Send + Sync + 'static {
     /// Registers required components.
     fn register_required_components(
         _component_id: ComponentId,
-        _components: &mut Components,
+        _components: &Components,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
         _recursion_check_stack: &mut Vec<ComponentId>,
@@ -1152,7 +1153,7 @@ impl Default for NewComponents {
     fn default() -> Self {
         Self {
             newly_registered: RegisteredComponents::default(),
-            next: ComponentId(0),
+            next_to_move: ComponentId(0),
         }
     }
 }
@@ -1167,32 +1168,44 @@ impl Components {
     /// * [`Components::component_id()`]
     /// * [`Components::register_component_with_descriptor()`]
     #[inline]
-    pub fn register_component<T: Component>(&mut self) -> ComponentId {
+    pub fn register_component<T: Component>(&self) -> ComponentId {
         self.register_component_internal::<T>(&mut Vec::new())
     }
 
     #[inline]
     fn register_component_internal<T: Component>(
-        &mut self,
+        &self,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
+        let type_id = TypeId::of::<T>();
+        if let Some(existing) = self.old_components.indices.get(&type_id) {
+            return *existing;
+        }
+
+        let mut new = self.new_components.write().unwrap();
         let mut is_new_registration = false;
-        let id = {
-            let Components {
-                indices,
-                components,
-                ..
-            } = self;
+        let id = *{
             let type_id = TypeId::of::<T>();
-            *indices.entry(type_id).or_insert_with(|| {
-                let id = Components::register_component_inner(
+            let NewComponents {
+                newly_registered:
+                    RegisteredComponents {
+                        components,
+                        indices,
+                        ..
+                    },
+                next_to_move,
+            } = new.deref_mut();
+            indices.entry(type_id).or_insert_with(|| {
+                let id = NewComponents::register_raw_component_inner(
                     components,
+                    *next_to_move,
                     ComponentDescriptor::new::<T>(),
                 );
                 is_new_registration = true;
                 id
             })
         };
+
         if is_new_registration {
             let mut required_components = RequiredComponents::default();
             T::register_required_components(
@@ -1202,45 +1215,69 @@ impl Components {
                 0,
                 recursion_check_stack,
             );
-            let info = &mut self.components[id.index()];
-            T::register_component_hooks(&mut info.hooks);
-            info.required_components = required_components;
-            let clone_handler = T::get_component_clone_handler();
-            self.component_clone_handlers
-                .set_component_handler(id, clone_handler);
+            new.init_component::<T>(id, required_components);
         }
         id
     }
 
-    /// Registers a component described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
+    /// Registers a [`Resource`] of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
+    /// the ID of the pre-existing resource.
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component()`]
-    pub fn register_component_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        Components::register_component_inner(&mut self.components, descriptor)
-    }
-
+    /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource_with_descriptor()`]
     #[inline]
-    fn register_component_inner(
-        components: &mut Vec<ComponentInfo>,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        let component_id = ComponentId(components.len());
-        let info = ComponentInfo::new(component_id, descriptor);
-        components.push(info);
-        component_id
+    pub fn register_resource<T: Resource>(&self) -> ComponentId {
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_resource::<T>()
+            })
+        }
     }
 
+    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
+    /// the ID of the pre-existing resource.
+    #[inline]
+    pub fn register_non_send<T: Any>(&self) -> ComponentId {
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+            })
+        }
+    }
+
+    /// # Safety
+    ///
+    /// The [`ComponentDescriptor`] must match the [`TypeId`]
+    #[inline]
+    unsafe fn get_or_register_resource_with(
+        &self,
+        type_id: TypeId,
+        func: impl FnOnce() -> ComponentDescriptor,
+    ) -> ComponentId {
+        let mut new = self.new_components.write().unwrap();
+        let NewComponents {
+            newly_registered:
+                RegisteredComponents {
+                    components,
+                    resource_indices,
+                    ..
+                },
+            next_to_move,
+        } = new.deref_mut();
+        *resource_indices.entry(type_id).or_insert_with(|| {
+            let descriptor = func();
+            NewComponents::register_raw_component_inner(components, *next_to_move, descriptor)
+        })
+    }
+}
+
+impl RegisteredComponents {
     /// Returns the number of components registered with this instance.
     #[inline]
     pub fn len(&self) -> usize {
@@ -1612,12 +1649,6 @@ impl Components {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::resource_id()`].
-    #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
-    }
-
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
     ///
     /// The returned `ComponentId` is specific to the `Components` instance
@@ -1649,22 +1680,57 @@ impl Components {
         self.get_resource_id(TypeId::of::<T>())
     }
 
-    /// Registers a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
+    /// Type-erased equivalent of [`Components::resource_id()`].
+    #[inline]
+    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.resource_indices.get(&type_id).copied()
+    }
+
+    /// Gets an iterator over all components registered with this instance.
+    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
+        self.components.iter()
+    }
+}
+
+impl NewComponents {
+    /// returns the total number of components registered through this instance
+    #[inline]
+    pub fn total_registered(&self) -> usize {
+        self.newly_registered.len() + self.next_to_move.0
+    }
+
+    /// Returns the number of components *newly* registered with this instance.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.newly_registered.len()
+    }
+
+    /// Returns `true` if there are no *newly* registered components.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.newly_registered.is_empty()
+    }
+
+    /// Registers a component described by `descriptor`.
+    ///
+    /// # Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
+    /// will be created for each one.
     ///
     /// # See also
     ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource_with_descriptor()`]
-    #[inline]
-    pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
-        }
+    /// * [`Components::component_id()`]
+    /// * [`Components::register_component()`]
+    pub fn register_component_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        Self::register_raw_component_inner(
+            &mut self.newly_registered.components,
+            self.next_to_move,
+            descriptor,
+        )
     }
 
     /// Registers a [`Resource`] described by `descriptor`.
@@ -1682,51 +1748,36 @@ impl Components {
         &mut self,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::register_resource_inner(&mut self.components, descriptor)
-    }
-
-    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    #[inline]
-    pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
-            })
-        }
-    }
-
-    /// # Safety
-    ///
-    /// The [`ComponentDescriptor`] must match the [`TypeId`]
-    #[inline]
-    unsafe fn get_or_register_resource_with(
-        &mut self,
-        type_id: TypeId,
-        func: impl FnOnce() -> ComponentDescriptor,
-    ) -> ComponentId {
-        let components = &mut self.components;
-        *self.resource_indices.entry(type_id).or_insert_with(|| {
-            let descriptor = func();
-            Components::register_resource_inner(components, descriptor)
-        })
+        Self::register_raw_component_inner(
+            &mut self.newly_registered.components,
+            self.next_to_move,
+            descriptor,
+        )
     }
 
     #[inline]
-    fn register_resource_inner(
+    fn register_raw_component_inner(
         components: &mut Vec<ComponentInfo>,
+        next_to_move: ComponentId,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        let component_id = ComponentId(components.len());
+        let component_id = ComponentId(next_to_move.0 + components.len());
         components.push(ComponentInfo::new(component_id, descriptor));
         component_id
     }
 
-    /// Gets an iterator over all components registered with this instance.
-    pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
-        self.components.iter()
+    fn init_component<T: Component>(
+        &mut self,
+        id: ComponentId,
+        required_components: RequiredComponents,
+    ) {
+        let info = &mut self.newly_registered.components[id.index()];
+        T::register_component_hooks(&mut info.hooks);
+        info.required_components = required_components;
+        let clone_handler = T::get_component_clone_handler();
+        self.newly_registered
+            .component_clone_handlers
+            .set_component_handler(id, clone_handler);
     }
 }
 
