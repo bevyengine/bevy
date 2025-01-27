@@ -38,7 +38,6 @@ use bevy_ecs::{
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::TemporalJitter,
@@ -348,7 +347,7 @@ where
                     .add_systems(
                         Render,
                         (
-                            check_views_lights_need_specialization.in_set(PrepareAssets),
+                            check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
                             specialize_shadows::<M>
                                 .in_set(RenderSet::PrepareAssets)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
