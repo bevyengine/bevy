@@ -4,17 +4,21 @@ use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
 use std::process;
 
-use bevy::pbr::{decal, ExtendedMaterial, MaterialExtension};
-use bevy::window::SystemCursorIcon;
-use bevy::winit::cursor::CursorIcon;
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     input::mouse::AccumulatedMouseMotion,
-    pbr::decal::clustered::ClusteredDecal,
+    pbr::{
+        decal::{self, clustered::ClusteredDecal},
+        ExtendedMaterial, MaterialExtension,
+    },
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::{
+        render_resource::{AsBindGroup, ShaderRef},
+        renderer::{RenderAdapter, RenderDevice},
+    },
+    window::SystemCursorIcon,
+    winit::cursor::CursorIcon,
 };
-use bevy_render::renderer::{RenderAdapter, RenderDevice};
 use ops::{acos, cos, sin};
 use widgets::{
     WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,

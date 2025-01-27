@@ -6,8 +6,8 @@
 //!
 //! Clustered decals are the highest-quality types of decals that Bevy supports,
 //! but they require bindless textures. This means that they presently can't be
-//! used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
-//! or deferred rendering and don't require a prepass.
+//! used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+//! with forward or deferred rendering and don't require a prepass.
 //!
 //! On their own, clustered decals only project the base color of a texture. You
 //! can, however, use the built-in *tag* field to customize the appearance of a
@@ -77,8 +77,8 @@ pub struct ClusteredDecalPlugin;
 ///
 /// Clustered decals are the highest-quality types of decals that Bevy supports,
 /// but they require bindless textures. This means that they presently can't be
-/// used on WebGL 2 or WebGPU. Bevy's clustered decals can be used with forward
-/// or deferred rendering and don't require a prepass.
+/// used on WebGL 2, WebGPU, macOS, or iOS. Bevy's clustered decals can be used
+/// with forward or deferred rendering and don't require a prepass.
 #[derive(Component, Debug, Clone, Reflect, ExtractComponent)]
 #[reflect(Component, Debug)]
 #[require(Transform, Visibility, VisibilityClass)]
@@ -371,7 +371,8 @@ fn upload_decals(
 /// Returns true if clustered decals are usable on the current platform or false
 /// otherwise.
 ///
-/// Clustered decals are currently disabled on MacOS and iOS due to insufficient texture bindings and limited bindless support in wgpu.
+/// Clustered decals are currently disabled on MacOS and iOS due to insufficient
+/// texture bindings and limited bindless support in `wgpu`.
 pub fn clustered_decals_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
