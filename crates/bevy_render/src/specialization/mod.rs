@@ -55,7 +55,7 @@ where
     }
 }
 
-pub trait NeedsSpecialization: Component {
+pub trait NeedsSpecialization: Sync + Send + 'static {
     type ViewKey: GetViewKey;
     type Pipeline: SpecializedMeshPipeline + Resource + Send + Sync + 'static;
     type QueryData: ReadOnlyQueryData + 'static;

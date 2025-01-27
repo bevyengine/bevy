@@ -625,7 +625,7 @@ where
     )>;
 
     fn needs_specialization(_item: ROQueryItem<'_, Self::QueryData>) -> bool {
-        // Matching the filter is enough to trigger the specialization.
+        // Matching the filter is enough to trigger specialization.
         true
     }
 }
@@ -735,7 +735,6 @@ pub fn specialize_material_meshes<M: Material>(
             if !specialized_pipelines.needs_specialization(*view_entity, *visible_entity) {
                 continue;
             }
-
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -1087,14 +1086,14 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
-        let draw_opaque_prepass = opaque_prepass_draw_functions.read().id::<DrawPrepass<M>>();
+        let draw_opaque_prepass = opaque_prepass_draw_functions.read().get_id::<DrawPrepass<M>>();
         let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions
             .read()
-            .id::<DrawPrepass<M>>();
-        let draw_opaque_deferred = opaque_deferred_draw_functions.read().id::<DrawPrepass<M>>();
+            .get_id::<DrawPrepass<M>>();
+        let draw_opaque_deferred = opaque_deferred_draw_functions.read().get_id::<DrawPrepass<M>>();
         let draw_alpha_mask_deferred = alpha_mask_deferred_draw_functions
             .read()
-            .id::<DrawPrepass<M>>();
+            .get_id::<DrawPrepass<M>>();
 
         let render_method = match material.opaque_render_method() {
             OpaqueRendererMethod::Forward => OpaqueRendererMethod::Forward,
@@ -1121,10 +1120,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             AlphaMode::Opaque => {
                 if reads_view_transmission_texture {
                     RenderPhaseType::Transmissive
-                } else if forward {
-                    RenderPhaseType::Opaque
                 } else {
-                    panic!("Invalid opaque configuration");
+                    RenderPhaseType::Opaque
                 }
             }
             AlphaMode::Mask(_) => {
@@ -1136,11 +1133,18 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     panic!("Invalid alpha mask configuration");
                 }
             }
+            AlphaMode::AlphaToCoverage => {
+                if !forward {
+                    RenderPhaseType::Opaque
+                } else {
+                    RenderPhaseType::Transparent
+                }
+            }
             AlphaMode::Blend
             | AlphaMode::Premultiplied
             | AlphaMode::Add
             | AlphaMode::Multiply
-            | AlphaMode::AlphaToCoverage => RenderPhaseType::Transparent,
+            => RenderPhaseType::Transparent,
         };
 
         let draw_function_id = match render_phase_type {
@@ -1150,13 +1154,13 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             RenderPhaseType::Transparent => draw_transparent_pbr,
         };
         let prepass_draw_function_id = match render_phase_type {
-            RenderPhaseType::Opaque => Some(draw_opaque_prepass),
-            RenderPhaseType::AlphaMask => Some(draw_alpha_mask_prepass),
+            RenderPhaseType::Opaque => draw_opaque_prepass,
+            RenderPhaseType::AlphaMask => draw_alpha_mask_prepass,
             _ => None,
         };
         let deferred_draw_function_id = match render_phase_type {
-            RenderPhaseType::Opaque => Some(draw_opaque_deferred),
-            RenderPhaseType::AlphaMask => Some(draw_alpha_mask_deferred),
+            RenderPhaseType::Opaque => draw_opaque_deferred,
+            RenderPhaseType::AlphaMask => draw_alpha_mask_deferred,
             _ => None,
         };
 
@@ -1174,8 +1178,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     properties: MaterialProperties {
                         alpha_mode: material.alpha_mode(),
                         depth_bias: material.depth_bias(),
-                        reads_view_transmission_texture: mesh_pipeline_key_bits
-                            .contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE),
+                        reads_view_transmission_texture,
                         render_phase_type,
                         draw_function_id,
                         prepass_draw_function_id,
@@ -1214,8 +1217,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                             properties: MaterialProperties {
                                 alpha_mode: material.alpha_mode(),
                                 depth_bias: material.depth_bias(),
-                                reads_view_transmission_texture: mesh_pipeline_key_bits
-                                    .contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE),
+                                reads_view_transmission_texture,
                                 render_phase_type,
                                 draw_function_id,
                                 prepass_draw_function_id,

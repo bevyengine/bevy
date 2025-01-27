@@ -1,3 +1,4 @@
+use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::Render;
 use crate::RenderSet::PrepareAssets;
 use bevy_app::{App, Plugin};
@@ -11,12 +12,12 @@ use bevy_ecs::schedule::IntoSystemConfigs;
 use bevy_ecs::system::{Query, ResMut, SystemChangeTick};
 use bevy_render_macros::ExtractResource;
 use core::marker::PhantomData;
-use crate::sync_world::{MainEntity, MainEntityHashMap};
 
 pub struct SpecializeViewsPlugin<VK>(PhantomData<VK>);
 
 impl<VK> Plugin for SpecializeViewsPlugin<VK>
-    where VK: GetViewKey
+where
+    VK: GetViewKey,
 {
     fn build(&self, app: &mut App) {}
 
@@ -30,7 +31,7 @@ impl<VK> Plugin for SpecializeViewsPlugin<VK>
     }
 }
 
-impl <VK> Default for SpecializeViewsPlugin<VK> {
+impl<VK> Default for SpecializeViewsPlugin<VK> {
     fn default() -> Self {
         Self(Default::default())
     }
