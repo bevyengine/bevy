@@ -762,7 +762,7 @@ mod tests {
     #[test]
     fn ease_quats() {
         let quat_start = Quat::from_axis_angle(Vec3::Z, 0.0);
-        let quat_end = Quat::from_axis_angle(Vec3::Z, 90.0);
+        let quat_end = Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians());
 
         let quat_curve = Quat::interpolating_curve_unbounded(quat_start, quat_end);
 
@@ -770,26 +770,26 @@ mod tests {
             quat_curve.sample(0.0).unwrap(),
             Quat::from_axis_angle(Vec3::Z, 0.0)
         );
-        // {
-        //     let (before_mid_axis, before_mid_angle) =
-        //         quat_curve.sample(0.25).unwrap().to_axis_angle();
-        //     assert_abs_diff_eq!(before_mid_axis, Vec3::Z);
-        //     assert_abs_diff_eq!(before_mid_angle.to_degrees(), 22.5);
-        // }
         {
-            // doesnt work ?!
+            let (before_mid_axis, before_mid_angle) =
+                quat_curve.sample(0.25).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(before_mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(before_mid_angle, 22.5_f32.to_radians());
+        }
+        {
             let (mid_axis, mid_angle) = quat_curve.sample(0.5).unwrap().to_axis_angle();
             assert_abs_diff_eq!(mid_axis, Vec3::Z);
-            assert_abs_diff_eq!(mid_angle.to_degrees(), 45.0);
+            assert_abs_diff_eq!(mid_angle, 45.0_f32.to_radians());
         }
-        // {
-        //     let (after_mid_axis, after_mid_angle) = quat_curve.sample(0.75).unwrap().to_axis_angle();
-        //     assert_abs_diff_eq!(after_mid_axis, Vec3::Z);
-        //     assert_abs_diff_eq!(after_mid_angle.to_degrees(), 67.5);
-        // }
+        {
+            let (after_mid_axis, after_mid_angle) =
+                quat_curve.sample(0.75).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(after_mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(after_mid_angle, 67.5_f32.to_radians());
+        }
         assert_abs_diff_eq!(
             quat_curve.sample(1.0).unwrap(),
-            Quat::from_axis_angle(Vec3::Z, 90.0)
+            Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians())
         );
     }
 
@@ -827,13 +827,19 @@ mod tests {
     fn ease_isometries_3d() {
         let mk = Isometry3d::new;
         let iso_3d_start = mk(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0));
-        let iso_3d_end = mk(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, 90.0));
+        let iso_3d_end = mk(
+            Vec3A::ONE,
+            Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians()),
+        );
 
         let iso_3d_curve = Isometry3d::interpolating_curve_unbounded(iso_3d_start, iso_3d_end);
 
         assert_abs_diff_eq!(
             iso_3d_curve.sample(-1.0).unwrap(),
-            mk(Vec3A::ONE * -1.0, Quat::from_axis_angle(Vec3::Z, -90.0))
+            mk(
+                Vec3A::ONE * -1.0,
+                Quat::from_axis_angle(Vec3::Z, -90.0_f32.to_radians())
+            )
         );
         assert_abs_diff_eq!(
             iso_3d_curve.sample(0.0).unwrap(),
@@ -841,15 +847,24 @@ mod tests {
         );
         assert_abs_diff_eq!(
             iso_3d_curve.sample(0.5).unwrap(),
-            mk(Vec3A::ONE * 0.5, Quat::from_axis_angle(Vec3::Z, 45.0))
+            mk(
+                Vec3A::ONE * 0.5,
+                Quat::from_axis_angle(Vec3::Z, 45.0_f32.to_radians())
+            )
         );
         assert_abs_diff_eq!(
             iso_3d_curve.sample(1.0).unwrap(),
-            mk(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, 90.0))
+            mk(
+                Vec3A::ONE,
+                Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians())
+            )
         );
         assert_abs_diff_eq!(
             iso_3d_curve.sample(2.0).unwrap(),
-            mk(Vec3A::ONE * 2.0, Quat::from_axis_angle(Vec3::Z, 180.0))
+            mk(
+                Vec3A::ONE * 2.0,
+                Quat::from_axis_angle(Vec3::Z, 180.0_f32.to_radians())
+            )
         );
     }
 }
