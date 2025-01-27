@@ -25,15 +25,15 @@ use core::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use tracing::error;
 
-pub struct CheckSpecializationPlugin<M>(PhantomData<M>);
+pub struct MeshMaterialSpecializationPlugin<M>(PhantomData<M>);
 
-impl<M> Default for CheckSpecializationPlugin<M> {
+impl<M> Default for MeshMaterialSpecializationPlugin<M> {
     fn default() -> Self {
         Self(Default::default())
     }
 }
 
-impl<M> Plugin for CheckSpecializationPlugin<M>
+impl<M> Plugin for MeshMaterialSpecializationPlugin<M>
 where
     M: NeedsSpecialization,
 {

@@ -37,7 +37,7 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::specialization::view::ViewKeyCache;
 use bevy_render::specialization::{
-    CheckSpecializationPlugin, NeedsSpecialization, SpecializePipelines,
+    MeshMaterialSpecializationPlugin, NeedsSpecialization, SpecializePipelines,
 };
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -282,7 +282,7 @@ where
             .register_type::<MeshMaterial3d<M>>()
             .add_plugins((
                 RenderAssetPlugin::<PreparedMaterial<M>>::default(),
-                CheckSpecializationPlugin::<MeshMaterial3d<M>>::default(),
+                MeshMaterialSpecializationPlugin::<MeshMaterial3d<M>>::default(),
             ))
             .add_systems(
                 PostUpdate,
