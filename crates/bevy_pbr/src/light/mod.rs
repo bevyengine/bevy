@@ -246,27 +246,25 @@ impl CascadeShadowConfigBuilder {
 
 impl Default for CascadeShadowConfigBuilder {
     fn default() -> Self {
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            // Currently only support one cascade in webgl.
-            Self {
-                num_cascades: 1,
-                minimum_distance: 0.1,
-                maximum_distance: 100.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
-        } else {
-            Self {
-                num_cascades: 4,
-                minimum_distance: 0.1,
-                maximum_distance: 1000.0,
-                first_cascade_far_bound: 5.0,
-                overlap_proportion: 0.2,
-            }
+        // The defaults are chosen to be similar to be Unity, Unreal, and Godot.
+        // Unity: first cascade far bound = 10.05, maximum distance = 150.0
+        // Unreal Engine 5: maximum distance = 200.0
+        // Godot: first cascade far bound = 10.0, maximum distance = 100.0
+        Self {
+            // Currently only support one cascade in WebGL 2.
+            num_cascades: if cfg!(all(
+                feature = "webgl",
+                target_arch = "wasm32",
+                not(feature = "webgpu")
+            )) {
+                1
+            } else {
+                4
+            },
+            minimum_distance: 0.1,
+            maximum_distance: 150.0,
+            first_cascade_far_bound: 10.0,
+            overlap_proportion: 0.2,
         }
     }
 }
