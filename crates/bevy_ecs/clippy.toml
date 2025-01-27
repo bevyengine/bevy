@@ -1,0 +1,3 @@
+disallowed-methods = [ 
+        { path = "UniqueEntityVec::collect", reason = "Use UniqueEntityVec::collect_set if possible" },
+    ]
