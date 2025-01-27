@@ -1,11 +1,16 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Node, Outline,
-    OverflowAxis, ResolvedScaleFactor, ResolvedTargetCamera, ResolvedTargetSize, ScrollPosition,
-    UiScale, Val,
+    BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Node, Outline, OverflowAxis,
+    ResolvedScaleFactor, ResolvedTargetCamera, ResolvedTargetSize, ScrollPosition, UiScale, Val,
 };
 use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut}, entity::{hash_map::EntityHashMap, Entity}, hierarchy::{ChildOf, Children}, query::With, removal_detection::RemovedComponents, system::{Commands, Local, Query, Res, ResMut, SystemParam}, world::Ref
+    change_detection::{DetectChanges, DetectChangesMut},
+    entity::{hash_map::EntityHashMap, Entity},
+    hierarchy::{ChildOf, Children},
+    query::With,
+    removal_detection::RemovedComponents,
+    system::{Commands, Local, Query, Res, ResMut, SystemParam},
+    world::Ref,
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::Camera;
@@ -67,7 +72,6 @@ pub enum LayoutError {
 #[doc(hidden)]
 #[derive(SystemParam)]
 pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
-    removed_cameras: RemovedComponents<'w, 's, Camera>,
     removed_children: RemovedComponents<'w, 's, Children>,
     removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
     removed_nodes: RemovedComponents<'w, 's, Node>,
@@ -77,7 +81,7 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
 #[derive(Default)]
 pub struct UiLayoutSystemBuffers {
     interned_root_nodes: Vec<Vec<Entity>>,
-    
+
     camera_layout_info: EntityHashMap<CameraLayoutInfo>,
 }
 
@@ -120,42 +124,6 @@ pub fn ui_layout_system(
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    let UiLayoutSystemBuffers {
-        interned_root_nodes,
-        camera_layout_info,
-    } = &mut *buffers;
-
-    let mut calculate_camera_layout_info = |camera: &Camera| {
-        let size = camera.physical_viewport_size().unwrap_or(UVec2::ZERO);
-        let scale_factor = camera.target_scaling_factor().unwrap_or(1.0);
-        CameraLayoutInfo {
-            size,
-
-            scale_factor: scale_factor * ui_scale.0,
-            root_nodes: interned_root_nodes.pop().unwrap_or_default(),
-        }
-    };
-
-    // Precalculate the layout info for each camera, so we have fast access to it for each node
-    camera_layout_info.clear();
-
-    target_query
-        .iter_many(root_nodes.iter())
-        .for_each(|(entity, target)| {
-                    let Ok((_, camera)) = camera_query.get(target.0) else {
-                        warn!(
-                            "UiTargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
-                            target.0
-                        );
-                        return;
-                    };
-                    let layout_info = camera_layout_info
-                        .entry(target.0)
-                        .or_insert_with(|| calculate_camera_layout_info(camera));
-                    layout_info.root_nodes.push(entity);
-            
-            });
-
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_components.removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
@@ -177,9 +145,6 @@ pub fn ui_layout_system(
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
-
-    // clean up removed cameras
-    ui_surface.remove_camera_entities(removed_components.removed_cameras.read());
 
     // update camera children
     for (camera_id, _) in camera_query.iter() {
