@@ -305,6 +305,12 @@ pub unsafe trait QueryData: WorldQuery {
     ) -> Self::Item<'w>;
 }
 
+/// SAFETY:
+///
+/// The `IncludeEntity<D>` wrapper type has no additional state over the
+/// underlying query type `D`. Its access is identical to the access of
+/// `D`, except that the `Entity` being queried is also included in the
+/// output.
 unsafe impl<D: QueryData> QueryData for crate::query::IncludeEntity<D> {
     type ReadOnly = crate::query::IncludeEntity<D::ReadOnly>;
 }
@@ -316,6 +322,13 @@ unsafe impl<D: QueryData> QueryData for crate::query::IncludeEntity<D> {
 /// This must only be implemented for read-only [`QueryData`]'s.
 pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 
+/// SAFETY:
+///
+/// The underlying state and access of `IncludeEntity<D>` is identical to `D` itself,
+/// except that the iterated `Entity` is also included in the output.
+///
+/// Including the `Entity` in the output does not make any additional kind of mutation
+/// possible.
 unsafe impl<D: ReadOnlyQueryData> ReadOnlyQueryData for crate::query::IncludeEntity<D> {}
 
 /// The item type returned when a [`WorldQuery`] is iterated over

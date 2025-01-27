@@ -893,11 +893,18 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     ///
     pub fn include_entity(self) -> QueryIter<'w, 's, crate::query::IncludeEntity<D>, F> {
+        let query_state: &QueryState<super::IncludeEntity<D>, F> = 
+        // SAFETY: `IncludeEntity<D>` and `D` have identical access and query the same archetypes,
+        // since the internal state is not affected in any way by the `IncludeEntity` wrapper.
+        unsafe {
+            self.query_state.as_transmuted_state()
+        };
         QueryIter {
             world: self.world,
             tables: self.tables,
             archetypes: self.archetypes,
-            query_state: unsafe { self.query_state.as_transmuted_state() },
+
+            query_state,
             cursor: QueryIterationCursor {
                 is_dense: self.cursor.is_dense,
                 storage_id_iter: self.cursor.storage_id_iter,

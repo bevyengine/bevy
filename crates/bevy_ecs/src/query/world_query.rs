@@ -132,13 +132,23 @@ pub unsafe trait WorldQuery {
     ) -> bool;
 }
 
-/// A wrapper type which includes the entity in the selected query data,
-/// but which has the same underlying state as `D`.
+/// A wrapper type around a data query `D` which will return the queried [`Entity`]
+/// alongside the results from `D`.
 ///
-/// Most applications should use `(Entity, D)` instead; but unlike `(Entity, D)`,
-/// it is guaranteed that `IncludeEntity<D>` has the same `WorldQuery::State as `D`.
+/// This convenience wrapper can be used by calling [`QueryIter::include_entity`] on
+/// an iterator returned from `[Query::iter()]` or `[Query::iter_mut()]`.
+///
+/// Unlike `(Entity, D)`, the type `IncludeEntity<D>` is guaranteed to have identical
+/// internal query state to `D` itself.
 pub struct IncludeEntity<D>(pub D);
 
+/// SAFETY:
+///
+/// `IncludeEntity<D>` has the exact same internal state and query behavior as `D` itself,
+/// and inherits all of its safety properties from this fact.
+///
+/// The only difference is that the `Entity` (which is tracked by all queries internally) is
+/// also included in the output `Item`.
 unsafe impl<D: WorldQuery> WorldQuery for IncludeEntity<D> {
     /// The item is the same as `D`, but also includes the entity.
     type Item<'a> = (Entity, D::Item<'a>);
@@ -150,7 +160,7 @@ unsafe impl<D: WorldQuery> WorldQuery for IncludeEntity<D> {
     type State = D::State;
 
     /// This function manually implements subtyping for the query items.
-    /// The non-`Entity` query is shrunk exactly how `D` specifies.
+    /// The non-`Entity` part of the query is shrunk exactly how `D` specifies.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         (item.0, D::shrink(item.1))
     }
@@ -161,7 +171,6 @@ unsafe impl<D: WorldQuery> WorldQuery for IncludeEntity<D> {
         D::shrink_fetch(fetch)
     }
 
-    /// Creates a new instance of this fetch.
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         state: &Self::State,
