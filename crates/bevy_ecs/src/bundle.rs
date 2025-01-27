@@ -10,8 +10,8 @@ use crate::{
         ComponentStatus, SpawnBundleStatus,
     },
     component::{
-        Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
-        StorageType, Tick,
+        Component, ComponentId, Components, ComponentsView, RequiredComponentConstructor,
+        RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -171,7 +171,7 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 
     /// Registers components that are required by the components in this [`Bundle`].
     fn register_required_components(
-        _components: &mut Components,
+        _components: &mut impl ComponentsView,
         _required_components: &mut RequiredComponents,
     );
 }
@@ -209,7 +209,7 @@ unsafe impl<C: Component> Bundle for C {
     }
 
     fn register_required_components(
-        components: &mut Components,
+        components: &mut impl ComponentsView,
         required_components: &mut RequiredComponents,
     ) {
         let component_id = components.register_component::<C>();
@@ -279,7 +279,7 @@ macro_rules! tuple_impl {
             }
 
             fn register_required_components(
-                components: &mut Components,
+                components: &mut impl ComponentsView,
                 required_components: &mut RequiredComponents,
             ) {
                 $(<$name as Bundle>::register_required_components(components, required_components);)*

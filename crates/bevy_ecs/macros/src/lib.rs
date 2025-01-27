@@ -157,7 +157,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             fn register_required_components(
-                components: &mut #ecs_path::component::Components,
+                components: &mut impl #ecs_path::component::ComponentsView,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
                 #(#field_required_components)*
