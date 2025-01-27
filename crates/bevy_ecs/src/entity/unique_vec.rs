@@ -634,8 +634,11 @@ impl<T: TrustedEntityBorrow> FromIterator<T> for UniqueEntityVec<T> {
     /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
     /// When possible, use `FromEntitySetIterator::from_entity_iter` instead.
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        // Matches the `HashSet::from_iter` reservation logic.
         let iter = iter.into_iter();
         let unique_vec = Self::with_capacity(iter.size_hint().0);
+        // Internal iteration (fold/for_each) is known to result in better code generation
+        // over a for loop.
         iter.fold(unique_vec, |mut unique_vec, item| {
             if !unique_vec.0.contains(&item) {
                 unique_vec.0.push(item);
@@ -653,10 +656,15 @@ impl<T: TrustedEntityBorrow> FromEntitySetIterator<T> for UniqueEntityVec<T> {
 }
 
 impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
-    /// Use with caution, because this impl only uses `Eq` to validate uniqueness, 
+    /// Use with caution, because this impl only uses `Eq` to validate uniqueness,
     /// resulting in O(n^2) complexity.
     /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        // Matches the `HashSet::extend` reservation logic. Their reasoning:
+        //  "Keys may be already present or show multiple times in the iterator.
+        //  Reserve the entire hint lower bound if the map is empty.
+        //  Otherwise reserve half the hint (rounded up), so the map
+        //  will only resize twice in the worst case."
         let iter = iter.into_iter();
         let reserve = if self.is_empty() {
             iter.size_hint().0
@@ -664,6 +672,8 @@ impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
             (iter.size_hint().0 + 1) / 2
         };
         self.reserve(reserve);
+        // Internal iteration (fold/for_each) is known to result in better code generation
+        // over a for loop.
         iter.for_each(move |item| {
             if !self.0.contains(&item) {
                 self.0.push(item);
@@ -673,10 +683,15 @@ impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
 }
 
 impl<'a, T: TrustedEntityBorrow + Copy + 'a> Extend<&'a T> for UniqueEntityVec<T> {
-    /// Use with caution, because this impl only uses `Eq` to validate uniqueness, 
+    /// Use with caution, because this impl only uses `Eq` to validate uniqueness,
     /// resulting in O(n^2) complexity.
     /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
     fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
+        // Matches the `HashSet::extend` reservation logic. Their reasoning:
+        //  "Keys may be already present or show multiple times in the iterator.
+        //  Reserve the entire hint lower bound if the map is empty.
+        //  Otherwise reserve half the hint (rounded up), so the map
+        //  will only resize twice in the worst case."
         let iter = iter.into_iter();
         let reserve = if self.is_empty() {
             iter.size_hint().0
@@ -684,6 +699,8 @@ impl<'a, T: TrustedEntityBorrow + Copy + 'a> Extend<&'a T> for UniqueEntityVec<T
             (iter.size_hint().0 + 1) / 2
         };
         self.reserve(reserve);
+        // Internal iteration (fold/for_each) is known to result in better code generation
+        // over a for loop.
         iter.for_each(move |item| {
             if !self.0.contains(item) {
                 self.0.push(*item);
