@@ -6,7 +6,7 @@ use crate::{
     setup_morph_and_skinning_defs, skin, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey,
     MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
     RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    SetMaterialBindGroup, SetMeshBindGroup, StandardMaterial,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -52,8 +52,6 @@ use crate::meshlet::{
     prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
     MeshletMesh3d,
 };
-#[cfg(feature = "meshlet")]
-use crate::ShadowView;
 
 use bevy_render::view::RenderVisibleEntities;
 use core::{hash::Hash, marker::PhantomData};
@@ -214,20 +212,16 @@ where
 #[derive(Resource)]
 struct AnyPrepassPluginLoaded;
 
-#[cfg(not(feature = "meshlet"))]
-type PreviousViewFilter = (With<Camera3d>, With<MotionVectorPrepass>);
-#[cfg(feature = "meshlet")]
-type PreviousViewFilter = Or<(With<Camera3d>, With<ShadowView>)>;
-
 pub fn update_previous_view_data(
     mut commands: Commands,
-    query: Query<(Entity, &Camera, &GlobalTransform), PreviousViewFilter>,
+    query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
 ) {
     for (entity, camera, camera_transform) in &query {
         let view_from_world = camera_transform.compute_matrix().inverse();
         commands.entity(entity).try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
+            clip_from_view: camera.clip_from_view(),
         });
     }
 }
@@ -242,7 +236,7 @@ type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
-    views: Query<&Camera, PreviousViewFilter>,
+    views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
     meshes: Query<(Entity, &GlobalTransform), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
@@ -698,7 +692,10 @@ pub fn prepare_previous_view_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut previous_view_uniforms: ResMut<PreviousViewUniforms>,
-    views: Query<(Entity, &ExtractedView, Option<&PreviousViewData>), PreviousViewFilter>,
+    views: Query<
+        (Entity, &ExtractedView, Option<&PreviousViewData>),
+        Or<(With<Camera3d>, With<ShadowView>)>,
+    >,
 ) {
     let views_iter = views.iter();
     let view_count = views_iter.len();
@@ -718,6 +715,7 @@ pub fn prepare_previous_view_uniforms(
                 PreviousViewData {
                     view_from_world,
                     clip_from_world: camera.clip_from_view * view_from_world,
+                    clip_from_view: camera.clip_from_view,
                 }
             }
         };
