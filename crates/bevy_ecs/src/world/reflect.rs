@@ -79,8 +79,8 @@ impl World {
         let Some(comp_ptr) = self.get_by_id(entity, component_id) else {
             let component_name = self
                 .components()
-                .get_name(component_id)
-                .map(ToString::to_string);
+                .get_info(component_id)
+                .map(|info| info.name().to_string());
 
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
                 entity,
@@ -168,8 +168,8 @@ impl World {
         // already be mutably borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
         let component_name = self
             .components()
-            .get_name(component_id)
-            .map(ToString::to_string);
+            .get_info(component_id)
+            .map(|info| info.name().to_string());
 
         let Some(comp_mut_untyped) = self.get_mut_by_id(entity, component_id) else {
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {

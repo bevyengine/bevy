@@ -6,7 +6,6 @@ use crate::{
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
     entity::{ComponentCloneCtx, Entity},
-    query::DebugCheckedUnwrap,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
@@ -1084,11 +1083,11 @@ impl ComponentCloneHandlers {
     /// Sets a handler for a specific component.
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    pub fn set_component_handler(&mut self, index: usize, handler: ComponentCloneHandler) {
-        if index >= self.handlers.len() {
-            self.handlers.resize(index + 1, None);
+    pub fn set_component_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
+        if id.0 >= self.handlers.len() {
+            self.handlers.resize(id.0 + 1, None);
         }
-        self.handlers[index] = handler.0;
+        self.handlers[id.0] = handler.0;
     }
 
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
@@ -1741,6 +1740,65 @@ impl Components {
             new.resource_indices.get(&type_id).cloned()
         }
     }
+
+    /// Returns the currently registered default handler.
+    pub fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.old_components
+            .component_clone_handlers
+            .get_default_handler()
+    }
+
+    /// Checks if the specified component is registered. If not, the component will use the default global handler.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    pub fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
+        self.old_components
+            .component_clone_handlers
+            .is_handler_registered(id)
+            || self
+                .new_components
+                .read()
+                .unwrap()
+                .component_clone_handlers
+                .get(&id)
+                .is_some()
+    }
+
+    /// Gets a handler to clone a component. This can be one of the following:
+    /// - Custom clone function for this specific component.
+    /// - Default global handler.
+    /// - A [`component_clone_ignore`] (no cloning).
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    pub fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
+        match self
+            .old_components
+            .component_clone_handlers
+            .handlers
+            .get(id.0)
+        {
+            Some(Some(handler)) => *handler,
+            Some(None) | None => {
+                if self.is_new(id) {
+                    self.new_components
+                        .read()
+                        .unwrap()
+                        .component_clone_handlers
+                        .get(&id)
+                        .cloned()
+                        .unwrap_or_else(|| {
+                            self.old_components
+                                .component_clone_handlers
+                                .get_default_handler()
+                        })
+                } else {
+                    self.old_components
+                        .component_clone_handlers
+                        .get_default_handler()
+                }
+            }
+        }
+    }
 }
 
 impl NewComponents {
@@ -2047,7 +2105,7 @@ impl<T: Component> ComponentIdFor<'_, T> {
     }
 }
 
-impl<T: Component> core::ops::Deref for ComponentIdFor<'_, T> {
+impl<T: Component> Deref for ComponentIdFor<'_, T> {
     type Target = ComponentId;
     fn deref(&self) -> &Self::Target {
         &self.0.component_id

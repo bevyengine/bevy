@@ -22,7 +22,7 @@ use tracing::info_span;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components, Tick},
+    component::{ComponentId, ComponentInfoRef, Components, Tick},
     prelude::Component,
     resource::Resource,
     result::Result,
@@ -163,7 +163,7 @@ impl Schedules {
             "System order ambiguities caused by conflicts on the following types are ignored:\n"
                 .to_string();
         for id in self.iter_ignored_ambiguities() {
-            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+            writeln!(message, "{}", components.get_info(*id).unwrap().name()).unwrap();
         }
 
         info!("{}", message);
@@ -1889,9 +1889,10 @@ impl ScheduleGraph {
 
         for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
+            let conflicts_name = conflicts.iter().map(|info| info.name()).collect::<Vec<_>>();
 
             if !conflicts.is_empty() {
-                writeln!(message, "    conflict on: {conflicts:?}").unwrap();
+                writeln!(message, "    conflict on: {conflicts_name:?}").unwrap();
             } else {
                 // one or both systems must be exclusive
                 let world = core::any::type_name::<World>();
@@ -1907,7 +1908,7 @@ impl ScheduleGraph {
         &'a self,
         ambiguities: &'a [(NodeId, NodeId, Vec<ComponentId>)],
         components: &'a Components,
-    ) -> impl Iterator<Item = (String, String, Vec<&'a str>)> + 'a {
+    ) -> impl Iterator<Item = (String, String, Vec<ComponentInfoRef<'a>>)> + 'a {
         ambiguities
             .iter()
             .map(move |(system_a, system_b, conflicts)| {
@@ -1919,7 +1920,7 @@ impl ScheduleGraph {
 
                 let conflict_names: Vec<_> = conflicts
                     .iter()
-                    .map(|id| components.get_name(*id).unwrap())
+                    .map(|id| components.get_info(*id).unwrap())
                     .collect();
 
                 (name_a, name_b, conflict_names)

@@ -12,7 +12,7 @@ use core::panic::Location;
 
 use crate::{
     bundle::{Bundle, InsertMode},
-    component::{Component, ComponentId, ComponentInfo},
+    component::{Component, ComponentId},
     entity::{Entity, EntityCloneBuilder},
     event::Event,
     result::Result,
@@ -353,11 +353,11 @@ pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 /// An [`EntityCommand`] that logs the components of an entity.
 pub fn log_components() -> impl EntityCommand {
     move |entity: EntityWorldMut| {
-        let debug_infos: Vec<_> = entity
-            .world()
-            .inspect_entity(entity.id())
-            .map(ComponentInfo::name)
-            .collect();
-        info!("Entity {}: {debug_infos:?}", entity.id());
+        let debug_infos: Vec<_> = entity.world().inspect_entity(entity.id()).collect();
+        let debug_names = debug_infos
+            .iter()
+            .map(|info| info.name())
+            .collect::<Vec<_>>();
+        info!("Entity {}: {debug_names:?}", entity.id());
     }
 }

@@ -36,8 +36,7 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
-        RequiredComponentsError, Tick,
+        ComponentInfoRef, ComponentTicks, Components, Mutable, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -497,16 +496,14 @@ impl World {
     }
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
-    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
+    pub fn get_component_info<C: Component>(&self) -> Option<ComponentInfoRef<'_>> {
         let id = self.components().component_id::<C>()?;
-        let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+        self.components().get_info(id)
     }
 
     /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
-    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
-        let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+    pub fn get_component_info_by_id(&self, id: ComponentId) -> Option<ComponentInfoRef<'_>> {
+        self.components().get_info(id)
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -827,7 +824,7 @@ impl World {
 
     /// Returns the components of an [`Entity`] through [`ComponentInfo`].
     #[inline]
-    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = &ComponentInfo> {
+    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = ComponentInfoRef<'_>> {
         let entity_location = self
             .entities()
             .get(entity)
@@ -3329,7 +3326,7 @@ impl World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+    pub fn iter_resources(&self) -> impl Iterator<Item = (ComponentInfoRef<'_>, Ptr<'_>)> {
         self.storages
             .resources
             .iter()
@@ -3410,7 +3407,9 @@ impl World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     #[inline]
-    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+    pub fn iter_resources_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (ComponentInfoRef<'_>, MutUntyped<'_>)> {
         self.storages
             .resources
             .iter()
@@ -3756,7 +3755,7 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
+        component::{ComponentDescriptor, ComponentInfoRef, StorageType},
         entity::hash_set::EntityHashSet,
         ptr::OwningPtr,
         resource::Resource,
@@ -3978,24 +3977,26 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
-        let mut iter = world.iter_resources_mut();
+        {
+            let mut iter = world.iter_resources_mut();
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource>());
-        // SAFETY: We know that the resource is of type `TestResource`
-        unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
-        };
+            let (info, mut mut_untyped) = iter.next().unwrap();
+            assert_eq!(info.name(), core::any::type_name::<TestResource>());
+            // SAFETY: We know that the resource is of type `TestResource`
+            unsafe {
+                mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
+            };
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
-        // SAFETY: We know that the resource is of type `TestResource2`
-        unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
-        };
+            let (info, mut mut_untyped) = iter.next().unwrap();
+            assert_eq!(info.name(), core::any::type_name::<TestResource2>());
+            // SAFETY: We know that the resource is of type `TestResource2`
+            unsafe {
+                mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
+            };
 
-        assert!(iter.next().is_none());
-        drop(iter);
+            assert!(iter.next().is_none());
+            drop(iter);
+        }
 
         assert_eq!(world.resource::<TestResource>().0, 43);
         assert_eq!(
@@ -4142,10 +4143,10 @@ mod tests {
         let ent5 = world.spawn(Bar).id();
         let ent6 = world.spawn(Baz).id();
 
-        fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
+        fn to_type_ids(component_infos: Vec<ComponentInfoRef>) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(ComponentInfo::type_id)
+                .map(|info| info.type_id())
                 .collect()
         }
 

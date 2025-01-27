@@ -75,10 +75,11 @@ fn format_archetype(
         if i > 0 {
             write!(f, ", ")?;
         }
-        let name = world
+        let info = world
             .components()
-            .get_name(component_id)
+            .get_info(component_id)
             .expect("entity does not belong to world");
+        let name = info.name();
         write!(f, "{}", disqualified::ShortName(name))?;
     }
     Ok(())

@@ -129,10 +129,11 @@ pub mod __macro_exports {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::ComponentInfoRef;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        component::{require, Component, ComponentId, RequiredComponentsError},
         entity::Entity,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
@@ -2601,17 +2602,18 @@ mod tests {
 
         world.spawn(X);
 
-        let required_a = world.get_required_components::<A>().unwrap();
-        let required_b = world.get_required_components::<B>().unwrap();
-        let required_c = world.get_required_components::<C>().unwrap();
-        let required_x = world.get_required_components::<X>().unwrap();
-        let required_y = world.get_required_components::<Y>().unwrap();
-        let required_z = world.get_required_components::<Z>().unwrap();
+        let required_a = world.get_component_info::<A>().unwrap();
+        let required_b = world.get_component_info::<B>().unwrap();
+        let required_c = world.get_component_info::<C>().unwrap();
+        let required_x = world.get_component_info::<X>().unwrap();
+        let required_y = world.get_component_info::<Y>().unwrap();
+        let required_z = world.get_component_info::<Z>().unwrap();
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: &RequiredComponents) -> Vec<(ComponentId, u16)> {
+        fn to_vec(required: ComponentInfoRef) -> Vec<(ComponentId, u16)> {
             let mut vec = required
+                .required_components()
                 .0
                 .iter()
                 .map(|(id, component)| (*id, component.inheritance_depth))

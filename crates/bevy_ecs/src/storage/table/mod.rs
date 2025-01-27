@@ -755,7 +755,7 @@ impl Tables {
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
-                    table = table.add_column(components.get_info_unchecked(*component_id));
+                    table = table.add_column(&components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
                 (component_ids.into(), TableId::from_usize(tables.len() - 1))
@@ -844,11 +844,11 @@ mod tests {
 
     #[test]
     fn table() {
-        let mut components = Components::default();
+        let components = Components::default();
         let component_id = components.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
-            .add_column(components.get_info(component_id).unwrap())
+            .add_column(&components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
