@@ -84,7 +84,7 @@ impl WinitSettings {
         }
     }
 
-    /// Returns the current [`UpdateMode`].
+    /// Returns the current [`MainUpdateMode`] and [`RenderUpdateMode`].
     ///
     /// **Note:** The output depends on whether the window has focus or not.
     pub fn update_mode(&self, focused: bool) -> (MainUpdateMode, RenderUpdateMode) {
@@ -157,7 +157,7 @@ impl MainUpdateMode {
 
     /// Low power mode
     ///
-    /// Unlike [`Reactive`](`UpdateMode::reactive()`), this will ignore events that
+    /// Unlike [`Reactive`](`MainUpdateMode::reactive()`), this will ignore events that
     /// don't come from interacting with a window, like [`MouseMotion`](winit::event::DeviceEvent::MouseMotion).
     /// Use this if, for example, you only want your app to update when the mouse cursor is
     /// moving over a window, not just moving in general. This can greatly reduce power consumption.

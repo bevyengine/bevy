@@ -208,14 +208,14 @@ pub struct UpdateSubAppOnWindowEvent(HashMap<WindowEventKind, HashSet<InternedAp
 
 impl UpdateSubAppOnWindowEvent {
     /// Register a [`SubApp`] with the given label when there is a [`WindowEvent`] on the
-    /// given event_kind.
+    /// given `event_kind`.
     pub fn add(&mut self, event_kind: WindowEventKind, label: impl AppLabel) -> &mut Self {
         self.0.entry(event_kind).or_default().insert(label.intern());
         self
     }
 
     /// Unregister a [`SubApp`] with the given label when there is a [`WindowEvent`] on the
-    /// given event_kind.
+    /// given `event_kind`.
     pub fn remove(&mut self, event_kind: WindowEventKind, label: impl AppLabel) -> &mut Self {
         self.0
             .entry(event_kind)
@@ -225,7 +225,7 @@ impl UpdateSubAppOnWindowEvent {
     }
 
     /// Gets the labels for the [`SubApp`]s to execute on a [`WindowEvent`] with the given
-    /// event_kind.
+    /// `event_kind`.
     pub fn get_app_labels(
         &self,
         event_kind: WindowEventKind,

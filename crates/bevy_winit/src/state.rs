@@ -57,7 +57,7 @@ use crate::{
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
-/// [`UpdateMode`].
+/// [`MainUpdateMode`] and [`RenderUpdateMode`].
 struct WinitAppRunnerState<T: Event> {
     /// The running app.
     app: App,
