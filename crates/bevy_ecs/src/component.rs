@@ -32,7 +32,7 @@ use core::{
     panic::Location,
 };
 use disqualified::ShortName;
-use std::sync::RwLock;
+use std::sync::{RwLock, RwLockReadGuard};
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
@@ -1126,10 +1126,35 @@ impl Default for ComponentCloneHandlers {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
 pub struct Components {
+    old_components: RegisteredComponents,
+    new_components: RwLock<NewComponents>,
+}
+
+/// Stores metadata associated with each kind of [`Component`] in a given [`World`].
+#[derive(Debug, Default)]
+pub struct RegisteredComponents {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     component_clone_handlers: ComponentCloneHandlers,
+}
+
+/// Stores [`RegisteredComponents`] for newly registered components. This is used primarily for registering components.
+#[derive(Debug)]
+pub struct NewComponents {
+    /// stores only the components newly registered and not moved out.
+    newly_registered: RegisteredComponents,
+    /// component ids greater or equal to this still live here
+    next_to_move: ComponentId,
+}
+
+impl Default for NewComponents {
+    fn default() -> Self {
+        Self {
+            newly_registered: RegisteredComponents::default(),
+            next: ComponentId(0),
+        }
+    }
 }
 
 impl Components {
@@ -1704,15 +1729,6 @@ impl Components {
         self.components.iter()
     }
 }
-
-/// This wrapper around [`Components`] enables synchronized use.
-#[derive(Debug, Default)]
-pub struct SyncedComponents {
-    components: Components,
-    new_components: RwLock<Components>,
-}
-
-impl SyncedComponents {}
 
 /// A value that tracks when a system ran relative to other systems.
 /// This is used to power change detection.
