@@ -56,22 +56,20 @@ use crate::meshlet::{
 use bevy_asset::prelude::AssetChanged;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
+use bevy_ecs::entity::EntityHash;
 use bevy_ecs::query::{QueryItem, ROQueryItem};
 use bevy_ecs::system::SystemChangeTick;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::extract_resource::ExtractResource;
 use bevy_render::specialization::view::{GetViewKey, ViewKeyCache, ViewSpecializationTicks};
-use bevy_render::specialization::{
-    EntitySpecializationTicks,
-};
+use bevy_render::specialization::EntitySpecializationTicks;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSet::PrepareAssets;
 use core::{hash::Hash, marker::PhantomData};
-use std::ops::{Deref, DerefMut};
 use derive_more::From;
-use bevy_ecs::entity::EntityHash;
-use bevy_platform_support::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 
@@ -212,8 +210,7 @@ where
             .add_systems(
                 Render,
                 (
-                    check_prepass_views_need_specialization
-                        .in_set(PrepareAssets),
+                    check_prepass_views_need_specialization.in_set(PrepareAssets),
                     specialize_prepass_material_meshes::<M>
                         .in_set(PrepareAssets)
                         .after(prepare_assets::<PreparedMaterial<M>>)
@@ -886,6 +883,9 @@ pub fn specialize_prepass_material_meshes<M>(
         &MainEntity,
         &ExtractedView,
         &RenderVisibleEntities,
+        &Msaa,
+        Option<&DepthPrepass>,
+        Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
         Option<&DeferredPrepass>,
     )>,
@@ -921,8 +921,16 @@ pub fn specialize_prepass_material_meshes<M>(
     M: Material,
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view_entity, extracted_view, visible_entities, motion_vector_prepass, deferred_prepass) in
-        &views
+    for (
+        view_entity,
+        extracted_view,
+        visible_entities,
+        msaa,
+        depth_prepass,
+        normal_prepass,
+        motion_vector_prepass,
+        deferred_prepass,
+    ) in &views
     {
         if !opaque_deferred_render_phases.contains_key(&extracted_view.retained_view_entity)
             && !alpha_mask_deferred_render_phases.contains_key(&extracted_view.retained_view_entity)
@@ -983,16 +991,7 @@ pub fn specialize_prepass_material_meshes<M>(
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque | AlphaMode::AlphaToCoverage | AlphaMode::Mask(_) => {
-                    mesh_key |= alpha_mode_pipeline_key(
-                        alpha_mode,
-                        match view_key.msaa_samples() {
-                            1 => &Msaa::Off,
-                            2 => &Msaa::Sample2,
-                            4 => &Msaa::Sample4,
-                            8 => &Msaa::Sample8,
-                            _ => unreachable!("Unsupported MSAA sample count"),
-                        },
-                    );
+                    mesh_key |= alpha_mode_pipeline_key(alpha_mode, msaa);
                 }
                 AlphaMode::Blend
                 | AlphaMode::Premultiplied
@@ -1079,23 +1078,21 @@ pub fn specialize_prepass_material_meshes<M>(
 }
 
 pub fn queue_prepass_material_meshes<M: Material>(
-    render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mesh_allocator: Res<MeshAllocator>,
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mut opaque_prepass_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities, &Msaa, Has<DeferredPrepass>)>,
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view_entity, extracted_view, visible_entities) in &views {
+    for (view_entity, extracted_view, visible_entities, msaa, has_deferred_prepass) in &views {
         let (
             mut opaque_phase,
             mut alpha_mask_phase,
@@ -1133,17 +1130,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
             let Some(material) = render_materials.get(*material_asset_id) else {
                 continue;
             };
-            let Some(material_bind_group) =
-                material_bind_group_allocator.get(material.binding.group)
-            else {
-                continue;
-            };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
-                continue;
-            };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
-            let deferred = material.properties.deferred_draw_function_id.is_some();
+            let forward = match material.properties.render_method {
+                OpaqueRendererMethod::Forward => true,
+                OpaqueRendererMethod::Deferred => false,
+                OpaqueRendererMethod::Auto => unreachable!(),
+            };
+            let deferred = has_deferred_prepass && !forward;
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Opaque => {

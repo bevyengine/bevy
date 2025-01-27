@@ -1137,7 +1137,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                 if !forward {
                     RenderPhaseType::Opaque
                 } else {
-                    RenderPhaseType::Transparent
+                    RenderPhaseType::AlphaMask
                 }
             }
             AlphaMode::Blend
