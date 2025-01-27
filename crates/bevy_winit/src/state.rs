@@ -1,5 +1,4 @@
 use core::marker::PhantomData;
-use std::time::SystemTime;
 
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
@@ -115,11 +114,6 @@ impl<T: Event> WinitAppRunnerState<T> {
             NonSendMut<AccessKitAdapters>,
         )> = SystemState::new(app.world_mut());
 
-        let unix_epoch_instant = Instant::now()
-            - SystemTime::UNIX_EPOCH
-                .elapsed()
-                .expect("Failed to get duration since unix epoch");
-
         Self {
             app,
             lifecycle: AppLifecycle::Idle,
@@ -140,8 +134,8 @@ impl<T: Event> WinitAppRunnerState<T> {
             raw_winit_events: Vec::new(),
             _marker: PhantomData,
             event_writer_system_state,
-            last_update_timestamp: unix_epoch_instant,
-            last_draw_timestamp: unix_epoch_instant,
+            last_update_timestamp: Instant::now(),
+            last_draw_timestamp: Instant::now(),
         }
     }
 
