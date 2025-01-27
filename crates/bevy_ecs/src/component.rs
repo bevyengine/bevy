@@ -32,7 +32,7 @@ use core::{
     panic::Location,
 };
 use disqualified::ShortName;
-use std::sync::{RwLock, RwLockReadGuard};
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
@@ -1126,9 +1126,9 @@ impl Default for ComponentCloneHandlers {
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
 pub struct Components {
-    old_components: ComponentsData,
+    cold: ComponentsData,
     /// this will only hold components with ids greater than or equal to `old_components`'s length.
-    new_components: RwLock<NewComponents>,
+    staged: RwLock<StagedComponents>,
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
@@ -1142,18 +1142,101 @@ pub struct ComponentsData {
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
-struct NewComponents {
+struct StagedComponents {
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     new_components: Vec<ComponentInfo>,
     component_clone_handlers: HashMap<ComponentId, ComponentCloneFn>,
-    /// When registering required components, changes to component info already in `ComponentsData` will be staged here. This should not be used for components that still live in this instance.
+    /// When registering required components, changes to component info already in [`ComponentsData`] will be staged here. This should not be used for components that still live in this instance.
     additional_required: HashMap<ComponentId, RequiredComponents>,
-    /// When registering required components, changes to component info already in `ComponentsData` will be staged here. This should not be used for components that still live in this instance.
+    /// When registering required components, changes to component info already in [`ComponentsData`] will be staged here. This should not be used for components that still live in this instance.
     additional_required_by: HashMap<ComponentId, HashSet<ComponentId>>,
 }
 
+/// A lock for [`Components`] that enables fast, synchronized, mutable interaction.
+pub struct ComponentsLock<'a> {
+    /// This is marked with an underscore to make it more clear that this field should not be used when possible.
+    /// For example, never try to lock on this field's [`Components::new_components`], as it could deadlock.
+    _components: &'a Components,
+    cold: &'a ComponentsData,
+    staged: RwLockWriteGuard<'a, StagedComponents>,
+}
+
+impl<'a> ComponentsLock<'a> {
+    /// Releases the lock, returning the inner [`Components`].
+    pub fn release(self) -> &'a Components {
+        let ComponentsLock { _components, .. } = self;
+        _components
+    }
+}
+
 impl Components {
+    /// Locks the components for mutation. Most information will continue to be available without locking further internally, even when mutating the returned lock.
+    pub fn lock(&self) -> ComponentsLock<'_> {
+        ComponentsLock {
+            _components: self,
+            cold: &self.cold,
+            staged: self.staged.write().unwrap(),
+        }
+    }
+
+    /// Grants the caller safe access to all component data.
+    #[inline]
+    pub fn full(&mut self) -> &mut ComponentsData {
+        self.clean()
+    }
+
+    /// Grants the caller access to all component data.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that no components have been registered or modified through [`lock`](Self::lock) since [`clean`](Self::clean) was last called.
+    #[inline]
+    pub unsafe fn full_unchecked(&mut self) -> &mut ComponentsData {
+        &mut self.cold
+    }
+
+    /// Cleans the components up, accelerating read-only access.
+    pub fn clean(&mut self) -> &mut ComponentsData {
+        let new = self.staged.get_mut().unwrap();
+
+        if new.additional_required.is_empty()
+            && new.additional_required_by.is_empty()
+            && new.component_clone_handlers.is_empty()
+            && new.new_components.is_empty()
+        {
+            // nothing has changed, so we release the lock early and skip the rest.
+            return &mut self.cold;
+        }
+
+        self.cold.components.append(&mut new.new_components);
+        self.cold.indices.extend(new.indices.drain());
+        self.cold
+            .resource_indices
+            .extend(new.resource_indices.drain());
+        for (component, handler) in new.component_clone_handlers.drain() {
+            self.cold
+                .component_clone_handlers
+                .set_component_handler(component, ComponentCloneHandler(Some(handler)));
+        }
+        for (component, additional) in new.additional_required.drain() {
+            let required = &mut self.cold.components[component.0].required_components;
+            for additional in additional.0 {
+                if required.0.contains_key(&additional.0) {
+                    // in theory, this should never happen.
+                    panic!("A required component was registered that should have been marked as a duplicate.");
+                }
+                required.0.insert(additional.0, additional.1);
+            }
+        }
+        for (component, additional) in new.additional_required_by.drain() {
+            let required = &mut self.cold.components[component.0].required_by;
+            required.extend(additional.into_iter());
+        }
+
+        &mut self.cold
+    }
+
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
@@ -1173,14 +1256,14 @@ impl Components {
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
         let type_id = TypeId::of::<T>();
-        if let Some(existing) = self.old_components.indices.get(&type_id) {
+        if let Some(existing) = self.cold.indices.get(&type_id) {
             return *existing;
         }
 
-        let mut new = self.new_components.write().unwrap();
+        let mut new = self.staged.write().unwrap();
         let id = *{
             let type_id = TypeId::of::<T>();
-            let NewComponents {
+            let StagedComponents {
                 new_components,
                 indices,
                 component_clone_handlers,
@@ -1189,7 +1272,7 @@ impl Components {
             indices.entry(type_id).or_insert_with(|| {
                 let (id, index) = Self::register_raw_component_inner(
                     new_components,
-                    self.old_components.len(),
+                    self.cold.len(),
                     ComponentDescriptor::new::<T>(),
                 );
                 let mut required_components = RequiredComponents::default();
@@ -1253,39 +1336,28 @@ impl Components {
         type_id: TypeId,
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
-        let mut new = self.new_components.write().unwrap();
-        let NewComponents {
+        let mut new = self.staged.write().unwrap();
+        let StagedComponents {
             new_components,
             resource_indices,
             ..
         } = new.deref_mut();
         *resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            Self::register_raw_component_inner(
-                new_components,
-                self.old_components.len(),
-                descriptor,
-            )
-            .0
+            Self::register_raw_component_inner(new_components, self.cold.len(), descriptor).0
         })
     }
 
     /// returns the total number of components registered through this instance
     #[inline]
     pub fn len(&self) -> usize {
-        self.old_components.len() + self.new_components.read().unwrap().new_components.len()
+        self.cold.len() + self.staged.read().unwrap().new_components.len()
     }
 
     /// Returns `true` if there are no registered components.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.old_components.is_empty()
-            && self
-                .new_components
-                .read()
-                .unwrap()
-                .new_components
-                .is_empty()
+        self.cold.is_empty() && self.staged.read().unwrap().new_components.is_empty()
     }
 
     /// Registers a component described by `descriptor`.
@@ -1304,8 +1376,8 @@ impl Components {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         Self::register_raw_component_inner(
-            &mut self.new_components.write().unwrap().new_components,
-            self.old_components.len(),
+            &mut self.staged.write().unwrap().new_components,
+            self.cold.len(),
             descriptor,
         )
         .0
@@ -1327,8 +1399,8 @@ impl Components {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         Self::register_raw_component_inner(
-            &mut self.new_components.write().unwrap().new_components,
-            self.old_components.len(),
+            &mut self.staged.write().unwrap().new_components,
+            self.cold.len(),
             descriptor,
         )
         .0
@@ -1350,7 +1422,7 @@ impl Components {
     /// if this is true, the component has been registered recently
     #[inline]
     pub fn is_new(&self, id: ComponentId) -> bool {
-        self.old_components.len() <= id.0
+        self.cold.len() <= id.0
     }
 
     /// Gets the metadata associated with the given component.
@@ -1358,8 +1430,8 @@ impl Components {
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<ComponentInfoRef<'_>> {
-        if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
-            let new = self.new_components.read().unwrap();
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            let new = self.staged.read().unwrap();
             if new.new_components.len() <= index_in_new {
                 None
             } else {
@@ -1369,7 +1441,7 @@ impl Components {
                 }))
             }
         } else {
-            Some(ComponentInfoRef::Old(&self.old_components.components[id.0]))
+            Some(ComponentInfoRef::Old(&self.cold.components[id.0]))
         }
     }
 
@@ -1380,29 +1452,29 @@ impl Components {
     /// `id` must be a valid [`ComponentId`]
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> ComponentInfoRef<'_> {
-        if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
-            let new = self.new_components.read().unwrap();
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            let new = self.staged.read().unwrap();
             debug_assert!(new.new_components.len() > index_in_new);
             ComponentInfoRef::New(LockedComponentReference {
                 data: new,
                 index: index_in_new,
             })
         } else {
-            ComponentInfoRef::Old(&self.old_components.components[id.0])
+            ComponentInfoRef::Old(&self.cold.components[id.0])
         }
     }
 
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
-        if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
-            self.new_components
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            self.staged
                 .get_mut()
                 .unwrap()
                 .new_components
                 .get_mut(index_in_new)
                 .map(|info| &mut info.hooks)
         } else {
-            Some(&mut self.old_components.components[id.0].hooks)
+            Some(&mut self.cold.components[id.0].hooks)
         }
     }
 
@@ -1437,7 +1509,7 @@ impl Components {
                 .get(&required)
                 .is_some_and(|c| c.inheritance_depth == 0)
         } || self
-            .new_components
+            .staged
             .read()
             .unwrap()
             .additional_required
@@ -1456,12 +1528,12 @@ impl Components {
             ));
         }
 
-        let mut new = self.new_components.write().unwrap();
+        let mut new = self.staged.write().unwrap();
 
         // Register the required component for the requiree.
         // This is a direct requirement with a depth of `0`.
         if self.is_new(requiree) {
-            new.new_components[requiree.0 - self.old_components.len()]
+            new.new_components[requiree.0 - self.cold.len()]
                 .required_components
                 .register_by_id(required, constructor, 0);
         } else {
@@ -1471,7 +1543,7 @@ impl Components {
 
         // Add the requiree to the list of components that require the required component.
         if self.is_new(required) {
-            new.new_components[required.0 - self.old_components.len()]
+            new.new_components[required.0 - self.cold.len()]
                 .required_by
                 .insert(requiree);
         } else {
@@ -1480,19 +1552,16 @@ impl Components {
         }
 
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
-        let inherited_requirements = unsafe {
-            new.register_inherited_required_components(&self.old_components, requiree, required)
-        };
+        let inherited_requirements =
+            unsafe { new.register_inherited_required_components(&self.cold, requiree, required) };
 
         // collect all the components that require the requiree
         let required_by = if self.is_new(requiree) {
-            new.new_components[requiree.0 - self.old_components.len()]
+            new.new_components[requiree.0 - self.cold.len()]
                 .required_by
                 .clone()
         } else {
-            let mut old = self.old_components.components[requiree.0]
-                .required_by
-                .clone();
+            let mut old = self.cold.components[requiree.0].required_by.clone();
             if let Some(additional) = new.additional_required_by.get(&requiree) {
                 old.extend(additional);
             }
@@ -1501,7 +1570,7 @@ impl Components {
 
         // `required` is now required by anything that `requiree` was required by.
         if self.is_new(required) {
-            new.new_components[required.0 - self.old_components.len()]
+            new.new_components[required.0 - self.cold.len()]
                 .required_by
                 .extend(required_by.iter().copied());
         } else {
@@ -1514,8 +1583,7 @@ impl Components {
         // Propagate the new required components up the chain to all components that require the requiree.
         for &required_by_id in required_by.iter() {
             let required_components = if self.is_new(required_by_id) {
-                &mut new.new_components[required_by_id.0 - self.old_components.len()]
-                    .required_components
+                &mut new.new_components[required_by_id.0 - self.cold.len()].required_components
             } else {
                 new.additional_required.entry(required_by_id).or_default()
             };
@@ -1618,11 +1686,11 @@ impl Components {
         // Register the required component `R` for the requiree.
         required_components.register_by_id(required, constructor, inheritance_depth);
 
-        let mut new = self.new_components.write().unwrap();
+        let mut new = self.staged.write().unwrap();
 
         // Add the requiree to the list of components that require `R`.
         if self.is_new(required) {
-            new.new_components[required.0 - self.old_components.len()]
+            new.new_components[required.0 - self.cold.len()]
                 .required_by
                 .insert(requiree);
         } else {
@@ -1633,7 +1701,7 @@ impl Components {
         }
 
         // Register the inherited required components for the requiree.
-        let required = new.collect_inherited_required_components(&self.old_components, required);
+        let required = new.collect_inherited_required_components(&self.cold, required);
         for (id, component) in required {
             // Register the inherited required components for the requiree.
             // The inheritance depth is increased by `1` since this is a component required by the original required component.
@@ -1644,7 +1712,7 @@ impl Components {
             );
 
             if self.is_new(id) {
-                new.new_components[id.0 - self.old_components.len()]
+                new.new_components[id.0 - self.cold.len()]
                     .required_by
                     .insert(requiree);
             } else {
@@ -1659,10 +1727,10 @@ impl Components {
     /// Type-erased equivalent of [`Components::component_id()`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        if let Some(old) = self.old_components.indices.get(&type_id) {
+        if let Some(old) = self.cold.indices.get(&type_id) {
             Some(*old)
         } else {
-            let new = self.new_components.read().unwrap();
+            let new = self.staged.read().unwrap();
             new.indices.get(&type_id).cloned()
         }
     }
@@ -1733,30 +1801,26 @@ impl Components {
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        if let Some(old) = self.old_components.resource_indices.get(&type_id) {
+        if let Some(old) = self.cold.resource_indices.get(&type_id) {
             Some(*old)
         } else {
-            let new = self.new_components.read().unwrap();
+            let new = self.staged.read().unwrap();
             new.resource_indices.get(&type_id).cloned()
         }
     }
 
     /// Returns the currently registered default handler.
     pub fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.old_components
-            .component_clone_handlers
-            .get_default_handler()
+        self.cold.component_clone_handlers.get_default_handler()
     }
 
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
     pub fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
-        self.old_components
-            .component_clone_handlers
-            .is_handler_registered(id)
+        self.cold.component_clone_handlers.is_handler_registered(id)
             || self
-                .new_components
+                .staged
                 .read()
                 .unwrap()
                 .component_clone_handlers
@@ -1771,71 +1835,26 @@ impl Components {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
     pub fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
-        match self
-            .old_components
-            .component_clone_handlers
-            .handlers
-            .get(id.0)
-        {
+        match self.cold.component_clone_handlers.handlers.get(id.0) {
             Some(Some(handler)) => *handler,
             Some(None) | None => {
                 if self.is_new(id) {
-                    self.new_components
+                    self.staged
                         .read()
                         .unwrap()
                         .component_clone_handlers
                         .get(&id)
                         .cloned()
-                        .unwrap_or_else(|| {
-                            self.old_components
-                                .component_clone_handlers
-                                .get_default_handler()
-                        })
+                        .unwrap_or_else(|| self.cold.component_clone_handlers.get_default_handler())
                 } else {
-                    self.old_components
-                        .component_clone_handlers
-                        .get_default_handler()
+                    self.cold.component_clone_handlers.get_default_handler()
                 }
             }
         }
-    }
-
-    /// Cleans the components up, accelerating read-only access.
-    pub fn clean(&mut self) -> &mut ComponentsData {
-        let new = self.new_components.get_mut().unwrap();
-
-        self.old_components
-            .components
-            .append(&mut new.new_components);
-        self.old_components.indices.extend(new.indices.drain());
-        self.old_components
-            .resource_indices
-            .extend(new.resource_indices.drain());
-        for (component, handler) in new.component_clone_handlers.drain() {
-            self.old_components
-                .component_clone_handlers
-                .set_component_handler(component, ComponentCloneHandler(Some(handler)));
-        }
-        for (component, additional) in new.additional_required.drain() {
-            let required = &mut self.old_components.components[component.0].required_components;
-            for additional in additional.0 {
-                if required.0.contains_key(&additional.0) {
-                    // in theory, this should never happen.
-                    panic!("A required component was registered that should have been marked as a duplicate.");
-                }
-                required.0.insert(additional.0, additional.1);
-            }
-        }
-        for (component, additional) in new.additional_required_by.drain() {
-            let required = &mut self.old_components.components[component.0].required_by;
-            required.extend(additional.into_iter());
-        }
-
-        &mut self.old_components
     }
 }
 
-impl NewComponents {
+impl StagedComponents {
     /// Returns the requirement list that a requiree would inherit via required
     ///
     /// # Safety
@@ -1944,7 +1963,7 @@ pub enum ComponentInfoRef<'a> {
 
 /// A reference to a particular component's info, where the info lives in a locked [`NewComponents`]
 pub struct LockedComponentReference<'a> {
-    data: RwLockReadGuard<'a, NewComponents>,
+    data: RwLockReadGuard<'a, StagedComponents>,
     index: usize,
 }
 
