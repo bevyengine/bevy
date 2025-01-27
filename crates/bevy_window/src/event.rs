@@ -48,7 +48,7 @@ pub struct WindowResized {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct RequestRedraw;
+pub struct RequestUpdate;
 
 /// An event that is sent whenever a new window is created.
 ///
@@ -427,7 +427,7 @@ pub enum WindowEvent {
     CursorMoved(CursorMoved),
     FileDragAndDrop(FileDragAndDrop),
     Ime(Ime),
-    RequestRedraw(RequestRedraw),
+    RequestUpdate(RequestUpdate),
     WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
     WindowCloseRequested(WindowCloseRequested),
     WindowCreated(WindowCreated),
@@ -484,9 +484,9 @@ impl From<Ime> for WindowEvent {
         Self::Ime(e)
     }
 }
-impl From<RequestRedraw> for WindowEvent {
-    fn from(e: RequestRedraw) -> Self {
-        Self::RequestRedraw(e)
+impl From<RequestUpdate> for WindowEvent {
+    fn from(e: RequestUpdate) -> Self {
+        Self::RequestUpdate(e)
     }
 }
 impl From<WindowBackendScaleFactorChanged> for WindowEvent {

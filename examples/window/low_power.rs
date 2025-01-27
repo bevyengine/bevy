@@ -5,7 +5,7 @@
 
 use bevy::{
     prelude::*,
-    window::{PresentMode, RequestRedraw, WindowPlugin},
+    window::{PresentMode, RequestUpdate, WindowPlugin},
     winit::{EventLoopProxyWrapper, WakeUp, WinitSettings},
 };
 use core::time::Duration;
@@ -55,7 +55,7 @@ fn main() {
 enum ExampleMode {
     Game,
     Application,
-    ApplicationWithRequestRedraw,
+    ApplicationWithRequestUpdate,
     ApplicationWithWakeUp,
 }
 
@@ -64,7 +64,7 @@ fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
     event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
-    mut redraw_request_events: EventWriter<RequestRedraw>,
+    mut request_update_events: EventWriter<RequestUpdate>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
@@ -73,29 +73,29 @@ fn update_winit(
             //   * When focused: the event loop runs as fast as possible
             //   * When not focused: the app will update when the window is directly interacted with
             //     (e.g. the mouse hovers over a visible part of the out of focus window), a
-            //     [`RequestRedraw`] event is received, or one sixtieth of a second has passed
+            //     [`RequestUpdate`] event is received, or one sixtieth of a second has passed
             //     without the app updating (60 Hz refresh rate max).
             WinitSettings::game()
         }
         Application => {
             // While in `WinitSettings::desktop_app()` mode:
             //   * When focused: the app will update any time a winit event (e.g. the window is
-            //     moved/resized, the mouse moves, a button is pressed, etc.), a [`RequestRedraw`]
+            //     moved/resized, the mouse moves, a button is pressed, etc.), a [`RequestUpdate`]
             //     event is received, or after 5 seconds if the app has not updated.
             //   * When not focused: the app will update when the window is directly interacted with
             //     (e.g. the mouse hovers over a visible part of the out of focus window), a
-            //     [`RequestRedraw`] event is received, or one minute has passed without the app
+            //     [`RequestUpdate`] event is received, or one minute has passed without the app
             //     updating.
             WinitSettings::desktop_app()
         }
-        ApplicationWithRequestRedraw => {
-            // Sending a `RequestRedraw` event is useful when you want the app to update the next
+        ApplicationWithRequestUpdate => {
+            // Sending a `RequestUpdate` event is useful when you want the app to update the next
             // frame regardless of any user input. For example, your application might use
             // `WinitSettings::desktop_app()` to reduce power use, but UI animations need to play even
             // when there are no inputs, so you send redraw requests while the animation is playing.
-            // Note that in this example the RequestRedraw winit event will make the app run in the same
+            // Note that in this example the RequestUpdate winit event will make the app run in the same
             // way as continuous
-            redraw_request_events.send(RequestRedraw);
+            request_update_events.send(RequestUpdate);
             WinitSettings::desktop_app()
         }
         ApplicationWithWakeUp => {
@@ -117,7 +117,7 @@ pub(crate) mod test_setup {
     use bevy::{
         color::palettes::basic::{LIME, YELLOW},
         prelude::*,
-        window::RequestRedraw,
+        window::RequestUpdate,
     };
 
     /// Switch between update modes when the mouse is clicked.
@@ -128,8 +128,8 @@ pub(crate) mod test_setup {
         if button_input.just_pressed(KeyCode::Space) {
             *mode = match *mode {
                 ExampleMode::Game => ExampleMode::Application,
-                ExampleMode::Application => ExampleMode::ApplicationWithRequestRedraw,
-                ExampleMode::ApplicationWithRequestRedraw => ExampleMode::ApplicationWithWakeUp,
+                ExampleMode::Application => ExampleMode::ApplicationWithRequestUpdate,
+                ExampleMode::ApplicationWithRequestUpdate => ExampleMode::ApplicationWithWakeUp,
                 ExampleMode::ApplicationWithWakeUp => ExampleMode::Game,
             };
         }
@@ -162,8 +162,8 @@ pub(crate) mod test_setup {
         let mode = match *mode {
             ExampleMode::Game => "game(), continuous, default",
             ExampleMode::Application => "desktop_app(), reactive",
-            ExampleMode::ApplicationWithRequestRedraw => {
-                "desktop_app(), reactive, RequestRedraw sent"
+            ExampleMode::ApplicationWithRequestUpdate => {
+                "desktop_app(), reactive, RequestUpdate sent"
             }
             ExampleMode::ApplicationWithWakeUp => "desktop_app(), reactive, WakeUp sent",
         };
@@ -176,7 +176,7 @@ pub(crate) mod test_setup {
         mut commands: Commands,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
-        mut event: EventWriter<RequestRedraw>,
+        mut event: EventWriter<RequestUpdate>,
     ) {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
@@ -192,7 +192,7 @@ pub(crate) mod test_setup {
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
-        event.send(RequestRedraw);
+        event.send(RequestUpdate);
         commands
             .spawn((
                 Text::default(),

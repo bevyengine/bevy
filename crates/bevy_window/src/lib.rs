@@ -108,7 +108,7 @@ impl Plugin for WindowPlugin {
             .add_event::<WindowClosed>()
             .add_event::<WindowCloseRequested>()
             .add_event::<WindowDestroyed>()
-            .add_event::<RequestRedraw>()
+            .add_event::<RequestUpdate>()
             .add_event::<CursorMoved>()
             .add_event::<CursorEntered>()
             .add_event::<CursorLeft>()
@@ -148,7 +148,7 @@ impl Plugin for WindowPlugin {
         #[cfg(feature = "bevy_reflect")]
         app.register_type::<WindowEvent>()
             .register_type::<WindowResized>()
-            .register_type::<RequestRedraw>()
+            .register_type::<RequestUpdate>()
             .register_type::<WindowCreated>()
             .register_type::<WindowCloseRequested>()
             .register_type::<WindowClosing>()

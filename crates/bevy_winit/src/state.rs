@@ -40,7 +40,7 @@ use winit::{
 };
 
 use bevy_window::{
-    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
+    AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestUpdate,
     UpdateSubAppOnWindowEvent, Window, WindowBackendScaleFactorChanged, WindowCloseRequested,
     WindowDestroyed, WindowEvent as BevyWindowEvent, WindowEventKind, WindowFocused, WindowMoved,
     WindowOccluded, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
@@ -538,22 +538,28 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         create_windows(event_loop, create_window.get_mut(self.world_mut()));
         create_window.apply(self.world_mut());
 
-        let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
+        let mut request_update_event_reader = EventCursor::<RequestUpdate>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
 
-        let mut redraw_requested = self
+        let main_update_requested_by_world = self
             .world()
-            .get_resource::<Events<RequestRedraw>>()
-            .map(|app_redraw_events| redraw_event_reader.read(app_redraw_events).last().is_some())
+            .get_resource::<Events<RequestUpdate>>()
+            .map(|app_update_events| {
+                request_update_event_reader
+                    .read(app_update_events)
+                    .last()
+                    .is_some()
+            })
             .unwrap_or_default();
 
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
 
         let (mut main_update_mode, mut render_update_mode) = config.update_mode(focused);
-        let mut should_update_main = self.should_update_main(main_update_mode);
+        let mut should_update_main =
+            self.should_update_main(main_update_mode, main_update_requested_by_world);
 
         if let Some(instant) = self.next_wait_till(main_update_mode, render_update_mode) {
             event_loop.set_control_flow(ControlFlow::WaitUntil(instant));
@@ -565,7 +571,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             self.startup_forced_updates -= 1;
             // Ensure that an update is triggered on the first iterations for app initialization
             should_update_main = true;
-            redraw_requested = true;
+            self.redraw_requested = true;
         }
 
         if self.lifecycle == AppLifecycle::WillSuspend {
@@ -593,7 +599,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             // Trigger the update to enter the running state
             should_update_main = true;
             // Trigger the next redraw to refresh the screen immediately
-            redraw_requested = true;
+            self.redraw_requested = true;
 
             #[cfg(target_os = "android")]
             {
@@ -654,9 +660,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             (main_update_mode, render_update_mode) = config.update_mode(focused);
         }
 
-        let mut should_update_render = redraw_requested
-            || self.redraw_requested
-            || self.should_update_render(render_update_mode);
+        let mut should_update_render =
+            self.redraw_requested || self.should_update_render(render_update_mode);
 
         // The update mode could have been changed, so we need to redraw and force an update
         if (main_update_mode, render_update_mode) != self.update_mode {
@@ -694,7 +699,11 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 }
 
 impl<T: Event> WinitAppRunnerState<T> {
-    fn should_update_main(&self, update_mode: MainUpdateMode) -> bool {
+    fn should_update_main(
+        &self,
+        update_mode: MainUpdateMode,
+        main_update_requested_by_world: bool,
+    ) -> bool {
         let handle_event = match update_mode {
             MainUpdateMode::Continuous => true,
             MainUpdateMode::Fixed(wait) => self.last_update_timestamp.elapsed() > wait,
@@ -714,6 +723,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                     || (react_to_device_events && self.device_event_received)
                     || (react_to_user_events && self.user_event_received)
                     || (react_to_window_events && self.window_event_received)
+                    || main_update_requested_by_world
             }
         };
 
@@ -864,7 +874,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                 BevyWindowEvent::Ime(e) => {
                     world.send_event(e);
                 }
-                BevyWindowEvent::RequestRedraw(e) => {
+                BevyWindowEvent::RequestUpdate(e) => {
                     world.send_event(e);
                 }
                 BevyWindowEvent::WindowBackendScaleFactorChanged(e) => {
