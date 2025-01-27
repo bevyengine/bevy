@@ -204,7 +204,7 @@ impl<'w> EntityWorldMut<'w> {
             }
             children_component.0.reserve(children.len());
             let mut v = children_component.0.split_off(index);
-            children_component.0.extend_from_slice(&children);
+            children_component.0.extend_from_slice(children);
             children_component.0.append(&mut v);
         } else {
             self.insert(Children(children.to_vec()));
