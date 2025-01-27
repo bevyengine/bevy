@@ -10,6 +10,7 @@ use crate::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
+    experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     prelude::Shader,
     primitives::Frustum,
@@ -109,9 +110,11 @@ impl Plugin for ViewPlugin {
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
+            .register_type::<OcclusionCulling>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Msaa>::default(),
+                ExtractComponentPlugin::<OcclusionCulling>::default(),
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));

@@ -4132,3 +4132,14 @@ name = "Clustered Decals"
 description = "Demonstrates clustered decals"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "occlusion_culling"
+path = "examples/3d/occlusion_culling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.occlusion_culling]
+name = "Occlusion Culling"
+description = "Demonstration of Occlusion Culling"
+category = "3D Rendering"
+wasm = false
