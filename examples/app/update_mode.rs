@@ -10,9 +10,9 @@ use std::f32::consts::TAU;
 
 use bevy::{
     prelude::*,
+    render::{Render, RenderApp},
     winit::{MainUpdateMode, RenderUpdateMode, WinitSettings},
 };
-use bevy_render::{Render, RenderApp};
 
 fn main() {
     let mut app = App::new();
