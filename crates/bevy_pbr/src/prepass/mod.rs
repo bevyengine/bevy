@@ -200,7 +200,6 @@ where
             .init_resource::<ViewPrepassSpecializationTicks>()
             .init_resource::<ViewKeyPrepassCache>()
             .init_resource::<SpecializedPrepassMaterialPipelineCache<M>>()
-            .init_resource::<EntitySpecializationTicks<M>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>()
             .add_render_command::<Opaque3dDeferred, DrawPrepass<M>>()
@@ -791,21 +790,6 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
                     (14, visibility_ranges_buffer.as_entire_binding()),
                 )),
             ));
-        }
-    }
-}
-
-#[derive(Clone, Resource, Debug)]
-pub struct EntitySpecializationTicks<M> {
-    pub entities: MainEntityHashMap<Tick>,
-    _marker: PhantomData<M>,
-}
-
-impl<M> Default for EntitySpecializationTicks<M> {
-    fn default() -> Self {
-        Self {
-            entities: MainEntityHashMap::default(),
-            _marker: Default::default(),
         }
     }
 }
