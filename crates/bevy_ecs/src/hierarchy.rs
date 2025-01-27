@@ -192,7 +192,11 @@ impl<'w> EntityWorldMut<'w> {
             panic!("Cannot insert entity as a child of itself.");
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
+
             children_component.0.retain(|value| !children.contains(value));
+            if index >= children_component.len() {
+                panic!("Index {} out of bounds! There are only {} children!", index, children.len());
+            }
             children_component.0.reserve(children.len());
             let mut v = children_component.0.split_off(index);
             children_component.0.extend_from_slice(&children);
