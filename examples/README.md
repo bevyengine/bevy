@@ -228,6 +228,7 @@ Example | Description
 [Headless Renderer](../examples/app/headless_renderer.rs) | An application that runs with no window, but renders into image file
 [Log layers](../examples/app/log_layers.rs) | Illustrate how to add custom log layers
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
+[Main & Render Update Mode](../examples/app/update_mode.rs) | Set different update modes for the main app and the renderer
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
