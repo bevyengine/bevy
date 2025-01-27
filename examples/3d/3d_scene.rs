@@ -6,7 +6,6 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, update_meshes)
         .run();
 }
 
@@ -42,5 +41,3 @@ fn setup(
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
-
-fn update_meshes(mut meshes: ResMut<Assets<Mesh>>, query: Query<(&Mesh3d)>) {}
