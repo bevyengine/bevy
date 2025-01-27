@@ -524,14 +524,14 @@ impl SubApps {
         for (label, sub_app) in self.sub_apps.iter_mut() {
             {
                 #[cfg(feature = "trace")]
-                let _sub_app_span = info_span!("extract sub app", name = ?_label).entered();
+                let _sub_app_span = info_span!("extract sub app", name = ?label).entered();
                 sub_app.extract(&mut self.main.world);
                 sub_app.finalize_extract();
             }
 
             if !only_extract.contains(label) {
                 #[cfg(feature = "trace")]
-                let _sub_app_span = info_span!("update sub app", name = ?_label).entered();
+                let _sub_app_span = info_span!("update sub app", name = ?label).entered();
                 sub_app.update();
             }
         }
