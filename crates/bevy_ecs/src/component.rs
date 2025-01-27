@@ -1124,7 +1124,7 @@ impl Default for ComponentCloneHandlers {
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Components {
     old_components: ComponentsData,
     /// this will only hold components with ids greater than or equal to `old_components`'s length.
@@ -1334,7 +1334,7 @@ impl Components {
         .0
     }
 
-    /// registers the component into the passed components, returning the ComponentId and its index
+    /// registers the component into the passed components, returning the [`ComponentId`] and its index
     #[inline]
     fn register_raw_component_inner(
         components: &mut Vec<ComponentInfo>,
@@ -1363,10 +1363,10 @@ impl Components {
             if new.new_components.len() <= index_in_new {
                 None
             } else {
-                Some(ComponentInfoRef::New {
+                Some(ComponentInfoRef::New(LockedComponentReference {
                     data: new,
                     index: index_in_new,
-                })
+                }))
             }
         } else {
             Some(ComponentInfoRef::Old(&self.old_components.components[id.0]))
@@ -1383,10 +1383,10 @@ impl Components {
         if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
             let new = self.new_components.read().unwrap();
             debug_assert!(new.new_components.len() > index_in_new);
-            ComponentInfoRef::New {
+            ComponentInfoRef::New(LockedComponentReference {
                 data: new,
                 index: index_in_new,
-            }
+            })
         } else {
             ComponentInfoRef::Old(&self.old_components.components[id.0])
         }
@@ -1939,10 +1939,13 @@ pub enum ComponentInfoRef<'a> {
     /// the requested data was registered a while ago.
     Old(&'a ComponentInfo),
     /// the requested data needs to be synchronized
-    New {
-        data: RwLockReadGuard<'a, NewComponents>,
-        index: usize,
-    },
+    New(LockedComponentReference<'a>),
+}
+
+/// A reference to a particular component's info, where the info lives in a locked [`NewComponents`]
+pub struct LockedComponentReference<'a> {
+    data: RwLockReadGuard<'a, NewComponents>,
+    index: usize,
 }
 
 impl Deref for ComponentInfoRef<'_> {
@@ -1951,16 +1954,9 @@ impl Deref for ComponentInfoRef<'_> {
     fn deref(&self) -> &Self::Target {
         match self {
             ComponentInfoRef::Old(info) => info,
-            ComponentInfoRef::New { data, index } => &data.new_components[*index],
-        }
-    }
-}
-
-impl Default for Components {
-    fn default() -> Self {
-        Self {
-            new_components: RwLock::default(),
-            old_components: ComponentsData::default(),
+            ComponentInfoRef::New(LockedComponentReference { data, index }) => {
+                &data.new_components[*index]
+            }
         }
     }
 }
@@ -2265,6 +2261,7 @@ impl Debug for RequiredComponents {
 }
 
 impl RequiredComponent {
+    /// Clones the requirement, adding 1 to the [`inheritance_depth`](Self::inheritance_depth).
     pub fn inherit(&self) -> Self {
         Self {
             constructor: self.constructor.clone(),

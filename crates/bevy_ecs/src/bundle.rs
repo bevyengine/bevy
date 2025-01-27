@@ -27,7 +27,6 @@ use bevy_utils::TypeIdMap;
 #[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
-use std::string::String;
 use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
@@ -405,7 +404,7 @@ impl BundleInfo {
             }
 
             // TODO: can improve this once https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html is stableized.
-            let mut names = String::new();
+            let mut names = alloc::string::String::new();
             let last_dupe = dups.len();
             for (index, id) in dups.into_iter().enumerate() {
                 names.push_str(
