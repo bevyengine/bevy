@@ -192,16 +192,20 @@ impl<'w> EntityWorldMut<'w> {
             panic!("Cannot insert entity as a child of itself.");
         }
         if let Some(mut children_component) = self.get_mut::<Children>() {
-
-            children_component.0.retain(|value| !children.contains(value));
+            children_component
+                .0
+                .retain(|value| !children.contains(value));
             if index >= children_component.len() {
-                panic!("Index {} out of bounds! There are only {} children!", index, children.len());
+                panic!(
+                    "Index {} out of bounds! There are only {} children!",
+                    index,
+                    children.len()
+                );
             }
             children_component.0.reserve(children.len());
             let mut v = children_component.0.split_off(index);
             children_component.0.extend_from_slice(&children);
             children_component.0.append(&mut v);
-
         } else {
             self.insert(Children(children.to_vec()));
         }
@@ -378,7 +382,6 @@ mod tests {
             )
         );
 
-
         // Removal
         world.entity_mut(child1).remove::<ChildOf>();
         let hierarchy = get_hierarchy(&world, root);
@@ -397,7 +400,6 @@ mod tests {
                 ]
             )
         );
-
 
         // Recursive Despawn
         world.entity_mut(root).despawn();
@@ -458,7 +460,15 @@ mod tests {
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
-            Node::new_with(root, vec![Node::new(child1), Node::new(child3), Node::new(child4), Node::new(child2)])
+            Node::new_with(
+                root,
+                vec![
+                    Node::new(child1),
+                    Node::new(child3),
+                    Node::new(child4),
+                    Node::new(child2)
+                ]
+            )
         );
     }
 
