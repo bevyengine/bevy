@@ -71,7 +71,7 @@ use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::query::QueryItem;
 use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
-use bevy_render::specialization::view::{SpecializeViewKey, SpecializeViewsPlugin};
+use bevy_render::specialization::view::{GetViewKey, SpecializeViewsPlugin};
 use bevy_render::specialization::NeedsSpecialization;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
@@ -296,7 +296,7 @@ impl Plugin for MeshRenderPlugin {
     }
 }
 
-impl SpecializeViewKey for MeshPipelineKey {
+impl GetViewKey for MeshPipelineKey {
     type QueryData = (
         Read<ExtractedView>,
         Read<Msaa>,

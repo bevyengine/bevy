@@ -1,12 +1,14 @@
 pub mod view;
 
 use crate::extract_resource::ExtractResource;
-use crate::render_resource::CachedRenderPipelineId;
-use crate::specialization::view::{SpecializeViewKey, ViewSpecializationTicks};
+use crate::mesh::RenderMesh;
+use crate::render_resource::{
+    CachedRenderPipelineId, PipelineCache, SpecializedMeshPipeline, SpecializedMeshPipelines,
+};
+use crate::specialization::view::{GetViewKey, ViewSpecializationTicks};
 use crate::sync_world::{MainEntity, MainEntityHashMap};
-use crate::view::VisibilitySystems;
 use crate::{Extract, ExtractSchedule, RenderApp};
-use bevy_app::{App, Last, Plugin, PostUpdate};
+use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::AssetEvents;
 use bevy_ecs::component::{Component, Tick};
 use bevy_ecs::entity::{Entity, EntityBorrow, EntityHash};
@@ -21,6 +23,7 @@ use bevy_reflect::Reflect;
 use bevy_utils::Parallel;
 use core::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+use tracing::error;
 
 pub struct CheckSpecializationPlugin<M>(PhantomData<M>);
 
@@ -52,6 +55,92 @@ where
     }
 }
 
+pub trait NeedsSpecialization: Component {
+    type ViewKey: GetViewKey;
+    type Pipeline: SpecializedMeshPipeline + Resource + Send + Sync + 'static;
+    type QueryData: ReadOnlyQueryData + 'static;
+    type QueryFilter: QueryFilter + 'static;
+
+    fn needs_specialization(item: ROQueryItem<'_, Self::QueryData>) -> bool;
+}
+
+
+#[derive(SystemParam)]
+pub struct SpecializePipelines<'w, M>
+where
+    M: NeedsSpecialization,
+    <<M as NeedsSpecialization>::Pipeline as SpecializedMeshPipeline>::Key: Send + Sync + 'static
+{
+    entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
+    view_specialization_ticks:
+        Res<'w, ViewSpecializationTicks<<M as NeedsSpecialization>::ViewKey>>,
+    specialized_material_pipeline_cache: ResMut<'w, SpecializedMaterialPipelineCache<M>>,
+    pipelines: ResMut<'w, SpecializedMeshPipelines<<M as NeedsSpecialization>::Pipeline>>,
+    pipeline: Res<'w, <M as NeedsSpecialization>::Pipeline>,
+    pipeline_cache: Res<'w, PipelineCache>,
+    ticks: SystemChangeTick,
+}
+
+impl<M> SpecializePipelines<'_, M>
+where
+    M: NeedsSpecialization,
+    <<M as NeedsSpecialization>::Pipeline as SpecializedMeshPipeline>::Key: Send + Sync + 'static
+{
+    pub fn needs_specialization(&self, view_entity: MainEntity, entity: MainEntity) -> bool {
+        let view_tick = self
+            .view_specialization_ticks
+            .entities
+            .get(&view_entity)
+            .expect("View entity not found in specialization ticks");
+        let entity_tick = self
+            .entity_specialization_ticks
+            .entities
+            .get(&entity)
+            .expect("Entity not found in specialization ticks");
+        let Some((last_specialized_tick, _)) = self
+            .specialized_material_pipeline_cache
+            .get(&(view_entity, entity))
+        else {
+            return true;
+        };
+
+        view_tick.is_newer_than(*last_specialized_tick, self.ticks.this_run())
+            || entity_tick.is_newer_than(*last_specialized_tick, self.ticks.this_run())
+    }
+    pub fn get_pipeline(
+        &self,
+        view_entity: MainEntity,
+        entity: MainEntity,
+    ) -> Option<CachedRenderPipelineId> {
+        self.specialized_material_pipeline_cache
+            .get(&(view_entity, entity))
+            .map(|(_, pipeline_id)| *pipeline_id)
+    }
+
+    pub fn specialize_pipeline(
+        &mut self,
+        (view_entity, visible_entity): (MainEntity, MainEntity),
+        key: <<M as NeedsSpecialization>::Pipeline as SpecializedMeshPipeline>::Key,
+        mesh: &RenderMesh,
+    ) {
+        let pipeline_id =
+            self.pipelines
+                .specialize(&self.pipeline_cache, &self.pipeline, key, &mesh.layout);
+        let pipeline_id = match pipeline_id {
+            Ok(id) => id,
+            Err(err) => {
+                error!("{}", err);
+                return;
+            }
+        };
+
+        self.specialized_material_pipeline_cache.insert(
+            (view_entity, visible_entity),
+            (self.ticks.this_run(), pipeline_id),
+        );
+    }
+}
+
 fn check_entities_needing_specialization<M>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut needs_specialization: Query<(Entity, M::QueryData), M::QueryFilter>,
@@ -70,6 +159,21 @@ fn check_entities_needing_specialization<M>(
     );
 
     thread_queues.drain_into(&mut entities_needing_specialization.entities);
+}
+
+pub fn extract_entities_needs_specialization<M>(
+    mut entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
+    ticks: SystemChangeTick,
+) where
+    M: NeedsSpecialization,
+{
+    for entity in &entities_needing_specialization.entities {
+        // Update the entity's specialization tick with this run's tick
+        entity_specialization_ticks
+            .entities
+            .insert((*entity).into(), ticks.this_run());
+    }
 }
 
 #[derive(Clone, Resource, Debug)]
@@ -100,88 +204,6 @@ impl<M> Default for EntitySpecializationTicks<M> {
             _marker: Default::default(),
         }
     }
-}
-
-#[derive(SystemParam)]
-pub struct SpecializedPipelines<'w, M>
-where
-    M: NeedsSpecialization,
-{
-    entity_specialization_ticks: Res<'w, EntitySpecializationTicks<M>>,
-    view_specialization_ticks:
-        Res<'w, ViewSpecializationTicks<<M as NeedsSpecialization>::ViewKey>>,
-    specialized_material_pipeline_cache: ResMut<'w, SpecializedMaterialPipelineCache<M>>,
-    ticks: SystemChangeTick,
-}
-
-impl<M> SpecializedPipelines<'_, M>
-where
-    M: NeedsSpecialization,
-{
-    pub fn needs_specialization(&self, view_entity: MainEntity, entity: MainEntity) -> bool {
-        let view_tick = self
-            .view_specialization_ticks
-            .entities
-            .get(&view_entity)
-            .expect("View entity not found in specialization ticks");
-        let entity_tick = self
-            .entity_specialization_ticks
-            .entities
-            .get(&entity)
-            .expect("Entity not found in specialization ticks");
-        let Some((last_specialized_tick, _)) = self
-            .specialized_material_pipeline_cache
-            .get(&(view_entity, entity))
-        else {
-            return true;
-        };
-
-        view_tick.is_newer_than(*last_specialized_tick, self.ticks.this_run())
-            || entity_tick.is_newer_than(*last_specialized_tick, self.ticks.this_run())
-    }
-
-    pub fn insert_pipeline(
-        &mut self,
-        view_entity: MainEntity,
-        entity: MainEntity,
-        pipeline_id: CachedRenderPipelineId,
-    ) {
-        self.specialized_material_pipeline_cache
-            .insert((view_entity, entity), (self.ticks.this_run(), pipeline_id));
-    }
-
-    pub fn get_pipeline(
-        &self,
-        view_entity: MainEntity,
-        entity: MainEntity,
-    ) -> Option<CachedRenderPipelineId> {
-        self.specialized_material_pipeline_cache
-            .get(&(view_entity, entity))
-            .map(|(_, pipeline_id)| *pipeline_id)
-    }
-}
-
-pub fn extract_entities_needs_specialization<M>(
-    mut entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
-    mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
-    ticks: SystemChangeTick,
-) where
-    M: NeedsSpecialization,
-{
-    for entity in &entities_needing_specialization.entities {
-        // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks
-            .entities
-            .insert((*entity).into(), ticks.this_run());
-    }
-}
-
-pub trait NeedsSpecialization: Component {
-    type ViewKey: SpecializeViewKey;
-    type QueryData: ReadOnlyQueryData + 'static;
-    type QueryFilter: QueryFilter + 'static;
-
-    fn needs_specialization(item: ROQueryItem<'_, Self::QueryData>) -> bool;
 }
 
 #[derive(Resource)]

@@ -37,7 +37,7 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::specialization::view::ViewKeyCache;
 use bevy_render::specialization::{
-    CheckSpecializationPlugin, NeedsSpecialization, SpecializedPipelines,
+    CheckSpecializationPlugin, NeedsSpecialization, SpecializePipelines,
 };
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
@@ -609,8 +609,13 @@ pub const fn screen_space_specular_transmission_pipeline_key(
     }
 }
 
-impl<M: Material> NeedsSpecialization for MeshMaterial3d<M> {
+impl<M> NeedsSpecialization for MeshMaterial3d<M>
+where
+    M: Material,
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
     type ViewKey = MeshPipelineKey;
+    type Pipeline = MaterialPipeline<M>;
     type QueryData = ();
     type QueryFilter = Or<(
         Changed<Mesh3d>,
@@ -689,9 +694,6 @@ fn extract_mesh_materials<M: Material>(
 /// For each view, iterates over all the meshes visible from that view and adds
 /// them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as appropriate.
 pub fn specialize_material_meshes<M: Material>(
-    material_pipeline: Res<MaterialPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_mesh_instances: Res<RenderMeshInstances>,
@@ -712,7 +714,7 @@ pub fn specialize_material_meshes<M: Material>(
     ),
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache<MeshPipelineKey>>,
-    mut specialized_piplines: SpecializedPipelines<MeshMaterial3d<M>>,
+    mut specialized_pipelines: SpecializePipelines<MeshMaterial3d<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -730,7 +732,7 @@ pub fn specialize_material_meshes<M: Material>(
         };
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            if !specialized_piplines.needs_specialization(*view_entity, *visible_entity) {
+            if !specialized_pipelines.needs_specialization(*view_entity, *visible_entity) {
                 continue;
             }
 
@@ -796,30 +798,13 @@ pub fn specialize_material_meshes<M: Material>(
                 }
             }
 
-            let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
-                &material_pipeline,
-                MaterialPipelineKey {
-                    mesh_key,
-                    bind_group_data: material_bind_group
-                        .get_extra_data(material.binding.slot)
-                        .clone(),
-                },
-                &mesh.layout,
-            );
-            let pipeline_id = match pipeline_id {
-                Ok(id) => id,
-                Err(err) => {
-                    error!("{}", err);
-                    continue;
-                }
+            let key = MaterialPipelineKey {
+                mesh_key,
+                bind_group_data: material_bind_group
+                    .get_extra_data(material.binding.slot)
+                    .clone(),
             };
-
-            specialized_piplines.insert_pipeline(
-                *view_entity,
-                *visible_entity,
-                pipeline_id,
-            );
+            specialized_pipelines.specialize_pipeline((*view_entity, *visible_entity), key, mesh);
         }
     }
 }
@@ -837,7 +822,7 @@ pub fn queue_material_meshes<M: Material>(
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
-    specialized_pipelines: SpecializedPipelines<MeshMaterial3d<M>>,
+    specialized_pipelines: SpecializePipelines<MeshMaterial3d<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {

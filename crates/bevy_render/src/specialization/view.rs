@@ -16,7 +16,7 @@ use crate::sync_world::{MainEntity, MainEntityHashMap};
 pub struct SpecializeViewsPlugin<VK>(PhantomData<VK>);
 
 impl<VK> Plugin for SpecializeViewsPlugin<VK>
-    where VK: SpecializeViewKey
+    where VK: GetViewKey
 {
     fn build(&self, app: &mut App) {}
 
@@ -39,11 +39,11 @@ impl <VK> Default for SpecializeViewsPlugin<VK> {
 #[derive(Resource, Deref, DerefMut, ExtractResource, Clone)]
 pub struct ViewKeyCache<VK>(MainEntityHashMap<VK>)
 where
-    VK: SpecializeViewKey;
+    VK: GetViewKey;
 
 impl<VK> Default for ViewKeyCache<VK>
 where
-    VK: SpecializeViewKey,
+    VK: GetViewKey,
 {
     fn default() -> Self {
         Self(MainEntityHashMap::default())
@@ -65,7 +65,7 @@ impl<VK> Default for ViewSpecializationTicks<VK> {
     }
 }
 
-pub trait SpecializeViewKey: PartialEq + Send + Sync + 'static {
+pub trait GetViewKey: PartialEq + Send + Sync + 'static {
     type QueryData: ReadOnlyQueryData + 'static;
 
     fn get_view_key<'w>(view_query: QueryItem<'w, Self::QueryData>) -> Self;
@@ -77,20 +77,18 @@ pub fn check_views_need_specialization<VK>(
     mut views: Query<(&MainEntity, VK::QueryData)>,
     ticks: SystemChangeTick,
 ) where
-    VK: SpecializeViewKey,
+    VK: GetViewKey,
 {
     for (view_entity, view_query) in views.iter_mut() {
         let view_key = VK::get_view_key(view_query);
         if let Some(current_key) = view_key_cache.get_mut(view_entity) {
             if *current_key != view_key {
-                println!("Specialize view: {:?}", view_entity);
                 view_key_cache.insert(*view_entity, view_key);
                 view_specialization_ticks
                     .entities
                     .insert(*view_entity, ticks.this_run());
             }
         } else {
-            println!("Specialize new view: {:?}", view_entity);
             view_key_cache.insert(*view_entity, view_key);
             view_specialization_ticks
                 .entities
