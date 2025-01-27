@@ -33,7 +33,7 @@ use core::{
     panic::Location,
 };
 use disqualified::ShortName;
-use std::sync::{RwLock, RwLockReadGuard};
+use std::sync::RwLock;
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
@@ -1084,11 +1084,11 @@ impl ComponentCloneHandlers {
     /// Sets a handler for a specific component.
     ///
     /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    pub fn set_component_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
-        if id.0 >= self.handlers.len() {
-            self.handlers.resize(id.0 + 1, None);
+    pub fn set_component_handler(&mut self, index: usize, handler: ComponentCloneHandler) {
+        if index >= self.handlers.len() {
+            self.handlers.resize(index + 1, None);
         }
-        self.handlers[id.0] = handler.0;
+        self.handlers[index] = handler.0;
     }
 
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
@@ -1125,35 +1125,27 @@ impl Default for ComponentCloneHandlers {
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Components {
-    old_components: RegisteredComponents,
-    new_components: RwLock<NewComponents>,
+    old_components: ComponentsData,
+    /// this will only hold components with ids greater than or equal to `old_components`'s length.
+    new_components: RwLock<ComponentsData>,
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
 #[derive(Debug, Default)]
-pub struct RegisteredComponents {
+pub struct ComponentsData {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     component_clone_handlers: ComponentCloneHandlers,
 }
 
-/// Stores [`RegisteredComponents`] for newly registered components. This is used primarily for registering components.
-#[derive(Debug)]
-pub struct NewComponents {
-    /// stores only the components newly registered and not moved out.
-    newly_registered: RegisteredComponents,
-    /// component ids greater or equal to this still live here
-    next_to_move: ComponentId,
-}
-
-impl Default for NewComponents {
+impl Default for Components {
     fn default() -> Self {
         Self {
-            newly_registered: RegisteredComponents::default(),
-            next_to_move: ComponentId(0),
+            new_components: RwLock::default(),
+            old_components: ComponentsData::default(),
         }
     }
 }
@@ -1183,40 +1175,36 @@ impl Components {
         }
 
         let mut new = self.new_components.write().unwrap();
-        let mut is_new_registration = false;
         let id = *{
             let type_id = TypeId::of::<T>();
-            let NewComponents {
-                newly_registered:
-                    RegisteredComponents {
-                        components,
-                        indices,
-                        ..
-                    },
-                next_to_move,
+            let ComponentsData {
+                components,
+                indices,
+                component_clone_handlers,
+                ..
             } = new.deref_mut();
             indices.entry(type_id).or_insert_with(|| {
-                let id = NewComponents::register_raw_component_inner(
+                let (id, index) = Self::register_raw_component_inner(
                     components,
-                    *next_to_move,
+                    self.old_components.len(),
                     ComponentDescriptor::new::<T>(),
                 );
-                is_new_registration = true;
+                let mut required_components = RequiredComponents::default();
+                T::register_required_components(
+                    id,
+                    self,
+                    &mut required_components,
+                    0,
+                    recursion_check_stack,
+                );
+                let info = &mut components[index];
+                T::register_component_hooks(&mut info.hooks);
+                info.required_components = required_components;
+                let clone_handler = T::get_component_clone_handler();
+                component_clone_handlers.set_component_handler(index, clone_handler);
                 id
             })
         };
-
-        if is_new_registration {
-            let mut required_components = RequiredComponents::default();
-            T::register_required_components(
-                id,
-                self,
-                &mut required_components,
-                0,
-                recursion_check_stack,
-            );
-            new.init_component::<T>(id, required_components);
-        }
         id
     }
 
@@ -1261,33 +1249,86 @@ impl Components {
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let mut new = self.new_components.write().unwrap();
-        let NewComponents {
-            newly_registered:
-                RegisteredComponents {
-                    components,
-                    resource_indices,
-                    ..
-                },
-            next_to_move,
+        let ComponentsData {
+            components,
+            resource_indices,
+            ..
         } = new.deref_mut();
         *resource_indices.entry(type_id).or_insert_with(|| {
             let descriptor = func();
-            NewComponents::register_raw_component_inner(components, *next_to_move, descriptor)
+            Self::register_raw_component_inner(components, self.old_components.len(), descriptor).0
         })
     }
-}
 
-impl RegisteredComponents {
-    /// Returns the number of components registered with this instance.
+    /// returns the total number of components registered through this instance
     #[inline]
     pub fn len(&self) -> usize {
-        self.components.len()
+        self.old_components.len() + self.new_components.read().unwrap().len()
     }
 
-    /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
+    /// Returns `true` if there are no registered components.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.components.len() == 0
+        self.old_components.is_empty() && self.new_components.read().unwrap().is_empty()
+    }
+
+    /// Registers a component described by `descriptor`.
+    ///
+    /// # Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
+    /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::register_component()`]
+    pub fn register_component_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        Self::register_raw_component_inner(
+            &mut self.new_components.write().unwrap().components,
+            self.old_components.len(),
+            descriptor,
+        )
+        .0
+    }
+
+    /// Registers a [`Resource`] described by `descriptor`.
+    ///
+    /// # Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
+    /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource()`]
+    pub fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        Self::register_raw_component_inner(
+            &mut self.new_components.write().unwrap().components,
+            self.old_components.len(),
+            descriptor,
+        )
+        .0
+    }
+
+    /// registers the component into the passed components, returning the ComponentId and its index
+    #[inline]
+    fn register_raw_component_inner(
+        components: &mut Vec<ComponentInfo>,
+        pre_components: usize,
+        descriptor: ComponentDescriptor,
+    ) -> (ComponentId, usize) {
+        let index = components.len();
+        let component_id = ComponentId(pre_components + index);
+        components.push(ComponentInfo::new(component_id, descriptor));
+        (component_id, index)
     }
 
     /// Gets the metadata associated with the given component.
@@ -1692,92 +1733,17 @@ impl RegisteredComponents {
     }
 }
 
-impl NewComponents {
-    /// returns the total number of components registered through this instance
-    #[inline]
-    pub fn total_registered(&self) -> usize {
-        self.newly_registered.len() + self.next_to_move.0
-    }
-
-    /// Returns the number of components *newly* registered with this instance.
+impl ComponentsData {
+    /// Returns the number of components registered with this instance.
     #[inline]
     pub fn len(&self) -> usize {
-        self.newly_registered.len()
+        self.components.len()
     }
 
-    /// Returns `true` if there are no *newly* registered components.
+    /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.newly_registered.is_empty()
-    }
-
-    /// Registers a component described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component()`]
-    pub fn register_component_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        Self::register_raw_component_inner(
-            &mut self.newly_registered.components,
-            self.next_to_move,
-            descriptor,
-        )
-    }
-
-    /// Registers a [`Resource`] described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource()`]
-    pub fn register_resource_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        Self::register_raw_component_inner(
-            &mut self.newly_registered.components,
-            self.next_to_move,
-            descriptor,
-        )
-    }
-
-    #[inline]
-    fn register_raw_component_inner(
-        components: &mut Vec<ComponentInfo>,
-        next_to_move: ComponentId,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        let component_id = ComponentId(next_to_move.0 + components.len());
-        components.push(ComponentInfo::new(component_id, descriptor));
-        component_id
-    }
-
-    fn init_component<T: Component>(
-        &mut self,
-        id: ComponentId,
-        required_components: RequiredComponents,
-    ) {
-        let info = &mut self.newly_registered.components[id.index()];
-        T::register_component_hooks(&mut info.hooks);
-        info.required_components = required_components;
-        let clone_handler = T::get_component_clone_handler();
-        self.newly_registered
-            .component_clone_handlers
-            .set_component_handler(id, clone_handler);
+        self.components.len() == 0
     }
 }
 
