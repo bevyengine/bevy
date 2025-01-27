@@ -32,7 +32,7 @@ fn main() {
             LogDiagnosticsPlugin::default(),
             LogVisibleLights,
         ))
-        .insert_resource(WinitSettings::continous_update())
+        .insert_resource(WinitSettings::continuous_update())
         .add_systems(Startup, setup)
         .add_systems(Update, (move_camera, print_light_count))
         .run();

@@ -75,7 +75,7 @@ pub struct SubApp {
     /// A function that gives mutable access to two app worlds. This is primarily
     /// intended for copying data from the main world to secondary worlds.
     extract: Option<ExtractFn>,
-    /// A function to finialize any changes made in the extract.
+    /// A function to finalize any changes made in the extract.
     /// This is always executed after the [`ExtractFn`].
     /// The main difference between this and extract is that extract often needs to
     /// run on the main thread to the facilitate extraction from the main world.

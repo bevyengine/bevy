@@ -43,7 +43,7 @@ fn main() {
                 ..default()
             }),
         ))
-        .insert_resource(WinitSettings::continous_update())
+        .insert_resource(WinitSettings::continuous_update())
         .add_systems(Startup, setup)
         .add_systems(
             Update,

@@ -76,7 +76,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings::continous_update())
+    .insert_resource(WinitSettings::continuous_update())
     .add_systems(Update, (button_system, set_text_colors_changed));
 
     app.add_systems(Startup, |mut commands: Commands| {

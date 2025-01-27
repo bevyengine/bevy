@@ -110,7 +110,7 @@ fn switch_update_modes(
                 },
             ),
             (
-                "Simulation (Continous, Fixed(6 FPS))",
+                "Simulation (Continuous, Fixed(6 FPS))",
                 WinitSettings {
                     focused_mode: (
                         MainUpdateMode::Continuous,

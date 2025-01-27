@@ -51,7 +51,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings::continous_update())
+    .insert_resource(WinitSettings::continuous_update())
     .add_systems(Startup, setup);
 
     if args.recompute_text {

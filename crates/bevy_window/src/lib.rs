@@ -224,7 +224,7 @@ impl UpdateSubAppOnWindowEvent {
         self
     }
 
-    /// Gets the labels for the [`SubApp`]s to execture on a [`WindowEvent`] with the given
+    /// Gets the labels for the [`SubApp`]s to execute on a [`WindowEvent`] with the given
     /// event_kind.
     pub fn get_app_labels(
         &self,

@@ -76,8 +76,8 @@ impl WinitSettings {
         }
     }
 
-    /// Setting for continous update of the application
-    pub fn continous_update() -> Self {
+    /// Setting for continuous update of the application
+    pub fn continuous_update() -> Self {
         WinitSettings {
             focused_mode: (MainUpdateMode::Continuous, RenderUpdateMode::Continuous),
             unfocused_mode: (MainUpdateMode::Continuous, RenderUpdateMode::Continuous),
@@ -120,7 +120,7 @@ pub enum MainUpdateMode {
     /// present rate (framerate) of the window.
     OnEachFrame {
         /// A floor on the time that needs to pass before the main [`SubApp`](bevy_app::SubApp) is
-        /// updated. It can be set to 1.0 / TPS to achive a desired upper bound on the TPS.
+        /// updated. It can be set to 1.0 / TPS to achieve a desired upper bound on the TPS.
         min_ticktime: Option<Duration>,
     },
     /// The main [`SubApp`](bevy_app::SubApp) will update in response to the following, until an
@@ -191,7 +191,7 @@ pub enum RenderUpdateMode {
     /// [`MainUpdateMode`].
     OnEachMainUpdate {
         /// A floor on the time that needs to pass before the render [`SubApp`](bevy_app::SubApp) is
-        /// updated. It can be set to 1.0 / FPS to achive a desired upper bound on the FPS.
+        /// updated. It can be set to 1.0 / FPS to achieve a desired upper bound on the FPS.
         min_frametime: Option<Duration>,
     },
 }

@@ -145,7 +145,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings::continous_update())
+        .insert_resource(WinitSettings::continuous_update())
         .insert_resource(args)
         .insert_resource(BevyCounter {
             count: 0,

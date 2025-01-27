@@ -99,7 +99,7 @@ impl Debug for App {
 }
 
 /// Tracks which [`SubApp`] don't want to be updated in the [`App::update`].
-/// These [`SubApp`]s will still exectute their extract method on [`App::update`].
+/// These [`SubApp`]s will still execute their extract method on [`App::update`].
 #[derive(Default, Resource)]
 pub struct DontUpdateOnUpdate(HashSet<InternedAppLabel>);
 
