@@ -80,7 +80,7 @@ use variadics_please::all_tuples;
     label = "invalid `Query` filter",
     note = "a `QueryFilter` typically uses a combination of `With<T>` and `Without<T>` statements"
 )]
-pub unsafe trait QueryFilter<S: Sendability = SendMarker>: WorldQuery<S> {
+pub unsafe trait QueryFilter: WorldQuery {
     /// Returns true if (and only if) this Filter relies strictly on archetypes to limit which
     /// components are accessed by the Query.
     ///
@@ -139,7 +139,7 @@ pub struct With<T>(PhantomData<T>);
 /// This is sound because `fetch` does not access any components.
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
-unsafe impl<T: Component, S: Sendability> WorldQuery<S> for With<T> {
+unsafe impl<T: Component> WorldQuery for With<T> {
     type Item<'w> = ();
     type Fetch<'w> = ();
     type State = ComponentId;
@@ -149,7 +149,7 @@ unsafe impl<T: Component, S: Sendability> WorldQuery<S> for With<T> {
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     #[inline]
-    unsafe fn init_fetch(
+    unsafe fn init_fetch<S: Sendability>(
         _world: UnsafeWorldCell<S>,
         _state: &ComponentId,
         _last_run: Tick,
@@ -206,7 +206,7 @@ unsafe impl<T: Component, S: Sendability> WorldQuery<S> for With<T> {
 }
 
 // SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component, S: Sendability> QueryFilter<S> for With<T> {
+unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -250,7 +250,7 @@ pub struct Without<T>(PhantomData<T>);
 /// This is sound because `fetch` does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
-unsafe impl<T: Component, S: Sendability> WorldQuery<S> for Without<T> {
+unsafe impl<T: Component> WorldQuery for Without<T> {
     type Item<'w> = ();
     type Fetch<'w> = ();
     type State = ComponentId;
@@ -317,7 +317,7 @@ unsafe impl<T: Component, S: Sendability> WorldQuery<S> for Without<T> {
 }
 
 // SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component, S: Sendability> QueryFilter<S> for Without<T> {
+unsafe impl<T: Component> QueryFilter<S> for Without<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]
@@ -905,7 +905,7 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
 /// This is sound because `update_component_access` add read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
-unsafe impl<T: Component, S: Sendability> WorldQuery<S> for Changed<T> {
+unsafe impl<T: Component> WorldQuery for Changed<T> {
     type Item<'w> = bool;
     type Fetch<'w> = ChangedFetch<'w, T>;
     type State = ComponentId;

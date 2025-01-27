@@ -7,7 +7,7 @@ use crate::{
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{
-        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, SendMarker, Sendability, World
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut, FilteredEntityRef, Mut, Ref, World
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
@@ -274,9 +274,9 @@ use variadics_please::all_tuples;
     label = "invalid `Query` data",
     note = "if `{Self}` is a component type, try using `&{Self}` or `&mut {Self}`"
 )]
-pub unsafe trait QueryData<S: Sendability = SendMarker>: WorldQuery<S> {
+pub unsafe trait QueryData: WorldQuery {
     /// The read-only variant of this [`QueryData`], which satisfies the [`ReadOnlyQueryData`] trait.
-    type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery<S>>::State>;
+    type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 }
 
 /// A [`QueryData`] that is read only.
@@ -284,12 +284,12 @@ pub unsafe trait QueryData<S: Sendability = SendMarker>: WorldQuery<S> {
 /// # Safety
 ///
 /// This must only be implemented for read-only [`QueryData`]'s.
-pub unsafe trait ReadOnlyQueryData<S: Sendability = SendMarker>: QueryData<ReadOnly = Self, S> {}
+pub unsafe trait ReadOnlyQueryData: QueryData<ReadOnly = Self> {}
 
 /// The item type returned when a [`WorldQuery`] is iterated over
-pub type QueryItem<'w, Q, S: Sendability = SendMarker> = <Q as WorldQuery<S>>::Item<'w>;
+pub type QueryItem<'w, Q> = <Q as WorldQuery>::Item<'w>;
 /// The read-only variant of the item type returned when a [`QueryData`] is iterated over immutably
-pub type ROQueryItem<'w, D, S: Sendability = SendMarker> = QueryItem<'w, <D as QueryData<S>>::ReadOnly, S>;
+pub type ROQueryItem<'w, D> = QueryItem<'w, <D as QueryData>::ReadOnly>;
 
 /// SAFETY:
 /// `update_component_access` and `update_archetype_component_access` do nothing.

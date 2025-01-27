@@ -42,7 +42,7 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
-    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState, WorldQuery},
+    query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     result::Result,

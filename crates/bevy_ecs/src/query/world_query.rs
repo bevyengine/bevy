@@ -4,7 +4,7 @@ use crate::{
     entity::Entity,
     query::FilteredAccess,
     storage::{Table, TableRow},
-    world::{unsafe_world_cell::UnsafeWorldCell, SendMarker, Sendability, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
 
@@ -38,7 +38,7 @@ use variadics_please::all_tuples;
 /// [`update_component_access`]: Self::update_component_access
 /// [`QueryData`]: crate::query::QueryData
 /// [`QueryFilter`]: crate::query::QueryFilter
-pub unsafe trait WorldQuery<S: Sendability = SendMarker> {
+pub unsafe trait WorldQuery {
     /// The item returned by this [`WorldQuery`]
     /// For `QueryData` this will be the item returned by the query.
     /// For `QueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
@@ -69,7 +69,7 @@ pub unsafe trait WorldQuery<S: Sendability = SendMarker> {
     /// - `world` must have the **right** to access any access registered in `update_component_access`.
     /// - There must not be simultaneous resource access conflicting with readonly resource access registered in [`WorldQuery::update_component_access`].
     unsafe fn init_fetch<'w>(
-        world: UnsafeWorldCell<'w, S>,
+        world: UnsafeWorldCell<'w>,
         state: &Self::State,
         last_run: Tick,
         this_run: Tick,

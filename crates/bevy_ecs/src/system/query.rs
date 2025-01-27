@@ -373,15 +373,15 @@ use core::{
 /// [`Table`]: crate::storage::Table
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
-pub struct Query<'world, 'state, D: QueryData<S>, F: QueryFilter<S> = (), S: Sendability = SendMarker> {
+pub struct Query<'world, 'state, D: QueryData, F: QueryFilter = ()> {
     // SAFETY: Must have access to the components registered in `state`.
-    world: UnsafeWorldCell<'world, S>,
-    state: &'state QueryState<D, F, S>,
+    world: UnsafeWorldCell<'world>,
+    state: &'state QueryState<D, F>,
     last_run: Tick,
     this_run: Tick,
 }
 
-impl<D: QueryData<S>, F: QueryFilter<S>, S: Sendability> core::fmt::Debug for Query<'_, '_, D, F, S> {
+impl<D: QueryData, F: QueryFilter<S>, S: Sendability> core::fmt::Debug for Query<'_, '_, D, F, S> {
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_struct("Query")
             .field("matched_entities", &self.iter().count())
