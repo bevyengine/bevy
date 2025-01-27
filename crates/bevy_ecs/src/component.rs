@@ -1799,6 +1799,40 @@ impl Components {
             }
         }
     }
+
+    /// Cleans the components up, accelerating read-only access.
+    pub fn clean(&mut self) -> &mut ComponentsData {
+        let new = self.new_components.get_mut().unwrap();
+
+        self.old_components
+            .components
+            .append(&mut new.new_components);
+        self.old_components.indices.extend(new.indices.drain());
+        self.old_components
+            .resource_indices
+            .extend(new.resource_indices.drain());
+        for (component, handler) in new.component_clone_handlers.drain() {
+            self.old_components
+                .component_clone_handlers
+                .set_component_handler(component, ComponentCloneHandler(Some(handler)));
+        }
+        for (component, additional) in new.additional_required.drain() {
+            let required = &mut self.old_components.components[component.0].required_components;
+            for additional in additional.0 {
+                if required.0.contains_key(&additional.0) {
+                    // in theory, this should never happen.
+                    panic!("A required component was registered that should have been marked as a duplicate.");
+                }
+                required.0.insert(additional.0, additional.1);
+            }
+        }
+        for (component, additional) in new.additional_required_by.drain() {
+            let required = &mut self.old_components.components[component.0].required_by;
+            required.extend(additional.into_iter());
+        }
+
+        &mut self.old_components
+    }
 }
 
 impl NewComponents {
@@ -1889,6 +1923,12 @@ impl ComponentsData {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.components.len() == 0
+    }
+
+    /// Gives mutable access to clone handlers
+    #[inline]
+    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
+        &mut self.component_clone_handlers
     }
 }
 

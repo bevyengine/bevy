@@ -2940,6 +2940,12 @@ impl World {
         self.flush_commands();
     }
 
+    /// Functionally, this does nothing. However, cleaning can improve performance by re-aranging data, so this should be done periodically.
+    #[inline]
+    pub fn clean(&mut self) {
+        self.components.clean();
+    }
+
     /// Increments the world's current change tick and returns the old value.
     ///
     /// If you need to call this method, but do not have `&mut` access to the world,
@@ -3201,7 +3207,7 @@ impl World {
     ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
     /// ```
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        self.components.get_component_clone_handlers_mut()
+        self.components.clean().get_component_clone_handlers_mut()
     }
 }
 
