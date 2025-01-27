@@ -53,7 +53,8 @@ impl<T: TrustedEntityBorrow> UniqueEntityVec<T> {
     /// It must be safe to call [`Vec::from_raw_parts`] with these inputs,
     /// and the resulting [`Vec`] must only contain unique elements.
     pub unsafe fn from_raw_parts(ptr: *mut T, length: usize, capacity: usize) -> Self {
-        Self(Vec::from_raw_parts(ptr, length, capacity))
+        // SAFETY: Caller ensures it's safe to call `Vec::from_raw_parts`
+        Self(unsafe { Vec::from_raw_parts(ptr, length, capacity) })
     }
 
     /// Constructs a `UniqueEntityVec` from a [`Vec<T>`] unsafely.
@@ -171,7 +172,8 @@ impl<T: TrustedEntityBorrow> UniqueEntityVec<T> {
     /// It must be safe to call [`Vec::set_len`] with these inputs,
     /// and the resulting [`Vec`] must only contain unique elements.
     pub unsafe fn set_len(&mut self, new_len: usize) {
-        self.0.set_len(new_len);
+        // SAFETY: Caller ensures it's safe to call `Vec::set_len`
+        unsafe { self.0.set_len(new_len) };
     }
 
     /// Removes an element from the vector and returns it.
@@ -191,6 +193,14 @@ impl<T: TrustedEntityBorrow> UniqueEntityVec<T> {
     /// No `T` contained by `self` may equal `element`.
     pub unsafe fn insert(&mut self, index: usize, element: T) {
         self.0.insert(index, element);
+    }
+
+    /// Removes and returns the element at position `index` within the vector,
+    /// shifting all elements after it to the left.
+    ///
+    /// Equivalent to [`Vec::remove`].
+    pub fn remove(&mut self, index: usize) -> T {
+        self.0.remove(index)
     }
 
     /// Retains only the elements specified by the predicate.
@@ -624,7 +634,7 @@ impl<T: TrustedEntityBorrow> FromIterator<T> for UniqueEntityVec<T> {
         let iter = iter.into_iter();
         let unique_vec = Self::with_capacity(iter.size_hint().0);
         iter.fold(unique_vec, |mut unique_vec, item| {
-            if unique_vec.0.iter().all(|e| e.entity().ne(&item.entity())) {
+            if !unique_vec.0.contains(&item) {
                 unique_vec.0.push(item);
             }
             unique_vec
@@ -649,7 +659,7 @@ impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
         };
         self.reserve(reserve);
         iter.for_each(move |item| {
-            if self.0.iter().all(|e| e.entity().ne(&item.entity())) {
+            if !self.0.contains(&item) {
                 self.0.push(item);
             }
         });
@@ -666,7 +676,7 @@ impl<'a, T: TrustedEntityBorrow + Copy + 'a> Extend<&'a T> for UniqueEntityVec<T
         };
         self.reserve(reserve);
         iter.for_each(move |item| {
-            if self.0.iter().all(|e| e.entity().ne(&item.entity())) {
+            if !self.0.contains(item) {
                 self.0.push(*item);
             }
         });
