@@ -135,7 +135,7 @@ pub unsafe trait WorldQuery {
 /// A wrapper type around a data query `D` which will return the queried [`Entity`]
 /// alongside the results from `D`.
 ///
-/// This convenience wrapper can be used by calling [`QueryIter::include_entity`] on
+/// This convenience wrapper can be used by calling [`super::iter::QueryIter::include_entity`] on
 /// an iterator returned from `[Query::iter()]` or `[Query::iter_mut()]`.
 ///
 /// Unlike `(Entity, D)`, the type `IncludeEntity<D>` is guaranteed to have identical
