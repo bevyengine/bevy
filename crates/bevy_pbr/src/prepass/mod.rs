@@ -1087,12 +1087,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut alpha_mask_prepass_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
     mut opaque_deferred_render_phases: ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
     mut alpha_mask_deferred_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities, &Msaa, Has<DeferredPrepass>)>,
+    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: Res<SpecializedPrepassMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view_entity, extracted_view, visible_entities, msaa, has_deferred_prepass) in &views {
+    for (view_entity, extracted_view, visible_entities) in &views {
         let (
             mut opaque_phase,
             mut alpha_mask_phase,
@@ -1132,12 +1132,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
             };
             let (vertex_slab, index_slab) = mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
-            let forward = match material.properties.render_method {
-                OpaqueRendererMethod::Forward => true,
-                OpaqueRendererMethod::Deferred => false,
+            let deferred = match material.properties.render_method {
+                OpaqueRendererMethod::Forward => false,
+                OpaqueRendererMethod::Deferred => true,
                 OpaqueRendererMethod::Auto => unreachable!(),
             };
-            let deferred = has_deferred_prepass && !forward;
 
             match material.properties.render_phase_type {
                 RenderPhaseType::Opaque => {

@@ -325,11 +325,18 @@ where
                 );
 
             if self.shadows_enabled {
-                render_app.add_systems(
+                render_app
+                    .init_resource::<LightKeyCache>()
+                    .init_resource::<LightSpecializationTicks>()
+                    .init_resource::<SpecializedShadowMaterialPipelineCache<M>>()
+                    .add_systems(
                     Render,
+                    (specialize_shadows::<M>
+                        .in_set(RenderSet::PrepareAssets)
+                        .after(prepare_assets::<PreparedMaterial<M>>),
                     queue_shadows::<M>
                         .in_set(RenderSet::QueueMeshes)
-                        .after(prepare_assets::<PreparedMaterial<M>>),
+                        .after(prepare_assets::<PreparedMaterial<M>>)),
                 );
             }
 
@@ -1110,12 +1117,6 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         let reads_view_transmission_texture =
             mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
 
-        let forward = match render_method {
-            OpaqueRendererMethod::Forward => true,
-            OpaqueRendererMethod::Deferred => false,
-            OpaqueRendererMethod::Auto => unreachable!(),
-        };
-
         let render_phase_type = match material.alpha_mode() {
             AlphaMode::Opaque => {
                 if reads_view_transmission_texture {
@@ -1127,17 +1128,15 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             AlphaMode::Mask(_) => {
                 if reads_view_transmission_texture {
                     RenderPhaseType::Transmissive
-                } else if forward {
-                    RenderPhaseType::AlphaMask
                 } else {
-                    panic!("Invalid alpha mask configuration");
+                    RenderPhaseType::AlphaMask
                 }
             }
             AlphaMode::AlphaToCoverage => {
-                if !forward {
-                    RenderPhaseType::Opaque
+                if reads_view_transmission_texture {
+                    RenderPhaseType::Transmissive
                 } else {
-                    RenderPhaseType::AlphaMask
+                    RenderPhaseType::Opaque
                 }
             }
             AlphaMode::Blend
