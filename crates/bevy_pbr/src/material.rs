@@ -39,6 +39,7 @@ use bevy_render::specialization::view::ViewKeyCache;
 use bevy_render::specialization::{
     MeshMaterialSpecializationPlugin, NeedsSpecialization, SpecializePipelines,
 };
+use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     camera::TemporalJitter,
@@ -337,14 +338,17 @@ where
                     .init_resource::<LightSpecializationTicks>()
                     .init_resource::<SpecializedShadowMaterialPipelineCache<M>>()
                     .add_systems(
-                    Render,
-                    (specialize_shadows::<M>
-                        .in_set(RenderSet::PrepareAssets)
-                        .after(prepare_assets::<PreparedMaterial<M>>),
-                    queue_shadows::<M>
-                        .in_set(RenderSet::QueueMeshes)
-                        .after(prepare_assets::<PreparedMaterial<M>>)),
-                );
+                        Render,
+                        (
+                            check_views_lights_need_specialization.in_set(PrepareAssets),
+                            specialize_shadows::<M>
+                                .in_set(RenderSet::PrepareAssets)
+                                .after(prepare_assets::<PreparedMaterial<M>>),
+                            queue_shadows::<M>
+                                .in_set(RenderSet::QueueMeshes)
+                                .after(prepare_assets::<PreparedMaterial<M>>),
+                        ),
+                    );
             }
 
             #[cfg(feature = "meshlet")]
@@ -1100,11 +1104,15 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
-        let draw_opaque_prepass = opaque_prepass_draw_functions.read().get_id::<DrawPrepass<M>>();
+        let draw_opaque_prepass = opaque_prepass_draw_functions
+            .read()
+            .get_id::<DrawPrepass<M>>();
         let draw_alpha_mask_prepass = alpha_mask_prepass_draw_functions
             .read()
             .get_id::<DrawPrepass<M>>();
-        let draw_opaque_deferred = opaque_deferred_draw_functions.read().get_id::<DrawPrepass<M>>();
+        let draw_opaque_deferred = opaque_deferred_draw_functions
+            .read()
+            .get_id::<DrawPrepass<M>>();
         let draw_alpha_mask_deferred = alpha_mask_deferred_draw_functions
             .read()
             .get_id::<DrawPrepass<M>>();
@@ -1146,11 +1154,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                     RenderPhaseType::Opaque
                 }
             }
-            AlphaMode::Blend
-            | AlphaMode::Premultiplied
-            | AlphaMode::Add
-            | AlphaMode::Multiply
-            => RenderPhaseType::Transparent,
+            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
+                RenderPhaseType::Transparent
+            }
         };
 
         let draw_function_id = match render_phase_type {

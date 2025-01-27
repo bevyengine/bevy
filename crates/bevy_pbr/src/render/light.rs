@@ -1651,16 +1651,14 @@ impl<M> DerefMut for SpecializedShadowMaterialPipelineCache<M> {
     }
 }
 
-pub fn check_views_lights_need_specialization<VK>(
+pub fn check_views_lights_need_specialization(
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut light_key_cache: ResMut<LightKeyCache>,
     mut light_specialization_ticks: ResMut<LightSpecializationTicks>,
     ticks: SystemChangeTick,
-) where
-    VK: GetViewKey,
-{
+) {
     for (entity, view_lights) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
@@ -1733,7 +1731,7 @@ pub fn specialize_shadows<M: Material>(
             if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
                 continue;
             }
-            let Some(light_key) = light_key_cache.get(&entity) else {
+            let Some(light_key) = light_key_cache.get(&view_light_entity) else {
                 continue;
             };
 
