@@ -100,7 +100,7 @@ pub fn ui_layout_system(
     ui_scale: Res<UiScale>,
     target_query: Query<(Entity, &ResolvedTargetCamera)>,
     mut ui_surface: ResMut<UiSurface>,
-    root_nodes: UiRootNodes,
+    ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
@@ -198,28 +198,24 @@ with UI components as a child of an entity without UI components, your UI layout
         }
     });
 
-    for (camera_id, mut camera) in camera_layout_info.drain() {
-        let inverse_target_scale_factor = camera.scale_factor.recip();
+    for ui_root_entity in ui_root_node_query.iter() {
+        let (_, _, _, target_size, target_scale_factor) = node_query.get(ui_root_entity).unwrap();
 
-        ui_surface.compute_camera_layout(camera_id, camera.size, text_buffers, &mut font_system);
+        // this needs to be changed to use root id
+        ui_surface.compute_camera_layout(camera_id, target_size.0, text_buffers, &mut font_system);
 
-        for root in &camera.root_nodes {
-            update_uinode_geometry_recursive(
-                &mut commands,
-                *root,
-                &mut ui_surface,
-                true,
-                None,
-                &mut node_transform_query,
-                &ui_children,
-                inverse_target_scale_factor,
-                Vec2::ZERO,
-                Vec2::ZERO,
-            );
-        }
-
-        camera.root_nodes.clear();
-        interned_root_nodes.push(camera.root_nodes);
+        update_uinode_geometry_recursive(
+            &mut commands,
+            ui_root_entity,
+            &mut ui_surface,
+            true,
+            None,
+            &mut node_transform_query,
+            &ui_children,
+            target_scale_factor.0.recip(),
+            Vec2::ZERO,
+            Vec2::ZERO,
+        );
     }
 
     // Returns the combined bounding box of the node and any of its overflowing children.

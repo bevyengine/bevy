@@ -144,11 +144,7 @@ impl UiSurface {
     }
 
     /// Sets the ui root node entities as children to the root node in the taffy layout.
-    pub fn set_camera_children(
-        &mut self,
-        camera_id: Entity,
-        children: impl Iterator<Item = Entity>,
-    ) {
+    pub fn set_root_children(&mut self, camera_id: Entity, children: impl Iterator<Item = Entity>) {
         let viewport_style = taffy::style::Style {
             display: taffy::style::Display::Grid,
             // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
@@ -385,7 +381,7 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 1);
 
         // assign root node to camera
-        ui_surface.set_camera_children(camera_entity, vec![root_node_entity].into_iter());
+        ui_surface.set_root_children(camera_entity, vec![root_node_entity].into_iter());
 
         // each root node will create 2 taffy nodes
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
@@ -439,7 +435,7 @@ mod tests {
         ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         // assign root node to camera
-        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+        ui_surface.set_root_children(camera_entity, [root_node_entity].into_iter());
 
         assert_eq!(
             get_associated_camera_entity(&ui_surface, root_node_entity),
@@ -477,7 +473,7 @@ mod tests {
         ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
         // assign root node to camera
-        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+        ui_surface.set_root_children(camera_entity, [root_node_entity].into_iter());
 
         assert!(ui_surface
             .camera_entity_to_taffy
@@ -528,7 +524,7 @@ mod tests {
 
         ui_surface.upsert_node(&LayoutContext::TEST_CONTEXT, root_node_entity, &node, None);
 
-        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+        ui_surface.set_root_children(camera_entity, [root_node_entity].into_iter());
 
         assert!(ui_surface.entity_to_taffy.contains_key(&root_node_entity));
         assert!(ui_surface
@@ -622,7 +618,7 @@ mod tests {
             .add_child(root_taffy_node, child_taffy)
             .unwrap();
 
-        ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
+        ui_surface.set_root_children(camera_entity, [root_node_entity].into_iter());
 
         assert!(
             ui_surface
@@ -658,7 +654,7 @@ mod tests {
         );
 
         // clear camera's root nodes
-        ui_surface.set_camera_children(camera_entity, Vec::<Entity>::new().into_iter());
+        ui_surface.set_root_children(camera_entity, Vec::<Entity>::new().into_iter());
 
         return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
 
@@ -691,7 +687,7 @@ mod tests {
         );
 
         // re-associate root node with camera
-        ui_surface.set_camera_children(camera_entity, vec![root_node_entity].into_iter());
+        ui_surface.set_root_children(camera_entity, vec![root_node_entity].into_iter());
 
         assert!(
             ui_surface
