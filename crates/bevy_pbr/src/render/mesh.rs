@@ -1811,7 +1811,8 @@ bitflags::bitflags! {
         const HAS_PREVIOUS_MORPH                = 1 << 19;
         const OIT_ENABLED                       = 1 << 20;
         const DISTANCE_FOG                      = 1 << 21;
-        const LAST_FLAG                         = Self::DISTANCE_FOG.bits();
+        const INVERT_CULLING                    = 1 << 22;
+        const LAST_FLAG                         = Self::INVERT_CULLING.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;

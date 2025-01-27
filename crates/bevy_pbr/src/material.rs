@@ -784,6 +784,10 @@ pub fn queue_material_meshes<M: Material>(
             view_key |= MeshPipelineKey::OIT_ENABLED;
         }
 
+        if view.invert_culling {
+            view_key |= MeshPipelineKey::INVERT_CULLING;
+        }
+
         if let Some(projection) = projection {
             view_key |= match projection {
                 Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,

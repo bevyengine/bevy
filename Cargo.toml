@@ -4132,3 +4132,13 @@ name = "Clustered Decals"
 description = "Demonstrates clustered decals"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "mirror"
+path = "examples/3d/mirror.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mirror]
+name = "Mirror"
+description = "Demonstrates how to create a mirror"
+category = "3D Rendering"
