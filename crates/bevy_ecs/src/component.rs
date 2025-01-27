@@ -817,12 +817,6 @@ impl ComponentInfo {
     pub fn hooks(&self) -> &ComponentHooks {
         &self.hooks
     }
-
-    /// Retrieves the [`RequiredComponents`] collection, which contains all required components (and their constructors)
-    /// needed by this component. This includes _recursive_ required components.
-    pub fn required_components(&self) -> &RequiredComponents {
-        &self.required_components
-    }
 }
 
 /// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
@@ -1705,7 +1699,7 @@ impl<'a> ComponentsLock<'a> {
         // SAFETY: The caller ensures that the `required` component is valid.
         let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
         let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = required_component_info
-            .required_components()
+            .required_components
             .0
             .iter()
             .map(|(component_id, required_component)| {
@@ -1791,7 +1785,7 @@ impl<'a> ComponentsLock<'a> {
         let required: Vec<(ComponentId, RequiredComponent)> = self
             .get_info(required)
             .unwrap()
-            .required_components()
+            .required_components
             .0
             .iter()
             .map(|(id, component)| (*id, component.clone()))
@@ -1989,13 +1983,13 @@ impl Components {
             if new.new_components.len() <= index_in_new {
                 None
             } else {
-                Some(ComponentInfoRef::New(LockedComponentReference {
+                Some(ComponentInfoRef::Staged(LockedComponentReference {
                     data: new,
                     index: index_in_new,
                 }))
             }
         } else {
-            Some(ComponentInfoRef::Old(&self.cold.components[id.0]))
+            Some(ComponentInfoRef::Stored(&self.cold.components[id.0]))
         }
     }
 
@@ -2009,12 +2003,34 @@ impl Components {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
             let new = self.staged.read().unwrap();
             debug_assert!(new.new_components.len() > index_in_new);
-            ComponentInfoRef::New(LockedComponentReference {
+            ComponentInfoRef::Staged(LockedComponentReference {
                 data: new,
                 index: index_in_new,
             })
         } else {
-            ComponentInfoRef::Old(&self.cold.components[id.0])
+            ComponentInfoRef::Stored(&self.cold.components[id.0])
+        }
+    }
+
+    /// Gets the components this component requires if it is registered.
+    #[inline]
+    pub fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsRef<'_>> {
+        let staged = self.staged.read().unwrap();
+        if staged.new_required.contains_key(&id) {
+            return Some(RequiredComponentsRef::ModificationStaged(staged, id));
+        }
+
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            if index_in_new >= staged.new_components.len() {
+                None
+            } else {
+                Some(RequiredComponentsRef::Staged(LockedComponentReference {
+                    data: staged,
+                    index: index_in_new,
+                }))
+            }
+        } else {
+            Some(RequiredComponentsRef::Stored(&self.cold.components[id.0]))
         }
     }
 
@@ -2454,7 +2470,7 @@ impl ComponentsData {
         let required: Vec<(ComponentId, RequiredComponent)> = self
             .get_info(required)
             .unwrap()
-            .required_components()
+            .required_components
             .0
             .iter()
             .map(|(id, component)| (*id, component.clone()))
@@ -2529,9 +2545,26 @@ impl ComponentsData {
 /// A reference to a particular component's info.
 pub enum ComponentInfoRef<'a> {
     /// the requested data was registered a while ago.
-    Old(&'a ComponentInfo),
+    Stored(&'a ComponentInfo),
     /// the requested data needs to be synchronized
-    New(LockedComponentReference<'a>),
+    Staged(LockedComponentReference<'a>),
+}
+
+/// A reference to a particular component's info.
+pub enum RequiredComponentsRef<'a> {
+    /// the requested data was registered a while ago.
+    Stored(&'a ComponentInfo),
+    /// the requested data needs to be synchronized
+    Staged(LockedComponentReference<'a>),
+    /// the requested data exists, but a modification is queued.
+    ModificationStaged(
+        #[expect(
+            private_interfaces,
+            reason = "This is not meant to be created by users."
+        )]
+        RwLockReadGuard<'a, StagedComponents>,
+        ComponentId,
+    ),
 }
 
 /// A reference to a particular component's info, where the info lives in a locked [`NewComponents`]
@@ -2540,14 +2573,34 @@ pub struct LockedComponentReference<'a> {
     index: usize,
 }
 
+impl Deref for LockedComponentReference<'_> {
+    type Target = ComponentInfo;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data.new_components[self.index]
+    }
+}
+
 impl Deref for ComponentInfoRef<'_> {
     type Target = ComponentInfo;
 
     fn deref(&self) -> &Self::Target {
         match self {
-            ComponentInfoRef::Old(info) => info,
-            ComponentInfoRef::New(LockedComponentReference { data, index }) => {
-                &data.new_components[*index]
+            ComponentInfoRef::Stored(info) => info,
+            ComponentInfoRef::Staged(lock) => lock,
+        }
+    }
+}
+
+impl Deref for RequiredComponentsRef<'_> {
+    type Target = RequiredComponents;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            RequiredComponentsRef::Stored(info) => &info.required_components,
+            RequiredComponentsRef::Staged(lock) => &lock.required_components,
+            RequiredComponentsRef::ModificationStaged(guard, id) => {
+                guard.new_required.get(id).unwrap()
             }
         }
     }

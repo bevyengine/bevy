@@ -423,8 +423,12 @@ impl BundleInfo {
         let mut required_components = RequiredComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
-            let info = unsafe { components.get_info_unchecked(component_id) };
-            required_components.merge(info.required_components());
+            let required = unsafe {
+                components
+                    .get_required_components(component_id)
+                    .debug_checked_unwrap()
+            };
+            required_components.merge(&required);
         }
         required_components.remove_explicit_components(&component_ids);
         let required_components = required_components

@@ -129,7 +129,7 @@ pub mod __macro_exports {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::ComponentInfoRef;
+    use crate::component::RequiredComponentsRef;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -2601,19 +2601,31 @@ mod tests {
         world.register_required_components::<Z, B>();
 
         world.spawn(X);
+        let components = world.components();
 
-        let required_a = world.get_component_info::<A>().unwrap();
-        let required_b = world.get_component_info::<B>().unwrap();
-        let required_c = world.get_component_info::<C>().unwrap();
-        let required_x = world.get_component_info::<X>().unwrap();
-        let required_y = world.get_component_info::<Y>().unwrap();
-        let required_z = world.get_component_info::<Z>().unwrap();
+        let required_a = components
+            .get_required_components(components.component_id::<A>().unwrap())
+            .unwrap();
+        let required_b = components
+            .get_required_components(components.component_id::<B>().unwrap())
+            .unwrap();
+        let required_c = components
+            .get_required_components(components.component_id::<C>().unwrap())
+            .unwrap();
+        let required_x = components
+            .get_required_components(components.component_id::<X>().unwrap())
+            .unwrap();
+        let required_y = components
+            .get_required_components(components.component_id::<Y>().unwrap())
+            .unwrap();
+        let required_z = components
+            .get_required_components(components.component_id::<Z>().unwrap())
+            .unwrap();
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: ComponentInfoRef) -> Vec<(ComponentId, u16)> {
+        fn to_vec(required: RequiredComponentsRef) -> Vec<(ComponentId, u16)> {
             let mut vec = required
-                .required_components()
                 .0
                 .iter()
                 .map(|(id, component)| (*id, component.inheritance_depth))
