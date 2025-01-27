@@ -630,6 +630,9 @@ impl<T: TrustedEntityBorrow> From<BTreeSet<T>> for UniqueEntityVec<T> {
 }
 
 impl<T: TrustedEntityBorrow> FromIterator<T> for UniqueEntityVec<T> {
+    /// This impl only uses `Eq` to validate uniqueness, resulting in O(n^2) complexity.
+    /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
+    /// When possible, use `FromEntitySetIterator::from_entity_iter` instead.
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let unique_vec = Self::with_capacity(iter.size_hint().0);
@@ -650,6 +653,9 @@ impl<T: TrustedEntityBorrow> FromEntitySetIterator<T> for UniqueEntityVec<T> {
 }
 
 impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
+    /// Use with caution, because this impl only uses `Eq` to validate uniqueness, 
+    /// resulting in O(n^2) complexity.
+    /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
         let iter = iter.into_iter();
         let reserve = if self.is_empty() {
@@ -667,6 +673,9 @@ impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
 }
 
 impl<'a, T: TrustedEntityBorrow + Copy + 'a> Extend<&'a T> for UniqueEntityVec<T> {
+    /// Use with caution, because this impl only uses `Eq` to validate uniqueness, 
+    /// resulting in O(n^2) complexity.
+    /// It can make sense for very low N, or if `T` implements neither `Ord` nor `Hash`.
     fn extend<I: IntoIterator<Item = &'a T>>(&mut self, iter: I) {
         let iter = iter.into_iter();
         let reserve = if self.is_empty() {
