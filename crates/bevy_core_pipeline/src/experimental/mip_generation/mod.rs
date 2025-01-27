@@ -13,11 +13,11 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    prelude::Without,
+    prelude::{resource_exists, Without},
     query::{QueryItem, With},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
+    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_math::{uvec2, UVec2, Vec4Swizzles as _};
@@ -28,13 +28,13 @@ use bevy_render::{
         binding_types::{sampler, texture_2d, texture_2d_multisampled, texture_storage_2d},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipeline, ComputePipelineDescriptor,
-        Extent3d, IntoBinding, PipelineCache, PushConstantRange, Sampler, SamplerBindingType,
-        SamplerDescriptor, Shader, ShaderStages, SpecializedComputePipeline,
+        DownlevelFlags, Extent3d, IntoBinding, PipelineCache, PushConstantRange, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedComputePipeline,
         SpecializedComputePipelines, StorageTextureAccess, TextureAspect, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
         TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderAdapter, RenderContext, RenderDevice},
     texture::TextureCache,
     view::{ExtractedView, NoIndirectDrawing, ViewDepthTexture},
     Render, RenderApp, RenderSet,
@@ -108,12 +108,17 @@ impl Plugin for MipGenerationPlugin {
             )
             .add_systems(
                 Render,
+                create_downsample_depth_pipelines.in_set(RenderSet::Prepare),
+            )
+            .add_systems(
+                Render,
                 (
                     prepare_view_depth_pyramids,
                     prepare_downsample_depth_view_bind_groups,
                 )
                     .chain()
                     .in_set(RenderSet::PrepareResources)
+                    .run_if(resource_exists::<DownsampleDepthPipelines>)
                     .after(prepare_core_3d_depth_textures),
             );
     }
@@ -122,9 +127,7 @@ impl Plugin for MipGenerationPlugin {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
-        render_app
-            .init_resource::<DownsampleDepthPipelines>()
-            .init_resource::<DepthPyramidDummyTexture>();
+        render_app.init_resource::<DepthPyramidDummyTexture>();
     }
 }
 
@@ -257,75 +260,85 @@ pub struct DownsampleDepthPipelines {
     sampler: Sampler,
 }
 
-impl FromWorld for DownsampleDepthPipelines {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Create the bind group layouts. The bind group layouts are identical
-        // between the first and second passes, so the only thing we need to
-        // treat specially is the type of the first mip level (non-multisampled
-        // or multisampled).
-        let standard_bind_group_layout =
-            create_downsample_depth_bind_group_layout(render_device, false);
-        let multisampled_bind_group_layout =
-            create_downsample_depth_bind_group_layout(render_device, true);
-
-        // Create the depth pyramid sampler. This is shared among all shaders.
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("depth pyramid sampler"),
-            ..SamplerDescriptor::default()
-        });
-
-        // Specialize the pipelines.
-        world.resource_scope::<SpecializedComputePipelines<DownsampleDepthPipeline>, _>(
-            |world, mut specialized_compute_pipelines| {
-                let pipeline_cache = world.resource::<PipelineCache>();
-
-                // Initialize the pipelines.
-                let mut downsample_depth_pipelines = DownsampleDepthPipelines {
-                    first: DownsampleDepthPipeline::new(standard_bind_group_layout.clone()),
-                    second: DownsampleDepthPipeline::new(standard_bind_group_layout.clone()),
-                    first_multisample: DownsampleDepthPipeline::new(
-                        multisampled_bind_group_layout.clone(),
-                    ),
-                    second_multisample: DownsampleDepthPipeline::new(
-                        multisampled_bind_group_layout.clone(),
-                    ),
-                    sampler,
-                };
-
-                // Specialize each pipeline with the appropriate
-                // `DownsampleDepthPipelineKey`.
-                downsample_depth_pipelines.first.pipeline_id =
-                    Some(specialized_compute_pipelines.specialize(
-                        pipeline_cache,
-                        &downsample_depth_pipelines.first,
-                        DownsampleDepthPipelineKey::empty(),
-                    ));
-                downsample_depth_pipelines.second.pipeline_id =
-                    Some(specialized_compute_pipelines.specialize(
-                        pipeline_cache,
-                        &downsample_depth_pipelines.second,
-                        DownsampleDepthPipelineKey::SECOND_PHASE,
-                    ));
-                downsample_depth_pipelines.first_multisample.pipeline_id =
-                    Some(specialized_compute_pipelines.specialize(
-                        pipeline_cache,
-                        &downsample_depth_pipelines.first_multisample,
-                        DownsampleDepthPipelineKey::MULTISAMPLE,
-                    ));
-                downsample_depth_pipelines.second_multisample.pipeline_id =
-                    Some(specialized_compute_pipelines.specialize(
-                        pipeline_cache,
-                        &downsample_depth_pipelines.second_multisample,
-                        DownsampleDepthPipelineKey::SECOND_PHASE
-                            | DownsampleDepthPipelineKey::MULTISAMPLE,
-                    ));
-
-                downsample_depth_pipelines
-            },
-        )
+/// Creates the [`DownsampleDepthPipelines`] if downsampling is supported on the
+/// current platform.
+fn create_downsample_depth_pipelines(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+    pipeline_cache: Res<PipelineCache>,
+    mut specialized_compute_pipelines: ResMut<SpecializedComputePipelines<DownsampleDepthPipeline>>,
+    mut has_run: Local<bool>,
+) {
+    // Only run once.
+    // We can't use a `resource_exists` or similar run condition here because
+    // this function might fail to create downsample depth pipelines if the
+    // current platform doesn't support compute shaders.
+    if *has_run {
+        return;
     }
+    *has_run = true;
+
+    // If we don't have compute shaders, we can't invoke the downsample depth
+    // compute shader.
+    if !render_adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::COMPUTE_SHADERS)
+    {
+        return;
+    }
+
+    // Create the bind group layouts. The bind group layouts are identical
+    // between the first and second passes, so the only thing we need to
+    // treat specially is the type of the first mip level (non-multisampled
+    // or multisampled).
+    let standard_bind_group_layout =
+        create_downsample_depth_bind_group_layout(&render_device, false);
+    let multisampled_bind_group_layout =
+        create_downsample_depth_bind_group_layout(&render_device, true);
+
+    // Create the depth pyramid sampler. This is shared among all shaders.
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("depth pyramid sampler"),
+        ..SamplerDescriptor::default()
+    });
+
+    // Initialize the pipelines.
+    let mut downsample_depth_pipelines = DownsampleDepthPipelines {
+        first: DownsampleDepthPipeline::new(standard_bind_group_layout.clone()),
+        second: DownsampleDepthPipeline::new(standard_bind_group_layout.clone()),
+        first_multisample: DownsampleDepthPipeline::new(multisampled_bind_group_layout.clone()),
+        second_multisample: DownsampleDepthPipeline::new(multisampled_bind_group_layout.clone()),
+        sampler,
+    };
+
+    // Specialize each pipeline with the appropriate
+    // `DownsampleDepthPipelineKey`.
+    downsample_depth_pipelines.first.pipeline_id = Some(specialized_compute_pipelines.specialize(
+        &pipeline_cache,
+        &downsample_depth_pipelines.first,
+        DownsampleDepthPipelineKey::empty(),
+    ));
+    downsample_depth_pipelines.second.pipeline_id = Some(specialized_compute_pipelines.specialize(
+        &pipeline_cache,
+        &downsample_depth_pipelines.second,
+        DownsampleDepthPipelineKey::SECOND_PHASE,
+    ));
+    downsample_depth_pipelines.first_multisample.pipeline_id =
+        Some(specialized_compute_pipelines.specialize(
+            &pipeline_cache,
+            &downsample_depth_pipelines.first_multisample,
+            DownsampleDepthPipelineKey::MULTISAMPLE,
+        ));
+    downsample_depth_pipelines.second_multisample.pipeline_id =
+        Some(specialized_compute_pipelines.specialize(
+            &pipeline_cache,
+            &downsample_depth_pipelines.second_multisample,
+            DownsampleDepthPipelineKey::SECOND_PHASE | DownsampleDepthPipelineKey::MULTISAMPLE,
+        ));
+
+    commands.insert_resource(downsample_depth_pipelines);
 }
 
 /// Creates a single bind group layout for the downsample depth pass.
