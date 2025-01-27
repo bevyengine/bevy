@@ -220,15 +220,7 @@ pub fn ui_layout_system(
                     ui_surface.upsert_node(&layout_context, entity, &node, measure);
                 }
             } else {
-                ui_surface.upsert_node(
-                    &LayoutContext::DEFAULT,
-                    entity,
-                    &Node {
-                        display: Display::None,
-                        ..Default::default()
-                    },
-                    None,
-                );
+                ui_surface.upsert_node(&LayoutContext::DEFAULT, entity, &Node::default(), None);
             }
         });
     scale_factor_events.clear();
