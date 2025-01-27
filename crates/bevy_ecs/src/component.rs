@@ -1381,6 +1381,25 @@ impl Components {
         }
     }
 
+    /// Gets the metadata associated with the given component.
+    ///
+    /// # Safety
+    ///
+    /// `id` must be a valid [`ComponentId`]
+    #[inline]
+    pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> ComponentInfoRef<'_> {
+        if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
+            let new = self.new_components.read().unwrap();
+            debug_assert!(new.len() > index_in_new);
+            ComponentInfoRef::New {
+                data: new,
+                index: index_in_new,
+            }
+        } else {
+            ComponentInfoRef::Old(&self.old_components.components[id.0])
+        }
+    }
+
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
         if let Some(index_in_new) = id.0.checked_sub(self.old_components.len()) {
@@ -1430,7 +1449,7 @@ impl Components {
     /// Indirect requirements through other components are allowed. In those cases, the more specific
     /// registration will be used.
     pub(crate) unsafe fn register_required_components<R: Component>(
-        &mut self,
+        &self,
         requiree: ComponentId,
         required: ComponentId,
         constructor: fn() -> R,
@@ -1512,7 +1531,7 @@ impl Components {
     ///
     /// The given component IDs `requiree` and `required` must be valid.
     unsafe fn register_inherited_required_components(
-        &mut self,
+        &self,
         requiree: ComponentId,
         required: ComponentId,
     ) -> Vec<(ComponentId, RequiredComponent)> {
@@ -1587,7 +1606,7 @@ impl Components {
     /// [required component]: Component#required-components
     #[doc(hidden)]
     pub fn register_required_components_manual<T: Component, R: Component>(
-        &mut self,
+        &self,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
@@ -1623,7 +1642,7 @@ impl Components {
     ///
     /// The given component IDs `required` and `requiree` must be valid.
     pub(crate) unsafe fn register_required_components_manual_unchecked<R: Component>(
-        &mut self,
+        &self,
         requiree: ComponentId,
         required: ComponentId,
         required_components: &mut RequiredComponents,
