@@ -1,3 +1,3 @@
 disallowed-methods = [ 
-        { path = "UniqueEntityVec::from_iter", reason = "Use EntitySetIterator::collect_set or UniqueEntityVec::from_entity_set_iter if possible" },
+    { path = "UniqueEntityVec::from_iter", reason = "Use EntitySetIterator::collect_set or UniqueEntityVec::from_entity_set_iter if possible" },
     ]
