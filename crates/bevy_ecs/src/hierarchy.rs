@@ -185,6 +185,25 @@ impl<'w> EntityWorldMut<'w> {
         self.add_related::<ChildOf>(children)
     }
 
+    /// Insert children at specific index
+    pub fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
+        let parent = self.id();
+        if children.contains(&parent) {
+            panic!("Cannot insert entity as a child of itself.");
+        }
+        if let Some(mut children_component) = self.get_mut::<Children>() {
+            children_component.0.retain(|value| !children.contains(value));
+            children_component.0.reserve(children.len());
+            let mut v = children_component.0.split_off(index);
+            children_component.0.extend_from_slice(&children);
+            children_component.0.append(&mut v);
+
+        } else {
+            self.insert(Children(children.to_vec()));
+        }
+        self
+    }
+
     /// Adds the given child to this entity
     pub fn add_child(&mut self, child: Entity) -> &mut Self {
         self.add_related::<ChildOf>(&[child])
@@ -355,6 +374,7 @@ mod tests {
             )
         );
 
+
         // Removal
         world.entity_mut(child1).remove::<ChildOf>();
         let hierarchy = get_hierarchy(&world, root);
@@ -373,6 +393,7 @@ mod tests {
                 ]
             )
         );
+
 
         // Recursive Despawn
         world.entity_mut(root).despawn();
@@ -413,6 +434,27 @@ mod tests {
         assert_eq!(
             hierarchy,
             Node::new_with(root, vec![Node::new(child1), Node::new(child2)])
+        );
+    }
+
+    #[test]
+    fn insert_children() {
+        let mut world = World::new();
+        let child1 = world.spawn_empty().id();
+        let child2 = world.spawn_empty().id();
+        let child3 = world.spawn_empty().id();
+        let child4 = world.spawn_empty().id();
+
+        let mut entity_world_mut = world.spawn_empty();
+
+        let first_children = entity_world_mut.add_children(&[child1, child2]);
+
+        let root = first_children.insert_children(1, &[child3, child4]).id();
+
+        let hierarchy = get_hierarchy(&world, root);
+        assert_eq!(
+            hierarchy,
+            Node::new_with(root, vec![Node::new(child1), Node::new(child3), Node::new(child4), Node::new(child2)])
         );
     }
 
