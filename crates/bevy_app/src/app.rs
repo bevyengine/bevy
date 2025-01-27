@@ -16,7 +16,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 use thiserror::Error;
@@ -98,6 +98,25 @@ impl Debug for App {
     }
 }
 
+/// Tracks which [`SubApp`] don't want to be updated in the [`App::update`].
+/// These [`SubApp`]s will still exectute their extract method on [`App::update`].
+#[derive(Default, Resource)]
+pub struct DontUpdateOnUpdate(HashSet<InternedAppLabel>);
+
+impl DontUpdateOnUpdate {
+    /// Marks a [`SubApp`] with the passed [`AppLabel`] to no be updated in [`App::update`].
+    pub fn add(&mut self, label: impl AppLabel) -> &mut Self {
+        self.0.insert(label.intern());
+        self
+    }
+
+    /// Unmarks a [`SubApp`] with the passed [`AppLabel`] to no be updated in [`App::update`].
+    pub fn remove(&mut self, label: impl AppLabel) -> &mut Self {
+        self.0.remove(&label.intern());
+        self
+    }
+}
+
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
@@ -113,6 +132,8 @@ impl Default for App {
 
         #[cfg(feature = "reflect_functions")]
         app.init_resource::<AppFunctionRegistry>();
+
+        app.init_resource::<DontUpdateOnUpdate>();
 
         app.add_plugins(MainSchedulePlugin);
         app.add_systems(
@@ -153,7 +174,8 @@ impl App {
             panic!("App::update() was called while a plugin was building.");
         }
 
-        self.sub_apps.update();
+        self.sub_apps
+            .update(self.world().resource::<DontUpdateOnUpdate>().0.clone());
     }
 
     /// Runs the [`App`] by calling its [runner](Self::set_runner).
@@ -1114,9 +1136,14 @@ impl App {
         self.sub_apps.sub_apps.remove(&label.intern())
     }
 
-    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    /// Update the [`SubApp`] with the given label if it exists.
     pub fn update_sub_app_by_label(&mut self, label: impl AppLabel) {
         self.sub_apps.update_subapp_by_label(label);
+    }
+
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn extract_update_sub_app_by_label(&mut self, label: impl AppLabel) {
+        self.sub_apps.extract_update_subapp_by_label(label);
     }
 
     /// Inserts a new `schedule` under the provided `label`, overwriting any existing

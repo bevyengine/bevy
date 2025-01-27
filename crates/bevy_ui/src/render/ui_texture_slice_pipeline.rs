@@ -262,6 +262,12 @@ pub fn extract_ui_texture_slices(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    extracted_ui_slicers
+        .slices
+        .iter()
+        .for_each(|(entity, _)| commands.entity(*entity).despawn());
+    extracted_ui_slicers.slices.clear();
+
     let default_camera_entity = default_ui_camera.get();
 
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {

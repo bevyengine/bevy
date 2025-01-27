@@ -1,3 +1,6 @@
+use core::marker::PhantomData;
+use std::time::SystemTime;
+
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
 #[cfg(feature = "custom_cursor")]
@@ -25,7 +28,6 @@ use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
-use core::marker::PhantomData;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::EventLoopExtWebSys;
 use winit::{
@@ -39,9 +41,9 @@ use winit::{
 
 use bevy_window::{
     AppLifecycle, CursorEntered, CursorLeft, CursorMoved, FileDragAndDrop, Ime, RequestRedraw,
-    Window, WindowBackendScaleFactorChanged, WindowCloseRequested, WindowDestroyed,
-    WindowEvent as BevyWindowEvent, WindowFocused, WindowMoved, WindowOccluded, WindowResized,
-    WindowScaleFactorChanged, WindowThemeChanged,
+    UpdateSubAppOnWindowEvent, Window, WindowBackendScaleFactorChanged, WindowCloseRequested,
+    WindowDestroyed, WindowEvent as BevyWindowEvent, WindowEventKind, WindowFocused, WindowMoved,
+    WindowOccluded, WindowResized, WindowScaleFactorChanged, WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
 use bevy_window::{PrimaryWindow, RawHandleWrapper};
@@ -50,8 +52,8 @@ use crate::{
     accessibility::AccessKitAdapters,
     converters, create_windows,
     system::{create_monitors, CachedWindow},
-    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
-    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
+    AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper, MainUpdateMode,
+    RawWinitWindowEvent, RenderUpdateMode, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -62,7 +64,7 @@ struct WinitAppRunnerState<T: Event> {
     /// Exit value once the loop is finished.
     app_exit: Option<AppExit>,
     /// Current update mode of the app.
-    update_mode: UpdateMode,
+    update_mode: (MainUpdateMode, RenderUpdateMode),
     /// Is `true` if a new [`WindowEvent`] event has been received since the last update.
     window_event_received: bool,
     /// Is `true` if a new [`DeviceEvent`] event has been received since the last update.
@@ -73,8 +75,6 @@ struct WinitAppRunnerState<T: Event> {
     redraw_requested: bool,
     /// Is `true` if the app has already updated since the last redraw.
     ran_update_since_last_redraw: bool,
-    /// Is `true` if enough time has elapsed since `last_update` to run another update.
-    wait_elapsed: bool,
     /// Number of "forced" updates to trigger on application start
     startup_forced_updates: u32,
 
@@ -96,6 +96,9 @@ struct WinitAppRunnerState<T: Event> {
         Query<'static, 'static, (&'static mut Window, &'static mut CachedWindow)>,
         NonSendMut<'static, AccessKitAdapters>,
     )>,
+
+    last_update_timestamp: Instant,
+    last_draw_timestamp: Instant,
 }
 
 impl<T: Event> WinitAppRunnerState<T> {
@@ -112,24 +115,33 @@ impl<T: Event> WinitAppRunnerState<T> {
             NonSendMut<AccessKitAdapters>,
         )> = SystemState::new(app.world_mut());
 
+        let unix_epoch_instant = Instant::now()
+            - SystemTime::UNIX_EPOCH
+                .elapsed()
+                .expect("Failed to get duration since unix epoch");
+
         Self {
             app,
             lifecycle: AppLifecycle::Idle,
             previous_lifecycle: AppLifecycle::Idle,
             app_exit: None,
-            update_mode: UpdateMode::Continuous,
+            update_mode: (
+                MainUpdateMode::OnEachFrame { min_ticktime: None },
+                RenderUpdateMode::Continuous,
+            ),
             window_event_received: false,
             device_event_received: false,
             user_event_received: false,
             redraw_requested: false,
             ran_update_since_last_redraw: false,
-            wait_elapsed: false,
             // 3 seems to be enough, 5 is a safe margin
             startup_forced_updates: 5,
             bevy_window_events: Vec::new(),
             raw_winit_events: Vec::new(),
             _marker: PhantomData,
             event_writer_system_state,
+            last_update_timestamp: unix_epoch_instant,
+            last_draw_timestamp: unix_epoch_instant,
         }
     }
 
@@ -192,7 +204,7 @@ pub enum CursorSource {
 pub struct PendingCursor(pub Option<CursorSource>);
 
 impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, _cause: StartCause) {
         if event_loop.exiting() {
             return;
         }
@@ -210,18 +222,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             }
             self.redraw_requested = true;
         }
-
-        self.wait_elapsed = match cause {
-            StartCause::WaitCancelled {
-                requested_resume: Some(resume),
-                ..
-            } => {
-                // If the resume time is not after now, it means that at least the wait timeout
-                // has elapsed.
-                resume <= Instant::now()
-            }
-            _ => true,
-        };
     }
 
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {
@@ -278,9 +278,11 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             }
         }
 
-        match event {
+        let kind = match event {
             WindowEvent::Resized(size) => {
                 react_to_resize(window, &mut win, size, &mut window_resized);
+
+                Some(WindowEventKind::WindowResized)
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 react_to_scale_factor_change(
@@ -290,10 +292,15 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     &mut window_backend_scale_factor_changed,
                     &mut window_scale_factor_changed,
                 );
+
+                Some(WindowEventKind::WindowScaleFactorChanged)
             }
-            WindowEvent::CloseRequested => self
-                .bevy_window_events
-                .send(WindowCloseRequested { window }),
+            WindowEvent::CloseRequested => {
+                self.bevy_window_events
+                    .send(WindowCloseRequested { window });
+
+                Some(WindowEventKind::WindowCloseRequested)
+            }
             WindowEvent::KeyboardInput {
                 ref event,
                 // On some platforms, winit sends "synthetic" key press events when the window
@@ -304,6 +311,8 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             } => {
                 self.bevy_window_events
                     .send(converters::convert_keyboard_input(event, window));
+
+                Some(WindowEventKind::KeyboardInput)
             }
             WindowEvent::CursorMoved { position, .. } => {
                 let physical_position = DVec2::new(position.x, position.y);
@@ -320,13 +329,19 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     position,
                     delta,
                 });
+
+                Some(WindowEventKind::CursorMoved)
             }
             WindowEvent::CursorEntered { .. } => {
                 self.bevy_window_events.send(CursorEntered { window });
+
+                Some(WindowEventKind::CursorEntered)
             }
             WindowEvent::CursorLeft { .. } => {
                 win.set_physical_cursor_position(None);
                 self.bevy_window_events.send(CursorLeft { window });
+
+                Some(WindowEventKind::CursorLeft)
             }
             WindowEvent::MouseInput { state, button, .. } => {
                 self.bevy_window_events.send(MouseButtonInput {
@@ -334,111 +349,166 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     state: converters::convert_element_state(state),
                     window,
                 });
+
+                Some(WindowEventKind::MouseButtonInput)
             }
             WindowEvent::PinchGesture { delta, .. } => {
                 self.bevy_window_events.send(PinchGesture(delta as f32));
+
+                Some(WindowEventKind::PinchGesture)
             }
             WindowEvent::RotationGesture { delta, .. } => {
                 self.bevy_window_events.send(RotationGesture(delta));
+
+                Some(WindowEventKind::RotationGesture)
             }
             WindowEvent::DoubleTapGesture { .. } => {
                 self.bevy_window_events.send(DoubleTapGesture);
+
+                Some(WindowEventKind::DoubleTapGesture)
             }
             WindowEvent::PanGesture { delta, .. } => {
                 self.bevy_window_events.send(PanGesture(Vec2 {
                     x: delta.x,
                     y: delta.y,
                 }));
+
+                Some(WindowEventKind::PanGesture)
             }
-            WindowEvent::MouseWheel { delta, .. } => match delta {
-                event::MouseScrollDelta::LineDelta(x, y) => {
-                    self.bevy_window_events.send(MouseWheel {
-                        unit: MouseScrollUnit::Line,
-                        x,
-                        y,
-                        window,
-                    });
+            WindowEvent::MouseWheel { delta, .. } => {
+                match delta {
+                    event::MouseScrollDelta::LineDelta(x, y) => {
+                        self.bevy_window_events.send(MouseWheel {
+                            unit: MouseScrollUnit::Line,
+                            x,
+                            y,
+                            window,
+                        });
+                    }
+                    event::MouseScrollDelta::PixelDelta(p) => {
+                        self.bevy_window_events.send(MouseWheel {
+                            unit: MouseScrollUnit::Pixel,
+                            x: p.x as f32,
+                            y: p.y as f32,
+                            window,
+                        });
+                    }
                 }
-                event::MouseScrollDelta::PixelDelta(p) => {
-                    self.bevy_window_events.send(MouseWheel {
-                        unit: MouseScrollUnit::Pixel,
-                        x: p.x as f32,
-                        y: p.y as f32,
-                        window,
-                    });
-                }
-            },
+
+                Some(WindowEventKind::MouseWheel)
+            }
             WindowEvent::Touch(touch) => {
                 let location = touch
                     .location
                     .to_logical(win.resolution.scale_factor() as f64);
                 self.bevy_window_events
                     .send(converters::convert_touch_input(touch, location, window));
+
+                Some(WindowEventKind::TouchInput)
             }
             WindowEvent::Focused(focused) => {
                 win.focused = focused;
                 self.bevy_window_events
                     .send(WindowFocused { window, focused });
+
+                Some(WindowEventKind::WindowFocused)
             }
             WindowEvent::Occluded(occluded) => {
                 self.bevy_window_events
                     .send(WindowOccluded { window, occluded });
+
+                Some(WindowEventKind::WindowOccluded)
             }
             WindowEvent::DroppedFile(path_buf) => {
                 self.bevy_window_events
                     .send(FileDragAndDrop::DroppedFile { window, path_buf });
+
+                Some(WindowEventKind::FileDragAndDrop)
             }
             WindowEvent::HoveredFile(path_buf) => {
                 self.bevy_window_events
                     .send(FileDragAndDrop::HoveredFile { window, path_buf });
+
+                Some(WindowEventKind::FileDragAndDrop)
             }
             WindowEvent::HoveredFileCancelled => {
                 self.bevy_window_events
                     .send(FileDragAndDrop::HoveredFileCanceled { window });
+
+                Some(WindowEventKind::FileDragAndDrop)
             }
             WindowEvent::Moved(position) => {
                 let position = ivec2(position.x, position.y);
                 win.position.set(position);
                 self.bevy_window_events
                     .send(WindowMoved { window, position });
+
+                Some(WindowEventKind::WindowMoved)
             }
-            WindowEvent::Ime(event) => match event {
-                event::Ime::Preedit(value, cursor) => {
-                    self.bevy_window_events.send(Ime::Preedit {
-                        window,
-                        value,
-                        cursor,
-                    });
+            WindowEvent::Ime(event) => {
+                match event {
+                    event::Ime::Preedit(value, cursor) => {
+                        self.bevy_window_events.send(Ime::Preedit {
+                            window,
+                            value,
+                            cursor,
+                        });
+                    }
+                    event::Ime::Commit(value) => {
+                        self.bevy_window_events.send(Ime::Commit { window, value });
+                    }
+                    event::Ime::Enabled => {
+                        self.bevy_window_events.send(Ime::Enabled { window });
+                    }
+                    event::Ime::Disabled => {
+                        self.bevy_window_events.send(Ime::Disabled { window });
+                    }
                 }
-                event::Ime::Commit(value) => {
-                    self.bevy_window_events.send(Ime::Commit { window, value });
-                }
-                event::Ime::Enabled => {
-                    self.bevy_window_events.send(Ime::Enabled { window });
-                }
-                event::Ime::Disabled => {
-                    self.bevy_window_events.send(Ime::Disabled { window });
-                }
-            },
+
+                Some(WindowEventKind::Ime)
+            }
             WindowEvent::ThemeChanged(theme) => {
                 self.bevy_window_events.send(WindowThemeChanged {
                     window,
                     theme: converters::convert_winit_theme(theme),
                 });
+
+                Some(WindowEventKind::WindowThemeChanged)
             }
             WindowEvent::Destroyed => {
                 self.bevy_window_events.send(WindowDestroyed { window });
+
+                Some(WindowEventKind::WindowDestroyed)
             }
             WindowEvent::RedrawRequested => {
                 self.ran_update_since_last_redraw = false;
+                self.last_draw_timestamp = Instant::now();
+
+                // TODO: This is a temporary solution. When this is removed also update the
+                // docs of the MainUpdateMode::Reactive
+                self.window_event_received = false;
+
+                Some(WindowEventKind::RequestRedraw)
             }
-            _ => {}
-        }
+            _ => None,
+        };
 
         let mut windows = self.world_mut().query::<(&mut Window, &mut CachedWindow)>();
         if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window) {
             if window_component.is_changed() {
                 cache.window = window_component.clone();
+            }
+        }
+
+        if let Some(kind) = kind {
+            if let Some(labels) = self
+                .world()
+                .resource::<UpdateSubAppOnWindowEvent>()
+                .get_app_labels(kind)
+            {
+                for label in labels.clone() {
+                    self.app.update_sub_app_by_label(label);
+                }
             }
         }
     }
@@ -473,28 +543,35 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
 
-        if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
-            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                self.redraw_requested = true;
-            }
-        }
+        let mut redraw_requested = self
+            .world()
+            .get_resource::<Events<RequestRedraw>>()
+            .map(|app_redraw_events| redraw_event_reader.read(app_redraw_events).last().is_some())
+            .unwrap_or_default();
 
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
 
-        let mut update_mode = config.update_mode(focused);
-        let mut should_update = self.should_update(update_mode);
+        let (mut main_update_mode, mut render_update_mode) = config.update_mode(focused);
+        let mut should_update_main = self.should_update_main(main_update_mode);
+
+        if let Some(instant) = self.next_wait_till(main_update_mode, render_update_mode) {
+            event_loop.set_control_flow(ControlFlow::WaitUntil(instant));
+        } else {
+            event_loop.set_control_flow(ControlFlow::Poll);
+        }
 
         if self.startup_forced_updates > 0 {
             self.startup_forced_updates -= 1;
             // Ensure that an update is triggered on the first iterations for app initialization
-            should_update = true;
+            should_update_main = true;
+            redraw_requested = true;
         }
 
         if self.lifecycle == AppLifecycle::WillSuspend {
             self.lifecycle = AppLifecycle::Suspended;
             // Trigger one last update to enter the suspended state
-            should_update = true;
+            should_update_main = true;
             self.ran_update_since_last_redraw = false;
 
             #[cfg(target_os = "android")]
@@ -514,9 +591,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         if self.lifecycle == AppLifecycle::WillResume {
             self.lifecycle = AppLifecycle::Running;
             // Trigger the update to enter the running state
-            should_update = true;
+            should_update_main = true;
             // Trigger the next redraw to refresh the screen immediately
-            self.redraw_requested = true;
+            redraw_requested = true;
 
             #[cfg(target_os = "android")]
             {
@@ -562,92 +639,34 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             self.bevy_window_events.send(self.lifecycle);
         }
 
-        // This is recorded before running app.update(), to run the next cycle after a correct timeout.
-        // If the cycle takes more than the wait timeout, it will be re-executed immediately.
-        let begin_frame_time = Instant::now();
-
-        if should_update {
-            let (_, windows) = focused_windows_state.get(self.world());
-            // If no windows exist, this will evaluate to `true`.
-            let all_invisible = windows.iter().all(|w| !w.1.visible);
-
-            // Not redrawing, but the timeout elapsed.
-            //
-            // Additional condition for Windows OS.
-            // If no windows are visible, redraw calls will never succeed, which results in no app update calls being performed.
-            // This is a temporary solution, full solution is mentioned here: https://github.com/bevyengine/bevy/issues/1343#issuecomment-770091684
-            if !self.ran_update_since_last_redraw || all_invisible {
-                self.run_app_update();
-                #[cfg(feature = "custom_cursor")]
-                self.update_cursors(event_loop);
-                #[cfg(not(feature = "custom_cursor"))]
-                self.update_cursors();
-                self.ran_update_since_last_redraw = true;
-            } else {
-                self.redraw_requested = true;
-            }
+        if should_update_main {
+            self.run_app_update();
+            #[cfg(feature = "custom_cursor")]
+            self.update_cursors(event_loop);
+            #[cfg(not(feature = "custom_cursor"))]
+            self.update_cursors();
+            self.ran_update_since_last_redraw = true;
+            self.last_update_timestamp = Instant::now();
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
             let (config, windows) = focused_windows_state.get(self.world());
             let focused = windows.iter().any(|(_, window)| window.focused);
-            update_mode = config.update_mode(focused);
+            (main_update_mode, render_update_mode) = config.update_mode(focused);
         }
+
+        let mut should_update_render = redraw_requested
+            || self.redraw_requested
+            || self.should_update_render(render_update_mode);
 
         // The update mode could have been changed, so we need to redraw and force an update
-        if update_mode != self.update_mode {
+        if (main_update_mode, render_update_mode) != self.update_mode {
             // Trigger the next redraw since we're changing the update mode
-            self.redraw_requested = true;
-            // Consider the wait as elapsed since it could have been cancelled by a user event
-            self.wait_elapsed = true;
+            should_update_render = true;
 
-            self.update_mode = update_mode;
+            self.update_mode = (main_update_mode, render_update_mode);
         }
 
-        match update_mode {
-            UpdateMode::Continuous => {
-                // per winit's docs on [Window::is_visible](https://docs.rs/winit/latest/winit/window/struct.Window.html#method.is_visible),
-                // we cannot use the visibility to drive rendering on these platforms
-                // so we cannot discern whether to beneficially use `Poll` or not?
-                cfg_if::cfg_if! {
-                    if #[cfg(not(any(
-                        target_arch = "wasm32",
-                        target_os = "android",
-                        target_os = "ios",
-                        all(target_os = "linux", any(feature = "x11", feature = "wayland"))
-                    )))]
-                    {
-                        let winit_windows = self.world().non_send_resource::<WinitWindows>();
-                        let visible = winit_windows.windows.iter().any(|(_, w)| {
-                            w.is_visible().unwrap_or(false)
-                        });
-
-                        event_loop.set_control_flow(if visible {
-                            ControlFlow::Wait
-                        } else {
-                            ControlFlow::Poll
-                        });
-                    }
-                    else {
-                        event_loop.set_control_flow(ControlFlow::Wait);
-                    }
-                }
-
-                // Trigger the next redraw to refresh the screen immediately if waiting
-                if let ControlFlow::Wait = event_loop.control_flow() {
-                    self.redraw_requested = true;
-                }
-            }
-            UpdateMode::Reactive { wait, .. } => {
-                // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
-                if let Some(next) = begin_frame_time.checked_add(wait) {
-                    if self.wait_elapsed {
-                        event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                    }
-                }
-            }
-        }
-
-        if self.redraw_requested && self.lifecycle != AppLifecycle::Suspended {
+        if should_update_render && self.lifecycle != AppLifecycle::Suspended {
             let winit_windows = self.world().non_send_resource::<WinitWindows>();
             for window in winit_windows.windows.values() {
                 window.request_redraw();
@@ -675,21 +694,23 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
 }
 
 impl<T: Event> WinitAppRunnerState<T> {
-    fn should_update(&self, update_mode: UpdateMode) -> bool {
+    fn should_update_main(&self, update_mode: MainUpdateMode) -> bool {
         let handle_event = match update_mode {
-            UpdateMode::Continuous => {
-                self.wait_elapsed
-                    || self.user_event_received
-                    || self.window_event_received
-                    || self.device_event_received
+            MainUpdateMode::Continuous => true,
+            MainUpdateMode::Fixed(wait) => self.last_update_timestamp.elapsed() > wait,
+            MainUpdateMode::OnEachFrame { min_ticktime } => {
+                let min_ticktime_elapsed = min_ticktime
+                    .map(|wait| self.last_update_timestamp.elapsed() > wait)
+                    .unwrap_or(true);
+                min_ticktime_elapsed && !self.ran_update_since_last_redraw
             }
-            UpdateMode::Reactive {
+            MainUpdateMode::Reactive {
+                wait,
                 react_to_device_events,
                 react_to_user_events,
                 react_to_window_events,
-                ..
             } => {
-                self.wait_elapsed
+                self.last_update_timestamp.elapsed() > wait
                     || (react_to_device_events && self.device_event_received)
                     || (react_to_user_events && self.user_event_received)
                     || (react_to_window_events && self.window_event_received)
@@ -697,6 +718,109 @@ impl<T: Event> WinitAppRunnerState<T> {
         };
 
         handle_event && self.lifecycle.is_active()
+    }
+
+    fn should_update_render(&self, update_mode: RenderUpdateMode) -> bool {
+        let handle_event = match update_mode {
+            RenderUpdateMode::Continuous => true,
+            RenderUpdateMode::Fixed(wait) => self.last_draw_timestamp.elapsed() > wait,
+            RenderUpdateMode::OnEachMainUpdate { min_frametime } => {
+                let min_frametime_elapsed = min_frametime
+                    .map(|wait| self.last_draw_timestamp.elapsed() > wait)
+                    .unwrap_or(true);
+                min_frametime_elapsed && self.ran_update_since_last_redraw
+            }
+        };
+
+        handle_event && self.lifecycle.is_active()
+    }
+
+    fn next_wait_till(
+        &self,
+        main_update_mode: MainUpdateMode,
+        render_update_mode: RenderUpdateMode,
+    ) -> Option<Instant> {
+        match (main_update_mode, render_update_mode) {
+            (MainUpdateMode::Continuous, _) | (_, RenderUpdateMode::Continuous) => None,
+            (MainUpdateMode::Fixed(update_duration), RenderUpdateMode::Fixed(render_duration)) => {
+                update_duration
+                    .checked_sub(self.last_update_timestamp.elapsed())
+                    .zip(render_duration.checked_sub(self.last_draw_timestamp.elapsed()))
+                    .map(|(update_offset, render_offset)| {
+                        Instant::now() + update_offset.min(render_offset)
+                    })
+            }
+            (
+                MainUpdateMode::Fixed(duration),
+                RenderUpdateMode::OnEachMainUpdate { min_frametime },
+            ) => {
+                if let Some(frametime) = min_frametime {
+                    duration
+                        .checked_sub(self.last_update_timestamp.elapsed())
+                        .zip(frametime.checked_sub(self.last_draw_timestamp.elapsed()))
+                        .map(|(update_offset, render_offset)| {
+                            Instant::now() + update_offset.min(render_offset)
+                        })
+                } else {
+                    duration
+                        .checked_sub(self.last_update_timestamp.elapsed())
+                        .map(|update_offset| Instant::now() + update_offset)
+                }
+            }
+            (MainUpdateMode::OnEachFrame { min_ticktime }, RenderUpdateMode::Fixed(duration)) => {
+                if let Some(ticktime) = min_ticktime {
+                    duration
+                        .checked_sub(self.last_update_timestamp.elapsed())
+                        .zip(ticktime.checked_sub(self.last_draw_timestamp.elapsed()))
+                        .map(|(render_offset, update_offset)| {
+                            Instant::now() + update_offset.min(render_offset)
+                        })
+                } else {
+                    duration
+                        .checked_sub(self.last_draw_timestamp.elapsed())
+                        .map(|render_offset| Instant::now() + render_offset)
+                }
+            }
+            (
+                MainUpdateMode::OnEachFrame { min_ticktime },
+                RenderUpdateMode::OnEachMainUpdate { min_frametime },
+            ) => match (min_ticktime, min_frametime) {
+                (None, None) => None,
+                (None, Some(frametime)) => frametime
+                    .checked_sub(self.last_draw_timestamp.elapsed())
+                    .map(|render_offset| Instant::now() + render_offset),
+                (Some(ticktime), None) => ticktime
+                    .checked_sub(self.last_update_timestamp.elapsed())
+                    .map(|update_offset| Instant::now() + update_offset),
+                (Some(ticktime), Some(frametime)) => ticktime
+                    .checked_sub(self.last_update_timestamp.elapsed())
+                    .zip(frametime.checked_sub(self.last_draw_timestamp.elapsed()))
+                    .map(|(update_offset, render_offset)| {
+                        Instant::now() + update_offset.min(render_offset)
+                    }),
+            },
+            (MainUpdateMode::Reactive { wait, .. }, RenderUpdateMode::Fixed(duration)) => wait
+                .checked_sub(self.last_update_timestamp.elapsed())
+                .zip(duration.checked_sub(self.last_draw_timestamp.elapsed()))
+                .map(|(update_offset, render_offset)| {
+                    Instant::now() + update_offset.min(render_offset)
+                }),
+            (
+                MainUpdateMode::Reactive { wait, .. },
+                RenderUpdateMode::OnEachMainUpdate { min_frametime },
+            ) => {
+                if let Some(frametime) = min_frametime {
+                    wait.checked_sub(self.last_update_timestamp.elapsed())
+                        .zip(frametime.checked_sub(self.last_draw_timestamp.elapsed()))
+                        .map(|(update_offset, render_offset)| {
+                            Instant::now() + update_offset.min(render_offset)
+                        })
+                } else {
+                    wait.checked_sub(self.last_update_timestamp.elapsed())
+                        .map(|update_offset| Instant::now() + update_offset)
+                }
+            }
+        }
     }
 
     fn run_app_update(&mut self) {
@@ -875,6 +999,8 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
         .world_mut()
         .remove_non_send_resource::<EventLoop<T>>()
         .unwrap();
+
+    event_loop.set_control_flow(ControlFlow::Poll);
 
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));

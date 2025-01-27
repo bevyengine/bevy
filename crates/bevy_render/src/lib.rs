@@ -73,7 +73,9 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use bevy_window::{
+    PrimaryWindow, RawHandleWrapperHolder, UpdateSubAppOnWindowEvent, WindowEventKind,
+};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
@@ -96,7 +98,7 @@ use crate::{
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_app::{App, AppLabel, DontUpdateOnUpdate, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use core::ops::{Deref, DerefMut};
@@ -130,8 +132,6 @@ pub struct RenderPlugin {
 /// These can be useful for ordering, but you almost never want to add your systems to these sets.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// This is used for applying the commands from the [`ExtractSchedule`]
-    ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
     /// Prepares extracted meshes.
@@ -183,7 +183,6 @@ impl Render {
 
         schedule.configure_sets(
             (
-                ExtractCommands,
                 PrepareMeshes,
                 ManageViews,
                 Queue,
@@ -196,7 +195,7 @@ impl Render {
                 .chain(),
         );
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
+        schedule.configure_sets((PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
             QueueMeshes
                 .in_set(Queue)
@@ -434,6 +433,13 @@ impl Plugin for RenderPlugin {
                     .in_set(RenderSet::Cleanup),
                 );
         }
+
+        app.world_mut()
+            .resource_mut::<DontUpdateOnUpdate>()
+            .add(RenderApp);
+        app.world_mut()
+            .resource_mut::<UpdateSubAppOnWindowEvent>()
+            .add(WindowEventKind::RequestRedraw, RenderApp);
     }
 }
 
@@ -483,9 +489,6 @@ unsafe fn initialize_render_app(app: &mut App) {
         .add_systems(
             Render,
             (
-                // This set applies the commands from the extract schedule while the render schedule
-                // is running in parallel with the main app.
-                apply_extract_commands.in_set(RenderSet::ExtractCommands),
                 (PipelineCache::process_pipeline_queue_system, render_system)
                     .chain()
                     .in_set(RenderSet::Render),
@@ -493,16 +496,18 @@ unsafe fn initialize_render_app(app: &mut App) {
             ),
         );
 
-    render_app.set_extract(|main_world, render_world| {
-        {
-            #[cfg(feature = "trace")]
-            let _stage_span = tracing::info_span!("entity_sync").entered();
-            entity_sync_system(main_world, render_world);
-        }
+    render_app
+        .set_extract(|main_world, render_world| {
+            {
+                #[cfg(feature = "trace")]
+                let _stage_span = tracing::info_span!("entity_sync").entered();
+                entity_sync_system(main_world, render_world);
+            }
 
-        // run extract schedule
-        extract(main_world, render_world);
-    });
+            // run extract schedule
+            extract(main_world, render_world);
+        })
+        .set_finalize_extract(apply_extract_commands);
 
     let (sender, receiver) = bevy_time::create_time_channels();
     render_app.insert_resource(sender);

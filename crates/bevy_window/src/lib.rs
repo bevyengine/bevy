@@ -18,6 +18,8 @@ extern crate std;
 extern crate alloc;
 
 use alloc::sync::Arc;
+use bevy_ecs::resource::Resource;
+use bevy_platform_support::collections::{HashMap, HashSet};
 
 use bevy_platform_support::sync::Mutex;
 
@@ -50,7 +52,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::prelude::*;
+use bevy_app::{prelude::*, AppLabel, InternedAppLabel};
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -168,6 +170,8 @@ impl Plugin for WindowPlugin {
         #[cfg(feature = "bevy_reflect")]
         app.register_type::<Window>()
             .register_type::<PrimaryWindow>();
+
+        app.init_resource::<UpdateSubAppOnWindowEvent>();
     }
 }
 
@@ -196,3 +200,36 @@ pub enum ExitCondition {
 #[cfg(target_os = "android")]
 pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
     std::sync::OnceLock::new();
+
+/// Holds a mapping from [`WindowEventKind`] => impl [`AppLabel`].
+/// This mapping is used to run [`SubApp::update`] when there is a [`WindowEvent`]
+#[derive(Default, Resource)]
+pub struct UpdateSubAppOnWindowEvent(HashMap<WindowEventKind, HashSet<InternedAppLabel>>);
+
+impl UpdateSubAppOnWindowEvent {
+    /// Register a [`SubApp`] with the given label when there is a [`WindowEvent`] on the
+    /// given event_kind.
+    pub fn add(&mut self, event_kind: WindowEventKind, label: impl AppLabel) -> &mut Self {
+        self.0.entry(event_kind).or_default().insert(label.intern());
+        self
+    }
+
+    /// Unregister a [`SubApp`] with the given label when there is a [`WindowEvent`] on the
+    /// given event_kind.
+    pub fn remove(&mut self, event_kind: WindowEventKind, label: impl AppLabel) -> &mut Self {
+        self.0
+            .entry(event_kind)
+            .or_default()
+            .remove(&label.intern());
+        self
+    }
+
+    /// Gets the labels for the [`SubApp`]s to execture on a [`WindowEvent`] with the given
+    /// event_kind.
+    pub fn get_app_labels(
+        &self,
+        event_kind: WindowEventKind,
+    ) -> Option<&HashSet<InternedAppLabel>> {
+        self.0.get(&event_kind)
+    }
+}

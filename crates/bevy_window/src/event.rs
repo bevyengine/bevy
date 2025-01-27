@@ -589,3 +589,46 @@ impl From<KeyboardFocusLost> for WindowEvent {
         Self::KeyboardFocusLost(e)
     }
 }
+
+/// The kind of [`WindowEvent`] enum variant
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+#[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+pub enum WindowEventKind {
+    AppLifecycle,
+    CursorEntered,
+    CursorLeft,
+    CursorMoved,
+    FileDragAndDrop,
+    Ime,
+    RequestRedraw,
+    WindowBackendScaleFactorChanged,
+    WindowCloseRequested,
+    WindowCreated,
+    WindowDestroyed,
+    WindowFocused,
+    WindowMoved,
+    WindowOccluded,
+    WindowResized,
+    WindowScaleFactorChanged,
+    WindowThemeChanged,
+
+    MouseButtonInput,
+    MouseMotion,
+    MouseWheel,
+
+    PinchGesture,
+    RotationGesture,
+    DoubleTapGesture,
+    PanGesture,
+
+    TouchInput,
+
+    KeyboardInput,
+    KeyboardFocusLost,
+}

@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 fn main() {
@@ -26,10 +26,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continous_update())
         .add_systems(Startup, spawn)
         .add_systems(Update, update_text_bounds)
         .run();

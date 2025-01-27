@@ -18,8 +18,16 @@ fn main() {
         .insert_resource(WinitSettings::desktop_app())
         // You can also customize update behavior with the fields of [`WinitSettings`]
         .insert_resource(WinitSettings {
-            focused_mode: bevy::winit::UpdateMode::Continuous,
-            unfocused_mode: bevy::winit::UpdateMode::reactive_low_power(Duration::from_millis(10)),
+            focused_mode: (
+                bevy::winit::MainUpdateMode::OnEachFrame { min_ticktime: None },
+                bevy::winit::RenderUpdateMode::Continuous,
+            ),
+            unfocused_mode: (
+                bevy::winit::MainUpdateMode::reactive_low_power(Duration::from_millis(10)),
+                bevy::winit::RenderUpdateMode::OnEachMainUpdate {
+                    min_frametime: None,
+                },
+            ),
         })
         .insert_resource(ExampleMode::Game)
         .add_plugins(DefaultPlugins.set(WindowPlugin {

@@ -9,7 +9,7 @@ use bevy::{
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
@@ -54,10 +54,7 @@ fn main() {
             FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
+        .insert_resource(WinitSettings::continous_update())
         .insert_resource(Foxes {
             count: args.count,
             speed: 2.0,

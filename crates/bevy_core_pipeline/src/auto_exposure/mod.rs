@@ -18,7 +18,7 @@ mod node;
 mod pipeline;
 mod settings;
 
-use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
+use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers, ExtractedStateBuffers};
 pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
 use node::AutoExposureNode;
 use pipeline::{
@@ -68,6 +68,7 @@ impl Plugin for AutoExposurePlugin {
         render_app
             .init_resource::<SpecializedComputePipelines<AutoExposurePipeline>>()
             .init_resource::<AutoExposureBuffers>()
+            .init_resource::<ExtractedStateBuffers>()
             .add_systems(ExtractSchedule, extract_buffers)
             .add_systems(
                 Render,

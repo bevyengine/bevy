@@ -1610,11 +1610,23 @@ name = "without_winit"
 path = "examples/app/without_winit.rs"
 doc-scrape-examples = true
 
+
 [package.metadata.example.without_winit]
 name = "Without Winit"
 description = "Create an application without winit (runs single time, no event loop)"
 category = "Application"
 wasm = false
+
+[[example]]
+name = "update_mode"
+path = "examples/app/update_mode.rs"
+doc-scrape-examples = true
+
+
+[package.metadata.example.update_mode]
+name = "Main & Render Update Mode"
+description = "Set different update modes for the main app and the renderer"
+category = "Application"
 
 # Assets
 [[example]]

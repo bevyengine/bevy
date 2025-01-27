@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     text::TextColor,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 const FONT_SIZE: f32 = 7.0;
@@ -76,10 +76,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continous_update())
     .add_systems(Update, (button_system, set_text_colors_changed));
 
     app.add_systems(Startup, |mut commands: Commands| {

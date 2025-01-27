@@ -251,6 +251,12 @@ pub fn extract_shadows(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    extracted_box_shadows
+        .box_shadows
+        .iter()
+        .for_each(|(entity, _)| commands.entity(*entity).despawn());
+    extracted_box_shadows.box_shadows.clear();
+
     let default_camera_entity = default_ui_camera.get();
 
     for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {

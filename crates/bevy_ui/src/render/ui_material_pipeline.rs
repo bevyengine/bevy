@@ -376,6 +376,12 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     >,
     mapping: Extract<Query<RenderEntity>>,
 ) {
+    extracted_uinodes
+        .uinodes
+        .iter()
+        .for_each(|(entity, _)| commands.entity(*entity).despawn());
+    extracted_uinodes.uinodes.clear();
+
     // If there is only one camera, we use it as default
     let default_single_camera = default_ui_camera.get();
 

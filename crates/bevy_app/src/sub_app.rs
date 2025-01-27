@@ -13,6 +13,7 @@ use core::fmt::Debug;
 use tracing::info_span;
 
 type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
+type FinalizeExtractFn = Box<dyn Fn(&mut World) + Send>;
 
 /// A secondary application with its own [`World`]. These can run independently of each other.
 ///
@@ -74,6 +75,13 @@ pub struct SubApp {
     /// A function that gives mutable access to two app worlds. This is primarily
     /// intended for copying data from the main world to secondary worlds.
     extract: Option<ExtractFn>,
+    /// A function to finialize any changes made in the extract.
+    /// This is always executed after the [`ExtractFn`].
+    /// The main difference between this and extract is that extract often needs to
+    /// run on the main thread to the facilitate extraction from the main world.
+    /// This function is intended to run on the thread of the sub app and finalize
+    /// any changes queued in the extract.
+    finalize_extract: Option<FinalizeExtractFn>,
 }
 
 impl Debug for SubApp {
@@ -94,6 +102,7 @@ impl Default for SubApp {
             plugins_state: PluginsState::Adding,
             update_schedule: None,
             extract: None,
+            finalize_extract: None,
         }
     }
 }
@@ -163,6 +172,27 @@ impl SubApp {
         F: Fn(&mut World, &mut World) + Send + 'static,
     {
         self.extract = Some(Box::new(extract));
+        self
+    }
+
+    /// Finalizes any data extracted in the [`Self::extract`]
+    ///
+    /// **Note:** There is no default finalize extract method. Calling `extract` does nothing if
+    /// [`set_finalize_extract`](Self::set_finalize_extract) has not been called.
+    pub fn finalize_extract(&mut self) {
+        if let Some(f) = self.finalize_extract.as_mut() {
+            f(&mut self.world);
+        }
+    }
+
+    /// Sets the method that will be called by [`finalize_extract`](Self::finalize_extract).
+    ///
+    /// The first argument is the `World` to finalize.
+    pub fn set_finalize_extract<F>(&mut self, finalize_extract: F) -> &mut Self
+    where
+        F: Fn(&mut World) + Send + 'static,
+    {
+        self.finalize_extract = Some(Box::new(finalize_extract));
         self
     }
 
@@ -483,7 +513,7 @@ pub struct SubApps {
 impl SubApps {
     /// Calls [`update`](SubApp::update) for the main sub-app, and then calls
     /// [`extract`](SubApp::extract) and [`update`](SubApp::update) for the rest.
-    pub fn update(&mut self) {
+    pub fn update(&mut self, only_extract: HashSet<InternedAppLabel>) {
         #[cfg(feature = "trace")]
         let _bevy_update_span = info_span!("update").entered();
         {
@@ -491,11 +521,19 @@ impl SubApps {
             let _bevy_frame_update_span = info_span!("main app").entered();
             self.main.run_default_schedule();
         }
-        for (_label, sub_app) in self.sub_apps.iter_mut() {
-            #[cfg(feature = "trace")]
-            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
-            sub_app.extract(&mut self.main.world);
-            sub_app.update();
+        for (label, sub_app) in self.sub_apps.iter_mut() {
+            {
+                #[cfg(feature = "trace")]
+                let _sub_app_span = info_span!("extract sub app", name = ?_label).entered();
+                sub_app.extract(&mut self.main.world);
+                sub_app.finalize_extract();
+            }
+
+            if !only_extract.contains(label) {
+                #[cfg(feature = "trace")]
+                let _sub_app_span = info_span!("update sub app", name = ?_label).entered();
+                sub_app.update();
+            }
         }
 
         self.main.world.clear_trackers();
@@ -512,9 +550,17 @@ impl SubApps {
     }
 
     /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
-    pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
+    pub fn extract_update_subapp_by_label(&mut self, label: impl AppLabel) {
         if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
             sub_app.extract(&mut self.main.world);
+            sub_app.finalize_extract();
+            sub_app.update();
+        }
+    }
+
+    /// Update the [`SubApp`] with the given label if it exists.
+    pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
+        if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
             sub_app.update();
         }
     }

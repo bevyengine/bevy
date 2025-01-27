@@ -142,22 +142,12 @@ pub fn time_system(
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
     #[cfg(feature = "std")] time_recv: Option<Res<TimeReceiver>>,
-    #[cfg(feature = "std")] mut has_received_time: Local<bool>,
 ) {
     #[cfg(feature = "std")]
     // TODO: Figure out how to handle this when using pipelined rendering.
     let sent_time = match time_recv.map(|res| res.0.try_recv()) {
-        Some(Ok(new_time)) => {
-            *has_received_time = true;
-            Some(new_time)
-        }
-        Some(Err(_)) => {
-            if *has_received_time {
-                log::warn!("time_system did not receive the time from the render world! Calculations depending on the time may be incorrect.");
-            }
-            None
-        }
-        None => None,
+        Some(Ok(new_time)) => Some(new_time),
+        Some(Err(_)) | None => None,
     };
 
     #[cfg(not(feature = "std"))]

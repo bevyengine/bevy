@@ -113,7 +113,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     if let Err(error) = time_sender.0.try_send(Instant::now()) {
         match error {
             bevy_time::TrySendError::Full(_) => {
-                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
+                // ignore full errors, the main world is probably updating at a slower rate than the render world
             }
             bevy_time::TrySendError::Disconnected(_) => {
                 // ignore disconnected errors, the main world probably just got dropped during shutdown
