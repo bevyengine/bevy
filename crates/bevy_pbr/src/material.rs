@@ -7,7 +7,7 @@ use crate::meshlet::{
 };
 use crate::*;
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{Asset, AssetId, AssetServer, UntypedAssetId};
+use bevy_asset::{Asset, AssetEvents, AssetId, AssetServer, UntypedAssetId};
 use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
@@ -290,6 +290,13 @@ where
                     .ambiguous_with_all()
                     .after(mesh::mark_3d_meshes_as_changed_if_their_assets_changed),
             );
+
+        if self.shadows_enabled {
+            app.add_systems(
+                PostUpdate,
+                check_entities_needing_specialization::<M>.after(AssetEvents),
+            );
+        }
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

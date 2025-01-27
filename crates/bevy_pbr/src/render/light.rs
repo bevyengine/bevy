@@ -1592,10 +1592,10 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 }
 
 /// These will be extracted in the material extraction
-fn check_entities_needing_specialization<M: Material>(
+pub fn check_entities_needing_specialization<M: Material>(
     mut thread_queues: Local<Parallel<Vec<Entity>>>,
     mut needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
-    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
+    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<MeshMaterial3d<M>>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
     entities_needing_specialization.entities.clear();
@@ -1690,13 +1690,19 @@ pub fn check_views_lights_need_specialization<VK>(
 
 pub fn specialize_shadows<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    (render_meshes, render_mesh_instances, render_materials, render_material_instances): (
+    (
+        render_meshes,
+        render_mesh_instances,
+        render_materials,
+        render_material_instances,
+        material_bind_group_allocator,
+    ): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
         Res<RenderAssets<PreparedMaterial<M>>>,
         Res<RenderMaterialInstances<M>>,
+        Res<MaterialBindGroupAllocator<M>>,
     ),
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -1711,6 +1717,8 @@ pub fn specialize_shadows<M: Material>(
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
+    light_specialization_ticks: Res<LightSpecializationTicks>,
+    entity_specialization_ticks: Res<EntitySpecializationTicks<MeshMaterial3d<M>>>,
     ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -1725,7 +1733,6 @@ pub fn specialize_shadows<M: Material>(
             if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
                 continue;
             }
-
             let Some(light_key) = light_key_cache.get(&entity) else {
                 continue;
             };
@@ -1757,8 +1764,30 @@ pub fn specialize_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            for (_, main_entity) in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
+            for (_, visible_entity) in visible_entities.iter().copied() {
+                let view_tick = light_specialization_ticks
+                    .get(&view_light_entity)
+                    .expect("View entity not found in specialization ticks");
+                let entity_tick = entity_specialization_ticks
+                    .entities
+                    .get(&visible_entity)
+                    .expect("Entity not found in specialization ticks");
+                let last_specialized_tick = specialized_material_pipeline_cache
+                    .get(&(view_light_entity, visible_entity))
+                    .map(|(tick, _)| *tick);
+                let needs_specialization =
+                    last_specialized_tick.map_or(true, |last_specialized_tick| {
+                        let view_changed =
+                            view_tick.is_newer_than(last_specialized_tick, ticks.this_run());
+                        let entity_changed =
+                            entity_tick.is_newer_than(last_specialized_tick, ticks.this_run());
+                        view_changed || entity_changed
+                    });
+                if !needs_specialization {
+                    continue;
+                }
+                let Some(mesh_instance) =
+                    render_mesh_instances.render_mesh_queue_data(visible_entity)
                 else {
                     continue;
                 };
@@ -1768,7 +1797,7 @@ pub fn specialize_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
                     continue;
                 };
                 let Some(material) = render_materials.get(*material_asset_id) else {
@@ -1791,7 +1820,10 @@ pub fn specialize_shadows<M: Material>(
                 // we need to include the appropriate flag in the mesh pipeline key
                 // to ensure that the necessary bind group layout entries are
                 // present.
-                if render_lightmaps.render_lightmaps.contains_key(&main_entity) {
+                if render_lightmaps
+                    .render_lightmaps
+                    .contains_key(&visible_entity)
+                {
                     mesh_key |= MeshPipelineKey::LIGHTMAPPED;
                 }
 
@@ -1824,7 +1856,7 @@ pub fn specialize_shadows<M: Material>(
                 };
 
                 specialized_material_pipeline_cache.insert(
-                    (view_light_entity, main_entity),
+                    (view_light_entity, visible_entity),
                     (ticks.this_run(), pipeline_id),
                 );
             }
