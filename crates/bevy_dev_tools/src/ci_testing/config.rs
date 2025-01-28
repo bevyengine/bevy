@@ -37,6 +37,9 @@ pub enum CiTestingEvent {
     /// Takes a screenshot of the entire screen, and saves the results to
     /// `screenshot-{current_frame}.png`.
     Screenshot,
+    /// Takes a screenshot of the entire screen, and saves the results to
+    /// `screenshot-{name}.png`.
+    NamedScreenshot(String),
     /// Stops the program by sending [`AppExit::Success`].
     ///
     /// [`AppExit::Success`]: bevy_app::AppExit::Success
