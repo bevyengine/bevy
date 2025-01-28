@@ -2,9 +2,14 @@
 //!
 //! You can switch scene by pressing the spacebar
 
-#[cfg(feature = "bevy_ci_testing")]
-use bevy::dev_tools::ci_testing::CiTestingCustomEvent;
 use bevy::prelude::*;
+#[cfg(feature = "bevy_ci_testing")]
+use bevy::{
+    dev_tools::ci_testing::{CiTestingConfig, CiTestingEvent, CiTestingEventOnFrame},
+    diagnostic::FrameCount,
+    platform_support::collections::HashSet,
+    render::view::screenshot::Captured,
+};
 
 fn main() {
     let mut app = App::new();
@@ -15,6 +20,10 @@ fn main() {
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
         .add_systems(Update, switch_scene);
+
+    #[cfg(feature = "bevy_ci_testing")]
+    app.add_systems(Update, switch_scene_in_ci.before(switch_scene));
+
     app.run();
 }
 
@@ -28,21 +37,44 @@ enum Scene {
     Sprite,
 }
 
+#[cfg(feature = "bevy_ci_testing")]
+fn switch_scene_in_ci(
+    mut ci_config: ResMut<CiTestingConfig>,
+    scene: Res<State<Scene>>,
+    mut scenes_visited: Local<HashSet<Scene>>,
+    mut keyboard: ResMut<ButtonInput<KeyCode>>,
+    frame_count: Res<FrameCount>,
+    captured: RemovedComponents<Captured>,
+) {
+    if scene.is_changed() {
+        // Changed scene! trigger a screenshot in 100 frames, and reset keyboard state
+        ci_config.events.push(CiTestingEventOnFrame(
+            frame_count.0 + 100,
+            CiTestingEvent::NamedScreenshot(format!("{:?}", scene.get())),
+        ));
+        keyboard.release(KeyCode::Space);
+        return;
+    }
+
+    if !captured.is_empty() {
+        // Screenshot taken! Switch to the next scene
+        if scenes_visited.insert(scene.get().clone()) {
+            keyboard.press(KeyCode::Space);
+        } else {
+            ci_config.events.push(CiTestingEventOnFrame(
+                frame_count.0 + 1,
+                CiTestingEvent::AppExit,
+            ));
+        }
+    }
+}
+
 fn switch_scene(
     keyboard: Res<ButtonInput<KeyCode>>,
-    #[cfg(feature = "bevy_ci_testing")] mut ci_events: EventReader<CiTestingCustomEvent>,
     scene: Res<State<Scene>>,
     mut next_scene: ResMut<NextState<Scene>>,
 ) {
-    let mut should_switch = false;
-    should_switch |= keyboard.just_pressed(KeyCode::Space);
-    #[cfg(feature = "bevy_ci_testing")]
-    {
-        should_switch |= ci_events.read().any(|event| match event {
-            CiTestingCustomEvent(event) => event == "switch_scene",
-        });
-    }
-    if should_switch {
+    if keyboard.just_pressed(KeyCode::Space) {
         info!("Switching scene");
         next_scene.set(match scene.get() {
             Scene::Shapes => Scene::Bloom,
