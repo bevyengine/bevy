@@ -21,7 +21,6 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -367,7 +366,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -379,23 +377,13 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             Option<&UiTargetCamera>,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = default_ui_camera.get();
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
         uinode_query.iter()
     {
-        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_single_camera)
-        else {
-            continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
-
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
@@ -405,6 +393,10 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         if !materials.contains(handle) {
             continue;
         }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
 
         extracted_uinodes.uinodes.insert(
             commands.spawn(TemporaryRenderEntity).id(),
