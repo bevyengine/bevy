@@ -141,7 +141,6 @@ const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(74148126892380
 const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
-/// It does *not* require `bevy_pbr`
 ///
 /// Requires to be loaded after [`RenderPlugin`](bevy_pbr::RenderPlugin).
 /// Additional features for 2d meshes and lights can be enabled with the following features:
