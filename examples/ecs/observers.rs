@@ -172,9 +172,13 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform)>,
-    windows: Single<&Window>,
+    windows: Query<&Window>,
     mut commands: Commands,
 ) {
+    let Ok(windows) = windows.get_single() else {
+        return;
+    };
+
     let (camera, camera_transform) = *camera;
     if let Some(pos) = windows
         .cursor_position()
