@@ -4,10 +4,7 @@ use bevy_platform_support::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
 use bevy_ecs::{
-    entity::{
-        hash_map::{self, EntityHashMap},
-        Entity,
-    },
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
