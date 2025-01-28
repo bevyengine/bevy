@@ -139,9 +139,8 @@ const LINE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(74148126892380
 #[cfg(feature = "bevy_render")]
 const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1162780797909187908);
 
-/// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
+/// A [`Plugin`] for the [`RenderApp`] that provides an immediate mode drawing api for visual debugging.
 ///
-/// Requires to be loaded after [`RenderPlugin`](bevy_pbr::RenderPlugin).
 /// Additionally, it can support debugging light when the `bevy_pbr` feature is enabled,
 /// see [`LightGizmoPlugin`]
 #[derive(Default)]
