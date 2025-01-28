@@ -291,7 +291,8 @@ fn queue_line_gizmos_3d(
         .unwrap();
 
     for (view, msaa, render_layers) in &views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -371,7 +372,8 @@ fn queue_line_joint_gizmos_3d(
         .unwrap();
 
     for (view, msaa, render_layers) in &mut views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
