@@ -18,8 +18,8 @@ use bevy_render::{
 #[derive(Component)]
 pub(crate) struct ViewBindGroup(BindGroup);
 
-#[derive(Resource)]
 /// very common layout: just the view uniform
+#[derive(Resource)]
 pub(crate) struct OnlyViewLayout(pub BindGroupLayout);
 
 impl FromWorld for OnlyViewLayout {
