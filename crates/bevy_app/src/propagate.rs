@@ -31,7 +31,7 @@ pub struct HierarchyPropagatePlugin<C: Component + Clone + PartialEq, F: QueryFi
 );
 
 /// Causes the inner component to be added to this entity and all children.
-/// A descendant with a Propagate<C> component of it's own will override propagation
+/// A descendant with a `Propagate::<C>` component of it's own will override propagation
 /// from that point in the tree
 #[derive(Component, Clone, PartialEq)]
 pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
@@ -115,7 +115,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static> Plugin
     }
 }
 
-/// add/remove Inherited<C> and C for entities with a direct Propagate<C>
+/// add/remove `Inherited::<C>` and `C` for entities with a direct `Propagate::<C>`
 pub fn update_source<C: Component + Clone + PartialEq, F: QueryFilter>(
     mut commands: Commands,
     changed: Query<
