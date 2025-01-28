@@ -51,6 +51,11 @@ use gltf::{
     Document, Material, Node, Primitive, Semantic,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(any(
+    feature = "pbr_specular_textures",
+    feature = "pbr_multi_layer_material_textures"
+))]
+use serde_json::Map;
 use serde_json::{value, Value};
 use std::{
     io::Error,
@@ -1235,6 +1240,10 @@ fn load_material(
         let anisotropy =
             AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
 
+        // Parse the `KHR_materials_specular` extension data if necessary.
+        let specular =
+            SpecularExtension::parse(load_context, document, material).unwrap_or_default();
+
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -1303,6 +1312,21 @@ fn load_material(
             anisotropy_channel: anisotropy.anisotropy_channel,
             #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture: anisotropy.anisotropy_texture,
+            // From the `KHR_materials_specular` spec:
+            // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+            reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: specular.specular_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: specular.specular_texture,
+            specular_tint: match specular.specular_color_factor {
+                Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
+                None => Color::WHITE,
+            },
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_channel: specular.specular_color_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_texture: specular.specular_color_texture,
             ..Default::default()
         }
     })
@@ -1731,7 +1755,8 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 /// for an extension, forcing us to parse its texture references manually.
 #[cfg(any(
     feature = "pbr_anisotropy_texture",
-    feature = "pbr_multi_layer_material_textures"
+    feature = "pbr_multi_layer_material_textures",
+    feature = "pbr_specular_textures"
 ))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
@@ -2122,40 +2147,35 @@ impl ClearcoatExtension {
             .as_object()?;
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_channel, clearcoat_texture) = extension
-            .get("clearcoatTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_channel, clearcoat_texture) = parse_material_extension_texture(
+            load_context,
+            document,
+            material,
+            extension,
+            "clearcoatTexture",
+            "clearcoat",
+        );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_roughness_channel, clearcoat_roughness_texture) = extension
-            .get("clearcoatRoughnessTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat roughness", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_roughness_channel, clearcoat_roughness_texture) =
+            parse_material_extension_texture(
+                load_context,
+                document,
+                material,
+                extension,
+                "clearcoatRoughnessTexture",
+                "clearcoat roughness",
+            );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_normal_channel, clearcoat_normal_texture) = extension
-            .get("clearcoatNormalTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat normal", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_normal_channel, clearcoat_normal_texture) = parse_material_extension_texture(
+            load_context,
+            document,
+            material,
+            extension,
+            "clearcoatNormalTexture",
+            "clearcoat normal",
+        );
 
         Some(ClearcoatExtension {
             clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),
@@ -2163,15 +2183,15 @@ impl ClearcoatExtension {
                 .get("clearcoatRoughnessFactor")
                 .and_then(Value::as_f64),
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_channel: clearcoat_channel.unwrap_or_default(),
+            clearcoat_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_channel: clearcoat_roughness_channel.unwrap_or_default(),
+            clearcoat_roughness_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_roughness_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_channel: clearcoat_normal_channel.unwrap_or_default(),
+            clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture,
         })
@@ -2231,6 +2251,121 @@ impl AnisotropyExtension {
             #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture,
         })
+    }
+}
+
+/// Parsed data from the `KHR_materials_specular` extension.
+///
+/// We currently don't parse `specularFactor` and `specularTexture`, since
+/// they're incompatible with Filament.
+///
+/// Note that the map is a *specular map*, not a *reflectance map*. In Bevy and
+/// Filament terms, the reflectance values in the specular map range from [0.0,
+/// 0.5], rather than [0.0, 1.0]. This is an unfortunate
+/// `KHR_materials_specular` specification requirement that stems from the fact
+/// that glTF is specified in terms of a specular strength model, not the
+/// reflectance model that Filament and Bevy use. A workaround, which is noted
+/// in the [`StandardMaterial`] documentation, is to set the reflectance value
+/// to 2.0, which spreads the specular map range from [0.0, 1.0] as normal.
+///
+/// See the specification:
+/// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>
+#[derive(Default)]
+struct SpecularExtension {
+    specular_factor: Option<f64>,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_channel: UvChannel,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_texture: Option<Handle<Image>>,
+    specular_color_factor: Option<[f64; 3]>,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_color_channel: UvChannel,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_color_texture: Option<Handle<Image>>,
+}
+
+impl SpecularExtension {
+    fn parse(
+        _load_context: &mut LoadContext,
+        _document: &Document,
+        material: &Material,
+    ) -> Option<Self> {
+        let extension = material
+            .extensions()?
+            .get("KHR_materials_specular")?
+            .as_object()?;
+
+        #[cfg(feature = "pbr_specular_textures")]
+        let (_specular_channel, _specular_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
+            material,
+            extension,
+            "specularTexture",
+            "specular",
+        );
+
+        #[cfg(feature = "pbr_specular_textures")]
+        let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
+            material,
+            extension,
+            "specularColorTexture",
+            "specular color",
+        );
+
+        Some(SpecularExtension {
+            specular_factor: extension.get("specularFactor").and_then(Value::as_f64),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: _specular_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: _specular_texture,
+            specular_color_factor: extension
+                .get("specularColorFactor")
+                .and_then(Value::as_array)
+                .and_then(|json_array| {
+                    if json_array.len() < 3 {
+                        None
+                    } else {
+                        Some([
+                            json_array[0].as_f64()?,
+                            json_array[1].as_f64()?,
+                            json_array[2].as_f64()?,
+                        ])
+                    }
+                }),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_channel: _specular_color_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_texture: _specular_color_texture,
+        })
+    }
+}
+
+/// Parses a texture that's part of a material extension block and returns its
+/// UV channel and image reference.
+#[cfg(any(
+    feature = "pbr_specular_textures",
+    feature = "pbr_multi_layer_material_textures"
+))]
+fn parse_material_extension_texture(
+    load_context: &mut LoadContext,
+    document: &Document,
+    material: &Material,
+    extension: &Map<String, Value>,
+    texture_name: &str,
+    texture_kind: &str,
+) -> (UvChannel, Option<Handle<Image>>) {
+    match extension
+        .get(texture_name)
+        .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+    {
+        Some(json_info) => (
+            get_uv_channel(material, texture_kind, json_info.tex_coord),
+            Some(texture_handle_from_info(load_context, document, &json_info)),
+        ),
+        None => (UvChannel::default(), None),
     }
 }
 

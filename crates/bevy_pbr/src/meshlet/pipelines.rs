@@ -1,7 +1,8 @@
 use super::resource_manager::ResourceManager;
 use bevy_asset::Handle;
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_ecs::{
     resource::Resource,
@@ -12,8 +13,6 @@ use bevy_render::render_resource::*;
 pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(4325134235233421);
 pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5325134235233421);
-pub const MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(6325134235233421);
 pub const MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(7325134235233421);
 pub const MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
@@ -119,8 +118,11 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec![
+                        "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
+                        "MESHLET".into(),
+                    ],
                     entry_point: "downsample_depth_first".into(),
                     zero_initialize_workgroup_memory: false,
                 },
@@ -134,8 +136,11 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec![
+                        "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
+                        "MESHLET".into(),
+                    ],
                     entry_point: "downsample_depth_second".into(),
                     zero_initialize_workgroup_memory: false,
                 },
@@ -149,8 +154,8 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec![],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET".into()],
                     entry_point: "downsample_depth_first".into(),
                     zero_initialize_workgroup_memory: false,
                 },
@@ -164,8 +169,8 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec![],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET".into()],
                     entry_point: "downsample_depth_second".into(),
                     zero_initialize_workgroup_memory: false,
                 },
