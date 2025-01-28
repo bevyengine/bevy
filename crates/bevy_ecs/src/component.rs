@@ -2261,19 +2261,11 @@ impl StagedComponents {
                 .component_clone_handlers
                 .set_component_handler(component, ComponentCloneHandler(Some(handler)));
         }
-        for (component, additional) in self.new_required.drain() {
-            let required = &mut target.components[component.0].required_components;
-            for additional in additional.0 {
-                if required.0.contains_key(&additional.0) {
-                    // in theory, this should never happen.
-                    panic!("A required component was registered that should have been marked as a duplicate.");
-                }
-                required.0.insert(additional.0, additional.1);
-            }
+        for (component, new) in self.new_required.drain() {
+            target.components[component.0].required_components = new;
         }
-        for (component, additional) in self.new_required_by.drain() {
-            let required = &mut target.components[component.0].required_by;
-            required.extend(additional.into_iter());
+        for (component, new) in self.new_required_by.drain() {
+            target.components[component.0].required_by = new;
         }
     }
 }
