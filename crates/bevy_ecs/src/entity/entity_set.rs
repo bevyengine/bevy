@@ -361,17 +361,17 @@ impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
         Self { iter }
     }
 
-    /// Returns the inner [`I`].
+    /// Returns the inner `I`.
     pub fn into_inner(self) -> I {
         self.iter
     }
 
-    /// Returns a reference to the inner [`I`].
+    /// Returns a reference to the inner `I`.
     pub fn as_inner(&self) -> &I {
         &self.iter
     }
 
-    /// Returns a mutable reference to the inner [`I`].
+    /// Returns a mutable reference to the inner `I`.
     ///
     /// # Safety
     ///

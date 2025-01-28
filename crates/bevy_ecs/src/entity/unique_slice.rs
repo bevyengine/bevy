@@ -409,7 +409,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
 
     /// Sorts the slice, preserving initial order of equal elements.
     ///
-    /// Equivalent to [`[T]::sort`](slice::sort).
+    /// Equivalent to [`[T]::sort`](slice::sort()).
     pub fn sort(&mut self)
     where
         T: Ord,
