@@ -204,11 +204,16 @@ pub(crate) fn transform_hotspot(
 ) -> (u16, u16) {
     let hotspot_x = hotspot.0 as f32;
     let hotspot_y = hotspot.1 as f32;
+
     let (width, height) = (rect.width(), rect.height());
 
-    let hotspot_x = if flip_x { width - hotspot_x } else { hotspot_x };
+    let hotspot_x = if flip_x {
+        (width - 1.0).max(0.0) - hotspot_x
+    } else {
+        hotspot_x
+    };
     let hotspot_y = if flip_y {
-        height - hotspot_y
+        (height - 1.0).max(0.0) - hotspot_y
     } else {
         hotspot_y
     };
