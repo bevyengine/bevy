@@ -1,19 +1,58 @@
 use alloc::{string::String, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
-
 #[cfg(feature = "std")]
-use crate::executor::LocalExecutor;
+use std::thread_local;
 
 #[cfg(not(feature = "std"))]
+use bevy_platform_support::sync::{Mutex, PoisonError};
+
+#[cfg(all(
+    feature = "std",
+    any(feature = "async_executor", feature = "edge_executor")
+))]
+use crate::executor::LocalExecutor;
+
+#[cfg(all(
+    not(feature = "std"),
+    any(feature = "async_executor", feature = "edge_executor")
+))]
 use crate::executor::Executor as LocalExecutor;
+
+#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
+mod dummy_executor {
+    use async_task::Task;
+    use core::{future::Future, marker::PhantomData};
+
+    /// Dummy implementation of a `LocalExecutor` to allow for a cleaner compiler error
+    /// due to missing feature flags.
+    #[doc(hidden)]
+    #[derive(Debug)]
+    pub struct LocalExecutor<'a>(PhantomData<fn(&'a ())>);
+
+    impl<'a> LocalExecutor<'a> {
+        /// Dummy implementation
+        pub const fn new() -> Self {
+            Self(PhantomData)
+        }
+
+        /// Dummy implementation
+        pub fn try_tick(&self) -> bool {
+            unimplemented!()
+        }
+
+        /// Dummy implementation
+        pub fn spawn<T: 'a>(&self, _: impl Future<Output = T> + 'a) -> Task<T> {
+            unimplemented!()
+        }
+    }
+}
+
+#[cfg(not(any(feature = "async_executor", feature = "edge_executor")))]
+use dummy_executor::LocalExecutor;
 
 #[cfg(feature = "std")]
 thread_local! {
@@ -27,7 +66,7 @@ static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
 type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
 
 #[cfg(not(feature = "std"))]
-type ScopeResult<T> = Arc<spin::Mutex<Option<T>>>;
+type ScopeResult<T> = Arc<Mutex<Option<T>>>;
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -178,7 +217,7 @@ impl TaskPool {
 
                 #[cfg(not(feature = "std"))]
                 {
-                    let mut lock = result.lock();
+                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                     lock.take().unwrap()
                 }
             })
@@ -307,7 +346,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
 
             #[cfg(not(feature = "std"))]
             {
-                let mut lock = result.lock();
+                let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                 *lock = Some(temp_result);
             }
         };

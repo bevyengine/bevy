@@ -4,9 +4,9 @@ mod render_device;
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::tracing::{error, info, info_span, warn};
 pub use graph_runner::*;
 pub use render_device::*;
+use tracing::{error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -18,8 +18,8 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_platform_support::time::Instant;
 use bevy_time::TimeSender;
-use bevy_utils::Instant;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions,
@@ -99,8 +99,8 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         }
 
         #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
+        tracing::event!(
+            tracing::Level::INFO,
             message = "finished frame",
             tracy.frame_mark = true
         );

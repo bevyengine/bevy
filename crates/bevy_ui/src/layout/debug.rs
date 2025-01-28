@@ -3,7 +3,7 @@ use core::fmt::Write;
 use taffy::{NodeId, TraversePartialTree};
 
 use bevy_ecs::prelude::Entity;
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 use crate::layout::ui_surface::UiSurface;
 
@@ -27,7 +27,7 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
                 &mut out,
             );
         }
-        bevy_utils::tracing::info!("Layout tree for camera entity: {entity}\n{out}");
+        tracing::info!("Layout tree for camera entity: {entity}\n{out}");
     }
 }
 

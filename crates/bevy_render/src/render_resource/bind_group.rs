@@ -21,7 +21,10 @@ define_atomic_id!(BindGroupId);
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
 /// This makes them accessible in the pipeline (shaders) as uniforms.
 ///
-/// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
+/// This is a lightweight thread-safe wrapper around wgpu's own [`BindGroup`](wgpu::BindGroup),
+/// which can be cloned as needed to workaround lifetime management issues. It may be converted
+/// from and dereferences to wgpu's [`BindGroup`](wgpu::BindGroup).
+///
 /// Can be created via [`RenderDevice::create_bind_group`](RenderDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
@@ -30,10 +33,24 @@ pub struct BindGroup {
 }
 
 impl BindGroup {
-    /// Returns the [`BindGroupId`].
+    /// Returns the [`BindGroupId`] representing the unique ID of the bind group.
     #[inline]
     pub fn id(&self) -> BindGroupId {
         self.id
+    }
+}
+
+impl PartialEq for BindGroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for BindGroup {}
+
+impl core::hash::Hash for BindGroup {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.id.0.hash(state);
     }
 }
 
@@ -342,6 +359,15 @@ pub trait AsBindGroup {
         None
     }
 
+    /// True if the hardware *actually* supports bindless textures for this
+    /// type, taking the device and driver capabilities into account.
+    ///
+    /// If this type doesn't use bindless textures, then the return value from
+    /// this function is meaningless.
+    fn bindless_supported(_: &RenderDevice) -> bool {
+        true
+    }
+
     /// label
     fn label() -> Option<&'static str> {
         None
@@ -405,7 +431,7 @@ pub trait AsBindGroup {
         )
     }
 
-    /// Returns a vec of bind group layout entries
+    /// Returns a vec of bind group layout entries.
     ///
     /// Set `force_no_bindless` to true to require that bindless textures *not*
     /// be used. `ExtendedMaterial` uses this in order to ensure that the base

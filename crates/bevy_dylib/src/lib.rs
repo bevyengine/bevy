@@ -54,6 +54,9 @@
 //! ```
 
 // Force linking of the main bevy crate
-#[allow(unused_imports)]
-#[allow(clippy::single_component_path_imports)]
+#[expect(
+    unused_imports,
+    clippy::single_component_path_imports,
+    reason = "This links the main bevy crate when using dynamic linking, and as such cannot be removed or changed without affecting dynamic linking."
+)]
 use bevy_internal;

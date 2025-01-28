@@ -6,7 +6,7 @@ use alloc::{
     borrow::{Cow, ToOwned},
     string::String,
 };
-use bevy_utils::FixedHasher;
+use bevy_platform_support::hash::FixedHasher;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
@@ -264,6 +264,7 @@ impl<'de> Visitor<'de> for NameVisitor {
 mod tests {
     use super::*;
     use crate::world::World;
+    use alloc::string::ToString;
 
     #[test]
     fn test_display_of_debug_name() {

@@ -6,7 +6,7 @@ use bevy_ecs::{
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
     system::{SystemId, SystemInput},
 };
-use bevy_utils::{HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -362,7 +362,6 @@ impl SubApp {
     }
 
     /// See [`App::get_added_plugins`].
-    #[cfg(feature = "downcast")]
     pub fn get_added_plugins<T>(&self) -> Vec<&T>
     where
         T: Plugin,

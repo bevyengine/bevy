@@ -116,6 +116,8 @@
 //! - [`DynSystemParam`]
 //! - [`Vec<P>`] where `P: SystemParam`
 //! - [`ParamSet<Vec<P>>`] where `P: SystemParam`
+//!
+//! [`Vec<P>`]: alloc::vec::Vec
 
 mod adapter_system;
 mod builder;
@@ -128,7 +130,6 @@ mod input;
 mod observer_system;
 mod query;
 mod schedule_system;
-#[allow(clippy::module_inception)]
 mod system;
 mod system_name;
 mod system_param;
@@ -158,6 +159,12 @@ use crate::world::World;
 ///
 /// Use this to get a system from a function. Also note that every system implements this trait as
 /// well.
+///
+/// # Usage notes
+///
+/// This trait should only be used as a bound for trait implementations or as an
+/// argument to a function. If a system needs to be returned from a function or
+/// stored somewhere, use [`System`] instead of this trait.
 ///
 /// # Examples
 ///
@@ -317,8 +324,10 @@ pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Param
 
 #[cfg(test)]
 mod tests {
+    use alloc::{vec, vec::Vec};
     use bevy_utils::default;
     use core::any::TypeId;
+    use std::println;
 
     use crate::{
         self as bevy_ecs,
@@ -330,6 +339,7 @@ mod tests {
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},
         removal_detection::RemovedComponents,
+        resource::Resource,
         result::Result,
         schedule::{
             common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
@@ -337,7 +347,7 @@ mod tests {
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
-            Resource, Single, StaticSystemParam, System, SystemState,
+            Single, StaticSystemParam, System, SystemState,
         },
         world::{EntityMut, FromWorld, World},
     };
@@ -388,7 +398,7 @@ mod tests {
 
     #[test]
     fn get_many_is_ordered() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
         const ENTITIES_COUNT: usize = 1000;
 
         #[derive(Resource)]
@@ -417,8 +427,7 @@ mod tests {
             let entities_array: [Entity; ENTITIES_COUNT] =
                 entities_array.0.clone().try_into().unwrap();
 
-            #[allow(unused_mut)]
-            for (i, mut w) in (0..ENTITIES_COUNT).zip(q.get_many_mut(entities_array).unwrap()) {
+            for (i, w) in (0..ENTITIES_COUNT).zip(q.get_many_mut(entities_array).unwrap()) {
                 assert_eq!(i, w.0);
             }
 
@@ -470,7 +479,7 @@ mod tests {
 
     #[test]
     fn changed_resource_system() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
 
         #[derive(Resource)]
         struct Flipper(bool);
@@ -894,13 +903,18 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        dead_code,
+        reason = "The `NotSend1` and `NotSend2` structs is used to verify that a system will run, even if the system params include a non-Send resource. As such, the inner value doesn't matter."
+    )]
     fn non_send_option_system() {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
-        #[allow(dead_code)]
+        // Two structs are used, one which is inserted and one which is not, to verify that wrapping
+        // non-Send resources in an `Option` will allow the system to run regardless of their
+        // existence.
         struct NotSend1(alloc::rc::Rc<i32>);
-        #[allow(dead_code)]
         struct NotSend2(alloc::rc::Rc<i32>);
         world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(0)));
 
@@ -919,13 +933,15 @@ mod tests {
     }
 
     #[test]
+    #[expect(
+        dead_code,
+        reason = "The `NotSend1` and `NotSend2` structs are used to verify that a system will run, even if the system params include a non-Send resource. As such, the inner value doesn't matter."
+    )]
     fn non_send_system() {
         let mut world = World::default();
 
         world.insert_resource(SystemRan::No);
-        #[allow(dead_code)]
         struct NotSend1(alloc::rc::Rc<i32>);
-        #[allow(dead_code)]
         struct NotSend2(alloc::rc::Rc<i32>);
 
         world.insert_non_send_resource(NotSend1(alloc::rc::Rc::new(1)));
@@ -1107,7 +1123,6 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::too_many_arguments)]
     fn can_have_16_parameters() {
         fn sys_x(
             _: Res<A>,
@@ -1275,9 +1290,11 @@ mod tests {
         }
     }
 
-    /// this test exists to show that read-only world-only queries can return data that lives as long as 'world
     #[test]
-    #[allow(unused)]
+    #[expect(
+        dead_code,
+        reason = "This test exists to show that read-only world-only queries can return data that lives as long as `'world`."
+    )]
     fn long_life_test() {
         struct Holder<'w> {
             value: &'w A,

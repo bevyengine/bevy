@@ -194,6 +194,19 @@
 //!
 //! `result`: null.
 //!
+//! ### `bevy/mutate_component`
+//!
+//! Mutate a field in a component.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity with the component to mutate.
+//! - `component`: The component's [fully-qualified type name].
+//! - `path`: The path of the field within the component. See
+//!   [`GetPath`](bevy_reflect::GetPath#syntax) for more information on formatting this string.
+//! - `value`: The value to insert at `path`.
+//!
+//! `result`: null.
+//!
 //! ### bevy/reparent
 //!
 //! Assign a new parent to one or more entities.
@@ -310,11 +323,13 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
+    resource::Resource,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
+    system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
-use bevy_utils::{prelude::default, HashMap};
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
@@ -412,6 +427,10 @@ impl Default for RemotePlugin {
             .with_method(
                 builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
                 builtin_methods::export_registry_types,
+            )
+            .with_method(
+                builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
+                builtin_methods::process_remote_mutate_component_request,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,

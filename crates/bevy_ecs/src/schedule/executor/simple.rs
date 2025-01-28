@@ -1,7 +1,11 @@
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
+
 #[cfg(feature = "trace")]
 use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
 
 use crate::{
     schedule::{
@@ -145,8 +149,10 @@ impl SimpleExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
         .map(|condition| {

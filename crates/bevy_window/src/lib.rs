@@ -3,7 +3,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
 
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!
@@ -12,15 +12,14 @@
 //! The [`WindowPlugin`] sets up some global window-related parameters and
 //! is part of the [`DefaultPlugins`](https://docs.rs/bevy/latest/bevy/struct.DefaultPlugins.html).
 
+#[cfg(feature = "std")]
+extern crate std;
+
 extern crate alloc;
 
 use alloc::sync::Arc;
 
-#[cfg(feature = "std")]
-use std::sync::Mutex;
-
-#[cfg(not(feature = "std"))]
-use spin::mutex::Mutex;
+use bevy_platform_support::sync::Mutex;
 
 mod event;
 mod monitor;

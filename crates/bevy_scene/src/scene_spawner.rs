@@ -1,18 +1,25 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     event::{Event, EventCursor, Events},
+    hierarchy::ChildOf,
     reflect::AppTypeRegistry,
-    system::Resource,
+    resource::Resource,
     world::{Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
-use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
+use crate::{DynamicSceneRoot, SceneRoot};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    change_detection::ResMut,
+    prelude::{Changed, Component, Without},
+    system::{Commands, Query},
+};
 /// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
 ///
 /// See also [`Trigger`], [`SceneSpawner::instance_is_ready`].
@@ -194,9 +201,8 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                    entity_mut.remove_parent();
-                    entity_mut.despawn_recursive();
+                if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                    entity_mut.despawn();
                 };
             }
         }
@@ -371,7 +377,7 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for &entity in instance.entity_map.values() {
-                    // Add the `Parent` component to the scene root, and update the `Children` component of
+                    // Add the `ChildOf` component to the scene root, and update the `Children` component of
                     // the scene parent
                     if !world
                         .get_entity(entity)
@@ -380,7 +386,7 @@ impl SceneSpawner {
                         // scene have a parent
                         // Entities that wouldn't exist anymore are also skipped
                         // this case shouldn't happen anyway
-                        .is_none_or(|entity| entity.contains::<Parent>())
+                        .is_none_or(|entity| entity.contains::<ChildOf>())
                     {
                         world.entity_mut(parent).add_child(entity);
                     }
@@ -396,7 +402,7 @@ impl SceneSpawner {
         }
     }
 
-    /// Check that an scene instance spawned previously is ready to use
+    /// Check that a scene instance spawned previously is ready to use
     pub fn instance_is_ready(&self, instance_id: InstanceId) -> bool {
         self.spawned_instances.contains_key(&instance_id)
     }
@@ -468,12 +474,51 @@ pub fn scene_spawner_system(world: &mut World) {
     });
 }
 
+/// [`InstanceId`] of a spawned scene. It can be used with the [`SceneSpawner`] to
+/// interact with the spawned scene.
+#[derive(Component, Deref, DerefMut)]
+pub struct SceneInstance(pub(crate) InstanceId);
+
+/// System that will spawn scenes from the [`SceneRoot`] and [`DynamicSceneRoot`] components.
+pub fn scene_spawner(
+    mut commands: Commands,
+    mut scene_to_spawn: Query<
+        (Entity, &SceneRoot, Option<&mut SceneInstance>),
+        (Changed<SceneRoot>, Without<DynamicSceneRoot>),
+    >,
+    mut dynamic_scene_to_spawn: Query<
+        (Entity, &DynamicSceneRoot, Option<&mut SceneInstance>),
+        (Changed<DynamicSceneRoot>, Without<SceneRoot>),
+    >,
+    mut scene_spawner: ResMut<SceneSpawner>,
+) {
+    for (entity, scene, instance) in &mut scene_to_spawn {
+        let new_instance = scene_spawner.spawn_as_child(scene.0.clone(), entity);
+        if let Some(mut old_instance) = instance {
+            scene_spawner.despawn_instance(**old_instance);
+            *old_instance = SceneInstance(new_instance);
+        } else {
+            commands.entity(entity).insert(SceneInstance(new_instance));
+        }
+    }
+    for (entity, dynamic_scene, instance) in &mut dynamic_scene_to_spawn {
+        let new_instance = scene_spawner.spawn_dynamic_as_child(dynamic_scene.0.clone(), entity);
+        if let Some(mut old_instance) = instance {
+            scene_spawner.despawn_instance(**old_instance);
+            *old_instance = SceneInstance(new_instance);
+        } else {
+            commands.entity(entity).insert(SceneInstance(new_instance));
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
     use bevy_asset::{AssetPlugin, AssetServer, Handle};
     use bevy_ecs::{
         component::Component,
+        hierarchy::Children,
         observer::Trigger,
         prelude::ReflectComponent,
         query::With,
@@ -484,6 +529,77 @@ mod tests {
     use crate::{DynamicSceneBuilder, DynamicSceneRoot, ScenePlugin};
 
     use super::*;
+    use crate::{DynamicScene, SceneSpawner};
+    use bevy_app::ScheduleRunnerPlugin;
+    use bevy_asset::Assets;
+    use bevy_ecs::{
+        entity::Entity,
+        prelude::{AppTypeRegistry, World},
+    };
+
+    #[derive(Component, Reflect, Default)]
+    #[reflect(Component)]
+    struct ComponentA {
+        pub x: f32,
+        pub y: f32,
+    }
+
+    #[test]
+    fn spawn_and_delete() {
+        let mut app = App::new();
+
+        app.add_plugins(ScheduleRunnerPlugin::default())
+            .add_plugins(AssetPlugin::default())
+            .add_plugins(ScenePlugin)
+            .register_type::<ComponentA>();
+        app.update();
+
+        let mut scene_world = World::new();
+
+        // create a new DynamicScene manually
+        let type_registry = app.world().resource::<AppTypeRegistry>().clone();
+        scene_world.insert_resource(type_registry);
+        scene_world.spawn(ComponentA { x: 3.0, y: 4.0 });
+        let scene = DynamicScene::from_world(&scene_world);
+        let scene_handle = app
+            .world_mut()
+            .resource_mut::<Assets<DynamicScene>>()
+            .add(scene);
+
+        // spawn the scene as a child of `entity` using `DynamicSceneRoot`
+        let entity = app
+            .world_mut()
+            .spawn(DynamicSceneRoot(scene_handle.clone()))
+            .id();
+
+        // run the app's schedule once, so that the scene gets spawned
+        app.update();
+
+        // make sure that the scene was added as a child of the root entity
+        let (scene_entity, scene_component_a) = app
+            .world_mut()
+            .query::<(Entity, &ComponentA)>()
+            .single(app.world());
+        assert_eq!(scene_component_a.x, 3.0);
+        assert_eq!(scene_component_a.y, 4.0);
+        assert_eq!(
+            app.world().entity(entity).get::<Children>().unwrap().len(),
+            1
+        );
+
+        // let's try to delete the scene
+        let mut scene_spawner = app.world_mut().resource_mut::<SceneSpawner>();
+        scene_spawner.despawn(&scene_handle);
+
+        // run the scene spawner system to despawn the scene
+        app.update();
+
+        // the scene entity does not exist anymore
+        assert!(app.world().get_entity(scene_entity).is_err());
+
+        // the root entity does not have any children anymore
+        assert!(app.world().entity(entity).get::<Children>().is_none());
+    }
 
     #[derive(Reflect, Component, Debug, PartialEq, Eq, Clone, Copy, Default)]
     #[reflect(Component)]
@@ -538,7 +654,7 @@ mod tests {
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
-    struct ComponentA;
+    struct ComponentF;
 
     #[derive(Resource, Default)]
     struct TriggerCount(u32);
@@ -548,9 +664,9 @@ mod tests {
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
         app.init_resource::<TriggerCount>();
 
-        app.register_type::<ComponentA>();
-        app.world_mut().spawn(ComponentA);
-        app.world_mut().spawn(ComponentA);
+        app.register_type::<ComponentF>();
+        app.world_mut().spawn(ComponentF);
+        app.world_mut().spawn(ComponentF);
 
         app
     }
@@ -704,7 +820,7 @@ mod tests {
     fn despawn_scene() {
         let mut app = App::new();
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
-        app.register_type::<ComponentA>();
+        app.register_type::<ComponentF>();
 
         let asset_server = app.world().resource::<AssetServer>();
 
@@ -725,7 +841,7 @@ mod tests {
         // Spawn scene.
         for _ in 0..count {
             app.world_mut()
-                .spawn((ComponentA, DynamicSceneRoot(scene.clone())));
+                .spawn((ComponentF, DynamicSceneRoot(scene.clone())));
         }
 
         app.update();
@@ -734,9 +850,9 @@ mod tests {
         // Despawn scene.
         app.world_mut()
             .run_system_once(
-                |mut commands: Commands, query: Query<Entity, With<ComponentA>>| {
+                |mut commands: Commands, query: Query<Entity, With<ComponentF>>| {
                     for entity in query.iter() {
-                        commands.entity(entity).despawn_recursive();
+                        commands.entity(entity).despawn();
                     }
                 },
             )

@@ -1,9 +1,11 @@
 use crate::{
+    resource::Resource,
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_utils::{HashMap, TypeIdMap};
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
 use log::{info, warn};
@@ -414,7 +416,10 @@ impl Stepping {
                     // transitions, and add debugging messages for permitted
                     // transitions.  Any action transition that falls through
                     // this match block will be performed.
-                    #[expect(clippy::match_same_arms)]
+                    #[expect(
+                        clippy::match_same_arms,
+                        reason = "Readability would be negatively impacted by combining the `(Waiting, RunAll)` and `(Continue, RunAll)` match arms."
+                    )]
                     match (self.action, action) {
                         // ignore non-transition updates, and prevent a call to
                         // enable() from overwriting a step or continue call
@@ -823,6 +828,8 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};
+    use alloc::{format, vec};
+    use std::println;
 
     pub use crate as bevy_ecs;
 

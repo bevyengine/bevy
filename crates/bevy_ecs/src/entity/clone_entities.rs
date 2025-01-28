@@ -1,25 +1,20 @@
 use alloc::{borrow::ToOwned, vec::Vec};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
 use bumpalo::Bump;
 use core::{any::TypeId, ptr::NonNull};
 
-use bevy_utils::{HashMap, HashSet};
-
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
     entity::Entity,
+    hierarchy::{ChildOf, Children},
     query::DebugCheckedUnwrap,
-    world::World,
+    world::{DeferredWorld, World},
 };
 
 /// Context for component clone handlers.
@@ -279,6 +274,7 @@ pub struct EntityCloner {
 
 impl EntityCloner {
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
+    #[track_caller]
     pub fn clone_entity(&mut self, world: &mut World) {
         // SAFETY:
         // - `source_entity` is read-only.
@@ -621,6 +617,29 @@ impl<'w> EntityCloneBuilder<'w> {
         self
     }
 
+    /// Sets the option to recursively clone entities.
+    /// When set to true all children will be cloned with the same options as the parent.
+    pub fn recursive(&mut self, recursive: bool) -> &mut Self {
+        if recursive {
+            self.override_component_clone_handler::<Children>(
+                ComponentCloneHandler::custom_handler(component_clone_children),
+            )
+        } else {
+            self.remove_component_clone_handler_override::<Children>()
+        }
+    }
+
+    /// Sets the option to add cloned entity as a child to the parent entity.
+    pub fn as_child(&mut self, as_child: bool) -> &mut Self {
+        if as_child {
+            self.override_component_clone_handler::<ChildOf>(ComponentCloneHandler::custom_handler(
+                component_clone_parent,
+            ))
+        } else {
+            self.remove_component_clone_handler_override::<ChildOf>()
+        }
+    }
+
     /// Helper function that allows a component through the filter.
     fn filter_allow(&mut self, id: ComponentId) {
         if self.filter_allows_components {
@@ -662,6 +681,37 @@ impl<'w> EntityCloneBuilder<'w> {
     }
 }
 
+/// Clone handler for the [`Children`] component. Allows to clone the entity recursively.
+fn component_clone_children(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let children = ctx
+        .read_source_component::<Children>()
+        .expect("Source entity must have Children component")
+        .iter();
+    let parent = ctx.target();
+    for child in children {
+        let child_clone = world.commands().spawn_empty().id();
+        let mut clone_entity = ctx
+            .entity_cloner()
+            .with_source_and_target(*child, child_clone);
+        world.commands().queue(move |world: &mut World| {
+            clone_entity.clone_entity(world);
+            world.entity_mut(child_clone).insert(ChildOf(parent));
+        });
+    }
+}
+
+/// Clone handler for the [`ChildOf`] component. Allows to add clone as a child to the parent entity.
+fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+    let parent = ctx
+        .read_source_component::<ChildOf>()
+        .map(|p| p.0)
+        .expect("Source entity must have a ChildOf component");
+    world
+        .commands()
+        .entity(ctx.target())
+        .insert(ChildOf(parent));
+}
+
 #[cfg(test)]
 mod tests {
     use super::ComponentCloneCtx;
@@ -671,6 +721,7 @@ mod tests {
         entity::EntityCloneBuilder,
         world::{DeferredWorld, World},
     };
+    use alloc::vec::Vec;
     use bevy_ecs_macros::require;
     use bevy_ptr::OwningPtr;
     use core::alloc::Layout;
@@ -679,6 +730,7 @@ mod tests {
     mod reflect {
         use super::*;
         use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
+        use alloc::vec;
         use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
 
         #[test]

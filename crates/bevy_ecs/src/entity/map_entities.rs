@@ -4,7 +4,7 @@ use crate::{
     world::World,
 };
 
-use super::{EntityHashMap, VisitEntitiesMut};
+use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -23,7 +23,7 @@ use super::{EntityHashMap, VisitEntitiesMut};
 /// Implementing this trait correctly is required for properly loading components
 /// with entity references from scenes.
 ///
-/// [`HashSet<Entity>`]: bevy_utils::HashSet
+/// [`HashSet<Entity>`]: bevy_platform_support::collections::HashSet
 ///
 /// ## Example
 ///
@@ -71,7 +71,7 @@ impl<T: VisitEntitiesMut> MapEntities for T {
 ///
 /// ```
 /// # use bevy_ecs::entity::{Entity, EntityMapper};
-/// # use bevy_ecs::entity::EntityHashMap;
+/// # use bevy_ecs::entity::hash_map::EntityHashMap;
 /// #
 /// pub struct SimpleEntityMapper {
 ///   map: EntityHashMap<Entity>,
@@ -194,7 +194,7 @@ impl<'m> SceneEntityMapper<'m> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{Entity, EntityHashMap, EntityMapper, SceneEntityMapper},
+        entity::{hash_map::EntityHashMap, Entity, EntityMapper, SceneEntityMapper},
         world::World,
     };
 

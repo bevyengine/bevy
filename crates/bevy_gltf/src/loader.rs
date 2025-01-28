@@ -10,11 +10,11 @@ use bevy_asset::{
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
+    hierarchy::ChildSpawner,
     name::Name,
     world::World,
 };
-use bevy_hierarchy::{BuildChildren, ChildBuild, WorldChildBuilder};
 use bevy_image::{
     CompressedImageFormats, Image, ImageAddressMode, ImageFilterMode, ImageLoaderSettings,
     ImageSampler, ImageSamplerDescriptor, ImageType, TextureError,
@@ -24,6 +24,7 @@ use bevy_pbr::{
     DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
     MAX_JOINTS,
 };
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     alpha::AlphaMode,
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
@@ -41,10 +42,6 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
-use bevy_utils::{
-    tracing::{error, info_span, warn},
-    HashMap, HashSet,
-};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -54,12 +51,18 @@ use gltf::{
     Document, Material, Node, Primitive, Semantic,
 };
 use serde::{Deserialize, Serialize};
+#[cfg(any(
+    feature = "pbr_specular_textures",
+    feature = "pbr_multi_layer_material_textures"
+))]
+use serde_json::Map;
 use serde_json::{value, Value};
 use std::{
     io::Error,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+use tracing::{error, info_span, warn};
 #[cfg(feature = "bevy_animation")]
 use {
     bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
@@ -456,7 +459,10 @@ async fn load_gltf<'a, 'b, 'c>(
                         ReadOutputs::MorphTargetWeights(weights) => {
                             let weights: Vec<f32> = weights.into_f32().collect();
                             if keyframe_timestamps.len() == 1 {
-                                #[allow(clippy::unnecessary_map_on_constructor)]
+                                #[expect(
+                                    clippy::unnecessary_map_on_constructor,
+                                    reason = "While the mapping is unnecessary, it is much more readable at this level of indentation. Additionally, mapping makes it more consistent with the other branches."
+                                )]
                                 Some(ConstantCurve::new(Interval::EVERYWHERE, weights))
                                     .map(WeightsCurve)
                                     .map(VariableCurve::new)
@@ -704,17 +710,15 @@ async fn load_gltf<'a, 'b, 'c>(
             if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_none()
                 && matches!(mesh.primitive_topology(), PrimitiveTopology::TriangleList)
             {
-                bevy_utils::tracing::debug!(
-                    "Automatically calculating missing vertex normals for geometry."
-                );
+                tracing::debug!("Automatically calculating missing vertex normals for geometry.");
                 let vertex_count_before = mesh.count_vertices();
                 mesh.duplicate_vertices();
                 mesh.compute_flat_normals();
                 let vertex_count_after = mesh.count_vertices();
                 if vertex_count_before != vertex_count_after {
-                    bevy_utils::tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
+                    tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
                 } else {
-                    bevy_utils::tracing::debug!(
+                    tracing::debug!(
                         "Missing vertex normals in indexed geometry, computing them as flat."
                     );
                 }
@@ -728,7 +732,7 @@ async fn load_gltf<'a, 'b, 'c>(
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
                 && material_needs_tangents(&primitive.material())
             {
-                bevy_utils::tracing::debug!(
+                tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
                 );
 
@@ -1236,6 +1240,10 @@ fn load_material(
         let anisotropy =
             AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
 
+        // Parse the `KHR_materials_specular` extension data if necessary.
+        let specular =
+            SpecularExtension::parse(load_context, document, material).unwrap_or_default();
+
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -1304,6 +1312,21 @@ fn load_material(
             anisotropy_channel: anisotropy.anisotropy_channel,
             #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture: anisotropy.anisotropy_texture,
+            // From the `KHR_materials_specular` spec:
+            // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+            reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: specular.specular_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: specular.specular_texture,
+            specular_tint: match specular.specular_color_factor {
+                Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
+                None => Color::WHITE,
+            },
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_channel: specular.specular_color_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_texture: specular.specular_color_texture,
             ..Default::default()
         }
     })
@@ -1372,10 +1395,13 @@ fn warn_on_differing_texture_transforms(
 }
 
 /// Loads a glTF node.
-#[allow(clippy::too_many_arguments, clippy::result_large_err)]
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn load_node(
     gltf_node: &Node,
-    world_builder: &mut WorldChildBuilder,
+    child_spawner: &mut ChildSpawner,
     root_load_context: &LoadContext,
     load_context: &mut LoadContext,
     settings: &GltfLoaderSettings,
@@ -1397,7 +1423,7 @@ fn load_node(
     // of negative scale factors is odd. if so we will assign a copy of the material with face
     // culling inverted, rather than modifying the mesh data directly.
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
-    let mut node = world_builder.spawn((transform, Visibility::default()));
+    let mut node = child_spawner.spawn((transform, Visibility::default()));
 
     let name = node_name(gltf_node);
     node.insert(name.clone());
@@ -1727,7 +1753,11 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 ///
 /// This is a low-level function only used when the `gltf` crate has no support
 /// for an extension, forcing us to parse its texture references manually.
-#[allow(dead_code)]
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures",
+    feature = "pbr_specular_textures"
+))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
     document: &Document,
@@ -1800,7 +1830,7 @@ fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
     }
 }
 
-/// Maps the texture address mode form glTF to wgpu.
+/// Maps the texture address mode from glTF to wgpu.
 fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     match gltf_address_mode {
         WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
@@ -1809,8 +1839,11 @@ fn texture_address_mode(gltf_address_mode: &WrappingMode) -> ImageAddressMode {
     }
 }
 
-/// Maps the `primitive_topology` form glTF to `wgpu`.
-#[allow(clippy::result_large_err)]
+/// Maps the `primitive_topology` from glTF to `wgpu`.
+#[expect(
+    clippy::result_large_err,
+    reason = "`GltfError` is only barely past the threshold for large errors."
+)]
 fn get_primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
@@ -1880,7 +1913,10 @@ struct GltfTreeIterator<'a> {
 }
 
 impl<'a> GltfTreeIterator<'a> {
-    #[allow(clippy::result_large_err)]
+    #[expect(
+        clippy::result_large_err,
+        reason = "`GltfError` is only barely past the threshold for large errors."
+    )]
     fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
         let nodes = gltf.nodes().collect::<Vec<_>>();
 
@@ -2092,7 +2128,14 @@ struct ClearcoatExtension {
 }
 
 impl ClearcoatExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2104,40 +2147,35 @@ impl ClearcoatExtension {
             .as_object()?;
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_channel, clearcoat_texture) = extension
-            .get("clearcoatTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_channel, clearcoat_texture) = parse_material_extension_texture(
+            load_context,
+            document,
+            material,
+            extension,
+            "clearcoatTexture",
+            "clearcoat",
+        );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_roughness_channel, clearcoat_roughness_texture) = extension
-            .get("clearcoatRoughnessTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat roughness", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_roughness_channel, clearcoat_roughness_texture) =
+            parse_material_extension_texture(
+                load_context,
+                document,
+                material,
+                extension,
+                "clearcoatRoughnessTexture",
+                "clearcoat roughness",
+            );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_normal_channel, clearcoat_normal_texture) = extension
-            .get("clearcoatNormalTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat normal", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_normal_channel, clearcoat_normal_texture) = parse_material_extension_texture(
+            load_context,
+            document,
+            material,
+            extension,
+            "clearcoatNormalTexture",
+            "clearcoat normal",
+        );
 
         Some(ClearcoatExtension {
             clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),
@@ -2145,15 +2183,15 @@ impl ClearcoatExtension {
                 .get("clearcoatRoughnessFactor")
                 .and_then(Value::as_f64),
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_channel: clearcoat_channel.unwrap_or_default(),
+            clearcoat_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_channel: clearcoat_roughness_channel.unwrap_or_default(),
+            clearcoat_roughness_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_roughness_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_channel: clearcoat_normal_channel.unwrap_or_default(),
+            clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture,
         })
@@ -2175,7 +2213,14 @@ struct AnisotropyExtension {
 }
 
 impl AnisotropyExtension {
-    #[allow(unused_variables)]
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`unused_variables` is not always linted"
+    )]
+    #[allow(
+        unused_variables,
+        reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
+    )]
     fn parse(
         load_context: &mut LoadContext,
         document: &Document,
@@ -2206,6 +2251,121 @@ impl AnisotropyExtension {
             #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture,
         })
+    }
+}
+
+/// Parsed data from the `KHR_materials_specular` extension.
+///
+/// We currently don't parse `specularFactor` and `specularTexture`, since
+/// they're incompatible with Filament.
+///
+/// Note that the map is a *specular map*, not a *reflectance map*. In Bevy and
+/// Filament terms, the reflectance values in the specular map range from [0.0,
+/// 0.5], rather than [0.0, 1.0]. This is an unfortunate
+/// `KHR_materials_specular` specification requirement that stems from the fact
+/// that glTF is specified in terms of a specular strength model, not the
+/// reflectance model that Filament and Bevy use. A workaround, which is noted
+/// in the [`StandardMaterial`] documentation, is to set the reflectance value
+/// to 2.0, which spreads the specular map range from [0.0, 1.0] as normal.
+///
+/// See the specification:
+/// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>
+#[derive(Default)]
+struct SpecularExtension {
+    specular_factor: Option<f64>,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_channel: UvChannel,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_texture: Option<Handle<Image>>,
+    specular_color_factor: Option<[f64; 3]>,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_color_channel: UvChannel,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_color_texture: Option<Handle<Image>>,
+}
+
+impl SpecularExtension {
+    fn parse(
+        _load_context: &mut LoadContext,
+        _document: &Document,
+        material: &Material,
+    ) -> Option<Self> {
+        let extension = material
+            .extensions()?
+            .get("KHR_materials_specular")?
+            .as_object()?;
+
+        #[cfg(feature = "pbr_specular_textures")]
+        let (_specular_channel, _specular_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
+            material,
+            extension,
+            "specularTexture",
+            "specular",
+        );
+
+        #[cfg(feature = "pbr_specular_textures")]
+        let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
+            material,
+            extension,
+            "specularColorTexture",
+            "specular color",
+        );
+
+        Some(SpecularExtension {
+            specular_factor: extension.get("specularFactor").and_then(Value::as_f64),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: _specular_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: _specular_texture,
+            specular_color_factor: extension
+                .get("specularColorFactor")
+                .and_then(Value::as_array)
+                .and_then(|json_array| {
+                    if json_array.len() < 3 {
+                        None
+                    } else {
+                        Some([
+                            json_array[0].as_f64()?,
+                            json_array[1].as_f64()?,
+                            json_array[2].as_f64()?,
+                        ])
+                    }
+                }),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_channel: _specular_color_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_texture: _specular_color_texture,
+        })
+    }
+}
+
+/// Parses a texture that's part of a material extension block and returns its
+/// UV channel and image reference.
+#[cfg(any(
+    feature = "pbr_specular_textures",
+    feature = "pbr_multi_layer_material_textures"
+))]
+fn parse_material_extension_texture(
+    load_context: &mut LoadContext,
+    document: &Document,
+    material: &Material,
+    extension: &Map<String, Value>,
+    texture_name: &str,
+    texture_kind: &str,
+) -> (UvChannel, Option<Handle<Image>>) {
+    match extension
+        .get(texture_name)
+        .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+    {
+        Some(json_info) => (
+            get_uv_channel(material, texture_kind, json_info.tex_coord),
+            Some(texture_handle_from_info(load_context, document, &json_info)),
+        ),
+        None => (UvChannel::default(), None),
     }
 }
 
@@ -2268,7 +2428,7 @@ mod test {
         },
         AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
-    use bevy_ecs::{system::Resource, world::World};
+    use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
     use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
@@ -2309,7 +2469,10 @@ mod test {
     }
 
     fn load_gltf_into_app(gltf_path: &str, gltf: &str) -> App {
-        #[expect(unused)]
+        #[expect(
+            dead_code,
+            reason = "This struct is used to keep the handle alive. As such, we have no need to handle the handle directly."
+        )]
         #[derive(Resource)]
         struct GltfHandle(Handle<Gltf>);
 

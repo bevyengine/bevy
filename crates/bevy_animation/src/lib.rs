@@ -40,16 +40,15 @@ use bevy_ecs::{
     world::EntityMutExcept,
 };
 use bevy_math::FloatOrd;
+use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap,
-};
+use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
+use tracing::{trace, warn};
 use uuid::Uuid;
 
 /// The animation prelude.
@@ -466,7 +465,7 @@ pub enum AnimationEvaluationError {
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
 /// playing, but is presently paused.
 ///
-/// An stopped animation is considered no longer active.
+/// A stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
@@ -756,10 +755,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_utils::hashbrown::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_utils::hashbrown::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -937,13 +936,6 @@ impl AnimationPlayer {
     /// If the animation isn't currently active, returns `None`.
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
-    }
-
-    #[deprecated = "Use `is_playing_animation` instead"]
-    /// Returns true if the animation is currently playing or paused, or false
-    /// if the animation is stopped.
-    pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
-        self.active_animations.contains_key(&animation)
     }
 }
 

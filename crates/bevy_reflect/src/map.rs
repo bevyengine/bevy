@@ -1,7 +1,7 @@
 use core::fmt::{Debug, Formatter};
 
+use bevy_platform_support::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::hashbrown::HashTable;
 
 use crate::{
     self as bevy_reflect, generics::impl_generic_info_methods, type_info::impl_type_methods,
@@ -631,6 +631,10 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
 #[cfg(test)]
 mod tests {
     use super::{DynamicMap, Map};
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+    };
 
     #[test]
     fn test_into_iter() {
