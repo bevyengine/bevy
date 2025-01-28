@@ -189,7 +189,7 @@ impl Default for GizmoConfig {
     }
 }
 
-#[cfg( feature = "bevy_render")]
+#[cfg(feature = "bevy_render")]
 #[derive(Component)]
 pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,

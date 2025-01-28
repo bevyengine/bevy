@@ -1,12 +1,19 @@
-use bevy_ecs::schedule::IntoSystemConfigs;
 use crate::{
-    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig}, line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, view::{prepare_view_bind_groups, OnlyViewLayout, SetViewBindGroup}, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE
+    config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
+    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts,
+    view::{prepare_view_bind_groups, OnlyViewLayout, SetViewBindGroup},
+    DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo,
+    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
+    LINE_SHADER_HANDLE,
 };
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT};
+use bevy_ecs::schedule::IntoSystemConfigs;
 
 use bevy_ecs::{
-    prelude::Entity, system::{Query, Res, ResMut, Resource}, world::{FromWorld, World}
+    prelude::Entity,
+    system::{Query, Res, ResMut, Resource},
+    world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
 use bevy_render::sync_world::MainEntity;
@@ -35,7 +42,11 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .add_systems(
                 Render,
-                (queue_line_gizmos_3d, queue_line_joint_gizmos_3d, prepare_view_bind_groups.in_set(RenderSet::Prepare))
+                (
+                    queue_line_gizmos_3d,
+                    queue_line_joint_gizmos_3d,
+                    prepare_view_bind_groups.in_set(RenderSet::Prepare),
+                )
                     .in_set(GizmoRenderSystem::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
@@ -99,10 +110,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             TextureFormat::bevy_default()
         };
 
-        let layout = vec![
-            self.view_layout.clone(),
-            self.uniform_layout.clone()
-        ];
+        let layout = vec![self.view_layout.clone(), self.uniform_layout.clone()];
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -196,10 +204,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         // FIXME: don't store view layout ?
 
-        let layout = vec![
-            self.view_layout.clone(),
-            self.uniform_layout.clone()
-        ];
+        let layout = vec![self.view_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {
             error!("There is no entry point for line joints with GizmoLineJoints::None. Please consider aborting the drawing process before reaching this stage.");
@@ -271,22 +276,11 @@ fn queue_line_gizmos_3d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
-        &ExtractedView,
-        &Msaa,
-        Option<&RenderLayers>,
-    )>,
+    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
 
-    for (
-        view_entity,
-        view,
-        msaa,
-        render_layers,
-    ) in &mut views
-    {
+    for (view_entity, view, msaa, render_layers) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
@@ -335,31 +329,19 @@ fn queue_line_joint_gizmos_3d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
-        &ExtractedView,
-        &Msaa,
-        Option<&RenderLayers>,
-    )>,
+    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions
         .read()
         .get_id::<DrawLineJointGizmo3d>()
         .unwrap();
 
-    for (
-        view_entity,
-        view,
-        msaa,
-        render_layers,
-    ) in &mut views
-    {
+    for (view_entity, view, msaa, render_layers) in &mut views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
             continue;
         };
 
         let render_layers = render_layers.unwrap_or_default();
-
 
         for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {

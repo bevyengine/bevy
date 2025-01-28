@@ -86,7 +86,7 @@ use bevy_math::Vec3;
 use bevy_reflect::TypePath;
 use view::OnlyViewLayout;
 
-#[cfg( feature = "bevy_render")]
+#[cfg(feature = "bevy_render")]
 use crate::config::GizmoMeshConfig;
 
 #[cfg(feature = "bevy_render")]
@@ -116,7 +116,7 @@ use {
     bytemuck::cast_slice,
 };
 
-#[cfg( feature = "bevy_render")]
+#[cfg(feature = "bevy_render")]
 use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
@@ -174,8 +174,7 @@ impl Plugin for GizmoPlugin {
 
         #[cfg(feature = "bevy_render")]
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_systems(
+            render_app.add_systems(
                 Render,
                 prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
             );
@@ -604,7 +603,7 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineGizmo;
-#[cfg( feature = "bevy_render")]
+#[cfg(feature = "bevy_render")]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
@@ -657,7 +656,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
 
 #[cfg(feature = "bevy_render")]
 struct DrawLineJointGizmo;
-#[cfg( feature = "bevy_render")]
+#[cfg(feature = "bevy_render")]
 impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
@@ -722,7 +721,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawLineJointGizmo {
     }
 }
 
-#[cfg( feature = "bevy_render")]
+#[cfg(feature = "bevy_render")]
 fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {
@@ -777,7 +776,7 @@ fn line_gizmo_vertex_buffer_layouts(strip: bool) -> Vec<VertexBufferLayout> {
     }
 }
 
-#[cfg( feature = "bevy_render")]
+#[cfg(feature = "bevy_render")]
 fn line_joint_gizmo_vertex_buffer_layouts() -> Vec<VertexBufferLayout> {
     use VertexFormat::*;
     let mut position_layout = VertexBufferLayout {

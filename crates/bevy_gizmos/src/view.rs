@@ -1,5 +1,18 @@
-use bevy_ecs::{component::Component, entity::Entity, system::{lifetimeless::Read, Commands, Query, Res, Resource}, world::FromWorld};
-use bevy_render::{render_phase::{PhaseItem, RenderCommand, RenderCommandResult}, render_resource::{binding_types::uniform_buffer, BindGroup, BindGroupLayout, BindGroupLayoutEntry, DynamicBindGroupEntries, DynamicBindGroupLayoutEntries, ShaderStages}, renderer::RenderDevice, view::{ViewUniform, ViewUniforms}};
+use bevy_ecs::{
+    component::Component,
+    entity::Entity,
+    system::{lifetimeless::Read, Commands, Query, Res, Resource},
+    world::FromWorld,
+};
+use bevy_render::{
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult},
+    render_resource::{
+        binding_types::uniform_buffer, BindGroup, BindGroupLayout, BindGroupLayoutEntry,
+        DynamicBindGroupEntries, DynamicBindGroupLayoutEntries, ShaderStages,
+    },
+    renderer::RenderDevice,
+    view::{ViewUniform, ViewUniforms},
+};
 
 #[derive(Component)]
 pub(crate) struct ViewBindGroup(BindGroup);
@@ -12,10 +25,8 @@ impl FromWorld for OnlyViewLayout {
     fn from_world(world: &mut bevy_ecs::world::World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let view_layout = render_device.create_bind_group_layout(
-            "mesh_view_layout",
-            &view_layout_entries(),
-        );
+        let view_layout =
+            render_device.create_bind_group_layout("mesh_view_layout", &view_layout_entries());
 
         Self(view_layout)
     }
@@ -24,11 +35,11 @@ impl FromWorld for OnlyViewLayout {
 pub(crate) struct SetViewBindGroup<const I: usize>;
 
 impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetViewBindGroup<I> {
-    type Param=();
+    type Param = ();
 
     type ViewQuery = Read<ViewBindGroup>;
 
-    type ItemQuery=();
+    type ItemQuery = ();
 
     fn render<'w>(
         _: &P,
@@ -47,15 +58,19 @@ pub(crate) fn prepare_view_bind_groups(
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
     layout: Res<OnlyViewLayout>,
-    views: Query< Entity>,
+    views: Query<Entity>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         for entity in &views {
-        let entries = DynamicBindGroupEntries::new_with_indices(((0, view_binding.clone()),));
+            let entries = DynamicBindGroupEntries::new_with_indices(((0, view_binding.clone()),));
 
-        commands.entity(entity).insert(ViewBindGroup (
-            render_device.create_bind_group("view_bind_group", &layout.0, &entries),
-        ));
+            commands
+                .entity(entity)
+                .insert(ViewBindGroup(render_device.create_bind_group(
+                    "view_bind_group",
+                    &layout.0,
+                    &entries,
+                )));
         }
     }
 }
@@ -63,6 +78,10 @@ pub(crate) fn prepare_view_bind_groups(
 pub(crate) fn view_layout_entries() -> Vec<BindGroupLayoutEntry> {
     DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::FRAGMENT,
-        ( (0, uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),),)
-    ).to_vec()
+        ((
+            0,
+            uniform_buffer::<ViewUniform>(true).visibility(ShaderStages::VERTEX_FRAGMENT),
+        ),),
+    )
+    .to_vec()
 }
