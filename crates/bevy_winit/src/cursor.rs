@@ -8,7 +8,7 @@ use crate::{
 use crate::{
     custom_cursor::{
         calculate_effective_rect, extract_and_transform_rgba_pixels, extract_rgba_pixels,
-        CustomCursorPlugin,
+        transform_hotspot, CustomCursorPlugin,
     },
     state::{CustomCursorCache, CustomCursorCacheKey},
     WinitCustomCursor,
@@ -124,10 +124,13 @@ fn update_cursors(
                     let (rect, needs_sub_image) =
                         calculate_effective_rect(&texture_atlases, image, texture_atlas, rect);
 
-                    let maybe_rgba = if *flip_x || *flip_y || needs_sub_image {
-                        extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect)
+                    let (maybe_rgba, hotspot) = if *flip_x || *flip_y || needs_sub_image {
+                        (
+                            extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect),
+                            transform_hotspot(*hotspot, *flip_x, *flip_y, rect),
+                        )
                     } else {
-                        extract_rgba_pixels(image)
+                        (extract_rgba_pixels(image), *hotspot)
                     };
 
                     let Some(rgba) = maybe_rgba else {
