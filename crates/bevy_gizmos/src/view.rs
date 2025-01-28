@@ -59,7 +59,7 @@ pub(crate) fn prepare_view_bind_groups(
     render_device: Res<RenderDevice>,
     view_uniforms: Res<ViewUniforms>,
     layout: Res<OnlyViewLayout>,
-    views: Query<Entity>,
+    views: Query<Entity, With<ExtractedView>>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         for entity in &views {
