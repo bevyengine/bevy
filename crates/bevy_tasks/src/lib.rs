@@ -56,10 +56,7 @@ pub mod futures;
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
-#[cfg_attr(
-    all(target_arch = "wasm32", feature = "web"),
-    path = "wasm_task.rs"
-)]
+#[cfg_attr(all(target_arch = "wasm32", feature = "web"), path = "wasm_task.rs")]
 mod task;
 
 pub use task::Task;
