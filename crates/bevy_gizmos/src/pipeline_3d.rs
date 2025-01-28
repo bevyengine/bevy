@@ -202,8 +202,6 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             TextureFormat::bevy_default()
         };
 
-        // FIXME: don't store view layout ?
-
         let layout = vec![self.view_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {

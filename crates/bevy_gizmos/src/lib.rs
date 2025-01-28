@@ -138,7 +138,7 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 ///
 /// Requires to be loaded after [`RenderPlugin`](bevy_pbr::RenderPlugin).
 /// Additional features for 2d meshes and lights can be enabled with the following features:
-/// - `bevy_pbr` for debuging lights ( see [`LightGizmoPlugin`] )
+/// - `bevy_pbr` for debugging lights ( see [`LightGizmoPlugin`] )
 /// - `bevy_sprite` for 2d rendering ( see [`pipeline_2d`] )
 #[derive(Default)]
 pub struct GizmoPlugin;
