@@ -2,8 +2,8 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, DefaultUiCamera, Display, Node, OverflowAxis, ResolvedScaleFactor,
-    ResolvedTargetCamera, ResolvedTargetSize, UiScale, UiTargetCamera,
+    CalculatedClip, DefaultUiCamera, Display, Node, OverflowAxis, ResolvedUiScale,
+    ResolvedUiTargetCamera, ResolvedUiTargetSize, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -149,9 +149,9 @@ pub fn resolve_target_camera_system(
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
     mut context_query: Query<(
-        &mut ResolvedScaleFactor,
-        &mut ResolvedTargetSize,
-        &mut ResolvedTargetCamera,
+        &mut ResolvedUiScale,
+        &mut ResolvedUiTargetSize,
+        &mut ResolvedUiTargetCamera,
     )>,
     manual_texture_views: Res<ManualTextureViews>,
     ui_children: UiChildren,
@@ -200,15 +200,15 @@ fn update_contexts_recursively(
     camera: Entity,
     ui_children: &UiChildren,
     query: &mut Query<(
-        &mut ResolvedScaleFactor,
-        &mut ResolvedTargetSize,
-        &mut ResolvedTargetCamera,
+        &mut ResolvedUiScale,
+        &mut ResolvedUiTargetSize,
+        &mut ResolvedUiTargetCamera,
     )>,
 ) {
     if let Ok((mut sf, mut r, mut c)) = query.get_mut(entity) {
-        sf.set_if_neq(ResolvedScaleFactor(scale_factor));
-        r.set_if_neq(ResolvedTargetSize(res));
-        c.set_if_neq(ResolvedTargetCamera(camera));
+        sf.set_if_neq(ResolvedUiScale(scale_factor));
+        r.set_if_neq(ResolvedUiTargetSize(res));
+        c.set_if_neq(ResolvedUiTargetCamera(camera));
     }
     for child in ui_children.iter_ui_children(entity) {
         update_contexts_recursively(child, scale_factor, res, camera, ui_children, query);

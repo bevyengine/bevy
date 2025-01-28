@@ -255,7 +255,7 @@ pub fn extract_ui_texture_slices(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedTargetCamera,
+            &ResolvedUiTargetCamera,
             &ImageNode,
         )>,
     >,

@@ -370,7 +370,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedTargetCamera,
+            &ResolvedUiTargetCamera,
         )>,
     >,
     mapping: Extract<Query<RenderEntity>>,

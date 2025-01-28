@@ -10,7 +10,7 @@ mod debug_overlay;
 use crate::widget::ImageNode;
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, Outline,
-    ResolvedBorderRadius, ResolvedTargetCamera, UiAntiAlias,
+    ResolvedBorderRadius, ResolvedUiTargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -286,7 +286,7 @@ pub fn extract_uinode_background_colors(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedTargetCamera,
+            &ResolvedUiTargetCamera,
             &BackgroundColor,
         )>,
     >,
@@ -345,7 +345,7 @@ pub fn extract_uinode_images(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedTargetCamera,
+            &ResolvedUiTargetCamera,
             &ImageNode,
         )>,
     >,
@@ -430,7 +430,7 @@ pub fn extract_uinode_borders(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedTargetCamera,
+            &ResolvedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -660,7 +660,7 @@ pub fn extract_text_sections(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedTargetCamera,
+            &ResolvedUiTargetCamera,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,

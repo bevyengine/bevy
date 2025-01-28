@@ -332,9 +332,9 @@ impl From<Vec2> for ScrollPosition {
     Visibility,
     VisibilityClass,
     ZIndex,
-    ResolvedTargetSize,
-    ResolvedScaleFactor,
-    ResolvedTargetCamera
+    ResolvedUiTargetSize,
+    ResolvedUiScale,
+    ResolvedUiTargetCamera
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
@@ -2744,51 +2744,52 @@ impl Default for BoxShadowSamples {
     }
 }
 
-/// Local scale factor for this node.
+/// Scale factor of the UI node's render target.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct ResolvedScaleFactor(pub(crate) f32);
+pub struct ResolvedUiScale(pub(crate) f32);
 
-impl Default for ResolvedScaleFactor {
+impl Default for ResolvedUiScale {
     fn default() -> Self {
         Self(1.0)
     }
 }
 
-impl ResolvedScaleFactor {
+impl ResolvedUiScale {
     pub fn get(&self) -> f32 {
         self.0
     }
 }
 
-/// Local context for this node.
+/// Size of the UI node's render target in physical pixels.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct ResolvedTargetSize(pub(crate) UVec2);
+pub struct ResolvedUiTargetSize(pub(crate) UVec2);
 
-impl Default for ResolvedTargetSize {
+impl Default for ResolvedUiTargetSize {
     fn default() -> Self {
         Self(UVec2::ZERO)
     }
 }
 
-impl ResolvedTargetSize {
+impl ResolvedUiTargetSize {
     pub fn get(&self) -> UVec2 {
         self.0
     }
 }
 
+/// ID of the UI node's camera target.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct ResolvedTargetCamera(pub(crate) Entity);
+pub struct ResolvedUiTargetCamera(pub(crate) Entity);
 
-impl Default for ResolvedTargetCamera {
+impl Default for ResolvedUiTargetCamera {
     fn default() -> Self {
         Self(Entity::PLACEHOLDER)
     }
 }
 
-impl ResolvedTargetCamera {
+impl ResolvedUiTargetCamera {
     pub fn get(&self) -> Option<Entity> {
         Some(self.0).filter(|&entity| entity != Entity::PLACEHOLDER)
     }
