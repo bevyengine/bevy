@@ -1355,6 +1355,7 @@ pub trait ComponentsView {
 }
 
 impl<'a> ComponentsView for ComponentsLock<'a> {
+    #[inline]
     fn register_component<T: Component>(&mut self) -> ComponentId {
         self.component_id::<T>().unwrap_or_else(|| {
             // Safety: We just checked that we haven't seen this component before
@@ -1362,6 +1363,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         })
     }
 
+    #[inline]
     fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
@@ -1371,6 +1373,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         }
     }
 
+    #[inline]
     fn register_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
@@ -1380,14 +1383,17 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         }
     }
 
+    #[inline]
     fn len(&self) -> usize {
         self.cold.len() + self.staged.new_components.len()
     }
 
+    #[inline]
     fn is_empty(&self) -> bool {
         self.cold.is_empty() && self.staged.new_components.is_empty()
     }
 
+    #[inline]
     fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -1395,6 +1401,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         self.register_raw_component_inner(descriptor).0
     }
 
+    #[inline]
     fn register_resource_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -1402,6 +1409,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         self.register_raw_component_inner(descriptor).0
     }
 
+    #[inline]
     fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
         required_components: &mut RequiredComponents,
@@ -1424,6 +1432,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         }
     }
 
+    #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         if let Some(old) = self.cold.indices.get(&type_id) {
             Some(*old)
@@ -1432,6 +1441,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         }
     }
 
+    #[inline]
     fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         if let Some(old) = self.cold.resource_indices.get(&type_id) {
             Some(*old)
@@ -1440,15 +1450,18 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         }
     }
 
+    #[inline]
     fn get_default_clone_handler(&self) -> ComponentCloneFn {
         self.cold.component_clone_handlers.get_default_handler()
     }
 
+    #[inline]
     fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
         self.cold.component_clone_handlers.is_handler_registered(id)
             || self.staged.component_clone_handlers.get(&id).is_some()
     }
 
+    #[inline]
     fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
         match self.cold.component_clone_handlers.handlers.get(id.0) {
             Some(Some(handler)) => *handler,
@@ -1466,6 +1479,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         }
     }
 
+    #[inline]
     fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
             self.staged.new_components.get(index_in_new)
@@ -1474,6 +1488,7 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
         }
     }
 
+    #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
             debug_assert!(index_in_new < self.staged.new_components.len());
@@ -2271,10 +2286,12 @@ impl StagedComponents {
 }
 
 impl ComponentsView for ComponentsData {
+    #[inline]
     fn register_component<T: Component>(&mut self) -> ComponentId {
         self.register_component_internal::<T>(&mut Vec::new())
     }
 
+    #[inline]
     fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
@@ -2284,6 +2301,7 @@ impl ComponentsView for ComponentsData {
         }
     }
 
+    #[inline]
     fn register_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
@@ -2293,14 +2311,17 @@ impl ComponentsView for ComponentsData {
         }
     }
 
+    #[inline]
     fn len(&self) -> usize {
         self.components.len()
     }
 
+    #[inline]
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
+    #[inline]
     fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -2308,6 +2329,7 @@ impl ComponentsView for ComponentsData {
         ComponentsData::register_component_inner(&mut self.components, descriptor)
     }
 
+    #[inline]
     fn register_resource_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -2315,6 +2337,7 @@ impl ComponentsView for ComponentsData {
         Self::register_resource_inner(&mut self.components, descriptor)
     }
 
+    #[inline]
     fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
         required_components: &mut RequiredComponents,
@@ -2337,23 +2360,28 @@ impl ComponentsView for ComponentsData {
         }
     }
 
+    #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).copied()
     }
 
+    #[inline]
     fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices.get(&type_id).copied()
     }
 
+    #[inline]
     fn get_default_clone_handler(&self) -> ComponentCloneFn {
         self.get_component_clone_handlers().get_default_handler()
     }
 
+    #[inline]
     fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
         self.get_component_clone_handlers()
             .is_handler_registered(id)
     }
 
+    #[inline]
     fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
         self.get_component_clone_handlers().get_handler(id)
     }
