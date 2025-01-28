@@ -1,6 +1,6 @@
+use crate::ui_node::ResolvedUiTargetCamera;
 use crate::CalculatedClip;
 use crate::ComputedNode;
-use crate::ResolvedTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -11,7 +11,6 @@ use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_math::Rect;
 use bevy_math::Vec2;
-use bevy_render::sync_world::RenderEntity;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
@@ -22,6 +21,7 @@ use super::ExtractedUiItem;
 use super::ExtractedUiNode;
 use super::ExtractedUiNodes;
 use super::NodeType;
+use super::UiCameraMap;
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]
@@ -64,21 +64,23 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            &ResolvedTargetCamera,
+            &ResolvedUiTargetCamera,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
     if !debug_options.enabled {
         return;
     }
+
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 

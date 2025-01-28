@@ -21,7 +21,6 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::RenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
@@ -378,15 +377,13 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &ResolvedUiTargetCamera,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
+    let mut camera_mapper = camera_map.get_mapper();
+
     for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
         uinode_query.iter()
     {
-        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
-            continue;
-        };
-
         // skip invisible nodes
         if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
@@ -396,6 +393,10 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
         if !materials.contains(handle) {
             continue;
         }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
 
         extracted_uinodes.uinodes.insert(
             commands.spawn(TemporaryRenderEntity).id(),
