@@ -26,14 +26,14 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::TemporaryRenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -247,18 +247,20 @@ pub fn extract_shadows(
             &ResolvedUiTargetSize,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
+    let mut mapping = camera_map.get_mapper();
+
     for (entity, uinode, transform, visibility, box_shadow, clip, camera, ctx) in &box_shadow_query
     {
-        let Ok(extracted_camera_entity) = mapping.get(camera.0) else {
-            continue;
-        };
-
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
+
+        let Some(extracted_camera_entity) = mapping.map(camera) else {
+            continue;
+        };
 
         let ui_physical_viewport_size = ctx.0.as_vec2();
 
