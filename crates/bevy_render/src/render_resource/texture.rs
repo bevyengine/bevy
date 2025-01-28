@@ -11,6 +11,15 @@ define_atomic_id!(TextureId);
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
 /// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
