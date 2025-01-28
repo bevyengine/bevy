@@ -102,7 +102,6 @@ pub fn ui_layout_system(
         Option<&Outline>,
         Option<&ScrollPosition>,
     )>,
-
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
@@ -169,19 +168,6 @@ with UI components as a child of an entity without UI components, your UI layout
     });
 
     for ui_root_entity in ui_root_node_query.iter() {
-        let viewport_style = taffy::style::Style {
-            display: taffy::style::Display::Grid,
-            // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
-            // So this is setting width:100% and height:100%
-            size: taffy::geometry::Size {
-                width: taffy::style::Dimension::Percent(1.0),
-                height: taffy::style::Dimension::Percent(1.0),
-            },
-            align_items: Some(taffy::style::AlignItems::Start),
-            justify_items: Some(taffy::style::JustifyItems::Start),
-            ..default()
-        };
-
         let UiSurface {
             taffy,
             implicit_root_nodes,
@@ -193,7 +179,20 @@ with UI components as a child of an entity without UI components, your UI layout
             .entry(ui_root_entity)
             .or_insert_with(|| {
                 let root_node = entity_to_taffy[&ui_root_entity];
-                let implict_root = taffy.new_leaf(viewport_style).unwrap();
+                let implict_root = taffy
+                    .new_leaf(taffy::style::Style {
+                        display: taffy::style::Display::Grid,
+                        // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
+                        // So this is setting width:100% and height:100%
+                        size: taffy::geometry::Size {
+                            width: taffy::style::Dimension::Percent(1.0),
+                            height: taffy::style::Dimension::Percent(1.0),
+                        },
+                        align_items: Some(taffy::style::AlignItems::Start),
+                        justify_items: Some(taffy::style::JustifyItems::Start),
+                        ..default()
+                    })
+                    .unwrap();
                 taffy.add_child(implict_root, root_node).unwrap();
                 implict_root
             });
