@@ -13,8 +13,8 @@ use std::ops::Mul;
 /// ## Usage
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To get the absolute transform of an entity, you should get its [`GlobalTransform`],
-///   after [`TransformPropagate`] or [`PostUpdate`] to avoid a 1 frame lag.
+/// * To get the absolute transform of an entity, you should get its [`GlobalTransform`]
+///   after [`TransformPropagate`] or [`PostUpdate`] to avoid being a frame out of date.
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`] to guarantee this.
 ///
