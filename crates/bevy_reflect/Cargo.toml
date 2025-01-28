@@ -71,13 +71,6 @@ critical-section = [
   "bevy_utils/critical-section",
 ]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support.
-portable-atomic = [
-  "bevy_platform_support/portable-atomic",
-  "bevy_utils/portable-atomic",
-]
-
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }

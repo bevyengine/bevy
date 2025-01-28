@@ -183,7 +183,7 @@ impl ConstParamInfo {
     pub fn with_default<T: Reflect + 'static>(mut self, default: T) -> Self {
         let arc = Arc::new(default);
 
-        #[cfg(feature = "portable-atomic")]
+        #[cfg(not(target_has_atomic = "ptr"))]
         #[expect(
             unsafe_code,
             reason = "unsized coercion is an unstable feature for non-std types"
