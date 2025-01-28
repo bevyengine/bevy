@@ -61,18 +61,19 @@ pub(crate) fn prepare_view_bind_groups(
     layout: Res<OnlyViewLayout>,
     views: Query<Entity, With<ExtractedView>>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        for entity in &views {
-            let entries = DynamicBindGroupEntries::new_with_indices(((0, view_binding.clone()),));
+    let Some(view_binding) = view_uniforms.uniforms.binding() else {
+        return;
+    };
 
-            commands
-                .entity(entity)
-                .insert(ViewBindGroup(render_device.create_bind_group(
-                    "view_bind_group",
-                    &layout.0,
-                    &entries,
-                )));
-        }
+    let entries = DynamicBindGroupEntries::new_with_indices(((0, view_binding.clone()),));
+    for entity in &views {
+        commands
+            .entity(entity)
+            .insert(ViewBindGroup(render_device.create_bind_group(
+                "view_bind_group",
+                &layout.0,
+                &entries,
+            )));
     }
 }
 
