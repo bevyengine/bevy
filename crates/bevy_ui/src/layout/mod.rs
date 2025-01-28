@@ -10,7 +10,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     query::With,
     removal_detection::RemovedComponents,
-    system::{Commands, Query, ResMut, SystemParam},
+    system::{Commands, Query, ResMut},
     world::Ref,
 };
 use bevy_math::Vec2;
