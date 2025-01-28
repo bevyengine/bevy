@@ -71,9 +71,9 @@ portable-atomic = [
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
-browser = [
-  "bevy_platform_support/browser",
-  "bevy_tasks?/browser",
+web = [
+  "bevy_platform_support/web",
+  "bevy_tasks?/web",
   "dep:wasm-bindgen",
   "dep:web-sys",
   "dep:console_error_panic_hook",

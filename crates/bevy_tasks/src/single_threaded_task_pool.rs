@@ -238,7 +238,7 @@ impl TaskPool {
         T: 'static + MaybeSend + MaybeSync,
     {
         cfg_if::cfg_if! {
-            if #[cfg(all(target_arch = "wasm32", feature = "browser"))] {
+            if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
                 return Task::wrap_future(future);
             } else if #[cfg(feature = "std")] {
                 return LOCAL_EXECUTOR.with(|executor| {

@@ -33,7 +33,7 @@ rodio = { version = "0.20", default-features = false, features = [
 ] }
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
-  "browser",
+  "web",
 ] }
 
 [features]

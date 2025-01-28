@@ -118,13 +118,13 @@ web-sys = { version = "0.3.67", features = [
 wasm-bindgen = "0.2"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
-  "browser",
+  "web",
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, features = [
-  "browser",
+  "web",
 ] }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
-  "browser",
+  "web",
 ] }
 
 [target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]

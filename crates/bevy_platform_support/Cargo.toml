@@ -47,7 +47,7 @@ portable-atomic = [
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
-browser = ["dep:web-time", "dep:getrandom"]
+web = ["dep:web-time", "dep:getrandom"]
 
 [dependencies]
 cfg-if = "1.0.0"

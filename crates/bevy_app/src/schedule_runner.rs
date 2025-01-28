@@ -6,7 +6,7 @@ use crate::{
 use bevy_platform_support::time::Instant;
 use core::time::Duration;
 
-#[cfg(all(target_arch = "wasm32", feature = "browser"))]
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
 use {
     alloc::{boxed::Box, rc::Rc},
     core::cell::RefCell,
@@ -78,7 +78,7 @@ impl Plugin for ScheduleRunnerPlugin {
             if plugins_state != PluginsState::Cleaned {
                 while app.plugins_state() == PluginsState::Adding {
                     #[cfg(all(
-                        not(all(target_arch = "wasm32", feature = "browser")),
+                        not(all(target_arch = "wasm32", feature = "web")),
                         feature = "bevy_tasks"
                     ))]
                     bevy_tasks::tick_global_task_pools_on_main_thread();
@@ -122,7 +122,7 @@ impl Plugin for ScheduleRunnerPlugin {
                     };
 
                     cfg_if::cfg_if! {
-                        if #[cfg(all(target_arch = "wasm32", feature = "browser"))] {
+                        if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
                             fn set_timeout(callback: &Closure<dyn FnMut()>, dur: Duration) {
                                 web_sys::window()
                                     .unwrap()

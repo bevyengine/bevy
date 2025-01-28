@@ -40,7 +40,7 @@ pub struct PanicHandlerPlugin;
 impl Plugin for PanicHandlerPlugin {
     fn build(&self, _app: &mut App) {
         cfg_if::cfg_if! {
-            if #[cfg(all(target_arch = "wasm32", feature = "browser"))] {
+            if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
                 console_error_panic_hook::set_once();
             } else {
                 // Use the default target panic hook - Do nothing.

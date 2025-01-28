@@ -15,7 +15,7 @@ use core::{fmt::Debug, marker::PhantomData};
 use log::trace;
 
 cfg_if::cfg_if! {
-    if #[cfg(not(all(target_arch = "wasm32", feature = "browser")))] {
+    if #[cfg(not(all(target_arch = "wasm32", feature = "web")))] {
         use {crate::Last, bevy_ecs::prelude::NonSend, bevy_tasks::tick_global_task_pools_on_main_thread};
 
         /// A system used to check and advanced our task pools.
@@ -40,7 +40,7 @@ impl Plugin for TaskPoolPlugin {
         // Setup the default bevy task pools
         self.task_pool_options.create_default_pools();
 
-        #[cfg(not(all(target_arch = "wasm32", feature = "browser")))]
+        #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
         _app.add_systems(Last, tick_global_task_pools);
     }
 }
@@ -187,7 +187,7 @@ impl TaskPoolOptions {
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string());
 
-                #[cfg(not(all(target_arch = "wasm32", feature = "browser")))]
+                #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                 let builder = {
                     let mut builder = builder;
                     if let Some(f) = self.io.on_thread_spawn.clone() {
@@ -217,7 +217,7 @@ impl TaskPoolOptions {
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string());
 
-                #[cfg(not(all(target_arch = "wasm32", feature = "browser")))]
+                #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                 let builder = {
                     let mut builder = builder;
                     if let Some(f) = self.async_compute.on_thread_spawn.clone() {
@@ -247,7 +247,7 @@ impl TaskPoolOptions {
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string());
 
-                #[cfg(not(all(target_arch = "wasm32", feature = "browser")))]
+                #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                 let builder = {
                     let mut builder = builder;
                     if let Some(f) = self.compute.on_thread_spawn.clone() {

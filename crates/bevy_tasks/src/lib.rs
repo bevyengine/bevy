@@ -57,7 +57,7 @@ mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
 #[cfg_attr(
-    all(target_arch = "wasm32", feature = "browser"),
+    all(target_arch = "wasm32", feature = "web"),
     path = "wasm_task.rs"
 )]
 mod task;
@@ -82,7 +82,7 @@ mod usages;
 pub use futures_lite::future::poll_once;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
-#[cfg(not(all(target_arch = "wasm32", feature = "browser")))]
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub use usages::tick_global_task_pools_on_main_thread;
 
 #[cfg(feature = "std")]
