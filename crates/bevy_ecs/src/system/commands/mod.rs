@@ -2194,7 +2194,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     ///         // Return the EntityCommands for the entity
     ///         .entity()
     ///         // And continue chaining method calls
-    ///         .insert(Name("Player".to_string()));
+    ///         .insert(Name::new("Player"));
     /// }
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
