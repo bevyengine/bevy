@@ -54,6 +54,7 @@ impl Default for UiSurface {
     fn default() -> Self {
         let taffy: TaffyTree<NodeMeasure> = TaffyTree::new();
         Self {
+            implicit_root_nodes: Default::default(),
             entity_to_taffy: Default::default(),
             camera_entity_to_taffy: Default::default(),
             camera_roots: Default::default(),
@@ -304,7 +305,7 @@ impl UiSurface {
     }
 }
 
-fn get_text_buffer<'a>(
+pub fn get_text_buffer<'a>(
     needs_buffer: bool,
     ctx: &mut NodeMeasure,
     query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,

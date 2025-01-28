@@ -1,24 +1,25 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Node, Outline, OverflowAxis,
-    ResolvedScaleFactor, ResolvedTargetCamera, ResolvedTargetSize, ScrollPosition, UiScale, Val,
+    BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Measure, MeasureArgs, Node,
+    NodeMeasure, Outline, OverflowAxis, ResolvedScaleFactor, ResolvedTargetSize, ScrollPosition,
+    Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{hash_map::EntityHashMap, Entity},
+    entity::Entity,
     hierarchy::{ChildOf, Children},
     query::With,
     removal_detection::RemovedComponents,
-    system::{Commands, Local, Query, Res, ResMut, SystemParam},
+    system::{Commands, Query, ResMut, SystemParam},
     world::Ref,
 };
-use bevy_math::{UVec2, Vec2};
-use bevy_render::camera::Camera;
+use bevy_math::Vec2;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
+use bevy_utils::default;
 use thiserror::Error;
 use tracing::warn;
-use ui_surface::UiSurface;
+use ui_surface::{get_text_buffer, UiSurface};
 
 use bevy_text::ComputedTextBlock;
 
@@ -77,19 +78,9 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_nodes: RemovedComponents<'w, 's, Node>,
 }
 
-struct CameraLayoutInfo {
-    size: UVec2,
-    //resized: bool,
-    scale_factor: f32,
-    root_nodes: Vec<Entity>,
-}
-
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut commands: Commands,
-    camera_query: Query<(Entity, &Camera)>,
-    ui_scale: Res<UiScale>,
-    target_query: Query<(Entity, &ResolvedTargetCamera)>,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
@@ -137,19 +128,6 @@ pub fn ui_layout_system(
             }
         });
 
-    for ui_root_entity in ui_root_node_query.iter() {}
-
-    // update camera children
-    for (camera_id, _) in camera_query.iter() {
-        let root_nodes =
-            if let Some(CameraLayoutInfo { root_nodes, .. }) = camera_layout_info.get(&camera_id) {
-                root_nodes.iter().cloned()
-            } else {
-                [].iter().cloned()
-            };
-        ui_surface.set_camera_children(camera_id, root_nodes);
-    }
-
     // update and remove children
     for entity in removed_components.removed_children.read() {
         ui_surface.try_remove_children(entity);
@@ -175,7 +153,6 @@ with UI components as a child of an entity without UI components, your UI layout
             }
         });
 
-    let text_buffers = &mut buffer_query;
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
         removed_components
@@ -192,10 +169,82 @@ with UI components as a child of an entity without UI components, your UI layout
     });
 
     for ui_root_entity in ui_root_node_query.iter() {
+        let viewport_style = taffy::style::Style {
+            display: taffy::style::Display::Grid,
+            // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
+            // So this is setting width:100% and height:100%
+            size: taffy::geometry::Size {
+                width: taffy::style::Dimension::Percent(1.0),
+                height: taffy::style::Dimension::Percent(1.0),
+            },
+            align_items: Some(taffy::style::AlignItems::Start),
+            justify_items: Some(taffy::style::JustifyItems::Start),
+            ..default()
+        };
+
+        let UiSurface {
+            taffy,
+            implicit_root_nodes,
+            entity_to_taffy,
+            ..
+        } = ui_surface.as_mut();
+
+        let implicit_root = *implicit_root_nodes
+            .entry(ui_root_entity)
+            .or_insert_with(|| {
+                let root_node = entity_to_taffy[&ui_root_entity];
+                let implict_root = taffy.new_leaf(viewport_style).unwrap();
+                taffy.add_child(implict_root, root_node).unwrap();
+                implict_root
+            });
+
         let (_, _, _, target_size, target_scale_factor) = node_query.get(ui_root_entity).unwrap();
 
-        // this needs to be changed to use root id
-        ui_surface.compute_camera_layout(camera_id, target_size.0, text_buffers, &mut font_system);
+        let available_space = taffy::geometry::Size {
+            width: taffy::style::AvailableSpace::Definite(target_size.0.x as f32),
+            height: taffy::style::AvailableSpace::Definite(target_size.0.y as f32),
+        };
+
+        taffy
+            .compute_layout_with_measure(
+                implicit_root,
+                available_space,
+                |known_dimensions: taffy::Size<Option<f32>>,
+                 available_space: taffy::Size<taffy::AvailableSpace>,
+                 _node_id: taffy::NodeId,
+                 context: Option<&mut NodeMeasure>,
+                 style: &taffy::Style|
+                 -> taffy::Size<f32> {
+                    context
+                        .map(|ctx| {
+                            let buffer = get_text_buffer(
+                                crate::widget::TextMeasure::needs_buffer(
+                                    known_dimensions.height,
+                                    available_space.width,
+                                ),
+                                ctx,
+                                &mut buffer_query,
+                            );
+                            let size = ctx.measure(
+                                MeasureArgs {
+                                    width: known_dimensions.width,
+                                    height: known_dimensions.height,
+                                    available_width: available_space.width,
+                                    available_height: available_space.height,
+                                    font_system: &mut font_system,
+                                    buffer,
+                                },
+                                style,
+                            );
+                            taffy::Size {
+                                width: size.x,
+                                height: size.y,
+                            }
+                        })
+                        .unwrap_or(taffy::Size::ZERO)
+                },
+            )
+            .unwrap();
 
         update_uinode_geometry_recursive(
             &mut commands,
