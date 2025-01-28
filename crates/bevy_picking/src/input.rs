@@ -19,9 +19,9 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
-use bevy_utils::{HashMap, HashSet};
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
 use tracing::debug;
 

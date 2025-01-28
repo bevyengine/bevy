@@ -273,7 +273,7 @@ fn calculate_diffuse_color(
 
 // Remapping [0,1] reflectance to F0
 // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: f32) -> vec3<f32> {
+fn calculate_F0(base_color: vec3<f32>, metallic: f32, reflectance: vec3<f32>) -> vec3<f32> {
     return 0.16 * reflectance * reflectance * (1.0 - metallic) + base_color * metallic;
 }
 
@@ -759,6 +759,7 @@ fn apply_pbr_lighting(
 }
 #endif // PREPASS_FRAGMENT
 
+#ifdef DISTANCE_FOG
 fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_world_position: vec3<f32>, view_world_position: vec3<f32>) -> vec4<f32> {
     let view_to_world = fragment_world_position.xyz - view_world_position.xyz;
 
@@ -796,6 +797,7 @@ fn apply_fog(fog_params: mesh_view_types::Fog, input_color: vec4<f32>, fragment_
         return input_color;
     }
 }
+#endif  // DISTANCE_FOG
 
 #ifdef PREMULTIPLY_ALPHA
 fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
@@ -857,10 +859,12 @@ fn main_pass_post_lighting_processing(
 ) -> vec4<f32> {
     var output_color = input_color;
 
+#ifdef DISTANCE_FOG
     // fog
-    if (view_bindings::fog.mode != mesh_view_types::FOG_MODE_OFF && (pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
+    if ((pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_FOG_ENABLED_BIT) != 0u) {
         output_color = apply_fog(view_bindings::fog, output_color, pbr_input.world_position.xyz, view_bindings::view.world_position.xyz);
     }
+#endif  // DISTANCE_FOG
 
 #ifdef TONEMAP_IN_SHADER
     output_color = tone_mapping(output_color, view_bindings::view.color_grading);

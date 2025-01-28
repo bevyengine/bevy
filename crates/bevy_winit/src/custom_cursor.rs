@@ -2,46 +2,67 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, TextureAtlasPlugin};
 use bevy_math::{ops, Rect, URect, UVec2, Vec2};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use wgpu_types::TextureFormat;
 
 use crate::{cursor::CursorIcon, state::CustomCursorCache};
 
+/// A custom cursor created from an image.
+#[derive(Debug, Clone, Default, Reflect, PartialEq, Eq, Hash)]
+#[reflect(Debug, Default, Hash, PartialEq)]
+pub struct CustomCursorImage {
+    /// Handle to the image to use as the cursor. The image must be in 8 bit int
+    /// or 32 bit float rgba. PNG images work well for this.
+    pub handle: Handle<Image>,
+    /// An optional texture atlas used to render the image.
+    pub texture_atlas: Option<TextureAtlas>,
+    /// Whether the image should be flipped along its x-axis.
+    ///
+    /// If true, the cursor's `hotspot` automatically flips along with the
+    /// image.
+    pub flip_x: bool,
+    /// Whether the image should be flipped along its y-axis.
+    ///
+    /// If true, the cursor's `hotspot` automatically flips along with the
+    /// image.
+    pub flip_y: bool,
+    /// An optional rectangle representing the region of the image to render,
+    /// instead of rendering the full image. This is an easy one-off alternative
+    /// to using a [`TextureAtlas`].
+    ///
+    /// When used with a [`TextureAtlas`], the rect is offset by the atlas's
+    /// minimal (top-left) corner position.
+    pub rect: Option<URect>,
+    /// X and Y coordinates of the hotspot in pixels. The hotspot must be within
+    /// the image bounds.
+    ///
+    /// If you are flipping the image using `flip_x` or `flip_y`, you don't need
+    /// to adjust this field to account for the flip because it is adjusted
+    /// automatically.
+    pub hotspot: (u16, u16),
+}
+
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
+/// A custom cursor created from a URL.
+#[derive(Debug, Clone, Default, Reflect, PartialEq, Eq, Hash)]
+#[reflect(Debug, Default, Hash, PartialEq)]
+pub struct CustomCursorUrl {
+    /// Web URL to an image to use as the cursor. PNGs are preferred. Cursor
+    /// creation can fail if the image is invalid or not reachable.
+    pub url: String,
+    /// X and Y coordinates of the hotspot in pixels. The hotspot must be within
+    /// the image bounds.
+    pub hotspot: (u16, u16),
+}
+
 /// Custom cursor image data.
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
 pub enum CustomCursor {
-    /// Image to use as a cursor.
-    Image {
-        /// The image must be in 8 bit int or 32 bit float rgba. PNG images
-        /// work well for this.
-        handle: Handle<Image>,
-        /// The (optional) texture atlas used to render the image.
-        texture_atlas: Option<TextureAtlas>,
-        /// Whether the image should be flipped along its x-axis.
-        flip_x: bool,
-        /// Whether the image should be flipped along its y-axis.
-        flip_y: bool,
-        /// An optional rectangle representing the region of the image to
-        /// render, instead of rendering the full image. This is an easy one-off
-        /// alternative to using a [`TextureAtlas`].
-        ///
-        /// When used with a [`TextureAtlas`], the rect is offset by the atlas's
-        /// minimal (top-left) corner position.
-        rect: Option<URect>,
-        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
-        /// within the image bounds.
-        hotspot: (u16, u16),
-    },
+    /// Use an image as the cursor.
+    Image(CustomCursorImage),
     #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-    /// A URL to an image to use as the cursor.
-    Url {
-        /// Web URL to an image to use as the cursor. PNGs preferred. Cursor
-        /// creation can fail if the image is invalid or not reachable.
-        url: String,
-        /// X and Y coordinates of the hotspot in pixels. The hotspot must be
-        /// within the image bounds.
-        hotspot: (u16, u16),
-    },
+    /// Use a URL to an image as the cursor.
+    Url(CustomCursorUrl),
 }
 
 impl From<CustomCursor> for CursorIcon {
@@ -171,6 +192,28 @@ pub(crate) fn extract_and_transform_rgba_pixels(
     }
 
     Some(sub_image_data)
+}
+
+/// Transforms the `hotspot` coordinates based on whether the image is flipped
+/// or not. The `rect` is used to determine the image's dimensions.
+pub(crate) fn transform_hotspot(
+    hotspot: (u16, u16),
+    flip_x: bool,
+    flip_y: bool,
+    rect: Rect,
+) -> (u16, u16) {
+    let hotspot_x = hotspot.0 as f32;
+    let hotspot_y = hotspot.1 as f32;
+    let (width, height) = (rect.width(), rect.height());
+
+    let hotspot_x = if flip_x { width - hotspot_x } else { hotspot_x };
+    let hotspot_y = if flip_y {
+        height - hotspot_y
+    } else {
+        hotspot_y
+    };
+
+    (hotspot_x as u16, hotspot_y as u16)
 }
 
 #[cfg(test)]
@@ -531,4 +574,48 @@ mod tests {
             0, 255, 255, 255, // Cyan
         ]
     );
+
+    #[test]
+    fn test_transform_hotspot_no_flip() {
+        let hotspot = (10, 20);
+        let rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100.0, 200.0),
+        };
+        let transformed = transform_hotspot(hotspot, false, false, rect);
+        assert_eq!(transformed, (10, 20));
+    }
+
+    #[test]
+    fn test_transform_hotspot_flip_x() {
+        let hotspot = (10, 20);
+        let rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100.0, 200.0),
+        };
+        let transformed = transform_hotspot(hotspot, true, false, rect);
+        assert_eq!(transformed, (90, 20));
+    }
+
+    #[test]
+    fn test_transform_hotspot_flip_y() {
+        let hotspot = (10, 20);
+        let rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100.0, 200.0),
+        };
+        let transformed = transform_hotspot(hotspot, false, true, rect);
+        assert_eq!(transformed, (10, 180));
+    }
+
+    #[test]
+    fn test_transform_hotspot_flip_both() {
+        let hotspot = (10, 20);
+        let rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100.0, 200.0),
+        };
+        let transformed = transform_hotspot(hotspot, true, true, rect);
+        assert_eq!(transformed, (90, 180));
+    }
 }

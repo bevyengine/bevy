@@ -97,6 +97,7 @@ serialize = [
   "bevy_ui?/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
+  "bevy_platform_support/serialize",
 ]
 multi_threaded = [
   "bevy_asset?/multi_threaded",
@@ -134,6 +135,12 @@ pbr_anisotropy_texture = [
 
 # Percentage-closer soft shadows
 experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
+
+# Specular textures in `StandardMaterial`:
+pbr_specular_textures = [
+  "bevy_pbr?/pbr_specular_textures",
+  "bevy_gltf?/pbr_specular_textures",
+]
 
 # Optimise for WebGL2
 webgl = [

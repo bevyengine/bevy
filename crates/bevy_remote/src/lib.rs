@@ -328,7 +328,8 @@ use bevy_ecs::{
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
-use bevy_utils::{prelude::default, HashMap};
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;

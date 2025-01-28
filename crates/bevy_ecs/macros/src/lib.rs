@@ -16,7 +16,7 @@ use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, Token, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -612,45 +612,60 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
     states::derive_substates(input)
 }
 
-#[proc_macro_derive(FromWorld)]
+#[proc_macro_derive(FromWorld, attributes(from_world))]
 pub fn derive_from_world(input: TokenStream) -> TokenStream {
     let bevy_ecs_path = bevy_ecs_path();
     let ast = parse_macro_input!(input as DeriveInput);
-    let struct_name = ast.ident;
+    let name = ast.ident;
     let (impl_generics, ty_generics, where_clauses) = ast.generics.split_for_impl();
 
-    let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
-        return syn::Error::new(
-            Span::call_site(),
-            "#[derive(FromWorld)]` only supports structs",
-        )
-        .into_compile_error()
-        .into();
+    let (fields, variant_ident) = match &ast.data {
+        Data::Struct(data) => (&data.fields, None),
+        Data::Enum(data) => {
+            match data.variants.iter().find(|variant| {
+                variant
+                    .attrs
+                    .iter()
+                    .any(|attr| attr.path().is_ident("from_world"))
+            }) {
+                Some(variant) => (&variant.fields, Some(&variant.ident)),
+                None => {
+                    return syn::Error::new(
+                        Span::call_site(),
+                        "No variant found with the `#[from_world]` attribute",
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            }
+        }
+        Data::Union(_) => {
+            return syn::Error::new(
+                Span::call_site(),
+                "#[derive(FromWorld)]` does not support unions",
+            )
+            .into_compile_error()
+            .into();
+        }
     };
 
     let field_init_expr = quote!(#bevy_ecs_path::world::FromWorld::from_world(world));
+    let members = fields.members();
 
-    let field_initializers: Punctuated<TokenStream2, Token![,]> = match fields {
-        syn::Fields::Named(fields_named) => fields_named
-            .named
-            .iter()
-            .map(|field| {
-                let ident = field.ident.clone().unwrap();
-                quote!(#ident: #field_init_expr)
-            })
-            .collect(),
-        syn::Fields::Unnamed(fields_unnamed) => (0..fields_unnamed.unnamed.len())
-            .map(|index| quote!(#index: #field_init_expr))
-            .collect(),
-        syn::Fields::Unit => Punctuated::new(),
+    let field_initializers = match variant_ident {
+        Some(variant_ident) => quote!( Self::#variant_ident {
+            #(#members: #field_init_expr),*
+        }),
+        None => quote!( Self {
+            #(#members: #field_init_expr),*
+        }),
     };
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::world::FromWorld for #struct_name #ty_generics #where_clauses {
-            fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
-                #[allow(clippy::init_numbered_fields)]
-                Self { #field_initializers }
+            impl #impl_generics #bevy_ecs_path::world::FromWorld for #name #ty_generics #where_clauses {
+                fn from_world(world: &mut #bevy_ecs_path::world::World) -> Self {
+                    #field_initializers
+                }
             }
-        }
     })
 }

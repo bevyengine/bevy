@@ -41,10 +41,10 @@ use core::{fmt::Debug, time::Duration};
 
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::time::Instant;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::NormalizedRenderTarget;
-use bevy_utils::HashMap;
 use bevy_window::Window;
 use tracing::debug;
 

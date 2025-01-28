@@ -17,6 +17,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_platform_support::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     batching::{
         gpu_preprocessing::{
@@ -44,7 +45,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, hashbrown::hash_map::Entry, HashMap, Parallel};
+use bevy_utils::{default, Parallel};
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
 use tracing::{error, warn};
@@ -86,6 +87,7 @@ pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874
 pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
 pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
 pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
+pub const OCCLUSION_CULLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(285365001154292827);
 
 /// How many textures are allowed in the view bind group layout (`@group(0)`) before
 /// broader compatibility with WebGL and WebGPU is at risk, due to the minimum guaranteed
@@ -133,6 +135,12 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            OCCLUSION_CULLING_HANDLE,
+            "occlusion_culling.wgsl",
+            Shader::from_wgsl
+        );
 
         if app.get_sub_app(RenderApp).is_none() {
             return;
@@ -1253,9 +1261,10 @@ pub fn extract_meshes_for_gpu_building(
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
-    cameras_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
+    gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
 ) {
-    let any_gpu_culling = !cameras_query.is_empty();
+    let any_gpu_culling = !gpu_culling_query.is_empty();
+
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instance_queue.init(any_gpu_culling);
     }
@@ -1519,6 +1528,9 @@ pub struct MeshPipeline {
     /// This affects whether reflection probes can be used.
     pub binding_arrays_are_usable: bool,
 
+    /// Whether clustered decals are usable on the current render device.
+    pub clustered_decals_are_usable: bool,
+
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
@@ -1580,6 +1592,10 @@ impl FromWorld for MeshPipeline {
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
+            clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
+                &render_device,
+                &render_adapter,
+            ),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
         }
     }
@@ -1760,7 +1776,8 @@ impl GetFullBatchData for MeshPipeline {
                 Some(batch_set_index) => u32::from(batch_set_index),
                 None => !0,
             },
-            instance_count: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
@@ -1809,7 +1826,8 @@ bitflags::bitflags! {
         const HAS_PREVIOUS_SKIN                 = 1 << 18;
         const HAS_PREVIOUS_MORPH                = 1 << 19;
         const OIT_ENABLED                       = 1 << 20;
-        const LAST_FLAG                         = Self::OIT_ENABLED.bits();
+        const DISTANCE_FOG                      = 1 << 21;
+        const LAST_FLAG                         = Self::DISTANCE_FOG.bits();
 
         // Bitfields
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
@@ -2052,6 +2070,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "pbr_anisotropy_texture") {
             shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
         }
+        if cfg!(feature = "pbr_specular_textures") {
+            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
@@ -2268,6 +2289,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VISIBILITY_RANGE_DITHER".into());
         }
 
+        if key.contains(MeshPipelineKey::DISTANCE_FOG) {
+            shader_defs.push("DISTANCE_FOG".into());
+        }
+
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
             shader_defs.push("MULTIPLE_LIGHTMAPS_IN_ARRAY".into());
@@ -2275,6 +2300,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if IRRADIANCE_VOLUMES_ARE_USABLE {
             shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
+        }
+
+        if self.clustered_decals_are_usable {
+            shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {

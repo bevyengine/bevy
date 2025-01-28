@@ -14,7 +14,12 @@ wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
 
-serialize = ["serde", "bevy_input/serialize", "bevy_window/serialize"]
+serialize = [
+  "serde",
+  "bevy_input/serialize",
+  "bevy_window/serialize",
+  "bevy_platform_support/serialize",
+]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
 

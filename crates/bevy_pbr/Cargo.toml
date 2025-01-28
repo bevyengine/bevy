@@ -15,6 +15,7 @@ pbr_transmission_textures = []
 pbr_multi_layer_material_textures = []
 pbr_anisotropy_texture = []
 experimental_pbr_pcss = []
+pbr_specular_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
 ios_simulator = ["bevy_render/ios_simulator"]
@@ -47,6 +48,9 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+] }
 
 # other
 bitflags = "2.3"

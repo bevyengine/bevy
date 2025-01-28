@@ -12,6 +12,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
+use bevy_utils::once;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use tracing::warn;
@@ -164,10 +165,10 @@ pub fn ui_layout_system(
             match camera_with_default(target_camera) {
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
-                        warn!(
+                        once!(warn!(
                             "UiTargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
-                        );
+                        ));
                         return;
                     };
                     let layout_info = camera_layout_info
@@ -177,13 +178,13 @@ pub fn ui_layout_system(
                 }
                 None => {
                     if cameras.is_empty() {
-                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
+                        once!(warn!("No camera found to render UI to. To fix this, add at least one camera to the scene."));
                     } else {
-                        warn!(
+                        once!(warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
                             To fix this, add an explicit `UiTargetCamera` component to the root UI node {}",
                             entity
-                        );
+                        ));
                     }
                 }
             }
@@ -471,12 +472,13 @@ mod tests {
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_platform_support::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
     };
-    use bevy_utils::{prelude::default, HashMap};
+    use bevy_utils::prelude::default;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
         WindowScaleFactorChanged,

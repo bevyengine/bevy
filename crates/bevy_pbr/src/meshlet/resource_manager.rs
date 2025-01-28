@@ -3,6 +3,7 @@ use crate::ShadowView;
 use alloc::sync::Arc;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
+    experimental::mip_generation::{self, ViewDepthPyramid},
     prepass::{PreviousViewData, PreviousViewUniforms},
 };
 use bevy_ecs::{
@@ -20,7 +21,7 @@ use bevy_render::{
     view::{ExtractedView, RenderLayers, ViewUniform, ViewUniforms},
 };
 use binding_types::*;
-use core::{array, iter, sync::atomic::AtomicBool};
+use core::{iter, sync::atomic::AtomicBool};
 use encase::internal::WriteInto;
 
 /// Manages per-view and per-cluster GPU resources for [`super::MeshletPlugin`].
@@ -85,31 +86,11 @@ impl ResourceManager {
                 label: Some("meshlet_depth_pyramid_sampler"),
                 ..SamplerDescriptor::default()
             }),
-            depth_pyramid_dummy_texture: render_device
-                .create_texture(&TextureDescriptor {
-                    label: Some("meshlet_depth_pyramid_dummy_texture"),
-                    size: Extent3d {
-                        width: 1,
-                        height: 1,
-                        depth_or_array_layers: 1,
-                    },
-                    mip_level_count: 1,
-                    sample_count: 1,
-                    dimension: TextureDimension::D2,
-                    format: TextureFormat::R32Float,
-                    usage: TextureUsages::STORAGE_BINDING,
-                    view_formats: &[],
-                })
-                .create_view(&TextureViewDescriptor {
-                    label: Some("meshlet_depth_pyramid_dummy_texture_view"),
-                    format: Some(TextureFormat::R32Float),
-                    dimension: Some(TextureViewDimension::D2),
-                    aspect: TextureAspect::All,
-                    base_mip_level: 0,
-                    mip_level_count: Some(1),
-                    base_array_layer: 0,
-                    array_layer_count: Some(1),
-                }),
+            depth_pyramid_dummy_texture: mip_generation::create_depth_pyramid_dummy_texture(
+                render_device,
+                "meshlet_depth_pyramid_dummy_texture",
+                "meshlet_depth_pyramid_dummy_texture_view",
+            ),
 
             previous_depth_pyramids: EntityHashMap::default(),
 
@@ -258,9 +239,7 @@ pub struct MeshletViewResources {
     pub visibility_buffer_software_raster_indirect_args_second: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_first: Buffer,
     pub visibility_buffer_hardware_raster_indirect_args_second: Buffer,
-    depth_pyramid_all_mips: TextureView,
-    depth_pyramid_mips: [TextureView; 12],
-    pub depth_pyramid_mip_count: u32,
+    pub depth_pyramid: ViewDepthPyramid,
     previous_depth_pyramid: TextureView,
     pub material_depth: Option<CachedTexture>,
     pub view_size: UVec2,
@@ -491,51 +470,23 @@ pub fn prepare_meshlet_per_frame_resources(
                 usage: BufferUsages::STORAGE | BufferUsages::INDIRECT,
             });
 
-        let depth_pyramid_size = Extent3d {
-            width: view.viewport.z.div_ceil(2),
-            height: view.viewport.w.div_ceil(2),
-            depth_or_array_layers: 1,
-        };
-        let depth_pyramid_mip_count = depth_pyramid_size.max_mips(TextureDimension::D2);
-        let depth_pyramid = texture_cache.get(
+        let depth_pyramid = ViewDepthPyramid::new(
             &render_device,
-            TextureDescriptor {
-                label: Some("meshlet_depth_pyramid"),
-                size: depth_pyramid_size,
-                mip_level_count: depth_pyramid_mip_count,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: TextureFormat::R32Float,
-                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
-                view_formats: &[],
-            },
+            &mut texture_cache,
+            &resource_manager.depth_pyramid_dummy_texture,
+            view.viewport.zw(),
+            "meshlet_depth_pyramid",
+            "meshlet_depth_pyramid_texture_view",
         );
-        let depth_pyramid_mips = array::from_fn(|i| {
-            if (i as u32) < depth_pyramid_mip_count {
-                depth_pyramid.texture.create_view(&TextureViewDescriptor {
-                    label: Some("meshlet_depth_pyramid_texture_view"),
-                    format: Some(TextureFormat::R32Float),
-                    dimension: Some(TextureViewDimension::D2),
-                    aspect: TextureAspect::All,
-                    base_mip_level: i as u32,
-                    mip_level_count: Some(1),
-                    base_array_layer: 0,
-                    array_layer_count: Some(1),
-                })
-            } else {
-                resource_manager.depth_pyramid_dummy_texture.clone()
-            }
-        });
-        let depth_pyramid_all_mips = depth_pyramid.default_view.clone();
 
         let previous_depth_pyramid =
             match resource_manager.previous_depth_pyramids.get(&view_entity) {
                 Some(texture_view) => texture_view.clone(),
-                None => depth_pyramid_all_mips.clone(),
+                None => depth_pyramid.all_mips.clone(),
             };
         resource_manager
             .previous_depth_pyramids
-            .insert(view_entity, depth_pyramid_all_mips.clone());
+            .insert(view_entity, depth_pyramid.all_mips.clone());
 
         let material_depth = TextureDescriptor {
             label: Some("meshlet_material_depth"),
@@ -563,9 +514,7 @@ pub fn prepare_meshlet_per_frame_resources(
             visibility_buffer_software_raster_indirect_args_second,
             visibility_buffer_hardware_raster_indirect_args_first,
             visibility_buffer_hardware_raster_indirect_args_second,
-            depth_pyramid_all_mips,
-            depth_pyramid_mips,
-            depth_pyramid_mip_count,
+            depth_pyramid,
             previous_depth_pyramid,
             material_depth: not_shadow_view
                 .then(|| texture_cache.get(&render_device, material_depth)),
@@ -676,7 +625,7 @@ pub fn prepare_meshlet_view_bind_groups(
             resource_manager
                 .visibility_buffer_raster_clusters
                 .as_entire_binding(),
-            &view_resources.depth_pyramid_all_mips,
+            &view_resources.depth_pyramid.all_mips,
             view_uniforms.clone(),
             previous_view_uniforms.clone(),
         ));
@@ -686,25 +635,12 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
-        let downsample_depth = render_device.create_bind_group(
+        let downsample_depth = view_resources.depth_pyramid.create_bind_group(
+            &render_device,
             "meshlet_downsample_depth_bind_group",
             &resource_manager.downsample_depth_bind_group_layout,
-            &BindGroupEntries::sequential((
-                view_resources.visibility_buffer.as_entire_binding(),
-                &view_resources.depth_pyramid_mips[0],
-                &view_resources.depth_pyramid_mips[1],
-                &view_resources.depth_pyramid_mips[2],
-                &view_resources.depth_pyramid_mips[3],
-                &view_resources.depth_pyramid_mips[4],
-                &view_resources.depth_pyramid_mips[5],
-                &view_resources.depth_pyramid_mips[6],
-                &view_resources.depth_pyramid_mips[7],
-                &view_resources.depth_pyramid_mips[8],
-                &view_resources.depth_pyramid_mips[9],
-                &view_resources.depth_pyramid_mips[10],
-                &view_resources.depth_pyramid_mips[11],
-                &resource_manager.depth_pyramid_sampler,
-            )),
+            view_resources.visibility_buffer.as_entire_binding(),
+            &resource_manager.depth_pyramid_sampler,
         );
 
         let entries = BindGroupEntries::sequential((

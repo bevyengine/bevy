@@ -1,6 +1,6 @@
 use alloc::borrow::Cow;
+use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::sync::Arc;
-use bevy_utils::HashMap;
 use core::fmt::Debug;
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
@@ -487,7 +487,7 @@ mod tests {
         let mut registry = FunctionRegistry::default();
         registry.register(add).unwrap();
 
-        let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
         let result = registry
             .call(core::any::type_name_of_val(&add), args)
             .unwrap();

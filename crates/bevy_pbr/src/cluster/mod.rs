@@ -13,6 +13,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
@@ -24,7 +25,6 @@ use bevy_render::{
     sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::HashSet;
 use tracing::warn;
 
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
@@ -204,6 +204,8 @@ struct ClusterableObjectCounts {
     reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
     irradiance_volumes: u32,
+    /// The number of decals in the cluster.
+    decals: u32,
 }
 
 enum ExtractedClusterableObjectElement {
@@ -673,7 +675,7 @@ impl ViewClusterBindings {
                         counts.spot_lights,
                         counts.reflection_probes,
                     ),
-                    uvec4(counts.irradiance_volumes, 0, 0, 0),
+                    uvec4(counts.irradiance_volumes, counts.decals, 0, 0),
                 ]);
             }
         }
