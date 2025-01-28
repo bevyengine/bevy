@@ -22,6 +22,7 @@ pub struct RootNodePair {
 
 #[derive(Resource)]
 pub struct UiSurface {
+    pub implicit_root_nodes: EntityHashMap<taffy::NodeId>,
     pub(super) entity_to_taffy: EntityHashMap<taffy::NodeId>,
     pub(super) camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::NodeId>>,
     pub(super) camera_roots: EntityHashMap<Vec<RootNodePair>>,

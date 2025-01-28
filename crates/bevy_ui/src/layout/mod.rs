@@ -77,14 +77,6 @@ pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
     removed_nodes: RemovedComponents<'w, 's, Node>,
 }
 
-#[doc(hidden)]
-#[derive(Default)]
-pub struct UiLayoutSystemBuffers {
-    interned_root_nodes: Vec<Vec<Entity>>,
-
-    camera_layout_info: EntityHashMap<CameraLayoutInfo>,
-}
-
 struct CameraLayoutInfo {
     size: UVec2,
     //resized: bool,
@@ -95,7 +87,6 @@ struct CameraLayoutInfo {
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut commands: Commands,
-    mut buffers: Local<UiLayoutSystemBuffers>,
     camera_query: Query<(Entity, &Camera)>,
     ui_scale: Res<UiScale>,
     target_query: Query<(Entity, &ResolvedTargetCamera)>,
@@ -145,6 +136,8 @@ pub fn ui_layout_system(
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
         });
+
+    for ui_root_entity in ui_root_node_query.iter() {}
 
     // update camera children
     for (camera_id, _) in camera_query.iter() {
