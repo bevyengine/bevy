@@ -52,7 +52,7 @@ use std::ops::Mul;
 /// [`Transform`] is the local transform of an entity in space relative to its parent transform,
 /// or the global transform relative to the main reference frame if it doesn't have a [`Parent`].
 ///
-/// [`GlobalTransform`] is the absolute transform of an entity in space, relative to the main reference frame.
+/// [`GlobalTransform`] is the absolute transform of an entity in space relative to the main reference frame.
 ///
 /// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
 /// [`TransformPropagate`].
