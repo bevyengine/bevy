@@ -296,7 +296,7 @@ mod tests {
             .world_mut()
             .query::<&TestValue>()
             .get(app.world(), propagatee)
-            .is_ok())
+            .is_ok());
     }
 
     #[test]
@@ -318,7 +318,7 @@ mod tests {
             .world_mut()
             .query::<&TestValue>()
             .get(app.world(), propagatee)
-            .is_ok())
+            .is_ok());
     }
 
     #[test]
