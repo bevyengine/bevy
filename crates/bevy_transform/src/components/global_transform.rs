@@ -15,7 +15,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// * To place or move an entity, you should set its [`Transform`].
-/// * To get the absolute transform of an entity, you should get its [`GlobalTransform`],
+/// * To get the absolute transform of an entity, you should get its [`GlobalTransform`]
 ///   after [`TransformPropagate`] or [`PostUpdate`] to avoid a 1 frame lag.
 ///   * You can use [`compute_transform`] to get the global `translation`, `rotation` and `scale`.
 /// * [`GlobalTransform`] is fully managed by bevy and should not be mutated directly.
