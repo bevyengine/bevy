@@ -1,6 +1,7 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    query::With,
     resource::Resource,
     system::{lifetimeless::Read, Commands, Query, Res},
     world::FromWorld,
@@ -12,7 +13,7 @@ use bevy_render::{
         DynamicBindGroupEntries, DynamicBindGroupLayoutEntries, ShaderStages,
     },
     renderer::RenderDevice,
-    view::{ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniforms},
 };
 
 #[derive(Component)]
