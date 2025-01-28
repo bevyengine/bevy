@@ -171,7 +171,7 @@ with UI components as a child of an entity without UI components, your UI layout
             .entry(ui_root_entity)
             .or_insert_with(|| {
                 let root_node = entity_to_taffy[&ui_root_entity];
-                let implict_root = taffy
+                let implicit_root = taffy
                     .new_leaf(taffy::style::Style {
                         display: taffy::style::Display::Grid,
                         // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
@@ -185,8 +185,8 @@ with UI components as a child of an entity without UI components, your UI layout
                         ..default()
                     })
                     .unwrap();
-                taffy.add_child(implict_root, root_node).unwrap();
-                implict_root
+                taffy.add_child(implicit_root, root_node).unwrap();
+                implicit_root
             });
 
         let (_, _, _, target_size, target_scale_factor) = node_query.get(ui_root_entity).unwrap();
