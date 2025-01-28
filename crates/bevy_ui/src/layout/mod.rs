@@ -70,14 +70,6 @@ pub enum LayoutError {
     TaffyError(taffy::TaffyError),
 }
 
-#[doc(hidden)]
-#[derive(SystemParam)]
-pub struct UiLayoutSystemRemovedComponentParam<'w, 's> {
-    removed_children: RemovedComponents<'w, 's, Children>,
-    removed_content_sizes: RemovedComponents<'w, 's, ContentSize>,
-    removed_nodes: RemovedComponents<'w, 's, Node>,
-}
-
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
     mut commands: Commands,
@@ -92,7 +84,6 @@ pub fn ui_layout_system(
     )>,
     computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
-    mut removed_components: UiLayoutSystemRemovedComponentParam,
     mut node_transform_query: Query<(
         &mut ComputedNode,
         &mut Transform,
@@ -104,9 +95,12 @@ pub fn ui_layout_system(
     )>,
     mut buffer_query: Query<&mut ComputedTextBlock>,
     mut font_system: ResMut<CosmicFontSystem>,
+    mut removed_children: RemovedComponents<Children>,
+    mut removed_content_sizes: RemovedComponents<ContentSize>,
+    mut removed_nodes: RemovedComponents<Node>,
 ) {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
-    for entity in removed_components.removed_content_sizes.read() {
+    for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
     }
 
@@ -128,7 +122,7 @@ pub fn ui_layout_system(
         });
 
     // update and remove children
-    for entity in removed_components.removed_children.read() {
+    for entity in removed_children.read() {
         ui_surface.try_remove_children(entity);
     }
 
@@ -154,8 +148,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
-        removed_components
-            .removed_nodes
+        removed_nodes
             .read()
             .filter(|entity| !node_query.contains(*entity)),
     );
