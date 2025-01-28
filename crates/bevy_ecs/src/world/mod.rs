@@ -70,9 +70,8 @@ use core::panic::Location;
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
 ///
-/// Each [`Entity`] has a set of components. Each component can have up to one instance of each
-/// component type. Entity components can be created, updated, removed, and queried using a given
-/// [`World`].
+/// Each [`Entity`] has a set of unique components, based on their type.
+/// Entity components can be created, updated, removed, and queried using a given
 ///
 /// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
 /// consider using [`SystemState`](crate::system::SystemState).
@@ -1077,6 +1076,18 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+        self.spawn_with_caller(
+            bundle,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        )
+    }
+
+    pub(crate) fn spawn_with_caller<B: Bundle>(
+        &mut self,
+        bundle: B,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    ) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
@@ -1087,7 +1098,7 @@ impl World {
                 entity,
                 bundle,
                 #[cfg(feature = "track_location")]
-                Location::caller(),
+                caller,
             )
         };
 
@@ -1102,7 +1113,7 @@ impl World {
 
         #[cfg(feature = "track_location")]
         self.entities
-            .set_spawned_or_despawned_by(entity.index(), Location::caller());
+            .set_spawned_or_despawned_by(entity.index(), caller);
 
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }
@@ -3704,9 +3715,13 @@ unsafe impl Sync for World {}
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
 ///
-/// [`FromWorld`] is automatically implemented for any type implementing [`Default`],
-/// and may also be derived for any struct whose fields all implement `FromWorld`:
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`]
+/// and may also be derived for:
+/// - any struct whose fields all implement `FromWorld`
+/// - any enum where one variant has the attribute `#[from_world]`
+///
 /// ```rs
+///
 /// #[derive(Default)]
 /// struct A;
 ///
@@ -3723,6 +3738,13 @@ unsafe impl Sync for World {}
 ///
 /// #[derive(FromWorld)]
 /// struct D(A, B, C);
+///
+/// #[derive(FromWorld)]
+/// enum E {
+///     #[from_world]
+///     F,
+///     G
+/// }
 /// ```
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
@@ -3755,7 +3777,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform_support::collections::{HashMap, HashSet};
     use core::{
         any::TypeId,
         panic,

@@ -6,7 +6,7 @@ use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    view::{self, Visibility, VisibilityClass},
+    view::Visibility,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -329,11 +329,9 @@ impl From<Vec2> for ScrollPosition {
     ScrollPosition,
     Transform,
     Visibility,
-    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
-#[component(on_add = view::add_visibility_class::<Node>)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -562,7 +560,7 @@ pub struct Node {
 
     /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
     ///
-    /// `flex_basis` overrides `size` on the main axis if both are set, but it obeys the bounds defined by `min_size` and `max_size`.
+    /// `flex_basis` overrides `width` (if the main axis is horizontal) or `height` (if the main axis is vertical) when both are set, but it obeys the constraints defined by `min_width`/`min_height` and `max_width`/`max_height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
@@ -1063,6 +1061,30 @@ impl Overflow {
         Self {
             x: OverflowAxis::Visible,
             y: OverflowAxis::Clip,
+        }
+    }
+
+    /// Hide overflowing items on both axes by influencing layout and then clipping
+    pub const fn hidden() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Hidden,
+        }
+    }
+
+    /// Hide overflowing items on the x axis by influencing layout and then clipping
+    pub const fn hidden_x() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Hide overflowing items on the y axis by influencing layout and then clipping
+    pub const fn hidden_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Hidden,
         }
     }
 

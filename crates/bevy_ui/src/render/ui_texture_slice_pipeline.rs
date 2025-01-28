@@ -13,6 +13,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -26,7 +27,6 @@ use bevy_render::{
 };
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashMap;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
@@ -253,7 +253,7 @@ pub fn extract_ui_texture_slices(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             Option<&UiTargetCamera>,
             &ImageNode,
@@ -263,9 +263,9 @@ pub fn extract_ui_texture_slices(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, view_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
         // Skip invisible images
-        if !view_visibility.get()
+        if !inherited_visibility_visibility.get()
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
@@ -808,7 +808,10 @@ fn compute_texture_slices(
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
         }
         SpriteImageMode::Auto => {
-            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
+            unreachable!("Slices can not be computed for SpriteImageMode::Stretch")
+        }
+        SpriteImageMode::Scale(_) => {
+            unreachable!("Slices can not be computed for SpriteImageMode::Scale")
         }
     }
 }

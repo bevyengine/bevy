@@ -3,8 +3,8 @@ use crate::{
     NamedField, UnnamedField,
 };
 use alloc::boxed::Box;
+use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::sync::Arc;
-use bevy_utils::HashMap;
 use core::slice::Iter;
 use thiserror::Error;
 

@@ -14,7 +14,7 @@ use crate::reflect::{
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
-    component::{Component, ComponentId},
+    component::{Component, HookContext},
     entity::{Entity, VisitEntities},
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
@@ -268,8 +268,7 @@ impl<'a> EntityCommands<'a> {
 /// contains component `C`. This will print a warning if the parent does not contain `C`.
 pub fn validate_parent_has_component<C: Component>(
     world: DeferredWorld,
-    entity: Entity,
-    _: ComponentId,
+    HookContext { entity, caller, .. }: HookContext,
 ) {
     let entity_ref = world.entity(entity);
     let Some(child_of) = entity_ref.get::<ChildOf>() else {
@@ -282,8 +281,9 @@ pub fn validate_parent_has_component<C: Component>(
         // TODO: print name here once Name lives in bevy_ecs
         let name: Option<String> = None;
         warn!(
-            "warning[B0004]: {name} with the {ty_name} component has a parent without {ty_name}.\n\
+            "warning[B0004]: {}{name} with the {ty_name} component has a parent without {ty_name}.\n\
             This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/b0004",
+            caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = ShortName::of::<C>(),
             name = name.map_or_else(
                 || format!("Entity {}", entity),

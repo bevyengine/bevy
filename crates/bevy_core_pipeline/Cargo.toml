@@ -37,6 +37,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "std",
+  "serialize",
 ] }
 
 serde = { version = "1", features = ["derive"] }
@@ -46,6 +47,7 @@ nonmax = "0.5"
 smallvec = "1"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+bytemuck = { version = "1" }
 
 [lints]
 workspace = true

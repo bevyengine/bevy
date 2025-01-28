@@ -24,6 +24,9 @@ bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
+bevy_platform_support = { path = "../crates/bevy_platform_support", default-features = false, features = [
+  "std",
+] }
 
 # Other crates
 glam = "0.29"

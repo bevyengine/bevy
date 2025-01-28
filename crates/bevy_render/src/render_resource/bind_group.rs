@@ -21,7 +21,10 @@ define_atomic_id!(BindGroupId);
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
 /// This makes them accessible in the pipeline (shaders) as uniforms.
 ///
-/// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
+/// This is a lightweight thread-safe wrapper around wgpu's own [`BindGroup`](wgpu::BindGroup),
+/// which can be cloned as needed to workaround lifetime management issues. It may be converted
+/// from and dereferences to wgpu's [`BindGroup`](wgpu::BindGroup).
+///
 /// Can be created via [`RenderDevice::create_bind_group`](RenderDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
@@ -30,10 +33,24 @@ pub struct BindGroup {
 }
 
 impl BindGroup {
-    /// Returns the [`BindGroupId`].
+    /// Returns the [`BindGroupId`] representing the unique ID of the bind group.
     #[inline]
     pub fn id(&self) -> BindGroupId {
         self.id
+    }
+}
+
+impl PartialEq for BindGroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for BindGroup {}
+
+impl core::hash::Hash for BindGroup {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.id.0.hash(state);
     }
 }
 

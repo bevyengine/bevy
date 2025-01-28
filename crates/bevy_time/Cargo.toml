@@ -9,26 +9,73 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["bevy_reflect"]
-serialize = ["serde"]
+default = ["std", "bevy_reflect", "bevy_app/default"]
+
+# Functionality
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = [
+  "dep:bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_app/bevy_reflect",
+]
+
+## Adds serialization support through `serde`.
+serialize = [
+  "dep:serde",
+  "bevy_ecs/serialize",
+  "bevy_platform_support/serialize",
+]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "serde?/std",
+  "bevy_reflect?/std",
+  "bevy_ecs/std",
+  "bevy_app/std",
+  "bevy_platform_support/std",
+  "dep:crossbeam-channel",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_ecs/critical-section",
+  "bevy_platform_support/critical-section",
+  "bevy_reflect?/critical-section",
+  "bevy_app/critical-section",
+]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
+portable-atomic = [
+  "bevy_ecs/portable-atomic",
+  "bevy_platform_support/portable-atomic",
+  "bevy_reflect?/portable-atomic",
+  "bevy_app/portable-atomic",
+]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", features = [
-  "bevy_reflect",
-] }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
   "bevy",
 ], optional = true }
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
-  "std",
-] }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
-crossbeam-channel = "0.5.0"
-serde = { version = "1", features = ["derive"], optional = true }
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+crossbeam-channel = { version = "0.5.0", default-features = false, features = [
+  "std",
+], optional = true }
+serde = { version = "1", features = [
+  "derive",
+], default-features = false, optional = true }
+log = { version = "0.4", default-features = false }
 
 [lints]
 workspace = true
