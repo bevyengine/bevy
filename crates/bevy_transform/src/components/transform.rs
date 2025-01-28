@@ -30,7 +30,7 @@ use std::ops::Mul;
 ///   matching the main reference frame coordinates.
 ///   It can be seen as a ratio of the main reference frame length unit to
 ///   the entity's length unit.
-///   For example if the scale is `1.0` for a `Mesh`, its vertex position attributes
+///   For example, if the scale is `1.0` for a `Mesh`, its vertex position attributes
 ///   have the same unit than the values used inside `translation`.
 ///
 /// If the entity has a parent:
