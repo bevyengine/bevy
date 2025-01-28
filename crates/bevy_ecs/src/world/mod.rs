@@ -217,6 +217,12 @@ impl World {
         &self.components
     }
 
+    /// Retrieves this world's [`Components`] collection mutably.
+    #[inline]
+    pub fn components_mut(&mut self) -> &mut Components {
+        &mut self.components
+    }
+
     /// Retrieves this world's [`Storages`] collection.
     #[inline]
     pub fn storages(&self) -> &Storages {

@@ -1893,6 +1893,16 @@ impl Components {
         &mut self.cold
     }
 
+    /// Grants the caller access to all component data.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that no components have been registered or modified through [`lock`](Self::lock) since [`clean`](Self::clean) was last called.
+    #[inline]
+    pub unsafe fn full_ref_unchecked(&self) -> &ComponentsData {
+        &self.cold
+    }
+
     /// Cleans the components up, accelerating read-only access.
     pub fn clean(&mut self) -> &mut ComponentsData {
         self.staged.get_mut().unwrap().clean_into(&mut self.cold);
