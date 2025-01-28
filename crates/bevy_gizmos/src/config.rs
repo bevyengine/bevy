@@ -4,7 +4,7 @@ use crate::{self as bevy_gizmos};
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 #[cfg(feature = "bevy_render")]
-use {crate::LineGizmo, bevy_asset::Handle, bevy_ecs::component::Component};
+use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};

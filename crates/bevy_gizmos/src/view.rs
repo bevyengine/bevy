@@ -1,7 +1,8 @@
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    system::{lifetimeless::Read, Commands, Query, Res, Resource},
+    resource::Resource,
+    system::{lifetimeless::Read, Commands, Query, Res},
     world::FromWorld,
 };
 use bevy_render::{

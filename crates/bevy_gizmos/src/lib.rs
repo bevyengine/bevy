@@ -42,8 +42,8 @@ pub mod grid;
 pub mod primitives;
 pub mod retained;
 pub mod rounded_box;
-//#[cfg(feature = "bevy_render")]
-pub mod view;
+#[cfg(feature = "bevy_render")]
+mod view;
 
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 pub mod light;
@@ -84,8 +84,9 @@ use bevy_ecs::{
     schedule::{IntoSystemConfigs, SystemSet},
     system::{Res, ResMut},
 };
-use bevy_math::{Vec3, Vec4};
+use bevy_math::Vec4;
 use bevy_reflect::TypePath;
+#[cfg(feature = "bevy_render")]
 use view::OnlyViewLayout;
 
 #[cfg(feature = "bevy_render")]
@@ -185,7 +186,7 @@ impl Plugin for GizmoPlugin {
                 prepare_line_gizmo_bind_group.in_set(RenderSet::PrepareBindGroups),
             );
 
-            render_app.add_systems(ExtractSchedule, extract_gizmo_data);
+            render_app.add_systems(ExtractSchedule, (extract_gizmo_data, extract_linegizmos));
             app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
 
             #[cfg(feature = "bevy_sprite")]
@@ -496,7 +497,7 @@ struct LineGizmoUniform {
     line_scale: f32,
     /// WebGL2 structs must be 16 byte aligned.
     #[cfg(feature = "webgl")]
-    _padding: Vec3,
+    _padding: bevy_math::Vec3,
 }
 
 /// A collection of gizmos.
@@ -645,9 +646,9 @@ impl<const I: usize, P: PhaseItem> RenderCommand<P> for SetLineGizmoBindGroup<I>
 }
 
 #[cfg(feature = "bevy_render")]
-struct DrawLineGizmo;
+struct DrawLineGizmo<const STRIP: bool>;
 #[cfg(feature = "bevy_render")]
-impl<P: PhaseItem> RenderCommand<P> for DrawLineGizmo {
+impl<P: PhaseItem, const STRIP: bool> RenderCommand<P> for DrawLineGizmo<STRIP> {
     type Param = SRes<RenderAssets<GpuLineGizmo>>;
     type ViewQuery = ();
     type ItemQuery = Read<GizmoMeshConfig>;

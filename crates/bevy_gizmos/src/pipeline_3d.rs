@@ -12,7 +12,8 @@ use bevy_ecs::schedule::IntoSystemConfigs;
 
 use bevy_ecs::{
     prelude::Entity,
-    system::{Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -262,7 +263,7 @@ type DrawLineGizmo3d = (
 );
 type DrawLineGizmo3dStrip = (
     SetItemPipeline,
-    SetMeshViewBindGroup<0>,
+    SetViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
     DrawLineGizmo<true>,
 );
@@ -280,7 +281,8 @@ fn queue_line_gizmos_3d(
     pipeline_cache: Res<PipelineCache>,
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
-    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
+    views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
     let draw_function_strip = draw_functions
@@ -288,8 +290,8 @@ fn queue_line_gizmos_3d(
         .get_id::<DrawLineGizmo3dStrip>()
         .unwrap();
 
-    for (view_entity, view, msaa, render_layers) in &mut views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa, render_layers) in &views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 
@@ -304,24 +306,36 @@ fn queue_line_gizmos_3d(
                 continue;
             };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &pipeline,
-                LineGizmoPipelineKey {
-                    msaa: *msaa,
-                    hdr: view.hdr,
-                    strip: line_gizmo.strip,
-                    perspective: config.line_perspective,
-                    line_style: config.line_style,
-                },
-            );
+            if line_gizmo.list_vertex_count > 0 {
+                let pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    LineGizmoPipelineKey {
+                        msaa: *msaa,
+                        hdr: view.hdr,
+                        strip: false,
+                        perspective: config.line_perspective,
+                        line_style: config.line_style,
+                    },
+                );
+                transparent_phase.add(Transparent3d {
+                    entity: (entity, *main_entity),
+                    draw_function,
+                    pipeline,
+                    distance: 0.,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
+                });
+            }
 
             if line_gizmo.strip_vertex_count >= 2 {
                 let pipeline = pipelines.specialize(
                     &pipeline_cache,
                     &pipeline,
                     LineGizmoPipelineKey {
-                        view_key,
+                        msaa: *msaa,
+                        hdr: view.hdr,
                         strip: true,
                         perspective: config.line_perspective,
                         line_style: config.line_style,
@@ -349,15 +363,15 @@ fn queue_line_joint_gizmos_3d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(Entity, &ExtractedView, &Msaa, Option<&RenderLayers>)>,
+    mut views: Query<(&ExtractedView, &Msaa, Option<&RenderLayers>)>,
 ) {
     let draw_function = draw_functions
         .read()
         .get_id::<DrawLineJointGizmo3d>()
         .unwrap();
 
-    for (view_entity, view, msaa, render_layers) in &mut views {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+    for (view, msaa, render_layers) in &mut views {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 
