@@ -99,6 +99,7 @@ pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(130128470471
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
+    Clear,
     ExtractCameraViews,
     ExtractBoxShadows,
     ExtractBackgrounds,
@@ -128,6 +129,7 @@ pub fn build_ui_render(app: &mut App) {
         .configure_sets(
             ExtractSchedule,
             (
+                RenderUiSystem::Clear,
                 RenderUiSystem::ExtractCameraViews,
                 RenderUiSystem::ExtractBoxShadows,
                 RenderUiSystem::ExtractBackgrounds,
@@ -142,6 +144,7 @@ pub fn build_ui_render(app: &mut App) {
         .add_systems(
             ExtractSchedule,
             (
+                clear_extracted_ui_nodes.in_set(RenderUiSystem::Clear),
                 extract_ui_camera_view.in_set(RenderUiSystem::ExtractCameraViews),
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
@@ -274,6 +277,17 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
         graph.run_sub_graph(SubGraphUi, vec![], Some(default_camera_view.0))?;
         Ok(())
     }
+}
+
+pub fn clear_extracted_ui_nodes(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+) {
+    extracted_uinodes
+        .uinodes
+        .drain()
+        .for_each(|(entity, _)| commands.entity(entity).despawn());
+    extracted_uinodes.glyphs.clear();
 }
 
 pub fn extract_uinode_background_colors(

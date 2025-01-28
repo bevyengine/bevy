@@ -1,5 +1,5 @@
-use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_ecs::{entity::EntityHash, prelude::*};
+use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_render::{
     render_resource::{StorageBuffer, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
@@ -19,24 +19,36 @@ pub(super) struct AutoExposureBuffer {
     pub(super) settings: UniformBuffer<AutoExposureUniform>,
 }
 
-#[derive(Resource)]
+#[derive(Default, Resource)]
 pub(super) struct ExtractedStateBuffers {
-    changed: Vec<(Entity, AutoExposure)>,
-    removed: Vec<Entity>,
+    changed: HashMap<Entity, AutoExposure, EntityHash>,
+    removed: HashSet<Entity, EntityHash>,
+}
+
+impl ExtractedStateBuffers {
+    fn add_changed(&mut self, entity: Entity, exposure: AutoExposure) {
+        self.removed.remove(&entity);
+        self.changed.insert(entity, exposure);
+    }
+
+    fn add_removed(&mut self, entity: Entity) {
+        self.changed.remove(&entity);
+        self.removed.insert(entity);
+    }
 }
 
 pub(super) fn extract_buffers(
-    mut commands: Commands,
+    mut extracted: ResMut<ExtractedStateBuffers>,
     changed: Extract<Query<(RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
     mut removed: Extract<RemovedComponents<AutoExposure>>,
 ) {
-    commands.insert_resource(ExtractedStateBuffers {
-        changed: changed
-            .iter()
-            .map(|(entity, settings)| (entity, settings.clone()))
-            .collect(),
-        removed: removed.read().collect(),
-    });
+    for (entity, exposure) in &changed {
+        extracted.add_changed(entity, exposure.clone());
+    }
+
+    for entity in removed.read() {
+        extracted.add_removed(entity);
+    }
 }
 
 pub(super) fn prepare_buffers(
@@ -45,7 +57,7 @@ pub(super) fn prepare_buffers(
     mut extracted: ResMut<ExtractedStateBuffers>,
     mut buffers: ResMut<AutoExposureBuffers>,
 ) {
-    for (entity, settings) in extracted.changed.drain(..) {
+    for (entity, settings) in extracted.changed.drain() {
         let (min_log_lum, max_log_lum) = settings.range.into_inner();
         let (low_percent, high_percent) = settings.filter.into_inner();
         let initial_state = 0.0f32.clamp(min_log_lum, max_log_lum);
@@ -81,7 +93,7 @@ pub(super) fn prepare_buffers(
         }
     }
 
-    for entity in extracted.removed.drain(..) {
+    for entity in extracted.removed.drain() {
         buffers.buffers.remove(&entity);
     }
 }

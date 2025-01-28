@@ -48,7 +48,7 @@ pub struct WindowResized {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct RequestRedraw;
+pub struct RequestUpdate;
 
 /// An event that is sent whenever a new window is created.
 ///
@@ -427,7 +427,7 @@ pub enum WindowEvent {
     CursorMoved(CursorMoved),
     FileDragAndDrop(FileDragAndDrop),
     Ime(Ime),
-    RequestRedraw(RequestRedraw),
+    RequestUpdate(RequestUpdate),
     WindowBackendScaleFactorChanged(WindowBackendScaleFactorChanged),
     WindowCloseRequested(WindowCloseRequested),
     WindowCreated(WindowCreated),
@@ -484,9 +484,9 @@ impl From<Ime> for WindowEvent {
         Self::Ime(e)
     }
 }
-impl From<RequestRedraw> for WindowEvent {
-    fn from(e: RequestRedraw) -> Self {
-        Self::RequestRedraw(e)
+impl From<RequestUpdate> for WindowEvent {
+    fn from(e: RequestUpdate) -> Self {
+        Self::RequestUpdate(e)
     }
 }
 impl From<WindowBackendScaleFactorChanged> for WindowEvent {
@@ -588,4 +588,47 @@ impl From<KeyboardFocusLost> for WindowEvent {
     fn from(e: KeyboardFocusLost) -> Self {
         Self::KeyboardFocusLost(e)
     }
+}
+
+/// The kind of [`WindowEvent`] enum variant
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
+    reflect(Serialize, Deserialize)
+)]
+#[expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+pub enum WindowEventKind {
+    AppLifecycle,
+    CursorEntered,
+    CursorLeft,
+    CursorMoved,
+    FileDragAndDrop,
+    Ime,
+    RequestRedraw,
+    WindowBackendScaleFactorChanged,
+    WindowCloseRequested,
+    WindowCreated,
+    WindowDestroyed,
+    WindowFocused,
+    WindowMoved,
+    WindowOccluded,
+    WindowResized,
+    WindowScaleFactorChanged,
+    WindowThemeChanged,
+
+    MouseButtonInput,
+    MouseMotion,
+    MouseWheel,
+
+    PinchGesture,
+    RotationGesture,
+    DoubleTapGesture,
+    PanGesture,
+
+    TouchInput,
+
+    KeyboardInput,
+    KeyboardFocusLost,
 }

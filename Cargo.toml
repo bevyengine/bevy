@@ -1616,6 +1616,17 @@ description = "Create an application without winit (runs single time, no event l
 category = "Application"
 wasm = false
 
+[[example]]
+name = "update_mode"
+path = "examples/app/update_mode.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.update_mode]
+name = "Main & Render Update Mode"
+description = "Set different update modes for the main app and the renderer"
+category = "Application"
+wasm = true
+
 # Assets
 [[example]]
 name = "alter_mesh"

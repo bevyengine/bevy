@@ -357,11 +357,14 @@ pub fn extract_sprite_events(
     mut image_events: Extract<EventReader<AssetEvent<Image>>>,
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
-    images.clear();
 
     for event in image_events.read() {
         images.push(*event);
     }
+}
+
+pub fn clear_sprite_events(mut events: ResMut<SpriteAssetEvents>) {
+    events.images.clear();
 }
 
 pub fn extract_sprites(

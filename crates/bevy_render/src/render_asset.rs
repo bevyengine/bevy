@@ -5,7 +5,7 @@ use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
-    prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
+    prelude::{EventReader, IntoSystemConfigs, ResMut, Resource},
     schedule::{SystemConfigs, SystemSet},
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
@@ -150,7 +150,7 @@ impl<A: RenderAsset> RenderAssetDependency for A {
 #[derive(Resource)]
 pub struct ExtractedAssets<A: RenderAsset> {
     /// The assets extracted this frame.
-    pub extracted: Vec<(AssetId<A::SourceAsset>, A::SourceAsset)>,
+    pub extracted: HashMap<AssetId<A::SourceAsset>, A::SourceAsset>,
 
     /// IDs of the assets removed this frame.
     ///
@@ -159,6 +159,20 @@ pub struct ExtractedAssets<A: RenderAsset> {
 
     /// IDs of the assets added this frame.
     pub added: HashSet<AssetId<A::SourceAsset>>,
+}
+
+impl<A: RenderAsset> ExtractedAssets<A> {
+    fn add_asset(&mut self, id: AssetId<A::SourceAsset>, asset: A::SourceAsset) {
+        self.removed.remove(&id);
+        self.extracted.insert(id, asset);
+        self.added.insert(id);
+    }
+
+    fn add_removed(&mut self, id: AssetId<A::SourceAsset>) {
+        self.extracted.remove(&id);
+        self.added.remove(&id);
+        self.removed.insert(id);
+    }
 }
 
 impl<A: RenderAsset> Default for ExtractedAssets<A> {
@@ -227,7 +241,7 @@ impl<A: RenderAsset> FromWorld for CachedExtractRenderAssetSystemState<A> {
 /// This system extracts all created or modified assets of the corresponding [`RenderAsset::SourceAsset`] type
 /// into the "render world".
 pub(crate) fn extract_render_asset<A: RenderAsset>(
-    mut commands: Commands,
+    mut extracted: ResMut<ExtractedAssets<A>>,
     mut main_world: ResMut<MainWorld>,
 ) {
     main_world.resource_scope(
@@ -235,7 +249,6 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
             let mut changed_assets = <HashSet<_>>::default();
-            let mut removed = <HashSet<_>>::default();
 
             for event in events.read() {
                 #[expect(
@@ -249,7 +262,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                     AssetEvent::Removed { .. } => {}
                     AssetEvent::Unused { id } => {
                         changed_assets.remove(id);
-                        removed.insert(*id);
+                        extracted.add_removed(*id);
                     }
                     AssetEvent::LoadedWithDependencies { .. } => {
                         // TODO: handle this
@@ -257,30 +270,21 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
                 }
             }
 
-            let mut extracted_assets = Vec::new();
-            let mut added = <HashSet<_>>::default();
             for id in changed_assets.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
                     if asset_usage.contains(RenderAssetUsages::RENDER_WORLD) {
                         if asset_usage == RenderAssetUsages::RENDER_WORLD {
                             if let Some(asset) = assets.remove(id) {
-                                extracted_assets.push((id, asset));
-                                added.insert(id);
+                                extracted.add_asset(id, asset);
                             }
                         } else {
-                            extracted_assets.push((id, asset.clone()));
-                            added.insert(id);
+                            extracted.add_asset(id, asset.clone());
                         }
                     }
                 }
             }
 
-            commands.insert_resource(ExtractedAssets::<A> {
-                extracted: extracted_assets,
-                removed,
-                added,
-            });
             cached_state.state.apply(world);
         },
     );
@@ -357,7 +361,7 @@ pub fn prepare_assets<A: RenderAsset>(
         A::unload_asset(removed, &mut param);
     }
 
-    for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
+    for (id, extracted_asset) in extracted_assets.extracted.drain() {
         // we remove previous here to ensure that if we are updating the asset then
         // any users will not see the old asset after a new asset is extracted,
         // even if the new asset is not yet ready or we are out of bytes to write.
@@ -390,6 +394,8 @@ pub fn prepare_assets<A: RenderAsset>(
             }
         }
     }
+
+    extracted_assets.added.clear();
 
     if bpf.exhausted() && !prepare_next_frame.assets.is_empty() {
         debug!(
