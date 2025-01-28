@@ -23,7 +23,6 @@
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GizmoRenderSystem {
     /// Adds gizmos to the [`Transparent2d`](bevy_core_pipeline::core_2d::Transparent2d) render phase
-    #[cfg(feature = "bevy_sprite")]
     QueueLineGizmos2d,
     /// Adds gizmos to the [`Transparent3d`](bevy_core_pipeline::core_3d::Transparent3d) render phase
     QueueLineGizmos3d,
@@ -48,7 +47,7 @@ mod view;
 #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
 pub mod light;
 
-#[cfg(all(feature = "bevy_sprite", feature = "bevy_render"))]
+#[cfg(feature = "bevy_render")]
 mod pipeline_2d;
 
 #[cfg(feature = "bevy_render")]
@@ -143,9 +142,8 @@ const LINE_JOINT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11627807
 /// A [`Plugin`] that provides an immediate mode drawing api for visual debugging.
 ///
 /// Requires to be loaded after [`RenderPlugin`](bevy_pbr::RenderPlugin).
-/// Additional features for 2d meshes and lights can be enabled with the following features:
-/// - `bevy_pbr` for debugging lights ( see [`LightGizmoPlugin`] )
-/// - `bevy_sprite` for 2d rendering ( see [`pipeline_2d`] )
+/// Additionally, it can support debugging light when the `bevy_pbr` feature is enabled,
+/// see [`LightGizmoPlugin`]
 #[derive(Default)]
 pub struct GizmoPlugin;
 
@@ -186,14 +184,8 @@ impl Plugin for GizmoPlugin {
             );
 
             render_app.add_systems(ExtractSchedule, (extract_gizmo_data, extract_linegizmos));
-            app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
-
-            #[cfg(feature = "bevy_sprite")]
-            if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
-                app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
-            } else {
-                tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
-            }
+            app.add_plugins(pipeline_3d::LineGizmo3dPlugin)
+                .add_plugins(pipeline_2d::LineGizmo2dPlugin);
         } else {
             tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
