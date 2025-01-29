@@ -795,76 +795,33 @@ mod tests {
 
     #[test]
     fn ease_isometries_2d() {
-        let mk = Isometry2d::new;
-        let iso_2d_start = mk(Vec2::ZERO, Rot2::degrees(0.0));
-        let iso_2d_end = mk(Vec2::ONE, Rot2::degrees(90.0));
+        let angle = 90.0;
+        let iso_2d_start = Isometry2d::new(Vec2::ZERO, Rot2::degrees(0.0));
+        let iso_2d_end = Isometry2d::new(Vec2::ONE, Rot2::degrees(angle));
 
         let iso_2d_curve = Isometry2d::interpolating_curve_unbounded(iso_2d_start, iso_2d_end);
 
-        assert_abs_diff_eq!(
-            iso_2d_curve.sample(-1.0).unwrap(),
-            mk(Vec2::ONE * -1.0, Rot2::degrees(-90.0))
-        );
-        assert_abs_diff_eq!(
-            iso_2d_curve.sample(0.0).unwrap(),
-            mk(Vec2::ZERO, Rot2::degrees(0.0))
-        );
-        assert_abs_diff_eq!(
-            iso_2d_curve.sample(0.5).unwrap(),
-            mk(Vec2::ONE * 0.5, Rot2::degrees(45.0))
-        );
-        assert_abs_diff_eq!(
-            iso_2d_curve.sample(1.0).unwrap(),
-            mk(Vec2::ONE, Rot2::degrees(90.0))
-        );
-        assert_abs_diff_eq!(
-            iso_2d_curve.sample(2.0).unwrap(),
-            mk(Vec2::ONE * 2.0, Rot2::degrees(180.0))
-        );
+        [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
+            assert_abs_diff_eq!(
+                iso_2d_curve.sample(t).unwrap(),
+                Isometry2d::new(Vec2::ONE * t, Rot2::degrees(angle * t))
+            );
+        });
     }
 
     #[test]
     fn ease_isometries_3d() {
-        let mk = Isometry3d::new;
-        let iso_3d_start = mk(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0));
-        let iso_3d_end = mk(
-            Vec3A::ONE,
-            Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians()),
-        );
+        let angle = 90.0_f32.to_radians();
+        let iso_3d_start = Isometry3d::new(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0));
+        let iso_3d_end = Isometry3d::new(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, angle));
 
         let iso_3d_curve = Isometry3d::interpolating_curve_unbounded(iso_3d_start, iso_3d_end);
 
-        assert_abs_diff_eq!(
-            iso_3d_curve.sample(-1.0).unwrap(),
-            mk(
-                Vec3A::ONE * -1.0,
-                Quat::from_axis_angle(Vec3::Z, -90.0_f32.to_radians())
-            )
-        );
-        assert_abs_diff_eq!(
-            iso_3d_curve.sample(0.0).unwrap(),
-            mk(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0))
-        );
-        assert_abs_diff_eq!(
-            iso_3d_curve.sample(0.5).unwrap(),
-            mk(
-                Vec3A::ONE * 0.5,
-                Quat::from_axis_angle(Vec3::Z, 45.0_f32.to_radians())
-            )
-        );
-        assert_abs_diff_eq!(
-            iso_3d_curve.sample(1.0).unwrap(),
-            mk(
-                Vec3A::ONE,
-                Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians())
-            )
-        );
-        assert_abs_diff_eq!(
-            iso_3d_curve.sample(2.0).unwrap(),
-            mk(
-                Vec3A::ONE * 2.0,
-                Quat::from_axis_angle(Vec3::Z, 180.0_f32.to_radians())
-            )
-        );
+        [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
+            assert_abs_diff_eq!(
+                iso_3d_curve.sample(t).unwrap(),
+                Isometry3d::new(Vec3A::ONE * t, Quat::from_axis_angle(Vec3::Z, angle * t))
+            );
+        });
     }
 }
