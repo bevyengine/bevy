@@ -8,7 +8,7 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
-use crate::component::{ComponentInfoRef, ComponentsViewReadonly};
+use crate::component::{ComponentInfoRef, ComponentsViewReadonly, ComponentsViewRef};
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
@@ -648,7 +648,8 @@ impl<'w> EntityCloneBuilder<'w> {
             self.filter.remove(&id);
         }
         if self.attach_required_components {
-            if let Some(required) = self.world.components().get_required_components(id) {
+            let components = self.world.components().lock_read();
+            if let Some(required) = components.get_required_components(id) {
                 for required_id in required.iter_ids() {
                     if self.filter_allows_components {
                         self.filter.insert(required_id);
@@ -668,7 +669,8 @@ impl<'w> EntityCloneBuilder<'w> {
             self.filter.insert(id);
         }
         if self.attach_required_components {
-            if let Some(required) = self.world.components().get_required_components(id) {
+            let components = self.world.components().lock_read();
+            if let Some(required) = components.get_required_components(id) {
                 for required_id in required.iter_ids() {
                     if self.filter_allows_components {
                         self.filter.remove(&required_id);

@@ -129,7 +129,9 @@ pub mod __macro_exports {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{ComponentsViewReadonly, RequiredComponentsRef};
+    use crate::component::{
+        ComponentsViewReadonly, ComponentsViewRef, RequiredComponentsStagedRef,
+    };
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
@@ -2601,7 +2603,7 @@ mod tests {
         world.register_required_components::<Z, B>();
 
         world.spawn(X);
-        let components = world.components();
+        let components = world.components.as_ref();
 
         let required_a = components
             .get_required_components(components.component_id::<A>().unwrap())
@@ -2624,11 +2626,15 @@ mod tests {
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: RequiredComponentsRef) -> Vec<(ComponentId, u16)> {
+        fn to_vec(required: RequiredComponentsStagedRef) -> Vec<(ComponentId, u16)> {
             let mut vec = required
-                .0
                 .iter()
-                .map(|(id, component)| (*id, component.inheritance_depth))
+                .flat_map(|required| {
+                    required
+                        .0
+                        .iter()
+                        .map(|(id, component)| (*id, component.inheritance_depth))
+                })
                 .collect::<Vec<_>>();
             vec.sort_by_key(|(id, _)| *id);
             vec

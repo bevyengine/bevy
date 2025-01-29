@@ -11,8 +11,8 @@ use crate::{
     },
     component::{
         Component, ComponentId, Components, ComponentsView, ComponentsViewExclusive,
-        ComponentsViewReadonly, RequiredComponentConstructor, RequiredComponents, StorageType,
-        Tick,
+        ComponentsViewReadonly, ComponentsViewRef, RequiredComponentConstructor,
+        RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -390,6 +390,7 @@ impl BundleInfo {
         mut component_ids: Vec<ComponentId>,
         id: BundleId,
     ) -> BundleInfo {
+        let components = components.lock_read();
         let mut deduped = component_ids.clone();
         deduped.sort_unstable();
         deduped.dedup();
@@ -426,12 +427,12 @@ impl BundleInfo {
         let mut required_components = RequiredComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
-            let required = unsafe {
+            unsafe {
                 components
                     .get_required_components(component_id)
                     .debug_checked_unwrap()
-            };
-            required_components.merge(&required);
+            }
+            .merge_into(&mut required_components);
         }
         required_components.remove_explicit_components(&component_ids);
         let required_components = required_components

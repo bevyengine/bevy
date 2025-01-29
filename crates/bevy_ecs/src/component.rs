@@ -2467,28 +2467,6 @@ impl Components {
         }
     }
 
-    /// Gets the components this component requires if it is registered.
-    #[inline]
-    pub fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsRef<'_>> {
-        let staged = self.staged.read().unwrap();
-        if staged.new_required.contains_key(&id) {
-            return Some(RequiredComponentsRef::ModificationStaged(staged, id));
-        }
-
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            if index_in_new >= staged.new_components.len() {
-                None
-            } else {
-                Some(RequiredComponentsRef::Staged(LockedComponentReference {
-                    data: staged,
-                    index: index_in_new,
-                }))
-            }
-        } else {
-            Some(RequiredComponentsRef::Stored(&self.cold.components[id.0]))
-        }
-    }
-
     #[inline]
     pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
@@ -3279,6 +3257,42 @@ pub(crate) struct RequiredByStagedMut<'a> {
     cold: Option<&'a HashSet<ComponentId>>,
 }
 
+impl<'a> RequiredComponentsStagedRef<'a> {
+    /// Iterates the required components
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &RequiredComponents> {
+        [self.working].into_iter().chain(self.cold)
+    }
+
+    /// See [`RequiredComponents::iter_ids`]
+    #[inline]
+    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.iter().flat_map(RequiredComponents::iter_ids)
+    }
+
+    /// Merges these required components into the `other`.
+    #[inline]
+    pub fn merge_into(&self, other: &mut RequiredComponents) {
+        for c in self.iter() {
+            other.merge(c);
+        }
+    }
+}
+
+impl<'a> RequiredByStagedRef<'a> {
+    /// Iterates the required components
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &HashSet<ComponentId>> {
+        [self.working].into_iter().chain(self.cold)
+    }
+
+    /// See [`RequiredComponents::iter_ids`]
+    #[inline]
+    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.iter().flat_map(|by| by.iter().copied())
+    }
+}
+
 // TODO: replace ComponentInfoRef with https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html when it is stableized.
 
 /// A reference to a particular component's info.
@@ -3287,23 +3301,6 @@ pub enum ComponentInfoRef<'a> {
     Stored(&'a ComponentInfo),
     /// the requested data needs to be synchronized
     Staged(LockedComponentReference<'a>),
-}
-
-/// A reference to a particular component's info.
-pub enum RequiredComponentsRef<'a> {
-    /// the requested data was registered a while ago.
-    Stored(&'a ComponentInfo),
-    /// the requested data needs to be synchronized
-    Staged(LockedComponentReference<'a>),
-    /// the requested data exists, but a modification is queued.
-    ModificationStaged(
-        #[expect(
-            private_interfaces,
-            reason = "This is not meant to be created by users."
-        )]
-        RwLockReadGuard<'a, StagedComponents>,
-        ComponentId,
-    ),
 }
 
 /// A reference to a particular component's info, where the info lives in a locked container for staged changes
@@ -3327,20 +3324,6 @@ impl Deref for ComponentInfoRef<'_> {
         match self {
             ComponentInfoRef::Stored(info) => info,
             ComponentInfoRef::Staged(lock) => lock,
-        }
-    }
-}
-
-impl Deref for RequiredComponentsRef<'_> {
-    type Target = RequiredComponents;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            RequiredComponentsRef::Stored(info) => &info.required_components,
-            RequiredComponentsRef::Staged(lock) => &lock.required_components,
-            RequiredComponentsRef::ModificationStaged(guard, id) => {
-                guard.new_required.get(id).unwrap()
-            }
         }
     }
 }
