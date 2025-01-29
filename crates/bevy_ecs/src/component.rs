@@ -1301,6 +1301,16 @@ pub trait ComponentsViewRef: ComponentsViewReadonly {
     fn get_name(&self, id: ComponentId) -> Option<&str> {
         self.get_info(id).map(ComponentInfo::name)
     }
+
+    /// Returns the components this component requires
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef<'_>>;
+
+    /// Returns the components that require this component
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef<'_>>;
 }
 
 /// This represents a generalized mutable view into [`Components`].
@@ -1620,6 +1630,16 @@ impl ComponentsViewRef for ComponentsMut<'_> {
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         self.as_ref().get_info_unchecked_with_lifetime(id)
     }
+
+    #[inline]
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef<'_>> {
+        self.as_ref().get_required_components_with_lifetime(id)
+    }
+
+    #[inline]
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef<'_>> {
+        self.as_ref().get_required_by_with_lifetime(id)
+    }
 }
 
 impl ComponentsViewReadonly for ComponentsRead<'_> {
@@ -1673,6 +1693,16 @@ impl ComponentsViewRef for ComponentsRead<'_> {
     #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         self.as_ref().get_info_unchecked_with_lifetime(id)
+    }
+
+    #[inline]
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef<'_>> {
+        self.as_ref().get_required_components_with_lifetime(id)
+    }
+
+    #[inline]
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef<'_>> {
+        self.as_ref().get_required_by_with_lifetime(id)
     }
 }
 
@@ -1790,6 +1820,16 @@ impl ComponentsViewRef for ComponentsLock<'_> {
     #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         self.as_ref().get_info_unchecked_with_lifetime(id)
+    }
+
+    #[inline]
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef<'_>> {
+        self.as_ref().get_required_components_with_lifetime(id)
+    }
+
+    #[inline]
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef<'_>> {
+        self.as_ref().get_required_by_with_lifetime(id)
     }
 }
 
@@ -2131,25 +2171,85 @@ impl<'a> ComponentsMut<'a> {
 impl ComponentsViewRef for ComponentsRef<'_> {
     #[inline]
     fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            self.staged.new_components.get(index_in_new)
-        } else {
-            Some(&self.cold.components[id.0])
-        }
+        self.get_info_with_lifetime(id)
     }
 
     #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            debug_assert!(index_in_new < self.staged.new_components.len());
-            &self.staged.new_components[index_in_new]
-        } else {
-            &self.cold.components[id.0]
-        }
+        self.get_info_unchecked_with_lifetime(id)
+    }
+
+    #[inline]
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef<'_>> {
+        self.get_required_components_with_lifetime(id)
+    }
+
+    #[inline]
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef<'_>> {
+        self.get_required_by_with_lifetime(id)
     }
 }
 
 impl<'a> ComponentsRef<'a> {
+    /// See [`ComponentsViewRef::get_required_components`]
+    #[inline]
+    fn get_required_components_with_lifetime(
+        &self,
+        id: ComponentId,
+    ) -> Option<RequiredComponentsStagedRef<'a>> {
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            self.staged
+                .new_components
+                .get(index_in_new)
+                .map(|info| RequiredComponentsStagedRef {
+                    working: &info.required_components,
+                    cold: None,
+                })
+        } else {
+            let from_info = &self.cold.components[id.0].required_components;
+            Some(if let Some(working) = self.staged.new_required.get(&id) {
+                RequiredComponentsStagedRef {
+                    cold: Some(from_info),
+                    working,
+                }
+            } else {
+                RequiredComponentsStagedRef {
+                    cold: None,
+                    working: from_info,
+                }
+            })
+        }
+    }
+
+    /// See [`ComponentsViewRef::get_required_by`]
+    #[inline]
+    fn get_required_by_with_lifetime(&self, id: ComponentId) -> Option<RequiredByStagedRef<'a>> {
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            self.staged
+                .new_components
+                .get(index_in_new)
+                .map(|info| RequiredByStagedRef {
+                    working: &info.required_by,
+                    cold: None,
+                })
+        } else {
+            let from_info = &self.cold.components[id.0].required_by;
+            Some(
+                if let Some(working) = self.staged.new_required_by.get(&id) {
+                    RequiredByStagedRef {
+                        cold: Some(from_info),
+                        working,
+                    }
+                } else {
+                    RequiredByStagedRef {
+                        cold: None,
+                        working: from_info,
+                    }
+                },
+            )
+        }
+    }
+
     /// See [`ComponentsViewRef::get_info`]
     #[inline]
     pub fn get_info_with_lifetime(&self, id: ComponentId) -> Option<&'a ComponentInfo> {
@@ -2900,6 +3000,22 @@ impl ComponentsViewRef for ComponentsData {
         // SAFETY: The caller ensures `id` is valid.
         unsafe { self.components.get_unchecked(id.0) }
     }
+
+    #[inline]
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef<'_>> {
+        self.get_info(id).map(|info| RequiredComponentsStagedRef {
+            working: &info.required_components,
+            cold: None,
+        })
+    }
+
+    #[inline]
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef<'_>> {
+        self.get_info(id).map(|info| RequiredByStagedRef {
+            working: &info.required_by,
+            cold: None,
+        })
+    }
 }
 
 impl ComponentsData {
@@ -3137,6 +3253,30 @@ impl ComponentsData {
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
     }
+}
+
+/// Allows viewing required components with potential staged changes.
+pub struct RequiredComponentsStagedRef<'a> {
+    working: &'a RequiredComponents,
+    cold: Option<&'a RequiredComponents>,
+}
+
+/// Allows modifying required components with potential staged changes.
+pub(crate) struct RequiredComponentsStagedMut<'a> {
+    working: &'a mut RequiredComponents,
+    cold: Option<&'a RequiredComponents>,
+}
+
+/// Allows viewing required components with potential staged changes.
+pub struct RequiredByStagedRef<'a> {
+    working: &'a HashSet<ComponentId>,
+    cold: Option<&'a HashSet<ComponentId>>,
+}
+
+/// Allows modifying required components with potential staged changes.
+pub(crate) struct RequiredByStagedMut<'a> {
+    working: &'a mut HashSet<ComponentId>,
+    cold: Option<&'a HashSet<ComponentId>>,
 }
 
 // TODO: replace ComponentInfoRef with https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html when it is stableized.
