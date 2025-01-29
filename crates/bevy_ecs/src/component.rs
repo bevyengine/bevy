@@ -17,7 +17,9 @@ use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::sync::atomic::{AtomicBool, Ordering};
 use bevy_platform_support::sync::Arc;
+use bevy_platform_support::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -31,10 +33,8 @@ use core::{
     mem::needs_drop,
     ops::Deref,
     panic::Location,
-    sync::atomic::{AtomicBool, Ordering},
 };
 use disqualified::ShortName;
-use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
