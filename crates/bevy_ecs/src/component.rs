@@ -1151,7 +1151,7 @@ struct StagedComponents {
 /// A lock for [`Components`] that enables fast, synchronized, mutable interaction.
 pub struct ComponentsLock<'a> {
     /// This is marked with an underscore to make it more clear that this field should not be used when possible.
-    /// For example, never try to lock on this field's [`Components::new_components`], as it could deadlock.
+    /// For example, never try to lock on this field's [`Components::staged`], as it could deadlock.
     _components: &'a Components,
     cold: &'a ComponentsData,
     staged: RwLockWriteGuard<'a, StagedComponents>,
@@ -2597,7 +2597,7 @@ pub enum RequiredComponentsRef<'a> {
     ),
 }
 
-/// A reference to a particular component's info, where the info lives in a locked [`NewComponents`]
+/// A reference to a particular component's info, where the info lives in a locked [`StagedComponents`]
 pub struct LockedComponentReference<'a> {
     data: RwLockReadGuard<'a, StagedComponents>,
     index: usize,

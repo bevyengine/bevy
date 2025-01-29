@@ -501,13 +501,13 @@ impl World {
         }
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
+    /// Retrieves the [components info](ComponentInfoRef) for the given component type, if it exists.
     pub fn get_component_info<C: Component>(&self) -> Option<ComponentInfoRef<'_>> {
         let id = self.components().component_id::<C>()?;
         self.components().get_info(id)
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
+    /// Retrieves the [components info](ComponentInfoRef) for the component of the given [`ComponentId`], if it exists.
     pub fn get_component_info_by_id(&self, id: ComponentId) -> Option<ComponentInfoRef<'_>> {
         self.components().get_info(id)
     }
@@ -828,7 +828,7 @@ impl World {
         }
     }
 
-    /// Returns the components of an [`Entity`] through [`ComponentInfo`].
+    /// Returns the components of an [`Entity`] through its [`info`](ComponentInfoRef).
     #[inline]
     pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = ComponentInfoRef<'_>> {
         let entity_location = self
