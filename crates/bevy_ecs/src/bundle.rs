@@ -10,8 +10,9 @@ use crate::{
         ComponentStatus, SpawnBundleStatus,
     },
     component::{
-        Component, ComponentId, Components, ComponentsViewExclusive, RequiredComponentConstructor,
-        RequiredComponents, StorageType, Tick,
+        Component, ComponentId, Components, ComponentsView, ComponentsViewExclusive,
+        ComponentsViewReadonly, RequiredComponentConstructor, RequiredComponents, StorageType,
+        Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,

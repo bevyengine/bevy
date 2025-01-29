@@ -2220,7 +2220,7 @@ mod tests {
         let mut world = World::new();
         world.spawn((A(1), B(2)));
 
-        let world2 = World::new();
+        let mut world2 = World::new();
         world2.register_component::<B>();
 
         world.query::<(&A, &B)>().transmute::<&B>(&world2);

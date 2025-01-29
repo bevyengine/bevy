@@ -2175,7 +2175,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 mod tests {
     use crate::{
         self as bevy_ecs,
-        component::{require, Component},
+        component::{require, Component, ComponentsViewReadonly},
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},

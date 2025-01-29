@@ -22,7 +22,7 @@ use tracing::info_span;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, ComponentInfoRef, Components, Tick},
+    component::{ComponentId, ComponentInfoRef, Components, ComponentsView, Tick},
     prelude::Component,
     resource::Resource,
     result::Result,

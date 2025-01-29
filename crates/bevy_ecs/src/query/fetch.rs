@@ -2,7 +2,9 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
+    component::{
+        Component, ComponentId, Components, ComponentsViewReadonly, Mutable, StorageType, Tick,
+    },
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},

@@ -2,7 +2,10 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, ComponentsViewReadonly, Mutable,
+        StorageType,
+    },
     entity::{
         Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
     },
@@ -4421,7 +4424,7 @@ mod tests {
     #[cfg(feature = "track_location")]
     use {core::panic::Location, std::sync::OnceLock};
 
-    use crate::component::HookContext;
+    use crate::component::{ComponentsViewReadonly, HookContext};
     use crate::{
         self as bevy_ecs,
         change_detection::MutUntyped,

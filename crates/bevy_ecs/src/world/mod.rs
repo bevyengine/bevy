@@ -36,7 +36,8 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfoRef, ComponentTicks, Components, Mutable, RequiredComponentsError, Tick,
+        ComponentInfoRef, ComponentTicks, Components, ComponentsView, ComponentsViewReadonly,
+        Mutable, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},
@@ -250,7 +251,7 @@ impl World {
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
-    pub fn register_component<T: Component>(&self) -> ComponentId {
+    pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components.register_component::<T>()
     }
 
@@ -3775,7 +3776,7 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfoRef, StorageType},
+        component::{ComponentDescriptor, ComponentInfoRef, ComponentsViewReadonly, StorageType},
         entity::hash_set::EntityHashSet,
         ptr::OwningPtr,
         resource::Resource,

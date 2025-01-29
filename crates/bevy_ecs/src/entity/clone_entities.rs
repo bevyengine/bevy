@@ -8,7 +8,7 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
-use crate::component::ComponentInfoRef;
+use crate::component::{ComponentInfoRef, ComponentsViewReadonly};
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},

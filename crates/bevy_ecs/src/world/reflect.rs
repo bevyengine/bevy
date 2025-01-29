@@ -7,7 +7,7 @@ use thiserror::Error;
 use alloc::string::{String, ToString};
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
-use crate::{prelude::*, world::ComponentId};
+use crate::{component::ComponentsViewReadonly, prelude::*, world::ComponentId};
 
 impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using

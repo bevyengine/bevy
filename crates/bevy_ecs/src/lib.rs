@@ -129,7 +129,7 @@ pub mod __macro_exports {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::RequiredComponentsRef;
+    use crate::component::{ComponentsViewReadonly, RequiredComponentsRef};
     use crate::{
         bundle::Bundle,
         change_detection::Ref,

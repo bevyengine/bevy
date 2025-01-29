@@ -816,6 +816,7 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::ComponentsView;
     use crate::{
         component::{Component, Components, Tick},
         entity::Entity,
@@ -844,7 +845,7 @@ mod tests {
 
     #[test]
     fn table() {
-        let components = Components::default();
+        let mut components = Components::default();
         let component_id = components.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
