@@ -2259,7 +2259,9 @@ impl World {
 
         let change_tick = self.change_tick();
 
-        let bundle_id = self.bundles.register_info::<B>(&mut self.components);
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
         enum SpawnOrInsert<'w> {
             Spawn(BundleSpawner<'w>),
             Insert(BundleInserter<'w>, ArchetypeId),
@@ -2450,7 +2452,9 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        let bundle_id = self.bundles.register_info::<B>(&mut self.components);
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
 
         let mut batch_iter = batch.into_iter();
 
@@ -2600,7 +2604,9 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        let bundle_id = self.bundles.register_info::<B>(&mut self.components);
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -3182,7 +3188,9 @@ impl World {
     /// component in the bundle.
     #[inline]
     pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
-        let id = self.bundles.register_info::<B>(&mut self.components);
+        let id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
