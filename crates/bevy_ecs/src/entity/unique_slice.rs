@@ -473,6 +473,50 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     }
 }
 
+/// Converts a reference to T into a slice of length 1 (without copying).
+pub const fn from_ref<T: TrustedEntityBorrow>(s: &T) -> &UniqueEntitySlice<T> {
+    // SAFETY: A slice with a length of 1 is always unique.
+    unsafe { UniqueEntitySlice::from_slice_unchecked(slice::from_ref(s)) }
+}
+
+/// Converts a reference to T into a slice of length 1 (without copying).
+pub const fn from_mut<T: TrustedEntityBorrow>(s: &mut T) -> &mut UniqueEntitySlice<T> {
+    // SAFETY: A slice with a length of 1 is always unique.
+    unsafe { UniqueEntitySlice::from_slice_unchecked_mut(slice::from_mut(s)) }
+}
+
+/// Forms a slice from a pointer and a length.
+///
+/// Equivalent to [`slice::from_raw_parts`].
+///
+/// # Safety
+///
+/// [`slice::from_raw_parts`] must be safe to call with `data` and `len`.
+/// Additionally, all elements in the resulting slice must be unique.
+pub const unsafe fn from_raw_parts<'a, T: TrustedEntityBorrow>(
+    data: *const T,
+    len: usize,
+) -> &'a UniqueEntitySlice<T> {
+    // SAFETY: The safety contract is upheld by the caller.
+    unsafe { UniqueEntitySlice::from_slice_unchecked(slice::from_raw_parts(data, len)) }
+}
+
+/// Performs the same functionality as [`from_raw_parts`], except that a mutable slice is returned.
+///
+/// Equivalent to [`slice::from_raw_parts_mut`].
+///
+/// # Safety
+///
+/// [`slice::from_raw_parts_mut`] must be safe to call with `data` and `len`.
+/// Additionally, all elements in the resulting slice must be unique.
+pub const unsafe fn from_raw_parts_mut<'a, T: TrustedEntityBorrow>(
+    data: *mut T,
+    len: usize,
+) -> &'a mut UniqueEntitySlice<T> {
+    // SAFETY: The safety contract is upheld by the caller.
+    unsafe { UniqueEntitySlice::from_slice_unchecked_mut(slice::from_raw_parts_mut(data, len)) }
+}
+
 impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a UniqueEntitySlice<T> {
     type Item = &'a T;
 
