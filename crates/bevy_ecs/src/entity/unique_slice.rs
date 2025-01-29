@@ -53,8 +53,8 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     }
 
     /// Casts to `self` to a standard slice.
-    pub fn as_inner(&self) -> &[T] {
-        self
+    pub const fn as_inner(&self) -> &[T] {
+        &self.0
     }
 
     /// Constructs a `UniqueEntitySlice` from a [`Box<[T]>`] unsafely.
