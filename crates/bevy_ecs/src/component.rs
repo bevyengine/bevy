@@ -2027,6 +2027,7 @@ impl<'a> ComponentsMut<'a> {
 }
 
 impl ComponentsViewRef for ComponentsRef<'_> {
+    #[inline]
     fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
             self.staged.new_components.get(index_in_new)
@@ -2035,6 +2036,7 @@ impl ComponentsViewRef for ComponentsRef<'_> {
         }
     }
 
+    #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
             debug_assert!(index_in_new < self.staged.new_components.len());
@@ -2139,11 +2141,22 @@ impl<'a> ComponentsViewReadonly for ComponentsRef<'a> {
 
 impl Components {
     /// Locks the components for mutation. Most information will continue to be available without locking further internally, even when mutating the returned lock.
+    #[inline]
     pub fn lock(&self) -> ComponentsLock<'_> {
         ComponentsLock {
             _components: self,
             cold: &self.cold,
             staged: self.staged.write().unwrap(),
+        }
+    }
+
+    /// Allows faster mutation than [`Self::lock`] when you have mutable access.
+    #[inline]
+    pub fn as_mut(&mut self) -> ComponentsMut<'_> {
+        ComponentsMut {
+            staged_changed: &self.staged_changed,
+            cold: &self.cold,
+            staged: self.staged.get_mut().unwrap(),
         }
     }
 
@@ -2192,94 +2205,6 @@ impl Components {
         *self.staged_changed.get_mut() = false;
         // Safety: we just cleaned.
         unsafe { self.full_unchecked() }
-    }
-
-    /// Registers a [`Component`] of type `T` with this instance.
-    /// If a component of this type has already been registered, this will return
-    /// the ID of the pre-existing component.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component_with_descriptor()`]
-    #[inline]
-    pub fn register_component<T: Component>(&self) -> ComponentId {
-        self.lock().register_component::<T>()
-    }
-
-    /// Registers a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource_with_descriptor()`]
-    #[inline]
-    pub fn register_resource<T: Resource>(&self) -> ComponentId {
-        self.lock().register_resource::<T>()
-    }
-
-    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    #[inline]
-    pub fn register_non_send<T: Any>(&self) -> ComponentId {
-        self.lock().register_non_send::<T>()
-    }
-
-    /// returns the total number of components registered through this instance
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.cold.len() + self.staged.read().unwrap().new_components.len()
-    }
-
-    /// Returns `true` if there are no registered components.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.cold.is_empty() && self.staged.read().unwrap().new_components.is_empty()
-    }
-
-    /// Registers a component described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component()`]
-    pub fn register_component_with_descriptor(
-        &self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        self.lock().register_component_with_descriptor(descriptor)
-    }
-
-    /// Registers a [`Resource`] described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource()`]
-    pub fn register_resource_with_descriptor(
-        &self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        self.lock().register_resource_with_descriptor(descriptor)
-    }
-
-    /// if this is true, the component has been registered since the last call to [`clean`](Self::clean)
-    #[inline]
-    pub fn is_new(&self, id: ComponentId) -> bool {
-        self.cold.len() <= id.0
     }
 
     /// Gets the metadata associated with the given component.
@@ -2356,25 +2281,49 @@ impl Components {
             Some(&mut self.cold.components[id.0].hooks)
         }
     }
+}
 
-    /// Registers the given component `R` and [required components] inherited from it as required by `T`.
+impl Components {
+    /// Synchronized version of [`ComponentsView::register_component`].
+    #[inline]
+    pub fn register_component_synced<T: Component>(&self) -> ComponentId {
+        self.lock().register_component::<T>()
+    }
+
+    /// Synchronized version of [`ComponentsView::register_resource`].
+    #[inline]
+    pub fn register_resource_synced<T: Resource>(&self) -> ComponentId {
+        self.lock().register_resource::<T>()
+    }
+
+    /// Synchronized version of [`ComponentsView::register_non_send`].
+    #[inline]
+    pub fn register_non_send_synced<T: Any>(&self) -> ComponentId {
+        self.lock().register_non_send::<T>()
+    }
+
+    /// Synchronized version of [`ComponentsView::register_component_with_descriptor`].
+    pub fn register_component_with_descriptor_synced(
+        &self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.lock().register_component_with_descriptor(descriptor)
+    }
+
+    /// Synchronized version of [`ComponentsView::register_resource_with_descriptor`].
+    pub fn register_resource_with_descriptor_synced(
+        &self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.lock().register_resource_with_descriptor(descriptor)
+    }
+
+    /// Synchronized version of [`ComponentsView::register_required_components`].
     ///
-    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
-    /// The given `constructor` will be used for the creation of `R`.
+    /// Safety
     ///
-    /// [required components]: Component#required-components
-    ///
-    /// # Safety
-    ///
-    /// The given component IDs `required` and `requiree` must be valid.
-    ///
-    /// # Errors
-    ///
-    /// Returns a [`RequiredComponentsError`] if the `required` component is already a directly required component for the `requiree`.
-    ///
-    /// Indirect requirements through other components are allowed. In those cases, the more specific
-    /// registration will be used.
-    pub(crate) unsafe fn register_required_components<R: Component>(
+    /// See [`ComponentsView::register_required_components`].
+    pub(crate) unsafe fn register_required_components_synced<R: Component>(
         &self,
         requiree: ComponentId,
         required: ComponentId,
@@ -2388,24 +2337,9 @@ impl Components {
     // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
     //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
     //       which is private, and could be equally risky to expose to users.
-    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
-    /// and adds `T` to their lists of requirees.
-    ///
-    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
-    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
-    /// Lower depths are more specific requirements, and can override existing less specific registrations.
-    ///
-    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
-    /// own (indirect) required component.
-    ///
-    /// This method does *not* register any components as required by components that require `T`.
-    ///
-    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
-    /// or the equivalent method in `bevy_app::App`.
-    ///
-    /// [required component]: Component#required-components
+    /// Synchronized version of [`ComponentsView::register_required_components_manual`].
     #[doc(hidden)]
-    pub fn register_required_components_manual<T: Component, R: Component>(
+    pub fn register_required_components_manual_synced<T: Component, R: Component>(
         &self,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
@@ -2419,10 +2353,114 @@ impl Components {
             recursion_check_stack,
         );
     }
+}
 
-    /// Type-erased equivalent of [`Components::component_id()`].
+impl ComponentsView for Components {
     #[inline]
-    pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+    fn register_component<T: Component>(&mut self) -> ComponentId {
+        if self.any_staged() {
+            self.as_mut().register_component::<T>()
+        } else {
+            // Safety: We know there were no changes staged.
+            unsafe { self.full_unchecked().register_component::<T>() }
+        }
+    }
+
+    #[inline]
+    fn register_resource<T: Resource>(&mut self) -> ComponentId {
+        if self.any_staged() {
+            self.as_mut().register_resource::<T>()
+        } else {
+            // Safety: We know there were no changes staged.
+            unsafe { self.full_unchecked().register_resource::<T>() }
+        }
+    }
+
+    #[inline]
+    fn register_non_send<T: Any>(&mut self) -> ComponentId {
+        if self.any_staged() {
+            self.as_mut().register_non_send::<T>()
+        } else {
+            // Safety: We know there were no changes staged.
+            unsafe { self.full_unchecked().register_non_send::<T>() }
+        }
+    }
+
+    #[inline]
+    fn register_component_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        if self.any_staged() {
+            self.as_mut().register_component_with_descriptor(descriptor)
+        } else {
+            // Safety: We know there were no changes staged.
+            unsafe {
+                self.full_unchecked()
+                    .register_component_with_descriptor(descriptor)
+            }
+        }
+    }
+
+    #[inline]
+    fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        if self.any_staged() {
+            self.as_mut().register_resource_with_descriptor(descriptor)
+        } else {
+            // Safety: We know there were no changes staged.
+            unsafe {
+                self.full_unchecked()
+                    .register_resource_with_descriptor(descriptor)
+            }
+        }
+    }
+
+    #[inline]
+    fn register_required_components_manual<T: Component, R: Component>(
+        &mut self,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) {
+        if self.any_staged() {
+            self.as_mut().register_required_components_manual::<T, R>(
+                required_components,
+                constructor,
+                inheritance_depth,
+                recursion_check_stack,
+            )
+        } else {
+            // Safety: We know there were no changes staged.
+            unsafe {
+                self.full_unchecked()
+                    .register_required_components_manual::<T, R>(
+                        required_components,
+                        constructor,
+                        inheritance_depth,
+                        recursion_check_stack,
+                    )
+            }
+        }
+    }
+}
+
+impl ComponentsViewReadonly for Components {
+    #[inline]
+    fn len(&self) -> usize {
+        self.cold.len() + self.staged.read().unwrap().new_components.len()
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.cold.is_empty() && self.staged.read().unwrap().new_components.is_empty()
+    }
+
+    #[inline]
+    fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         if let Some(old) = self.cold.indices.get(&type_id) {
             Some(*old)
         } else {
@@ -2431,72 +2469,8 @@ impl Components {
         }
     }
 
-    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
-    ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
-    /// instance.
-    ///
-    /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::register_component()`].
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Component)]
-    /// struct ComponentA;
-    ///
-    /// let component_a_id = world.register_component::<ComponentA>();
-    ///
-    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::get_id()`]
-    /// * [`Components::resource_id()`]
-    /// * [`World::component_id()`]
     #[inline]
-    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.get_id(TypeId::of::<T>())
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
-    ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
-    /// instance.
-    ///
-    /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::register_resource()`].
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Resource, Default)]
-    /// struct ResourceA;
-    ///
-    /// let resource_a_id = world.init_resource::<ResourceA>();
-    ///
-    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::get_resource_id()`]
-    #[inline]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
-    }
-
-    /// Type-erased equivalent of [`Components::resource_id()`].
-    #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+    fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         if let Some(old) = self.cold.resource_indices.get(&type_id) {
             Some(*old)
         } else {
@@ -2505,15 +2479,13 @@ impl Components {
         }
     }
 
-    /// Returns the currently registered default handler.
-    pub fn get_default_clone_handler(&self) -> ComponentCloneFn {
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
         self.cold.component_clone_handlers.get_default_handler()
     }
 
-    /// Checks if the specified component is registered. If not, the component will use the default global handler.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    pub fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
+    #[inline]
+    fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
         self.cold.component_clone_handlers.is_handler_registered(id)
             || self
                 .staged
@@ -2524,13 +2496,8 @@ impl Components {
                 .is_some()
     }
 
-    /// Gets a handler to clone a component. This can be one of the following:
-    /// - Custom clone function for this specific component.
-    /// - Default global handler.
-    /// - A [`component_clone_ignore`] (no cloning).
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    pub fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
+    #[inline]
+    fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
         match self.cold.component_clone_handlers.handlers.get(id.0) {
             Some(Some(handler)) => *handler,
             Some(None) | None => {
@@ -2547,6 +2514,11 @@ impl Components {
                 }
             }
         }
+    }
+
+    #[inline]
+    fn is_new(&self, id: ComponentId) -> bool {
+        self.cold.len() <= id.0
     }
 }
 
