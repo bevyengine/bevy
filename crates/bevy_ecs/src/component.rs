@@ -1148,7 +1148,7 @@ struct StagedComponents {
     /// When registering required components, changes to component info already in [`ComponentsData`] will be staged here. This should not be used for components that still live in this instance.
     new_required: HashMap<ComponentId, RequiredComponents>,
     /// When registering required components, changes to component info already in [`ComponentsData`] will be staged here. This should not be used for components that still live in this instance.
-    new_required_by: HashMap<ComponentId, HashSet<ComponentId>>,
+    additional_required_by: HashMap<ComponentId, HashSet<ComponentId>>,
 }
 
 /// A lock for [`Components`] that enables fast, synchronized, mutable interaction.
@@ -1570,20 +1570,24 @@ impl ComponentsViewInternal for ComponentsMut<'_> {
 
         // Add the requiree to the list of components that require the required component.
         // SAFETY: The component is in the list of required components, so it must exist already.
-        let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
-        required_by.insert(requiree);
+        let required_by = unsafe { self.get_required_by_mut(required) };
+        required_by.working.insert(requiree);
 
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
         let inherited_requirements =
             unsafe { self.register_inherited_required_components(requiree, required) };
 
         // Propagate the new required components up the chain to all components that require the requiree.
-        if let Some(required_by) = self.get_required_by(requiree).cloned() {
+        if let Some(required_by) = self
+            .get_required_by(requiree)
+            .map(|required_by| required_by.iter_ids().collect::<Vec<_>>())
+        {
             // `required` is now required by anything that `requiree` was required by.
             self.get_required_by_mut(required)
-                .unwrap()
-                .extend(required_by.iter().copied());
-            for &required_by_id in required_by.iter() {
+                .working
+                .extend(required_by.iter().cloned());
+
+            for required_by_id in required_by {
                 // SAFETY: The component is in the list of required components, so it must exist already.
                 let required_components = unsafe {
                     self.get_required_components_mut(required_by_id)
@@ -2057,11 +2061,8 @@ impl<'a> ComponentsMut<'a> {
 
             // Add the requiree to the list of components that require the required component.
             // SAFETY: The caller ensures that the required components are valid.
-            let required_by = unsafe {
-                self.get_required_by_mut(component_id)
-                    .debug_checked_unwrap()
-            };
-            required_by.insert(requiree);
+            let required_by = unsafe { self.get_required_by_mut(component_id) };
+            required_by.working.insert(requiree);
         }
 
         inherited_requirements
@@ -2100,8 +2101,8 @@ impl<'a> ComponentsMut<'a> {
         // Add the requiree to the list of components that require `R`.
         // SAFETY: The caller ensures that the component ID is valid.
         //         Assuming it is valid, the component is in the list of required components, so it must exist already.
-        let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
-        required_by.insert(requiree);
+        let required_by = unsafe { self.get_required_by_mut(required) };
+        required_by.working.insert(requiree);
 
         // Register the inherited required components for the requiree.
         let required: Vec<(ComponentId, RequiredComponent)> = self
@@ -2121,24 +2122,7 @@ impl<'a> ComponentsMut<'a> {
                 component.constructor.clone(),
                 component.inheritance_depth + 1,
             );
-            self.get_required_by_mut(id).unwrap().insert(requiree);
-        }
-    }
-
-    #[inline]
-    pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&HashSet<ComponentId>> {
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            self.staged
-                .new_components
-                .get(index_in_new)
-                .map(|info| &info.required_by)
-        } else {
-            Some(
-                self.staged
-                    .new_required_by
-                    .get(&id)
-                    .unwrap_or_else(|| &self.cold.components[id.0].required_by),
-            )
+            self.get_required_by_mut(id).working.insert(requiree);
         }
     }
 
@@ -2151,19 +2135,17 @@ impl<'a> ComponentsMut<'a> {
     pub(crate) unsafe fn get_required_by_mut(
         &mut self,
         id: ComponentId,
-    ) -> Option<&mut HashSet<ComponentId>> {
+    ) -> RequiredByStagedMut<'_> {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            self.staged
-                .new_components
-                .get_mut(index_in_new)
-                .map(|info| &mut info.required_by)
+            RequiredByStagedMut {
+                cold: None,
+                working: &mut self.staged.new_components[index_in_new].required_by,
+            }
         } else {
-            Some(
-                self.staged
-                    .new_required_by
-                    .entry(id)
-                    .or_insert_with(|| self.cold.components[id.0].required_by.clone()),
-            )
+            RequiredByStagedMut {
+                cold: Some(&self.cold.components[id.0].required_by),
+                working: self.staged.additional_required_by.entry(id).or_default(),
+            }
         }
     }
 }
@@ -2235,7 +2217,7 @@ impl<'a> ComponentsRef<'a> {
         } else {
             let from_info = &self.cold.components[id.0].required_by;
             Some(
-                if let Some(working) = self.staged.new_required_by.get(&id) {
+                if let Some(working) = self.staged.additional_required_by.get(&id) {
                     RequiredByStagedRef {
                         cold: Some(from_info),
                         working,
@@ -2752,7 +2734,7 @@ impl StagedComponents {
     /// if there are any staged changes, this will return true
     pub fn has_changes(&self) -> bool {
         !self.new_required.is_empty()
-            || !self.new_required_by.is_empty()
+            || !self.additional_required_by.is_empty()
             || !self.component_clone_handlers.is_empty()
             || !self.new_components.is_empty()
     }
@@ -2771,8 +2753,10 @@ impl StagedComponents {
         for (component, new) in self.new_required.drain() {
             target.components[component.0].required_components = new;
         }
-        for (component, new) in self.new_required_by.drain() {
-            target.components[component.0].required_by = new;
+        for (component, additional) in self.additional_required_by.drain() {
+            target.components[component.0]
+                .required_by
+                .extend(additional);
         }
     }
 }
@@ -3254,6 +3238,10 @@ pub struct RequiredByStagedRef<'a> {
 /// Allows modifying required components with potential staged changes.
 pub(crate) struct RequiredByStagedMut<'a> {
     working: &'a mut HashSet<ComponentId>,
+    #[expect(
+        unused,
+        reason = "Although we aren't using this now, it is useful to have."
+    )]
     cold: Option<&'a HashSet<ComponentId>>,
 }
 
