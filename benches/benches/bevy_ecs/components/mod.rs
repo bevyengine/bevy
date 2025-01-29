@@ -7,6 +7,7 @@ mod add_remove_very_big_table;
 mod archetype_updates;
 mod insert_simple;
 mod insert_simple_unbatched;
+mod registration;
 
 use archetype_updates::*;
 use criterion::{criterion_group, Criterion};
@@ -19,6 +20,7 @@ criterion_group!(
     insert_simple,
     no_archetypes,
     added_archetypes,
+    registration::bench,
 );
 
 fn add_remove(c: &mut Criterion) {
