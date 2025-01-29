@@ -1,5 +1,6 @@
 use core::fmt;
 
+use bevy_platform_support::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
 use bevy_ecs::{
@@ -74,36 +75,36 @@ impl UiSurface {
     ) {
         let taffy = &mut self.taffy;
 
-        let mut added = false;
-        let taffy_node_id = *self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            if let Some(measure) = new_node_context.take() {
-                taffy
-                    .new_leaf_with_context(convert::from_node(node, layout_context, true), measure)
-                    .unwrap()
-            } else {
-                taffy
-                    .new_leaf(convert::from_node(node, layout_context, false))
-                    .unwrap()
-            }
-        });
+        match self.entity_to_taffy.entry(entity) {
+            Entry::Occupied(entry) => {
+                let taffy_node_id = *entry.get();
+                let has_measure = if new_node_context.is_some() {
+                    taffy
+                        .set_node_context(taffy_node_id, new_node_context)
+                        .unwrap();
+                    true
+                } else {
+                    taffy.get_node_context(taffy_node_id).is_some()
+                };
 
-        if !added {
-            let has_measure = if new_node_context.is_some() {
                 taffy
-                    .set_node_context(taffy_node_id, new_node_context)
+                    .set_style(
+                        taffy_node_id,
+                        convert::from_node(node, layout_context, has_measure),
+                    )
                     .unwrap();
-                true
-            } else {
-                taffy.get_node_context(taffy_node_id).is_some()
-            };
-
-            taffy
-                .set_style(
-                    taffy_node_id,
-                    convert::from_node(node, layout_context, has_measure),
-                )
-                .unwrap();
+            }
+            Entry::Vacant(entry) => {
+                let taffy_node_id = if let Some(measure) = new_node_context.take() {
+                    taffy.new_leaf_with_context(
+                        convert::from_node(node, layout_context, true),
+                        measure,
+                    )
+                } else {
+                    taffy.new_leaf(convert::from_node(node, layout_context, false))
+                };
+                entry.insert(taffy_node_id.unwrap());
+            }
         }
     }
 

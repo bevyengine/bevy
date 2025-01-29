@@ -23,6 +23,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -73,6 +74,7 @@ use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use experimental::occlusion_culling::OcclusionCullingPlugin;
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
@@ -115,6 +117,12 @@ pub struct RenderPlugin {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
+    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
+    /// that they can be read back to CPU.
+    ///
+    /// This is a debugging feature that may reduce performance. It primarily
+    /// exists for the `occlusion_culling` example.
+    pub allow_copies_from_indirect_parameters: bool,
 }
 
 /// The systems sets of the default [`App`] rendering schedule.
@@ -357,10 +365,13 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
-            BatchingPlugin,
+            BatchingPlugin {
+                allow_copies_from_indirect_parameters: self.allow_copies_from_indirect_parameters,
+            },
             SyncWorldPlugin,
             StoragePlugin,
             GpuReadbackPlugin::default(),
+            OcclusionCullingPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()

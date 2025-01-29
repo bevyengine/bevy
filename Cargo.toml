@@ -778,13 +778,13 @@ wasm = true
 
 [[example]]
 name = "bounding_2d"
-path = "examples/2d/bounding_2d.rs"
+path = "examples/math/bounding_2d.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.bounding_2d]
-name = "2D Bounding Volume Intersections"
+name = "Bounding Volume Intersections (2D)"
 description = "Showcases bounding volumes and intersection tests"
-category = "2D Rendering"
+category = "Math"
 wasm = true
 
 [[example]]
@@ -4130,5 +4130,16 @@ doc-scrape-examples = true
 [package.metadata.example.clustered_decals]
 name = "Clustered Decals"
 description = "Demonstrates clustered decals"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
+name = "occlusion_culling"
+path = "examples/3d/occlusion_culling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.occlusion_culling]
+name = "Occlusion Culling"
+description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false

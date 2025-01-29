@@ -421,7 +421,8 @@ impl GetFullBatchData for Mesh2dPipeline {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
-            instance_count: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
