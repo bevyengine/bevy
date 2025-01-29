@@ -1896,7 +1896,7 @@ impl Components {
         }
     }
 
-    /// If the components has any staged changes (registrations, new required components, etc.), this will return true. If this returns false, it is safe to call [`full_unchecked`]
+    /// If the components has any staged changes (registrations, new required components, etc.), this will return true. If this returns false, it is safe to call [`full_unchecked`](Self::full_unchecked)
     #[inline]
     pub fn any_staged(&mut self) -> bool {
         // This requires &mut self instead of &self so we don't have to order our load and store for the changed flag.
@@ -2629,7 +2629,7 @@ pub enum RequiredComponentsRef<'a> {
     ),
 }
 
-/// A reference to a particular component's info, where the info lives in a locked [`StagedComponents`]
+/// A reference to a particular component's info, where the info lives in a locked container for staged changes
 pub struct LockedComponentReference<'a> {
     data: RwLockReadGuard<'a, StagedComponents>,
     index: usize,
