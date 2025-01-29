@@ -31,6 +31,7 @@ use core::{
     mem::needs_drop,
     ops::Deref,
     panic::Location,
+    sync::atomic::{AtomicBool, Ordering},
 };
 use disqualified::ShortName;
 use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
@@ -1122,8 +1123,10 @@ impl Default for ComponentCloneHandlers {
 #[derive(Debug, Default)]
 pub struct Components {
     cold: ComponentsData,
-    /// this will only hold components with ids greater than or equal to `old_components`'s length.
+    /// this will only hold components with ids greater than or equal to [`Self::cold`]'s length.
     staged: RwLock<StagedComponents>,
+    /// if [`Self::staged`] has any staged changes this will be true. This is only set to false when we clean.
+    staged_changed: AtomicBool,
 }
 
 /// Stores metadata associated with each kind of [`Component`] in a given [`World`].
@@ -1499,9 +1502,25 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
     }
 }
 
+impl Drop for ComponentsLock<'_> {
+    fn drop(&mut self) {
+        self.check_for_changes();
+    }
+}
+
 impl<'a> ComponentsLock<'a> {
+    /// Checks for changes to the stage, and if there are staged changes, sets the flag. This should be called before the lock is released (including by dropping).
+    fn check_for_changes(&self) {
+        if self.staged.has_changes() {
+            self._components
+                .staged_changed
+                .store(true, Ordering::Relaxed);
+        }
+    }
+
     /// Releases the lock, returning the inner [`Components`].
     pub fn release(self) -> &'a Components {
+        self.check_for_changes();
         let ComponentsLock { _components, .. } = self;
         _components
     }
@@ -1877,17 +1896,30 @@ impl Components {
         }
     }
 
+    /// If the components has any staged changes (registrations, new required components, etc.), this will return true. If this returns false, it is safe to call [`full_unchecked`]
+    #[inline]
+    pub fn any_staged(&mut self) -> bool {
+        // This requires &mut self instead of &self so we don't have to order our load and store for the changed flag.
+        // We could order it to allow &self instrad, but it is faster without ordering for most cases.
+        *self.staged_changed.get_mut()
+    }
+
     /// Grants the caller safe access to all component data.
     #[inline]
     pub fn full(&mut self) -> &mut ComponentsData {
-        self.clean()
+        if self.any_staged() {
+            self.clean()
+        } else {
+            // Safety: we just ensured there were no changes
+            unsafe { self.full_unchecked() }
+        }
     }
 
     /// Grants the caller access to all component data.
     ///
     /// # Safety
     ///
-    /// The caller must ensure that no components have been registered or modified through [`lock`](Self::lock) since [`clean`](Self::clean) was last called.
+    /// The caller must ensure that [`Self::any_staged`] would return false prior to calling.
     #[inline]
     pub unsafe fn full_unchecked(&mut self) -> &mut ComponentsData {
         &mut self.cold
@@ -1897,7 +1929,7 @@ impl Components {
     ///
     /// # Safety
     ///
-    /// The caller must ensure that no components have been registered or modified through [`lock`](Self::lock) since [`clean`](Self::clean) was last called.
+    /// The caller must ensure that [`Self::any_staged`] would return false prior to calling.
     #[inline]
     pub unsafe fn full_ref_unchecked(&self) -> &ComponentsData {
         &self.cold
@@ -1906,6 +1938,7 @@ impl Components {
     /// Cleans the components up, accelerating read-only access.
     pub fn clean(&mut self) -> &mut ComponentsData {
         self.staged.get_mut().unwrap().clean_into(&mut self.cold);
+        *self.staged_changed.get_mut() = false;
         // Safety: we just cleaned.
         unsafe { self.full_unchecked() }
     }
@@ -2266,16 +2299,15 @@ impl Components {
 }
 
 impl StagedComponents {
-    fn clean_into(&mut self, target: &mut ComponentsData) {
-        if self.new_required.is_empty()
-            && self.new_required_by.is_empty()
-            && self.component_clone_handlers.is_empty()
-            && self.new_components.is_empty()
-        {
-            // nothing has changed, so we release the lock early and skip the rest.
-            return;
-        }
+    /// if there are any staged changes, this will return true
+    pub fn has_changes(&self) -> bool {
+        !self.new_required.is_empty()
+            || !self.new_required_by.is_empty()
+            || !self.component_clone_handlers.is_empty()
+            || !self.new_components.is_empty()
+    }
 
+    fn clean_into(&mut self, target: &mut ComponentsData) {
         target.components.append(&mut self.new_components);
         target.indices.extend(self.indices.drain());
         target
