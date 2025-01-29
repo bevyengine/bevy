@@ -255,6 +255,11 @@ impl World {
         self.components.register_component::<T>()
     }
 
+    /// A synchronized version of [`Self::register_component`]
+    pub fn register_component_synced<T: Component>(&self) -> ComponentId {
+        self.components.register_component_synced::<T>()
+    }
+
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
@@ -502,6 +507,30 @@ impl World {
         }
     }
 
+    /// A synchronized version of [`try_register_required_components_with`](Self::try_register_required_components_with)
+    pub fn try_register_required_components_with_synced<T: Component, R: Component>(
+        &self,
+        constructor: fn() -> R,
+    ) -> Result<(), RequiredComponentsError> {
+        let requiree = self.components.register_component_synced::<T>();
+
+        // TODO: Remove this panic and update archetype edges accordingly when required components are added
+        if self.archetypes().component_index().contains_key(&requiree) {
+            return Err(RequiredComponentsError::ArchetypeExists(requiree));
+        }
+
+        let required = self.components.register_component_synced::<R>();
+
+        // SAFETY: We just created the `required` and `requiree` components.
+        unsafe {
+            self.components.register_required_components_synced::<R>(
+                requiree,
+                required,
+                constructor,
+            )
+        }
+    }
+
     /// Retrieves the [components info](ComponentInfoRef) for the given component type, if it exists.
     pub fn get_component_info<C: Component>(&self) -> Option<ComponentInfoRef<'_>> {
         let id = self.components().component_id::<C>()?;
@@ -567,6 +596,11 @@ impl World {
     /// [`World::insert_resource`] instead.
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
         self.components.register_resource::<R>()
+    }
+
+    /// A synchronized version of [`register_resource`](Self::register_resource)
+    pub fn register_resource_synced<R: Resource>(&mut self) -> ComponentId {
+        self.components.register_resource_synced::<R>()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
