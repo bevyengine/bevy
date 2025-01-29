@@ -37,6 +37,7 @@ impl From<taffy::NodeId> for LayoutNode {
         }
     }
 }
+
 #[derive(Resource)]
 pub struct UiSurface {
     pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
