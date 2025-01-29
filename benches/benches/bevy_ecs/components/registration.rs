@@ -188,24 +188,36 @@ pub fn bench(c: &mut Criterion) {
         b.iter(move || {
             let mut components = black_box(Components::default());
             register_direct(&mut components.as_mut());
+            components.clean();
         });
     });
     group.bench_function("locked", |b| {
         b.iter(move || {
-            let components = black_box(Components::default());
+            let mut components = black_box(Components::default());
             register_direct(&mut components.lock());
+            components.clean();
         });
     });
     group.bench_function("full", |b| {
         b.iter(move || {
             let mut components = black_box(Components::default());
             register_direct(&mut components);
+            components.clean();
+        });
+    });
+    group.bench_function("full_staged", |b| {
+        b.iter(move || {
+            let mut components = black_box(Components::default());
+            components.register_component_synced::<ComponentA0>(); // to trigger a staged change
+            register_direct(&mut components);
+            components.clean();
         });
     });
     group.bench_function("synced", |b| {
         b.iter(move || {
-            let components = black_box(Components::default());
+            let mut components = black_box(Components::default());
             register_synced(&components);
+            components.clean();
         });
     });
     group.finish();
