@@ -132,7 +132,12 @@ impl Color {
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    /// * `alpha` - Alpha channel. [0, 255]
     pub const fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
@@ -144,7 +149,11 @@ impl Color {
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
     pub const fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
