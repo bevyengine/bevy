@@ -1,3 +1,5 @@
+# Use .git/info/exclude to ignore files related to your IDE
+
 # Rust build artifacts
 target
 crates/**/target
@@ -9,17 +11,6 @@ tools/**/target
 Cargo.lock
 .cargo/config
 .cargo/config.toml
-
-# IDE files
-*.swp
-*.swo
-.idea
-.vscode
-.zed/
-.vim/
-.helix/
-dxcompiler.dll
-dxil.dll
 
 # Bevy Assets
 assets/**/*.meta
