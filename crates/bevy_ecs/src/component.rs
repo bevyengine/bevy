@@ -2342,11 +2342,11 @@ impl Components {
         self.lock().register_resource_with_descriptor(descriptor)
     }
 
-    /// Synchronized version of [`ComponentsView::register_required_components`].
+    /// Synchronized version of [`ComponentsViewInternal::register_required_components`].
     ///
     /// # Safety
     ///
-    /// See [`ComponentsView::register_required_components`].
+    /// See [`ComponentsViewInternal::register_required_components`].
     pub(crate) unsafe fn register_required_components_synced<R: Component>(
         &self,
         requiree: ComponentId,
