@@ -1160,6 +1160,20 @@ pub struct ComponentsLock<'a> {
     staged: RwLockWriteGuard<'a, StagedComponents>,
 }
 
+/// Represents a mutable disjoint reference to [`Components`].
+pub struct ComponentsMut<'a> {
+    /// maps to [`Components::staged_changed`]
+    staged_changed: &'a AtomicBool,
+    cold: &'a ComponentsData,
+    staged: &'a mut StagedComponents,
+}
+
+/// Represents a general disjoint reference to [`Components`].
+pub struct ComponentsRef<'a> {
+    cold: &'a ComponentsData,
+    staged: &'a StagedComponents,
+}
+
 /// This represents a generalized view into [`Components`].
 pub trait ComponentsView {
     /// Registers a [`Component`] of type `T` with this instance.
@@ -1355,9 +1369,12 @@ pub trait ComponentsView {
     fn get_name(&self, id: ComponentId) -> Option<&str> {
         self.get_info(id).map(ComponentInfo::name)
     }
+
+    /// if this is true, the component has been registered recently
+    fn is_new(&self, id: ComponentId) -> bool;
 }
 
-impl<'a> ComponentsView for ComponentsLock<'a> {
+impl<'a> ComponentsView for ComponentsMut<'a> {
     #[inline]
     fn register_component<T: Component>(&mut self) -> ComponentId {
         self.component_id::<T>().unwrap_or_else(|| {
@@ -1388,12 +1405,12 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
 
     #[inline]
     fn len(&self) -> usize {
-        self.cold.len() + self.staged.new_components.len()
+        self.as_ref().len()
     }
 
     #[inline]
     fn is_empty(&self) -> bool {
-        self.cold.is_empty() && self.staged.new_components.is_empty()
+        self.as_ref().is_empty()
     }
 
     #[inline]
@@ -1437,92 +1454,200 @@ impl<'a> ComponentsView for ComponentsLock<'a> {
 
     #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        if let Some(old) = self.cold.indices.get(&type_id) {
-            Some(*old)
-        } else {
-            self.staged.indices.get(&type_id).cloned()
-        }
+        self.as_ref().get_id(type_id)
     }
 
     #[inline]
     fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        if let Some(old) = self.cold.resource_indices.get(&type_id) {
-            Some(*old)
-        } else {
-            self.staged.resource_indices.get(&type_id).cloned()
-        }
+        self.as_ref().get_resource_id(type_id)
     }
 
     #[inline]
     fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.cold.component_clone_handlers.get_default_handler()
+        self.as_ref().get_default_clone_handler()
     }
 
     #[inline]
     fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
-        self.cold.component_clone_handlers.is_handler_registered(id)
-            || self.staged.component_clone_handlers.get(&id).is_some()
+        self.as_ref().is_clone_handler_registered(id)
     }
 
     #[inline]
     fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
-        match self.cold.component_clone_handlers.handlers.get(id.0) {
-            Some(Some(handler)) => *handler,
-            Some(None) | None => {
-                if self.is_new(id) {
-                    self.staged
-                        .component_clone_handlers
-                        .get(&id)
-                        .cloned()
-                        .unwrap_or_else(|| self.cold.component_clone_handlers.get_default_handler())
-                } else {
-                    self.cold.component_clone_handlers.get_default_handler()
-                }
-            }
-        }
+        self.as_ref().get_clone_handler(id)
     }
 
     #[inline]
     fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            self.staged.new_components.get(index_in_new)
-        } else {
-            Some(&self.cold.components[id.0])
-        }
+        self.as_ref().get_info(id)
     }
 
     #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            debug_assert!(index_in_new < self.staged.new_components.len());
-            &self.staged.new_components[index_in_new]
-        } else {
-            &self.cold.components[id.0]
-        }
+        self.as_ref().get_info_unchecked(id)
+    }
+
+    #[inline]
+    fn is_new(&self, id: ComponentId) -> bool {
+        self.as_ref().is_new(id)
+    }
+}
+
+impl ComponentsView for ComponentsLock<'_> {
+    #[inline]
+    fn register_component<T: Component>(&mut self) -> ComponentId {
+        self.as_mut().register_component::<T>()
+    }
+
+    #[inline]
+    fn register_resource<T: Resource>(&mut self) -> ComponentId {
+        self.as_mut().register_resource::<T>()
+    }
+
+    #[inline]
+    fn register_non_send<T: Any>(&mut self) -> ComponentId {
+        self.as_mut().register_non_send::<T>()
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.as_ref().is_empty()
+    }
+
+    #[inline]
+    fn register_component_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.as_mut().register_component_with_descriptor(descriptor)
+    }
+
+    #[inline]
+    fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.as_mut().register_resource_with_descriptor(descriptor)
+    }
+
+    #[inline]
+    fn register_required_components_manual<T: Component, R: Component>(
+        &mut self,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) {
+        self.as_mut().register_required_components_manual::<T, R>(
+            required_components,
+            constructor,
+            inheritance_depth,
+            recursion_check_stack,
+        );
+    }
+
+    #[inline]
+    fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.as_ref().get_id(type_id)
+    }
+
+    #[inline]
+    fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.as_ref().get_resource_id(type_id)
+    }
+
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.as_ref().get_default_clone_handler()
+    }
+
+    #[inline]
+    fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
+        self.as_ref().is_clone_handler_registered(id)
+    }
+
+    #[inline]
+    fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
+        self.as_ref().get_clone_handler(id)
+    }
+
+    #[inline]
+    fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
+        self.as_ref().get_info(id)
+    }
+
+    #[inline]
+    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
+        self.as_ref().get_info_unchecked(id)
+    }
+
+    #[inline]
+    fn is_new(&self, id: ComponentId) -> bool {
+        self.as_ref().is_new(id)
     }
 }
 
 impl Drop for ComponentsLock<'_> {
+    fn drop(&mut self) {
+        self.as_mut().check_for_changes();
+    }
+}
+
+impl Drop for ComponentsMut<'_> {
     fn drop(&mut self) {
         self.check_for_changes();
     }
 }
 
 impl<'a> ComponentsLock<'a> {
-    /// Checks for changes to the stage, and if there are staged changes, sets the flag. This should be called before the lock is released (including by dropping).
-    fn check_for_changes(&self) {
-        if self.staged.has_changes() {
-            self._components
-                .staged_changed
-                .store(true, Ordering::Relaxed);
+    /// Releases the lock, returning the inner [`Components`].
+    pub fn release(mut self) -> &'a Components {
+        self.as_mut().check_for_changes();
+        let ComponentsLock { _components, .. } = self;
+        _components
+    }
+
+    /// Allows using the lock as if it were a [`ComponentsMut`].
+    #[inline]
+    pub fn as_mut(&mut self) -> ComponentsMut<'_> {
+        ComponentsMut {
+            cold: self.cold,
+            staged: &mut self.staged,
+            staged_changed: &self._components.staged_changed,
         }
     }
 
-    /// Releases the lock, returning the inner [`Components`].
-    pub fn release(self) -> &'a Components {
-        self.check_for_changes();
-        let ComponentsLock { _components, .. } = self;
-        _components
+    /// Allows using the lock as if it were a [`ComponentsRef`].
+    #[inline]
+    pub fn as_ref(&self) -> ComponentsRef<'_> {
+        ComponentsRef {
+            staged: self.staged.deref(),
+            cold: self.cold,
+        }
+    }
+}
+
+impl<'a> ComponentsMut<'a> {
+    /// Allows using the lock as if it were a [`ComponentsRef`].
+    #[inline]
+    pub fn as_ref(&self) -> ComponentsRef<'_> {
+        ComponentsRef {
+            staged: self.staged.deref(),
+            cold: self.cold,
+        }
+    }
+
+    /// Checks for changes to the stage, and if there are staged changes, sets the flag. This should be called before the lock is released (including by dropping).
+    #[inline]
+    fn check_for_changes(&self) {
+        if self.staged.has_changes() {
+            self.staged_changed.store(true, Ordering::Relaxed);
+        }
     }
 
     #[inline]
@@ -1878,11 +2003,94 @@ impl<'a> ComponentsLock<'a> {
             )
         }
     }
+}
 
+impl<'a> ComponentsRef<'a> {
     /// if this is true, the component has been registered recently
     #[inline]
     pub fn is_new(&self, id: ComponentId) -> bool {
         self.cold.len() <= id.0
+    }
+
+    #[inline]
+    pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        if let Some(old) = self.cold.indices.get(&type_id) {
+            Some(*old)
+        } else {
+            self.staged.indices.get(&type_id).cloned()
+        }
+    }
+
+    #[inline]
+    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        if let Some(old) = self.cold.resource_indices.get(&type_id) {
+            Some(*old)
+        } else {
+            self.staged.resource_indices.get(&type_id).cloned()
+        }
+    }
+
+    #[inline]
+    pub fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.cold.component_clone_handlers.get_default_handler()
+    }
+
+    #[inline]
+    pub fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
+        self.cold.component_clone_handlers.is_handler_registered(id)
+            || self.staged.component_clone_handlers.get(&id).is_some()
+    }
+
+    #[inline]
+    pub fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
+        match self.cold.component_clone_handlers.handlers.get(id.0) {
+            Some(Some(handler)) => *handler,
+            Some(None) | None => {
+                if self.is_new(id) {
+                    self.staged
+                        .component_clone_handlers
+                        .get(&id)
+                        .cloned()
+                        .unwrap_or_else(|| self.cold.component_clone_handlers.get_default_handler())
+                } else {
+                    self.cold.component_clone_handlers.get_default_handler()
+                }
+            }
+        }
+    }
+
+    #[inline]
+    pub fn get_info(&self, id: ComponentId) -> Option<&'a ComponentInfo> {
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            self.staged.new_components.get(index_in_new)
+        } else {
+            Some(&self.cold.components[id.0])
+        }
+    }
+
+    /// See [`ComponentsView::get_info_unchecked`]
+    ///
+    /// # Safety
+    ///
+    /// See [`ComponentsView::get_info_unchecked`]
+    #[inline]
+    pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &'a ComponentInfo {
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            debug_assert!(index_in_new < self.staged.new_components.len());
+            &self.staged.new_components[index_in_new]
+        } else {
+            &self.cold.components[id.0]
+        }
+    }
+
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.cold.len() + self.staged.new_components.len()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.cold.is_empty() && self.staged.new_components.is_empty()
     }
 }
 
@@ -2130,6 +2338,7 @@ impl Components {
         constructor: fn() -> R,
     ) -> Result<(), RequiredComponentsError> {
         self.lock()
+            .as_mut()
             .register_required_components(requiree, required, constructor)
     }
 
@@ -2438,6 +2647,11 @@ impl ComponentsView for ComponentsData {
         debug_assert!(id.index() < self.components.len());
         // SAFETY: The caller ensures `id` is valid.
         unsafe { self.components.get_unchecked(id.0) }
+    }
+
+    #[inline]
+    fn is_new(&self, _id: ComponentId) -> bool {
+        false // The nature of `ComponentsData` as a view implies that there is no staged changes.
     }
 }
 
