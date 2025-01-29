@@ -11,9 +11,13 @@ Cargo.lock
 .cargo/config.toml
 
 # IDE files
+*.swp
+*.swo
 .idea
 .vscode
-.zed
+.zed/
+.vim/
+.helix/
 dxcompiler.dll
 dxil.dll
 
