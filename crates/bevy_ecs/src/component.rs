@@ -2432,7 +2432,7 @@ impl Components {
         }
     }
 
-    /// A version of [`ComponentsViewRef::get_info_uchecked`] that doesn't always need to lock.
+    /// A version of [`ComponentsViewRef::get_info_unchecked`] that doesn't always need to lock.
     ///
     /// # Safety
     ///
@@ -3271,7 +3271,7 @@ impl<'a> RequiredByStagedRef<'a> {
 
 // TODO: replace ComponentInfoRef with https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html when it is stableized.
 
-/// A reference to a particular component's info that may or may not need to lock [`Componnets`].
+/// A reference to a particular component's info that may or may not need to lock [`Components`].
 pub enum ComponentInfoRef<'a> {
     /// the requested data was registered a while ago.
     Stored(&'a ComponentInfo),
