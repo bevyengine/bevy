@@ -1146,7 +1146,7 @@ struct StagedComponents {
     new_components: Vec<ComponentInfo>,
     component_clone_handlers: HashMap<ComponentId, ComponentCloneFn>,
     /// When registering required components, changes to component info already in [`ComponentsData`] will be staged here. This should not be used for components that still live in this instance.
-    new_required: HashMap<ComponentId, RequiredComponents>,
+    additional_required: HashMap<ComponentId, RequiredComponents>,
     /// When registering required components, changes to component info already in [`ComponentsData`] will be staged here. This should not be used for components that still live in this instance.
     additional_required_by: HashMap<ComponentId, HashSet<ComponentId>>,
 }
@@ -2008,7 +2008,7 @@ impl<'a> ComponentsMut<'a> {
                 })
         } else {
             Some(RequiredComponentsStagedMut {
-                working: self.staged.new_required.entry(id).or_default(),
+                working: self.staged.additional_required.entry(id).or_default(),
                 cold: Some(&self.cold.components[id.0].required_components),
             })
         }
@@ -2193,17 +2193,19 @@ impl<'a> ComponentsRef<'a> {
                 })
         } else {
             let from_info = &self.cold.components[id.0].required_components;
-            Some(if let Some(working) = self.staged.new_required.get(&id) {
-                RequiredComponentsStagedRef {
-                    cold: Some(from_info),
-                    working,
-                }
-            } else {
-                RequiredComponentsStagedRef {
-                    cold: None,
-                    working: from_info,
-                }
-            })
+            Some(
+                if let Some(working) = self.staged.additional_required.get(&id) {
+                    RequiredComponentsStagedRef {
+                        cold: Some(from_info),
+                        working,
+                    }
+                } else {
+                    RequiredComponentsStagedRef {
+                        cold: None,
+                        working: from_info,
+                    }
+                },
+            )
         }
     }
 
@@ -2699,7 +2701,7 @@ impl ComponentsViewReadonly for Components {
 impl StagedComponents {
     /// if there are any staged changes, this will return true
     pub fn has_changes(&self) -> bool {
-        !self.new_required.is_empty()
+        !self.additional_required.is_empty()
             || !self.additional_required_by.is_empty()
             || !self.component_clone_handlers.is_empty()
             || !self.new_components.is_empty()
@@ -2716,7 +2718,7 @@ impl StagedComponents {
                 .component_clone_handlers
                 .set_component_handler(component, ComponentCloneHandler(Some(handler)));
         }
-        for (component, mut new) in self.new_required.drain() {
+        for (component, mut new) in self.additional_required.drain() {
             let required = &mut target.components[component.0].required_components;
             new.merge(required);
             *required = new;
