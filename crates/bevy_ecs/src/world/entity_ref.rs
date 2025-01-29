@@ -1773,6 +1773,7 @@ impl<'w> EntityWorldMut<'w> {
                 // - entity location is valid
                 // - table row is removed below, without dropping the contents
                 // - `components` comes from the same world as `storages`
+                // - the component exists on the entity
                 take_component(
                     storages,
                     components,
@@ -1957,7 +1958,7 @@ impl<'w> EntityWorldMut<'w> {
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
-                        .unwrap()
+                        .unwrap() // safe since we know the component existed on the entity
                         .remove(entity);
                 }
             }
@@ -2366,6 +2367,7 @@ impl<'w> EntityWorldMut<'w> {
             table_row = remove_result.table_row;
 
             for component_id in archetype.sparse_set_components() {
+                // unwrap is safe since the set must have existed for the component to be added.
                 let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
                 sparse_set.remove(self.entity);
             }
@@ -4125,6 +4127,9 @@ unsafe fn insert_dynamic_bundle<
 /// - `component_id` must be valid
 /// - `components` must come from the same world as `self`
 /// - The relevant table row **must be removed** by the caller once all components are taken, without dropping the value
+///
+/// # Panics
+/// Panics if the entity did not have the component.
 #[inline]
 pub(crate) unsafe fn take_component<'a>(
     storages: &'a mut Storages,
