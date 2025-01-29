@@ -131,7 +131,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     ///
     /// Equivalent to the range functionality of [`[T]::get`].
     ///
-    /// Note that calling `UniqueEntitySlice::get` with an index will deref to [`[T]::get`].
+    /// Note that only the inner [`[T]::get`] supports indexing with a [`usize`].
     ///
     /// [`[T]::get`]: `slice::get`
     pub fn get<I>(&self, index: I) -> Option<&Self>
@@ -148,7 +148,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     ///
     /// Equivalent to the range functionality of [`[T]::get_mut`].
     ///
-    /// Note that `UniqueEntitySlice::get_mut` cannot be called with an index.
+    /// Note that `UniqueEntitySlice::get_mut` cannot be called with a [`usize`].
     ///
     /// [`[T]::get`]: `slice::get_mut`s
     pub fn get_mut<I>(&mut self, index: I) -> Option<&mut Self>
