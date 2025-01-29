@@ -140,7 +140,9 @@ impl UiSurface {
             if let Some(taffy_node) = self.entity_to_taffy.get_mut(&child) {
                 self.taffy_children_scratch.push(taffy_node.id);
                 if let Some(viewport_id) = taffy_node.viewport_id.take() {
-                    self.taffy.remove(viewport_id).unwrap();
+                    if self.taffy.get_node_context(viewport_id).is_some() {
+                        self.taffy.remove(viewport_id).ok();
+                    }
                 }
             }
         }
@@ -291,10 +293,11 @@ impl UiSurface {
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
-                println!("removed {:?}", node);
                 self.taffy.remove(node.id).unwrap();
                 if let Some(viewport_node) = node.viewport_id {
-                    self.taffy.remove(viewport_node).unwrap();
+                    if self.taffy.get_node_context(viewport_node).is_some() {
+                        self.taffy.remove(viewport_node).ok();
+                    }
                 }
             }
         }
