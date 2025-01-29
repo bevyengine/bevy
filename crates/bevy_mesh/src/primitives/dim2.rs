@@ -399,6 +399,9 @@ impl From<CircularSegment> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`ConvexPolygon`] shape.
+///
+/// You must verify that the `vertices` are not concave when constructing this type. You can
+/// guarantee this by creating a [`ConvexPolygon`] first, then calling [`ConvexPolygon::mesh()`].
 pub struct ConvexPolygonMeshBuilder<const N: usize> {
     pub vertices: [Vec2; N],
 }
@@ -452,6 +455,28 @@ pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
     sides: u32,
 }
+
+impl RegularPolygonMeshBuilder {
+    /// Creates a new [`RegularPolygonMeshBuilder`] from the radius of a circumcircle and a number
+    /// of sides.
+    ///
+    /// # Panics
+    ///
+    /// Panics in debug mode if `circumradius` is negative, or if `sides` is less than 3.
+    pub const fn new(circumradius: f32, sides: u32) -> Self {
+        debug_assert!(
+            circumradius.is_sign_positive(),
+            "polygon has a negative radius"
+        );
+        debug_assert!(sides > 2, "polygon has less than 3 sides");
+
+        Self {
+            circumradius,
+            sides,
+        }
+    }
+}
+
 impl Meshable for RegularPolygon {
     type Output = RegularPolygonMeshBuilder;
 
@@ -726,6 +751,28 @@ pub struct RhombusMeshBuilder {
     half_diagonals: Vec2,
 }
 
+impl RhombusMeshBuilder {
+    /// Creates a new [`RhombusMeshBuilder`] from a horizontal and vertical diagonal size.
+    ///
+    /// # Panics
+    ///
+    /// Panics in debug mode if `horizontal_diagonal` or `vertical_diagonal` is negative.
+    pub const fn new(horizontal_diagonal: f32, vertical_diagonal: f32) -> Self {
+        debug_assert!(
+            horizontal_diagonal >= 0.0,
+            "rhombus has a negative horizontal size",
+        );
+        debug_assert!(
+            vertical_diagonal >= 0.0,
+            "rhombus has a negative vertical size"
+        );
+
+        Self {
+            half_diagonals: Vec2::new(horizontal_diagonal / 2.0, vertical_diagonal / 2.0),
+        }
+    }
+}
+
 impl MeshBuilder for RhombusMeshBuilder {
     fn build(&self) -> Mesh {
         let [hhd, vhd] = [self.half_diagonals.x, self.half_diagonals.y];
@@ -778,6 +825,16 @@ impl From<Rhombus> for Mesh {
 pub struct Triangle2dMeshBuilder {
     triangle: Triangle2d,
 }
+
+impl Triangle2dMeshBuilder {
+    /// Creates a new [`Triangle2dMeshBuilder`] from the points `a`, `b`, and `c`.
+    pub const fn new(a: Vec2, b: Vec2, c: Vec2) -> Self {
+        Self {
+            triangle: Triangle2d::new(a, b, c),
+        }
+    }
+}
+
 impl Meshable for Triangle2d {
     type Output = Triangle2dMeshBuilder;
 
@@ -785,6 +842,7 @@ impl Meshable for Triangle2d {
         Self::Output { triangle: *self }
     }
 }
+
 impl MeshBuilder for Triangle2dMeshBuilder {
     fn build(&self) -> Mesh {
         let vertices_3d = self.triangle.vertices.map(|v| v.extend(0.));
@@ -841,6 +899,22 @@ impl From<Triangle2d> for Mesh {
 /// A builder used for creating a [`Mesh`] with a [`Rectangle`] shape.
 pub struct RectangleMeshBuilder {
     half_size: Vec2,
+}
+
+impl RectangleMeshBuilder {
+    /// Creates a new [`RectangleMeshBuilder`] from a full width and height.
+    ///
+    /// # Panics
+    ///
+    /// Panics in debug mode if `width` or `height` is negative.
+    pub const fn new(width: f32, height: f32) -> Self {
+        debug_assert!(width >= 0.0, "rectangle has a negative width");
+        debug_assert!(height >= 0.0, "rectangle has a negative height");
+
+        Self {
+            half_size: Vec2::new(width / 2.0, height / 2.0),
+        }
+    }
 }
 
 impl MeshBuilder for RectangleMeshBuilder {
@@ -1054,7 +1128,7 @@ impl From<Capsule2d> for Mesh {
 #[cfg(test)]
 mod tests {
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
 
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 

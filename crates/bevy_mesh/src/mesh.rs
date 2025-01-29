@@ -14,6 +14,7 @@ use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bytemuck::cast_slice;
+use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
 
@@ -280,13 +281,22 @@ impl Mesh {
         self.attributes.contains_key(&id.into())
     }
 
-    /// Retrieves the data currently set to the vertex attribute with the specified `name`.
+    /// Retrieves the data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
     #[inline]
     pub fn attribute(
         &self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&VertexAttributeValues> {
         self.attributes.get(&id.into()).map(|data| &data.values)
+    }
+
+    /// Retrieves the full data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
+    #[inline]
+    pub(crate) fn attribute_data(
+        &self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Option<&MeshAttributeData> {
+        self.attributes.get(&id.into())
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
@@ -491,7 +501,6 @@ impl Mesh {
     ///
     /// This can dramatically increase the vertex count, so make sure this is what you want.
     /// Does nothing if no [Indices] are set.
-    #[allow(clippy::match_same_arms)]
     pub fn duplicate_vertices(&mut self) {
         fn duplicate<T: Copy>(values: &[T], indices: impl Iterator<Item = usize>) -> Vec<T> {
             indices.map(|i| values[i]).collect()
@@ -503,6 +512,10 @@ impl Mesh {
 
         for attributes in self.attributes.values_mut() {
             let indices = indices.iter();
+            #[expect(
+                clippy::match_same_arms,
+                reason = "Although the `vec` binding on some match arms may have different types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+            )]
             match &mut attributes.values {
                 VertexAttributeValues::Float32(vec) => *vec = duplicate(vec, indices),
                 VertexAttributeValues::Sint32(vec) => *vec = duplicate(vec, indices),
@@ -785,12 +798,11 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the vertex attribute values of `other` are incompatible with `self`.
+    /// Returns [`Err(MergeMeshError)`](MergeMeshError) if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
-    #[allow(clippy::match_same_arms)]
-    pub fn merge(&mut self, other: &Mesh) {
+    pub fn merge(&mut self, other: &Mesh) -> Result<(), MergeMeshError> {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
@@ -798,8 +810,11 @@ impl Mesh {
 
         // Extend attributes of `self` with attributes of `other`.
         for (attribute, values) in self.attributes_mut() {
-            let enum_variant_name = values.enum_variant_name();
             if let Some(other_values) = other.attribute(attribute.id) {
+                #[expect(
+                    clippy::match_same_arms,
+                    reason = "Although the bindings on some match arms may have different types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+                )]
                 match (values, other_values) {
                     (Float32(vec1), Float32(vec2)) => vec1.extend(vec2),
                     (Sint32(vec1), Sint32(vec2)) => vec1.extend(vec2),
@@ -829,11 +844,14 @@ impl Mesh {
                     (Snorm8x4(vec1), Snorm8x4(vec2)) => vec1.extend(vec2),
                     (Uint8x4(vec1), Uint8x4(vec2)) => vec1.extend(vec2),
                     (Unorm8x4(vec1), Unorm8x4(vec2)) => vec1.extend(vec2),
-                    _ => panic!(
-                        "Incompatible vertex attribute types {} and {}",
-                        enum_variant_name,
-                        other_values.enum_variant_name()
-                    ),
+                    _ => {
+                        return Err(MergeMeshError {
+                            self_attribute: *attribute,
+                            other_attribute: other
+                                .attribute_data(attribute.id)
+                                .map(|data| data.attribute),
+                        })
+                    }
                 }
             }
         }
@@ -842,6 +860,7 @@ impl Mesh {
         if let (Some(indices), Some(other_indices)) = (self.indices_mut(), other.indices()) {
             indices.extend(other_indices.iter().map(|i| (i + index_offset) as u32));
         }
+        Ok(())
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
@@ -1205,6 +1224,14 @@ impl core::ops::Mul<Mesh> for Transform {
     fn mul(self, rhs: Mesh) -> Self::Output {
         rhs.transformed_by(self)
     }
+}
+
+/// Error that can occur when calling [`Mesh::merge`].
+#[derive(Error, Debug, Clone)]
+#[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
+pub struct MergeMeshError {
+    pub self_attribute: MeshVertexAttribute,
+    pub other_attribute: Option<MeshVertexAttribute>,
 }
 
 #[cfg(test)]

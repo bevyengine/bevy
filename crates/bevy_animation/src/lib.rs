@@ -1,6 +1,5 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
-#![deny(clippy::allow_attributes, clippy::allow_attributes_without_reason)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -41,10 +40,11 @@ use bevy_ecs::{
     world::EntityMutExcept,
 };
 use bevy_math::FloatOrd;
+use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
-use bevy_utils::{HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap};
+use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
@@ -465,7 +465,7 @@ pub enum AnimationEvaluationError {
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
 /// playing, but is presently paused.
 ///
-/// An stopped animation is considered no longer active.
+/// A stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
@@ -755,10 +755,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_utils::hashbrown::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_utils::hashbrown::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },

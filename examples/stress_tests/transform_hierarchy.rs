@@ -193,7 +193,7 @@ fn main() {
                 exit_condition: ExitCondition::DontExit,
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .add_systems(Startup, setup)
@@ -212,7 +212,6 @@ struct Cfg {
     update_filter: UpdateFilter,
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone)]
 enum TestCase {
     /// a uniform tree, exponentially growing with depth

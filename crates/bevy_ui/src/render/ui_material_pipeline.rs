@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
-use bevy_render::sync_world::MainEntity;
+use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -21,10 +21,10 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
+use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
@@ -116,7 +116,8 @@ pub struct UiMaterialVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub size: [f32; 2],
-    pub border_widths: [f32; 4],
+    pub border: [f32; 4],
+    pub radius: [f32; 4],
 }
 
 // in this [`UiMaterialPipeline`] there is (currently) no batching going on.
@@ -154,7 +155,9 @@ where
                 VertexFormat::Float32x2,
                 // size
                 VertexFormat::Float32x2,
-                // border_widths
+                // border widths
+                VertexFormat::Float32x4,
+                // border radius
                 VertexFormat::Float32x4,
             ],
         );
@@ -335,13 +338,14 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     pub stack_index: u32,
     pub transform: Mat4,
     pub rect: Rect,
-    pub border: [f32; 4],
+    pub border: BorderRect,
+    pub border_radius: ResolvedBorderRadius,
     pub material: AssetId<M>,
     pub clip: Option<Rect>,
     // Camera to render this UI node to. By the time it is extracted,
     // it is defaulted to a single camera if only one exists.
     // Nodes with ambiguous camera will be ignored.
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
 }
 
@@ -362,34 +366,26 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
     mut commands: Commands,
     mut extracted_uinodes: ResMut<ExtractedUiMaterialNodes<M>>,
     materials: Extract<Res<Assets<M>>>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
             &ComputedNode,
             &GlobalTransform,
             &MaterialNode<M>,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
-    render_entity_lookup: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    // If there is only one camera, we use it as default
-    let default_single_camera = default_ui_camera.get();
+    let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, handle, view_visibility, clip, camera) in uinode_query.iter() {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_single_camera) else {
-            continue;
-        };
-
-        let Ok(camera_entity) = render_entity_lookup.get(camera_entity) else {
-            continue;
-        };
-
+    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
+        uinode_query.iter()
+    {
         // skip invisible nodes
-        if !view_visibility.get() {
+        if !inherited_visibility.get() || computed_node.is_empty() {
             continue;
         }
 
@@ -398,33 +394,30 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         }
 
-        let border = [
-            uinode.border.left / uinode.size().x,
-            uinode.border.right / uinode.size().x,
-            uinode.border.top / uinode.size().y,
-            uinode.border.bottom / uinode.size().y,
-        ];
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
 
         extracted_uinodes.uinodes.insert(
             commands.spawn(TemporaryRenderEntity).id(),
             ExtractedUiMaterialNode {
-                stack_index: uinode.stack_index,
+                stack_index: computed_node.stack_index,
                 transform: transform.compute_matrix(),
                 material: handle.id(),
                 rect: Rect {
                     min: Vec2::ZERO,
-                    max: uinode.size(),
+                    max: computed_node.size(),
                 },
-                border,
+                border: computed_node.border(),
+                border_radius: computed_node.border_radius(),
                 clip: clip.map(|clip| clip.clip),
-                camera_entity,
+                extracted_camera_entity,
                 main_entity: entity.into(),
             },
         );
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_uimaterial_nodes<M: UiMaterial>(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -556,7 +549,18 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
                             size: extracted_uinode.rect.size().into(),
-                            border_widths: extracted_uinode.border,
+                            radius: [
+                                extracted_uinode.border_radius.top_left,
+                                extracted_uinode.border_radius.top_right,
+                                extracted_uinode.border_radius.bottom_right,
+                                extracted_uinode.border_radius.bottom_left,
+                            ],
+                            border: [
+                                extracted_uinode.border.left,
+                                extracted_uinode.border.top,
+                                extracted_uinode.border.right,
+                                extracted_uinode.border.bottom,
+                            ],
                         });
                     }
 
@@ -605,7 +609,6 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn queue_ui_material_nodes<M: UiMaterial>(
     extracted_uinodes: Res<ExtractedUiMaterialNodes<M>>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
@@ -614,7 +617,8 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
     pipeline_cache: Res<PipelineCache>,
     render_materials: Res<RenderAssets<PreparedUiMaterial<M>>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    views: Query<&ExtractedView>,
+    mut render_views: Query<&UiCameraView, With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -624,11 +628,18 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
-        let Ok(view) = views.get(extracted_uinode.camera_entity) else {
+
+        let Ok(default_camera_view) =
+            render_views.get_mut(extracted_uinode.extracted_camera_entity)
+        else {
             continue;
         };
-        let Some(transparent_phase) =
-            transparent_render_phases.get_mut(&extracted_uinode.camera_entity)
+
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;
         };
@@ -656,6 +667,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: false,
         });
     }
 }

@@ -50,14 +50,21 @@ pub use entity_set::*;
 pub use map_entities::*;
 pub use visit_entities::*;
 
+mod unique_vec;
+
+pub use unique_vec::*;
+
 mod hash;
 pub use hash::*;
 
-mod hash_map;
-mod hash_set;
+pub mod hash_map;
+pub mod hash_set;
 
-pub use hash_map::EntityHashMap;
-pub use hash_set::EntityHashSet;
+mod index_map;
+mod index_set;
+
+pub use index_map::EntityIndexMap;
+pub use index_set::EntityIndexSet;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
@@ -70,6 +77,7 @@ use crate::{
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
+use bevy_platform_support::sync::atomic::Ordering;
 use core::{fmt, hash::Hash, mem, num::NonZero};
 use log::warn;
 
@@ -79,26 +87,16 @@ use core::panic::Location;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::Ordering;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::Ordering;
-
-#[cfg(all(target_has_atomic = "64", not(feature = "portable-atomic")))]
-use core::sync::atomic::AtomicI64 as AtomicIdCursor;
-#[cfg(all(target_has_atomic = "64", feature = "portable-atomic"))]
-use portable_atomic::AtomicI64 as AtomicIdCursor;
+#[cfg(target_has_atomic = "64")]
+use bevy_platform_support::sync::atomic::AtomicI64 as AtomicIdCursor;
 #[cfg(target_has_atomic = "64")]
 type IdCursor = i64;
 
 /// Most modern platforms support 64-bit atomics, but some less-common platforms
 /// do not. This fallback allows compilation using a 32-bit cursor instead, with
 /// the caveat that some conversions may fail (and panic) at runtime.
-#[cfg(all(not(target_has_atomic = "64"), not(feature = "portable-atomic")))]
-use core::sync::atomic::AtomicIsize as AtomicIdCursor;
-#[cfg(all(not(target_has_atomic = "64"), feature = "portable-atomic"))]
-use portable_atomic::AtomicIsize as AtomicIdCursor;
+#[cfg(not(target_has_atomic = "64"))]
+use bevy_platform_support::sync::atomic::AtomicIsize as AtomicIdCursor;
 #[cfg(not(target_has_atomic = "64"))]
 type IdCursor = isize;
 
@@ -592,7 +590,14 @@ impl Entities {
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling [`flush`](Entities::flush).
-    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
+    )]
     pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
@@ -786,7 +791,14 @@ impl Entities {
     }
 
     /// Ensure at least `n` allocations can succeed without reallocating.
-    #[allow(clippy::unnecessary_fallible_conversions)] // Because `IdCursor::try_from` may fail on 32-bit platforms.
+    #[expect(
+        clippy::allow_attributes,
+        reason = "`clippy::unnecessary_fallible_conversions` may not always lint."
+    )]
+    #[allow(
+        clippy::unnecessary_fallible_conversions,
+        reason = "`IdCursor::try_from` may fail on 32-bit platforms."
+    )]
     pub fn reserve(&mut self, additional: u32) {
         self.verify_flushed();
 
@@ -979,7 +991,8 @@ impl Entities {
     }
 
     /// Returns the source code location from which this entity has last been spawned
-    /// or despawned. Returns `None` if this entity has never existed.
+    /// or despawned. Returns `None` if its index has been reused by another entity
+    /// or if this entity has never existed.
     #[cfg(feature = "track_location")]
     pub fn entity_get_spawned_or_despawned_by(
         &self,
@@ -987,11 +1000,16 @@ impl Entities {
     ) -> Option<&'static Location<'static>> {
         self.meta
             .get(entity.index() as usize)
+            .filter(|meta|
+                // Generation is incremented immediately upon despawn
+                (meta.generation == entity.generation)
+                || (meta.location.archetype_id == ArchetypeId::INVALID)
+                && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
             .and_then(|meta| meta.spawned_or_despawned_by)
     }
 
     /// Constructs a message explaining why an entity does not exists, if known.
-    pub(crate) fn entity_does_not_exist_error_details_message(
+    pub(crate) fn entity_does_not_exist_error_details(
         &self,
         _entity: Entity,
     ) -> EntityDoesNotExistDetails {
@@ -1014,9 +1032,12 @@ impl fmt::Display for EntityDoesNotExistDetails {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         #[cfg(feature = "track_location")]
         if let Some(location) = self.location {
-            write!(f, "was despawned by {}", location)
+            write!(f, "was despawned by {location}")
         } else {
-            write!(f, "was never spawned")
+            write!(
+                f,
+                "does not exist (index has been reused or was never spawned)"
+            )
         }
         #[cfg(not(feature = "track_location"))]
         write!(
@@ -1169,7 +1190,10 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::nonminimal_bool)] // This is intentionally testing `lt` and `ge` as separate functions.
+    #[expect(
+        clippy::nonminimal_bool,
+        reason = "This intentionally tests all possible comparison operators as separate functions; thus, we don't want to rewrite these comparisons to use different operators."
+    )]
     fn entity_comparison() {
         assert_eq!(
             Entity::from_raw_and_generation(123, NonZero::<u32>::new(456).unwrap()),

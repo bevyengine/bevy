@@ -3,8 +3,8 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
-    ResolvedBorderRadius, TargetCamera, TransparentUi, Val,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
+    ResolvedBorderRadius, TransparentUi, UiTargetCamera, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -27,14 +27,14 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::TemporaryRenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{stack_z_offsets, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -219,7 +219,7 @@ pub struct ExtractedBoxShadow {
     pub transform: Mat4,
     pub bounds: Vec2,
     pub clip: Option<Rect>,
-    pub camera_entity: Entity,
+    pub extracted_camera_entity: Entity,
     pub color: LinearRgba,
     pub radius: ResolvedBorderRadius,
     pub blur_radius: f32,
@@ -236,39 +236,34 @@ pub struct ExtractedBoxShadows {
 pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &ViewVisibility,
+            &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    for (entity, uinode, transform, view_visibility, box_shadow, clip, camera) in &box_shadow_query
-    {
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
-            continue;
-        };
+    let mut camera_mapper = camera_map.get_mapper();
 
-        let Ok(camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
-
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
         // Skip if no visible shadows
-        if !view_visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
+        if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
         let ui_physical_viewport_size = camera_query
-            .get(camera_entity)
+            .get(camera_mapper.current_camera())
             .ok()
             .and_then(|(_, c)| {
                 c.physical_viewport_size()
@@ -325,7 +320,7 @@ pub fn extract_shadows(
                     color: drop_shadow.color.into(),
                     bounds: shadow_size + 6. * blur_radius,
                     clip: clip.map(|clip| clip.clip),
-                    camera_entity,
+                    extracted_camera_entity,
                     radius,
                     blur_radius,
                     size: shadow_size,
@@ -336,23 +331,34 @@ pub fn extract_shadows(
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "it's a system that needs a lot of them"
+)]
 pub fn queue_shadows(
     extracted_box_shadows: ResMut<ExtractedBoxShadows>,
     box_shadow_pipeline: Res<BoxShadowPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<BoxShadowPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    views: Query<(Entity, &ExtractedView, Option<&BoxShadowSamples>)>,
+    mut render_views: Query<(&UiCameraView, Option<&BoxShadowSamples>), With<ExtractedView>>,
+    camera_views: Query<&ExtractedView>,
     pipeline_cache: Res<PipelineCache>,
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
     for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
-        let Ok((view_entity, view, shadow_samples)) = views.get(extracted_shadow.camera_entity)
+        let Ok((default_camera_view, shadow_samples)) =
+            render_views.get_mut(extracted_shadow.extracted_camera_entity)
         else {
             continue;
         };
 
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Ok(view) = camera_views.get(default_camera_view.0) else {
+            continue;
+        };
+
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -375,11 +381,15 @@ pub fn queue_shadows(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            indexed: true,
         });
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -511,7 +521,7 @@ pub fn prepare_shadows(
                         item.entity(),
                         UiShadowsBatch {
                             range: vertices_index..vertices_index + 6,
-                            camera: box_shadow.camera_entity,
+                            camera: box_shadow.extracted_camera_entity,
                         },
                     ));
 

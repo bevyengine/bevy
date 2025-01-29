@@ -6,7 +6,7 @@ use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
-    view::{self, Visibility, VisibilityClass},
+    view::Visibility,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -329,11 +329,9 @@ impl From<Vec2> for ScrollPosition {
     ScrollPosition,
     Transform,
     Visibility,
-    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
-#[component(on_add = view::add_visibility_class::<Node>)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
@@ -562,7 +560,7 @@ pub struct Node {
 
     /// The initial length of a flexbox in the main axis, before flex growing/shrinking properties are applied.
     ///
-    /// `flex_basis` overrides `size` on the main axis if both are set, but it obeys the bounds defined by `min_size` and `max_size`.
+    /// `flex_basis` overrides `width` (if the main axis is horizontal) or `height` (if the main axis is vertical) when both are set, but it obeys the constraints defined by `min_width`/`min_height` and `max_width`/`max_height`.
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/flex-basis>
     pub flex_basis: Val,
@@ -1063,6 +1061,30 @@ impl Overflow {
         Self {
             x: OverflowAxis::Visible,
             y: OverflowAxis::Clip,
+        }
+    }
+
+    /// Hide overflowing items on both axes by influencing layout and then clipping
+    pub const fn hidden() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Hidden,
+        }
+    }
+
+    /// Hide overflowing items on the x axis by influencing layout and then clipping
+    pub const fn hidden_x() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Hide overflowing items on the y axis by influencing layout and then clipping
+    pub const fn hidden_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Hidden,
         }
     }
 
@@ -1812,11 +1834,9 @@ pub struct GridPlacement {
 }
 
 impl GridPlacement {
-    #[allow(unsafe_code)]
     pub const DEFAULT: Self = Self {
         start: None,
-        // SAFETY: This is trivially safe as 1 is non-zero.
-        span: Some(unsafe { NonZero::<u16>::new_unchecked(1) }),
+        span: NonZero::<u16>::new(1),
         end: None,
     };
 
@@ -2615,9 +2635,9 @@ mod tests {
 /// Optional if there is only one camera in the world. Required otherwise.
 #[derive(Component, Clone, Debug, Reflect, Eq, PartialEq)]
 #[reflect(Component, Debug, PartialEq)]
-pub struct TargetCamera(pub Entity);
+pub struct UiTargetCamera(pub Entity);
 
-impl TargetCamera {
+impl UiTargetCamera {
     pub fn entity(&self) -> Entity {
         self.0
     }
@@ -2627,7 +2647,7 @@ impl TargetCamera {
 ///
 /// This is useful if the [`PrimaryWindow`] has two cameras, one of them used
 /// just for debug purposes and the user wants a way to choose the default [`Camera`]
-/// without having to add a [`TargetCamera`] to the root node.
+/// without having to add a [`UiTargetCamera`] to the root node.
 ///
 /// Another use is when the user wants the Ui to be in another window by default,
 /// all that is needed is to place this component on the camera
@@ -2651,7 +2671,7 @@ impl TargetCamera {
 ///             ..Default::default()
 ///         },
 ///         // We add the Marker here so all Ui will spawn in
-///         // another window if no TargetCamera is specified
+///         // another window if no UiTargetCamera is specified
 ///         IsDefaultUiCamera
 ///     ));
 /// }

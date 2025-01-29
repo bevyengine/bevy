@@ -9,27 +9,31 @@ ignore-hidden = false
 
 # Match Inside a Word - Case Insensitive
 [default.extend-words]
-LOD = "LOD" # Level of detail
-TOI = "TOI" # Time of impact
+LOD = "LOD"                             # Level of detail
+reparametrization = "reparametrization" # Mathematical term in curve context (reparameterize)
+reparametrize = "reparametrize"
+reparametrized = "reparametrized"
+
+# Match a Whole Word - Case Sensitive
+[default.extend-identifiers]
+Ba = "Ba"         # Bitangent for Anisotropy
+ba = "ba"         # Part of an accessor in WGSL - weights.ba
+fLenOt = "fLenOt"
+iFO_a = "iFO_a"
+iFO_b = "iFO_b"
+ser = "ser"       # ron::ser - Serializer
+toi = "toi"       # Time of impact
+vOt = "vOt"
+vOt2 = "vOt2"
 
 [default]
 locale = "en-us"
 # Ignored typos regexes
-extend-ignore-identifiers-re = [
-  "Ba",                   # Bitangent for Anisotropy
-  "ba",                   # Part of an accessor in WGSL - color.ba
-  "ser",                  # ron::ser - Serializer
-  "SME",                  # Subject Matter Expert
-  "Sur",                  # macOS Big Sur - South
-  "NDK",                  # NDK - Native  Development Kit
-  "PNG",                  # PNG - Portable Network Graphics file format
-  "Masia",                # The surname of one of the authors of SMAA
-  "metalness",            # Rendering term (metallicity)
-  "inventario",           # Inventory in Portuguese
-  "[Rr]eparametrize",     # Mathematical term in curve context (reparameterize)
-  "[Rr]eparametrization",
-  # Used in bevy_mikktspace
-  "iFO",
-  "vOt",
-  "fLenOt",
+extend-ignore-re = [
+  "\\bBelen Masia\\b",            # The surname of one of the authors of SMAA
+  "\\bBig Sur\\b",                # macOS Big Sur
+  "\\bgeneric-rpg-ui-inventario", # Inventory in Portuguese
+  "\\bmetalness\\b",              # Rendering term (metallicity)
+  "\\bNDKs\\b",                   # NDK - Native  Development Kit
+  "\\bPNGs\\b",                   # PNG - Portable Network Graphics file format
 ]

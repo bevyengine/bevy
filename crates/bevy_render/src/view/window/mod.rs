@@ -4,8 +4,9 @@ use crate::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet, WgpuWrapper,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::EntityHashMap, prelude::*};
-use bevy_utils::{default, HashSet};
+use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
+use bevy_platform_support::collections::HashSet;
+use bevy_utils::default;
 use bevy_window::{
     CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
 };
@@ -213,7 +214,6 @@ impl WindowSurfaces {
 ///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
 ///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
 ///   later.
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,

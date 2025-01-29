@@ -42,6 +42,10 @@ struct Args {
     /// whether to disable all frustum culling.
     #[argh(switch)]
     no_frustum_culling: bool,
+
+    /// whether the text should use `JustifyText::Center`.
+    #[argh(switch)]
+    center: bool,
 }
 
 #[derive(Resource)]
@@ -62,7 +66,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins((
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -123,6 +127,11 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 Text2d(random_text(&mut rng, &args)),
                 random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
+                TextLayout::new_with_justify(if args.center {
+                    JustifyText::Center
+                } else {
+                    JustifyText::Left
+                }),
                 Transform {
                     translation,
                     rotation,

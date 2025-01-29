@@ -1,6 +1,6 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![deny(unsafe_code)]
+#![forbid(unsafe_code)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -24,8 +24,10 @@ pub mod experimental {
     }
 }
 
+mod atmosphere;
 mod cluster;
 mod components;
+pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
@@ -47,8 +49,10 @@ use crate::material_bind_groups::FallbackBindlessResources;
 
 use bevy_color::{Color, LinearRgba};
 
+pub use atmosphere::*;
 pub use cluster::*;
 pub use components::*;
+pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -94,9 +98,13 @@ pub mod graph {
         /// Label for the volumetric lighting pass.
         VolumetricFog,
         /// Label for the compute shader instance data building pass.
-        GpuPreprocess,
+        EarlyGpuPreprocess,
+        LateGpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
+        EarlyPrepassBuildIndirectParameters,
+        LatePrepassBuildIndirectParameters,
+        MainBuildIndirectParameters,
     }
 }
 
@@ -147,8 +155,8 @@ pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(26590
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(2325134235233421);
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 26;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 27;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -331,12 +339,16 @@ impl Plugin for PbrPlugin {
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
+                ClusteredDecalPlugin,
             ))
             .add_plugins((
+                decal::ForwardDecalPlugin,
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+                ExtractComponentPlugin::<AmbientLight>::default(),
             ))
+            .add_plugins(AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (
@@ -434,7 +446,8 @@ impl Plugin for PbrPlugin {
                     prepare_clusters.in_set(RenderSet::PrepareResources),
                 ),
             )
-            .init_resource::<LightMeta>();
+            .init_resource::<LightMeta>()
+            .init_resource::<RenderMaterialBindings>();
 
         render_app.world_mut().add_observer(add_light_view_entities);
         render_app

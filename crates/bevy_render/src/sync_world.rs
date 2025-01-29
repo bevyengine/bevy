@@ -7,11 +7,12 @@ use bevy_ecs::{
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
-    system::{Local, Query, ResMut, Resource, SystemState},
+    resource::Resource,
+    system::{Local, Query, ResMut, SystemState},
     world::{Mut, OnAdd, OnRemove, World},
 };
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown;
 
 /// A plugin that synchronizes entities with [`SyncToRenderWorld`] between the main world and the render world.
 ///
@@ -176,11 +177,11 @@ impl EntityBorrow for MainEntity {
 // SAFETY: RenderEntity is a newtype around Entity that derives its comparison traits.
 unsafe impl TrustedEntityBorrow for MainEntity {}
 
-/// A [`HashMap`](hashbrown::HashMap) pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
-pub type MainEntityHashMap<V> = hashbrown::HashMap<MainEntity, V, EntityHash>;
+/// A [`HashMap`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`].
+pub type MainEntityHashMap<V> = HashMap<MainEntity, V, EntityHash>;
 
-/// A [`HashSet`](hashbrown::HashSet) pre-configured to use [`EntityHash`] hashing with a [`MainEntity`]..
-pub type MainEntityHashSet = hashbrown::HashSet<MainEntity, EntityHash>;
+/// A [`HashSet`] pre-configured to use [`EntityHash`] hashing with a [`MainEntity`]..
+pub type MainEntityHashSet = HashSet<MainEntity, EntityHash>;
 
 /// Marker component that indicates that its entity needs to be despawned at the end of the frame.
 #[derive(Component, Copy, Clone, Debug, Default, Reflect)]

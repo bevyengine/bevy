@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::{Component, ComponentId},
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    system::Resource,
+    resource::Resource,
     world::World,
 };
 use bevy_reflect::{PartialReflect, ReflectFromReflect};

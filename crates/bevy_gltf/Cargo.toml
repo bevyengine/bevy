@@ -15,6 +15,7 @@ pbr_multi_layer_material_textures = [
   "bevy_pbr/pbr_multi_layer_material_textures",
 ]
 pbr_anisotropy_texture = ["bevy_pbr/pbr_anisotropy_texture"]
+pbr_specular_textures = []
 
 [dependencies]
 # bevy
@@ -24,7 +25,6 @@ bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.16.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
 bevy_pbr = { path = "../bevy_pbr", version = "0.16.0-dev" }
@@ -38,6 +38,10 @@ bevy_scene = { path = "../bevy_scene", version = "0.16.0-dev", features = [
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
+] }
 
 # other
 gltf = { version = "1.4.0", default-features = false, features = [

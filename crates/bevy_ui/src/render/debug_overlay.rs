@@ -1,20 +1,18 @@
 use crate::CalculatedClip;
 use crate::ComputedNode;
-use crate::DefaultUiCamera;
-use crate::TargetCamera;
+use crate::UiTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
+use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
-use bevy_ecs::system::Resource;
 use bevy_math::Rect;
 use bevy_math::Vec2;
-use bevy_render::sync_world::RenderEntity;
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::ViewVisibility;
+use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
@@ -23,6 +21,7 @@ use super::ExtractedUiItem;
 use super::ExtractedUiNode;
 use super::ExtractedUiNodes;
 use super::NodeType;
+use super::UiCameraMap;
 
 /// Configuration for the UI debug overlay
 #[derive(Resource)]
@@ -54,39 +53,34 @@ impl Default for UiDebugOptions {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn extract_debug_overlay(
     mut commands: Commands,
     debug_options: Extract<Res<UiDebugOptions>>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     uinode_query: Extract<
         Query<(
             Entity,
             &ComputedNode,
-            &ViewVisibility,
+            &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
     if !debug_options.enabled {
         return;
     }
+
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Some(camera_entity) = camera.map(TargetCamera::entity).or(default_ui_camera.get())
-        else {
-            continue;
-        };
-
-        let Ok(render_camera_entity) = mapping.get(camera_entity) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -105,7 +99,7 @@ pub fn extract_debug_overlay(
                     .filter(|_| !debug_options.show_clipped)
                     .map(|clip| clip.clip),
                 image: AssetId::default(),
-                camera_entity: render_camera_entity,
+                extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     atlas_scaling: None,
                     transform: transform.compute_matrix(),

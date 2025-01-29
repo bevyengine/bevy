@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![expect(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -23,6 +23,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -72,8 +73,8 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use experimental::occlusion_culling::OcclusionCullingPlugin;
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
@@ -116,6 +117,12 @@ pub struct RenderPlugin {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
+    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
+    /// that they can be read back to CPU.
+    ///
+    /// This is a debugging feature that may reduce performance. It primarily
+    /// exists for the `occlusion_culling` example.
+    pub allow_copies_from_indirect_parameters: bool,
 }
 
 /// The systems sets of the default [`App`] rendering schedule.
@@ -127,6 +134,8 @@ pub enum RenderSet {
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
+    /// Prepares extracted meshes.
+    PrepareMeshes,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
     /// Queue drawable entities as phase items in render phases ready for
@@ -175,6 +184,7 @@ impl Render {
         schedule.configure_sets(
             (
                 ExtractCommands,
+                PrepareMeshes,
                 ManageViews,
                 Queue,
                 PhaseSort,
@@ -186,7 +196,7 @@ impl Render {
                 .chain(),
         );
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
+        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
             QueueMeshes
                 .in_set(Queue)
@@ -349,17 +359,19 @@ impl Plugin for RenderPlugin {
         };
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
-            BatchingPlugin,
+            BatchingPlugin {
+                allow_copies_from_indirect_parameters: self.allow_copies_from_indirect_parameters,
+            },
             SyncWorldPlugin,
             StoragePlugin,
             GpuReadbackPlugin::default(),
+            OcclusionCullingPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
@@ -474,10 +486,8 @@ unsafe fn initialize_render_app(app: &mut App) {
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
-                (
-                    PipelineCache::process_pipeline_queue_system.before(render_system),
-                    render_system,
-                )
+                (PipelineCache::process_pipeline_queue_system, render_system)
+                    .chain()
                     .in_set(RenderSet::Render),
                 despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
             ),
