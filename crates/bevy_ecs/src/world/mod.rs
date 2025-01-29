@@ -511,23 +511,18 @@ impl World {
         &self,
         constructor: fn() -> R,
     ) -> Result<(), RequiredComponentsError> {
-        let requiree = self.components.register_component_synced::<T>();
+        let mut components = self.components().lock();
+        let requiree = components.register_component::<T>();
 
         // TODO: Remove this panic and update archetype edges accordingly when required components are added
         if self.archetypes().component_index().contains_key(&requiree) {
             return Err(RequiredComponentsError::ArchetypeExists(requiree));
         }
 
-        let required = self.components.register_component_synced::<R>();
+        let required = components.register_component::<R>();
 
         // SAFETY: We just created the `required` and `requiree` components.
-        unsafe {
-            self.components.register_required_components_synced::<R>(
-                requiree,
-                required,
-                constructor,
-            )
-        }
+        unsafe { components.register_required_components::<R>(requiree, required, constructor) }
     }
 
     /// Retrieves the [components info](ComponentInfoRef) for the given component type, if it exists.

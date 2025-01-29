@@ -2414,9 +2414,7 @@ impl Components {
         unsafe { self.full_unchecked() }
     }
 
-    /// Gets the metadata associated with the given component.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    /// A version of [`ComponentsViewRef::get_info`] that doesn't always need to lock.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<ComponentInfoRef<'_>> {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
@@ -2434,7 +2432,7 @@ impl Components {
         }
     }
 
-    /// Gets the metadata associated with the given component.
+    /// A version of [`ComponentsViewRef::get_info_uchecked`] that doesn't always need to lock.
     ///
     /// # Safety
     ///
@@ -2501,42 +2499,6 @@ impl Components {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.lock().register_resource_with_descriptor(descriptor)
-    }
-
-    /// Synchronized version of [`ComponentsViewInternal::register_required_components`].
-    ///
-    /// # Safety
-    ///
-    /// See [`ComponentsViewInternal::register_required_components`].
-    pub(crate) unsafe fn register_required_components_synced<R: Component>(
-        &self,
-        requiree: ComponentId,
-        required: ComponentId,
-        constructor: fn() -> R,
-    ) -> Result<(), RequiredComponentsError> {
-        self.lock()
-            .as_mut()
-            .register_required_components(requiree, required, constructor)
-    }
-
-    // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
-    //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
-    //       which is private, and could be equally risky to expose to users.
-    /// Synchronized version of [`ComponentsView::register_required_components_manual`].
-    #[doc(hidden)]
-    pub fn register_required_components_manual_synced<T: Component, R: Component>(
-        &self,
-        required_components: &mut RequiredComponents,
-        constructor: fn() -> R,
-        inheritance_depth: u16,
-        recursion_check_stack: &mut Vec<ComponentId>,
-    ) {
-        self.lock().register_required_components_manual::<T, R>(
-            required_components,
-            constructor,
-            inheritance_depth,
-            recursion_check_stack,
-        );
     }
 }
 
@@ -3309,7 +3271,7 @@ impl<'a> RequiredByStagedRef<'a> {
 
 // TODO: replace ComponentInfoRef with https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html when it is stableized.
 
-/// A reference to a particular component's info.
+/// A reference to a particular component's info that may or may not need to lock [`Componnets`].
 pub enum ComponentInfoRef<'a> {
     /// the requested data was registered a while ago.
     Stored(&'a ComponentInfo),
