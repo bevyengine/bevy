@@ -409,7 +409,7 @@ pub trait Component: Send + Sync + 'static {
     /// Registers required components.
     fn register_required_components(
         _component_id: ComponentId,
-        _components: &mut impl ComponentsView,
+        _components: &mut impl ComponentsViewExclusive,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
         _recursion_check_stack: &mut Vec<ComponentId>,
@@ -1267,6 +1267,12 @@ pub trait ComponentsViewReadonly {
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
     fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn;
 
+    /// if this is true, the component has been registered recently
+    fn is_new(&self, id: ComponentId) -> bool;
+}
+
+/// A trait the represents a full, non-locking (but could be locked) view into Components. This allows data to be more easily retrieved by reference.
+pub trait ComponentsViewRef: ComponentsViewReadonly {
     /// Gets the metadata associated with the given component.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
@@ -1286,9 +1292,6 @@ pub trait ComponentsViewReadonly {
     fn get_name(&self, id: ComponentId) -> Option<&str> {
         self.get_info(id).map(ComponentInfo::name)
     }
-
-    /// if this is true, the component has been registered recently
-    fn is_new(&self, id: ComponentId) -> bool;
 }
 
 /// This represents a generalized mutable view into [`Components`].
@@ -1376,6 +1379,9 @@ pub trait ComponentsView: ComponentsViewReadonly {
         recursion_check_stack: &mut Vec<ComponentId>,
     );
 }
+
+/// A trait that represents exclusive access to [`Components`] either via rust's rules or via locking.
+pub trait ComponentsViewExclusive: ComponentsView + ComponentsViewRef {}
 
 impl<'a> ComponentsView for ComponentsMut<'a> {
     #[inline]
@@ -1483,6 +1489,15 @@ impl<'a> ComponentsViewReadonly for ComponentsMut<'a> {
     }
 
     #[inline]
+    fn is_new(&self, id: ComponentId) -> bool {
+        self.as_ref().is_new(id)
+    }
+}
+
+impl ComponentsViewExclusive for ComponentsMut<'_> {}
+
+impl ComponentsViewRef for ComponentsMut<'_> {
+    #[inline]
     fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         self.as_ref().get_info_with_lifetime(id)
     }
@@ -1490,11 +1505,6 @@ impl<'a> ComponentsViewReadonly for ComponentsMut<'a> {
     #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         self.as_ref().get_info_unchecked_with_lifetime(id)
-    }
-
-    #[inline]
-    fn is_new(&self, id: ComponentId) -> bool {
-        self.as_ref().is_new(id)
     }
 }
 
@@ -1584,6 +1594,15 @@ impl ComponentsViewReadonly for ComponentsLock<'_> {
     }
 
     #[inline]
+    fn is_new(&self, id: ComponentId) -> bool {
+        self.as_ref().is_new(id)
+    }
+}
+
+impl ComponentsViewExclusive for ComponentsLock<'_> {}
+
+impl ComponentsViewRef for ComponentsLock<'_> {
+    #[inline]
     fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         self.as_ref().get_info_with_lifetime(id)
     }
@@ -1591,11 +1610,6 @@ impl ComponentsViewReadonly for ComponentsLock<'_> {
     #[inline]
     unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         self.as_ref().get_info_unchecked_with_lifetime(id)
-    }
-
-    #[inline]
-    fn is_new(&self, id: ComponentId) -> bool {
-        self.as_ref().is_new(id)
     }
 }
 
@@ -2012,8 +2026,27 @@ impl<'a> ComponentsMut<'a> {
     }
 }
 
+impl ComponentsViewRef for ComponentsRef<'_> {
+    fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            self.staged.new_components.get(index_in_new)
+        } else {
+            Some(&self.cold.components[id.0])
+        }
+    }
+
+    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
+        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
+            debug_assert!(index_in_new < self.staged.new_components.len());
+            &self.staged.new_components[index_in_new]
+        } else {
+            &self.cold.components[id.0]
+        }
+    }
+}
+
 impl<'a> ComponentsRef<'a> {
-    /// See [`ComponentsViewReadonly::get_info`]. This just gives the return value a specific lifetime.
+    /// See [`ComponentsViewRef::get_info`]
     #[inline]
     pub fn get_info_with_lifetime(&self, id: ComponentId) -> Option<&'a ComponentInfo> {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
@@ -2023,11 +2056,11 @@ impl<'a> ComponentsRef<'a> {
         }
     }
 
-    /// See [`ComponentsViewReadonly::get_info_unchecked`]. This just gives the return value a specific lifetime.
+    /// See [`ComponentsViewRef::get_info_unchecked`]
     ///
     /// # Safety
     ///
-    /// See [`ComponentsViewReadonly::get_info_unchecked`]
+    /// See [`ComponentsViewRef::get_info_unchecked`]
     #[inline]
     pub unsafe fn get_info_unchecked_with_lifetime(&self, id: ComponentId) -> &'a ComponentInfo {
         if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
@@ -2090,30 +2123,6 @@ impl<'a> ComponentsViewReadonly for ComponentsRef<'a> {
                     self.cold.component_clone_handlers.get_default_handler()
                 }
             }
-        }
-    }
-
-    #[inline]
-    fn get_info(&self, id: ComponentId) -> Option<&'a ComponentInfo> {
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            self.staged.new_components.get(index_in_new)
-        } else {
-            Some(&self.cold.components[id.0])
-        }
-    }
-
-    /// See [`ComponentsView::get_info_unchecked`]
-    ///
-    /// # Safety
-    ///
-    /// See [`ComponentsView::get_info_unchecked`]
-    #[inline]
-    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &'a ComponentInfo {
-        if let Some(index_in_new) = id.0.checked_sub(self.cold.len()) {
-            debug_assert!(index_in_new < self.staged.new_components.len());
-            &self.staged.new_components[index_in_new]
-        } else {
-            &self.cold.components[id.0]
         }
     }
 
@@ -2674,6 +2683,15 @@ impl ComponentsViewReadonly for ComponentsData {
     }
 
     #[inline]
+    fn is_new(&self, _id: ComponentId) -> bool {
+        false // The nature of `ComponentsData` as a view implies that there is no staged changes.
+    }
+}
+
+impl ComponentsViewExclusive for ComponentsData {}
+
+impl ComponentsViewRef for ComponentsData {
+    #[inline]
     fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         self.components.get(id.0)
     }
@@ -2683,11 +2701,6 @@ impl ComponentsViewReadonly for ComponentsData {
         debug_assert!(id.index() < self.components.len());
         // SAFETY: The caller ensures `id` is valid.
         unsafe { self.components.get_unchecked(id.0) }
-    }
-
-    #[inline]
-    fn is_new(&self, _id: ComponentId) -> bool {
-        false // The nature of `ComponentsData` as a view implies that there is no staged changes.
     }
 }
 
@@ -3386,7 +3399,7 @@ impl RequiredComponents {
 // to reduce the amount of generated code.
 #[doc(hidden)]
 pub fn enforce_no_required_components_recursion(
-    components: &impl ComponentsView,
+    components: &impl ComponentsViewExclusive,
     recursion_check_stack: &[ComponentId],
 ) {
     if let Some((&requiree, check)) = recursion_check_stack.split_last() {
