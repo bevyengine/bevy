@@ -1160,6 +1160,15 @@ pub struct ComponentsLock<'a> {
     staged: RwLockWriteGuard<'a, StagedComponents>,
 }
 
+/// A lock for [`Components`] that enables fast, synchronized, immutable interaction.
+pub struct ComponentsRead<'a> {
+    /// This is marked with an underscore to make it more clear that this field should not be used when possible.
+    /// For example, never try to lock on this field's [`Components::staged`], as it could deadlock.
+    _components: &'a Components,
+    cold: &'a ComponentsData,
+    staged: RwLockReadGuard<'a, StagedComponents>,
+}
+
 /// Represents a mutable disjoint reference to [`Components`].
 pub struct ComponentsMut<'a> {
     /// maps to [`Components::staged_changed`]
@@ -1613,6 +1622,60 @@ impl ComponentsViewRef for ComponentsMut<'_> {
     }
 }
 
+impl ComponentsViewReadonly for ComponentsRead<'_> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.as_ref().len()
+    }
+
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.as_ref().is_empty()
+    }
+
+    #[inline]
+    fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.as_ref().get_id(type_id)
+    }
+
+    #[inline]
+    fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.as_ref().get_resource_id(type_id)
+    }
+
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.as_ref().get_default_clone_handler()
+    }
+
+    #[inline]
+    fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
+        self.as_ref().is_clone_handler_registered(id)
+    }
+
+    #[inline]
+    fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
+        self.as_ref().get_clone_handler(id)
+    }
+
+    #[inline]
+    fn is_new(&self, id: ComponentId) -> bool {
+        self.as_ref().is_new(id)
+    }
+}
+
+impl ComponentsViewRef for ComponentsRead<'_> {
+    #[inline]
+    fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
+        self.as_ref().get_info_with_lifetime(id)
+    }
+
+    #[inline]
+    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
+        self.as_ref().get_info_unchecked_with_lifetime(id)
+    }
+}
+
 impl ComponentsView for ComponentsLock<'_> {
     #[inline]
     fn register_component<T: Component>(&mut self) -> ComponentId {
@@ -1742,12 +1805,27 @@ impl Drop for ComponentsMut<'_> {
     }
 }
 
+impl<'a> ComponentsRead<'a> {
+    /// Releases the lock, returning the inner [`Components`].
+    pub fn release(self) -> &'a Components {
+        self._components
+    }
+
+    /// Allows using the lock as if it were a [`ComponentsRef`].
+    #[inline]
+    pub fn as_ref(&self) -> ComponentsRef<'_> {
+        ComponentsRef {
+            staged: self.staged.deref(),
+            cold: self.cold,
+        }
+    }
+}
+
 impl<'a> ComponentsLock<'a> {
     /// Releases the lock, returning the inner [`Components`].
     pub fn release(mut self) -> &'a Components {
         self.as_mut().check_for_changes();
-        let ComponentsLock { _components, .. } = self;
-        _components
+        self._components
     }
 
     /// Allows using the lock as if it were a [`ComponentsMut`].
@@ -2174,11 +2252,30 @@ impl Components {
         }
     }
 
+    /// Locks the components for readonly view.
+    #[inline]
+    pub fn lock_read(&self) -> ComponentsRead<'_> {
+        ComponentsRead {
+            _components: self,
+            cold: &self.cold,
+            staged: self.staged.read().unwrap(),
+        }
+    }
+
     /// Allows faster mutation than [`Self::lock`] when you have mutable access.
     #[inline]
     pub fn as_mut(&mut self) -> ComponentsMut<'_> {
         ComponentsMut {
             staged_changed: &self.staged_changed,
+            cold: &self.cold,
+            staged: self.staged.get_mut().unwrap(),
+        }
+    }
+
+    /// Allows faster mutation than [`Self::lock`] when you have mutable access.
+    #[inline]
+    pub fn as_ref(&mut self) -> ComponentsRef<'_> {
+        ComponentsRef {
             cold: &self.cold,
             staged: self.staged.get_mut().unwrap(),
         }
