@@ -315,6 +315,8 @@ impl Transform {
     #[inline]
     pub fn rotate_axis(&mut self, axis: Dir3, angle: f32) {
         self.rotate(Quat::from_axis_angle(axis.into(), angle));
+        // Normalize rotation due to potential for exponential denormalization (#16480)
+        self.rotation = self.rotation.normalize();
     }
 
     /// Rotates this [`Transform`] around the `X` axis by `angle` (in radians).
@@ -353,6 +355,8 @@ impl Transform {
     #[inline]
     pub fn rotate_local_axis(&mut self, axis: Dir3, angle: f32) {
         self.rotate_local(Quat::from_axis_angle(axis.into(), angle));
+        // Normalize rotation due to potential for exponential denormalization (#16480)
+        self.rotation = self.rotation.normalize();
     }
 
     /// Rotates this [`Transform`] around its local `X` axis by `angle` (in radians).
