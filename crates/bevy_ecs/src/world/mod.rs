@@ -36,8 +36,8 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfoRef, ComponentTicks, Components, ComponentsView, ComponentsViewReadonly,
-        Mutable, RequiredComponentsError, Tick,
+        ComponentInfoRef, ComponentTicks, Components, ComponentsView, ComponentsViewInternal,
+        ComponentsViewReadonly, Mutable, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, EventId, Events, SendBatchIds},

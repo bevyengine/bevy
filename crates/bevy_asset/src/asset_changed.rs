@@ -4,7 +4,7 @@
 //! and triggers whenever the handle or the underlying asset changes.
 
 use crate::{AsAssetId, Asset, AssetId};
-use bevy_ecs::component::Components;
+use bevy_ecs::component::{Components, ComponentsViewReadonly};
 use bevy_ecs::{
     archetype::Archetype,
     component::{ComponentId, Tick},
