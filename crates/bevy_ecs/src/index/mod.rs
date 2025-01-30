@@ -67,7 +67,7 @@ impl<C: IndexComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D, F> 
     /// world.add_index::<FavoriteColor>();
     ///
     /// fn find_red_fans(mut query: QueryByIndex<FavoriteColor, Entity>) {
-    ///     for entity in query.at(FavoriteColor::Red).iter() {
+    ///     for entity in query.at(&FavoriteColor::Red).iter() {
     ///         println!("{entity:?} likes the color Red!");
     ///     }
     /// }
