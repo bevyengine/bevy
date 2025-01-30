@@ -204,6 +204,8 @@ struct ClusterableObjectCounts {
     reflection_probes: u32,
     /// The number of irradiance volumes in the cluster.
     irradiance_volumes: u32,
+    /// The number of decals in the cluster.
+    decals: u32,
 }
 
 enum ExtractedClusterableObjectElement {
@@ -673,7 +675,7 @@ impl ViewClusterBindings {
                         counts.spot_lights,
                         counts.reflection_probes,
                     ),
-                    uvec4(counts.irradiance_volumes, 0, 0, 0),
+                    uvec4(counts.irradiance_volumes, counts.decals, 0, 0),
                 ]);
             }
         }

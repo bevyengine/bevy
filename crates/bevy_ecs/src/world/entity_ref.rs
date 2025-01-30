@@ -2192,28 +2192,28 @@ impl<'w> EntityWorldMut<'w> {
                     ON_REPLACE,
                     self.entity,
                     archetype.components(),
-                    MaybeLocation::caller(),
+                    caller,
                 );
             }
             deferred_world.trigger_on_replace(
                 archetype,
                 self.entity,
                 archetype.components(),
-                MaybeLocation::caller(),
+                caller,
             );
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
                     ON_REMOVE,
                     self.entity,
                     archetype.components(),
-                    MaybeLocation::caller(),
+                    caller,
                 );
             }
             deferred_world.trigger_on_remove(
                 archetype,
                 self.entity,
                 archetype.components(),
-                MaybeLocation::caller(),
+                caller,
             );
         }
 

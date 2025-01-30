@@ -20,7 +20,7 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::TemporaryRenderEntity,
     texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
@@ -247,7 +247,6 @@ pub struct ExtractedUiTextureSlices {
 pub fn extract_ui_texture_slices(
     mut commands: Commands,
     mut extracted_ui_slicers: ResMut<ExtractedUiTextureSlices>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     slicers_query: Extract<
         Query<(
@@ -260,19 +259,18 @@ pub fn extract_ui_texture_slices(
             &ImageNode,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
-        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
-        else {
+        // Skip invisible images
+        if !inherited_visibility.get()
+            || image.color.is_fully_transparent()
+            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
+        {
             continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
+        }
 
         let image_scale_mode = match image.image_mode.clone() {
             widget::NodeImageMode::Sliced(texture_slicer) => {
@@ -290,13 +288,9 @@ pub fn extract_ui_texture_slices(
             _ => continue,
         };
 
-        // Skip invisible images
-        if !inherited_visibility.get()
-            || image.color.is_fully_transparent()
-            || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
-        {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
-        }
+        };
 
         let atlas_rect = image
             .texture_atlas
@@ -814,7 +808,10 @@ fn compute_texture_slices(
             [[0., 0., 1., 1.], [0., 0., 1., 1.], [1., 1., rx, ry]]
         }
         SpriteImageMode::Auto => {
-            unreachable!("Slices should not be computed for ImageScaleMode::Stretch")
+            unreachable!("Slices can not be computed for SpriteImageMode::Stretch")
+        }
+        SpriteImageMode::Scale(_) => {
+            unreachable!("Slices can not be computed for SpriteImageMode::Scale")
         }
     }
 }

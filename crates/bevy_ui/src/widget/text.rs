@@ -89,8 +89,8 @@ impl Default for TextNodeFlags {
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
 /// ```
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
@@ -245,7 +245,7 @@ pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<&Camera>,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     mut text_query: Query<
@@ -274,17 +274,19 @@ pub fn measure_text_system(
         else {
             continue;
         };
+
         let scale_factor = match scale_factors_buffer.entry(camera_entity) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => *entry.insert(
                 camera_query
                     .get(camera_entity)
                     .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
+                    .and_then(Camera::target_scaling_factor)
                     .unwrap_or(1.0)
                     * ui_scale.0,
             ),
         };
+
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || computed.needs_rerender()
