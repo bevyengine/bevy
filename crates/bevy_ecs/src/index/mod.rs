@@ -73,16 +73,19 @@ impl<C: IndexComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D, F> 
     /// }
     /// ```
     pub fn at(&mut self, value: &C) -> Query<'_, '_, D, (F, With<C>)> {
-        let mut builder = unsafe { QueryBuilder::<D, (F, With<C>)>::new(self.world.world_mut()) };
+        self.state = {
+            // SAFETY: Mutable references do not alias and will be dropped after this block
+            let mut builder = unsafe { QueryBuilder::new(self.world.world_mut()) };
 
-        match self.index.mapping.get(value).copied() {
-            // If there is a marker, restrict to it
-            Some(component_id) => builder.with_id(component_id),
-            // Otherwise, create a no-op query by including With<C> and Without<C>
-            None => builder.without::<C>(),
+            match self.index.mapping.get(value).copied() {
+                // If there is a marker, restrict to it
+                Some(component_id) => builder.with_id(component_id),
+                // Otherwise, create a no-op query by including With<C> and Without<C>
+                None => builder.without::<C>(),
+            };
+
+            Some(builder.build())
         };
-
-        self.state = Some(builder.build());
 
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
@@ -98,6 +101,7 @@ impl<C: IndexComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D, F> 
     }
 }
 
+// SAFETY: We rely on the known-safe implementations of `SystemParam` for `Res` and `Query`.
 unsafe impl<C: IndexComponent, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for QueryByIndex<'_, C, D, F>
 {
