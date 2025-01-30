@@ -1331,7 +1331,7 @@ impl App {
     /// This allows querying by component _value_ to be very performant, at the expense of a small
     /// amount of overhead when modifying the indexed component.
     ///
-    /// See [`IndexComponent`] for further details.
+    /// See [`IndexableComponent`] for further details.
     ///
     /// # Examples
     ///
