@@ -5,7 +5,6 @@ use bevy_asset::*;
 use bevy_ecs::{
     prelude::Component,
     query::ROQueryItem,
-    storage::SparseSet,
     system::{
         lifetimeless::{Read, SRes},
         *,
@@ -347,11 +346,12 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Nodes with ambiguous camera will be ignored.
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
+    render_entity: Entity,
 }
 
 #[derive(Resource)]
 pub struct ExtractedUiMaterialNodes<M: UiMaterial> {
-    pub uinodes: SparseSet<Entity, ExtractedUiMaterialNode<M>>,
+    pub uinodes: Vec<ExtractedUiMaterialNode<M>>,
 }
 
 impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
@@ -398,23 +398,21 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        extracted_uinodes.uinodes.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-            ExtractedUiMaterialNode {
-                stack_index: computed_node.stack_index,
-                transform: transform.compute_matrix(),
-                material: handle.id(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: computed_node.size(),
-                },
-                border: computed_node.border(),
-                border_radius: computed_node.border_radius(),
-                clip: clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                main_entity: entity.into(),
+        extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: computed_node.stack_index,
+            transform: transform.compute_matrix(),
+            material: handle.id(),
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: computed_node.size(),
             },
-        );
+            border: computed_node.border(),
+            border_radius: computed_node.border_radius(),
+            clip: clip.map(|clip| clip.clip),
+            extracted_camera_entity,
+            main_entity: entity.into(),
+        });
     }
 }
 
@@ -450,7 +448,11 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity()) {
+                if let Some(extracted_uinode) = extracted_uinodes
+                    .uinodes
+                    .get(item.index)
+                    .filter(|n| item.entity() == n.render_entity)
+                {
                     let mut existing_batch = batches
                         .last_mut()
                         .filter(|_| batch_shader_handle == extracted_uinode.material);
@@ -624,7 +626,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
-    for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+    for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
         let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
@@ -660,13 +662,14 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (*entity, extracted_uinode.main_entity),
+            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
             sort_key: (
                 FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
-                entity.index(),
+                extracted_uinode.render_entity.index(),
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            index,
             indexed: false,
         });
     }

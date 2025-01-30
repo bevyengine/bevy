@@ -12,7 +12,6 @@ use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
-    storage::SparseSet,
     system::{
         lifetimeless::{Read, SRes},
         *,
@@ -224,12 +223,13 @@ pub struct ExtractedBoxShadow {
     pub blur_radius: f32,
     pub size: Vec2,
     pub main_entity: MainEntity,
+    pub render_entity: Entity,
 }
 
 /// List of extracted shadows to be sorted and queued for rendering
 #[derive(Resource, Default)]
 pub struct ExtractedBoxShadows {
-    pub box_shadows: SparseSet<Entity, ExtractedBoxShadow>,
+    pub box_shadows: Vec<ExtractedBoxShadow>,
 }
 
 pub fn extract_shadows(
@@ -304,22 +304,19 @@ pub fn extract_shadows(
                 bottom_right: uinode.border_radius.bottom_right * spread_ratio,
             };
 
-            extracted_box_shadows.box_shadows.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
-                ExtractedBoxShadow {
-                    stack_index: uinode.stack_index,
-                    transform: transform.compute_matrix()
-                        * Mat4::from_translation(offset.extend(0.)),
-                    color: drop_shadow.color.into(),
-                    bounds: shadow_size + 6. * blur_radius,
-                    clip: clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    radius,
-                    blur_radius,
-                    size: shadow_size,
-                    main_entity: entity.into(),
-                },
-            );
+            extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
+                color: drop_shadow.color.into(),
+                bounds: shadow_size + 6. * blur_radius,
+                clip: clip.map(|clip| clip.clip),
+                extracted_camera_entity,
+                radius,
+                blur_radius,
+                size: shadow_size,
+                main_entity: entity.into(),
+            });
         }
     }
 }
@@ -339,7 +336,8 @@ pub fn queue_shadows(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
-    for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
+    for (index, extracted_shadow) in extracted_box_shadows.box_shadows.iter().enumerate() {
+        let entity = extracted_shadow.render_entity;
         let Ok((default_camera_view, shadow_samples)) =
             render_views.get_mut(extracted_shadow.extracted_camera_entity)
         else {
@@ -367,13 +365,14 @@ pub fn queue_shadows(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (*entity, extracted_shadow.main_entity),
+            entity: (entity, extracted_shadow.main_entity),
             sort_key: (
                 FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
                 entity.index(),
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            index,
             indexed: true,
         });
     }
@@ -406,11 +405,13 @@ pub fn prepare_shadows(
         let mut indices_index = 0;
 
         for ui_phase in phases.values_mut() {
-            let mut item_index = 0;
-
-            while item_index < ui_phase.items.len() {
+            for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(box_shadow) = extracted_shadows.box_shadows.get(item.entity()) {
+                if let Some(box_shadow) = extracted_shadows
+                    .box_shadows
+                    .get(item.index)
+                    .filter(|n| item.entity() == n.render_entity)
+                {
                     let rect_size = box_shadow.bounds.extend(1.0);
 
                     // Specify the corners of the node
@@ -521,7 +522,6 @@ pub fn prepare_shadows(
                     *ui_phase.items[item_index].batch_range_mut() =
                         item_index as u32..item_index as u32 + 1;
                 }
-                item_index += 1;
             }
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);
