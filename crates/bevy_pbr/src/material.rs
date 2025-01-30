@@ -1,4 +1,3 @@
-use self::{irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight};
 use crate::material_bind_groups::{MaterialBindGroupAllocator, MaterialBindingId};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
@@ -12,21 +11,15 @@ use bevy_core_pipeline::deferred::{AlphaMask3dDeferred, Opaque3dDeferred};
 use bevy_core_pipeline::prepass::{AlphaMask3dPrepass, Opaque3dPrepass};
 use bevy_core_pipeline::{
     core_3d::{
-        AlphaMask3d, Camera3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey,
-        ScreenSpaceTransmissionQuality, Transmissive3d, Transparent3d,
+        AlphaMask3d, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, ScreenSpaceTransmissionQuality,
+        Transmissive3d, Transparent3d,
     },
-    oit::OrderIndependentTransparencySettings,
-    prepass::{
-        DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
-        OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
-    },
-    tonemapping::{DebandDither, Tonemapping},
+    prepass::{OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey},
+    tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::entity::EntityHash;
-use bevy_ecs::query::{QueryItem, ROQueryItem};
-use bevy_ecs::system::lifetimeless::Read;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
@@ -40,7 +33,6 @@ use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    camera::TemporalJitter,
     extract_resource::ExtractResource,
     mesh::{self, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -53,9 +45,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
-use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
-use std::ops::{Deref, DerefMut};
 use tracing::error;
 
 /// Materials are used alongside [`MaterialPlugin`], [`Mesh3d`], and [`MeshMaterial3d`]
@@ -697,20 +687,21 @@ fn extract_mesh_materials<M: Material>(
 }
 
 pub fn extract_entities_needs_specialization<M>(
-    mut entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
     ticks: SystemChangeTick,
 ) where
     M: Material,
 {
-    for entity in &entities_needing_specialization.entities {
+    for entity in entities_needing_specialization.iter() {
         // Update the entity's specialization tick with this run's tick
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
 }
 
-#[derive(Clone, Resource, Debug)]
+#[derive(Resource, Deref, DerefMut, Clone, Debug)]
 pub struct EntitiesNeedingSpecialization<M> {
+    #[deref]
     pub entities: Vec<Entity>,
     _marker: PhantomData<M>,
 }
@@ -724,7 +715,7 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
-#[derive(Clone, Resource, Deref, DerefMut, Debug)]
+#[derive(Resource, Deref, DerefMut, Clone, Debug)]
 pub struct EntitySpecializationTicks<M> {
     #[deref]
     pub entities: MainEntityHashMap<Tick>,
@@ -771,9 +762,9 @@ fn check_entities_needing_specialization<M>(
 ) where
     M: Material,
 {
-    entities_needing_specialization.entities.clear();
+    entities_needing_specialization.clear();
     for entity in &needs_specialization {
-        entities_needing_specialization.entities.push(entity);
+        entities_needing_specialization.push(entity);
     }
 }
 
@@ -786,16 +777,16 @@ pub fn specialize_material_meshes<M: Material>(
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     (
         material_bind_group_allocator,
-        mut opaque_render_phases,
-        mut alpha_mask_render_phases,
-        mut transmissive_render_phases,
-        mut transparent_render_phases,
+        opaque_render_phases,
+        alpha_mask_render_phases,
+        transmissive_render_phases,
+        transparent_render_phases,
     ): (
         Res<MaterialBindGroupAllocator<M>>,
-        ResMut<ViewBinnedRenderPhases<Opaque3d>>,
-        ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
-        ResMut<ViewSortedRenderPhases<Transmissive3d>>,
-        ResMut<ViewSortedRenderPhases<Transparent3d>>,
+        Res<ViewBinnedRenderPhases<Opaque3d>>,
+        Res<ViewBinnedRenderPhases<AlphaMask3d>>,
+        Res<ViewSortedRenderPhases<Transmissive3d>>,
+        Res<ViewSortedRenderPhases<Transparent3d>>,
     ),
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,

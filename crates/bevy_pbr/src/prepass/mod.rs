@@ -23,7 +23,7 @@ use bevy_render::{
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{load_internal_asset, AsAssetId, AssetId, AssetServer, Handle};
+use bevy_asset::{load_internal_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -54,21 +54,15 @@ use crate::meshlet::{
     MeshletMesh3d,
 };
 
-use bevy_asset::prelude::AssetChanged;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::entity::EntityHash;
-use bevy_ecs::query::{QueryItem, ROQueryItem};
 use bevy_ecs::system::SystemChangeTick;
 use bevy_platform_support::collections::HashMap;
-use bevy_reflect::Reflect;
-use bevy_render::extract_resource::ExtractResource;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSet::PrepareAssets;
 use core::{hash::Hash, marker::PhantomData};
-use derive_more::From;
-use std::ops::{Deref, DerefMut};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
 
@@ -874,15 +868,15 @@ pub fn specialize_prepass_material_meshes<M>(
         Option<&DeferredPrepass>,
     )>,
     (
-        mut opaque_prepass_render_phases,
-        mut alpha_mask_prepass_render_phases,
-        mut opaque_deferred_render_phases,
-        mut alpha_mask_deferred_render_phases,
+        opaque_prepass_render_phases,
+        alpha_mask_prepass_render_phases,
+        opaque_deferred_render_phases,
+        alpha_mask_deferred_render_phases,
     ): (
-        ResMut<ViewBinnedRenderPhases<Opaque3dPrepass>>,
-        ResMut<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
-        ResMut<ViewBinnedRenderPhases<Opaque3dDeferred>>,
-        ResMut<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
+        Res<ViewBinnedRenderPhases<Opaque3dPrepass>>,
+        Res<ViewBinnedRenderPhases<AlphaMask3dPrepass>>,
+        Res<ViewBinnedRenderPhases<Opaque3dDeferred>>,
+        Res<ViewBinnedRenderPhases<AlphaMask3dDeferred>>,
     ),
     (
         mut specialized_material_pipeline_cache,

@@ -3,7 +3,6 @@
     reason = "The parent module contains all things viewport-related, while this module handles cameras as a component. However, a rename/refactor which should clear up this lint is being discussed; see #17196."
 )]
 use super::{ClearColorConfig, Projection};
-use crate::sync_world::MainEntity;
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::{CameraProjection, ManualTextureViewHandle, ManualTextureViews},
@@ -45,7 +44,6 @@ use bevy_window::{
 };
 use core::ops::Range;
 use derive_more::derive::From;
-use std::ops::Deref;
 use tracing::warn;
 use wgpu::{BlendState, TextureFormat, TextureUsages};
 

@@ -47,7 +47,6 @@ use bevy_utils::{default, Parallel};
 use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
-use std::marker::PhantomData;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
@@ -63,16 +62,13 @@ use crate::{
     },
     *,
 };
-use bevy_asset::prelude::AssetChanged;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
 use bevy_ecs::component::Tick;
-use bevy_ecs::query::QueryItem;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_render::camera::TemporalJitter;
-use bevy_render::extract_resource::ExtractResource;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
@@ -432,7 +428,7 @@ pub fn check_views_need_specialization(
         }
         if !view_key_cache
             .get_mut(view_entity)
-            .is_some_and(|current_key| **current_key == view_key)
+            .is_some_and(|current_key| *current_key == view_key)
         {
             view_key_cache.insert(*view_entity, view_key);
             view_specialization_ticks.insert(*view_entity, ticks.this_run());

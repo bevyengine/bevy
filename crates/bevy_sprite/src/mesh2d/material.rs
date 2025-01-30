@@ -9,7 +9,7 @@ use bevy_core_pipeline::{
     core_2d::{
         AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
     },
-    tonemapping::{DebandDither, Tonemapping},
+    tonemapping::Tonemapping,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
@@ -22,7 +22,6 @@ use bevy_ecs::{
 use bevy_math::FloatOrd;
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::mesh::Mesh3d;
 use bevy_render::render_phase::DrawFunctionId;
 use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::view::RenderVisibleEntities;
@@ -43,13 +42,11 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
-    view::{ExtractedView, Msaa, ViewVisibility},
+    view::{ExtractedView, ViewVisibility},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;
-use std::ops::{Deref, DerefMut};
 use tracing::error;
 
 /// Materials are used alongside [`Material2dPlugin`], [`Mesh2d`], and [`MeshMaterial2d`]
@@ -549,20 +546,21 @@ pub const fn tonemapping_pipeline_key(tonemapping: Tonemapping) -> Mesh2dPipelin
 }
 
 pub fn extract_entities_needs_specialization<M>(
-    mut entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
+    entities_needing_specialization: Extract<Res<EntitiesNeedingSpecialization<M>>>,
     mut entity_specialization_ticks: ResMut<EntitySpecializationTicks<M>>,
     ticks: SystemChangeTick,
 ) where
     M: Material2d,
 {
-    for entity in &entities_needing_specialization.entities {
+    for entity in entities_needing_specialization.iter() {
         // Update the entity's specialization tick with this run's tick
         entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
 }
 
-#[derive(Clone, Resource, Debug)]
+#[derive(Clone, Resource, Deref, DerefMut, Debug)]
 pub struct EntitiesNeedingSpecialization<M> {
+    #[deref]
     pub entities: Vec<Entity>,
     _marker: PhantomData<M>,
 }
@@ -623,9 +621,9 @@ fn check_entities_needing_specialization<M>(
 ) where
     M: Material2d,
 {
-    entities_needing_specialization.entities.clear();
+    entities_needing_specialization.clear();
     for entity in &needs_specialization {
-        entities_needing_specialization.entities.push(entity);
+        entities_needing_specialization.push(entity);
     }
 }
 
@@ -639,17 +637,10 @@ pub fn specialize_material2d_meshes<M: Material2d>(
     ),
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
-    mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
-    mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(
-        &MainEntity,
-        &ExtractedView,
-        &RenderVisibleEntities,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-    )>,
+    transparent_render_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
+    opaque_render_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
+    alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
+    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
     entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
@@ -662,7 +653,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &views {
+    for (view_entity, view, visible_entities) in &views {
         if !transparent_render_phases.contains_key(&view.retained_view_entity)
             && !opaque_render_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
@@ -731,9 +722,6 @@ pub fn specialize_material2d_meshes<M: Material2d>(
 }
 
 pub fn queue_material2d_meshes<M: Material2d>(
-    material2d_pipeline: Res<Material2dPipeline<M>>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
     (render_meshes, render_materials): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderAssets<PreparedMaterial2d<M>>>,
@@ -743,14 +731,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_render_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    views: Query<(
-        &MainEntity,
-        &ExtractedView,
-        &RenderVisibleEntities,
-        &Msaa,
-        Option<&Tonemapping>,
-        Option<&DebandDither>,
-    )>,
+    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -759,7 +740,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view_entity, view, visible_entities, msaa, tonemapping, dither) in &views {
+    for (view_entity, view, visible_entities) in &views {
         let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
         else {
             continue;

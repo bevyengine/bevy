@@ -20,7 +20,6 @@ use bevy_ecs::{
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
 use bevy_render::prelude::Msaa;
-use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
     batching::{
@@ -199,7 +198,7 @@ pub fn check_views_need_specialization(
 
         if !view_key_cache
             .get_mut(view_entity)
-            .is_some_and(|current_key| **current_key == view_key)
+            .is_some_and(|current_key| *current_key == view_key)
         {
             view_key_cache.insert(*view_entity, view_key);
             view_specialization_ticks.insert(*view_entity, ticks.this_run());

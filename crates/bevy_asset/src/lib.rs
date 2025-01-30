@@ -212,7 +212,7 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use bevy_app::{App, Last, Plugin, PostUpdate, PreUpdate};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
