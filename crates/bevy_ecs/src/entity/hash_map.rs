@@ -26,7 +26,7 @@ impl<V> EntityHashMap<V> {
     /// Equivalent to [`HashMap::with_hasher(EntityHash)`].
     ///
     /// [`HashMap::with_hasher(EntityHash)`]: HashMap::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(HashMap::with_hasher(EntityHash))
     }
 
