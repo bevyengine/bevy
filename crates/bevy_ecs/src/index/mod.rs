@@ -18,11 +18,11 @@ use core::{alloc::Layout, hash::Hash, ptr::NonNull};
 pub trait WorldIndexExtension {
     /// Create and track an index for `C`.
     /// This is required to use the [`QueryByIndex`] system parameter.
-    fn add_index<C: IndexComponent>(&mut self) -> &mut Self;
+    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self;
 }
 
 impl WorldIndexExtension for World {
-    fn add_index<C: IndexComponent>(&mut self) -> &mut Self {
+    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self {
         if self.get_resource::<Index<C>>().is_none() {
             self.add_observer(Index::<C>::on_insert);
             self.add_observer(Index::<C>::on_replace);
@@ -35,12 +35,12 @@ impl WorldIndexExtension for World {
 }
 
 /// Marker describing the requirements for a [`Component`] to be suitable for indexing.
-pub trait IndexComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {}
+pub trait IndexableComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {}
 
-impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> IndexComponent for C {}
+impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> IndexableComponent for C {}
 
 /// This system parameter allows querying by an indexed component value.
-pub struct QueryByIndex<'world, C: IndexComponent, D: QueryData, F: QueryFilter = ()> {
+pub struct QueryByIndex<'world, C: IndexableComponent, D: QueryData, F: QueryFilter = ()> {
     world: UnsafeWorldCell<'world>,
     state: Option<QueryState<D, (F, With<C>)>>,
     last_run: Tick,
@@ -48,7 +48,7 @@ pub struct QueryByIndex<'world, C: IndexComponent, D: QueryData, F: QueryFilter 
     index: Res<'world, Index<C>>,
 }
 
-impl<C: IndexComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D, F> {
+impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D, F> {
     /// Return a [`Query`] only returning entities with a component `C` of the provided value.
     ///
     /// # Examples
@@ -102,7 +102,7 @@ impl<C: IndexComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D, F> 
 }
 
 // SAFETY: We rely on the known-safe implementations of `SystemParam` for `Res` and `Query`.
-unsafe impl<C: IndexComponent, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     for QueryByIndex<'_, C, D, F>
 {
     type State = (QueryState<D, (F, With<C>)>, ComponentId);
@@ -154,12 +154,12 @@ unsafe impl<C: IndexComponent, D: QueryData + 'static, F: QueryFilter + 'static>
 }
 
 #[derive(Resource)]
-struct Index<C: IndexComponent> {
+struct Index<C: IndexableComponent> {
     mapping: HashMap<C, ComponentId>,
     spare_markers: Vec<ComponentId>,
 }
 
-impl<C: IndexComponent> Default for Index<C> {
+impl<C: IndexableComponent> Default for Index<C> {
     fn default() -> Self {
         Self {
             mapping: Default::default(),
@@ -168,7 +168,7 @@ impl<C: IndexComponent> Default for Index<C> {
     }
 }
 
-impl<C: IndexComponent> Index<C> {
+impl<C: IndexableComponent> Index<C> {
     fn on_insert(trigger: Trigger<OnInsert, C>, mut commands: Commands) {
         let entity = trigger.target();
 

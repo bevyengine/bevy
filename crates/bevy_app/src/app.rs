@@ -11,7 +11,7 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     event::{event_update_system, EventCursor},
-    index::IndexComponent,
+    index::IndexableComponent,
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -1357,7 +1357,7 @@ impl App {
     /// }
     /// # app.add_systems(Update, find_red_fans);
     /// ```
-    pub fn add_index<C: IndexComponent>(&mut self) -> &mut Self {
+    pub fn add_index<C: IndexableComponent>(&mut self) -> &mut Self {
         self.world_mut().add_index::<C>();
         self
     }
