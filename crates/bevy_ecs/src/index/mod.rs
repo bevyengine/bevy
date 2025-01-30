@@ -133,7 +133,7 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, Immutable, StorageType, Tick},
     prelude::Trigger,
     query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
-    system::{Commands, Query, Res, SystemMeta, SystemParam},
+    system::{Commands, Query, Res, ResMut, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, OnInsert, OnReplace, World},
 };
 use alloc::{format, vec::Vec};
@@ -240,9 +240,9 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D,
             // SAFETY: Mutable references do not alias and will be dropped after this block
             let mut builder = unsafe { QueryBuilder::new(self.world.world_mut()) };
 
-            match self.index.mapping.get(value).copied() {
+            match self.index.mapping.get(value) {
                 // If there is a marker, restrict to it
-                Some(component_id) => builder.with_id(component_id),
+                Some(state) => builder.with_id(state.component_id),
                 // Otherwise, create a no-op query by including With<C> and Without<C>
                 None => builder.without::<C>(),
             };
@@ -321,7 +321,7 @@ unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'sta
 #[derive(Resource)]
 struct Index<C: IndexableComponent> {
     /// Maps `C` values to a marking ZST component.
-    mapping: HashMap<C, ComponentId>,
+    mapping: HashMap<C, IndexState>,
     /// Previously registered but currently unused marking ZSTs.
     /// If a value _was_ tracked in [`mapping`](Index::mapping) but no entity
     /// has that value anymore, its marker is pushed here for reuse when a _new_
@@ -329,6 +329,15 @@ struct Index<C: IndexableComponent> {
     ///
     /// When exhausted, new markers must be registered from a [`World`].
     spare_markers: Vec<ComponentId>,
+}
+
+/// Internal state for a particular index value within the [`Index`] resource.
+#[derive(Clone, Copy)]
+struct IndexState {
+    /// [`ComponentId`] of this marking ZST
+    component_id: ComponentId,
+    /// A count of how many entities are currently holding this component
+    live_count: usize,
 }
 
 // Rust's derives assume that C must impl Default for this to hold,
@@ -353,9 +362,12 @@ impl<C: IndexableComponent> Index<C> {
                 };
 
                 // Need a marker component for this entity
-                let component_id = match index.mapping.get(value).copied() {
+                let component_id = match index.mapping.get_mut(value) {
                     // This particular value already has an assigned marker, reuse it.
-                    Some(component_id) => component_id,
+                    Some(state) => {
+                        state.live_count += 1;
+                        state.component_id
+                    }
                     None => {
                         // Need to clone the index value for later lookups
                         let value = value.clone();
@@ -367,7 +379,13 @@ impl<C: IndexableComponent> Index<C> {
                             .pop()
                             .unwrap_or_else(|| Self::alloc_new_marker(world));
 
-                        index.mapping.insert(value, component_id);
+                        index.mapping.insert(
+                            value,
+                            IndexState {
+                                component_id,
+                                live_count: 1,
+                            },
+                        );
                         component_id
                     }
                 };
@@ -387,38 +405,29 @@ impl<C: IndexableComponent> Index<C> {
     fn on_replace(
         trigger: Trigger<OnReplace, C>,
         query: Query<&C>,
-        index: Res<Index<C>>,
+        mut index: ResMut<Index<C>>,
         mut commands: Commands,
     ) {
         let entity = trigger.target();
 
-        let value = query.get(entity).unwrap().clone();
+        let value = query.get(entity).unwrap();
 
-        let component_id = index.mapping.get(&value).copied().unwrap();
+        let state = index.mapping.get_mut(value).unwrap();
+
+        state.live_count = state.live_count.saturating_sub(1);
+
+        let component_id = state.component_id;
+
+        // On removal, we check if this was the last usage of this marker.
+        // If so, we can recycle it for a different value
+        if state.live_count == 0 {
+            index.mapping.remove(value);
+            index.spare_markers.push(component_id);
+        }
 
         commands.queue(move |world: &mut World| {
-            world.resource_scope::<Self, _>(|world, mut index| {
-                // The old marker is no longer applicable since the value has changed/been removed.
-                world.entity_mut(entity).remove_by_id(component_id);
-
-                // On removal, we check if this was the last usage of this marker.
-                // If so, we can recycle it for a different value
-                let Self {
-                    ref mut mapping,
-                    ref mut spare_markers,
-                    ..
-                } = index.as_mut();
-
-                let mut builder = QueryBuilder::<(), With<C>>::new(world);
-                builder.with_id(component_id);
-                let mut query = builder.build();
-
-                // is_empty
-                if query.iter(world).next().is_none() {
-                    mapping.remove(&value);
-                    spare_markers.push(component_id);
-                }
-            });
+            // The old marker is no longer applicable since the value has changed/been removed.
+            world.entity_mut(entity).remove_by_id(component_id);
         });
     }
 
