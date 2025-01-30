@@ -46,12 +46,16 @@ fn main() {
 }
 
 fn touch_camera(
-    window: Single<&Window>,
+    window: Query<&Window>,
     mut touches: EventReader<TouchInput>,
     mut camera_transform: Single<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
     mut rotations: EventReader<RotationGesture>,
 ) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;

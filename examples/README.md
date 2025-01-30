@@ -103,7 +103,6 @@ Example | Description
 Example | Description
 --- | ---
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
-[2D Bounding Volume Intersections](../examples/2d/bounding_2d.rs) | Showcases bounding volumes and intersection tests
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
 [2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
@@ -146,6 +145,7 @@ Example | Description
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
+[Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
 [Color grading](../examples/3d/color_grading.rs) | Demonstrates color grading
 [Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
@@ -163,6 +163,7 @@ Example | Description
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
 [Motion Blur](../examples/3d/motion_blur.rs) | Demonstrates per-pixel motion blur
+[Occlusion Culling](../examples/3d/occlusion_culling.rs) | Demonstration of Occlusion Culling
 [Order Independent Transparency](../examples/3d/order_independent_transparency.rs) | Demonstrates how to use OIT
 [Orthographic View](../examples/3d/orthographic.rs) | Shows how to create a 3D orthographic view (for isometric-look in games or CAD applications)
 [Parallax Mapping](../examples/3d/parallax_mapping.rs) | Demonstrates use of a normal map and depth map for parallax mapping
@@ -179,6 +180,7 @@ Example | Description
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
+[Specular Tint](../examples/3d/specular_tint.rs) | Demonstrates specular tints and maps
 [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
 [Spotlight](../examples/3d/spotlight.rs) | Illustrates spot lights
@@ -369,6 +371,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Bounding Volume Intersections (2D)](../examples/math/bounding_2d.rs) | Showcases bounding volumes and intersection tests
 [Cubic Splines](../examples/math/cubic_splines.rs) | Exhibits different modes of constructing cubic curves using splines
 [Custom Primitives](../examples/math/custom_primitives.rs) | Demonstrates how to add custom primitives and useful traits for them.
 [Random Sampling](../examples/math/random_sampling.rs) | Demonstrates how to sample random points from mathematical primitives

@@ -1005,7 +1005,7 @@ impl Image {
     ///
     /// Returns None if the provided coordinates are out of bounds.
     ///
-    /// For 2D textures, Z is ignored. For 1D textures, Y and Z are ignored.
+    /// For 2D textures, Z is the layer number. For 1D textures, Y and Z are ignored.
     #[inline(always)]
     pub fn pixel_data_offset(&self, coords: UVec3) -> Option<usize> {
         let width = self.texture_descriptor.size.width;
@@ -1014,17 +1014,11 @@ impl Image {
 
         let pixel_size = self.texture_descriptor.format.pixel_size();
         let pixel_offset = match self.texture_descriptor.dimension {
-            TextureDimension::D3 => {
+            TextureDimension::D3 | TextureDimension::D2 => {
                 if coords.x >= width || coords.y >= height || coords.z >= depth {
                     return None;
                 }
                 coords.z * height * width + coords.y * width + coords.x
-            }
-            TextureDimension::D2 => {
-                if coords.x >= width || coords.y >= height {
-                    return None;
-                }
-                coords.y * width + coords.x
             }
             TextureDimension::D1 => {
                 if coords.x >= width {
@@ -1096,15 +1090,20 @@ impl Image {
         self.get_color_at_internal(UVec3::new(x, y, 0))
     }
 
-    /// Read the color of a specific pixel (3D texture).
+    /// Read the color of a specific pixel (2D texture with layers or 3D texture).
     ///
     /// See [`get_color_at`](Self::get_color_at) for more details.
     #[inline(always)]
     pub fn get_color_at_3d(&self, x: u32, y: u32, z: u32) -> Result<Color, TextureAccessError> {
-        if self.texture_descriptor.dimension != TextureDimension::D3 {
-            return Err(TextureAccessError::WrongDimension);
+        match (
+            self.texture_descriptor.dimension,
+            self.texture_descriptor.size.depth_or_array_layers,
+        ) {
+            (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
+                self.get_color_at_internal(UVec3::new(x, y, z))
+            }
+            _ => Err(TextureAccessError::WrongDimension),
         }
-        self.get_color_at_internal(UVec3::new(x, y, z))
     }
 
     /// Change the color of a specific pixel (1D texture).
@@ -1148,7 +1147,7 @@ impl Image {
         self.set_color_at_internal(UVec3::new(x, y, 0), color)
     }
 
-    /// Change the color of a specific pixel (3D texture).
+    /// Change the color of a specific pixel (2D texture with layers or 3D texture).
     ///
     /// See [`set_color_at`](Self::set_color_at) for more details.
     #[inline(always)]
@@ -1159,10 +1158,15 @@ impl Image {
         z: u32,
         color: Color,
     ) -> Result<(), TextureAccessError> {
-        if self.texture_descriptor.dimension != TextureDimension::D3 {
-            return Err(TextureAccessError::WrongDimension);
+        match (
+            self.texture_descriptor.dimension,
+            self.texture_descriptor.size.depth_or_array_layers,
+        ) {
+            (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
+                self.set_color_at_internal(UVec3::new(x, y, z), color)
+            }
+            _ => Err(TextureAccessError::WrongDimension),
         }
-        self.set_color_at_internal(UVec3::new(x, y, z), color)
     }
 
     #[inline(always)]
@@ -1658,5 +1662,26 @@ mod test {
             image.get_color_at(5, 10),
             Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
         ));
+    }
+
+    #[test]
+    fn get_set_pixel_2d_with_layers() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 5,
+                height: 10,
+                depth_or_array_layers: 3,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        image.set_color_at_3d(0, 0, 0, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(0, 0, 0), Ok(Color::WHITE)));
+        image.set_color_at_3d(2, 3, 1, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(2, 3, 1), Ok(Color::WHITE)));
+        image.set_color_at_3d(4, 9, 2, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(4, 9, 2), Ok(Color::WHITE)));
     }
 }
