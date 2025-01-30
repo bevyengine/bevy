@@ -40,7 +40,7 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
-use core::{hash::Hash, ops::Range, marker::PhantomData};
+use core::{hash::Hash, marker::PhantomData, ops::Range};
 #[cfg(feature = "trace")]
 use tracing::info_span;
 use tracing::{error, warn};
@@ -1595,9 +1595,7 @@ pub fn check_entities_needing_specialization<M: Material>(
     }
 
     for removed in removed_components.read() {
-        entities_needing_specialization
-            .entities
-            .push(removed);
+        entities_needing_specialization.entities.push(removed);
     }
 }
 
