@@ -5,8 +5,8 @@ use bevy::prelude::*;
 #[derive(Component, PartialEq, Eq, Hash, Clone, Debug)]
 #[component(immutable)]
 struct TilePosition {
-    x: i32,
-    y: i32,
+    x: i8,
+    y: i8,
 }
 
 fn main() {
