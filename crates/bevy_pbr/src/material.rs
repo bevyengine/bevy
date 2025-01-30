@@ -705,9 +705,7 @@ pub fn extract_entities_needs_specialization<M>(
 {
     for entity in &entities_needing_specialization.entities {
         // Update the entity's specialization tick with this run's tick
-        entity_specialization_ticks
-            .entities
-            .insert((*entity).into(), ticks.this_run());
+        entity_specialization_ticks.insert((*entity).into(), ticks.this_run());
     }
 }
 
@@ -726,8 +724,9 @@ impl<M> Default for EntitiesNeedingSpecialization<M> {
     }
 }
 
-#[derive(Clone, Resource, Debug)]
+#[derive(Clone, Resource, Deref, DerefMut, Debug)]
 pub struct EntitySpecializationTicks<M> {
+    #[deref]
     pub entities: MainEntityHashMap<Tick>,
     _marker: PhantomData<M>,
 }
@@ -741,8 +740,10 @@ impl<M> Default for EntitySpecializationTicks<M> {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedMaterialPipelineCache<M> {
+    // (view_entity, material_entity) -> (tick, pipeline_id)
+    #[deref]
     map: HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
     marker: PhantomData<M>,
 }
@@ -756,23 +757,8 @@ impl<M> Default for SpecializedMaterialPipelineCache<M> {
     }
 }
 
-impl<M> Deref for SpecializedMaterialPipelineCache<M> {
-    type Target = HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.map
-    }
-}
-
-impl<M> DerefMut for SpecializedMaterialPipelineCache<M> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.map
-    }
-}
-
 fn check_entities_needing_specialization<M>(
-    mut thread_queues: Local<Parallel<Vec<Entity>>>,
-    mut needs_specialization: Query<
+    needs_specialization: Query<
         Entity,
         Or<(
             Changed<Mesh3d>,
@@ -786,14 +772,9 @@ fn check_entities_needing_specialization<M>(
     M: Material,
 {
     entities_needing_specialization.entities.clear();
-    needs_specialization.par_iter_mut().for_each_init(
-        || thread_queues.borrow_local_mut(),
-        |queue, entity| {
-            queue.push(entity.into());
-        },
-    );
-
-    thread_queues.drain_into(&mut entities_needing_specialization.entities);
+    for entity in &needs_specialization {
+        entities_needing_specialization.entities.push(entity);
+    }
 }
 
 pub fn specialize_material_meshes<M: Material>(
@@ -842,24 +823,15 @@ pub fn specialize_material_meshes<M: Material>(
         };
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let view_tick = view_specialization_ticks
-                .get(view_entity)
-                .expect("View entity not found in specialization ticks");
-            let entity_tick = entity_specialization_ticks
-                .entities
-                .get(visible_entity)
-                .expect("Entity not found in specialization ticks");
+            let view_tick = view_specialization_ticks.get(view_entity).unwrap();
+            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = specialized_material_pipeline_cache
                 .get(&(*view_entity, *visible_entity))
                 .map(|(tick, _)| *tick);
-            let needs_specialization =
-                last_specialized_tick.map_or(true, |last_specialized_tick| {
-                    let view_changed =
-                        view_tick.is_newer_than(last_specialized_tick, ticks.this_run());
-                    let entity_changed =
-                        entity_tick.is_newer_than(last_specialized_tick, ticks.this_run());
-                    view_changed || entity_changed
-                });
+            let needs_specialization = last_specialized_tick.is_none_or(|tick| {
+                view_tick.is_newer_than(tick, ticks.this_run())
+                    || entity_tick.is_newer_than(tick, ticks.this_run())
+            });
             if !needs_specialization {
                 continue;
             }
@@ -885,13 +857,7 @@ pub fn specialize_material_meshes<M: Material>(
             let mut mesh_pipeline_key_bits = material.properties.mesh_pipeline_key_bits;
             mesh_pipeline_key_bits.insert(alpha_mode_pipeline_key(
                 material.properties.alpha_mode,
-                match view_key.msaa_samples() {
-                    1 => &Msaa::Off,
-                    2 => &Msaa::Sample2,
-                    4 => &Msaa::Sample4,
-                    8 => &Msaa::Sample8,
-                    _ => unreachable!("Unsupported MSAA sample count"),
-                },
+                &Msaa::from_samples(view_key.msaa_samples()),
             ));
             let mut mesh_key = *view_key
                 | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits())
@@ -936,7 +902,7 @@ pub fn specialize_material_meshes<M: Material>(
                 Ok(id) => id,
                 Err(err) => {
                     error!("{}", err);
-                    return;
+                    continue;
                 }
             };
 
@@ -1259,10 +1225,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
 
         let render_phase_type = match material.alpha_mode() {
-            AlphaMode::Blend |
-            AlphaMode::Premultiplied |
-            AlphaMode::Add |
-            AlphaMode::Multiply => RenderPhaseType::Transparent,
+            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
+                RenderPhaseType::Transparent
+            }
             _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
             AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
             AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,

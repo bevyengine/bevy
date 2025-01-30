@@ -1589,37 +1589,32 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 
 /// These will be extracted in the material extraction
 pub fn check_entities_needing_specialization<M: Material>(
-    mut thread_queues: Local<Parallel<Vec<Entity>>>,
-    mut needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
+    needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,
 ) {
     entities_needing_specialization.entities.clear();
-    needs_specialization.par_iter_mut().for_each_init(
-        || thread_queues.borrow_local_mut(),
-        |queue, entity| {
-            queue.push(entity.into());
-        },
-    );
+    for entity in &needs_specialization {
+        entities_needing_specialization.entities.push(entity);
+    }
 
     for removed in removed_components.read() {
         entities_needing_specialization
             .entities
             .push(removed.into());
     }
-
-    thread_queues.drain_into(&mut entities_needing_specialization.entities);
 }
 
-//ODO: Are these render entities or main entities?These are ex
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct LightKeyCache(EntityHashMap<MeshPipelineKey>);
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
 pub struct LightSpecializationTicks(EntityHashMap<Tick>);
 
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedShadowMaterialPipelineCache<M> {
+    // (view_light_entity, visible_entity) -> (tick, pipeline_id)
+    #[deref]
     map: HashMap<(Entity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
     marker: PhantomData<M>,
 }
@@ -1630,20 +1625,6 @@ impl<M> Default for SpecializedShadowMaterialPipelineCache<M> {
             map: HashMap::default(),
             marker: PhantomData,
         }
-    }
-}
-
-impl<M> Deref for SpecializedShadowMaterialPipelineCache<M> {
-    type Target = HashMap<(Entity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.map
-    }
-}
-
-impl<M> DerefMut for SpecializedShadowMaterialPipelineCache<M> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.map
     }
 }
 
@@ -1759,24 +1740,15 @@ pub fn specialize_shadows<M: Material>(
             // so no meshes will be queued
 
             for (_, visible_entity) in visible_entities.iter().copied() {
-                let view_tick = light_specialization_ticks
-                    .get(&view_light_entity)
-                    .expect("View entity not found in specialization ticks");
-                let entity_tick = entity_specialization_ticks
-                    .entities
-                    .get(&visible_entity)
-                    .expect("Entity not found in specialization ticks");
+                let view_tick = light_specialization_ticks.get(&view_light_entity).unwrap();
+                let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
                 let last_specialized_tick = specialized_material_pipeline_cache
                     .get(&(view_light_entity, visible_entity))
                     .map(|(tick, _)| *tick);
-                let needs_specialization =
-                    last_specialized_tick.map_or(true, |last_specialized_tick| {
-                        let view_changed =
-                            view_tick.is_newer_than(last_specialized_tick, ticks.this_run());
-                        let entity_changed =
-                            entity_tick.is_newer_than(last_specialized_tick, ticks.this_run());
-                        view_changed || entity_changed
-                    });
+                let needs_specialization = last_specialized_tick.is_none_or(|tick| {
+                    view_tick.is_newer_than(tick, ticks.this_run())
+                        || entity_tick.is_newer_than(tick, ticks.this_run())
+                });
                 if !needs_specialization {
                     continue;
                 }

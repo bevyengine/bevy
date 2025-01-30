@@ -1,6 +1,14 @@
 mod prepass_bindings;
 
-use crate::{alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout, material_bind_groups::MaterialBindGroupAllocator, queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial};
+use crate::{
+    alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
+    material_bind_groups::MaterialBindGroupAllocator, queue_material_meshes,
+    setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material,
+    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
+    OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances,
+    RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup,
+    SetMeshBindGroup, ShadowView, StandardMaterial,
+};
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
     alpha::AlphaMode,
@@ -787,8 +795,10 @@ pub fn prepare_prepass_view_bind_group<M: Material>(
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedPrepassMaterialPipelineCache<M> {
+    // (view_entity, material_entity) -> (tick, pipeline_id)
+    #[deref]
     map: HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
     marker: PhantomData<M>,
 }
@@ -799,20 +809,6 @@ impl<M> Default for SpecializedPrepassMaterialPipelineCache<M> {
             map: HashMap::default(),
             marker: PhantomData,
         }
-    }
-}
-
-impl<M> Deref for SpecializedPrepassMaterialPipelineCache<M> {
-    type Target = HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.map
-    }
-}
-
-impl<M> DerefMut for SpecializedPrepassMaterialPipelineCache<M> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.map
     }
 }
 
@@ -874,8 +870,6 @@ pub fn specialize_prepass_material_meshes<M>(
         &ExtractedView,
         &RenderVisibleEntities,
         &Msaa,
-        Option<&DepthPrepass>,
-        Option<&NormalPrepass>,
         Option<&MotionVectorPrepass>,
         Option<&DeferredPrepass>,
     )>,
@@ -916,8 +910,6 @@ pub fn specialize_prepass_material_meshes<M>(
         extracted_view,
         visible_entities,
         msaa,
-        depth_prepass,
-        normal_prepass,
         motion_vector_prepass,
         deferred_prepass,
     ) in &views
@@ -935,24 +927,15 @@ pub fn specialize_prepass_material_meshes<M>(
         };
 
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let view_tick = view_specialization_ticks
-                .get(view_entity)
-                .expect("View entity not found in specialization ticks");
-            let entity_tick = entity_specialization_ticks
-                .entities
-                .get(visible_entity)
-                .expect("Entity not found in specialization ticks");
+            let view_tick = view_specialization_ticks.get(view_entity).unwrap();
+            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = specialized_material_pipeline_cache
                 .get(&(*view_entity, *visible_entity))
                 .map(|(tick, _)| *tick);
-            let needs_specialization =
-                last_specialized_tick.map_or(true, |last_specialized_tick| {
-                    let view_changed =
-                        view_tick.is_newer_than(last_specialized_tick, ticks.this_run());
-                    let entity_changed =
-                        entity_tick.is_newer_than(last_specialized_tick, ticks.this_run());
-                    view_changed || entity_changed
-                });
+            let needs_specialization = last_specialized_tick.is_none_or(|tick| {
+                view_tick.is_newer_than(tick, ticks.this_run())
+                    || entity_tick.is_newer_than(tick, ticks.this_run())
+            });
             if !needs_specialization {
                 continue;
             }
