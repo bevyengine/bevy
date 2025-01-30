@@ -51,7 +51,7 @@ fn spawn_tiles(mut commands: Commands) {
 fn query_for_tiles(mut index_query: QueryByIndex<TilePosition, (Entity, &TilePosition)>) {
     // To specify the value you wish to lookup, use `at(...)` within the system.
     // This returns a `Query`, supporting all the same methods and APIs you're used to!
-    let mut tiles_at_1_1: Query<(Entity, &TilePosition), _> =
+    let tiles_at_1_1: Query<(Entity, &TilePosition), _> =
         index_query.at(&TilePosition { x: 1, y: 1 });
 
     // The Query returned by `at(...)` will _only_ return entities with the given value.
