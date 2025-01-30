@@ -1,5 +1,6 @@
 use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
+use bevy_math::ops;
 use bevy_reflect::prelude::*;
 
 /// Use this [`Resource`] to control the global volume of all audio.
@@ -45,7 +46,7 @@ impl From<f32> for Volume {
 }
 
 impl PartialOrd for Volume {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         Some(self.0.total_cmp(&other.0))
     }
 }
@@ -95,12 +96,12 @@ impl Volume {
 
     /// Create a new volume from the given decibel level.
     pub fn from_decibels(v: f32) -> Self {
-        Self(10.0f32.powf(v / 20.0))
+        Self(ops::powf(10.0f32, v / 20.0))
     }
 
     /// Returns the volume in decibels.
     pub fn to_decibels(&self) -> f32 {
-        20.0 * self.0.log10()
+        20.0 * ops::log10(self.0)
     }
 
     /// The silent or off volume level.
