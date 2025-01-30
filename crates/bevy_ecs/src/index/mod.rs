@@ -41,7 +41,40 @@ pub trait IndexableComponent: Component<Mutability = Immutable> + Eq + Hash + Cl
 
 impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> IndexableComponent for C {}
 
-/// This system parameter allows querying by an indexed component value.
+/// This system parameter allows querying by an [indexable component](`IndexableComponent`) value.
+///
+/// # Examples
+///
+/// ```rust
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::new();
+/// #[derive(Component, PartialEq, Eq, Hash, Clone)]
+/// #[component(immutable)]
+/// struct Player(u8);
+///
+/// // Indexing is opt-in through `World::add_index`
+/// world.add_index::<Player>();
+/// # world.spawn(Player(0));
+/// # world.spawn(Player(0));
+/// # world.spawn(Player(1));
+/// # world.spawn(Player(1));
+/// # world.spawn(Player(1));
+/// # world.spawn(Player(2));
+/// # world.spawn(Player(2));
+/// # world.spawn(Player(2));
+/// # world.spawn(Player(2));
+/// # world.flush();
+///
+/// fn find_all_player_one_entities(mut query: QueryByIndex<Player, Entity>) {
+///     for entity in query.at(&Player(0)).iter() {
+///         println!("{entity:?} belongs to Player 1!");
+///     }
+/// #   assert_eq!(query.at(&Player(0)).iter().count(), 2);
+/// #   assert_eq!(query.at(&Player(1)).iter().count(), 3);
+/// #   assert_eq!(query.at(&Player(2)).iter().count(), 4);
+/// }
+/// # world.run_system_cached(find_all_player_one_entities);
+/// ```
 pub struct QueryByIndex<'world, C: IndexableComponent, D: QueryData, F: QueryFilter = ()> {
     world: UnsafeWorldCell<'world>,
     state: Option<QueryState<D, (F, With<C>)>>,
@@ -172,7 +205,7 @@ struct Index<C: IndexableComponent> {
 
 // Rust's derives assume that C must impl Default for this to hold,
 // but that's not true.
-impl<C: IndexComponent> Default for Index<C> {
+impl<C: IndexableComponent> Default for Index<C> {
     fn default() -> Self {
         Self {
             mapping: Default::default(),
