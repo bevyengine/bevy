@@ -155,9 +155,18 @@ unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'sta
     }
 }
 
+/// This [`Resource`] is responsible for managing a value-to-[`ComponentId`] mapping, allowing
+/// [`QueryByIndex`] to simply filter by [`ComponentId`] on a standard [`Query`].
 #[derive(Resource)]
 struct Index<C: IndexableComponent> {
+    /// Maps `C` values to a marking ZST component.
     mapping: HashMap<C, ComponentId>,
+    /// Previously registered but currently unused marking ZSTs.
+    /// If a value _was_ tracked in [`mapping`](Index::mapping) but no entity
+    /// has that value anymore, its marker is pushed here for reuse when a _new_
+    /// value for `C` needs to be tracked.
+    ///
+    /// When exhausted, new markers must be registered from a [`World`].
     spare_markers: Vec<ComponentId>,
 }
 
