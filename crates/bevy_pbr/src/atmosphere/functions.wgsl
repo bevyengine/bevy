@@ -75,7 +75,9 @@ fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
     let horizon_zenith = PI - beta;
     let view_zenith = fast_acos_4(mu);
 
-    // Latitude parameterization
+    // Apply non-linear transformation to compress more texels 
+    // near the horizon where high-frequency details matter most
+    // l is latitude in [-π/2, π/2] and v is texture coordinate in [0,1]
     let l = view_zenith - horizon_zenith;
     let abs_l = abs(l);
     
@@ -94,7 +96,7 @@ fn sky_view_lut_uv_to_zenith_azimuth(r: f32, uv: vec2<f32>) -> vec2<f32> {
     let beta = fast_acos_4(cos_beta);
     let horizon_zenith = PI - beta;
 
-    // Inverse mapping
+    // Inverse of horizon-detail mapping to recover original latitude from texture coordinate
     let t = abs(2.0 * (adj_uv.y - 0.5));
     let l = sign(adj_uv.y - 0.5) * HALF_PI * t * t;
 
@@ -127,7 +129,8 @@ fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
     let view_ray_dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
     let t_max = settings.aerial_view_lut_max_distance;
 
-    // Special handling for first slice to avoid extrapolation
+    // Special handling of first slice to ensure zero scattering at camera position.
+    // Without this, nearby objects would incorrectly show extra inscattering.
     let delta_slice = t_max / f32(settings.aerial_view_lut_size.z);
     if (view_ray_dist < delta_slice) {
         let f = view_ray_dist / delta_slice;
