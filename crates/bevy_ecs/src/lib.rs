@@ -43,6 +43,7 @@ pub mod entity_disabling;
 pub mod event;
 pub mod hierarchy;
 pub mod identifier;
+pub mod index;
 pub mod intern;
 pub mod label;
 pub mod name;

@@ -2041,6 +2041,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "index"
+path = "examples/ecs/index.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.index]
+name = "Indexes"
+description = "Demonstrates the creation and utility of indexes"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 doc-scrape-examples = true
