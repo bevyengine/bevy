@@ -34,7 +34,9 @@ impl WorldIndexExtension for World {
     }
 }
 
-/// Marker describing the requirements for a [`Component`] to be suitable for indexing.
+/// A marker trait describing the requirements for a [`Component`] to be indexed and accessed via [`QueryByIndex`].
+///
+/// See the module docs for more information.
 pub trait IndexableComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {}
 
 impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> IndexableComponent for C {}
