@@ -11,6 +11,7 @@ mod empty_archetypes;
 mod entity_cloning;
 mod events;
 mod fragmentation;
+mod index;
 mod iteration;
 mod observers;
 mod param;
@@ -23,6 +24,7 @@ criterion_main!(
     empty_archetypes::benches,
     entity_cloning::benches,
     events::benches,
+    index::benches,
     iteration::benches,
     fragmentation::benches,
     observers::benches,
