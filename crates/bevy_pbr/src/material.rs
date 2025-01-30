@@ -31,6 +31,7 @@ use bevy_ecs::{
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
@@ -272,15 +273,16 @@ where
         app.init_asset::<M>()
             .register_type::<MeshMaterial3d<M>>()
             .init_resource::<EntitiesNeedingSpecialization<M>>()
-            .add_systems(
-                PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEvents),
-            )
             .add_plugins((RenderAssetPlugin::<PreparedMaterial<M>>::default(),))
             .add_systems(
                 PostUpdate,
-                mark_meshes_as_changed_if_their_materials_changed::<M>
-                    .ambiguous_with_all()
+                (
+                    mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
+                    check_light_entities_needing_specialization::<M>.after(AssetEvents),
+                    check_entities_needing_specialization::<M>
+                        .after(AssetEvents)
+                        .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
+                )
                     .after(mesh::mark_3d_meshes_as_changed_if_their_assets_changed),
             );
 
@@ -748,7 +750,7 @@ impl<M> Default for SpecializedMaterialPipelineCache<M> {
     }
 }
 
-fn check_entities_needing_specialization<M>(
+pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
         Or<(

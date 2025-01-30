@@ -607,7 +607,7 @@ impl<M> Default for SpecializedMaterial2dPipelineCache<M> {
     }
 }
 
-fn check_entities_needing_specialization<M>(
+pub fn check_entities_needing_specialization<M>(
     needs_specialization: Query<
         Entity,
         Or<(
