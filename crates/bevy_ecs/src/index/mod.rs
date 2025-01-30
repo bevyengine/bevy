@@ -231,15 +231,9 @@ impl<C: IndexableComponent> Index<C> {
     ) {
         let entity = trigger.target();
 
-        let value = query
-            .get(entity)
-            .expect("observer should see a component in on_replace");
+        let value = query.get(entity).unwrap();
 
-        let component_id = index
-            .mapping
-            .get(value)
-            .copied()
-            .expect("somehow didn't track this value");
+        let component_id = index.mapping.get(value).copied().unwrap();
 
         commands.queue(move |world: &mut World| {
             world.resource_scope::<Self, _>(|world, mut index| {
