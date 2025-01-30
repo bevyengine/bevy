@@ -131,6 +131,7 @@
 use crate::{
     self as bevy_ecs,
     component::{Component, ComponentDescriptor, ComponentId, Immutable, StorageType, Tick},
+    entity::Entity,
     prelude::Trigger,
     query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
     system::{Commands, Query, Res, ResMut, SystemMeta, SystemParam},
@@ -152,11 +153,21 @@ pub trait WorldIndexExtension {
 impl WorldIndexExtension for World {
     fn add_index<C: IndexableComponent>(&mut self) -> &mut Self {
         if self.get_resource::<Index<C>>().is_none() {
+            let mut index = Index::<C>::default();
+
+            self.query::<(Entity, &C)>()
+                .iter(&self)
+                .map(|(entity, _)| entity)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .for_each(|entity| {
+                    index.track_entity(self, entity);
+                });
+
+            self.insert_resource(index);
             self.add_observer(Index::<C>::on_insert);
             self.add_observer(Index::<C>::on_replace);
         }
-
-        self.init_resource::<Index<C>>();
 
         self
     }
@@ -352,52 +363,56 @@ impl<C: IndexableComponent> Default for Index<C> {
 }
 
 impl<C: IndexableComponent> Index<C> {
+    fn track_entity(&mut self, world: &mut World, entity: Entity) {
+        let Some(value) = world.get::<C>(entity) else {
+            return;
+        };
+
+        // Need a marker component for this entity
+        let component_id = match self.mapping.get_mut(value) {
+            // This particular value already has an assigned marker, reuse it.
+            Some(state) => {
+                state.live_count += 1;
+                state.component_id
+            }
+            None => {
+                // Need to clone the index value for later lookups
+                let value = value.clone();
+
+                // Attempt to recycle an old marker.
+                // Otherwise, allocate a new one.
+                let component_id = self
+                    .spare_markers
+                    .pop()
+                    .unwrap_or_else(|| Self::alloc_new_marker(world));
+
+                self.mapping.insert(
+                    value,
+                    IndexState {
+                        component_id,
+                        live_count: 1,
+                    },
+                );
+                component_id
+            }
+        };
+
+        // SAFETY:
+        // - component_id is from the same world
+        // - NonNull::dangling() is appropriate for a ZST component
+        unsafe {
+            world
+                .entity_mut(entity)
+                .insert_by_id(component_id, OwningPtr::new(NonNull::dangling()));
+        }
+    }
+
     fn on_insert(trigger: Trigger<OnInsert, C>, mut commands: Commands) {
         let entity = trigger.target();
 
         commands.queue(move |world: &mut World| {
             world.resource_scope::<Self, _>(|world, mut index| {
-                let Some(value) = world.get::<C>(entity) else {
-                    return;
-                };
-
-                // Need a marker component for this entity
-                let component_id = match index.mapping.get_mut(value) {
-                    // This particular value already has an assigned marker, reuse it.
-                    Some(state) => {
-                        state.live_count += 1;
-                        state.component_id
-                    }
-                    None => {
-                        // Need to clone the index value for later lookups
-                        let value = value.clone();
-
-                        // Attempt to recycle an old marker.
-                        // Otherwise, allocate a new one.
-                        let component_id = index
-                            .spare_markers
-                            .pop()
-                            .unwrap_or_else(|| Self::alloc_new_marker(world));
-
-                        index.mapping.insert(
-                            value,
-                            IndexState {
-                                component_id,
-                                live_count: 1,
-                            },
-                        );
-                        component_id
-                    }
-                };
-
-                // SAFETY:
-                // - component_id is from the same world
-                // - NonNull::dangling() is appropriate for a ZST component
-                unsafe {
-                    world
-                        .entity_mut(entity)
-                        .insert_by_id(component_id, OwningPtr::new(NonNull::dangling()));
-                }
+                index.track_entity(world, entity);
             });
         });
     }
