@@ -283,7 +283,7 @@ where
                         .after(AssetEvents)
                         .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
                 )
-                    .after(mesh::mark_3d_meshes_as_changed_if_their_assets_changed),
+                    .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
 
         if self.shadows_enabled {
