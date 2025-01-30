@@ -24,6 +24,10 @@ shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]
 
+# Statically linked DXC shader compiler for DirectX 12
+# TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
+statically-linked-dxc = ["wgpu/static-dxc"]
+
 trace = ["profiling"]
 tracing-tracy = []
 ci_limits = []
