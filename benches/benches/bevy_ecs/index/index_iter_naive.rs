@@ -1,5 +1,5 @@
 use bevy_ecs::{prelude::*, system::SystemId};
-use criterion::black_box;
+use core::hint::black_box;
 use glam::*;
 
 const PLANETS: u8 = 16;
