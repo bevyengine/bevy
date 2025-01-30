@@ -35,7 +35,7 @@ use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
-    mesh::{self, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_phase::*,
     render_resource::*,
