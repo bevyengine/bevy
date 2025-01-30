@@ -50,6 +50,10 @@ struct Args {
     /// set the root node to display none, removing all nodes from the layout.
     #[argh(switch)]
     display_none: bool,
+
+    /// spawn the layout without a camera
+    #[argh(switch)]
+    no_camera: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -82,9 +86,11 @@ fn main() {
     })
     .add_systems(Update, (button_system, set_text_colors_changed));
 
-    app.add_systems(Startup, |mut commands: Commands| {
-        commands.spawn(Camera2d);
-    });
+    if !args.no_camera {
+        app.add_systems(Startup, |mut commands: Commands| {
+            commands.spawn(Camera2d);
+        });
+    }
 
     if args.grid {
         app.add_systems(Startup, setup_grid);

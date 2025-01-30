@@ -105,7 +105,7 @@ pub struct MouseMotion {
 ///
 /// The value of the event can either be interpreted as the amount of lines or the amount of pixels
 /// to scroll.
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

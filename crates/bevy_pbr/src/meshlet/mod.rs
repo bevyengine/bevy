@@ -177,12 +177,6 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-            "downsample_depth.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
             MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
             "visibility_buffer_software_raster.wgsl",
             Shader::from_wgsl
@@ -255,7 +249,6 @@ impl Plugin for MeshletPlugin {
                     NodePbr::ShadowPass,
                     //
                     NodeMeshlet::Prepass,
-                    Node3d::Prepass,
                     //
                     NodeMeshlet::DeferredPrepass,
                     Node3d::DeferredPrepass,

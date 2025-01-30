@@ -24,13 +24,13 @@ impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 /// binding (within reasonable limits).
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`]
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
-/// * [`BufferVec`]
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 #[derive(Resource)]
 pub enum GpuArrayBuffer<T: GpuArrayBufferable> {
     Uniform(BatchedUniformBuffer<T>),

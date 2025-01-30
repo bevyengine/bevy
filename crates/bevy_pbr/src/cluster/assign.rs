@@ -21,7 +21,8 @@ use bevy_utils::prelude::default;
 use tracing::warn;
 
 use crate::{
-    binding_arrays_are_usable, decal::clustered::ClusteredDecal, prelude::EnvironmentMapLight,
+    decal::{self, clustered::ClusteredDecal},
+    prelude::EnvironmentMapLight,
     ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight, GlobalVisibleClusterableObjects,
     LightProbe, PointLight, SpotLight, ViewClusterBindings, VisibleClusterableObjects,
     VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
@@ -257,7 +258,8 @@ pub(crate) fn assign_objects_to_clusters(
         ));
     }
 
-    if binding_arrays_are_usable(&render_device, &render_adapter) {
+    // Add decals if the current platform supports them.
+    if decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         clusterable_objects.extend(decals_query.iter().map(|(entity, transform)| {
             ClusterableObjectAssignmentData {
                 entity,

@@ -1,9 +1,9 @@
 use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2d};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
@@ -39,6 +39,7 @@ impl Plugin for Wireframe2dPlugin {
             .register_type::<Wireframe2dColor>()
             .init_resource::<Wireframe2dConfig>()
             .add_plugins(Material2dPlugin::<Wireframe2dMaterial>::default())
+            .register_asset_reflect::<Wireframe2dMaterial>()
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
@@ -217,7 +218,7 @@ fn apply_global_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
+#[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
 pub struct Wireframe2dMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

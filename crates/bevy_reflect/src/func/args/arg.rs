@@ -52,7 +52,7 @@ impl<'a> Arg<'a> {
     /// let a = 1u32;
     /// let b = 2u32;
     /// let mut c = 3u32;
-    /// let mut args = ArgList::new().push_owned(a).push_ref(&b).push_mut(&mut c);
+    /// let mut args = ArgList::new().with_owned(a).with_ref(&b).with_mut(&mut c);
     ///
     /// let a = args.take::<u32>().unwrap();
     /// assert_eq!(a, 1);
@@ -78,7 +78,7 @@ impl<'a> Arg<'a> {
     /// ```
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
-    /// let mut args = ArgList::new().push_owned(value);
+    /// let mut args = ArgList::new().with_owned(value);
     /// let value = args.take_owned::<u32>().unwrap();
     /// assert_eq!(value, 123);
     /// ```
@@ -113,7 +113,7 @@ impl<'a> Arg<'a> {
     /// ```
     /// # use bevy_reflect::func::ArgList;
     /// let value = 123u32;
-    /// let mut args = ArgList::new().push_ref(&value);
+    /// let mut args = ArgList::new().with_ref(&value);
     /// let value = args.take_ref::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```
@@ -152,7 +152,7 @@ impl<'a> Arg<'a> {
     /// ```
     /// # use bevy_reflect::func::ArgList;
     /// let mut value = 123u32;
-    /// let mut args = ArgList::new().push_mut(&mut value);
+    /// let mut args = ArgList::new().with_mut(&mut value);
     /// let value = args.take_mut::<u32>().unwrap();
     /// assert_eq!(*value, 123);
     /// ```

@@ -327,12 +327,16 @@ fn mouse_handler(
     args: Res<Args>,
     time: Res<Time>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    window: Single<&Window>,
+    window: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
     mut rng: Local<Option<ChaCha8Rng>>,
     mut wave: Local<usize>,
 ) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     if rng.is_none() {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -529,7 +533,11 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
         velocity.y = 0.0;
     }
 }
-fn collision_system(window: Single<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+fn collision_system(window: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {
