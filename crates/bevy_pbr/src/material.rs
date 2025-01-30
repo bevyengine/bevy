@@ -1259,30 +1259,13 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             mesh_pipeline_key_bits.contains(MeshPipelineKey::READS_VIEW_TRANSMISSION_TEXTURE);
 
         let render_phase_type = match material.alpha_mode() {
-            AlphaMode::Opaque => {
-                if reads_view_transmission_texture {
-                    RenderPhaseType::Transmissive
-                } else {
-                    RenderPhaseType::Opaque
-                }
-            }
-            AlphaMode::Mask(_) => {
-                if reads_view_transmission_texture {
-                    RenderPhaseType::Transmissive
-                } else {
-                    RenderPhaseType::AlphaMask
-                }
-            }
-            AlphaMode::AlphaToCoverage => {
-                if reads_view_transmission_texture {
-                    RenderPhaseType::Transmissive
-                } else {
-                    RenderPhaseType::Opaque
-                }
-            }
-            AlphaMode::Blend | AlphaMode::Premultiplied | AlphaMode::Add | AlphaMode::Multiply => {
-                RenderPhaseType::Transparent
-            }
+            AlphaMode::Blend |
+            AlphaMode::Premultiplied |
+            AlphaMode::Add |
+            AlphaMode::Multiply => RenderPhaseType::Transparent,
+            _ if reads_view_transmission_texture => RenderPhaseType::Transmissive,
+            AlphaMode::Opaque | AlphaMode::AlphaToCoverage => RenderPhaseType::Opaque,
+            AlphaMode::Mask(_) => RenderPhaseType::AlphaMask,
         };
 
         let draw_function_id = match render_phase_type {
