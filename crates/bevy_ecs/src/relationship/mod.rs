@@ -12,11 +12,11 @@ pub use relationship_source_collection::*;
 
 use crate::{
     component::{Component, HookContext, Mutable},
-    entity::Entity,
+    entity::{ComponentCloneCtx, Entity},
     system::{
         command::HandleError,
         entity_command::{self, CommandWithEntity},
-        error_handler,
+        error_handler, Commands,
     },
     world::{DeferredWorld, EntityWorldMut},
 };
@@ -47,7 +47,7 @@ use log::warn;
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
-/// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(despawn_descendants)]` attribute to
+/// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(linked_spawn)]` attribute to
 /// automatically despawn entities stored in an entity's [`RelationshipTarget`] when that entity is despawned:
 ///
 /// ```
@@ -58,7 +58,7 @@ use log::warn;
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = ChildOf, despawn_descendants)]
+/// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
@@ -142,6 +142,8 @@ pub type SourceIter<'w, R> =
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
+    /// If this is true, when despawning or cloning (when [recursion is enabled](crate::entity::EntityClonerBuilder::recursive)), the related entities targeting this entity will also be despawned or cloned.
+    const LINKED_SPAWN: bool;
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
@@ -250,6 +252,28 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     #[inline]
     fn is_empty(&self) -> bool {
         self.collection().is_empty()
+    }
+}
+
+/// The "clone behavior" for [`RelationshipTarget`]. This actually creates an empty
+/// [`RelationshipTarget`] instance with space reserved for the number of targets in the
+/// original instance. The [`RelationshipTarget`] will then be populated with the proper components
+/// when the corresponding [`Relationship`] sources of truth are inserted. Cloning the actual entities
+/// in the original [`RelationshipTarget`] would result in duplicates, so we don't do that!
+///
+/// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
+/// to spawn recursively.
+pub fn clone_relationship_target<T: RelationshipTarget>(
+    _commands: &mut Commands,
+    context: &mut ComponentCloneCtx,
+) {
+    if let Some(component) = context.read_source_component::<T>() {
+        if context.is_recursive() && T::LINKED_SPAWN {
+            for entity in component.iter() {
+                context.queue_entity_clone(entity);
+            }
+        }
+        context.write_target_component(T::with_capacity(component.len()));
     }
 }
 
