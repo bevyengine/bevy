@@ -156,7 +156,7 @@ impl WorldIndexExtension for World {
             let mut index = Index::<C>::default();
 
             self.query::<(Entity, &C)>()
-                .iter(&self)
+                .iter(self)
                 .map(|(entity, _)| entity)
                 .collect::<Vec<_>>()
                 .into_iter()
