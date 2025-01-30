@@ -1276,8 +1276,8 @@ pub trait ComponentsViewReadonly {
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
     fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn;
 
-    /// if this is true, the component has been registered recently
-    fn is_new(&self, id: ComponentId) -> bool;
+    /// If this is true, the component is still staged to be moved into denser storage.
+    fn is_staged(&self, id: ComponentId) -> bool;
 }
 
 /// A trait the represents a full, non-locking (but could be locked) view into Components. This allows data to be more easily retrieved by reference.
@@ -1535,8 +1535,8 @@ impl<'a> ComponentsViewReadonly for ComponentsMut<'a> {
     }
 
     #[inline]
-    fn is_new(&self, id: ComponentId) -> bool {
-        self.as_ref().is_new(id)
+    fn is_staged(&self, id: ComponentId) -> bool {
+        self.as_ref().is_staged(id)
     }
 }
 
@@ -1686,8 +1686,8 @@ impl ComponentsViewReadonly for ComponentsRead<'_> {
     }
 
     #[inline]
-    fn is_new(&self, id: ComponentId) -> bool {
-        self.as_ref().is_new(id)
+    fn is_staged(&self, id: ComponentId) -> bool {
+        self.as_ref().is_staged(id)
     }
 }
 
@@ -1799,8 +1799,8 @@ impl ComponentsViewReadonly for ComponentsLock<'_> {
     }
 
     #[inline]
-    fn is_new(&self, id: ComponentId) -> bool {
-        self.as_ref().is_new(id)
+    fn is_staged(&self, id: ComponentId) -> bool {
+        self.as_ref().is_staged(id)
     }
 }
 
@@ -1998,7 +1998,7 @@ impl<'a> ComponentsMut<'a> {
         &mut self,
         id: ComponentId,
     ) -> Option<RequiredComponentsStagedMut<'_>> {
-        if self.is_new(id) {
+        if self.is_staged(id) {
             self.staged
                 .new_components
                 .get_mut(id.0 - self.cold.len())
@@ -2267,7 +2267,7 @@ impl<'a> ComponentsRef<'a> {
 impl<'a> ComponentsViewReadonly for ComponentsRef<'a> {
     /// if this is true, the component has been registered recently
     #[inline]
-    fn is_new(&self, id: ComponentId) -> bool {
+    fn is_staged(&self, id: ComponentId) -> bool {
         self.cold.len() <= id.0
     }
 
@@ -2305,7 +2305,7 @@ impl<'a> ComponentsViewReadonly for ComponentsRef<'a> {
         match self.cold.component_clone_handlers.handlers.get(id.0) {
             Some(Some(handler)) => *handler,
             Some(None) | None => {
-                if self.is_new(id) {
+                if self.is_staged(id) {
                     self.staged
                         .component_clone_handlers
                         .get(&id)
@@ -2677,7 +2677,7 @@ impl ComponentsViewReadonly for Components {
         match self.cold.component_clone_handlers.handlers.get(id.0) {
             Some(Some(handler)) => *handler,
             Some(None) | None => {
-                if self.is_new(id) {
+                if self.is_staged(id) {
                     self.staged
                         .read()
                         .unwrap()
@@ -2693,7 +2693,7 @@ impl ComponentsViewReadonly for Components {
     }
 
     #[inline]
-    fn is_new(&self, id: ComponentId) -> bool {
+    fn is_staged(&self, id: ComponentId) -> bool {
         self.cold.len() <= id.0
     }
 }
@@ -2835,7 +2835,7 @@ impl ComponentsViewReadonly for ComponentsData {
     }
 
     #[inline]
-    fn is_new(&self, _id: ComponentId) -> bool {
+    fn is_staged(&self, _id: ComponentId) -> bool {
         false // The nature of `ComponentsData` as a view implies that there is no staged changes.
     }
 }
