@@ -11,6 +11,7 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     event::{event_update_system, EventCursor},
+    index::IndexComponent,
     intern::Interned,
     prelude::*,
     schedule::{ScheduleBuildSettings, ScheduleLabel},
@@ -1322,6 +1323,42 @@ impl App {
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.world_mut().add_observer(observer);
+        self
+    }
+
+    /// Creates and maintains an index for the provided immutable [`Component`] `C` using observers.
+    ///
+    /// This allows querying by component _value_ to be very performant, at the expense of a small
+    /// amount of overhead when modifying the indexed component.
+    ///
+    /// See [`IndexComponent`] for further details.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// #[derive(Component, PartialEq, Eq, Hash, Clone)]
+    /// #[component(immutable)]
+    /// enum FavoriteColor {
+    ///     Red,
+    ///     Green,
+    ///     Blue,
+    /// }
+    ///
+    /// app.add_index::<FavoriteColor>();
+    ///
+    /// fn find_red_fans(mut query: QueryByIndex<FavoriteColor, Entity>) {
+    ///     for entity in query.at(FavoriteColor::Red).iter() {
+    ///         println!("{entity:?} likes the color Red!");
+    ///     }
+    /// }
+    /// # app.add_systems(Update, find_red_fans);
+    /// ```
+    pub fn add_index<C: IndexComponent>(&mut self) -> &mut Self {
+        self.world_mut().add_index::<C>();
         self
     }
 }

@@ -1,6 +1,6 @@
 //! Demonstrates how to use indexes.
 
-use bevy::{ecs::index::WorldIndexExtension, prelude::*};
+use bevy::prelude::*;
 
 #[derive(Component, PartialEq, Eq, Hash, Clone, Debug)]
 #[component(immutable)]
@@ -10,12 +10,9 @@ struct TilePosition {
 }
 
 fn main() {
-    let mut app = App::new();
-
-    // TODO: Expose directly on App
-    app.world_mut().index_component::<TilePosition>();
-
-    app.add_systems(Startup, spawn_tiles)
+    App::new()
+        .add_index::<TilePosition>()
+        .add_systems(Startup, spawn_tiles)
         .add_systems(
             Update,
             (
@@ -37,12 +34,8 @@ fn spawn_tiles(mut commands: Commands) {
     }
 }
 
-fn query_for_tiles(world: &mut World) {
-    // TODO: Create SystemParam since this shouldn't need anything more than access to &Index<C> and Query<D, (F, With<C>)>
-    let mut query =
-        world.query_by_index::<_, (Entity, &TilePosition), ()>(&TilePosition { x: 1, y: 1 });
-
-    let count = query.iter(world).count();
+fn query_for_tiles(mut index_query: QueryByIndex<TilePosition, (Entity, &TilePosition)>) {
+    let count = index_query.at(&TilePosition { x: 1, y: 1 }).iter().count();
     println!("Found {count} at (1,1)!");
 }
 
