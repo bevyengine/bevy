@@ -1018,6 +1018,9 @@ pub fn queue_material_meshes<M: Material>(
                     });
                 }
                 RenderPhaseType::Opaque => {
+                    if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        continue;
+                    }
                     let batch_set_key = Opaque3dBatchSetKey {
                         pipeline: pipeline_id,
                         draw_function: material.properties.draw_function_id,
