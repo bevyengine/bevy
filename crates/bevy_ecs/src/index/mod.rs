@@ -248,7 +248,7 @@ impl<C: IndexableComponent> Index<C> {
                     ..
                 } = index.as_mut();
 
-                // TODO: It may be more performant to make a clone of the old value and lookup directly
+                // PERF: It may be more performant to make a clone of the old value and lookup directly
                 // rather than iterating the whole map.
                 mapping.retain(|_key, &mut component_id_other| {
                     if component_id_other != component_id {
