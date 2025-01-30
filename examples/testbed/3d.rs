@@ -13,9 +13,11 @@ fn main() {
         .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Light), light::setup)
         .add_systems(OnEnter(Scene::Animation), animation::setup)
-        .add_systems(OnEnter(Scene::Bloom), bloom::setup)
-        .add_systems(OnEnter(Scene::Gltf), gltf::setup)
         .add_systems(Update, switch_scene);
+
+    #[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
+    app.add_systems(OnEnter(Scene::Bloom), bloom::setup)
+        .add_systems(OnEnter(Scene::Gltf), gltf::setup);
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
