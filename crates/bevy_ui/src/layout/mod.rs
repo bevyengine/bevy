@@ -1256,7 +1256,7 @@ mod tests {
 
         let ui_root_entity = world.spawn(Node::default()).id();
 
-        // The UI schedule synchronises Bevy UI's internal `TaffyTree` with the
+        // The UI schedule synchronizes Bevy UI's internal `TaffyTree` with the
         // main world's tree of `Node` entities.
         ui_schedule.run(&mut world);
 
