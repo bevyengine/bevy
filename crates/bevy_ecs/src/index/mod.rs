@@ -170,7 +170,9 @@ struct Index<C: IndexableComponent> {
     spare_markers: Vec<ComponentId>,
 }
 
-impl<C: IndexableComponent> Default for Index<C> {
+// Rust's derives assume that C must impl Default for this to hold,
+// but that's not true.
+impl<C: IndexComponent> Default for Index<C> {
     fn default() -> Self {
         Self {
             mapping: Default::default(),
