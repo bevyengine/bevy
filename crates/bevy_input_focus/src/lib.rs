@@ -421,7 +421,7 @@ mod tests {
             .unwrap();
 
         app.world_mut()
-            .run_system_once(move |world: DeferredWorld| {
+            .run_system_once(move |world: &mut World| {
                 assert!(!world.is_focused(entity));
                 assert!(!world.is_focus_within(entity));
                 assert!(!world.is_focus_visible(entity));
@@ -541,7 +541,7 @@ mod tests {
             .unwrap();
 
         app.world_mut()
-            .run_system_once(move |world: DeferredWorld| {
+            .run_system_once(move |world: &mut World| {
                 assert!(!world.is_focused(entity_a));
                 assert!(!world.is_focus_within(entity_a));
                 assert!(!world.is_focus_visible(entity_a));
