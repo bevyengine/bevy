@@ -1,11 +1,14 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
+use crate::{
+    ContentSize, DefaultUiCamera, Measure, MeasureArgs, Node, NodeMeasure, UiScale, UiTargetCamera,
+};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
+use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
+use bevy_render::{camera::Camera, texture::TRANSPARENT_IMAGE_HANDLE};
 use bevy_sprite::TextureSlicer;
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
@@ -171,21 +174,21 @@ impl NodeImageMode {
     }
 }
 
-/// The size of the image's texture
+/// The size of the Node's image in physical pixels (the size of the image's texture multiplied by the local scale factor)
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct ImageNodeSize {
-    /// The size of the image's texture
+    /// The size of the Node's image in physical pixels (the size of the image's texture multiplied by the local scale factor)
     ///
     /// This field is updated automatically by [`update_image_content_size_system`]
-    size: UVec2,
+    size: Vec2,
 }
 
 impl ImageNodeSize {
-    /// The size of the image's texture
-    pub fn size(&self) -> UVec2 {
+    /// The size of the Node's image in physical pixels (the size of the image's texture multiplied by the local scale factor)
+    pub fn size(&self) -> Vec2 {
         self.size
     }
 }
@@ -193,7 +196,7 @@ impl ImageNodeSize {
 #[derive(Clone)]
 /// Used to calculate the size of UI image nodes
 pub struct ImageMeasure {
-    /// The size of the image's texture
+    /// The target size of the image in physical pixels (the size of the image's texture multiplied by the local scale factor)
     pub size: Vec2,
 }
 
@@ -254,21 +257,24 @@ type UpdateImageFilter = (With<Node>, Without<crate::prelude::Text>);
 
 /// Updates content size of the node based on the image provided
 pub fn update_image_content_size_system(
-    mut previous_combined_scale_factor: Local<f32>,
-    windows: Query<&Window, With<PrimaryWindow>>,
-    ui_scale: Res<UiScale>,
     textures: Res<Assets<Image>>,
-
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
+    mut query: Query<
+        (
+            &mut ContentSize,
+            Ref<ImageNode>,
+            &mut ImageNodeSize,
+            Option<&UiTargetCamera>,
+        ),
+        UpdateImageFilter,
+    >,
+    default_ui_camera: DefaultUiCamera,
+    camera_query: Query<&Camera>,
+    ui_scale: Res<UiScale>,
 ) {
-    let combined_scale_factor = windows
-        .get_single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.)
-        * ui_scale.0;
+    let default_camera_entity = default_ui_camera.get();
 
-    for (mut content_size, image, mut image_size) in &mut query {
+    for (mut content_size, image, mut image_size, maybe_camera) in &mut query {
         if !matches!(image.image_mode, NodeImageMode::Auto)
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
@@ -279,28 +285,34 @@ pub fn update_image_content_size_system(
             continue;
         }
 
-        if let Some(size) =
-            image
-                .rect
-                .map(|rect| rect.size().as_uvec2())
-                .or_else(|| match &image.texture_atlas {
-                    Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-                    None => textures.get(&image.image).map(Image::size),
-                })
+        let Some(camera_entity) = maybe_camera
+            .map(UiTargetCamera::entity)
+            .or(default_camera_entity)
+        else {
+            continue;
+        };
+
+        let scale_factor = camera_query
+            .get(camera_entity)
+            .ok()
+            .and_then(Camera::target_scaling_factor)
+            .unwrap_or(1.0)
+            * ui_scale.0;
+
+        if let Some(size) = image
+            .rect
+            .map(|rect| rect.size().as_uvec2())
+            .or_else(|| match &image.texture_atlas {
+                Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
+                None => textures.get(&image.image).map(Image::size),
+            })
+            .map(|size| size.as_vec2() * scale_factor)
         {
-            // Update only if size or scale factor has changed to avoid needless layout calculations
-            if size != image_size.size
-                || combined_scale_factor != *previous_combined_scale_factor
-                || content_size.is_added()
-            {
+            // Update only if the size has changed or we need a new measure func to avoid needless layout calculations
+            if size != image_size.size || content_size.is_added() {
                 image_size.size = size;
-                content_size.set(NodeMeasure::Image(ImageMeasure {
-                    // multiply the image size by the scale factor to get the physical size
-                    size: size.as_vec2() * combined_scale_factor,
-                }));
+                content_size.set(NodeMeasure::Image(ImageMeasure { size }));
             }
         }
     }
-
-    *previous_combined_scale_factor = combined_scale_factor;
 }
