@@ -52,9 +52,7 @@ impl WorldIndexExtension for World {
                 None => builder.without::<C>(),
             };
 
-            let query = builder.build();
-
-            query
+            builder.build()
         })
     }
 }
@@ -102,6 +100,9 @@ impl<C: IndexComponent> Index<C> {
                     }
                 };
 
+                // SAFETY:
+                // - component_id is from the same world
+                // - NonNull::dangling() is appropriate for a ZST component
                 unsafe {
                     world
                         .entity_mut(entity)
@@ -164,7 +165,10 @@ impl<C: IndexComponent> Index<C> {
     /// It represents a ZST and is not tied to a particular value.
     /// This allows moving entities into new archetypes based on the indexed value.
     fn alloc_new_marker(world: &mut World) -> ComponentId {
-        world.register_component_with_descriptor(unsafe {
+        // SAFETY:
+        // - ZST is Send + Sync
+        // - No drop function provided or required
+        let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
                 format!("Index Marker ({})", core::any::type_name::<Self>()),
                 StorageType::Table,
@@ -172,6 +176,8 @@ impl<C: IndexComponent> Index<C> {
                 None,
                 false,
             )
-        })
+        };
+
+        world.register_component_with_descriptor(descriptor)
     }
 }
