@@ -762,9 +762,14 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
+                // SAFETY:
+                // The caller ensures `entity` is in range.
+                // Ticks will always be `Some` as querying for Ref enables change detection
+                // (this is also double_checked in `init_state`).
                 let tick = unsafe {
-                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
+                    ComponentSparseSet::get_added_tick(sparse_set, entity)
+                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
@@ -781,11 +786,15 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+        let id = world.register_component::<T>();
+        assert!(world.components().get_info(id).unwrap().change_detection());
+        id
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
-        components.component_id::<T>()
+        let id = components.component_id::<T>()?;
+        assert!(components.get_info(id).unwrap().change_detection());
+        Some(id)
     }
 
     fn matches_component_set(
@@ -995,9 +1004,14 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
+                // SAFETY:
+                // The caller ensures `entity` is in range.
+                // Ticks will always be `Some` as querying for Ref enables change detection
+                // (this is also double_checked in `init_state`).
                 let tick = unsafe {
-                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
+                    ComponentSparseSet::get_changed_tick(sparse_set, entity)
+                        .debug_checked_unwrap()
+                        .unwrap_unchecked()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
@@ -1014,11 +1028,15 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     fn init_state(world: &mut World) -> ComponentId {
-        world.register_component::<T>()
+        let id = world.register_component::<T>();
+        assert!(world.components().get_info(id).unwrap().change_detection());
+        id
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
-        components.component_id::<T>()
+        let id = components.component_id::<T>()?;
+        assert!(components.get_info(id).unwrap().change_detection());
+        Some(id)
     }
 
     fn matches_component_set(

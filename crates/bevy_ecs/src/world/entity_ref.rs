@@ -132,7 +132,8 @@ impl<'w> EntityRef<'w> {
     /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection isn't enabled for it.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         // SAFETY: We have read-only access to all components of this entity.
@@ -3240,7 +3241,9 @@ impl<'w> FilteredEntityRef<'w> {
     /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T`,
+    /// this reference doesn't have access to it
+    /// or change detection isn't enabled for it.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
@@ -3820,9 +3823,11 @@ where
     }
 
     /// Gets access to the component of type `C` for the current entity,
-    /// including change detection information. Returns `None` if the component
-    /// doesn't have a component of that type or if the type is one of the
-    /// excluded components.
+    /// including change detection information.
+    ///
+    /// Returns `None` if the entity doesn't have a component of that type,
+    /// the type is one of the excluded components,
+    /// or change detection isn't enabled for the component.
     #[inline]
     pub fn get_ref<C>(&self) -> Option<Ref<'w, C>>
     where

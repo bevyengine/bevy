@@ -722,6 +722,7 @@ pub struct ComponentInfo {
     hooks: ComponentHooks,
     required_components: RequiredComponents,
     required_by: HashSet<ComponentId>,
+    change_detection: bool,
 }
 
 impl ComponentInfo {
@@ -789,6 +790,7 @@ impl ComponentInfo {
             hooks: Default::default(),
             required_components: Default::default(),
             required_by: Default::default(),
+            change_detection: false,
         }
     }
 
@@ -821,6 +823,11 @@ impl ComponentInfo {
     /// needed by this component. This includes _recursive_ required components.
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
+    }
+
+    /// Check whether change detection is enabled for this component.
+    pub fn change_detection(&self) -> bool {
+        self.change_detection
     }
 }
 
@@ -1711,6 +1718,11 @@ impl Components {
     /// Gets an iterator over all components registered with this instance.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
+    }
+
+    /// Returns whether change detection was already enabled.
+    pub(crate) fn enable_change_detection(&mut self, component_id: ComponentId) -> bool {
+        core::mem::replace(&mut self.components[component_id.0].change_detection, true)
     }
 }
 

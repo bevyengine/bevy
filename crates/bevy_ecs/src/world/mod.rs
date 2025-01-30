@@ -3213,6 +3213,22 @@ impl World {
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         self.components.get_component_clone_handlers_mut()
     }
+
+    /// Enables change detection for this component even if no system that requires it has been registered.
+    pub fn enable_change_detection<T: Component>(&mut self) {
+        let id = self.register_component::<T>();
+        self.enable_change_detection_for_id(id);
+    }
+
+    /// Enables change detection for this component even if no system that requires it has been registered.
+    ///
+    /// # Panics
+    /// Panics if this world doesn't contain a component of this id.
+    pub fn enable_change_detection_for_id(&mut self, component_id: ComponentId) {
+        if !self.components.enable_change_detection(component_id) {
+            // TODO: add ticks for existing tables
+        }
+    }
 }
 
 impl World {

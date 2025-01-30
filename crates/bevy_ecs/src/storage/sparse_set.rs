@@ -238,7 +238,7 @@ impl ComponentSparseSet {
     pub fn get_with_ticks(
         &self,
         entity: Entity,
-    ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
+    ) -> Option<(Ptr<'_>, Option<TickCells<'_>>, MaybeUnsafeCellLocation<'_>)> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);
@@ -246,10 +246,10 @@ impl ComponentSparseSet {
         unsafe {
             Some((
                 self.dense.get_data_unchecked(dense_index),
-                TickCells {
-                    added: self.dense.get_added_tick_unchecked(dense_index),
-                    changed: self.dense.get_changed_tick_unchecked(dense_index),
-                },
+                self.dense.ticks().map(|t| TickCells {
+                    added: t.get_added_tick_unchecked(dense_index),
+                    changed: t.get_changed_tick_unchecked(dense_index),
+                }),
                 #[cfg(feature = "track_location")]
                 self.dense.get_changed_by_unchecked(dense_index),
                 #[cfg(not(feature = "track_location"))]
@@ -262,31 +262,43 @@ impl ComponentSparseSet {
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_added_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+    pub fn get_added_tick(&self, entity: Entity) -> Option<Option<&UnsafeCell<Tick>>> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(self.dense.get_added_tick_unchecked(dense_index)) }
+        unsafe {
+            Some(
+                self.dense
+                    .ticks()
+                    .map(|t| t.get_added_tick_unchecked(dense_index)),
+            )
+        }
     }
 
     /// Returns a reference to the "changed" tick of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_changed_tick(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+    pub fn get_changed_tick(&self, entity: Entity) -> Option<Option<&UnsafeCell<Tick>>> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(self.dense.get_changed_tick_unchecked(dense_index)) }
+        unsafe {
+            Some(
+                self.dense
+                    .ticks()
+                    .map(|t| t.get_changed_tick_unchecked(dense_index)),
+            )
+        }
     }
 
     /// Returns a reference to the "added" and "changed" ticks of the entity's component value.
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    pub fn get_ticks(&self, entity: Entity) -> Option<ComponentTicks> {
+    pub fn get_ticks(&self, entity: Entity) -> Option<Option<ComponentTicks>> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);

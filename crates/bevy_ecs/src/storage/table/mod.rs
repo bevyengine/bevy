@@ -374,9 +374,11 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_added_ticks_slice(self.entity_count()) })
+        self.get_column(component_id).and_then(|col| {
+            col.ticks()
+                // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
+                .map(|t| unsafe { t.get_added_ticks_slice(self.entity_count()) })
+        })
     }
 
     /// Get the changed ticks of the column matching `component_id` as a slice.
@@ -384,9 +386,11 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<Tick>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
-            .map(|col| unsafe { col.get_changed_ticks_slice(self.entity_count()) })
+        self.get_column(component_id).and_then(|col| {
+            col.ticks()
+                // SAFETY: `self.len()` is guaranteed to be the len of the ticks array
+                .map(|t| unsafe { t.get_changed_ticks_slice(self.entity_count()) })
+        })
     }
 
     /// Fetches the calling locations that last changed the each component
@@ -395,9 +399,10 @@ impl Table {
         &self,
         component_id: ComponentId,
     ) -> Option<&[UnsafeCell<&'static Location<'static>>]> {
-        self.get_column(component_id)
+        self.get_column(component_id).map(|col| {
             // SAFETY: `self.len()` is guaranteed to be the len of the locations array
-            .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
+            unsafe { col.get_changed_by_slice(self.entity_count()) }
+        })
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
@@ -405,13 +410,13 @@ impl Table {
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> Option<&UnsafeCell<Tick>> {
+    ) -> Option<Option<&UnsafeCell<Tick>>> {
         (row.as_usize() < self.entity_count()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
-                    .changed_ticks
-                    .get_unchecked(row.as_usize())
+                    .ticks()
+                    .map(|t| t.changed.get_unchecked(row.as_usize()))
             },
         )
     }
@@ -421,13 +426,13 @@ impl Table {
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> Option<&UnsafeCell<Tick>> {
+    ) -> Option<Option<&UnsafeCell<Tick>>> {
         (row.as_usize() < self.entity_count()).then_some(
             // SAFETY: `row.as_usize()` < `len`
             unsafe {
                 self.get_column(component_id)?
-                    .added_ticks
-                    .get_unchecked(row.as_usize())
+                    .ticks()
+                    .map(|t| t.added.get_unchecked(row.as_usize()))
             },
         )
     }
@@ -450,6 +455,8 @@ impl Table {
     }
 
     /// Get the [`ComponentTicks`] of the component matching `component_id` in `row`.
+    /// Return `None` if the table does not have this component
+    /// or change tracking is not enabled for the component.
     ///
     /// # Safety
     /// - `row.as_usize()` < `self.len()`
@@ -458,9 +465,12 @@ impl Table {
         component_id: ComponentId,
         row: TableRow,
     ) -> Option<ComponentTicks> {
-        self.get_column(component_id).map(|col| ComponentTicks {
-            added: col.added_ticks.get_unchecked(row.as_usize()).read(),
-            changed: col.changed_ticks.get_unchecked(row.as_usize()).read(),
+        self.get_column(component_id).and_then(|col| {
+            let ticks = col.ticks()?;
+            Some(ComponentTicks {
+                added: ticks.added.get_unchecked(row.as_usize()).read(),
+                changed: ticks.changed.get_unchecked(row.as_usize()).read(),
+            })
         })
     }
 
@@ -567,10 +577,14 @@ impl Table {
         let len = self.entity_count();
         self.entities.push(entity);
         for col in self.columns.values_mut() {
-            col.added_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            col.changed_ticks
-                .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
+            if let Some(ticks) = col.ticks_mut() {
+                ticks
+                    .added
+                    .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
+                ticks
+                    .changed
+                    .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
+            }
             #[cfg(feature = "track_location")]
             col.changed_by
                 .initialize_unchecked(len, UnsafeCell::new(Location::caller()));
