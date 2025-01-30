@@ -392,9 +392,9 @@ impl<C: IndexableComponent> Index<C> {
     ) {
         let entity = trigger.target();
 
-        let value = query.get(entity).unwrap();
+        let value = query.get(entity).unwrap().clone();
 
-        let component_id = index.mapping.get(value).copied().unwrap();
+        let component_id = index.mapping.get(&value).copied().unwrap();
 
         commands.queue(move |world: &mut World| {
             world.resource_scope::<Self, _>(|world, mut index| {
@@ -409,25 +409,15 @@ impl<C: IndexableComponent> Index<C> {
                     ..
                 } = index.as_mut();
 
-                // PERF: It may be more performant to make a clone of the old value and lookup directly
-                // rather than iterating the whole map.
-                mapping.retain(|_key, &mut component_id_other| {
-                    if component_id_other != component_id {
-                        return true;
-                    }
+                let mut builder = QueryBuilder::<(), With<C>>::new(world);
+                builder.with_id(component_id);
+                let mut query = builder.build();
 
-                    let mut builder = QueryBuilder::<(), With<C>>::new(world);
-                    builder.with_id(component_id);
-                    let mut query = builder.build();
-
-                    // is_empty
-                    if query.iter(world).next().is_none() {
-                        spare_markers.push(component_id);
-                        false
-                    } else {
-                        true
-                    }
-                });
+                // is_empty
+                if query.iter(world).next().is_none() {
+                    mapping.remove(&value);
+                    spare_markers.push(component_id);
+                }
             });
         });
     }
