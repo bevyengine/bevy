@@ -5,8 +5,8 @@ use crate::{
     query::{Access, FilteredAccessSet},
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ReadOnlySystemParam, System, SystemIn, SystemInput, SystemParam,
-        SystemParamItem,
+        assert_valid_world_access_level, check_system_change_tick, ReadOnlySystemParam, System,
+        SystemIn, SystemInput, SystemParam, SystemParamItem, WorldAccessLevel,
     },
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
@@ -425,6 +425,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// `new` does not cache any of the world's archetypes, so you must call [`SystemState::update_archetypes`]
     /// manually before calling `get_manual{_mut}`.
     pub fn new(world: &mut World) -> Self {
+        assert_valid_world_access_level::<Param>();
         let mut meta = SystemMeta::new::<Param>();
         meta.last_run = world.change_tick().relative_to(Tick::MAX);
         let param_state = Param::init_state(world, &mut meta);
@@ -751,6 +752,7 @@ where
 {
     type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
+        assert_valid_world_access_level::<F::Param>();
         FunctionSystem {
             func,
             state: None,
@@ -802,7 +804,7 @@ where
 
     #[inline]
     fn is_exclusive(&self) -> bool {
-        F::Param::is_exclusive()
+        F::Param::world_access_level() == WorldAccessLevel::Exclusive
     }
 
     #[inline]

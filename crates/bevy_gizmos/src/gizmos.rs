@@ -11,7 +11,9 @@ use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
     resource::Resource,
-    system::{Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam},
+    system::{
+        Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam, WorldAccessLevel,
+    },
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
@@ -255,6 +257,10 @@ where
             config,
             config_ext,
         }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        GizmosState::<Config, Clear>::world_access_level()
     }
 }
 

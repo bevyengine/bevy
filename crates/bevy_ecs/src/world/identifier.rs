@@ -1,7 +1,7 @@
 use crate::{
     component::Tick,
     storage::SparseSetIndex,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam, WorldAccessLevel},
     world::{FromWorld, World},
 };
 use bevy_platform_support::sync::atomic::{AtomicUsize, Ordering};
@@ -63,6 +63,10 @@ unsafe impl SystemParam for WorldId {
         _: Tick,
     ) -> Self::Item<'world, 'state> {
         world.id()
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
     }
 }
 

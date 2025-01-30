@@ -8,6 +8,8 @@ use alloc::borrow::Cow;
 use core::ops::Deref;
 use derive_more::derive::{AsRef, Display, Into};
 
+use super::WorldAccessLevel;
+
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
 /// This is not a reliable identifier, it is more so useful for debugging or logging.
@@ -69,6 +71,10 @@ unsafe impl SystemParam for SystemName<'_> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         SystemName(name)
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
     }
 }
 
