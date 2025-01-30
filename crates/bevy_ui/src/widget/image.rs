@@ -3,14 +3,12 @@ use crate::{
 };
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
-use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
-use bevy_math::{Rect, UVec2, Vec2};
+use bevy_math::{Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{camera::Camera, texture::TRANSPARENT_IMAGE_HANDLE};
 use bevy_sprite::TextureSlicer;
-use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
 
 /// A UI Node that renders an image.
@@ -174,20 +172,20 @@ impl NodeImageMode {
     }
 }
 
-/// The size of the Node's image in physical pixels (the size of the image's texture multiplied by the local scale factor)
+/// The size of the `ImageNode`'s image in physical pixels (the size of the image's texture multiplied by the local scale factor)
 ///
 /// This component is updated automatically by [`update_image_content_size_system`]
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct ImageNodeSize {
-    /// The size of the Node's image in physical pixels (the size of the image's texture multiplied by the local scale factor)
+    /// The size of the `ImageNode`'s image in physical pixels (the size of the image's texture multiplied by the local scale factor)
     ///
     /// This field is updated automatically by [`update_image_content_size_system`]
     size: Vec2,
 }
 
 impl ImageNodeSize {
-    /// The size of the Node's image in physical pixels (the size of the image's texture multiplied by the local scale factor)
+    /// The size of the `ImageNode`'s image in physical pixels (the size of the image's texture multiplied by the local scale factor)
     pub fn size(&self) -> Vec2 {
         self.size
     }
