@@ -21,7 +21,7 @@ use crate::{
     bundle::{Bundle, InsertMode},
     change_detection::Mut,
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, Entity, EntityCloneBuilder},
+    entity::{Entities, Entity, EntityClonerBuilder},
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -1913,7 +1913,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
-    /// configured through [`EntityCloneBuilder`].
+    /// configured through [`EntityClonerBuilder`].
     ///
     /// By default, the other entity will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
@@ -1924,7 +1924,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Example
     ///
-    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// Configure through [`EntityClonerBuilder`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
     ///
@@ -1948,14 +1948,11 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
     ///
-    /// See the following for more options:
-    /// - [`EntityCloneBuilder`]
-    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
-    /// - `CloneEntityHierarchyExt`
+    /// See [`EntityClonerBuilder`] for more options.
     pub fn clone_with(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
     ) -> &mut Self {
         self.queue(entity_command::clone_with(target, config))
     }
@@ -1996,16 +1993,16 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
-    /// using [`EntityCloneBuilder`], returning the [`EntityCommands`] of the clone.
+    /// using [`EntityClonerBuilder`], returning the [`EntityCommands`] of the clone.
     ///
     /// By default, the clone will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
-    /// To exclude specific components, use [`EntityCloneBuilder::deny`].
-    /// To only include specific components, use [`EntityCloneBuilder::deny_all`]
-    /// followed by [`EntityCloneBuilder::allow`].
+    /// To exclude specific components, use [`EntityClonerBuilder::deny`].
+    /// To only include specific components, use [`EntityClonerBuilder::deny_all`]
+    /// followed by [`EntityClonerBuilder::allow`].
     ///
-    /// See the methods on [`EntityCloneBuilder`] for more options.
+    /// See the methods on [`EntityClonerBuilder`] for more options.
     ///
     /// # Note
     ///
@@ -2034,7 +2031,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(example_system);
     pub fn clone_and_spawn_with(
         &mut self,
-        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
         self.clone_with(entity_clone, config);

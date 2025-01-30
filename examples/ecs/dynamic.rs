@@ -10,7 +10,7 @@ use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
+        component::{CloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
         query::QueryData,
         world::FilteredEntityMut,
     },
@@ -94,6 +94,7 @@ fn main() {
                             Layout::array::<u64>(size).unwrap(),
                             None,
                             true,
+                            CloneBehavior::Default,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {

@@ -2,7 +2,7 @@
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, HookContext, StorageType},
+        component::{CloneBehavior, ComponentDescriptor, ComponentId, HookContext, StorageType},
         world::DeferredWorld,
     },
     platform_support::collections::HashMap,
@@ -152,6 +152,7 @@ fn demo_3(world: &mut World) {
                     Layout::array::<u8>(size).unwrap(),
                     None,
                     false,
+                    CloneBehavior::Default,
                 )
             };
 

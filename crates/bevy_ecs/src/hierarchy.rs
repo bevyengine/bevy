@@ -7,21 +7,17 @@
 //! [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 
 #[cfg(feature = "bevy_reflect")]
-use crate::reflect::{
-    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
-    ReflectVisitEntitiesMut,
-};
+use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
     self as bevy_ecs,
     bundle::Bundle,
     component::{Component, HookContext},
-    entity::{Entity, VisitEntities},
+    entity::Entity,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
-use bevy_ecs_macros::VisitEntitiesMut;
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -90,19 +86,11 @@ use log::warn;
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
 /// ```
-#[derive(Component, Clone, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
+#[derive(Component, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    reflect(
-        Component,
-        MapEntities,
-        VisitEntities,
-        VisitEntitiesMut,
-        PartialEq,
-        Debug,
-        FromWorld
-    )
+    reflect(Component, PartialEq, Debug, FromWorld)
 )]
 #[relationship(relationship_target = Children)]
 pub struct ChildOf(pub Entity);
@@ -139,13 +127,10 @@ impl FromWorld for ChildOf {
 ///
 /// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for all full
 /// description of this relationship and instructions on how to use it.
-#[derive(Component, Default, VisitEntitiesMut, Debug, PartialEq, Eq)]
-#[relationship_target(relationship = ChildOf, despawn_descendants)]
+#[derive(Component, Default, Debug, PartialEq, Eq)]
+#[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut, FromWorld)
-)]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
 pub struct Children(Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
