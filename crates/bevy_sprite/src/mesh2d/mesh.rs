@@ -197,12 +197,7 @@ pub fn check_views_need_specialization(
             }
         }
 
-        if let Some(current_key) = view_key_cache.get_mut(view_entity) {
-            if *current_key != view_key {
-                view_key_cache.insert(*view_entity, view_key);
-                view_specialization_ticks.insert(*view_entity, ticks.this_run());
-            }
-        } else {
+        if !view_key_cache.get_mut(view_entity).is_some_and(|current_key| **current_key == view_key) {
             view_key_cache.insert(*view_entity, view_key);
             view_specialization_ticks.insert(*view_entity, ticks.this_run());
         }
