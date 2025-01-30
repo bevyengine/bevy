@@ -6,7 +6,7 @@ use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::{DetectChanges, MutMarkChanges},
     entity::{hash_map::EntityHashMap, Entity},
     prelude::{require, Component},
     query::With,
@@ -197,8 +197,8 @@ fn create_text_measure<'a>(
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
-    mut text_flags: Mut<TextNodeFlags>,
-    mut computed: Mut<ComputedTextBlock>,
+    mut text_flags: MutMarkChanges<TextNodeFlags>,
+    computed: &mut ComputedTextBlock,
     font_system: &mut CosmicFontSystem,
 ) {
     match text_pipeline.create_text_measure(
@@ -207,7 +207,7 @@ fn create_text_measure<'a>(
         spans,
         scale_factor,
         &block,
-        computed.as_mut(),
+        computed,
         font_system,
     ) {
         Ok(measure) => {
@@ -252,7 +252,7 @@ pub fn measure_text_system(
         (
             Entity,
             Ref<TextLayout>,
-            &mut ContentSize,
+            Mut<ContentSize>,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
             Option<&UiTargetCamera>,
@@ -267,7 +267,7 @@ pub fn measure_text_system(
 
     let default_camera_entity = default_ui_camera.get();
 
-    for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
+    for (entity, block, content_size, text_flags, mut computed, maybe_camera) in &mut text_query {
         let Some(camera_entity) = maybe_camera
             .map(UiTargetCamera::entity)
             .or(default_camera_entity)
@@ -302,7 +302,7 @@ pub fn measure_text_system(
                 &mut text_pipeline,
                 content_size,
                 text_flags,
-                computed,
+                &mut computed,
                 &mut font_system,
             );
         }
@@ -322,8 +322,8 @@ fn queue_text(
     inverse_scale_factor: f32,
     block: &TextLayout,
     node: Ref<ComputedNode>,
-    mut text_flags: Mut<TextNodeFlags>,
-    text_layout_info: Mut<TextLayoutInfo>,
+    mut text_flags: MutMarkChanges<TextNodeFlags>,
+    text_layout_info: &mut TextLayoutInfo,
     computed: &mut ComputedTextBlock,
     text_reader: &mut TextUiReader,
     font_system: &mut CosmicFontSystem,
@@ -342,7 +342,6 @@ fn queue_text(
         TextBounds::new(node.unrounded_size.x, node.unrounded_size.y)
     };
 
-    let text_layout_info = text_layout_info.into_inner();
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
@@ -399,7 +398,7 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+    for (entity, node, block, mut text_layout_info, text_flags, mut computed) in &mut text_query {
         if node.is_changed() || text_flags.needs_recompute {
             queue_text(
                 entity,
@@ -413,7 +412,7 @@ pub fn text_system(
                 block,
                 node,
                 text_flags,
-                text_layout_info,
+                &mut text_layout_info,
                 computed.as_mut(),
                 &mut text_reader,
                 &mut font_system,

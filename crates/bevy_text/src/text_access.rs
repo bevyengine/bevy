@@ -230,8 +230,8 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
         's,
         (
             &'static mut R,
-            &'static mut TextFont,
-            &'static mut TextColor,
+            Mut<'static, TextFont>,
+            Mut<'static, TextColor>,
         ),
         Without<TextSpan>,
     >,
@@ -240,8 +240,8 @@ pub struct TextWriter<'w, 's, R: TextRoot> {
         's,
         (
             &'static mut TextSpan,
-            &'static mut TextFont,
-            &'static mut TextColor,
+            Mut<'static, TextFont>,
+            Mut<'static, TextColor>,
         ),
         Without<R>,
     >,

@@ -30,7 +30,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::DeferredWorld,
+    world::{DeferredWorld, Mut},
 };
 use bevy_image::Image;
 use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
@@ -907,7 +907,7 @@ pub fn camera_system(
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
-    mut cameras: Query<(&mut Camera, &mut Projection)>,
+    mut cameras: Query<(Mut<Camera>, Mut<Projection>)>,
 ) {
     let primary_window = primary_window.iter().next();
 

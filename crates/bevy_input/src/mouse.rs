@@ -2,7 +2,7 @@
 
 use crate::{ButtonInput, ButtonState};
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::MarkChanges,
     entity::Entity,
     event::{Event, EventReader},
     resource::Resource,

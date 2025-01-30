@@ -106,7 +106,7 @@ pub trait DetectChanges {
 ///    resource.0 = 42; // triggers change detection via [`DerefMut`]
 /// }
 /// ```
-pub trait DetectChangesMut: DetectChanges {
+pub trait MarkChanges {
     /// The type contained within this smart pointer
     ///
     /// For example, for `ResMut<T>` this would be `T`.
@@ -320,7 +320,7 @@ pub trait DetectChangesMut: DetectChanges {
     }
 }
 
-macro_rules! change_detection_impl {
+macro_rules! detect_changes_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             #[inline]
@@ -367,9 +367,9 @@ macro_rules! change_detection_impl {
     }
 }
 
-macro_rules! change_detection_mut_impl {
+macro_rules! mark_changes_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* : ?Sized $(+ $traits)?> DetectChangesMut for $name<$($generics),*> {
+        impl<$($generics),* : ?Sized $(+ $traits)?> MarkChanges for $name<$($generics),*> {
             type Inner = $target;
 
             #[inline]
@@ -665,7 +665,7 @@ where
         self.value.into_iter()
     }
 }
-change_detection_impl!(Res<'w, T>, T, Resource);
+detect_changes_impl!(Res<'w, T>, T, Resource);
 impl_debug!(Res<'w, T>, Resource);
 
 /// Unique mutable borrow of a [`Resource`].
@@ -710,8 +710,8 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'w, T>, T, Resource);
-change_detection_mut_impl!(ResMut<'w, T>, T, Resource);
+detect_changes_impl!(ResMut<'w, T>, T, Resource);
+mark_changes_impl!(ResMut<'w, T>, T, Resource);
 impl_methods!(ResMut<'w, T>, T, Resource);
 impl_debug!(ResMut<'w, T>, Resource);
 
@@ -746,8 +746,8 @@ pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
-change_detection_impl!(NonSendMut<'w, T>, T,);
-change_detection_mut_impl!(NonSendMut<'w, T>, T,);
+detect_changes_impl!(NonSendMut<'w, T>, T,);
+mark_changes_impl!(NonSendMut<'w, T>, T,);
 impl_methods!(NonSendMut<'w, T>, T,);
 impl_debug!(NonSendMut<'w, T>,);
 
@@ -858,8 +858,101 @@ where
         self.value.into_iter()
     }
 }
-change_detection_impl!(Ref<'w, T>, T,);
+detect_changes_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
+
+/// Unique mutable borrow of an entity's component.
+///
+/// This allows marking the component as changed if change tracking
+/// is enabled for this component. If you also need to read them, use [`Mut`].
+pub struct MutMarkChanges<'w, T: ?Sized> {
+    pub(crate) value: &'w mut T,
+    pub(crate) ticks: TicksMut<'w>,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
+}
+
+impl<'w, T: ?Sized> MutMarkChanges<'w, T> {
+    /// Creates a new change-detection enabled smart pointer.
+    /// In almost all cases you do not need to call this method manually,
+    /// as instances of `Mut` will be created by engine-internal code.
+    ///
+    /// Many use-cases of this method would be better served by [`Mut::map_unchanged`]
+    /// or [`Mut::reborrow`].
+    ///
+    /// - `value` - The value wrapped by this smart pointer.
+    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
+    /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
+    ///   This will be updated to the value of `change_tick` if the returned smart pointer
+    ///   is modified.
+    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
+    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
+    pub fn new(
+        value: &'w mut T,
+        added: &'w mut Tick,
+        last_changed: &'w mut Tick,
+        last_run: Tick,
+        this_run: Tick,
+        #[cfg(feature = "track_location")] caller: &'w mut &'static Location<'static>,
+    ) -> Self {
+        Self {
+            value,
+            ticks: TicksMut {
+                added,
+                changed: last_changed,
+                last_run,
+                this_run,
+            },
+            #[cfg(feature = "track_location")]
+            changed_by: caller,
+        }
+    }
+}
+
+impl<'w, T: ?Sized> Deref for MutMarkChanges<'w, T> {
+    type Target = T;
+
+    fn deref(&self) -> &T {
+        self.value
+    }
+}
+
+impl<'w, T: ?Sized> AsRef<T> for MutMarkChanges<'w, T> {
+    #[inline]
+    fn as_ref(&self) -> &T {
+        self.deref()
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a MutMarkChanges<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a mut MutMarkChanges<'w, T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
+        self.value.into_iter()
+    }
+}
+
+mark_changes_impl!(MutMarkChanges<'w, T>, T,);
+impl_methods!(MutMarkChanges<'w, T>, T,);
+impl_debug!(MutMarkChanges<'w, T>,);
 
 /// Unique mutable borrow of an entity's component or of a resource.
 ///
@@ -1002,8 +1095,8 @@ where
     }
 }
 
-change_detection_impl!(Mut<'w, T>, T,);
-change_detection_mut_impl!(Mut<'w, T>, T,);
+detect_changes_impl!(Mut<'w, T>, T,);
+mark_changes_impl!(Mut<'w, T>, T,);
 impl_methods!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
 
@@ -1144,7 +1237,7 @@ impl<'w> DetectChanges for MutUntyped<'w> {
     }
 }
 
-impl<'w> DetectChangesMut for MutUntyped<'w> {
+impl<'w> MarkChanges for MutUntyped<'w> {
     type Inner = PtrMut<'w>;
 
     #[inline]
@@ -1263,7 +1356,7 @@ mod tests {
         world::World,
     };
 
-    use super::{DetectChanges, DetectChangesMut, MutUntyped};
+    use super::{DetectChanges, MarkChanges, MutUntyped};
 
     #[derive(Component, PartialEq)]
     struct C;

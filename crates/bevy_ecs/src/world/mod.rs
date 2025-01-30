@@ -3762,7 +3762,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use super::{FromWorld, World};
     use crate::{
-        change_detection::DetectChangesMut,
+        change_detection::MarkChanges,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         entity::hash_set::EntityHashSet,
         ptr::OwningPtr,
