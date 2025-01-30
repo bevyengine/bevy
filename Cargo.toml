@@ -2047,7 +2047,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.index]
 name = "Indexes"
-description = "Demonstrates the creation and utility of indexes"
+description = "Demonstrates querying by component value using indexing"
 category = "ECS (Entity Component System)"
 wasm = false
 
