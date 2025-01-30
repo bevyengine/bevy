@@ -1,4 +1,132 @@
 //! Provides indexing support for the ECS.
+//!
+//! # Background
+//!
+//! The most common way of querying for data within the [`World`] is with [`Query`] as a [system parameter](`SystemParam`).
+//! This requires specifying all the parameters of your query up-front in the type-signature of system.
+//! This is problematic when you don't want to query for _all_ entities with a particular set of components,
+//! and instead want entities who have particular _values_ for a given component.
+//!
+//! Consider a `Planet` component that marks which planet an entity is on.
+//! We _could_ create a unique marking component for each planet:
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! #[derive(Component)]
+//! struct Earth;
+//!
+//! #[derive(Component)]
+//! struct Mars;
+//!
+//! // ...
+//! ```
+//!
+//! But what if the list of planets isn't knowable at compile-time and is instead controlled at runtime?
+//! This would require something like:
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! #[derive(Component, PartialEq, Eq)]
+//! struct Planet(&'static str);
+//! ```
+//!
+//! This lets us create planets at runtime (maybe the player is the one creating them!).
+//! But how do we query for this runtime-compatible `Planet`?
+//! The naive approach would be to query for the `Planet` component and `filter` for a particular value.
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! # #[derive(Component, PartialEq, Eq)]
+//! # struct Planet(&'static str);
+//! fn get_earthlings(mut query: Query<(Entity, &Planet)>) {
+//!     let earthlings = query.iter().filter(|(_, planet)| **planet == Planet("Earth"));
+//!
+//!     for earthling in earthlings {
+//!         // ...
+//!     }
+//! }
+//! ```
+//!
+//! The problem here is that our `get_earthlings` system reserves access to and iterates through _every_
+//! entity on _every_ planet!
+//! If you have a lot of planets and a lot of entities, that's a massive bottleneck.
+//!
+//! _There must be a better way!_
+//!
+//! # Query By Index
+//!
+//! Instead of filtering by value in the body of a system, we can instead use [`QueryByIndex`] and treat
+//! our `Planet` as an [indexable component](`IndexableComponent`).
+//!
+//! First, we need to modify `Planet` to include implementations for `Clone` and `Hash`, and to mark it as
+//! an immutable component:
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! #[derive(Component, PartialEq, Eq, Hash, Clone)]
+//! #[component(immutable)]
+//! struct Planet(&'static str);
+//! ```
+//!
+//! Next, we need to inform the world that we want `Planet` to be indexed:
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! # #[derive(Component, PartialEq, Eq, Hash, Clone)]
+//! # #[component(immutable)]
+//! # struct Planet(&'static str);
+//! # let mut world = World::new();
+//! world.add_index::<Planet>();
+//! ```
+//!
+//! This sets up the necessary mechanisms behind the scenes to track `Planet` components and make
+//! querying by value as performant as possible.
+//!
+//! Now we can use [`QueryByIndex`] instead of [`Query`] in our `get_earthlings` system:
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! # #[derive(Component, PartialEq, Eq, Hash, Clone)]
+//! # #[component(immutable)]
+//! # struct Planet(&'static str);
+//! fn get_earthlings(mut query: QueryByIndex<Planet, Entity>) {
+//!     let earthlings = query.at(&Planet("Earth"));
+//!
+//!     for earthling in &earthlings {
+//!         // ...
+//!     }
+//! }
+//! ```
+//!
+//! While this may look similar, the way this information is loaded from the ECS is completely different.
+//! Instead of loading archetypes, then the entities, and comparing to our value, we first check an
+//! index for our value and only load the archetypes with that value.
+//! This gives us the same iteration performance as if we had created all those planet
+//! marker components at compile time.
+//!
+//! # Drawbacks
+//!
+//! Indexing by a component value isn't free unfortunately. If it was, it would be enabled by default!
+//!
+//! ## Fragmentation
+//!
+//! To provide the maximum iteration speed, the indexable component is fragmented, meaning each unique
+//! value is stored in its own archetype.
+//! This makes iterating through a subset of the total archetype faster, but decreases the performance
+//! of iterating the whole archetype by a small amount.
+//!
+//! ## Component ID Exhaustion
+//!
+//! Fragmenting requires unique [component IDs](ComponentId), and they are finite.
+//! For components with a small number of values in use at any one time, this is acceptable.
+//! But for components with a _large_ number of unique values (e.g., components containing floating point numbers),
+//! the pool of available component IDs will be quickly exhausted.
+//!
+//! ## Mutation Overhead
+//!
+//! The index is maintained continuously to ensure it is always valid.
+//! This is great for usability, but means all mutations of indexed components will carry a small but
+//! existent overhead.
 
 use crate::{
     self as bevy_ecs,
