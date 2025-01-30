@@ -280,7 +280,7 @@ where
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
                     check_light_entities_needing_specialization::<M>
                         .after(AssetEvents)
-                        .ambiguous_with(check_entities_needing_specialization),
+                        .ambiguous_with(check_entities_needing_specialization::<M>),
                     check_entities_needing_specialization::<M>
                         .after(AssetEvents)
                         .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
