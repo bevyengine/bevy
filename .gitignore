@@ -1,4 +1,5 @@
-# Use .git/info/exclude to ignore files related to your IDE
+# If your IDE needs additional project specific files, configure git to ignore them:
+# https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files#configuring-ignored-files-for-all-repositories-on-your-computer
 
 # Rust build artifacts
 target
@@ -6,6 +7,10 @@ crates/**/target
 benches/**/target
 tools/**/target
 **/*.rs.bk
+
+# DX12 wgpu backend
+dxcompiler.dll
+dxil.dll
 
 # Cargo
 Cargo.lock
