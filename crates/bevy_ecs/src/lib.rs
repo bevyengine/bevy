@@ -131,7 +131,6 @@ pub mod __macro_exports {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,

@@ -629,7 +629,6 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{

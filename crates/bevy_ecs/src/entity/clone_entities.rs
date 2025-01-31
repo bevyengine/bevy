@@ -716,7 +716,6 @@ fn component_clone_parent(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx
 mod tests {
     use super::ComponentCloneCtx;
     use crate::{
-        self as bevy_ecs,
         component::{Component, ComponentCloneHandler, ComponentDescriptor, StorageType},
         entity::EntityCloneBuilder,
         world::{DeferredWorld, World},

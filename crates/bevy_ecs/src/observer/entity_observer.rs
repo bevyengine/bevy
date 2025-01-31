@@ -114,7 +114,6 @@ fn component_clone_observed_by(world: &mut DeferredWorld, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         entity::EntityCloneBuilder,
         event::Event,
         observer::{CloneEntityWithObserversExt, Trigger},

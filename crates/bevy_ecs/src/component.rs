@@ -1,7 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    self as bevy_ecs,
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::MAX_CHANGE_AGE,
@@ -2225,7 +2224,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
 /// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
-///   
+///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
