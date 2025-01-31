@@ -95,10 +95,20 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
         for i in 0..self.index.markers.len() {
             if index & (1 << i) > 0 {
                 let filter = &self.system_param_state.with_states[i];
-                self.state = Some(self.state.as_ref().unwrap_or(&self.system_param_state.primary_query_state).join_filtered(self.world, filter));
+                self.state = Some(
+                    self.state
+                        .as_ref()
+                        .unwrap_or(&self.system_param_state.primary_query_state)
+                        .join_filtered(self.world, filter),
+                );
             } else {
                 let filter = &self.system_param_state.without_states[i];
-                self.state = Some(self.state.as_ref().unwrap_or(&self.system_param_state.primary_query_state).join_filtered(self.world, filter));
+                self.state = Some(
+                    self.state
+                        .as_ref()
+                        .unwrap_or(&self.system_param_state.primary_query_state)
+                        .join_filtered(self.world, filter),
+                );
             }
         }
 
@@ -108,7 +118,9 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
         unsafe {
             Query::new(
                 self.world,
-                self.state.as_ref().unwrap_or(&self.system_param_state.primary_query_state),
+                self.state
+                    .as_ref()
+                    .unwrap_or(&self.system_param_state.primary_query_state),
                 self.last_run,
                 self.this_run,
             )
