@@ -1,4 +1,9 @@
-use crate::{component::{ComponentId, Tick}, query::{QueryBuilder, QueryData, QueryFilter, QueryState, With}, system::{Query, Res, SystemMeta, SystemParam}, world::{unsafe_world_cell::UnsafeWorldCell, World}};
+use crate::{
+    component::{ComponentId, Tick},
+    query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
+    system::{Query, Res, SystemMeta, SystemParam},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
+};
 
 use super::{Index, IndexableComponent};
 
@@ -15,24 +20,26 @@ use super::{Index, IndexableComponent};
 ///
 /// // Indexing is opt-in through `World::add_index`
 /// world.add_index::<Player>();
-/// # world.spawn(Player(0));
-/// # world.spawn(Player(0));
-/// # world.spawn(Player(1));
-/// # world.spawn(Player(1));
-/// # world.spawn(Player(1));
-/// # world.spawn(Player(2));
-/// # world.spawn(Player(2));
-/// # world.spawn(Player(2));
-/// # world.spawn(Player(2));
+/// # for i in 0..6 {
+/// #   for _ in 0..(i + 1) {
+/// #       world.spawn(Player(i));
+/// #   }
+/// # }
+/// #
 /// # world.flush();
 ///
 /// fn find_all_player_one_entities(mut query: QueryByIndex<Player, Entity>) {
 ///     for entity in query.at(&Player(0)).iter() {
 ///         println!("{entity:?} belongs to Player 1!");
 ///     }
-/// #   assert_eq!(query.at(&Player(0)).iter().count(), 2);
-/// #   assert_eq!(query.at(&Player(1)).iter().count(), 3);
-/// #   assert_eq!(query.at(&Player(2)).iter().count(), 4);
+/// #   assert_eq!((
+/// #       query.at(&Player(0)).iter().count(),
+/// #       query.at(&Player(1)).iter().count(),
+/// #       query.at(&Player(2)).iter().count(),
+/// #       query.at(&Player(3)).iter().count(),
+/// #       query.at(&Player(4)).iter().count(),
+/// #       query.at(&Player(5)).iter().count(),
+/// #    ), (1, 2, 3, 4, 5, 6));
 /// }
 /// # world.run_system_cached(find_all_player_one_entities);
 /// ```

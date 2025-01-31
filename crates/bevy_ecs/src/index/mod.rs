@@ -133,43 +133,19 @@ mod query_by_index;
 pub use query_by_index::*;
 
 use crate::{
-    self as bevy_ecs, component::{Component, ComponentDescriptor, ComponentId, Immutable, StorageType}, entity::Entity, prelude::Trigger, query::{QueryBuilder, QueryData, QueryFilter}, system::{Commands, Query, ResMut, SystemParam}, world::{OnInsert, OnReplace, World}
+    self as bevy_ecs,
+    component::{Component, ComponentDescriptor, ComponentId, Immutable, StorageType},
+    entity::Entity,
+    prelude::Trigger,
+    query::{QueryBuilder, QueryData, QueryFilter},
+    system::{Commands, Query, ResMut},
+    world::{OnInsert, OnReplace, World},
 };
 use alloc::{format, vec::Vec};
 use bevy_ecs_macros::Resource;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::{collections::HashMap, hash::FixedHasher};
 use bevy_ptr::OwningPtr;
 use core::{alloc::Layout, hash::Hash, ptr::NonNull};
-
-/// Extension methods for [`World`] to assist with indexing components.
-pub trait WorldIndexExtension {
-    /// Create and track an index for `C`.
-    /// This is required to use the [`QueryByIndex`] system parameter.
-    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self;
-}
-
-impl WorldIndexExtension for World {
-    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self {
-        if self.get_resource::<Index<C>>().is_none() {
-            let mut index = Index::<C>::default();
-
-            self.query::<(Entity, &C)>()
-                .iter(self)
-                .map(|(entity, _)| entity)
-                .collect::<Vec<_>>()
-                .into_iter()
-                .for_each(|entity| {
-                    index.track_entity(self, entity);
-                });
-
-            self.insert_resource(index);
-            self.add_observer(Index::<C>::on_insert);
-            self.add_observer(Index::<C>::on_replace);
-        }
-
-        self
-    }
-}
 
 /// A marker trait describing the requirements for a [`Component`] to be indexed and accessed via [`QueryByIndex`].
 ///
@@ -182,79 +158,92 @@ impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> IndexableComponen
 /// [`QueryByIndex`] to simply filter by [`ComponentId`] on a standard [`Query`].
 #[derive(Resource)]
 struct Index<C: IndexableComponent> {
-    /// Maps `C` values to a marking ZST component.
-    mapping: HashMap<C, IndexState>,
-    /// Previously registered but currently unused marking ZSTs.
-    /// If a value _was_ tracked in [`mapping`](Index::mapping) but no entity
-    /// has that value anymore, its marker is pushed here for reuse when a _new_
-    /// value for `C` needs to be tracked.
-    ///
-    /// When exhausted, new markers must be registered from a [`World`].
-    spare_markers: Vec<ComponentId>,
+    /// Maps `C` values to an index within [`slots`](Index::slots)
+    mapping: HashMap<C, usize>,
+    /// A collection of ZST dynamic [`Component`]s which (in combination) uniquely address a _value_
+    /// of `C` within the [`World`].
+    markers: Vec<ComponentId>,
+    /// A list of liveness counts.
+    /// Once a value hits zero, it is free for reuse.
+    /// If no values are zero, you must append to the end of the list.
+    slots: Vec<IndexState>,
 }
 
-/// Internal state for a particular index value within the [`Index`] resource.
-#[derive(Clone, Copy)]
 struct IndexState {
-    /// [`ComponentId`] of this marking ZST
-    component_id: ComponentId,
-    /// A count of how many entities are currently holding this component
-    live_count: usize,
+    active: usize,
 }
 
 // Rust's derives assume that C must impl Default for this to hold,
 // but that's not true.
 impl<C: IndexableComponent> Default for Index<C> {
     fn default() -> Self {
-        Self {
-            mapping: Default::default(),
-            spare_markers: Default::default(),
-        }
+        Self::new()
     }
 }
 
 impl<C: IndexableComponent> Index<C> {
+    const fn new() -> Self {
+        Self {
+            mapping: HashMap::with_hasher(FixedHasher),
+            markers: Vec::new(),
+            slots: Vec::new(),
+        }
+    }
+
     fn track_entity(&mut self, world: &mut World, entity: Entity) {
         let Some(value) = world.get::<C>(entity) else {
             return;
         };
 
-        // Need a marker component for this entity
-        let component_id = match self.mapping.get_mut(value) {
-            // This particular value already has an assigned marker, reuse it.
-            Some(state) => {
-                state.live_count += 1;
-                state.component_id
+        let slot_index = match self.mapping.get(value) {
+            Some(&index) => {
+                self.slots[index].active += 1;
+                index
             }
             None => {
-                // Need to clone the index value for later lookups
-                let value = value.clone();
+                let spare_slot = (self.slots.len() > self.mapping.len())
+                    .then(|| {
+                        self.slots
+                            .iter_mut()
+                            .enumerate()
+                            .find(|(_, slot)| slot.active == 0)
+                    })
+                    .flatten();
 
-                // Attempt to recycle an old marker.
-                // Otherwise, allocate a new one.
-                let component_id = self
-                    .spare_markers
-                    .pop()
-                    .unwrap_or_else(|| Self::alloc_new_marker(world));
+                match spare_slot {
+                    Some((index, slot)) => {
+                        slot.active += 1;
+                        index
+                    }
+                    None => {
+                        let index = self.slots.len();
+                        self.mapping.insert(value.clone(), index);
+                        self.slots.push(IndexState { active: 1 });
 
-                self.mapping.insert(
-                    value,
-                    IndexState {
-                        component_id,
-                        live_count: 1,
-                    },
-                );
-                component_id
+                        if 1 << self.markers.len() <= self.slots.len() {
+                            self.markers.push(Self::alloc_new_marker(world));
+                        }
+
+                        index
+                    }
+                }
             }
         };
 
+        let ids = self.ids_for(slot_index);
+
+        let zsts = core::iter::repeat_with(|| {
+            // SAFETY:
+            // - NonNull::dangling() is appropriate for a ZST
+            unsafe { OwningPtr::new(NonNull::dangling()) }
+        })
+        .take(ids.len());
+
         // SAFETY:
-        // - component_id is from the same world
-        // - NonNull::dangling() is appropriate for a ZST component
+        // - ids are from the same world
+        // - OwningPtr is valid for the entire lifetime of the application
         unsafe {
-            world
-                .entity_mut(entity)
-                .insert_by_id(component_id, OwningPtr::new(NonNull::dangling()));
+            world.entity_mut(entity).insert_by_ids(&ids, zsts);
         }
     }
 
@@ -278,22 +267,24 @@ impl<C: IndexableComponent> Index<C> {
 
         let value = query.get(entity).unwrap();
 
-        let state = index.mapping.get_mut(value).unwrap();
+        let &slot_index = index.mapping.get(value).unwrap();
 
-        state.live_count = state.live_count.saturating_sub(1);
+        let slot = &mut index.slots[slot_index];
 
-        let component_id = state.component_id;
+        slot.active = slot.active.saturating_sub(1);
 
         // On removal, we check if this was the last usage of this marker.
         // If so, we can recycle it for a different value
-        if state.live_count == 0 {
+        if slot.active == 0 {
             index.mapping.remove(value);
-            index.spare_markers.push(component_id);
         }
 
+        let ids = index.ids_for(slot_index);
+
         commands.queue(move |world: &mut World| {
+            let ids = ids;
             // The old marker is no longer applicable since the value has changed/been removed.
-            world.entity_mut(entity).remove_by_id(component_id);
+            world.entity_mut(entity).remove_by_ids(&ids);
         });
     }
 
@@ -317,28 +308,61 @@ impl<C: IndexableComponent> Index<C> {
         world.register_component_with_descriptor(descriptor)
     }
 
-    fn filter_query_for<D: QueryData, F: QueryFilter>(&self, builder: &mut QueryBuilder<D, F>, value: &C) {
-        let Some(state) = self.mapping.get(value) else {
+    fn ids_for(&self, index: usize) -> Vec<ComponentId> {
+        self.markers
+            .iter()
+            .enumerate()
+            .filter_map(|(i, &id)| (index & (1 << i) > 0).then_some(id))
+            .collect::<Vec<_>>()
+    }
+
+    fn filter_query_for<D: QueryData, F: QueryFilter>(
+        &self,
+        builder: &mut QueryBuilder<D, F>,
+        value: &C,
+    ) {
+        let Some(&index) = self.mapping.get(value) else {
             // If there is no marker, create a no-op query by including With<C> and Without<C>
             builder.without::<C>();
             return;
         };
 
-        // If there is a marker, restrict to it
-        builder.with_id(state.component_id);
+        for (i, &id) in self.markers.iter().enumerate() {
+            if index & (1 << i) > 0 {
+                builder.with_id(id);
+            } else {
+                builder.without_id(id);
+            }
+        }
     }
 }
 
-/// Converts a [`usize`] into a [`bool`] array.
-const fn usize_to_bool_array(value: usize) -> [bool; size_of::<usize>() * 8] {
-    const LENGTH: usize = size_of::<usize>() * 8;
-    let mut array = [false; LENGTH];
+/// Extension methods for [`World`] to assist with indexing components.
+pub trait WorldIndexExtension {
+    /// Create and track an index for `C`.
+    /// This is required to use the [`QueryByIndex`] system parameter.
+    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self;
+}
 
-    let mut index = 0;
-    while index < LENGTH {
-        array[index] = value & (1 << index) > 0;
-        index += 1;
+impl WorldIndexExtension for World {
+    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self {
+        if self.get_resource::<Index<C>>().is_none() {
+            let mut index = Index::<C>::new();
+
+            self.query::<(Entity, &C)>()
+                .iter(self)
+                .map(|(entity, _)| entity)
+                .collect::<Vec<_>>()
+                .into_iter()
+                .for_each(|entity| {
+                    index.track_entity(self, entity);
+                });
+
+            self.insert_resource(index);
+            self.add_observer(Index::<C>::on_insert);
+            self.add_observer(Index::<C>::on_replace);
+        }
+
+        self
     }
-
-    array
 }
