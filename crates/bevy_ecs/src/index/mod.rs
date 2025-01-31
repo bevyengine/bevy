@@ -176,7 +176,8 @@ impl<C: IndexableComponent> FromWorld for Index<C> {
     fn from_world(world: &mut World) -> Self {
         let bits = 8 * size_of::<C>().min(size_of::<u32>());
 
-        let markers = core::iter::repeat_with(|| Self::alloc_new_marker(world))
+        let markers = (0..bits)
+            .map(|bit| Self::alloc_new_marker(world, bit, StorageType::Table))
             .take(bits)
             .collect::<Vec<_>>();
 
@@ -286,14 +287,14 @@ impl<C: IndexableComponent> Index<C> {
     /// Creates a new marker component for this index.
     /// It represents a ZST and is not tied to a particular value.
     /// This allows moving entities into new archetypes based on the indexed value.
-    fn alloc_new_marker(world: &mut World) -> ComponentId {
+    fn alloc_new_marker(world: &mut World, bit: usize, storage_type: StorageType) -> ComponentId {
         // SAFETY:
         // - ZST is Send + Sync
         // - No drop function provided or required
         let descriptor = unsafe {
             ComponentDescriptor::new_with_layout(
-                format!("Index Marker ({})", core::any::type_name::<Self>()),
-                StorageType::Table,
+                format!("{} Marker #{}", disqualified::ShortName::of::<Self>(), bit),
+                storage_type,
                 Layout::new::<()>(),
                 None,
                 false,
