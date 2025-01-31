@@ -149,6 +149,9 @@
 extern crate alloc;
 extern crate std;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_asset;
+
 pub mod io;
 pub mod meta;
 pub mod processor;

@@ -564,6 +564,9 @@ extern crate std;
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_reflect;
+
 mod array;
 mod fields;
 mod from_reflect;
