@@ -64,10 +64,8 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 
-fn setup<T: Component + Default>(entity_count: u32) -> World {
-    let mut world = World::default();
+fn setup<T: Component + Default>(world: &mut World, entity_count: u32) {
     world.spawn_batch((0..entity_count).map(|_| T::default()));
-    black_box(world)
 }
 
 // create a cached query in setup to avoid extra costs in each iter
@@ -91,8 +89,9 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
         |bencher| {
             bencher.iter_batched_ref(
                 || {
-                    let mut world = setup::<T>(entity_count);
+                    let mut world = World::default();
                     let query = generic_filter_query::<Added<T>>(&mut world);
+                    setup::<T>(&mut world, entity_count);
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
@@ -134,13 +133,14 @@ fn all_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
         |bencher| {
             bencher.iter_batched_ref(
                 || {
-                    let mut world = setup::<T>(entity_count);
+                    let mut world = World::default();
+                    let mut mutation_query = world.query::<&mut T>();
+                    let query = generic_filter_query::<Changed<T>>(&mut world);
+                    setup::<T>(&mut world, entity_count);
                     world.clear_trackers();
-                    let mut query = world.query::<&mut T>();
-                    for mut component in query.iter_mut(&mut world) {
+                    for mut component in mutation_query.iter_mut(&mut world) {
                         black_box(component.bench_modify());
                     }
-                    let query = generic_filter_query::<Changed<T>>(&mut world);
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {
@@ -184,9 +184,10 @@ fn few_changed_detection_generic<T: Component<Mutability = Mutable> + Default + 
         |bencher| {
             bencher.iter_batched_ref(
                 || {
-                    let mut world = setup::<T>(entity_count);
-                    world.clear_trackers();
+                    let mut world = World::default();
                     let mut query = world.query::<&mut T>();
+                    setup::<T>(&mut world, entity_count);
+                    world.clear_trackers();
                     let mut to_modify: Vec<_> = query.iter_mut(&mut world).collect();
                     to_modify.shuffle(&mut deterministic_rand());
                     for component in to_modify[0..amount_to_modify].iter_mut() {
@@ -231,9 +232,10 @@ fn none_changed_detection_generic<T: Component<Mutability = Mutable> + Default>(
         |bencher| {
             bencher.iter_batched_ref(
                 || {
-                    let mut world = setup::<T>(entity_count);
-                    world.clear_trackers();
+                    let mut world = World::default();
                     let query = generic_filter_query::<Changed<T>>(&mut world);
+                    setup::<T>(&mut world, entity_count);
+                    world.clear_trackers();
                     (world, query)
                 },
                 |(ref mut world, ref mut query)| {

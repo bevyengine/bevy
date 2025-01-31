@@ -3220,13 +3220,22 @@ impl World {
         self.enable_change_detection_for_id(id);
     }
 
+    pub(crate) fn enable_change_detection_and_warn(&mut self, component_id: ComponentId) {
+        let missed = self.enable_change_detection_for_id(component_id);
+        if missed > 0 {
+            warn!("Enabled change detection for component {}, missed ticks for {missed} existing entities",
+                self.components.get_name(component_id).unwrap(),
+            );
+        }
+    }
+
     /// Enables change detection for this component even if no system that requires it has been registered.
     ///
     /// # Panics
     /// Panics if this world doesn't contain a component of this id.
-    pub fn enable_change_detection_for_id(&mut self, component_id: ComponentId) {
+    pub fn enable_change_detection_for_id(&mut self, component_id: ComponentId) -> usize {
+        let mut missed = 0;
         if !self.components.enable_change_detection(component_id) {
-            let mut missed = 0;
             if let Some(set) = self.storages.sparse_sets.get_mut(component_id) {
                 // Sparse
                 set.enable_change_detection(self.last_change_tick);
@@ -3241,12 +3250,8 @@ impl World {
                     missed += table.entity_count();
                 }
             }
-            if missed > 0 {
-                debug!("Enabled change detection for component {}, missed ticks for {missed} existing entities",
-                    self.components.get_name(component_id).unwrap(),
-                );
-            }
         }
+        missed
     }
 }
 

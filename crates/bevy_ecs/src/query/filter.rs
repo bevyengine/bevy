@@ -787,7 +787,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     fn init_state(world: &mut World) -> ComponentId {
         let id = world.register_component::<T>();
-        world.enable_change_detection_for_id(id);
+        world.enable_change_detection_and_warn(id);
         id
     }
 
@@ -1029,7 +1029,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     fn init_state(world: &mut World) -> ComponentId {
         let id = world.register_component::<T>();
-        world.enable_change_detection_for_id(id);
+        world.enable_change_detection_and_warn(id);
         id
     }
 
