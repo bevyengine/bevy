@@ -156,14 +156,14 @@ impl<'a> Serialize for EntitySerializer<'a> {
 /// deserializing through [`SceneMapDeserializer`].
 ///
 /// Note: The entries are sorted by type path before they're serialized.
-pub struct SceneMapSerializer<'a> {
-    /// List of boxed values of unique type to serialize.
-    pub entries: &'a [Box<dyn PartialReflect>],
+pub struct SceneMapSerializer<'a, Entry: AsRef<dyn PartialReflect>> {
+    /// List of values of unique type to serialize.
+    pub entries: &'a [Entry],
     /// Type registry in which the types used in `entries` are registered.
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a> Serialize for SceneMapSerializer<'a> {
+impl<'a, Entry: AsRef<dyn PartialReflect>> Serialize for SceneMapSerializer<'a, Entry> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -174,6 +174,7 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
                 .entries
                 .iter()
                 .map(|entry| {
+                    let entry = entry.as_ref();
                     (
                         entry.get_represented_type_info().unwrap().type_path(),
                         entry.as_partial_reflect(),
@@ -521,10 +522,12 @@ mod tests {
         reflect::{AppTypeRegistry, ReflectMapEntities},
         world::FromWorld,
     };
-    use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
+    use bevy_reflect::{PartialReflect, Reflect, ReflectDeserialize, ReflectSerialize};
     use bincode::Options;
     use serde::{de::DeserializeSeed, Deserialize, Serialize};
-    use std::io::BufReader;
+    use std::{io::BufReader, sync::Arc};
+
+    use super::SceneMapSerializer;
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -920,6 +923,38 @@ mod tests {
 
         assert_eq!(1, deserialized_scene.entities.len());
         assert_scene_eq(&scene, &deserialized_scene);
+    }
+
+    #[test]
+    fn should_serialize_scene_map_with_various_reflect_types() {
+        let mut world = create_world();
+        let registry = world.resource::<AppTypeRegistry>();
+        let registry = &registry.read();
+
+        let box_partial_reflects: Vec<Box<dyn PartialReflect>> = vec![Box::new(1u32)];
+        // we're just testing that this compiles
+        _ = ron::to_string(&SceneMapSerializer {
+            entries: &box_partial_reflects,
+            registry,
+        });
+
+        let arc_partial_reflects: Vec<Arc<dyn PartialReflect>> = vec![Arc::new(1u32)];
+        _ = ron::to_string(&SceneMapSerializer {
+            entries: &arc_partial_reflects,
+            registry,
+        });
+
+        let reflect_values: Vec<Box<dyn Reflect>> = vec![Box::new(1u32)];
+        _ = ron::to_string(&SceneMapSerializer {
+            entries: &reflect_values,
+            registry,
+        });
+
+        let arc_reflects: Vec<Arc<dyn Reflect>> = vec![Arc::new(1u32)];
+        _ = ron::to_string(&SceneMapSerializer {
+            entries: &arc_reflects,
+            registry,
+        });
     }
 
     /// A crude equality checker for [`DynamicScene`], used solely for testing purposes.
