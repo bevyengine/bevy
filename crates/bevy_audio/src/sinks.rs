@@ -7,38 +7,21 @@ use crate::Volume;
 
 /// Common interactions with an audio sink.
 pub trait AudioSinkPlayback {
-    // TODO: Docs.
-    //
-    /// Gets the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value
-    /// other than `1.0` will multiply each sample by this value.
+    /// Gets the volume of the sound as a [`Volume`].
     ///
     /// If the sink is muted, this returns the managed volume rather than the
-    /// sink's actual volume. This allows you to use the volume as if the sink
-    /// were not muted, because a muted sink has a volume of 0.
+    /// sink's actual volume. This allows you to use the returned volume as if
+    /// the sink were not muted, because a muted sink has a physical volume of
+    /// 0.
     fn volume(&self) -> Volume;
 
-    // TODO: Docs.
-    //
-    /// Changes the volume of the sound.
-    ///
-    /// The value `1.0` is the "normal" volume (unfiltered input). Any value other than `1.0`
-    /// will multiply each sample by this value.
+    /// Changes the volume of the sound to the given [`Volume`].
     ///
     /// If the sink is muted, changing the volume won't unmute it, i.e. the
-    /// sink's volume will remain at `0.0`. However, the sink will remember the
-    /// volume change and it will be used when [`unmute`](Self::unmute) is
-    /// called. This allows you to control the volume even when the sink is
-    /// muted.
-    ///
-    /// # Note on Audio Volume
-    ///
-    /// An increase of 10 decibels (dB) roughly corresponds to the perceived volume doubling in intensity.
-    /// As this function scales not the volume but the amplitude, a conversion might be necessary.
-    /// For example, to halve the perceived volume you need to decrease the volume by 10 dB.
-    /// This corresponds to 20log(x) = -10dB, solving x = 10^(-10/20) = 0.316.
-    /// Multiply the current volume by 0.316 to halve the perceived volume.
+    /// sink's volume will remain "off" / "muted". However, the sink will
+    /// remember the volume change and it will be used when
+    /// [`unmute`](Self::unmute) is called. This allows you to control the
+    /// volume even when the sink is muted.
     fn set_volume(&mut self, volume: impl Into<Volume>);
 
     /// Gets the speed of the sound.
