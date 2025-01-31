@@ -31,17 +31,19 @@ use super::{Index, IndexableComponent};
 /// #
 /// # world.flush();
 ///
-/// fn find_all_player_one_entities(mut query: QueryByIndex<Player, Entity>) {
-///     for entity in query.at(&Player(0)).iter() {
+/// fn find_all_player_one_entities(by_player: QueryByIndex<Player, Entity>) {
+///     let mut lens = by_player.at(&Player(0));
+///     
+///     for entity in lens.query().iter() {
 ///         println!("{entity:?} belongs to Player 1!");
 ///     }
 /// #   assert_eq!((
-/// #       query.at(&Player(0)).iter().count(),
-/// #       query.at(&Player(1)).iter().count(),
-/// #       query.at(&Player(2)).iter().count(),
-/// #       query.at(&Player(3)).iter().count(),
-/// #       query.at(&Player(4)).iter().count(),
-/// #       query.at(&Player(5)).iter().count(),
+/// #       by_player.at(&Player(0)).query().iter().count(),
+/// #       by_player.at(&Player(1)).query().iter().count(),
+/// #       by_player.at(&Player(2)).query().iter().count(),
+/// #       by_player.at(&Player(3)).query().iter().count(),
+/// #       by_player.at(&Player(4)).query().iter().count(),
+/// #       by_player.at(&Player(5)).query().iter().count(),
 /// #    ), (1, 2, 3, 4, 5, 6));
 /// }
 /// # world.run_system_cached(find_all_player_one_entities);
@@ -78,8 +80,10 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
     ///
     /// world.add_index::<FavoriteColor>();
     ///
-    /// fn find_red_fans(mut query: QueryByIndex<FavoriteColor, Entity>) {
-    ///     for entity in query.at(&FavoriteColor::Red).iter() {
+    /// fn find_red_fans(mut by_color: QueryByIndex<FavoriteColor, Entity>) {
+    ///     let mut lens = by_color.at(&FavoriteColor::Red);
+    /// 
+    ///     for entity in lens.query().iter() {
     ///         println!("{entity:?} likes the color Red!");
     ///     }
     /// }

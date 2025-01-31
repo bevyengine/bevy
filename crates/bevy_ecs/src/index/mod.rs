@@ -210,14 +210,17 @@ impl<C: IndexableComponent> Index<C> {
                     })
                     .flatten();
 
+                let value = value.clone();
+
                 match spare_slot {
                     Some((index, slot)) => {
                         slot.active += 1;
+                        self.mapping.insert(value, index);
                         index
                     }
                     None => {
                         let index = self.slots.len();
-                        self.mapping.insert(value.clone(), index);
+                        self.mapping.insert(value, index);
                         self.slots.push(IndexState { active: 1 });
 
                         index
