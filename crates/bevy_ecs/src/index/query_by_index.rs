@@ -1,8 +1,5 @@
 use crate::{
-    component::{ComponentId, Tick},
-    query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
-    system::{Query, Res, SystemMeta, SystemParam},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    archetype::Archetype, component::{ComponentId, Tick}, query::{QueryBuilder, QueryData, QueryFilter, QueryState, With}, system::{Query, Res, SystemMeta, SystemParam}, world::{unsafe_world_cell::UnsafeWorldCell, World}
 };
 
 use super::{Index, IndexableComponent};
@@ -99,55 +96,86 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D,
     }
 }
 
-// SAFETY: We rely on the known-safe implementations of `SystemParam` for `Res` and `Query`.
-unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for QueryByIndex<'_, C, D, F>
+#[doc(hidden)]
+pub struct QueryByIndexState<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static> {
+    primary_query_state: QueryState<D, (F, With<C>)>,
+    index_state: ComponentId,
+}
+
+impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
+    QueryByIndexState<C, D, F>
 {
-    type State = (QueryState<D, (F, With<C>)>, ComponentId);
-    type Item<'w, 's> = QueryByIndex<'w, C, D, F>;
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        let primary_query_state =
+            <Query<D, (F, With<C>)> as SystemParam>::init_state(world, system_meta);
+        let index_state = <Res<Index<C>> as SystemParam>::init_state(world, system_meta);
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let query_state = <Query<D, (F, With<C>)> as SystemParam>::init_state(world, system_meta);
-        let res_state = <Res<Index<C>> as SystemParam>::init_state(world, system_meta);
-
-        (query_state, res_state)
+        Self {
+            primary_query_state,
+            index_state,
+        }
     }
 
-    unsafe fn new_archetype(
-        (query_state, res_state): &mut Self::State,
-        archetype: &Archetype,
-        system_meta: &mut SystemMeta,
-    ) {
-        <Query<D, (F, With<C>)> as SystemParam>::new_archetype(query_state, archetype, system_meta);
+    unsafe fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        <Query<D, (F, With<C>)> as SystemParam>::new_archetype(
+            &mut self.primary_query_state,
+            archetype,
+            system_meta,
+        );
     }
 
     #[inline]
-    unsafe fn validate_param(
-        (query_state, res_state): &Self::State,
-        system_meta: &SystemMeta,
-        world: UnsafeWorldCell,
-    ) -> bool {
+    unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool {
         let query_valid = <Query<D, (F, With<C>)> as SystemParam>::validate_param(
-            query_state,
+            &self.primary_query_state,
             system_meta,
             world,
         );
         let res_valid =
-            <Res<Index<C>> as SystemParam>::validate_param(res_state, system_meta, world);
+            <Res<Index<C>> as SystemParam>::validate_param(&self.index_state, system_meta, world);
 
         query_valid && res_valid
     }
+}
+
+// SAFETY: We rely on the known-safe implementations of `SystemParam` for `Res` and `Query`.
+unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for QueryByIndex<'_, C, D, F>
+{
+    type State = QueryByIndexState<C, D, F>;
+    type Item<'w, 's> = QueryByIndex<'w, C, D, F>;
+
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        Self::State::init_state(world, system_meta)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        Self::State::new_archetype(state, archetype, system_meta);
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &Self::State,
+        system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> bool {
+        Self::State::validate_param(state, system_meta, world)
+    }
 
     unsafe fn get_param<'world, 'state>(
-        (query_state, res_state): &'state mut Self::State,
+        state: &'state mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        query_state.validate_world(world.id());
+        state.primary_query_state.validate_world(world.id());
 
         let index =
-            <Res<Index<C>> as SystemParam>::get_param(res_state, system_meta, world, change_tick);
+            <Res<Index<C>> as SystemParam>::get_param(&mut state.index_state, system_meta, world, change_tick);
 
         QueryByIndex {
             world,
