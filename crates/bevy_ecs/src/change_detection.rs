@@ -861,19 +861,19 @@ where
 detect_changes_impl!(Ref<'w, T>, T,);
 impl_debug!(Ref<'w, T>,);
 
-/// Unique mutable borrow of an entity's component.
+/// Unique mutable borrow of an entity's component, usually obtained by querying for `&mut T`.
 ///
 /// This allows marking the component as changed if change tracking
 /// is enabled for this component. If you also need to read them, use [`Mut`].
 pub struct MutMarkChanges<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
-    pub(crate) ticks: TicksMut<'w>,
+    pub(crate) last_changed: &'w mut Tick,
+    pub(crate) this_run: Tick,
     #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,
 }
 
 impl<'w, T: ?Sized> MutMarkChanges<'w, T> {
-    /// Creates a new change-detection enabled smart pointer.
     /// In almost all cases you do not need to call this method manually,
     /// as instances of `Mut` will be created by engine-internal code.
     ///
@@ -881,29 +881,20 @@ impl<'w, T: ?Sized> MutMarkChanges<'w, T> {
     /// or [`Mut::reborrow`].
     ///
     /// - `value` - The value wrapped by this smart pointer.
-    /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
     /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     ///   This will be updated to the value of `change_tick` if the returned smart pointer
     ///   is modified.
-    /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
-    ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'w mut T,
-        added: &'w mut Tick,
         last_changed: &'w mut Tick,
-        last_run: Tick,
         this_run: Tick,
         #[cfg(feature = "track_location")] caller: &'w mut &'static Location<'static>,
     ) -> Self {
         Self {
             value,
-            ticks: TicksMut {
-                added,
-                changed: last_changed,
-                last_run,
-                this_run,
-            },
+            last_changed,
+            this_run,
             #[cfg(feature = "track_location")]
             changed_by: caller,
         }
@@ -950,14 +941,145 @@ where
     }
 }
 
-mark_changes_impl!(MutMarkChanges<'w, T>, T,);
-impl_methods!(MutMarkChanges<'w, T>, T,);
+impl<'w, T: ?Sized> MarkChanges for MutMarkChanges<'w, T> {
+    type Inner = T;
+
+    #[inline]
+    #[track_caller]
+    fn set_changed(&mut self) {
+        *self.last_changed = self.this_run;
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by = Location::caller();
+        }
+    }
+
+    #[inline]
+    #[track_caller]
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        *self.last_changed = last_changed;
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by = Location::caller();
+        }
+    }
+
+    #[inline]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self.value
+    }
+}
+
+impl<'w, T: ?Sized> DerefMut for MutMarkChanges<'w, T> {
+    #[inline]
+    #[track_caller]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.set_changed();
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by = Location::caller();
+        }
+        self.value
+    }
+}
+
+impl<'w, T: ?Sized> AsMut<T> for MutMarkChanges<'w, T> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut T {
+        self.deref_mut()
+    }
+}
+
+impl<'w, T: ?Sized> MutMarkChanges<'w, T> {
+    /// Consume `self` and return a mutable reference to the
+    /// contained value while marking `self` as "changed".
+    #[inline]
+    pub fn into_inner(mut self) -> &'w mut T {
+        self.set_changed();
+        self.value
+    }
+
+    /// Returns a `MutMarkChanges<T>` with a smaller lifetime.
+    /// This is useful if you have `&mut MutMarkChanges<T>`, but you need a `MutMarkChanges<T>`.
+    pub fn reborrow(&mut self) -> MutMarkChanges<'_, T> {
+        MutMarkChanges {
+            value: self.value,
+            last_changed: self.last_changed,
+            this_run: self.this_run,
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
+        }
+    }
+
+    /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
+    ///
+    /// You should never modify the argument passed to the closure -- if you want to modify the data
+    /// without flagging a change, consider using [`DetectChangesMut::bypass_change_detection`] to make your intent explicit.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(PartialEq)] pub struct Vec2;
+    /// # impl Vec2 { pub const ZERO: Self = Self; }
+    /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
+    /// // When run, zeroes the translation of every entity.
+    /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+    ///     for transform in &mut transforms {
+    ///         // We pinky promise not to modify `t` within the closure.
+    ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
+    ///         let mut translation = transform.map_unchanged(|t| &mut t.translation);
+    ///         // Only reset the translation if it isn't already zero;
+    ///         translation.set_if_neq(Vec2::ZERO);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(reset_positions);
+    /// ```
+    pub fn map_unchanged<U: ?Sized>(
+        self,
+        f: impl FnOnce(&mut T) -> &mut U,
+    ) -> MutMarkChanges<'w, U> {
+        MutMarkChanges {
+            value: f(self.value),
+            last_changed: self.last_changed,
+            this_run: self.this_run,
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
+        }
+    }
+
+    /// Optionally maps to an inner value by applying a function to the contained reference.
+    /// This is useful in a situation where you need to convert a `MutMarkChanged<T>`
+    /// to a `MutMarkChanged<U>`, but only if `T` contains `U`.
+    ///
+    /// As with `map_unchanged`, you should never modify the argument passed to the closure.
+    pub fn filter_map_unchanged<U: ?Sized>(
+        self,
+        f: impl FnOnce(&mut T) -> Option<&mut U>,
+    ) -> Option<MutMarkChanges<'w, U>> {
+        let value = f(self.value);
+        value.map(|value| MutMarkChanges {
+            value,
+            last_changed: self.last_changed,
+            this_run: self.this_run,
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
+        })
+    }
+
+    /// Allows you access to the dereferenced value of this pointer without immediately
+    /// triggering change detection.
+    pub fn as_deref_mut(&mut self) -> MutMarkChanges<'_, <T as Deref>::Target>
+    where
+        T: DerefMut,
+    {
+        self.reborrow().map_unchanged(|v| v.deref_mut())
+    }
+}
+
 impl_debug!(MutMarkChanges<'w, T>,);
 
 /// Unique mutable borrow of an entity's component or of a resource.
 ///
-/// This can be used in queries to opt into change detection on both their mutable and immutable forms, as opposed to
-/// `&mut T`, which only provides access to change detection while in its mutable form:
+/// This can be used in queries to opt into change detection.
 ///
 /// ```rust
 /// # use bevy_ecs::prelude::*;

@@ -1430,13 +1430,11 @@ pub struct WriteFetchMarkChanges<'w, T: Component> {
         Option<(
             ThinSlicePtr<'w, UnsafeCell<T>>,
             Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-            Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
             MaybeThinSlicePtrLocation<'w>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         &'w ComponentSparseSet,
     >,
-    last_run: Tick,
     this_run: Tick,
 }
 
@@ -1471,7 +1469,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn init_fetch<'w>(
         world: UnsafeWorldCell<'w>,
         &component_id: &ComponentId,
-        last_run: Tick,
+        _last_run: Tick,
         this_run: Tick,
     ) -> WriteFetchMarkChanges<'w, T> {
         WriteFetchMarkChanges {
@@ -1491,7 +1489,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     }
                 },
             ),
-            last_run,
             this_run,
         }
     }
@@ -1529,9 +1526,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column.get_data_slice(table.entity_count()).into(),
             column
                 .ticks()
-                .map(|t| t.get_added_ticks_slice(table.entity_count()).into()),
-            column
-                .ticks()
                 .map(|t| t.get_changed_ticks_slice(table.entity_count()).into()),
             #[cfg(feature = "track_location")]
             column.get_changed_by_slice(table.entity_count()).into(),
@@ -1562,17 +1556,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, _callers) =
+                let (table_components, changed_ticks, _callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let component = unsafe { table_components.get(table_row.as_usize()) };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let added = added_ticks
-                    .map(|t| unsafe { t.get(table_row.as_usize()) })
-                    .unwrap_or(ignore_tick);
-                // SAFETY: The caller ensures `table_row` is in range.
                 let changed = changed_ticks
+                    // SAFETY: The caller ensures `table_row` is in range.
                     .map(|t| unsafe { t.get(table_row.as_usize()) })
                     .unwrap_or(ignore_tick);
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -1581,12 +1571,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
                 MutMarkChanges {
                     value: component.deref_mut(),
-                    ticks: TicksMut {
-                        added: added.deref_mut(),
-                        changed: changed.deref_mut(),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                    },
+                    last_changed: changed.deref_mut(),
+                    this_run: fetch.this_run,
                     #[cfg(feature = "track_location")]
                     changed_by: caller.deref_mut(),
                 }
@@ -1596,17 +1582,12 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let (component, ticks, _caller) =
                     unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
 
-                let added = ticks.map(|t| t.added).unwrap_or(ignore_tick);
                 let changed = ticks.map(|t| t.changed).unwrap_or(ignore_tick);
 
                 MutMarkChanges {
                     value: component.assert_unique().deref_mut(),
-                    ticks: TicksMut {
-                        added: added.deref_mut(),
-                        changed: changed.deref_mut(),
-                        this_run: fetch.this_run,
-                        last_run: fetch.last_run,
-                    },
+                    last_changed: changed.deref_mut(),
+                    this_run: fetch.this_run,
                     #[cfg(feature = "track_location")]
                     changed_by: _caller.deref_mut(),
                 }
