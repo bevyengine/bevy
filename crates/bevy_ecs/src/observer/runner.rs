@@ -267,7 +267,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
-    descriptor: ObserverDescriptor,
+    pub descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
 }
 
