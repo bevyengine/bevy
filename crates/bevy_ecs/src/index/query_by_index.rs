@@ -88,21 +88,39 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
     pub fn at(&mut self, value: &C) -> Query<'_, '_, D, (F, With<C>)> {
         self.state = None;
 
-        let Some(&index) = self.index.mapping.get(value) else {
-            todo!("make a null query to return");
-        };
-
-        for i in 0..self.index.markers.len() {
-            if index & (1 << i) > 0 {
-                let filter = &self.system_param_state.with_states[i];
+        match self.index.mapping.get(value) {
+            Some(&index) => {
+                for i in 0..self.index.markers.len() {
+                    if index & (1 << i) > 0 {
+                        let filter = &self.system_param_state.with_states[i];
+                        self.state = Some(
+                            self.state
+                                .as_ref()
+                                .unwrap_or(&self.system_param_state.primary_query_state)
+                                .join_filtered(self.world, filter),
+                        );
+                    } else {
+                        let filter = &self.system_param_state.without_states[i];
+                        self.state = Some(
+                            self.state
+                                .as_ref()
+                                .unwrap_or(&self.system_param_state.primary_query_state)
+                                .join_filtered(self.world, filter),
+                        );
+                    }
+                }
+            }
+            None => {
+                // Create a no-op filter by joining two conflicting filters together.
+                let filter = &self.system_param_state.with_states[0];
                 self.state = Some(
                     self.state
                         .as_ref()
                         .unwrap_or(&self.system_param_state.primary_query_state)
                         .join_filtered(self.world, filter),
                 );
-            } else {
-                let filter = &self.system_param_state.without_states[i];
+
+                let filter = &self.system_param_state.without_states[0];
                 self.state = Some(
                     self.state
                         .as_ref()
