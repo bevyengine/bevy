@@ -270,13 +270,13 @@ impl TriggerTargets for &Vec<Entity> {
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
     /// The events the observer is watching.
-    pub events: Vec<ComponentId>,
+    events: Vec<ComponentId>,
 
     /// The components the observer is watching.
-    pub components: Vec<ComponentId>,
+    components: Vec<ComponentId>,
 
     /// The entities the observer is watching.
-    pub entities: Vec<Entity>,
+    entities: Vec<Entity>,
 }
 
 impl ObserverDescriptor {
@@ -306,6 +306,21 @@ impl ObserverDescriptor {
         self.components
             .extend(descriptor.components.iter().copied());
         self.entities.extend(descriptor.entities.iter().copied());
+    }
+
+    /// Returns the `events` that the observer is watching.
+    pub fn events(&self) -> &[ComponentId] {
+        &self.events
+    }
+
+    /// Returns the `components` that the observer is watching.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
+    }
+
+    /// Returns the `entities` that the observer is watching.
+    pub fn entities(&self) -> &[Entity] {
+        &self.entities
     }
 }
 

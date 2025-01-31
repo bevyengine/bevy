@@ -267,7 +267,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
-    pub descriptor: ObserverDescriptor,
+    descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
 }
 
@@ -311,6 +311,11 @@ impl Observer {
     pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
         self
+    }
+
+    /// Returns the [`ObserverDescriptor`] for this [`Observer`].
+    pub fn descriptor(&self) -> &ObserverDescriptor {
+        &self.descriptor
     }
 }
 
