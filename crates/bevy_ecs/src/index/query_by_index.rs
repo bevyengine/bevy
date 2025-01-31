@@ -1,5 +1,11 @@
+use alloc::vec::Vec;
+
 use crate::{
-    archetype::Archetype, component::{ComponentId, Tick}, query::{QueryBuilder, QueryData, QueryFilter, QueryState, With}, system::{Query, Res, SystemMeta, SystemParam}, world::{unsafe_world_cell::UnsafeWorldCell, World}
+    archetype::Archetype,
+    component::{ComponentId, Tick},
+    query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
+    system::{Query, Res, SystemMeta, SystemParam},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 use super::{Index, IndexableComponent};
@@ -40,15 +46,22 @@ use super::{Index, IndexableComponent};
 /// }
 /// # world.run_system_cached(find_all_player_one_entities);
 /// ```
-pub struct QueryByIndex<'world, C: IndexableComponent, D: QueryData, F: QueryFilter = ()> {
+pub struct QueryByIndex<
+    'world,
+    'state,
+    C: IndexableComponent,
+    D: QueryData + 'static,
+    F: QueryFilter + 'static = (),
+> {
     world: UnsafeWorldCell<'world>,
+    system_param_state: &'state QueryByIndexState<C, D, F>,
     state: Option<QueryState<D, (F, With<C>)>>,
     last_run: Tick,
     this_run: Tick,
     index: Res<'world, Index<C>>,
 }
 
-impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D, F> {
+impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C, D, F> {
     /// Return a [`Query`] only returning entities with a component `C` of the provided value.
     ///
     /// # Examples
@@ -73,14 +86,21 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D,
     /// }
     /// ```
     pub fn at(&mut self, value: &C) -> Query<'_, '_, D, (F, With<C>)> {
-        self.state = {
-            // SAFETY: Mutable references do not alias and will be dropped after this block
-            let mut builder = unsafe { QueryBuilder::new(self.world.world_mut()) };
+        self.state = None;
 
-            self.index.filter_query_for(&mut builder, value);
-
-            Some(builder.build())
+        let Some(&index) = self.index.mapping.get(value) else {
+            todo!("make a null query to return");
         };
+
+        for i in 0..self.index.markers.len() {
+            if index & (1 << i) > 0 {
+                let filter = &self.system_param_state.with_states[i];
+                self.state = Some(self.state.as_ref().unwrap_or(&self.system_param_state.primary_query_state).join_filtered(self.world, filter));
+            } else {
+                let filter = &self.system_param_state.without_states[i];
+                self.state = Some(self.state.as_ref().unwrap_or(&self.system_param_state.primary_query_state).join_filtered(self.world, filter));
+            }
+        }
 
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
@@ -88,7 +108,7 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D,
         unsafe {
             Query::new(
                 self.world,
-                self.state.as_mut().unwrap(),
+                self.state.as_ref().unwrap_or(&self.system_param_state.primary_query_state),
                 self.last_run,
                 self.this_run,
             )
@@ -97,9 +117,17 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, C, D,
 }
 
 #[doc(hidden)]
-pub struct QueryByIndexState<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static> {
+pub struct QueryByIndexState<
+    C: IndexableComponent,
+    D: QueryData + 'static,
+    F: QueryFilter + 'static,
+> {
     primary_query_state: QueryState<D, (F, With<C>)>,
     index_state: ComponentId,
+
+    // TODO: THERE MUST BE A BETTER WAY
+    without_states: Vec<QueryState<(), With<C>>>, // No, With<C> is not a typo
+    with_states: Vec<QueryState<(), With<C>>>,
 }
 
 impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
@@ -110,9 +138,31 @@ impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
             <Query<D, (F, With<C>)> as SystemParam>::init_state(world, system_meta);
         let index_state = <Res<Index<C>> as SystemParam>::init_state(world, system_meta);
 
+        let ids = world.resource::<Index<C>>().markers.clone();
+
+        let with_states = ids
+            .iter()
+            .map(|&id| {
+                let mut builder = QueryBuilder::<(), With<C>>::new(world);
+                builder.with_id(id);
+                builder.build()
+            })
+            .collect::<Vec<_>>();
+
+        let without_states = ids
+            .iter()
+            .map(|&id| {
+                let mut builder = QueryBuilder::<(), With<C>>::new(world);
+                builder.without_id(id);
+                builder.build()
+            })
+            .collect::<Vec<_>>();
+
         Self {
             primary_query_state,
             index_state,
+            without_states,
+            with_states,
         }
     }
 
@@ -122,28 +172,42 @@ impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
             archetype,
             system_meta,
         );
+
+        for state in self
+            .with_states
+            .iter_mut()
+            .chain(self.without_states.iter_mut())
+        {
+            <Query<(), With<C>> as SystemParam>::new_archetype(state, archetype, system_meta);
+        }
     }
 
     #[inline]
     unsafe fn validate_param(&self, system_meta: &SystemMeta, world: UnsafeWorldCell) -> bool {
-        let query_valid = <Query<D, (F, With<C>)> as SystemParam>::validate_param(
+        let mut valid = true;
+
+        valid &= <Query<D, (F, With<C>)> as SystemParam>::validate_param(
             &self.primary_query_state,
             system_meta,
             world,
         );
-        let res_valid =
+        valid &=
             <Res<Index<C>> as SystemParam>::validate_param(&self.index_state, system_meta, world);
 
-        query_valid && res_valid
+        for state in self.with_states.iter().chain(self.without_states.iter()) {
+            valid &= <Query<(), With<C>> as SystemParam>::validate_param(state, system_meta, world);
+        }
+
+        valid
     }
 }
 
 // SAFETY: We rely on the known-safe implementations of `SystemParam` for `Res` and `Query`.
 unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for QueryByIndex<'_, C, D, F>
+    for QueryByIndex<'_, '_, C, D, F>
 {
     type State = QueryByIndexState<C, D, F>;
-    type Item<'w, 's> = QueryByIndex<'w, C, D, F>;
+    type Item<'w, 's> = QueryByIndex<'w, 's, C, D, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         Self::State::init_state(world, system_meta)
@@ -174,11 +238,16 @@ unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'sta
     ) -> Self::Item<'world, 'state> {
         state.primary_query_state.validate_world(world.id());
 
-        let index =
-            <Res<Index<C>> as SystemParam>::get_param(&mut state.index_state, system_meta, world, change_tick);
+        let index = <Res<Index<C>> as SystemParam>::get_param(
+            &mut state.index_state,
+            system_meta,
+            world,
+            change_tick,
+        );
 
         QueryByIndex {
             world,
+            system_param_state: state,
             state: None,
             last_run: system_meta.last_run,
             this_run: change_tick,

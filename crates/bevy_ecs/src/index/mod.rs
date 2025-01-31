@@ -137,7 +137,6 @@ use crate::{
     component::{Component, ComponentDescriptor, ComponentId, Immutable, StorageType},
     entity::Entity,
     prelude::Trigger,
-    query::{QueryBuilder, QueryData, QueryFilter},
     system::{Commands, Query, ResMut},
     world::{FromWorld, OnInsert, OnReplace, World},
 };
@@ -310,26 +309,6 @@ impl<C: IndexableComponent> Index<C> {
             .enumerate()
             .filter_map(|(i, &id)| (index & (1 << i) > 0).then_some(id))
             .collect::<Vec<_>>()
-    }
-
-    fn filter_query_for<D: QueryData, F: QueryFilter>(
-        &self,
-        builder: &mut QueryBuilder<D, F>,
-        value: &C,
-    ) {
-        let Some(&index) = self.mapping.get(value) else {
-            // If there is no marker, create a no-op query by including With<C> and Without<C>
-            builder.without::<C>();
-            return;
-        };
-
-        for (i, &id) in self.markers.iter().enumerate() {
-            if index & (1 << i) > 0 {
-                builder.with_id(id);
-            } else {
-                builder.without_id(id);
-            }
-        }
     }
 }
 
