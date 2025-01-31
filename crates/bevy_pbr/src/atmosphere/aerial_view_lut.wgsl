@@ -7,7 +7,7 @@
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
             get_local_r, get_local_up, view_radius, uv_to_ndc, max_atmosphere_distance,
-            uv_to_ray_direction
+            uv_to_ray_direction, MIDPOINT_RATIO
         },
     }
 }
@@ -32,7 +32,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     for (var slice_i: u32 = 0; slice_i < settings.aerial_view_lut_size.z; slice_i++) {
         for (var step_i: u32 = 0; step_i < settings.aerial_view_lut_samples; step_i++) {
-            let t_i = t_max * (f32(slice_i) + ((f32(step_i) + 0.5) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
+            let t_i = t_max * (f32(slice_i) + ((f32(step_i) + MIDPOINT_RATIO) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
             let dt = (t_i - prev_t);
             prev_t = t_i;
 
@@ -60,6 +60,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
         // Store the optical depth so that it can be linearly sampled between slices
         let optical_depth = -log(max(mean_transmittance, 1e-6)); // Avoid log(0)
-        textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(total_inscattering, optical_depth));
+        let log_inscattering = log(max(total_inscattering, vec3(1e-6)));
+        textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(log_inscattering, optical_depth));
     }
 }

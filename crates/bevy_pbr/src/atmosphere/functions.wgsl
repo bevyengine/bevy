@@ -43,6 +43,12 @@ const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
 
+// During raymarching, each segment is sampled at a single point. This constant determines
+// where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
+// We use 0.3 to sample closer to the start of each segment, which better approximates
+// the exponential falloff of atmospheric density.
+const MIDPOINT_RATIO: f32 = 0.3;
+
 // LUT UV PARAMATERIZATIONS
 
 fn unit_to_sub_uvs(val: vec2<f32>, resolution: vec2<f32>) -> vec2<f32> {
@@ -137,13 +143,13 @@ fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
     let w = clamp((dist / t_max * num_slices - 0.5) / num_slices, 0.0, 1.0);
     let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, vec3(uv, w), 0.0);
 
-    // Recover the transmittance from the optical depth
-    let result = vec4(sample.rgb, exp(-sample.a));
-    
     // Special handling of first slice to ensure zero scattering at camera position.
     // Without this, nearby objects would incorrectly show extra inscattering.
-    let delta = t_max / num_slices;
-    return select(result, result * (dist / delta), dist < delta);
+    let delta_slice = t_max / num_slices;
+    let fade = saturate(dist / delta_slice);
+
+    // Recover the inscattering and transmittance from the log-encoded values
+    return vec4(exp(sample.rgb) * fade, exp(-sample.a * fade));
 }
 
 // PHASE FUNCTIONS
