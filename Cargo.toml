@@ -2044,6 +2044,7 @@ wasm = false
 name = "index"
 path = "examples/ecs/index.rs"
 doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
 
 [package.metadata.example.index]
 name = "Indexes"

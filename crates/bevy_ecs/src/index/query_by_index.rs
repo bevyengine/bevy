@@ -4,7 +4,7 @@ use crate::{
     archetype::Archetype,
     component::{ComponentId, Tick},
     query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
-    system::{Query, Res, SystemMeta, SystemParam},
+    system::{Query, QueryLens, Res, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -55,14 +55,13 @@ pub struct QueryByIndex<
 > {
     world: UnsafeWorldCell<'world>,
     system_param_state: &'state QueryByIndexState<C, D, F>,
-    state: Option<QueryState<D, (F, With<C>)>>,
     last_run: Tick,
     this_run: Tick,
     index: Res<'world, Index<C>>,
 }
 
 impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C, D, F> {
-    /// Return a [`Query`] only returning entities with a component `C` of the provided value.
+    /// Return a [`QueryLens`] returning entities with a component `C` of the provided value.
     ///
     /// # Examples
     ///
@@ -85,64 +84,74 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
     ///     }
     /// }
     /// ```
-    pub fn at(&mut self, value: &C) -> Query<'_, '_, D, (F, With<C>)> {
-        self.state = None;
+    pub fn at_mut(&mut self, value: &C) -> QueryLens<'_, D, (F, With<C>)> {
+        let primary = &self.system_param_state.primary_query_state;
+
+        // TODO: Placeholder for Clone
+        let mut state: QueryState<D, (F, With<C>)> = primary.join_filtered(self.world, primary);
 
         match self.index.mapping.get(value) {
             Some(&index) => {
                 for i in 0..self.index.markers.len() {
                     if index & (1 << i) > 0 {
                         let filter = &self.system_param_state.with_states[i];
-                        self.state = Some(
-                            self.state
-                                .as_ref()
-                                .unwrap_or(&self.system_param_state.primary_query_state)
-                                .join_filtered(self.world, filter),
-                        );
+                        state = state.join_filtered(self.world, filter);
                     } else {
                         let filter = &self.system_param_state.without_states[i];
-                        self.state = Some(
-                            self.state
-                                .as_ref()
-                                .unwrap_or(&self.system_param_state.primary_query_state)
-                                .join_filtered(self.world, filter),
-                        );
+                        state = state.join_filtered(self.world, filter);
                     }
                 }
             }
             None => {
                 // Create a no-op filter by joining two conflicting filters together.
                 let filter = &self.system_param_state.with_states[0];
-                self.state = Some(
-                    self.state
-                        .as_ref()
-                        .unwrap_or(&self.system_param_state.primary_query_state)
-                        .join_filtered(self.world, filter),
-                );
+                state = state.join_filtered(self.world, filter);
 
                 let filter = &self.system_param_state.without_states[0];
-                self.state = Some(
-                    self.state
-                        .as_ref()
-                        .unwrap_or(&self.system_param_state.primary_query_state)
-                        .join_filtered(self.world, filter),
-                );
+                state = state.join_filtered(self.world, filter);
             }
         }
 
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe {
-            Query::new(
-                self.world,
-                self.state
-                    .as_ref()
-                    .unwrap_or(&self.system_param_state.primary_query_state),
-                self.last_run,
-                self.this_run,
-            )
+        unsafe { QueryLens::new(self.world, state, self.last_run, self.this_run) }
+    }
+
+    /// Return a read-only [`QueryLens`] returning entities with a component `C` of the provided value.
+    pub fn at(&self, value: &C) -> QueryLens<'_, D::ReadOnly, (F, With<C>)> {
+        let primary = self.system_param_state.primary_query_state.as_readonly();
+
+        // TODO: Placeholder for Clone
+        let mut state: QueryState<D::ReadOnly, (F, With<C>)> =
+            primary.join_filtered(self.world, primary);
+
+        match self.index.mapping.get(value) {
+            Some(&index) => {
+                for i in 0..self.index.markers.len() {
+                    if index & (1 << i) > 0 {
+                        let filter = &self.system_param_state.with_states[i];
+                        state = state.join_filtered(self.world, filter);
+                    } else {
+                        let filter = &self.system_param_state.without_states[i];
+                        state = state.join_filtered(self.world, filter);
+                    }
+                }
+            }
+            None => {
+                // Create a no-op filter by joining two conflicting filters together.
+                let filter = &self.system_param_state.with_states[0];
+                state = state.join_filtered(self.world, filter);
+
+                let filter = &self.system_param_state.without_states[0];
+                state = state.join_filtered(self.world, filter);
+            }
         }
+
+        // SAFETY: We have registered all of the query's world accesses,
+        // so the caller ensures that `world` has permission to access any
+        // world data that the query needs.
+        unsafe { QueryLens::new(self.world, state, self.last_run, self.this_run) }
     }
 }
 
@@ -278,7 +287,6 @@ unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'sta
         QueryByIndex {
             world,
             system_param_state: state,
-            state: None,
             last_run: system_meta.last_run,
             this_run: change_tick,
             index,
