@@ -15,6 +15,7 @@ fn main() {
         .add_systems(OnEnter(Scene::Animation), animation::setup)
         .add_systems(Update, switch_scene);
 
+    // Those scenes don't work in CI on Windows runners
     #[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
     app.add_systems(OnEnter(Scene::Bloom), bloom::setup)
         .add_systems(OnEnter(Scene::Gltf), gltf::setup);
