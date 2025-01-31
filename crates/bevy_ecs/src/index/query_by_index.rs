@@ -177,11 +177,25 @@ impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
     QueryByIndexState<C, D, F>
 {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        let index = match world.get_resource::<Index<C>>() {
+            Some(index) => index,
+            None => {
+                log::warn!(
+                    "Using `QueryByIndex` for `{}` without setting up an index is discouraged.\nPlease call `app.add_index::<{}>()` during setup",
+                    disqualified::ShortName::of::<C>(),
+                    disqualified::ShortName::of::<C>(),
+                );
+
+                world.add_index::<C>();
+                world.get_resource::<Index<C>>().unwrap()
+            }
+        };
+
+        let ids = index.markers.clone();
+
         let primary_query_state =
             <Query<D, (F, With<C>)> as SystemParam>::init_state(world, system_meta);
         let index_state = <Res<Index<C>> as SystemParam>::init_state(world, system_meta);
-
-        let ids = world.resource::<Index<C>>().markers.clone();
 
         let with_states = ids
             .iter()
