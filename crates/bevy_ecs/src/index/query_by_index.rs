@@ -3,6 +3,7 @@ use alloc::vec::Vec;
 use crate::{
     archetype::Archetype,
     component::{ComponentId, Tick},
+    index::WorldIndexExtension,
     query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
     system::{Query, QueryLens, Res, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
