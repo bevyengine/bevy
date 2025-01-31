@@ -139,7 +139,7 @@ use crate::{
     prelude::Trigger,
     query::{QueryBuilder, QueryData, QueryFilter},
     system::{Commands, Query, ResMut},
-    world::{OnInsert, OnReplace, World},
+    world::{FromWorld, OnInsert, OnReplace, World},
 };
 use alloc::{format, vec::Vec};
 use bevy_ecs_macros::Resource;
@@ -173,23 +173,23 @@ struct IndexState {
     active: usize,
 }
 
-// Rust's derives assume that C must impl Default for this to hold,
-// but that's not true.
-impl<C: IndexableComponent> Default for Index<C> {
-    fn default() -> Self {
-        Self::new()
+impl<C: IndexableComponent> FromWorld for Index<C> {
+    fn from_world(world: &mut World) -> Self {
+        let bits = 8 * size_of::<C>().min(size_of::<u32>());
+
+        let markers = core::iter::repeat_with(|| Self::alloc_new_marker(world))
+            .take(bits)
+            .collect::<Vec<_>>();
+
+        Self {
+            mapping: HashMap::with_hasher(FixedHasher),
+            markers,
+            slots: Vec::new(),
+        }
     }
 }
 
 impl<C: IndexableComponent> Index<C> {
-    const fn new() -> Self {
-        Self {
-            mapping: HashMap::with_hasher(FixedHasher),
-            markers: Vec::new(),
-            slots: Vec::new(),
-        }
-    }
-
     fn track_entity(&mut self, world: &mut World, entity: Entity) {
         let Some(value) = world.get::<C>(entity) else {
             return;
@@ -219,10 +219,6 @@ impl<C: IndexableComponent> Index<C> {
                         let index = self.slots.len();
                         self.mapping.insert(value.clone(), index);
                         self.slots.push(IndexState { active: 1 });
-
-                        if 1 << self.markers.len() <= self.slots.len() {
-                            self.markers.push(Self::alloc_new_marker(world));
-                        }
 
                         index
                     }
@@ -347,7 +343,7 @@ pub trait WorldIndexExtension {
 impl WorldIndexExtension for World {
     fn add_index<C: IndexableComponent>(&mut self) -> &mut Self {
         if self.get_resource::<Index<C>>().is_none() {
-            let mut index = Index::<C>::new();
+            let mut index = Index::<C>::from_world(self);
 
             self.query::<(Entity, &C)>()
                 .iter(self)

@@ -2,12 +2,12 @@ use bevy_ecs::{prelude::*, system::SystemId};
 use core::hint::black_box;
 use glam::*;
 
-const PLANETS: u8 = 16;
-const SPAWNS: usize = 10_000;
+const PLANETS: u16 = 1_000;
+const SPAWNS: usize = 1_000_000;
 
 #[derive(Component, Copy, Clone, PartialEq, Eq, Hash)]
 #[component(immutable)]
-struct Planet(u8);
+struct Planet(u16);
 
 fn find_planet_zeroes_naive(query: Query<&Planet>) {
     for planet in query.iter().filter(|&&planet| planet == Planet(0)) {

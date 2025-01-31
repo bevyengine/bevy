@@ -113,6 +113,14 @@ unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'sta
         (query_state, res_state)
     }
 
+    unsafe fn new_archetype(
+        (query_state, res_state): &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        <Query<D, (F, With<C>)> as SystemParam>::new_archetype(query_state, archetype, system_meta);
+    }
+
     #[inline]
     unsafe fn validate_param(
         (query_state, res_state): &Self::State,
