@@ -2662,6 +2662,18 @@ mod tests {
         World::new().register_component::<A>();
     }
 
+    #[test]
+    #[should_panic = "Recursive required components detected: A → A\nhelp: Remove require(A)."]
+    fn required_components_self_errors() {
+        #[derive(Component, Default)]
+        #[require(A)]
+        struct A;
+
+        World::new().register_component::<A>();
+    }
+
+    // These structs are primarily compilation tests to test the derive macros. Because they are
+    // never constructed, we have to manually silence the `dead_code` lint.
     #[expect(
         dead_code,
         reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
