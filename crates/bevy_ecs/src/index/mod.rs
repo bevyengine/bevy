@@ -2,7 +2,7 @@
 //!
 //! # Background
 //!
-//! The most common way of querying for data within the [`World`] is with [`Query`] as a [system parameter](`SystemParam`).
+//! The most common way of querying for data within the [`World`] is with [`Query`] as a system parameter.
 //! This requires specifying all the parameters of your query up-front in the type-signature of system.
 //! This is problematic when you don't want to query for _all_ entities with a particular set of components,
 //! and instead want entities who have particular _values_ for a given component.
