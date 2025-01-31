@@ -101,6 +101,16 @@ impl Volume {
     /// assert!(ops::abs(volume.to_decibels() - 0.0) < EPSILON);
     /// ```
     pub const fn from_linear(v: f32) -> Self {
+        // Inform users in non-release builds that they really should not be
+        // passing negative values to this function. In release builds, we still
+        // end up clamping the value to `0.0`.
+        //
+        // Note: We don't want to enable this check in tests because we want to
+        // test the behavior of the function when it receives negative values.
+        if !cfg!(test) {
+            debug_assert!(v >= 0.0, "`Volume::from_linear` does not support negative linear scale values. If your value is negative because you're working with decibels, use `Volume::from_decibels` instead.");
+        }
+
         // Manually clamp the value to the range `[0, f32::MAX]` until `f32:max`
         // is stable as a const fn:
         //
