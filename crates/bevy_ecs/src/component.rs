@@ -1721,6 +1721,9 @@ impl Components {
     }
 
     /// Returns whether change detection was already enabled.
+    ///
+    /// # Panics
+    /// Panics if the component does not exist.
     pub(crate) fn enable_change_detection(&mut self, component_id: ComponentId) -> bool {
         core::mem::replace(&mut self.components[component_id.0].change_detection, true)
     }

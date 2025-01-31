@@ -362,6 +362,27 @@ impl ThinColumn {
     ) -> &[UnsafeCell<&'static Location<'static>>] {
         self.changed_by.as_slice(len)
     }
+
+    /// Allocates change ticks for this column.
+    ///
+    /// # Safety
+    /// - `len` must match the actual length of this column (number of elements stored)
+    pub(crate) unsafe fn enable_change_detection(&mut self, len: usize, tick: Tick) {
+        if self.ticks.is_some() {
+            panic!("ThinColumn already has change ticks");
+        }
+        let make_ticks = || {
+            let mut ticks = ThinArrayPtr::with_capacity(len);
+            for i in 0..len {
+                ticks.initialize_unchecked(i, UnsafeCell::new(tick));
+            }
+            ticks
+        };
+        self.ticks = Some(ThinColumnTicks {
+            added: make_ticks(),
+            changed: make_ticks(),
+        });
+    }
 }
 
 /// Change detection information for a [`ThinColumn`].
@@ -726,6 +747,15 @@ impl Column {
     #[inline]
     pub fn ticks_mut(&mut self) -> Option<&mut ColumnTicks> {
         self.ticks.as_mut()
+    }
+
+    /// Allocates change ticks for this column.
+    pub(crate) fn enable_change_detection(&mut self, tick: Tick) {
+        let make_ticks = || (0..self.len()).map(|_| UnsafeCell::new(tick)).collect();
+        self.ticks = Some(ColumnTicks {
+            added: make_ticks(),
+            changed: make_ticks(),
+        });
     }
 }
 

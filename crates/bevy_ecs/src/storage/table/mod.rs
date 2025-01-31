@@ -685,6 +685,13 @@ impl Table {
         self.get_column(component_id)
             .map(|col| col.data.get_unchecked(row.as_usize()))
     }
+
+    pub(crate) fn enable_change_detection(&mut self, component_id: ComponentId, tick: Tick) {
+        let len = self.capacity();
+        let column = self.get_column_mut(component_id).unwrap();
+        // SAFETY: column length matches table capacity
+        unsafe { column.enable_change_detection(len, tick) };
+    }
 }
 
 /// A collection of [`Table`] storages, indexed by [`TableId`]
@@ -729,6 +736,14 @@ impl Tables {
     #[inline]
     pub fn get(&self, id: TableId) -> Option<&Table> {
         self.tables.get(id.as_usize())
+    }
+
+    /// Fetches a [`Table`] by its [`TableId`].
+    ///
+    /// Returns `None` if `id` is invalid.
+    #[inline]
+    pub(crate) fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
+        self.tables.get_mut(id.as_usize())
     }
 
     /// Fetches mutable references to two different [`Table`]s.

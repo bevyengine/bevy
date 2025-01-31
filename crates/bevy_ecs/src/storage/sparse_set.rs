@@ -375,6 +375,10 @@ impl ComponentSparseSet {
     pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         self.dense.check_change_ticks(change_tick);
     }
+
+    pub(crate) fn enable_change_detection(&mut self, tick: Tick) {
+        self.dense.enable_change_detection(tick);
+    }
 }
 
 /// A data structure that blends dense and sparse storage

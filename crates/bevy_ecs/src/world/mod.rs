@@ -3226,7 +3226,26 @@ impl World {
     /// Panics if this world doesn't contain a component of this id.
     pub fn enable_change_detection_for_id(&mut self, component_id: ComponentId) {
         if !self.components.enable_change_detection(component_id) {
-            // TODO: add ticks for existing tables
+            let mut missed = 0;
+            if let Some(set) = self.storages.sparse_sets.get_mut(component_id) {
+                // Sparse
+                set.enable_change_detection(self.last_change_tick);
+                missed = set.len();
+            } else if let Some(archetypes) = self.archetypes.by_component.get(&component_id) {
+                // Tables
+                for &archetype_id in archetypes.keys() {
+                    let archetype = self.archetypes.get(archetype_id).unwrap();
+                    let table_id = archetype.table_id();
+                    let table = self.storages.tables.get_mut(table_id).unwrap();
+                    table.enable_change_detection(component_id, self.last_change_tick);
+                    missed += table.entity_count();
+                }
+            }
+            if missed > 0 {
+                debug!("Enabled change detection for component {}, missed ticks for {missed} existing entities",
+                    self.components.get_name(component_id).unwrap(),
+                );
+            }
         }
     }
 }
