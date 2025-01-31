@@ -166,6 +166,8 @@ struct Index<C: IndexableComponent> {
     /// Once a value hits zero, it is free for reuse.
     /// If no values are zero, you must append to the end of the list.
     slots: Vec<IndexState>,
+    /// Slots with an active count of zero should be put here for later reuse.
+    spare_slots: Vec<usize>,
 }
 
 struct IndexState {
@@ -185,6 +187,7 @@ impl<C: IndexableComponent> FromWorld for Index<C> {
             mapping: HashMap::with_hasher(FixedHasher),
             markers,
             slots: Vec::new(),
+            spare_slots: Vec::new(),
         }
     }
 }
@@ -201,20 +204,12 @@ impl<C: IndexableComponent> Index<C> {
                 index
             }
             None => {
-                let spare_slot = (self.slots.len() > self.mapping.len())
-                    .then(|| {
-                        self.slots
-                            .iter_mut()
-                            .enumerate()
-                            .find(|(_, slot)| slot.active == 0)
-                    })
-                    .flatten();
-
+                let spare_slot = self.spare_slots.pop();
                 let value = value.clone();
 
                 match spare_slot {
-                    Some((index, slot)) => {
-                        slot.active += 1;
+                    Some(index) => {
+                        self.slots[index].active += 1;
                         self.mapping.insert(value, index);
                         index
                     }
@@ -276,6 +271,7 @@ impl<C: IndexableComponent> Index<C> {
         // If so, we can recycle it for a different value
         if slot.active == 0 {
             index.mapping.remove(value);
+            index.spare_slots.push(slot_index);
         }
 
         let ids = index.ids_for(slot_index);

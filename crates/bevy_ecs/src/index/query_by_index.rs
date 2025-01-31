@@ -82,7 +82,7 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
     ///
     /// fn find_red_fans(mut by_color: QueryByIndex<FavoriteColor, Entity>) {
     ///     let mut lens = by_color.at(&FavoriteColor::Red);
-    /// 
+    ///
     ///     for entity in lens.query().iter() {
     ///         println!("{entity:?} likes the color Red!");
     ///     }
