@@ -181,20 +181,12 @@ impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
 
         let with_states = ids
             .iter()
-            .map(|&id| {
-                let mut builder = QueryBuilder::<(), With<C>>::new(world);
-                builder.with_id(id);
-                builder.build()
-            })
+            .map(|&id| QueryBuilder::new(world).with_id(id).build())
             .collect::<Vec<_>>();
 
         let without_states = ids
             .iter()
-            .map(|&id| {
-                let mut builder = QueryBuilder::<(), With<C>>::new(world);
-                builder.without_id(id);
-                builder.build()
-            })
+            .map(|&id| QueryBuilder::new(world).without_id(id).build())
             .collect::<Vec<_>>();
 
         Self {
