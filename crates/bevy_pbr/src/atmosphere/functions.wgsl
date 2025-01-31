@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
-#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos_4, fast_atan2}
+#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2}
 
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
@@ -71,6 +71,8 @@ fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
 
     let v_horizon = sqrt(r * r - atmosphere.bottom_radius * atmosphere.bottom_radius);
     let cos_beta = v_horizon / r;
+    // Using fast_acos_4 for better precision at small angles
+    // to avoid artifacts at the horizon
     let beta = fast_acos_4(cos_beta);
     let horizon_zenith = PI - beta;
     let view_zenith = fast_acos_4(mu);
@@ -126,24 +128,22 @@ fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
 // A channel: average transmittance across all wavelengths to the current sample.
 fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
     let view_pos = view.view_from_clip * vec4(uv_to_ndc(uv), depth, 1.0);
-    let view_ray_dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
+    let dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
     let t_max = settings.aerial_view_lut_max_distance;
+    let num_slices = f32(settings.aerial_view_lut_size.z);
+    
+    // Offset by 0.5 to sample at the center of each slice interval,
+    // which improves accuracy when using the midpoint rule for integration
+    let w = clamp((dist / t_max * num_slices - 0.5) / num_slices, 0.0, 1.0);
+    let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, vec3(uv, w), 0.0);
 
+    // Recover the transmittance from the optical depth
+    let result = vec4(sample.rgb, exp(-sample.a));
+    
     // Special handling of first slice to ensure zero scattering at camera position.
     // Without this, nearby objects would incorrectly show extra inscattering.
-    let delta_slice = t_max / f32(settings.aerial_view_lut_size.z);
-    if (view_ray_dist < delta_slice) {
-        let f = view_ray_dist / delta_slice;
-        let first_slice_uvw = vec3(uv, 0.5 / f32(settings.aerial_view_lut_size.z));
-        let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, first_slice_uvw, 0.0);
-        return vec4(sample.rgb * f, pow(sample.a, f));
-    }
-
-    // Offset by 0.5 slice to sample at the center of each slice
-    let normalized_depth = (view_ray_dist / t_max) * f32(settings.aerial_view_lut_size.z - 1u);
-    let w = (normalized_depth - 0.5) / f32(settings.aerial_view_lut_size.z);
-    let uvw = vec3(uv, clamp(w, 0.0, 1.0));
-    return textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
+    let delta = t_max / num_slices;
+    return select(result, result * (dist / delta), dist < delta);
 }
 
 // PHASE FUNCTIONS
@@ -253,7 +253,7 @@ fn sample_sun_illuminance(ray_dir_ws: vec3<f32>, transmittance: vec3<f32>) -> ve
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_sun = fast_acos_4(neg_LdotV);
+        let angle_to_sun = fast_acos(neg_LdotV);
         let pixel_size = fwidth(angle_to_sun);
         let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
         let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
