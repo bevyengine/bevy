@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, MutMarkChanges, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
+    component::{Component, ComponentId, Components, Mutable, StorageType, Tick, TickWriteCell},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -1423,7 +1423,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
 unsafe impl<'__w, T: Component> ReadOnlyQueryData for Ref<'__w, T> {}
 
 /// The [`WorldQuery::Fetch`] type for `&mut T`.
-pub struct WriteFetchMarkChanges<'w, T: Component> {
+pub struct WriteMarkChangesFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
         // T::STORAGE_TYPE = StorageType::Table
@@ -1436,14 +1436,16 @@ pub struct WriteFetchMarkChanges<'w, T: Component> {
         &'w ComponentSparseSet,
     >,
     this_run: Tick,
+    tick_sink: &'w TickWriteCell,
 }
 
-impl<T: Component> Clone for WriteFetchMarkChanges<'_, T> {
+impl<T: Component> Clone for WriteMarkChangesFetch<'_, T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T: Component> Copy for WriteFetchMarkChanges<'_, T> {}
+
+impl<T: Component> Copy for WriteMarkChangesFetch<'_, T> {}
 
 /// SAFETY:
 /// `fetch` accesses a single component mutably.
@@ -1452,7 +1454,7 @@ impl<T: Component> Copy for WriteFetchMarkChanges<'_, T> {}
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Item<'w> = MutMarkChanges<'w, T>;
-    type Fetch<'w> = WriteFetchMarkChanges<'w, T>;
+    type Fetch<'w> = WriteMarkChangesFetch<'w, T>;
     type State = ComponentId;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
@@ -1471,8 +1473,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         &component_id: &ComponentId,
         _last_run: Tick,
         this_run: Tick,
-    ) -> WriteFetchMarkChanges<'w, T> {
-        WriteFetchMarkChanges {
+    ) -> WriteMarkChangesFetch<'w, T> {
+        WriteMarkChangesFetch {
             components: StorageSwitch::new(
                 || None,
                 || {
@@ -1490,6 +1492,14 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 },
             ),
             this_run,
+            // SAFETY: Component has been initialized by `init_state`
+            tick_sink: &unsafe {
+                world
+                    .components()
+                    .get_info(component_id)
+                    .debug_checked_unwrap()
+            }
+            .ignored_tick_write_sink,
         }
     }
 
@@ -1502,22 +1512,22 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
     #[inline]
     unsafe fn set_archetype<'w>(
-        fetch: &mut WriteFetchMarkChanges<'w, T>,
-        component_id: &ComponentId,
+        fetch: &mut WriteMarkChangesFetch<'w, T>,
+        state: &ComponentId,
         _archetype: &'w Archetype,
         table: &'w Table,
     ) {
         if Self::IS_DENSE {
             // SAFETY: `set_archetype`'s safety rules are a super set of the `set_table`'s ones.
             unsafe {
-                Self::set_table(fetch, component_id, table);
+                Self::set_table(fetch, state, table);
             }
         }
     }
 
     #[inline]
     unsafe fn set_table<'w>(
-        fetch: &mut WriteFetchMarkChanges<'w, T>,
+        fetch: &mut WriteMarkChangesFetch<'w, T>,
         &component_id: &ComponentId,
         table: &'w Table,
     ) {
@@ -1542,17 +1552,6 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         entity: Entity,
         table_row: TableRow,
     ) -> Self::Item<'w> {
-        // TODO: Figure out where to store these!
-        // Using a thread local doesn't work without std.
-        // It should still be sound because UnsafeCell isn't Sync,
-        // so 'w can't last longer than the thread.
-        // Maybe provide space in the query itself?
-        let ignore_tick_ptr = {
-            std::thread_local! {static IGNORE_TICK_CELL: UnsafeCell<Tick> = const { UnsafeCell::new(Tick::MAX) };}
-            IGNORE_TICK_CELL.with(core::ptr::from_ref)
-        };
-        let ignore_tick = unsafe { &*ignore_tick_ptr };
-
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
@@ -1563,15 +1562,18 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let component = unsafe { table_components.get(table_row.as_usize()) };
                 let changed = changed_ticks
                     // SAFETY: The caller ensures `table_row` is in range.
-                    .map(|t| unsafe { t.get(table_row.as_usize()) })
-                    .unwrap_or(ignore_tick);
+                    // We have exclusive access.
+                    .map(|t| unsafe {
+                        TickWriteCell::from_unsafe_cell(t.get(table_row.as_usize()))
+                    })
+                    .unwrap_or(fetch.tick_sink);
                 // SAFETY: The caller ensures `table_row` is in range.
                 #[cfg(feature = "track_location")]
                 let caller = unsafe { _callers.get(table_row.as_usize()) };
 
                 MutMarkChanges {
                     value: component.deref_mut(),
-                    last_changed: changed.deref_mut(),
+                    last_changed: changed,
                     this_run: fetch.this_run,
                     #[cfg(feature = "track_location")]
                     changed_by: caller.deref_mut(),
@@ -1582,14 +1584,16 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let (component, ticks, _caller) =
                     unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
 
-                let changed = ticks.map(|t| t.changed).unwrap_or(ignore_tick);
+                let changed = ticks
+                    .map(|t| TickWriteCell::from_unsafe_cell(t.changed))
+                    .unwrap_or(fetch.tick_sink);
 
                 MutMarkChanges {
                     value: component.assert_unique().deref_mut(),
-                    last_changed: changed.deref_mut(),
+                    last_changed: changed,
                     this_run: fetch.this_run,
                     #[cfg(feature = "track_location")]
-                    changed_by: _caller.deref_mut(),
+                    changed_by: caller.deref_mut(),
                 }
             },
         )
@@ -1607,7 +1611,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         access.add_component_write(component_id);
     }
 
-    fn init_state(world: &mut World) -> ComponentId {
+    fn init_state(world: &mut World) -> Self::State {
         world.register_component::<T>()
     }
 
@@ -1616,10 +1620,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     }
 
     fn matches_component_set(
-        &state: &ComponentId,
+        &component_id: &ComponentId,
         set_contains_id: &impl Fn(ComponentId) -> bool,
     ) -> bool {
-        set_contains_id(state)
+        set_contains_id(component_id)
     }
 }
 

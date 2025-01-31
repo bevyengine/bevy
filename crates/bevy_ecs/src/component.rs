@@ -17,7 +17,10 @@ use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::sync::Arc;
+use bevy_platform_support::sync::{
+    atomic::{AtomicU32, Ordering::Relaxed},
+    Arc,
+};
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -723,6 +726,8 @@ pub struct ComponentInfo {
     required_components: RequiredComponents,
     required_by: HashSet<ComponentId>,
     change_detection: bool,
+    /// If change detection is disabled, updates to change ticks are written here instead.
+    pub(crate) ignored_tick_write_sink: TickWriteCell,
 }
 
 impl ComponentInfo {
@@ -791,6 +796,7 @@ impl ComponentInfo {
             required_components: Default::default(),
             required_by: Default::default(),
             change_detection: false,
+            ignored_tick_write_sink: TickWriteCell::default(),
         }
     }
 
@@ -1739,6 +1745,7 @@ impl Components {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq)
 )]
+#[repr(transparent)]
 pub struct Tick {
     tick: u32,
 }
@@ -1806,6 +1813,34 @@ impl Tick {
         } else {
             false
         }
+    }
+}
+
+#[repr(transparent)]
+#[derive(Default, Debug)]
+pub(crate) struct TickWriteCell {
+    tick: AtomicU32,
+}
+
+impl TickWriteCell {
+    /// # Safety
+    /// Must be allowed to write to cell.
+    pub(crate) unsafe fn from_unsafe_cell(cell: &UnsafeCell<Tick>) -> &Self {
+        assert_eq!(align_of::<Tick>(), align_of::<TickWriteCell>());
+        // SAFETY:
+        // Tick and TickWriteCell have the same layout and are valid for all bit patterns.
+        core::mem::transmute(cell)
+    }
+
+    pub(crate) fn write(&self, tick: Tick) {
+        self.tick.store(tick.tick, Relaxed);
+    }
+}
+
+// Only used when used as a ignore sink
+impl Clone for TickWriteCell {
+    fn clone(&self) -> Self {
+        Self::default()
     }
 }
 

@@ -1,14 +1,14 @@
 //! Types that detect when their internal data mutate.
 
 use crate::{
-    component::{Tick, TickCells},
+    component::{Tick, TickCells, TickWriteCell},
     ptr::PtrMut,
     resource::Resource,
 };
 use alloc::borrow::ToOwned;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{
-    mem,
+    mem::{self},
     ops::{Deref, DerefMut},
 };
 #[cfg(feature = "track_location")]
@@ -867,38 +867,10 @@ impl_debug!(Ref<'w, T>,);
 /// is enabled for this component. If you also need to read them, use [`Mut`].
 pub struct MutMarkChanges<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
-    pub(crate) last_changed: &'w mut Tick,
+    pub(crate) last_changed: &'w TickWriteCell,
     pub(crate) this_run: Tick,
     #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,
-}
-
-impl<'w, T: ?Sized> MutMarkChanges<'w, T> {
-    /// In almost all cases you do not need to call this method manually,
-    /// as instances of `Mut` will be created by engine-internal code.
-    ///
-    /// Many use-cases of this method would be better served by [`Mut::map_unchanged`]
-    /// or [`Mut::reborrow`].
-    ///
-    /// - `value` - The value wrapped by this smart pointer.
-    /// - `last_changed` - A [`Tick`] that stores the last time the wrapped value was changed.
-    ///   This will be updated to the value of `change_tick` if the returned smart pointer
-    ///   is modified.
-    /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
-    pub fn new(
-        value: &'w mut T,
-        last_changed: &'w mut Tick,
-        this_run: Tick,
-        #[cfg(feature = "track_location")] caller: &'w mut &'static Location<'static>,
-    ) -> Self {
-        Self {
-            value,
-            last_changed,
-            this_run,
-            #[cfg(feature = "track_location")]
-            changed_by: caller,
-        }
-    }
 }
 
 impl<'w, T: ?Sized> Deref for MutMarkChanges<'w, T> {
@@ -947,7 +919,7 @@ impl<'w, T: ?Sized> MarkChanges for MutMarkChanges<'w, T> {
     #[inline]
     #[track_caller]
     fn set_changed(&mut self) {
-        *self.last_changed = self.this_run;
+        self.last_changed.write(self.this_run);
         #[cfg(feature = "track_location")]
         {
             *self.changed_by = Location::caller();
@@ -957,7 +929,7 @@ impl<'w, T: ?Sized> MarkChanges for MutMarkChanges<'w, T> {
     #[inline]
     #[track_caller]
     fn set_last_changed(&mut self, last_changed: Tick) {
-        *self.last_changed = last_changed;
+        self.last_changed.write(last_changed);
         #[cfg(feature = "track_location")]
         {
             *self.changed_by = Location::caller();
