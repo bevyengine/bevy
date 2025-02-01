@@ -39,8 +39,13 @@ use super::{hash_map::EntityHashMap, VisitEntitiesMut};
 ///
 /// impl MapEntities for Spring {
 ///     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
-///         self.a = entity_mapper.map_entity(self.a);
-///         self.b = entity_mapper.map_entity(self.b);
+///
+///         if let Some(mapped_a) = entity_mapper.map_entity(self.a) {
+///             self.a = mapped_a;
+///         }
+///         if let Some(mapped_b) = entity_mapper.map_entity(self.b) {
+///             self.b = mapped_b;
+///         }
 ///     }
 /// }
 /// ```
@@ -55,7 +60,9 @@ pub trait MapEntities {
 impl<T: VisitEntitiesMut> MapEntities for T {
     fn map_entities<M: EntityMapper>(&mut self, entity_mapper: &mut M) {
         self.visit_entities_mut(|entity| {
-            *entity = entity_mapper.map_entity(*entity);
+            if let Some(mapped) = entity_mapper.map_entity(*entity) {
+                *entity = mapped;
+            }
         });
     }
 }
@@ -80,27 +87,27 @@ impl<T: VisitEntitiesMut> MapEntities for T {
 /// // Example implementation of EntityMapper where we map an entity to another entity if it exists
 /// // in the underlying `EntityHashMap`, otherwise we just return the original entity.
 /// impl EntityMapper for SimpleEntityMapper {
-///     fn map_entity(&mut self, entity: Entity) -> Entity {
-///         self.map.get(&entity).copied().unwrap_or(entity)
+///     fn map_entity(&mut self, entity: Entity) -> Option<Entity> {
+///         self.map.get(&entity).copied()
 ///     }
 /// }
 /// ```
 pub trait EntityMapper {
-    /// Map an entity to another entity
-    fn map_entity(&mut self, entity: Entity) -> Entity;
+    /// Map an entity to another entity. Returns None if the mapping could not be done.
+    fn map_entity(&mut self, entity: Entity) -> Option<Entity>;
 }
 
 impl EntityMapper for &mut dyn EntityMapper {
-    fn map_entity(&mut self, entity: Entity) -> Entity {
+    fn map_entity(&mut self, entity: Entity) -> Option<Entity> {
         (*self).map_entity(entity)
     }
 }
 
 impl EntityMapper for SceneEntityMapper<'_> {
     /// Returns the corresponding mapped entity or reserves a new dead entity ID in the current world if it is absent.
-    fn map_entity(&mut self, entity: Entity) -> Entity {
+    fn map_entity(&mut self, entity: Entity) -> Option<Entity> {
         if let Some(&mapped) = self.map.get(&entity) {
-            return mapped;
+            return Some(mapped);
         }
 
         // this new entity reference is specifically designed to never represent any living entity
@@ -114,7 +121,7 @@ impl EntityMapper for SceneEntityMapper<'_> {
 
         self.map.insert(entity, new);
 
-        new
+        Some(new)
     }
 }
 
@@ -208,15 +215,18 @@ mod tests {
         let mut mapper = SceneEntityMapper::new(&mut map, &mut world);
 
         let mapped_ent = Entity::from_raw(FIRST_IDX);
-        let dead_ref = mapper.map_entity(mapped_ent);
+        let dead_ref = mapper.map_entity(mapped_ent).unwrap();
 
         assert_eq!(
             dead_ref,
-            mapper.map_entity(mapped_ent),
+            mapper.map_entity(mapped_ent).unwrap(),
             "should persist the allocated mapping from the previous line"
         );
         assert_eq!(
-            mapper.map_entity(Entity::from_raw(SECOND_IDX)).index(),
+            mapper
+                .map_entity(Entity::from_raw(SECOND_IDX))
+                .unwrap()
+                .index(),
             dead_ref.index(),
             "should re-use the same index for further dead refs"
         );
@@ -235,7 +245,8 @@ mod tests {
 
         let dead_ref = SceneEntityMapper::world_scope(&mut map, &mut world, |_, mapper| {
             mapper.map_entity(Entity::from_raw(0))
-        });
+        })
+        .unwrap();
 
         // Next allocated entity should be a further generation on the same index
         let entity = world.spawn_empty().id();
