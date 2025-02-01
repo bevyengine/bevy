@@ -89,34 +89,43 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
     ///     }
     /// }
     /// ```
-    pub fn at_mut(&mut self, value: &C) -> QueryLens<'_, D, (F, With<C>)> {
-        let primary = &self.state.primary_query_state;
-
-        // TODO: Placeholder for Clone
-        let mut state: QueryState<D, (F, With<C>)> = primary.join_filtered(self.world, primary);
-
-        state = self.filter_for_value(value, state);
+    pub fn at_mut(&mut self, value: &C) -> QueryLens<'_, D, (F, With<C>)>
+    where
+        QueryState<D, (F, With<C>)>: Clone,
+    {
+        let state = self.state.primary_query_state.clone();
 
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe { QueryLens::new(self.world, state, self.last_run, self.this_run) }
+        unsafe {
+            QueryLens::new(
+                self.world,
+                self.filter_for_value(value, state),
+                self.last_run,
+                self.this_run,
+            )
+        }
     }
 
     /// Return a read-only [`QueryLens`] returning entities with a component `C` of the provided value.
-    pub fn at(&self, value: &C) -> QueryLens<'_, D::ReadOnly, (F, With<C>)> {
-        let primary = self.state.primary_query_state.as_readonly();
-
-        // TODO: Placeholder for Clone
-        let mut state: QueryState<D::ReadOnly, (F, With<C>)> =
-            primary.join_filtered(self.world, primary);
-
-        state = self.filter_for_value(value, state);
+    pub fn at(&self, value: &C) -> QueryLens<'_, D::ReadOnly, (F, With<C>)>
+    where
+        QueryState<D::ReadOnly, (F, With<C>)>: Clone,
+    {
+        let state = self.state.primary_query_state.as_readonly().clone();
 
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe { QueryLens::new(self.world, state, self.last_run, self.this_run) }
+        unsafe {
+            QueryLens::new(
+                self.world,
+                self.filter_for_value(value, state),
+                self.last_run,
+                self.this_run,
+            )
+        }
     }
 
     fn filter_for_value<T: QueryData, U: QueryFilter>(
