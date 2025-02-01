@@ -130,9 +130,11 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
                     .map(|i| (i, 1 << i))
                     .take_while(|&(_, mask)| mask <= self.index.slots.len())
                     .map(|(i, mask)| {
-                        (index & mask > 0)
-                            .then_some(&self.state.with_states[i])
-                            .unwrap_or(&self.state.without_states[i])
+                        if index & mask > 0 {
+                            &self.state.with_states[i]
+                        } else {
+                            &self.state.without_states[i]
+                        }
                     })
                     .fold(state, |state, filter| {
                         state.join_filtered(self.world, filter)
