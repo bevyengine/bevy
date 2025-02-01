@@ -90,7 +90,7 @@
 //! # #[component(immutable)]
 //! # struct Planet(&'static str);
 //! fn get_earthlings(mut query: QueryByIndex<Planet, Entity>) {
-//!     let earthlings = query.at(&Planet("Earth"));
+//!     let mut earthlings = query.at(&Planet("Earth"));
 //!
 //!     for earthling in &earthlings.query() {
 //!         // ...

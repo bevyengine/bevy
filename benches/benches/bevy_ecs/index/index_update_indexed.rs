@@ -9,7 +9,7 @@ const SPAWNS: usize = 10_000;
 struct Planet(u8);
 
 fn increment_planet_zeroes_indexed(
-    mut query: QueryByIndex<Planet, (Entity, &Planet)>,
+    query: QueryByIndex<Planet, (Entity, &Planet)>,
     mut local: Local<u8>,
     mut commands: Commands,
 ) {
