@@ -1351,7 +1351,8 @@ impl App {
     /// app.add_index::<FavoriteColor>();
     ///
     /// fn find_red_fans(mut query: QueryByIndex<FavoriteColor, Entity>) {
-    ///     for entity in query.at(&FavoriteColor::Red).iter() {
+    ///     let mut lens = query.at(&FavoriteColor::Red);
+    ///     for entity in lens.query().iter() {
     ///         println!("{entity:?} likes the color Red!");
     ///     }
     /// }

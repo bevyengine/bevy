@@ -10,8 +10,8 @@ const SPAWNS: usize = 1_000_000;
 struct Planet(u16);
 
 fn find_planet_zeroes_indexed(mut query: QueryByIndex<Planet, &Planet>) {
-    let query = query.at_mut(&Planet(0));
-    for planet in query.iter() {
+    let mut query = query.at(&Planet(0));
+    for planet in query.query().iter() {
         let _ = black_box(planet);
     }
 }

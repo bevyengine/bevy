@@ -16,8 +16,8 @@ fn increment_planet_zeroes_indexed(
     let target = Planet(*local);
     let next_planet = Planet(target.0 + 1);
 
-    let query = query.at_mut(&target);
-    for (entity, _planet) in query.iter() {
+    let mut query = query.at(&target);
+    for (entity, _planet) in query.query().iter() {
         commands.entity(entity).insert(next_planet);
     }
 

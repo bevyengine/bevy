@@ -92,7 +92,7 @@
 //! fn get_earthlings(mut query: QueryByIndex<Planet, Entity>) {
 //!     let earthlings = query.at(&Planet("Earth"));
 //!
-//!     for earthling in &earthlings {
+//!     for earthling in &earthlings.query() {
 //!         // ...
 //!     }
 //! }
