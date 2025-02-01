@@ -180,7 +180,6 @@ impl<C: IndexableComponent> FromWorld for Index<C> {
 
         let markers = (0..bits)
             .map(|bit| Self::alloc_new_marker(world, bit, StorageType::Table))
-            .take(bits)
             .collect::<Vec<_>>();
 
         Self {
