@@ -1194,6 +1194,165 @@ mark_changes_impl!(Mut<'w, T>, T,);
 impl_methods!(Mut<'w, T>, T,);
 impl_debug!(Mut<'w, T>,);
 
+/// Untyped unique mutable borrow of an entity's component.
+///
+/// Similar to [`MutMarkChanges`], but not generic over the component type, instead
+/// exposing the raw pointer as a `*mut ()`.
+///
+/// This allows marking the component as changed if change tracking
+/// is enabled for this component. If you also need to read them, use [`Mut`].
+///
+/// Usually you don't need to use this and can instead use the APIs returning a
+/// [`Mut`], but in situations where the types are not known at compile time
+/// or are defined outside of rust this can be used.
+pub struct MutMarkChangesUntyped<'w> {
+    pub(crate) value: PtrMut<'w>,
+    pub(crate) last_changed: &'w TickWriteCell,
+    pub(crate) this_run: Tick,
+    #[cfg(feature = "track_location")]
+    pub(crate) changed_by: &'w mut &'static Location<'static>,
+}
+
+impl<'w> MutMarkChangesUntyped<'w> {
+    /// Returns the pointer to the value, marking it as changed.
+    ///
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
+    #[inline]
+    pub fn into_inner(mut self) -> PtrMut<'w> {
+        self.set_changed();
+        self.value
+    }
+
+    /// Returns a [`MutUntyped`] with a smaller lifetime.
+    /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
+    #[inline]
+    pub fn reborrow(&mut self) -> MutMarkChangesUntyped {
+        MutMarkChangesUntyped {
+            value: self.value.reborrow(),
+            last_changed: self.last_changed,
+            this_run: self.this_run,
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
+        }
+    }
+
+    /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
+    ///
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
+    #[inline]
+    pub fn as_mut(&mut self) -> PtrMut<'_> {
+        self.set_changed();
+        self.value.reborrow()
+    }
+
+    /// Returns an immutable pointer to the value without taking ownership.
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        self.value.as_ref()
+    }
+
+    /// Turn this [`MutMarkChangesUntyped`] into a [`MutMarkChanges`] by mapping the inner [`PtrMut`] to another value,
+    /// without flagging a change.
+    /// This function is the untyped equivalent of [`MutMarkChanges::map_unchanged`].
+    ///
+    /// You should never modify the argument passed to the closure – if you want to modify the data without flagging a change, consider using [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) to make your intent explicit.
+    ///
+    /// If you know the type of the value you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// // SAFETY: ptr is of type `u8`
+    /// mut_untyped.map_unchanged(|ptr| unsafe { ptr.deref_mut::<u8>() });
+    /// ```
+    /// If you have a [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) that you know belongs to this [`MutUntyped`],
+    /// you can do
+    /// ```no_run
+    /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
+    /// # let mut_untyped: MutUntyped = unimplemented!();
+    /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
+    /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_mut(ptr) });
+    /// ```
+    pub fn map_unchanged<T: ?Sized>(
+        self,
+        f: impl FnOnce(PtrMut<'w>) -> &'w mut T,
+    ) -> MutMarkChanges<'w, T> {
+        MutMarkChanges {
+            value: f(self.value),
+            last_changed: self.last_changed,
+            this_run: self.this_run,
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
+        }
+    }
+
+    /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`MutUntyped`].
+    pub unsafe fn with_type<T>(self) -> MutMarkChanges<'w, T> {
+        MutMarkChanges {
+            // SAFETY: `value` is `Aligned` and caller ensures the pointee type is `T`.
+            value: unsafe { self.value.deref_mut() },
+            last_changed: self.last_changed,
+            this_run: self.this_run,
+            // SAFETY: `caller` is `Aligned`.
+            #[cfg(feature = "track_location")]
+            changed_by: self.changed_by,
+        }
+    }
+}
+
+impl<'w> MarkChanges for MutMarkChangesUntyped<'w> {
+    type Inner = PtrMut<'w>;
+
+    #[inline]
+    #[track_caller]
+    fn set_changed(&mut self) {
+        self.last_changed.write(self.this_run);
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by = Location::caller();
+        }
+    }
+
+    #[inline]
+    #[track_caller]
+    fn set_last_changed(&mut self, last_changed: Tick) {
+        self.last_changed.write(last_changed);
+        #[cfg(feature = "track_location")]
+        {
+            *self.changed_by = Location::caller();
+        }
+    }
+
+    #[inline]
+    #[track_caller]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        &mut self.value
+    }
+}
+
+impl core::fmt::Debug for MutMarkChangesUntyped<'_> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("MutMarkChangesUntyped")
+            .field(&self.value.as_ptr())
+            .finish()
+    }
+}
+
+impl<'w, T> From<MutMarkChanges<'w, T>> for MutMarkChangesUntyped<'w> {
+    fn from(value: MutMarkChanges<'w, T>) -> Self {
+        Self {
+            value: value.value.into(),
+            last_changed: value.last_changed,
+            this_run: value.this_run,
+            #[cfg(feature = "track_location")]
+            changed_by: value.changed_by,
+        }
+    }
+}
+
 /// Unique mutable borrow of resources or an entity's component.
 ///
 /// Similar to [`Mut`], but not generic over the component type, instead
