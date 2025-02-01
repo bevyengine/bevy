@@ -1,7 +1,7 @@
 //! Types that detect when their internal data mutate.
 
 use crate::{
-    component::{Tick, TickCells, TickWriteCell},
+    component::{Tick, TickCells, TickSink},
     ptr::PtrMut,
     resource::Resource,
 };
@@ -867,7 +867,7 @@ impl_debug!(Ref<'w, T>,);
 /// is enabled for this component. If you also need to read them, use [`Mut`].
 pub struct MutMarkChanges<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
-    pub(crate) last_changed: &'w TickWriteCell,
+    pub(crate) last_changed: &'w TickSink,
     pub(crate) this_run: Tick,
     #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,
@@ -1207,7 +1207,7 @@ impl_debug!(Mut<'w, T>,);
 /// or are defined outside of rust this can be used.
 pub struct MutMarkChangesUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
-    pub(crate) last_changed: &'w TickWriteCell,
+    pub(crate) last_changed: &'w TickSink,
     pub(crate) this_run: Tick,
     #[cfg(feature = "track_location")]
     pub(crate) changed_by: &'w mut &'static Location<'static>,

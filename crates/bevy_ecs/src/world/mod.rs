@@ -33,7 +33,7 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
-    change_detection::{MutUntyped, TicksMut},
+    change_detection::{MutMarkChanges, MutMarkChangesUntyped, MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
         ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
@@ -1218,8 +1218,33 @@ impl World {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<MutMarkChanges<T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
+    }
+
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type
+    /// or change detection is not enabled for the component.
+    /// ```
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    /// let mut position = world.get_mut::<Position>(entity).unwrap();
+    /// position.x = 1.0;
+    /// ```
+    #[inline]
+    pub fn get_mut_with_ticks<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
+        self.get_entity_mut(entity).ok()?.into_mut_with_ticks()
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
@@ -3588,7 +3613,7 @@ impl World {
         &mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<MutUntyped<'_>> {
+    ) -> Option<MutMarkChangesUntyped<'_>> {
         self.get_entity_mut(entity)
             .ok()?
             .into_mut_by_id(component_id)

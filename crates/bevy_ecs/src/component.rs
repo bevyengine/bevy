@@ -727,7 +727,7 @@ pub struct ComponentInfo {
     required_by: HashSet<ComponentId>,
     change_detection: bool,
     /// If change detection is disabled, updates to change ticks are written here instead.
-    pub(crate) ignored_tick_write_sink: TickWriteCell,
+    pub(crate) ignored_tick_write_sink: TickSink,
 }
 
 impl ComponentInfo {
@@ -796,7 +796,7 @@ impl ComponentInfo {
             required_components: Default::default(),
             required_by: Default::default(),
             change_detection: false,
-            ignored_tick_write_sink: TickWriteCell::default(),
+            ignored_tick_write_sink: TickSink::default(),
         }
     }
 
@@ -1816,17 +1816,20 @@ impl Tick {
     }
 }
 
+/// Sink for change ticks.
+/// May represent actual change ticks of a component,
+/// or a dummy sink used when change detection isn't enabled.
 #[repr(transparent)]
 #[derive(Default, Debug)]
-pub(crate) struct TickWriteCell {
+pub(crate) struct TickSink {
     tick: AtomicU32,
 }
 
-impl TickWriteCell {
+impl TickSink {
     /// # Safety
     /// Must be allowed to write to cell.
     pub(crate) unsafe fn from_unsafe_cell(cell: &UnsafeCell<Tick>) -> &Self {
-        assert_eq!(align_of::<Tick>(), align_of::<TickWriteCell>());
+        assert_eq!(align_of::<Tick>(), align_of::<TickSink>());
         // SAFETY:
         // Tick and TickWriteCell have the same layout and are valid for all bit patterns.
         core::mem::transmute(cell)
@@ -1838,7 +1841,7 @@ impl TickWriteCell {
 }
 
 // Only used when used as a ignore sink
-impl Clone for TickWriteCell {
+impl Clone for TickSink {
     fn clone(&self) -> Self {
         Self::default()
     }

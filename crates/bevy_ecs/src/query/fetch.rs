@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
     change_detection::{MaybeThinSlicePtrLocation, MutMarkChanges, Ticks, TicksMut},
-    component::{Component, ComponentId, Components, Mutable, StorageType, Tick, TickWriteCell},
+    component::{Component, ComponentId, Components, Mutable, StorageType, Tick, TickSink},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -1436,7 +1436,7 @@ pub struct WriteMarkChangesFetch<'w, T: Component> {
         &'w ComponentSparseSet,
     >,
     this_run: Tick,
-    tick_sink: &'w TickWriteCell,
+    tick_sink: &'w TickSink,
 }
 
 impl<T: Component> Clone for WriteMarkChangesFetch<'_, T> {
@@ -1492,14 +1492,11 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 },
             ),
             this_run,
-            // SAFETY: Component has been initialized by `init_state`
-            tick_sink: &unsafe {
-                world
-                    .components()
-                    .get_info(component_id)
-                    .debug_checked_unwrap()
-            }
-            .ignored_tick_write_sink,
+            tick_sink: &world
+                .components()
+                .get_info(component_id)
+                .debug_checked_unwrap()
+                .ignored_tick_write_sink,
         }
     }
 
@@ -1563,9 +1560,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 let changed = changed_ticks
                     // SAFETY: The caller ensures `table_row` is in range.
                     // We have exclusive access.
-                    .map(|t| unsafe {
-                        TickWriteCell::from_unsafe_cell(t.get(table_row.as_usize()))
-                    })
+                    .map(|t| unsafe { TickSink::from_unsafe_cell(t.get(table_row.as_usize())) })
                     .unwrap_or(fetch.tick_sink);
                 // SAFETY: The caller ensures `table_row` is in range.
                 #[cfg(feature = "track_location")]
@@ -1585,7 +1580,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
 
                 let changed = ticks
-                    .map(|t| TickWriteCell::from_unsafe_cell(t.changed))
+                    .map(|t| TickSink::from_unsafe_cell(t.changed))
                     .unwrap_or(fetch.tick_sink);
 
                 MutMarkChanges {
