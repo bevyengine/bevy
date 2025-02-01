@@ -50,7 +50,6 @@ struct LivingNeighbors(u8);
 
 #[derive(Resource)]
 struct LivingHandles {
-    mesh: Handle<Mesh>,
     alive_material: Handle<ColorMaterial>,
     dead_material: Handle<ColorMaterial>,
 }
@@ -70,7 +69,6 @@ fn setup(
     let dead = materials.add(Color::WHITE);
 
     commands.insert_resource(LivingHandles {
-        mesh: rect.clone(),
         alive_material: alive.clone(),
         dead_material: dead.clone(),
     });
