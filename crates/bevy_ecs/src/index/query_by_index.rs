@@ -57,7 +57,7 @@ pub struct QueryByIndex<
     F: QueryFilter + 'static = (),
 > {
     world: UnsafeWorldCell<'world>,
-    system_param_state: &'state QueryByIndexState<C, D, F>,
+    state: &'state QueryByIndexState<C, D, F>,
     last_run: Tick,
     this_run: Tick,
     index: Res<'world, Index<C>>,
@@ -90,32 +90,12 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
     /// }
     /// ```
     pub fn at_mut(&mut self, value: &C) -> QueryLens<'_, D, (F, With<C>)> {
-        let primary = &self.system_param_state.primary_query_state;
+        let primary = &self.state.primary_query_state;
 
         // TODO: Placeholder for Clone
         let mut state: QueryState<D, (F, With<C>)> = primary.join_filtered(self.world, primary);
 
-        match self.index.mapping.get(value) {
-            Some(&index) => {
-                for i in 0..self.index.markers.len() {
-                    if index & (1 << i) > 0 {
-                        let filter = &self.system_param_state.with_states[i];
-                        state = state.join_filtered(self.world, filter);
-                    } else {
-                        let filter = &self.system_param_state.without_states[i];
-                        state = state.join_filtered(self.world, filter);
-                    }
-                }
-            }
-            None => {
-                // Create a no-op filter by joining two conflicting filters together.
-                let filter = &self.system_param_state.with_states[0];
-                state = state.join_filtered(self.world, filter);
-
-                let filter = &self.system_param_state.without_states[0];
-                state = state.join_filtered(self.world, filter);
-            }
-        }
+        state = self.filter_for_value(value, state);
 
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
@@ -125,38 +105,50 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
 
     /// Return a read-only [`QueryLens`] returning entities with a component `C` of the provided value.
     pub fn at(&self, value: &C) -> QueryLens<'_, D::ReadOnly, (F, With<C>)> {
-        let primary = self.system_param_state.primary_query_state.as_readonly();
+        let primary = self.state.primary_query_state.as_readonly();
 
         // TODO: Placeholder for Clone
         let mut state: QueryState<D::ReadOnly, (F, With<C>)> =
             primary.join_filtered(self.world, primary);
 
-        match self.index.mapping.get(value) {
-            Some(&index) => {
-                for i in 0..self.index.markers.len() {
-                    if index & (1 << i) > 0 {
-                        let filter = &self.system_param_state.with_states[i];
-                        state = state.join_filtered(self.world, filter);
-                    } else {
-                        let filter = &self.system_param_state.without_states[i];
-                        state = state.join_filtered(self.world, filter);
-                    }
-                }
-            }
-            None => {
-                // Create a no-op filter by joining two conflicting filters together.
-                let filter = &self.system_param_state.with_states[0];
-                state = state.join_filtered(self.world, filter);
-
-                let filter = &self.system_param_state.without_states[0];
-                state = state.join_filtered(self.world, filter);
-            }
-        }
+        state = self.filter_for_value(value, state);
 
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         unsafe { QueryLens::new(self.world, state, self.last_run, self.this_run) }
+    }
+
+    fn filter_for_value<T: QueryData, U: QueryFilter>(
+        &self,
+        value: &C,
+        mut state: QueryState<T, U>,
+    ) -> QueryState<T, U> {
+        match self.index.mapping.get(value) {
+            Some(&index) => {
+                state = (0..self.index.markers.len())
+                    .map(|i| (i, 1 << i))
+                    .take_while(|&(_, mask)| mask <= self.index.slots.len())
+                    .map(|(i, mask)| {
+                        (index & mask > 0)
+                            .then_some(&self.state.with_states[i])
+                            .unwrap_or(&self.state.without_states[i])
+                    })
+                    .fold(state, |state, filter| {
+                        state.join_filtered(self.world, filter)
+                    });
+            }
+            None => {
+                // Create a no-op filter by joining two conflicting filters together.
+                let filter = &self.state.with_states[0];
+                state = state.join_filtered(self.world, filter);
+
+                let filter = &self.state.without_states[0];
+                state = state.join_filtered(self.world, filter);
+            }
+        }
+
+        state
     }
 }
 
@@ -297,7 +289,7 @@ unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'sta
 
         QueryByIndex {
             world,
-            system_param_state: state,
+            state,
             last_run: system_meta.last_run,
             this_run: change_tick,
             index,
