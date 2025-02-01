@@ -654,7 +654,7 @@ pub fn prepare_sprite_image_bind_groups(
     let image_bind_groups = &mut *image_bind_groups;
 
     for (retained_view, transparent_phase) in phases.iter_mut() {
-        let mut batch_key = None;
+        let mut current_batch = None;
         let mut batch_item_index = 0;
         let mut batch_image_size = Vec2::ZERO;
         let mut batch_image_handle = AssetId::invalid();
@@ -693,15 +693,13 @@ pub fn prepare_sprite_image_bind_groups(
                         )
                     });
 
-                batch_key = Some((*retained_view, item.main_entity()));
                 batch_item_index = item_index;
-                batches.insert(
-                    batch_key.unwrap(),
+                current_batch = Some(batches.entry((*retained_view, item.main_entity())).insert(
                     SpriteBatch {
                         image_handle_id: batch_image_handle,
                         range: index..index,
                     },
-                );
+                ));
             }
 
             // By default, the size of the quad is the size of the texture
@@ -776,7 +774,7 @@ pub fn prepare_sprite_image_bind_groups(
             transparent_phase.items[batch_item_index]
                 .batch_range_mut()
                 .end += 1;
-            batches.get_mut(&batch_key.unwrap()).unwrap().range.end += 1;
+            current_batch.as_mut().unwrap().get_mut().range.end += 1;
             index += 1;
         }
     }
