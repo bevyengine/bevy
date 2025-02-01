@@ -29,7 +29,7 @@ impl ThinColumn {
                 BlobArray::with_capacity(component_info.layout(), component_info.drop(), capacity)
             },
             ticks: component_info
-                .change_detection()
+                .change_detection_enabled()
                 .then_some(ThinColumnTicks {
                     added: ThinArrayPtr::with_capacity(capacity),
                     changed: ThinArrayPtr::with_capacity(capacity),
@@ -454,10 +454,12 @@ impl Column {
         Column {
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
-            ticks: component_info.change_detection().then_some(ColumnTicks {
-                added: Vec::with_capacity(capacity),
-                changed: Vec::with_capacity(capacity),
-            }),
+            ticks: component_info
+                .change_detection_enabled()
+                .then_some(ColumnTicks {
+                    added: Vec::with_capacity(capacity),
+                    changed: Vec::with_capacity(capacity),
+                }),
             #[cfg(feature = "track_location")]
             changed_by: Vec::with_capacity(capacity),
         }

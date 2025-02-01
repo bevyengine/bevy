@@ -832,7 +832,7 @@ impl ComponentInfo {
     }
 
     /// Check whether change detection is enabled for this component.
-    pub fn change_detection(&self) -> bool {
+    pub fn change_detection_enabled(&self) -> bool {
         self.change_detection
     }
 }

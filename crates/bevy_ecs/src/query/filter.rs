@@ -793,7 +793,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 
     fn get_state(components: &Components) -> Option<ComponentId> {
         let id = components.component_id::<T>()?;
-        assert!(components.get_info(id).unwrap().change_detection());
+        assert!(components.get_info(id).unwrap().change_detection_enabled());
         Some(id)
     }
 
@@ -1035,7 +1035,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 
     fn get_state(components: &Components) -> Option<ComponentId> {
         let id = components.component_id::<T>()?;
-        assert!(components.get_info(id).unwrap().change_detection());
+        assert!(components.get_info(id).unwrap().change_detection_enabled());
         Some(id)
     }
 

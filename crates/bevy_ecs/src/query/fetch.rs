@@ -1402,7 +1402,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let id = components.component_id::<T>()?;
-        assert!(components.get_info(id).unwrap().change_detection());
+        assert!(components.get_info(id).unwrap().change_detection_enabled());
         Some(id)
     }
 
@@ -1822,7 +1822,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let id = components.component_id::<T>()?;
-        assert!(components.get_info(id).unwrap().change_detection());
+        assert!(components.get_info(id).unwrap().change_detection_enabled());
         Some(id)
     }
 
