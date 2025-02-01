@@ -4420,7 +4420,7 @@ pub unsafe trait DynamicComponentFetch {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl DynamicComponentFetch for ComponentId {
     type Ref<'w> = Ptr<'w>;
-    type Mut<'w> = MutUntyped<'w>;
+    type Mut<'w> = MutMarkChangesUntyped<'w>;
 
     unsafe fn fetch_ref(
         self,
@@ -4445,7 +4445,7 @@ unsafe impl DynamicComponentFetch for ComponentId {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
-    type Mut<'w> = [MutUntyped<'w>; N];
+    type Mut<'w> = [MutMarkChangesUntyped<'w>; N];
 
     unsafe fn fetch_ref(
         self,
@@ -4467,7 +4467,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
-    type Mut<'w> = [MutUntyped<'w>; N];
+    type Mut<'w> = [MutMarkChangesUntyped<'w>; N];
 
     unsafe fn fetch_ref(
         self,
@@ -4521,7 +4521,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
     type Ref<'w> = Vec<Ptr<'w>>;
-    type Mut<'w> = Vec<MutUntyped<'w>>;
+    type Mut<'w> = Vec<MutMarkChangesUntyped<'w>>;
 
     unsafe fn fetch_ref(
         self,
@@ -4567,7 +4567,7 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
     type Ref<'w> = HashMap<ComponentId, Ptr<'w>>;
-    type Mut<'w> = HashMap<ComponentId, MutUntyped<'w>>;
+    type Mut<'w> = HashMap<ComponentId, MutMarkChangesUntyped<'w>>;
 
     unsafe fn fetch_ref(
         self,
