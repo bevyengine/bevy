@@ -20,13 +20,15 @@ struct VertexOutput {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
+
+    // Lookup the mesh_instance_index for the given mesh
     let mesh_instance_index = mesh_functions::get_mesh_instance_index(vertex.instance_index);
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
     out.clip_position = position_world_to_clip(out.world_position.xyz);
 
     let tex_dim = textureDimensions(texture);
-    // Find the texel coordinate from the mesh_instance_index
+    // Find the texel coordinate as derived from the mesh_instance_index
     let texel_coord = vec2<u32>(mesh_instance_index % tex_dim.x, mesh_instance_index / tex_dim.x);
 
     out.color = textureLoad(texture, texel_coord, 0);
