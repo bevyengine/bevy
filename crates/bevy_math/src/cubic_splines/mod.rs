@@ -73,20 +73,10 @@ impl<P: VectorSpace> CubicGenerator<P> for CubicBezier<P> {
 
     #[inline]
     fn to_curve(&self) -> Result<CubicCurve<P>, Self::Error> {
-        // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
-        // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
-        // See section 4.2 and equation 11.
-        let char_matrix = [
-            [1., 0., 0., 0.],
-            [-3., 3., 0., 0.],
-            [3., -6., 3., 0.],
-            [-1., 3., -3., 1.],
-        ];
-
         let segments = self
             .control_points
             .iter()
-            .map(|p| CubicSegment::coefficients(*p, char_matrix))
+            .map(|p| CubicSegment::new_bezier(*p))
             .collect_vec();
 
         if segments.is_empty() {
@@ -994,6 +984,20 @@ impl<P: VectorSpace> CubicSegment<P> {
         c * 2.0 + d * 6.0 * t
     }
 
+    /// Creates a cubic segment from four points, representing a Bezier curve.
+    pub fn new_bezier(points: [P; 4]) -> Self {
+        // A derivation for this matrix can be found in "General Matrix Representations for B-splines" by Kaihuai Qin.
+        // <https://xiaoxingchen.github.io/2020/03/02/bspline_in_so3/general_matrix_representation_for_bsplines.pdf>
+        // See section 4.2 and equation 11.
+        let char_matrix = [
+            [1., 0., 0., 0.],
+            [-3., 3., 0., 0.],
+            [3., -6., 3., 0.],
+            [-1., 3., -3., 1.],
+        ];
+        Self::coefficients(points, char_matrix)
+    }
+
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
     #[cfg_attr(
         not(feature = "alloc"),
@@ -1030,12 +1034,9 @@ impl CubicSegment<Vec2> {
     /// This is a very common tool for UI animations that accelerate and decelerate smoothly. For
     /// example, the ubiquitous "ease-in-out" is defined as `(0.25, 0.1), (0.25, 1.0)`.
     #[cfg(feature = "alloc")]
-    pub fn new_bezier(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
+    pub fn new_bezier_easing(p1: impl Into<Vec2>, p2: impl Into<Vec2>) -> Self {
         let (p0, p3) = (Vec2::ZERO, Vec2::ONE);
-        let bezier = CubicBezier::new([[p0, p1.into(), p2.into(), p3]])
-            .to_curve()
-            .unwrap(); // Succeeds because resulting curve is guaranteed to have one segment
-        bezier.segments[0]
+        Self::new_bezier([p0, p1.into(), p2.into(), p3])
     }
 
     /// Maximum allowable error for iterative Bezier solve
@@ -1072,7 +1073,7 @@ impl CubicSegment<Vec2> {
     /// y
     /// │         ●
     /// │       ⬈
-    /// │     ⬈    
+    /// │     ⬈
     /// │   ⬈
     /// │ ⬈
     /// ●─────────── x (time)
@@ -1086,8 +1087,8 @@ impl CubicSegment<Vec2> {
     /// ```text
     /// y
     ///          ⬈➔●
-    /// │      ⬈   
-    /// │     ↑      
+    /// │      ⬈
+    /// │     ↑
     /// │     ↑
     /// │    ⬈
     /// ●➔⬈───────── x (time)
@@ -1657,7 +1658,7 @@ mod tests {
     #[test]
     fn easing_simple() {
         // A curve similar to ease-in-out, but symmetric
-        let bezier = CubicSegment::new_bezier([1.0, 0.0], [0.0, 1.0]);
+        let bezier = CubicSegment::new_bezier_easing([1.0, 0.0], [0.0, 1.0]);
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.2) < 0.2); // tests curve
         assert_eq!(bezier.ease(0.5), 0.5); // true due to symmetry
@@ -1670,7 +1671,7 @@ mod tests {
     #[test]
     fn easing_overshoot() {
         // A curve that forms an upside-down "U", that should extend above 1.0
-        let bezier = CubicSegment::new_bezier([0.0, 2.0], [1.0, 2.0]);
+        let bezier = CubicSegment::new_bezier_easing([0.0, 2.0], [1.0, 2.0]);
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.5) > 1.5);
         assert_eq!(bezier.ease(1.0), 1.0);
@@ -1680,7 +1681,7 @@ mod tests {
     /// the start and end positions, e.g. bouncing.
     #[test]
     fn easing_undershoot() {
-        let bezier = CubicSegment::new_bezier([0.0, -2.0], [1.0, -2.0]);
+        let bezier = CubicSegment::new_bezier_easing([0.0, -2.0], [1.0, -2.0]);
         assert_eq!(bezier.ease(0.0), 0.0);
         assert!(bezier.ease(0.5) < -0.5);
         assert_eq!(bezier.ease(1.0), 1.0);
