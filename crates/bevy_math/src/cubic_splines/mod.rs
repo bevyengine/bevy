@@ -998,20 +998,6 @@ impl<P: VectorSpace> CubicSegment<P> {
         Self::coefficients(points, char_matrix)
     }
 
-    /// Creates a new cubic Bezier curve from the given points and an anchor point
-    /// The curve will be bent towards the anchor, but will not go through it.
-    ///
-    /// This function can also be used to approximate a quarter circle,
-    /// if start, anchor and end points form a right isosceles triangle.
-    pub fn new_bezier_with_anchor(start: P, anchor: P, end: P) -> Self {
-        Self::new_bezier([
-            start,
-            start.lerp(anchor, 0.667),
-            end.lerp(anchor, 0.667),
-            end,
-        ])
-    }
-
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
     #[inline]
     fn coefficients(p: [P; 4], char_matrix: [[f32; 4]; 4]) -> Self {
