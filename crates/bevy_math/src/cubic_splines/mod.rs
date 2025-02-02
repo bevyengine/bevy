@@ -15,7 +15,7 @@ use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
 /// A spline composed of a single cubic Bezier curve.
 ///
 /// Useful for user-drawn curves with local control, or animation easing. See
-/// [`CubicSegment::new_bezier`] for use in easing.
+/// [`CubicSegment::new_bezier_easing`] for use in easing.
 ///
 /// ### Interpolation
 ///
@@ -1093,7 +1093,7 @@ impl CubicSegment<Vec2> {
     /// # use bevy_math::prelude::*;
     /// # #[cfg(feature = "alloc")]
     /// # {
-    /// let cubic_bezier = CubicSegment::new_bezier((0.25, 0.1), (0.25, 1.0));
+    /// let cubic_bezier = CubicSegment::new_bezier_easing((0.25, 0.1), (0.25, 1.0));
     /// assert_eq!(cubic_bezier.ease(0.0), 0.0);
     /// assert_eq!(cubic_bezier.ease(1.0), 1.0);
     /// # }
