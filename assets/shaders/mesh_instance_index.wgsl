@@ -27,7 +27,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
     let tex_dim = textureDimensions(texture);
     // Find the texel coordinate from the mesh_instance_index
-let texel_coord = vec2<u32>(mesh_instance_index % tex_dim.x, mesh_instance_index / tex_dim.x);
+    let texel_coord = vec2<u32>(mesh_instance_index % tex_dim.x, mesh_instance_index / tex_dim.x);
 
     out.color = textureLoad(texture, texel_coord, 0);
     return out;
