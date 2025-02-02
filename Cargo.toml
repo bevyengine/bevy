@@ -2050,7 +2050,7 @@ required-features = ["bevy_dev_tools"]
 name = "Indexes"
 description = "Demonstrates querying by component value using indexing"
 category = "ECS (Entity Component System)"
-wasm = false
+wasm = true
 
 [[example]]
 name = "iter_combinations"
