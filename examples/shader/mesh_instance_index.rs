@@ -29,6 +29,7 @@ fn setup(
 ) {
     let image = assets.load("branding/icon.png");
 
+    let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.01)));
     // Create the custom material with the storage buffer
     let material_handle = materials.add(CustomMaterial {
         image: image.clone(),
@@ -48,7 +49,7 @@ fn setup(
         let world_y = -((y as f32 - image_dims.y as f32 / 2.0) / 50.0); // Still need negative for world space
 
         commands.spawn((
-            Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.01)))),
+            Mesh3d(mesh_handle.clone()),
             MeshMaterial3d(material_handle.clone()),
             MeshInstanceIndex(index),
             Transform::from_xyz(world_x, world_y, 0.0),

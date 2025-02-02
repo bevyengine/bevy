@@ -37,6 +37,7 @@ fn setup(
 
     let colors = buffers.add(ShaderStorageBuffer::from(color_data));
 
+    let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.3)));
     // Create the custom material with the storage buffer
     let material_handle = materials.add(CustomMaterial {
         colors: colors.clone(),
@@ -49,7 +50,7 @@ fn setup(
     for i in -6..=6 {
         for j in -3..=3 {
             commands.spawn((
-                Mesh3d(meshes.add(Cuboid::from_size(Vec3::splat(0.3)))),
+                Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_handle.clone()),
                 MeshInstanceIndex(current_color_id % 5),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
