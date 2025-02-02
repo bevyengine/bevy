@@ -22,11 +22,11 @@ pub fn get_struct_fields<'a>(
         },
         Data::Enum(DataEnum { enum_token, .. }) => Err(Error::new(
             enum_token.span(),
-            format!("#[{meta}] only supports structs"),
+            format!("#[{meta}] only supports structs, not enums"),
         )),
         Data::Union(DataUnion { union_token, .. }) => Err(Error::new(
             union_token.span(),
-            format!("#[{meta}] only supports structs"),
+            format!("#[{meta}] only supports structs, not unions"),
         )),
     }
 }
