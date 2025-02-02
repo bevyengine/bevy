@@ -312,6 +312,11 @@ impl Observer {
         self.descriptor.events.push(event);
         self
     }
+
+    /// Returns the [`ObserverDescriptor`] for this [`Observer`].
+    pub fn descriptor(&self) -> &ObserverDescriptor {
+        &self.descriptor
+    }
 }
 
 impl Component for Observer {
