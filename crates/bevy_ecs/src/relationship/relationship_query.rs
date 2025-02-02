@@ -278,6 +278,36 @@ where
 }
 
 /// A [`QueryFilter`] type that filters for entities that are related via `R` to an entity that matches `F`.
+///
+/// This works by looking up the related entity using the `R` relationship component,
+/// then checking if that related entity matches the filter given in `F`.
+///
+/// # Examples
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::RunSystemOnce;
+///
+/// #[derive(Component)]
+/// struct A;
+///
+/// let mut world = World::new();
+/// let parent = world.spawn(A).id();
+/// let child = world.spawn(ChildOf(parent))).id();
+/// let unrelated = world.spawn_empty().id();
+/// let grandchild = world.spawn(ChildOf(child)).id();
+///
+/// fn iterate_related_to_a(query: Query<Entity, RelatedTo<ChildOf, With<A>>>) {
+///     for entity in query.iter() {
+///        // Only the child entity should be iterated;
+///        // the parent, unrelated and chrandchild entities should be skipped,
+///        // as they are not related to an entity with the `A` component.
+///        assert_eq!(entity, child);
+///    }
+/// }
+///
+/// world.run_system_once(iterate_related_to_a);
+/// ```
 pub struct RelatedTo<R: Relationship, F: QueryFilter> {
     _relationship: PhantomData<R>,
     _filter: PhantomData<F>,
