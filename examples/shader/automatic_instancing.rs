@@ -21,7 +21,12 @@ fn main() {
         .run();
 }
 
-/// Set up our scene
+/// Sets up an instanced grid of cubes, where each cube is colored based on an image that is
+/// sampled in the vertex shader. The cubes are then animated in a spiral pattern.
+///
+/// This example demonstrates one use of automatic instancing and how to use `MeshTag` to use
+/// external data in a custom material. For example, here we use the "index" of each cube to
+/// determine the texel coordinate to sample from the image in the shader.
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
