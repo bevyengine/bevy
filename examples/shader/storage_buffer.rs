@@ -3,7 +3,7 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::MeshInstanceIndex,
+        mesh::MeshTag,
         render_resource::{AsBindGroup, ShaderRef},
         storage::ShaderStorageBuffer,
     },
@@ -52,7 +52,7 @@ fn setup(
             commands.spawn((
                 Mesh3d(mesh_handle.clone()),
                 MeshMaterial3d(material_handle.clone()),
-                MeshInstanceIndex(current_color_id % 5),
+                MeshTag(current_color_id % 5),
                 Transform::from_xyz(i as f32, j as f32, 0.0),
             ));
             current_color_id += 1;

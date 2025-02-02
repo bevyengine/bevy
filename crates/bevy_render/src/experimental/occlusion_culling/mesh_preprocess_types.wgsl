@@ -20,7 +20,7 @@ struct MeshInput {
     // High 16 bits: index of the lightmap in the binding array.
     material_and_lightmap_bind_group_slot: u32,
     // User supplied index to identify the mesh instance
-    mesh_instance_index: u32,
+    mesh_tag: u32,
     pad_b: u32,
 }
 

@@ -1,12 +1,12 @@
 //! Shows that multiple instances of a cube are automatically instanced in one draw call
 //! Try running this example in a graphics profiler and all the cubes should be only a single draw call.
-//! Also demonstrates how to use `MeshInstanceIndex` to use external data in a custom material.
+//! Also demonstrates how to use `MeshTag` to use external data in a custom material.
 
 use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        mesh::MeshInstanceIndex,
+        mesh::MeshTag,
         render_resource::{AsBindGroup, ShaderRef},
     },
 };
@@ -58,7 +58,7 @@ fn setup(
             Mesh3d(mesh_handle.clone()),
             MeshMaterial3d(material_handle.clone()),
             // This is an optional component that can be used to help tie external data to a mesh instance
-            MeshInstanceIndex(index),
+            MeshTag(index),
             Transform::from_xyz(world_x, world_y, 0.0),
         ));
     }
@@ -71,7 +71,7 @@ fn setup(
 }
 
 // Animate the transform
-fn update(time: Res<Time>, mut transforms: Query<(&mut Transform, &MeshInstanceIndex)>) {
+fn update(time: Res<Time>, mut transforms: Query<(&mut Transform, &MeshTag)>) {
     for (mut transform, index) in transforms.iter_mut() {
         // Animate the z position based on time using the index to create a spiral
         transform.translation.z = (time.elapsed_secs() + index.0 as f32 * 0.01).sin();
