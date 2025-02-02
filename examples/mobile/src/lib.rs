@@ -37,7 +37,16 @@ fn main() {
     // This can help reduce cpu usage on mobile devices
     .insert_resource(WinitSettings::mobile())
     .add_systems(Startup, (setup_scene, setup_music))
-    .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
+    .add_systems(
+        Update,
+        (
+            touch_camera,
+            button_handler,
+            // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
+            // This ensures we don't try to manage audio that hasn't been initialized yet.
+            handle_lifetime.run_if(any_with_component::<AudioSink>),
+        ),
+    )
     .run();
 }
 
