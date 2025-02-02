@@ -21,7 +21,7 @@ fn main() {
         .run();
 }
 
-/// Set up our secene
+/// Set up our scene
 fn setup(
     mut commands: Commands,
     assets: Res<AssetServer>,
