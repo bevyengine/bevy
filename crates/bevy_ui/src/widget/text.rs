@@ -64,7 +64,6 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
 /// # use bevy_ecs::prelude::Component;
-/// # use bevy_hierarchy::{ChildBuild, BuildChildren};
 /// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
