@@ -29,7 +29,7 @@ fn main() {
         .insert_resource(Time::<Fixed>::from_seconds(0.1))
         .add_systems(Startup, setup)
         .add_systems(Update, randomly_revive)
-        .add_systems(FixedUpdate, (spread_livlihood, update_state).chain())
+        .add_systems(FixedUpdate, (spread_livelihood, update_state).chain())
         .run();
 }
 
@@ -113,8 +113,8 @@ fn randomly_revive(
     }
 }
 
-fn spread_livlihood(
     mut neighbors: QueryByIndex<Chunk, (&Position, &mut LivingNeighbors)>,
+fn spread_livelihood(
     living: Query<(&Position, &Chunk), With<Alive>>,
 ) {
     for (this, Chunk(cx, cy)) in living.iter() {
