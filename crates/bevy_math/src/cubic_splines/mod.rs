@@ -1006,8 +1006,8 @@ impl<P: VectorSpace> CubicSegment<P> {
     pub fn new_bezier_with_anchor(start: P, anchor: P, end: P) -> Self {
         Self::new_bezier([
             start,
-            start.lerp(anchor, 0.66666667),
-            end.lerp(anchor, 0.66666667),
+            start.lerp(anchor, 0.667),
+            end.lerp(anchor, 0.667),
             end,
         ])
     }
