@@ -44,7 +44,7 @@ enum Key {
 }
 
 impl Key {
-    pub fn expr(&self) -> Expr {
+    fn expr(&self) -> Expr {
         match self {
             Key::Whole => parse_quote!(key),
             Key::Default => parse_quote!(#FQDefault::default()),
@@ -85,13 +85,13 @@ struct FieldInfo {
 }
 
 impl FieldInfo {
-    pub fn key_ty(&self, specialize_path: &Path, target_path: &Path) -> Option<Type> {
+    fn key_ty(&self, specialize_path: &Path, target_path: &Path) -> Option<Type> {
         let ty = &self.ty;
         matches!(self.key, Key::Whole | Key::Index(_))
             .then_some(parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::Key))
     }
 
-    pub fn specialize_stmt(&self, specialize_path: &Path, target_path: &Path) -> Stmt {
+    fn specialize_stmt(&self, specialize_path: &Path, target_path: &Path) -> Stmt {
         let FieldInfo {
             ty, member, key, ..
         } = &self;
@@ -99,11 +99,7 @@ impl FieldInfo {
         parse_quote!(<#ty as #specialize_path::Specialize<#target_path>>::specialize(&self.#member, #key_expr, descriptor);)
     }
 
-    pub fn specialize_predicate(
-        &self,
-        specialize_path: &Path,
-        target_path: &Path,
-    ) -> WherePredicate {
+    fn specialize_predicate(&self, specialize_path: &Path, target_path: &Path) -> WherePredicate {
         let ty = &self.ty;
         if matches!(&self.key, Key::Default) {
             parse_quote!(#ty: #specialize_path::Specialize<#target_path, Key: #FQDefault>)
@@ -112,7 +108,7 @@ impl FieldInfo {
         }
     }
 
-    pub fn has_base_descriptor_predicate(
+    fn has_base_descriptor_predicate(
         &self,
         specialize_path: &Path,
         target_path: &Path,
