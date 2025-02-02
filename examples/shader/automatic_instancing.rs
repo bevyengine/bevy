@@ -24,7 +24,7 @@ fn main() {
 /// Set up our secene
 fn setup(
     mut commands: Commands,
-    mut assets: ResMut<AssetServer>,
+    assets: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {

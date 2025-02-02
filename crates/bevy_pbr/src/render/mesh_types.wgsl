@@ -23,7 +23,7 @@ struct Mesh {
     // High 16 bits: index of the lightmap in the binding array.
     material_and_lightmap_bind_group_slot: u32,
     // User supplied index to identify the mesh instance
-    mesh_tag: u32,
+    tag: u32,
 };
 
 #ifdef SKINNED
