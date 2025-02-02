@@ -1019,6 +1019,46 @@ impl<P: VectorSpace> CubicSegment<P> {
         ];
         Self { coeff }
     }
+
+    /// A flexible iterator used to sample curves with arbitrary functions.
+    ///
+    /// This splits the curve into `subdivisions` of evenly spaced `t` values across the
+    /// length of the curve from start (t = 0) to end (t = n), where `n = self.segment_count()`,
+    /// returning an iterator evaluating the curve with the supplied `sample_function` at each `t`.
+    ///
+    /// For `subdivisions = 2`, this will split the curve into two lines, or three points, and
+    /// return an iterator with 3 items, the three points, one at the start, middle, and end.
+    #[inline]
+    pub fn iter_samples<'a, 'b: 'a>(
+        &'b self,
+        subdivisions: usize,
+        mut sample_function: impl FnMut(&Self, f32) -> P + 'a,
+    ) -> impl Iterator<Item = P> + 'a {
+        self.iter_uniformly(subdivisions)
+            .map(move |t| sample_function(self, t))
+    }
+
+    /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
+    #[inline]
+    fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
+        let step = 1.0 / subdivisions as f32;
+        (0..=subdivisions).map(move |i| i as f32 * step)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the position at each step.
+    pub fn iter_positions(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::position)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the velocity at each step.
+    pub fn iter_velocities(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::velocity)
+    }
+
+    /// Iterate over the curve split into `subdivisions`, sampling the acceleration at each step.
+    pub fn iter_accelerations(&self, subdivisions: usize) -> impl Iterator<Item = P> + '_ {
+        self.iter_samples(subdivisions, Self::acceleration)
+    }
 }
 
 /// The `CubicSegment<Vec2>` can be used as a 2-dimensional easing curve for animation.
