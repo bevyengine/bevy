@@ -3,11 +3,11 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
+        mesh::MeshInstanceIndex,
         render_resource::{AsBindGroup, ShaderRef},
         storage::ShaderStorageBuffer,
     },
 };
-use bevy_render::mesh::MeshInstanceIndex;
 
 const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
 

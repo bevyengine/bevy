@@ -4,9 +4,11 @@
 use bevy::{
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    render::{
+        mesh::MeshInstanceIndex,
+        render_resource::{AsBindGroup, ShaderRef},
+    },
 };
-use bevy_render::mesh::MeshInstanceIndex;
 
 const SHADER_ASSET_PATH: &str = "shaders/mesh_instance_index.wgsl";
 
