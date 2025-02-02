@@ -2736,6 +2736,16 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "mesh_instance_index"
+path = "examples/shader/mesh_instance_index.rs"
+
+[package.metadata.example.mesh_instance_index]
+name = "Mesh Instance Index"
+description = "A shader that uses a custom instance index to sample from a texture"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 doc-scrape-examples = true

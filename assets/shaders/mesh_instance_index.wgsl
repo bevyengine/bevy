@@ -3,7 +3,8 @@
     view_transformations::position_world_to_clip
 }
 
-@group(2) @binding(0) var<storage, read> colors: array<vec4<f32>, 5>;
+@group(2) @binding(0) var texture: texture_2d<f32>;
+@group(2) @binding(1) var texture_sampler: sampler;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -24,7 +25,11 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
     out.clip_position = position_world_to_clip(out.world_position.xyz);
 
-    out.color = colors[mesh_instance_index];
+    let tex_dim = textureDimensions(texture);
+    // Find the texel coordinate from the mesh_instance_index
+let texel_coord = vec2<u32>(mesh_instance_index % tex_dim.x, mesh_instance_index / tex_dim.x);
+
+    out.color = textureLoad(texture, texel_coord, 0);
     return out;
 }
 

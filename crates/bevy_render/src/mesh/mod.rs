@@ -21,7 +21,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d};
+pub use components::{
+    mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshInstanceIndex,
+};
 use wgpu::IndexFormat;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
