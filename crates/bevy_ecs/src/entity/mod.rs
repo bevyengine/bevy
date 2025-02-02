@@ -50,6 +50,10 @@ pub use entity_set::*;
 pub use map_entities::*;
 pub use visit_entities::*;
 
+mod unique_vec;
+
+pub use unique_vec::*;
+
 mod hash;
 pub use hash::*;
 

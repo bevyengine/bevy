@@ -3,7 +3,7 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera, RenderUiSystem,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
     ResolvedBorderRadius, TransparentUi, UiTargetCamera, Val,
 };
 use bevy_app::prelude::*;
@@ -12,7 +12,6 @@ use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     prelude::Component,
-    storage::SparseSet,
     system::{
         lifetimeless::{Read, SRes},
         *,
@@ -27,14 +26,14 @@ use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    sync_world::TemporaryRenderEntity,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-use super::{stack_z_offsets, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
+use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
 pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
 
@@ -225,18 +224,18 @@ pub struct ExtractedBoxShadow {
     pub blur_radius: f32,
     pub size: Vec2,
     pub main_entity: MainEntity,
+    pub render_entity: Entity,
 }
 
 /// List of extracted shadows to be sorted and queued for rendering
 #[derive(Resource, Default)]
 pub struct ExtractedBoxShadows {
-    pub box_shadows: SparseSet<Entity, ExtractedBoxShadow>,
+    pub box_shadows: Vec<ExtractedBoxShadow>,
 }
 
 pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    default_ui_camera: Extract<DefaultUiCamera>,
     camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
@@ -249,27 +248,22 @@ pub fn extract_shadows(
             Option<&UiTargetCamera>,
         )>,
     >,
-    mapping: Extract<Query<RenderEntity>>,
+    camera_map: Extract<UiCameraMap>,
 ) {
-    let default_camera_entity = default_ui_camera.get();
+    let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
-        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_camera_entity)
-        else {
-            continue;
-        };
-
-        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
-            continue;
-        };
-
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
         let ui_physical_viewport_size = camera_query
-            .get(extracted_camera_entity)
+            .get(camera_mapper.current_camera())
             .ok()
             .and_then(|(_, c)| {
                 c.physical_viewport_size()
@@ -317,22 +311,19 @@ pub fn extract_shadows(
                 bottom_right: uinode.border_radius.bottom_right * spread_ratio,
             };
 
-            extracted_box_shadows.box_shadows.insert(
-                commands.spawn(TemporaryRenderEntity).id(),
-                ExtractedBoxShadow {
-                    stack_index: uinode.stack_index,
-                    transform: transform.compute_matrix()
-                        * Mat4::from_translation(offset.extend(0.)),
-                    color: drop_shadow.color.into(),
-                    bounds: shadow_size + 6. * blur_radius,
-                    clip: clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    radius,
-                    blur_radius,
-                    size: shadow_size,
-                    main_entity: entity.into(),
-                },
-            );
+            extracted_box_shadows.box_shadows.push(ExtractedBoxShadow {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
+                color: drop_shadow.color.into(),
+                bounds: shadow_size + 6. * blur_radius,
+                clip: clip.map(|clip| clip.clip),
+                extracted_camera_entity,
+                radius,
+                blur_radius,
+                size: shadow_size,
+                main_entity: entity.into(),
+            });
         }
     }
 }
@@ -352,7 +343,8 @@ pub fn queue_shadows(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawBoxShadows>();
-    for (entity, extracted_shadow) in extracted_box_shadows.box_shadows.iter() {
+    for (index, extracted_shadow) in extracted_box_shadows.box_shadows.iter().enumerate() {
+        let entity = extracted_shadow.render_entity;
         let Ok((default_camera_view, shadow_samples)) =
             render_views.get_mut(extracted_shadow.extracted_camera_entity)
         else {
@@ -380,18 +372,23 @@ pub fn queue_shadows(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (*entity, extracted_shadow.main_entity),
+            entity: (entity, extracted_shadow.main_entity),
             sort_key: (
                 FloatOrd(extracted_shadow.stack_index as f32 + stack_z_offsets::BOX_SHADOW),
                 entity.index(),
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            index,
             indexed: true,
         });
     }
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
+)]
 pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -419,11 +416,13 @@ pub fn prepare_shadows(
         let mut indices_index = 0;
 
         for ui_phase in phases.values_mut() {
-            let mut item_index = 0;
-
-            while item_index < ui_phase.items.len() {
+            for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(box_shadow) = extracted_shadows.box_shadows.get(item.entity()) {
+                if let Some(box_shadow) = extracted_shadows
+                    .box_shadows
+                    .get(item.index)
+                    .filter(|n| item.entity() == n.render_entity)
+                {
                     let rect_size = box_shadow.bounds.extend(1.0);
 
                     // Specify the corners of the node
@@ -534,7 +533,6 @@ pub fn prepare_shadows(
                     *ui_phase.items[item_index].batch_range_mut() =
                         item_index as u32..item_index as u32 + 1;
                 }
-                item_index += 1;
             }
         }
         ui_meta.vertices.write_buffer(&render_device, &render_queue);

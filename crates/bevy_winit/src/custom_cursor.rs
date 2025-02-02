@@ -17,8 +17,14 @@ pub struct CustomCursorImage {
     /// An optional texture atlas used to render the image.
     pub texture_atlas: Option<TextureAtlas>,
     /// Whether the image should be flipped along its x-axis.
+    ///
+    /// If true, the cursor's `hotspot` automatically flips along with the
+    /// image.
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis.
+    ///
+    /// If true, the cursor's `hotspot` automatically flips along with the
+    /// image.
     pub flip_y: bool,
     /// An optional rectangle representing the region of the image to render,
     /// instead of rendering the full image. This is an easy one-off alternative
@@ -29,6 +35,10 @@ pub struct CustomCursorImage {
     pub rect: Option<URect>,
     /// X and Y coordinates of the hotspot in pixels. The hotspot must be within
     /// the image bounds.
+    ///
+    /// If you are flipping the image using `flip_x` or `flip_y`, you don't need
+    /// to adjust this field to account for the flip because it is adjusted
+    /// automatically.
     pub hotspot: (u16, u16),
 }
 
@@ -182,6 +192,33 @@ pub(crate) fn extract_and_transform_rgba_pixels(
     }
 
     Some(sub_image_data)
+}
+
+/// Transforms the `hotspot` coordinates based on whether the image is flipped
+/// or not. The `rect` is used to determine the image's dimensions.
+pub(crate) fn transform_hotspot(
+    hotspot: (u16, u16),
+    flip_x: bool,
+    flip_y: bool,
+    rect: Rect,
+) -> (u16, u16) {
+    let hotspot_x = hotspot.0 as f32;
+    let hotspot_y = hotspot.1 as f32;
+
+    let (width, height) = (rect.width(), rect.height());
+
+    let hotspot_x = if flip_x {
+        (width - 1.0).max(0.0) - hotspot_x
+    } else {
+        hotspot_x
+    };
+    let hotspot_y = if flip_y {
+        (height - 1.0).max(0.0) - hotspot_y
+    } else {
+        hotspot_y
+    };
+
+    (hotspot_x as u16, hotspot_y as u16)
 }
 
 #[cfg(test)]
@@ -542,4 +579,28 @@ mod tests {
             0, 255, 255, 255, // Cyan
         ]
     );
+
+    #[test]
+    fn test_transform_hotspot() {
+        fn test(hotspot: (u16, u16), flip_x: bool, flip_y: bool, rect: Rect, expected: (u16, u16)) {
+            let transformed = transform_hotspot(hotspot, flip_x, flip_y, rect);
+            assert_eq!(transformed, expected);
+
+            // Round-trip test: Applying the same transformation again should
+            // reverse it.
+            let transformed = transform_hotspot(transformed, flip_x, flip_y, rect);
+            assert_eq!(transformed, hotspot);
+        }
+
+        let rect = Rect {
+            min: Vec2::ZERO,
+            max: Vec2::new(100.0, 200.0),
+        };
+
+        test((10, 20), false, false, rect, (10, 20)); // no flip
+        test((10, 20), true, false, rect, (89, 20)); // flip X
+        test((10, 20), false, true, rect, (10, 179)); // flip Y
+        test((10, 20), true, true, rect, (89, 179)); // flip both
+        test((0, 0), true, true, rect, (99, 199)); // flip both (bounds check)
+    }
 }
