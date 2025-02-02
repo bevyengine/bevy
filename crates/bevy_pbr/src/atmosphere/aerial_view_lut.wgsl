@@ -32,7 +32,10 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     for (var slice_i: u32 = 0; slice_i < settings.aerial_view_lut_size.z; slice_i++) {
         for (var step_i: u32 = 0; step_i < settings.aerial_view_lut_samples; step_i++) {
-            let t_i = t_max * (f32(slice_i) + ((f32(step_i) + MIDPOINT_RATIO) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
+            // Offset by -0.5 to align sampling position with slice boundaries, 
+            // since each texel stores the integral over its entire slice
+            var t_i = t_max * (f32(slice_i) - 0.5 + ((f32(step_i) + MIDPOINT_RATIO) / f32(settings.aerial_view_lut_samples))) / f32(settings.aerial_view_lut_size.z);
+            t_i = max(t_i, 0.0);
             let dt = (t_i - prev_t);
             prev_t = t_i;
 
