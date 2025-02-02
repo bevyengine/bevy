@@ -88,7 +88,7 @@ fn sky_view_lut_r_mu_azimuth_to_uv(r: f32, mu: f32, azimuth: f32) -> vec2<f32> {
     // l is latitude in [-π/2, π/2] and v is texture coordinate in [0,1]
     let l = view_zenith - horizon_zenith;
     let abs_l = abs(l);
-    
+
     let v = 0.5 + 0.5 * sign(l) * sqrt(abs_l / HALF_PI);
 
     return unit_to_sub_uvs(vec2(u, v), vec2<f32>(settings.sky_view_lut_size));
@@ -137,15 +137,15 @@ fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
     let dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
     let t_max = settings.aerial_view_lut_max_distance;
     let num_slices = f32(settings.aerial_view_lut_size.z);
-    
+
     // Offset by 0.5 to sample at the center of each slice interval,
     // which improves accuracy when using the midpoint rule for integration
-    let w = clamp((dist / t_max * num_slices - 0.5) / num_slices, 0.0, 1.0);
+    let w = saturate(dist / t_max - 0.5 / num_slices);
     let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, vec3(uv, w), 0.0);
 
     // Special handling of first slice to ensure zero scattering at camera position.
     // Without this, nearby objects would incorrectly show extra inscattering.
-    let delta_slice = t_max / num_slices;
+    let delta_slice = 0.5 * t_max / num_slices;
     let fade = saturate(dist / delta_slice);
 
     // Recover the inscattering and transmittance from the log-encoded values
