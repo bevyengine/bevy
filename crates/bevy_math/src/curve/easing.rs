@@ -5,7 +5,7 @@
 
 use crate::{
     curve::{Curve, CurveExt, FunctionCurve, Interval},
-    Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
+    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
 };
 
 use variadics_please::all_tuples_enumerated;
@@ -71,6 +71,42 @@ impl Ease for Dir3A {
         let difference_quat =
             Quat::from_rotation_arc(start.as_vec3a().into(), end.as_vec3a().into());
         Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
+    }
+}
+
+impl Ease for Isometry3d {
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| {
+            // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
+            // used are defined on the whole domain
+            Isometry3d {
+                rotation: Quat::interpolating_curve_unbounded(start.rotation, end.rotation)
+                    .sample_unchecked(t),
+                translation: crate::Vec3A::interpolating_curve_unbounded(
+                    start.translation,
+                    end.translation,
+                )
+                .sample_unchecked(t),
+            }
+        })
+    }
+}
+
+impl Ease for Isometry2d {
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| {
+            // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
+            // used are defined on the whole domain
+            Isometry2d {
+                rotation: Rot2::interpolating_curve_unbounded(start.rotation, end.rotation)
+                    .sample_unchecked(t),
+                translation: crate::Vec2::interpolating_curve_unbounded(
+                    start.translation,
+                    end.translation,
+                )
+                .sample_unchecked(t),
+            }
+        })
     }
 }
 
@@ -627,6 +663,9 @@ impl EaseFunction {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Vec2, Vec3, Vec3A};
+    use approx::assert_abs_diff_eq;
+
     use super::*;
     const MONOTONIC_IN_OUT_INOUT: &[[EaseFunction; 3]] = {
         use EaseFunction::*;
@@ -718,5 +757,71 @@ mod tests {
                 "EaseFunction.{ef_inout:?}(½) was {mid:?}",
             );
         }
+    }
+
+    #[test]
+    fn ease_quats() {
+        let quat_start = Quat::from_axis_angle(Vec3::Z, 0.0);
+        let quat_end = Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians());
+
+        let quat_curve = Quat::interpolating_curve_unbounded(quat_start, quat_end);
+
+        assert_abs_diff_eq!(
+            quat_curve.sample(0.0).unwrap(),
+            Quat::from_axis_angle(Vec3::Z, 0.0)
+        );
+        {
+            let (before_mid_axis, before_mid_angle) =
+                quat_curve.sample(0.25).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(before_mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(before_mid_angle, 22.5_f32.to_radians());
+        }
+        {
+            let (mid_axis, mid_angle) = quat_curve.sample(0.5).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(mid_angle, 45.0_f32.to_radians());
+        }
+        {
+            let (after_mid_axis, after_mid_angle) =
+                quat_curve.sample(0.75).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(after_mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(after_mid_angle, 67.5_f32.to_radians());
+        }
+        assert_abs_diff_eq!(
+            quat_curve.sample(1.0).unwrap(),
+            Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians())
+        );
+    }
+
+    #[test]
+    fn ease_isometries_2d() {
+        let angle = 90.0;
+        let iso_2d_start = Isometry2d::new(Vec2::ZERO, Rot2::degrees(0.0));
+        let iso_2d_end = Isometry2d::new(Vec2::ONE, Rot2::degrees(angle));
+
+        let iso_2d_curve = Isometry2d::interpolating_curve_unbounded(iso_2d_start, iso_2d_end);
+
+        [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
+            assert_abs_diff_eq!(
+                iso_2d_curve.sample(t).unwrap(),
+                Isometry2d::new(Vec2::ONE * t, Rot2::degrees(angle * t))
+            );
+        });
+    }
+
+    #[test]
+    fn ease_isometries_3d() {
+        let angle = 90.0_f32.to_radians();
+        let iso_3d_start = Isometry3d::new(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0));
+        let iso_3d_end = Isometry3d::new(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, angle));
+
+        let iso_3d_curve = Isometry3d::interpolating_curve_unbounded(iso_3d_start, iso_3d_end);
+
+        [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
+            assert_abs_diff_eq!(
+                iso_3d_curve.sample(t).unwrap(),
+                Isometry3d::new(Vec3A::ONE * t, Quat::from_axis_angle(Vec3::Z, angle * t))
+            );
+        });
     }
 }

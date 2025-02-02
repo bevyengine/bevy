@@ -3792,7 +3792,7 @@ pub fn enforce_no_required_components_recursion(
                     .join(" → "),
                 if direct_recursion {
                     format!(
-                        "Remove require({})",
+                        "Remove require({}).",
                         ShortName(components.get_info(requiree).unwrap().name())
                     )
                 } else {

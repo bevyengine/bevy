@@ -2305,7 +2305,7 @@ impl<'w> EntityWorldMut<'w> {
                     self.entity,
                     archetype.components(),
                     #[cfg(feature = "track_location")]
-                    Location::caller(),
+                    caller,
                 );
             }
             deferred_world.trigger_on_replace(
@@ -2313,7 +2313,7 @@ impl<'w> EntityWorldMut<'w> {
                 self.entity,
                 archetype.components(),
                 #[cfg(feature = "track_location")]
-                Location::caller(),
+                caller,
             );
             if archetype.has_remove_observer() {
                 deferred_world.trigger_observers(
@@ -2321,7 +2321,7 @@ impl<'w> EntityWorldMut<'w> {
                     self.entity,
                     archetype.components(),
                     #[cfg(feature = "track_location")]
-                    Location::caller(),
+                    caller,
                 );
             }
             deferred_world.trigger_on_remove(
@@ -2329,7 +2329,7 @@ impl<'w> EntityWorldMut<'w> {
                 self.entity,
                 archetype.components(),
                 #[cfg(feature = "track_location")]
-                Location::caller(),
+                caller,
             );
         }
 

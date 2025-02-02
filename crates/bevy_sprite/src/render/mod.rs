@@ -573,7 +573,7 @@ pub fn queue_sprites(
                 pipeline,
                 entity: (*entity, *main_entity),
                 sort_key,
-                // batch_range and dynamic_offset will be calculated in prepare_sprites
+                // `batch_range` is calculated in `prepare_sprite_image_bind_groups`
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
