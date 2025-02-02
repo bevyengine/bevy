@@ -41,9 +41,18 @@ struct Alive;
 #[component(immutable)]
 struct Position(i8, i8);
 
+/// To increase cache performance, we group a 3x3 square of cells into a chunk, and index against that.
+/// If you instead indexed against the [`Position`] directly, you would have a single archetype per tile,
+/// massively decreasing query performance.
 #[derive(Component, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 #[component(immutable)]
 struct Chunk(i8, i8);
+
+impl From<Position> for Chunk {
+    fn from(Position(x, y): Position) -> Self {
+        Chunk(x / 3, y / 3)
+    }
+}
 
 #[derive(Component, PartialEq, Eq, Hash, Clone, Copy, Debug)]
 struct LivingNeighbors(u8);
@@ -79,18 +88,24 @@ fn setup(
     commands.insert_resource(SeededRng(seeded_rng));
 
     // Spawn the cells
-    commands.spawn_batch((-30..30).flat_map(|x| (-30..30).map(move |y| (x, y))).map(
-        move |(x, y)| {
-            (
-                Position(x, y),
-                Chunk(x / 4, y / 4),
-                LivingNeighbors(0),
-                Mesh2d(rect.clone()),
-                MeshMaterial2d(dead.clone()),
-                Transform::from_xyz(11. * x as f32 + 5.5, 11. * y as f32 + 5.5 - 20., 0.),
-            )
-        },
-    ));
+    commands.spawn_batch(
+        (-30..30)
+            .flat_map(|x| (-30..30).map(move |y| Position(x, y)))
+            .map(move |position| {
+                (
+                    position,
+                    Chunk::from(position),
+                    LivingNeighbors(0),
+                    Mesh2d(rect.clone()),
+                    MeshMaterial2d(dead.clone()),
+                    Transform::from_xyz(
+                        11. * position.0 as f32 + 5.5,
+                        11. * position.1 as f32 + 5.5 - 20.,
+                        0.,
+                    ),
+                )
+            }),
+    );
 }
 
 fn randomly_revive(
@@ -113,39 +128,44 @@ fn randomly_revive(
     }
 }
 
-    mut neighbors: QueryByIndex<Chunk, (&Position, &mut LivingNeighbors)>,
 fn spread_livelihood(
-    living: Query<(&Position, &Chunk), With<Alive>>,
+    mut neighbors_by_chunk: QueryByIndex<Chunk, (&Position, &mut LivingNeighbors)>,
+    living: Query<&Position, With<Alive>>,
 ) {
-    for (this, Chunk(cx, cy)) in living.iter() {
-        let mut found = 0;
+    /// In Conway's Game of Life, we consider the adjacent cells (including diagonals) as our neighbors:
+    ///
+    /// ```no_run
+    /// O O O O O
+    /// O N N N O
+    /// O N X N O
+    /// O N N N O
+    /// O O O O O
+    /// ```
+    ///
+    /// In the above diagram, if `X` denotes a particular cell, `N` denotes neighbors, while `O` denotes a non-neighbor cell.
+    const NEIGHBORS: [Position; 8] = [
+        // Position(0, 0), // Excluded, as this is us!
+        Position(0, 1),
+        Position(0, -1),
+        Position(1, 0),
+        Position(1, 1),
+        Position(1, -1),
+        Position(-1, 0),
+        Position(-1, 1),
+        Position(-1, -1),
+    ];
 
-        'cell: for dx in [0, -1, 1] {
-            for dy in [0, -1, 1] {
-                let mut lens = neighbors.at_mut(&Chunk(cx + dx, cy + dy));
-                let mut query = lens.query();
+    for this in living.iter() {
+        for delta in NEIGHBORS {
+            let other_pos = Position(this.0 + delta.0, this.1 + delta.1);
+            let mut lens = neighbors_by_chunk.at_mut(&Chunk::from(other_pos));
+            let mut query = lens.query();
 
-                for (other, mut count) in query.iter_mut() {
-                    let diff_x = this.0.abs_diff(other.0);
-                    let diff_y = this.1.abs_diff(other.1);
+            let Some((_, mut count)) = query.iter_mut().find(|(&pos, _)| pos == other_pos) else {
+                continue;
+            };
 
-                    let is_self = diff_x == 0 && diff_y == 0;
-                    let is_adjacent = diff_x < 2 && diff_y < 2;
-
-                    if is_adjacent && !is_self {
-                        count.0 += 1;
-                        found += 1;
-
-                        if found == 8 {
-                            break 'cell;
-                        }
-
-                        if count.0 > 8 {
-                            panic!("Wait how did that happen???");
-                        }
-                    }
-                }
-            }
+            count.0 += 1;
         }
     }
 }
