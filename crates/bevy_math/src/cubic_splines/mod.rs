@@ -998,6 +998,16 @@ impl<P: VectorSpace> CubicSegment<P> {
         Self::coefficients(points, char_matrix)
     }
 
+    /// Creates a new cubic Bezier curve from the given points and an anchor point.
+    pub fn new_bezier_with_anchor(start: P, anchor: P, end: P) -> Self {
+        Self::new_bezier([
+            start,
+            start.lerp(anchor, 0.66),
+            end.lerp(anchor, 0.66),
+            end,
+        ])
+    }
+
     /// Calculate polynomial coefficients for the cubic curve using a characteristic matrix.
     #[cfg_attr(
         not(feature = "alloc"),
