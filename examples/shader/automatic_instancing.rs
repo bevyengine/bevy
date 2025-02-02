@@ -40,6 +40,8 @@ fn setup(
     let mesh_handle = meshes.add(Cuboid::from_size(Vec3::splat(0.01)));
 
     // Create the custom material with a reference to our texture
+    // Automatic instancing works with any Material, including the `StandardMaterial`.
+    // This custom material is used to demonstrate the optional `MeshTag` feature.
     let material_handle = materials.add(CustomMaterial {
         image: image.clone(),
     });
