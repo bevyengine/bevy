@@ -1,8 +1,14 @@
+use core::marker::PhantomData;
+
 use crate::{
+    archetype::Archetype,
+    component::Tick,
     entity::Entity,
     query::{QueryData, QueryFilter, WorldQuery},
     relationship::{Relationship, RelationshipTarget},
+    storage::{Table, TableRow},
     system::Query,
+    world::unsafe_world_cell::UnsafeWorldCell,
 };
 use alloc::collections::VecDeque;
 use smallvec::SmallVec;
@@ -268,5 +274,197 @@ where
     fn next(&mut self) -> Option<Self::Item> {
         self.next = self.parent_query.get(self.next?).ok().map(R::get);
         self.next
+    }
+}
+
+/// A [`QueryFilter`] type that filters for entities that are related via `R` to an entity that matches `F`.
+pub struct RelatedTo<R: Relationship, F: QueryFilter> {
+    _relationship: PhantomData<R>,
+    _filter: PhantomData<F>,
+}
+
+unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
+    type Item<'a> = <F as WorldQuery>::Item<'a>;
+
+    type Fetch<'a> = RelatedToFetch<'a, R, F>;
+
+    type State = RelatedToState<R, F>;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
+        fetch
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: UnsafeWorldCell<'w>,
+        state: &Self::State,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Self::Fetch<'w> {
+        RelatedToFetch {
+            relation_fetch: <&'static R as WorldQuery>::init_fetch(
+                world,
+                &state.relation_state,
+                last_run,
+                this_run,
+            ),
+            filter_fetch: <F as WorldQuery>::init_fetch(
+                world,
+                &state.filter_state,
+                last_run,
+                this_run,
+            ),
+        }
+    }
+
+    const IS_DENSE: bool = <F as WorldQuery>::IS_DENSE & <&R as WorldQuery>::IS_DENSE;
+
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        <&'static R as WorldQuery>::set_archetype(
+            &mut fetch.relation_fetch,
+            &state.relation_state,
+            archetype,
+            table,
+        );
+        <F as WorldQuery>::set_archetype(
+            &mut fetch.filter_fetch,
+            &state.filter_state,
+            archetype,
+            table,
+        );
+    }
+
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        <&'static R as WorldQuery>::set_table(
+            &mut fetch.relation_fetch,
+            &state.relation_state,
+            table,
+        );
+        <F as WorldQuery>::set_table(&mut fetch.filter_fetch, &state.filter_state, table);
+    }
+
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        // Look up the relationship
+        let relation =
+            <&'static R as WorldQuery>::fetch(&mut fetch.relation_fetch, entity, table_row);
+        // Then figure out what the related entity is
+        let related_entity = relation.get();
+
+        // Finally, check if the related entity matches the filter
+        <F as WorldQuery>::fetch(&mut fetch.filter_fetch, related_entity, table_row)
+    }
+
+    fn update_component_access(
+        state: &Self::State,
+        access: &mut crate::query::FilteredAccess<crate::component::ComponentId>,
+    ) {
+        <&'static R as WorldQuery>::update_component_access(&state.relation_state, access);
+        <F as WorldQuery>::update_component_access(&state.filter_state, access);
+    }
+
+    fn init_state(world: &mut crate::prelude::World) -> Self::State {
+        RelatedToState {
+            relation_state: <&'static R as WorldQuery>::init_state(world),
+            filter_state: <F as WorldQuery>::init_state(world),
+        }
+    }
+
+    fn get_state(components: &crate::component::Components) -> Option<Self::State> {
+        Some(RelatedToState {
+            relation_state: <&'static R as WorldQuery>::get_state(components)?,
+            filter_state: <F as WorldQuery>::get_state(components)?,
+        })
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(crate::component::ComponentId) -> bool,
+    ) -> bool {
+        // We need to look at both the relationship and the filter components,
+        // but they do not need to be on the same entity.
+        // As a result, we use an OR operation, rather than the AND operation used in other WorldQuery implementations.
+        <&'static R as WorldQuery>::matches_component_set(&state.relation_state, set_contains_id)
+            || <F as WorldQuery>::matches_component_set(&state.filter_state, set_contains_id)
+    }
+}
+
+unsafe impl<R: Relationship, F: QueryFilter> QueryFilter for RelatedTo<R, F> {
+    // The information about whether or not a related entity matches the filter
+    // varies between entities found in the same archetype,
+    // so rapidly pre-computing the length of the filtered set is not possible.
+    const IS_ARCHETYPAL: bool = false;
+
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        todo!("How does this differ from `fetch`?")
+    }
+}
+
+/// The [`WorldQuery::Fetch`] type for [`RelatedTo`].
+///
+/// This is used internally to implement [`WorldQuery`] for [`RelatedTo`].
+pub struct RelatedToFetch<'w, R: Relationship, F: QueryFilter> {
+    /// The fetch for the relationship component,
+    /// used to look up the target entity.
+    relation_fetch: <&'static R as WorldQuery>::Fetch<'w>,
+    /// The fetch for the filter component,
+    /// used to determine if the target entity matches the filter.
+    filter_fetch: <F as WorldQuery>::Fetch<'w>,
+}
+
+impl<'w, R: Relationship, F: QueryFilter> Clone for RelatedToFetch<'w, R, F> {
+    fn clone(&self) -> Self {
+        Self {
+            relation_fetch: self.relation_fetch.clone(),
+            filter_fetch: self.filter_fetch.clone(),
+        }
+    }
+}
+
+/// The [`WorldQuery::State`] type for [`RelatedTo`].
+///
+/// This is used internally to implement [`WorldQuery`] for [`RelatedTo`].
+pub struct RelatedToState<R: Relationship, F: QueryFilter> {
+    /// The state for the relationship component,
+    /// used to look up the target entity.
+    relation_state: <&'static R as WorldQuery>::State,
+    /// The state for the filter component,
+    /// used to determine if the target entity matches the filter.
+    filter_state: <F as WorldQuery>::State,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RelatedTo;
+    use crate as bevy_ecs;
+    use crate::prelude::{ChildOf, Component, Entity, With, World};
+
+    #[derive(Component)]
+    struct A;
+
+    #[test]
+    fn related_to() {
+        let mut world = World::default();
+        let entity = world.spawn(A).id();
+        let child = world.spawn(ChildOf(entity)).id();
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, With<A>>>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
     }
 }
