@@ -29,7 +29,7 @@ impl EntityHashSet {
     /// Equivalent to [`HashSet::with_hasher(EntityHash)`].
     ///
     /// [`HashSet::with_hasher(EntityHash)`]: HashSet::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(HashSet::with_hasher(EntityHash))
     }
 
