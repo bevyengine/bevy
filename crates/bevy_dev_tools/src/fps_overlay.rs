@@ -5,7 +5,7 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::MarkChanges,
     component::Component,
     entity::Entity,
     prelude::Local,

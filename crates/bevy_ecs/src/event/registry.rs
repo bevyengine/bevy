@@ -1,7 +1,7 @@
 use crate as bevy_ecs;
 use alloc::vec::Vec;
 use bevy_ecs::{
-    change_detection::{DetectChangesMut, MutUntyped},
+    change_detection::{MarkChanges, MutUntyped},
     component::{ComponentId, Tick},
     event::{Event, Events},
     resource::Resource,

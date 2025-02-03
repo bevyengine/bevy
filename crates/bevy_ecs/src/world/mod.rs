@@ -33,7 +33,7 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
-    change_detection::{MutUntyped, TicksMut},
+    change_detection::{MutMarkChanges, MutMarkChangesUntyped, MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
         ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
@@ -1224,8 +1224,33 @@ impl World {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<MutMarkChanges<T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
+    }
+
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type
+    /// or change detection is not enabled for the component.
+    /// ```
+    /// use bevy_ecs::{component::Component, world::World};
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///   x: f32,
+    ///   y: f32,
+    /// }
+    ///
+    /// let mut world = World::new();
+    /// let entity = world.spawn(Position { x: 0.0, y: 0.0 }).id();
+    /// let mut position = world.get_mut::<Position>(entity).unwrap();
+    /// position.x = 1.0;
+    /// ```
+    #[inline]
+    pub fn get_mut_with_ticks<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
+        self.get_entity_mut(entity).ok()?.into_mut_with_ticks()
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
@@ -3219,6 +3244,46 @@ impl World {
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         self.components.get_component_clone_handlers_mut()
     }
+
+    /// Enables change detection for this component even if no system that requires it has been registered.
+    pub fn enable_change_detection<T: Component>(&mut self) {
+        let id = self.register_component::<T>();
+        self.enable_change_detection_for_id(id);
+    }
+
+    pub(crate) fn enable_change_detection_and_warn(&mut self, component_id: ComponentId) {
+        let missed = self.enable_change_detection_for_id(component_id);
+        if missed > 0 {
+            warn!("Enabled change detection for component {}, missed ticks for {missed} existing entities",
+                self.components.get_name(component_id).unwrap(),
+            );
+        }
+    }
+
+    /// Enables change detection for this component even if no system that requires it has been registered.
+    ///
+    /// # Panics
+    /// Panics if this world doesn't contain a component of this id.
+    pub fn enable_change_detection_for_id(&mut self, component_id: ComponentId) -> usize {
+        let mut missed = 0;
+        if !self.components.enable_change_detection(component_id) {
+            if let Some(set) = self.storages.sparse_sets.get_mut(component_id) {
+                // Sparse
+                set.enable_change_detection(self.last_change_tick);
+                missed = set.len();
+            } else if let Some(archetypes) = self.archetypes.by_component.get(&component_id) {
+                // Tables
+                for &archetype_id in archetypes.keys() {
+                    let archetype = self.archetypes.get(archetype_id).unwrap();
+                    let table_id = archetype.table_id();
+                    let table = self.storages.tables.get_mut(table_id).unwrap();
+                    table.enable_change_detection(component_id, self.last_change_tick);
+                    missed += table.entity_count();
+                }
+            }
+        }
+        missed
+    }
 }
 
 impl World {
@@ -3555,7 +3620,7 @@ impl World {
         &mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<MutUntyped<'_>> {
+    ) -> Option<MutMarkChangesUntyped<'_>> {
         self.get_entity_mut(entity)
             .ok()?
             .into_mut_by_id(component_id)
@@ -3769,7 +3834,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use super::{FromWorld, World};
     use crate::{
-        change_detection::DetectChangesMut,
+        change_detection::MarkChanges,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         entity::hash_set::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},

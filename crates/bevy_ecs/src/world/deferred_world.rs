@@ -4,7 +4,7 @@ use core::panic::Location;
 
 use crate::{
     archetype::Archetype,
-    change_detection::MutUntyped,
+    change_detection::{MutMarkChanges, MutMarkChangesUntyped, MutUntyped},
     component::{ComponentId, HookContext, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
@@ -77,8 +77,19 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<MutMarkChanges<T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
+    }
+
+    /// Retrieves a mutable reference to the given `entity`'s [`Component`] of the given type.
+    /// Returns `None` if the `entity` does not have a [`Component`] of the given type
+    /// or change detection is not enabled for the component.
+    #[inline]
+    pub fn get_mut_with_ticks<T: Component<Mutability = Mutable>>(
+        &mut self,
+        entity: Entity,
+    ) -> Option<Mut<T>> {
+        self.get_entity_mut(entity).ok()?.into_mut_with_ticks()
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
@@ -150,17 +161,25 @@ impl<'w> DeferredWorld<'w> {
             .get_entity_mut(entity)
             .expect("entity access confirmed above");
 
-        // SAFETY: we will run the required hooks to simulate removal/replacement.
-        let mut component = unsafe {
-            entity_cell
-                .get_mut_assume_mutable::<T>()
-                .expect("component access confirmed above")
+        let result = if let Some(mut component) =
+            // SAFETY: we will run the required hooks to simulate removal/replacement.
+            unsafe { entity_cell.get_mut_with_ticks_assume_mutable::<T>() }
+        {
+            let result = f(&mut component);
+
+            // Simulate adding this component by updating the relevant ticks
+            *component.ticks.added = *component.ticks.changed;
+            result
+        } else {
+            // SAFETY: we will run the required hooks to simulate removal/replacement.
+            let mut component = unsafe {
+                entity_cell
+                    .get_mut_assume_mutable::<T>()
+                    .expect("component access confirmed above")
+            };
+
+            f(&mut component)
         };
-
-        let result = f(&mut component);
-
-        // Simulate adding this component by updating the relevant ticks
-        *component.ticks.added = *component.ticks.changed;
 
         // SAFETY:
         // - DeferredWorld ensures archetype pointer will remain valid as no
@@ -512,7 +531,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         entity: Entity,
         component_id: ComponentId,
-    ) -> Option<MutUntyped<'_>> {
+    ) -> Option<MutMarkChangesUntyped<'_>> {
         self.get_entity_mut(entity)
             .ok()?
             .into_mut_by_id(component_id)

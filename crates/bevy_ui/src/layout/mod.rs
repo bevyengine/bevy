@@ -105,7 +105,7 @@ pub fn ui_layout_system(
     mut node_query: Query<(
         Entity,
         Ref<Node>,
-        Option<&mut ContentSize>,
+        Option<Mut<ContentSize>>,
         Option<&UiTargetCamera>,
     )>,
     computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,

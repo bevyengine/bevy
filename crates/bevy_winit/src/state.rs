@@ -435,7 +435,7 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             _ => {}
         }
 
-        let mut windows = self.world_mut().query::<(&mut Window, &mut CachedWindow)>();
+        let mut windows = self.world_mut().query::<(Mut<Window>, &mut CachedWindow)>();
         if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window) {
             if window_component.is_changed() {
                 cache.window = window_component.clone();
@@ -904,7 +904,7 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
 
 pub(crate) fn react_to_resize(
     window_entity: Entity,
-    window: &mut Mut<'_, Window>,
+    window: &mut Window,
     size: PhysicalSize<u32>,
     window_resized: &mut EventWriter<WindowResized>,
 ) {
@@ -921,7 +921,7 @@ pub(crate) fn react_to_resize(
 
 pub(crate) fn react_to_scale_factor_change(
     window_entity: Entity,
-    window: &mut Mut<'_, Window>,
+    window: &mut Window,
     scale_factor: f64,
     window_backend_scale_factor_changed: &mut EventWriter<WindowBackendScaleFactorChanged>,
     window_scale_factor_changed: &mut EventWriter<WindowScaleFactorChanged>,

@@ -5,7 +5,7 @@ use crate::{
 use bevy_asset::{AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    change_detection::DetectChangesMut, component::Component, event::EventReader, prelude::require,
+    change_detection::MarkChanges, component::Component, event::EventReader, prelude::require,
     reflect::ReflectComponent, system::Query,
 };
 use bevy_platform_support::{collections::HashSet, hash::FixedHasher};

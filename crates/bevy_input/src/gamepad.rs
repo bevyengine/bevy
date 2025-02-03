@@ -7,7 +7,7 @@ use alloc::string::String;
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
+    change_detection::MarkChanges,
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},

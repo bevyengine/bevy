@@ -430,7 +430,6 @@ mod tests {
     use crate::entity::Entity;
     use crate::query::{QueryState, With};
     use crate::system::Query;
-    use crate::world::Mut;
     use crate::{self as bevy_ecs};
 
     use super::UniqueEntityIter;
@@ -468,8 +467,7 @@ mod tests {
             .cloned();
 
         // With `iter_many_mut` collecting is not possible, because you need to drop each `Mut`/`&mut` before the next is retrieved.
-        let _results: Vec<Mut<Thing>> =
-            query.iter_many_unique_mut(&mut world, entity_set).collect();
+        let _results: Vec<_> = query.iter_many_unique_mut(&mut world, entity_set).collect();
     }
 
     #[test]

@@ -17,7 +17,10 @@ use alloc::boxed::Box;
 use alloc::{borrow::Cow, format, vec::Vec};
 pub use bevy_ecs_macros::Component;
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_platform_support::sync::Arc;
+use bevy_platform_support::sync::{
+    atomic::{AtomicU32, Ordering::Relaxed},
+    Arc,
+};
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -722,6 +725,9 @@ pub struct ComponentInfo {
     hooks: ComponentHooks,
     required_components: RequiredComponents,
     required_by: HashSet<ComponentId>,
+    change_detection: bool,
+    /// If change detection is disabled, updates to change ticks are written here instead.
+    pub(crate) ignored_tick_write_sink: TickSink,
 }
 
 impl ComponentInfo {
@@ -789,6 +795,8 @@ impl ComponentInfo {
             hooks: Default::default(),
             required_components: Default::default(),
             required_by: Default::default(),
+            change_detection: false,
+            ignored_tick_write_sink: TickSink::default(),
         }
     }
 
@@ -821,6 +829,11 @@ impl ComponentInfo {
     /// needed by this component. This includes _recursive_ required components.
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
+    }
+
+    /// Check whether change detection is enabled for this component.
+    pub fn change_detection_enabled(&self) -> bool {
+        self.change_detection
     }
 }
 
@@ -1712,6 +1725,14 @@ impl Components {
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
     }
+
+    /// Returns whether change detection was already enabled.
+    ///
+    /// # Panics
+    /// Panics if the component does not exist.
+    pub(crate) fn enable_change_detection(&mut self, component_id: ComponentId) -> bool {
+        core::mem::replace(&mut self.components[component_id.0].change_detection, true)
+    }
 }
 
 /// A value that tracks when a system ran relative to other systems.
@@ -1724,6 +1745,7 @@ impl Components {
     derive(Reflect),
     reflect(Debug, Hash, PartialEq)
 )]
+#[repr(transparent)]
 pub struct Tick {
     tick: u32,
 }
@@ -1791,6 +1813,37 @@ impl Tick {
         } else {
             false
         }
+    }
+}
+
+/// Sink for change ticks.
+/// May represent actual change ticks of a component,
+/// or a dummy sink used when change detection isn't enabled.
+#[repr(transparent)]
+#[derive(Default, Debug)]
+pub(crate) struct TickSink {
+    tick: AtomicU32,
+}
+
+impl TickSink {
+    /// # Safety
+    /// Must be allowed to write to cell.
+    pub(crate) unsafe fn from_unsafe_cell(cell: &UnsafeCell<Tick>) -> &Self {
+        assert_eq!(align_of::<Tick>(), align_of::<TickSink>());
+        // SAFETY:
+        // Tick and TickWriteCell have the same layout and are valid for all bit patterns.
+        core::mem::transmute(cell)
+    }
+
+    pub(crate) fn write(&self, tick: Tick) {
+        self.tick.store(tick.tick, Relaxed);
+    }
+}
+
+// Only used when used as a ignore sink
+impl Clone for TickSink {
+    fn clone(&self) -> Self {
+        Self::default()
     }
 }
 

@@ -260,7 +260,7 @@ pub fn update_image_content_size_system(
     textures: Res<Assets<Image>>,
 
     atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut ContentSize, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
+    mut query: Query<(Mut<ContentSize>, Ref<ImageNode>, &mut ImageNodeSize), UpdateImageFilter>,
 ) {
     let combined_scale_factor = windows
         .get_single()

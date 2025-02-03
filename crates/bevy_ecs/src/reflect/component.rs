@@ -59,7 +59,7 @@
 
 use super::from_reflect_with_fallback;
 use crate::{
-    change_detection::Mut,
+    change_detection::MutMarkChanges,
     component::{ComponentId, ComponentMutability},
     entity::Entity,
     prelude::Component,
@@ -113,12 +113,13 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
+    pub reflect_mut: fn(FilteredEntityMut) -> Option<MutMarkChanges<dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
     /// The function may only be called with an [`UnsafeEntityCell`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_unchecked_mut: unsafe fn(UnsafeEntityCell<'_>) -> Option<Mut<'_, dyn Reflect>>,
+    pub reflect_unchecked_mut:
+        unsafe fn(UnsafeEntityCell<'_>) -> Option<MutMarkChanges<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::register_component()`].
@@ -195,7 +196,7 @@ impl ReflectComponent {
     pub fn reflect_mut<'a>(
         &self,
         entity: impl Into<FilteredEntityMut<'a>>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+    ) -> Option<MutMarkChanges<'a, dyn Reflect>> {
         (self.0.reflect_mut)(entity.into())
     }
 
@@ -211,7 +212,7 @@ impl ReflectComponent {
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
         entity: UnsafeEntityCell<'a>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+    ) -> Option<MutMarkChanges<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
         unsafe { (self.0.reflect_unchecked_mut)(entity) }
     }

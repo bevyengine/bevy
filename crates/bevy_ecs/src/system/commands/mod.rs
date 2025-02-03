@@ -19,7 +19,7 @@ use log::error;
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
-    change_detection::Mut,
+    change_detection::MutMarkChanges,
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
     event::Event,
@@ -2078,7 +2078,10 @@ pub struct EntityEntryCommands<'a, T> {
 
 impl<'a, T: Component<Mutability = Mutable>> EntityEntryCommands<'a, T> {
     /// Modify the component `T` if it exists, using the function `modify`.
-    pub fn and_modify(&mut self, modify: impl FnOnce(Mut<T>) + Send + Sync + 'static) -> &mut Self {
+    pub fn and_modify(
+        &mut self,
+        modify: impl FnOnce(MutMarkChanges<T>) + Send + Sync + 'static,
+    ) -> &mut Self {
         self.entity_commands
             .queue(move |mut entity: EntityWorldMut| {
                 if let Some(value) = entity.get_mut() {

@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
-    change_detection::MutUntyped,
+    change_detection::{MutMarkChanges, MutMarkChangesUntyped, MutUntyped},
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{
         Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
@@ -132,7 +132,8 @@ impl<'w> EntityRef<'w> {
     /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection isn't enabled for it.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         // SAFETY: We have read-only access to all components of this entity.
@@ -580,9 +581,18 @@ impl<'w> EntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutMarkChanges<'_, T>> {
         // SAFETY: &mut self implies exclusive access for duration of returned value
         unsafe { self.cell.get_mut() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    #[inline]
+    pub fn get_mut_with_ticks<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY: &mut self implies exclusive access for duration of returned value
+        unsafe { self.cell.get_mut_with_ticks() }
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -592,20 +602,45 @@ impl<'w> EntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<MutMarkChanges<'_, T>> {
         // SAFETY:
         // - &mut self implies exclusive access for duration of returned value
         // - Caller ensures `T` is a mutable component
         unsafe { self.cell.get_mut_assume_mutable() }
     }
 
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn get_mut_with_ticks_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        // SAFETY:
+        // - &mut self implies exclusive access for duration of returned value
+        // - Caller ensures `T` is a mutable component
+        unsafe { self.cell.get_mut_with_ticks_assume_mutable() }
+    }
+
     /// Consumes self and gets mutable access to the component of type `T`
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutMarkChanges<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.cell.get_mut() }
+    }
+
+    /// Consumes self and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    #[inline]
+    pub fn into_mut_with_ticks<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.cell.get_mut_with_ticks() }
     }
 
     /// Gets mutable access to the component of type `T` for the current entity.
@@ -615,11 +650,26 @@ impl<'w> EntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutMarkChanges<'w, T>> {
         // SAFETY:
         // - Consuming `self` implies exclusive access
         // - Caller ensures `T` is a mutable component
         unsafe { self.cell.get_mut_assume_mutable() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn into_mut_with_ticks_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+        // SAFETY:
+        // - Consuming `self` implies exclusive access
+        // - Caller ensures `T` is a mutable component
+        unsafe { self.cell.get_mut_with_ticks_assume_mutable() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -1241,8 +1291,20 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutMarkChanges<'_, T>> {
         self.as_mutable().into_mut()
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn get_mut_with_ticks<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+        self.as_mutable().into_mut_with_ticks()
     }
 
     /// Temporarily removes a [`Component`] `T` from this [`Entity`] and runs the
@@ -1305,21 +1367,47 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+    pub unsafe fn get_mut_assume_mutable<T: Component>(&mut self) -> Option<MutMarkChanges<'_, T>> {
         self.as_mutable().into_mut_assume_mutable()
     }
 
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn get_mut_with_ticks_assume_mutable<T: Component>(&mut self) -> Option<Mut<'_, T>> {
+        self.as_mutable().into_mut_with_ticks_assume_mutable()
+    }
+
     /// Consumes `self` and gets mutable access to the component of type `T`
-    /// with the world `'w` lifetime for the current entity.
+    /// with the world `'w` lifetime for the current entity.  
     /// Returns `None` if the entity does not have a component of type `T`.
     ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutMarkChanges<'w, T>> {
         // SAFETY: consuming `self` implies exclusive access
         unsafe { self.into_unsafe_entity_cell().get_mut() }
+    }
+
+    /// Consumes `self` and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.  
+    /// Returns `None` if the `entity` does not have the component
+    /// or change detection is not enabled for the component.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn into_mut_with_ticks<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+        // SAFETY: consuming `self` implies exclusive access
+        unsafe { self.into_unsafe_entity_cell().get_mut_with_ticks() }
     }
 
     /// Gets a reference to the resource of the given type
@@ -2816,7 +2904,7 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> Entry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 1);
     /// ```
     #[inline]
-    pub fn and_modify<F: FnOnce(Mut<'_, T>)>(self, f: F) -> Self {
+    pub fn and_modify<F: FnOnce(MutMarkChanges<'_, T>)>(self, f: F) -> Self {
         match self {
             Entry::Occupied(mut entry) => {
                 f(entry.get_mut());
@@ -3045,9 +3133,21 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 17);
     /// ```
     #[inline]
-    pub fn get_mut(&mut self) -> Mut<'_, T> {
+    pub fn get_mut(&mut self) -> MutMarkChanges<'_, T> {
         // This shouldn't panic because if we have an OccupiedEntry the component must exist.
-        self.entity_world.get_mut::<T>().unwrap()
+        self.entity_world.get_mut().unwrap()
+    }
+
+    /// Gets a mutable reference to the component in the entry.
+    /// Returns `None` if change detection is not enabled for the component.
+    ///
+    /// If you need a reference to the `OccupiedEntry` which may outlive the destruction of
+    /// the `Entry` value, see [`into_mut`].
+    ///
+    /// [`into_mut`]: Self::into_mut
+    #[inline]
+    pub fn get_mut_with_ticks(&mut self) -> Option<Mut<'_, T>> {
+        self.entity_world.get_mut_with_ticks()
     }
 
     /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry with
@@ -3074,9 +3174,22 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedEntry<'w, 'a, T> {
     /// assert_eq!(world.query::<&Comp>().single(&world).0, 15);
     /// ```
     #[inline]
-    pub fn into_mut(self) -> Mut<'a, T> {
+    pub fn into_mut(self) -> MutMarkChanges<'a, T> {
         // This shouldn't panic because if we have an OccupiedEntry the component must exist.
         self.entity_world.get_mut().unwrap()
+    }
+
+    /// Converts the `OccupiedEntry` into a mutable reference to the value in the entry with
+    /// a lifetime bound to the `EntityWorldMut`.
+    /// Returns `None` if change detection is not enabled for the component.
+    ///
+    /// If you need multiple references to the `OccupiedEntry`, see [`get_mut`].
+    ///
+    /// [`get_mut`]: Self::get_mut
+    #[inline]
+    pub fn into_mut_with_ticks(self) -> Mut<'a, T> {
+        // This shouldn't panic because if we have an OccupiedEntry the component must exist.
+        self.entity_world.get_mut_with_ticks().unwrap()
     }
 }
 
@@ -3240,7 +3353,9 @@ impl<'w> FilteredEntityRef<'w> {
     /// Gets access to the component of type `T` for the current entity,
     /// including change detection information as a [`Ref`].
     ///
-    /// Returns `None` if the entity does not have a component of type `T`.
+    /// Returns `None` if the entity does not have a component of type `T`,
+    /// this reference doesn't have access to it
+    /// or change detection isn't enabled for it.
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
@@ -3572,7 +3687,7 @@ impl<'w> FilteredEntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+    pub fn get_mut<T: Component<Mutability = Mutable>>(&mut self) -> Option<MutMarkChanges<'_, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
@@ -3581,15 +3696,40 @@ impl<'w> FilteredEntityMut<'w> {
             .flatten()
     }
 
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    #[inline]
+    pub fn get_mut_with_ticks<T: Component<Mutability = Mutable>>(&mut self) -> Option<Mut<'_, T>> {
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        self.access
+            .has_component_write(id)
+            // SAFETY: We have write access
+            .then(|| unsafe { self.entity.get_mut_with_ticks() })
+            .flatten()
+    }
+
     /// Consumes self and gets mutable access to the component of type `T`
     /// with the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
-    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+    pub fn into_mut<T: Component<Mutability = Mutable>>(self) -> Option<MutMarkChanges<'w, T>> {
         // SAFETY:
         // - We have write access
         // - The bound `T: Component<Mutability = Mutable>` ensures the component is mutable
         unsafe { self.into_mut_assume_mutable() }
+    }
+
+    /// Consumes self and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    #[inline]
+    pub fn into_mut_with_ticks<T: Component<Mutability = Mutable>>(self) -> Option<Mut<'w, T>> {
+        // SAFETY:
+        // - We have write access
+        // - The bound `T: Component<Mutability = Mutable>` ensures the component is mutable
+        unsafe { self.into_mut_with_ticks_assume_mutable() }
     }
 
     /// Consumes self and gets mutable access to the component of type `T`
@@ -3600,7 +3740,7 @@ impl<'w> FilteredEntityMut<'w> {
     ///
     /// - `T` must be a mutable component
     #[inline]
-    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+    pub unsafe fn into_mut_assume_mutable<T: Component>(self) -> Option<MutMarkChanges<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_write(id)
@@ -3608,6 +3748,26 @@ impl<'w> FilteredEntityMut<'w> {
             // - We have write access
             // - Caller ensures `T` is a mutable component
             .then(|| unsafe { self.entity.get_mut_assume_mutable() })
+            .flatten()
+    }
+
+    /// Consumes self and gets mutable access to the component of type `T`
+    /// with the world `'w` lifetime for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`
+    /// or change detection is not enabled for the component.
+    ///
+    /// # Safety
+    ///
+    /// - `T` must be a mutable component
+    #[inline]
+    pub unsafe fn into_mut_with_ticks_assume_mutable<T: Component>(self) -> Option<Mut<'w, T>> {
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        self.access
+            .has_component_write(id)
+            // SAFETY:
+            // - We have write access
+            // - Caller ensures `T` is a mutable component
+            .then(|| unsafe { self.entity.get_mut_with_ticks_assume_mutable() })
             .flatten()
     }
 
@@ -3642,7 +3802,7 @@ impl<'w> FilteredEntityMut<'w> {
         self.as_readonly().get_by_id(component_id)
     }
 
-    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity.
+    /// Gets an untyped mutable reference to the component of the given [`ComponentId`] from the entity.
     ///
     /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
     /// use this in cases where the actual component types are not known at
@@ -3651,11 +3811,35 @@ impl<'w> FilteredEntityMut<'w> {
     /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
     /// which is only valid while the [`FilteredEntityMut`] is alive.
     #[inline]
-    pub fn get_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+    pub fn get_mut_by_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<MutMarkChangesUntyped<'_>> {
         self.access
             .has_component_write(component_id)
             // SAFETY: We have write access
             .then(|| unsafe { self.entity.get_mut_by_id(component_id).ok() })
+            .flatten()
+    }
+
+    /// Gets a [`MutUntyped`] of the component of the given [`ComponentId`] from the entity,
+    /// if the component is present and has change detection enabled.
+    ///
+    /// **You should prefer to use the typed API [`Self::get_mut`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// Unlike [`FilteredEntityMut::get_mut`], this returns a raw pointer to the component,
+    /// which is only valid while the [`FilteredEntityMut`] is alive.
+    #[inline]
+    pub fn get_mut_with_ticks_by_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<MutUntyped<'_>> {
+        self.access
+            .has_component_write(component_id)
+            // SAFETY: We have write access
+            .then(|| unsafe { self.entity.get_mut_with_ticks_by_id(component_id).ok() })
             .flatten()
     }
 
@@ -3820,9 +4004,11 @@ where
     }
 
     /// Gets access to the component of type `C` for the current entity,
-    /// including change detection information. Returns `None` if the component
-    /// doesn't have a component of that type or if the type is one of the
-    /// excluded components.
+    /// including change detection information.
+    ///
+    /// Returns `None` if the entity doesn't have a component of that type,
+    /// the type is one of the excluded components,
+    /// or change detection isn't enabled for the component.
     #[inline]
     pub fn get_ref<C>(&self) -> Option<Ref<'w, C>>
     where
@@ -3982,7 +4168,7 @@ where
     /// Returns `None` if the component doesn't have a component of that type or
     /// if the type is one of the excluded components.
     #[inline]
-    pub fn get_mut<C>(&mut self) -> Option<Mut<'_, C>>
+    pub fn get_mut<C>(&mut self) -> Option<MutMarkChanges<'_, C>>
     where
         C: Component<Mutability = Mutable>,
     {
@@ -3994,6 +4180,26 @@ where
             // SAFETY: We have write access for all components that weren't
             // covered by the `contains` check above.
             unsafe { self.entity.get_mut() }
+        }
+    }
+
+    /// Gets mutable access to the component of type `C` for the current entity.
+    /// Returns `None` if the component doesn't have a component of that type,
+    /// the type is one of the excluded components,
+    /// or change detection is not enabled for the component.
+    #[inline]
+    pub fn get_mut_with_ticks<C>(&mut self) -> Option<Mut<'_, C>>
+    where
+        C: Component<Mutability = Mutable>,
+    {
+        let components = self.entity.world().components();
+        let id = components.component_id::<C>()?;
+        if bundle_contains_component::<B>(components, id) {
+            None
+        } else {
+            // SAFETY: We have write access for all components that weren't
+            // covered by the `contains` check above.
+            unsafe { self.entity.get_mut_with_ticks() }
         }
     }
 
@@ -4214,7 +4420,7 @@ pub unsafe trait DynamicComponentFetch {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl DynamicComponentFetch for ComponentId {
     type Ref<'w> = Ptr<'w>;
-    type Mut<'w> = MutUntyped<'w>;
+    type Mut<'w> = MutMarkChangesUntyped<'w>;
 
     unsafe fn fetch_ref(
         self,
@@ -4239,7 +4445,7 @@ unsafe impl DynamicComponentFetch for ComponentId {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
-    type Mut<'w> = [MutUntyped<'w>; N];
+    type Mut<'w> = [MutMarkChangesUntyped<'w>; N];
 
     unsafe fn fetch_ref(
         self,
@@ -4261,7 +4467,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for [ComponentId; N] {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
     type Ref<'w> = [Ptr<'w>; N];
-    type Mut<'w> = [MutUntyped<'w>; N];
+    type Mut<'w> = [MutMarkChangesUntyped<'w>; N];
 
     unsafe fn fetch_ref(
         self,
@@ -4315,7 +4521,7 @@ unsafe impl<const N: usize> DynamicComponentFetch for &'_ [ComponentId; N] {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
     type Ref<'w> = Vec<Ptr<'w>>;
-    type Mut<'w> = Vec<MutUntyped<'w>>;
+    type Mut<'w> = Vec<MutMarkChangesUntyped<'w>>;
 
     unsafe fn fetch_ref(
         self,
@@ -4361,7 +4567,7 @@ unsafe impl DynamicComponentFetch for &'_ [ComponentId] {
 // - No mutable references are returned by `fetch_ref`.
 unsafe impl DynamicComponentFetch for &'_ HashSet<ComponentId> {
     type Ref<'w> = HashMap<ComponentId, Ptr<'w>>;
-    type Mut<'w> = HashMap<ComponentId, MutUntyped<'w>>;
+    type Mut<'w> = HashMap<ComponentId, MutMarkChangesUntyped<'w>>;
 
     unsafe fn fetch_ref(
         self,
@@ -4407,7 +4613,6 @@ mod tests {
     use crate::component::HookContext;
     use crate::{
         self as bevy_ecs,
-        change_detection::MutUntyped,
         component::ComponentId,
         prelude::*,
         system::{assert_is_system, RunSystemOnce as _},
@@ -5307,7 +5512,7 @@ mod tests {
                 .entity_mut(e1)
                 .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[_; 2], _> = ptrs.try_into() else {
                         panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
@@ -5323,7 +5528,7 @@ mod tests {
                 .entity_mut(e2)
                 .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[_; 2], _> = ptrs.try_into() else {
                         panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
@@ -5339,7 +5544,7 @@ mod tests {
                 .entity_mut(e3)
                 .get_mut_by_id(&[x_id, y_id] as &[ComponentId])
                 .map(|ptrs| {
-                    let Ok([x_ptr, y_ptr]): Result<[MutUntyped; 2], _> = ptrs.try_into() else {
+                    let Ok([x_ptr, y_ptr]): Result<[_; 2], _> = ptrs.try_into() else {
                         panic!("get_mut_by_id(slice) didn't return 2 elements")
                     };
 
