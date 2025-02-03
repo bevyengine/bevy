@@ -577,4 +577,25 @@ mod tests {
 
         assert!(maybe_fetched_child.is_err());
     }
+
+    #[test]
+    fn related_to_compoound_filter() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child_with = world.spawn((A, ChildOf(parent))).id();
+        let child_without = world.spawn(ChildOf(parent)).id();
+
+        // We're double-checking checking the behavior of the `RelatedTo` filter when combined with other filters.
+        let mut query_state =
+            world.query_filtered::<Entity, (With<A>, RelatedTo<ChildOf, With<A>>)>();
+
+        // This child has the `A` component and is a child of the parent, so it should be fetched.
+        let maybe_fetched_child_with = query_state.get(&world, child_with);
+        assert!(maybe_fetched_child_with.is_ok());
+
+        // This child does not have the `A` component but is not a child of the parent, so it should not be fetched,
+        // even though its parent has the `A` component.
+        let maybe_fetched_child_without = query_state.get(&world, child_without);
+        assert!(maybe_fetched_child_without.is_err());
+    }
 }
