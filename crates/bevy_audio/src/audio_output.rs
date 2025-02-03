@@ -1,6 +1,6 @@
 use crate::{
     AudioPlayer, Decodable, DefaultSpatialScale, GlobalVolume, PlaybackMode, PlaybackSettings,
-    SpatialAudioSink, SpatialListener,
+    SpatialAudioSink, SpatialListener, Volume,
 };
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -170,7 +170,9 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume.0 * global_volume.volume.0);
+            sink.set_volume(Volume::Linear(
+                settings.volume.to_linear() * global_volume.volume.to_linear(),
+            ));
 
             if settings.paused {
                 sink.pause();
@@ -210,7 +212,9 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume.0 * global_volume.volume.0);
+            sink.set_volume(Volume::Linear(
+                settings.volume.to_linear() * global_volume.volume.to_linear(),
+            ));
 
             if settings.paused {
                 sink.pause();

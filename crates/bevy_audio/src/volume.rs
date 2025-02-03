@@ -1,4 +1,3 @@
-use bevy_derive::Deref;
 use bevy_ecs::prelude::*;
 use bevy_math::ops;
 use bevy_reflect::prelude::*;
@@ -26,54 +25,16 @@ impl GlobalVolume {
     }
 }
 
-/// A [`Volume`] represents audio volume levels in a linear scale, where `1.0`
-/// is the "normal" or "default" volume and where `0.0` is the "silent" or "off"
-/// or "muted" volume.
-///
-/// Values greater than `1.0` increase the volume, while values between `0.0`
-/// and `1.0` decrease the volume.
+/// A [`Volume`] represents an audio source's volume level.
 ///
 /// To create a new [`Volume`] from a linear scale value, use
-/// [`Volume::from_linear`].
+/// [`Volume::Linear`].
 ///
-/// To create a new [`Volume`] from decibels, use [`Volume::from_decibels`].
-///
-/// You can convert a [`Volume`] to a linear scale value using
-/// [`Volume::to_linear`] and to decibels using [`Volume::to_decibels`].
-#[derive(Clone, Copy, Deref, Debug, Reflect, PartialEq)]
+/// To create a new [`Volume`] from decibels, use [`Volume::Decibels`].
+#[derive(Clone, Copy, Debug, Reflect)]
 #[reflect(Debug, PartialEq)]
-pub struct Volume(pub(crate) f32);
-
-impl Default for Volume {
-    fn default() -> Self {
-        Self(1.0)
-    }
-}
-
-impl From<f32> for Volume {
-    fn from(linear_volume: f32) -> Self {
-        Self::from_linear(linear_volume)
-    }
-}
-
-impl PartialOrd for Volume {
-    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
-        Some(self.0.total_cmp(&other.0))
-    }
-}
-
-impl Volume {
+pub enum Volume {
     /// Create a new [`Volume`] from the given volume in linear scale.
-    ///
-    /// The provided value must not be negative. The returned [`Volume`]'s
-    /// underlying linear scale value is clamped to the range `[0, f32::MAX]`.
-    ///
-    /// # Note on negative values
-    ///
-    /// Bevy does not interpret negative values as phase inversion but simply
-    /// clamps them to `0.0`.
-    ///
-    /// # Linear scale
     ///
     /// In a linear scale, the value `1.0` represents the "normal" volume,
     /// meaning the audio is played at its original level. Values greater than
@@ -88,46 +49,20 @@ impl Volume {
     /// #
     /// # const EPSILON: f32 = 0.01;
     ///
-    /// let volume = Volume::from_linear(0.5);
+    /// let volume = Volume::Linear(0.5);
     /// assert_eq!(volume.to_linear(), 0.5);
     /// assert!(ops::abs(volume.to_decibels() - -6.0206) < EPSILON);
     ///
-    /// let volume = Volume::from_linear(0.0);
+    /// let volume = Volume::Linear(0.0);
     /// assert_eq!(volume.to_linear(), 0.0);
     /// assert_eq!(volume.to_decibels(), f32::NEG_INFINITY);
     ///
-    /// let volume = Volume::from_linear(1.0);
+    /// let volume = Volume::Linear(1.0);
     /// assert_eq!(volume.to_linear(), 1.0);
     /// assert!(ops::abs(volume.to_decibels() - 0.0) < EPSILON);
     /// ```
-    pub const fn from_linear(v: f32) -> Self {
-        // Inform users in non-release builds that they really should not be
-        // passing negative values to this function. In release builds, we still
-        // end up clamping the value to `0.0`.
-        //
-        // Note: We don't want to enable this check in tests because we want to
-        // test the behavior of the function when it receives negative values.
-        if !cfg!(test) {
-            debug_assert!(v >= 0.0, "`Volume::from_linear` does not support negative linear scale values. If your value is negative because you're working with decibels, use `Volume::from_decibels` instead.");
-        }
-
-        // Manually clamp the value to the range `[0, f32::MAX]` until `f32:max`
-        // is stable as a const fn:
-        //
-        // > `core::f32::<impl f32>::max` is not yet stable as a const fn
-        //
-        // TODO: Use `f32::max` as a const fn when it is stable.
-        Self(if v <= 0.0 { 0.0 } else { v })
-    }
-
-    /// Returns the volume in linear scale.
-    pub const fn to_linear(&self) -> f32 {
-        self.0
-    }
-
+    Linear(f32),
     /// Create a new [`Volume`] from the given volume in decibels.
-    ///
-    /// # Decibels
     ///
     /// In a decibel scale, the value `0.0` represents the "normal" volume,
     /// meaning the audio is played at its original level. Values greater than
@@ -143,32 +78,105 @@ impl Volume {
     /// #
     /// # const EPSILON: f32 = 0.01;
     ///
-    /// let volume = Volume::from_decibels(-5.998);
+    /// let volume = Volume::Decibels(-5.998);
     /// assert!(ops::abs(volume.to_linear() - 0.5) < EPSILON);
     ///
-    /// let volume = Volume::from_decibels(f32::NEG_INFINITY);
+    /// let volume = Volume::Decibels(f32::NEG_INFINITY);
     /// assert_eq!(volume.to_linear(), 0.0);
     ///
-    /// let volume = Volume::from_decibels(0.0);
+    /// let volume = Volume::Decibels(0.0);
     /// assert_eq!(volume.to_linear(), 1.0);
     ///
-    /// let volume = Volume::from_decibels(20.0);
+    /// let volume = Volume::Decibels(20.0);
     /// assert_eq!(volume.to_linear(), 10.0);
     /// ```
-    pub fn from_decibels(v: f32) -> Self {
-        Self(ops::powf(10.0f32, v / 20.0))
+    Decibels(f32),
+}
+
+impl Default for Volume {
+    fn default() -> Self {
+        Self::Linear(1.0)
+    }
+}
+
+impl PartialEq for Volume {
+    fn eq(&self, other: &Self) -> bool {
+        use Volume::{Decibels, Linear};
+
+        match (self, other) {
+            (Linear(a), Linear(b)) => a.abs() == b.abs(),
+            (Decibels(a), Decibels(b)) => a == b,
+            (a, b) => a.to_decibels() == b.to_decibels(),
+        }
+    }
+}
+
+impl PartialOrd for Volume {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+        use Volume::{Decibels, Linear};
+
+        Some(match (self, other) {
+            (Linear(a), Linear(b)) => a.abs().total_cmp(&b.abs()),
+            (Decibels(a), Decibels(b)) => a.total_cmp(b),
+            (a, b) => a.to_decibels().total_cmp(&b.to_decibels()),
+        })
+    }
+}
+
+impl Volume {
+    /// Returns the volume in linear scale as a float.
+    pub fn to_linear(&self) -> f32 {
+        match self {
+            Self::Linear(v) => v.abs(),
+            Self::Decibels(v) => ops::powf(10.0f32, v / 20.0),
+        }
     }
 
-    /// Returns the volume in decibels.
+    /// Returns the volume in decibels as a float.
     ///
     /// If the volume is silent / off / muted, i.e. it's underlying linear scale
     /// is `0.0`, this method returns negative infinity.
     pub fn to_decibels(&self) -> f32 {
-        20.0 * ops::log10(self.0)
+        match self {
+            Self::Linear(v) => 20.0 * ops::log10(v.abs()),
+            Self::Decibels(v) => *v,
+        }
     }
 
-    /// The silent / off / muted volume level.
-    pub const SILENT: Self = Volume(0.0);
+    /// The silent volume. Also known as "off" or "muted".
+    pub const SILENT: Self = Volume::Linear(0.0);
+}
+
+impl core::ops::Add<Self> for Volume {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self {
+        use Volume::{Decibels, Linear};
+
+        match (self, rhs) {
+            (Linear(a), Linear(b)) => Linear(a + b),
+            (Decibels(a), Decibels(b)) => Decibels(
+                10.0 * ops::log10(ops::powf(10.0f32, a / 10.0) + ops::powf(10.0f32, b / 10.0)),
+            ),
+            (a, b) => panic!("not implemented: {:?} + {:?}", a, b),
+        }
+    }
+}
+
+impl core::ops::Sub<Self> for Volume {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        use Volume::{Decibels, Linear};
+
+        match (self, rhs) {
+            (Linear(a), Linear(b)) => Linear(a - b),
+            (Decibels(a), Decibels(b)) => Decibels(
+                10.0 * ops::log10(ops::powf(10.0f32, a / 10.0) - ops::powf(10.0f32, b / 10.0)),
+            ),
+            (a, b) => panic!("not implemented: {:?} - {:?}", a, b),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -178,7 +186,7 @@ mod tests {
     /// Based on [Wikipedia's Decibel article].
     ///
     /// [Wikipedia's Decibel article]: https://web.archive.org/web/20230810185300/https://en.wikipedia.org/wiki/Decibel
-    const DB_LINEAR_TABLE: [(f32, f32); 27] = [
+    const DECIBELS_LINEAR_TABLE: [(f32, f32); 27] = [
         (100., 100000.),
         (90., 31623.),
         (80., 10000.),
@@ -210,8 +218,10 @@ mod tests {
 
     #[test]
     fn volume_conversion() {
-        for (db, linear) in DB_LINEAR_TABLE {
-            for volume in [Volume::from_linear(linear), Volume::from_decibels(db)] {
+        use Volume::{Decibels, Linear};
+
+        for (db, linear) in DECIBELS_LINEAR_TABLE {
+            for volume in [Linear(linear), Decibels(db), Linear(-linear)] {
                 let db_test = volume.to_decibels();
                 let linear_test = volume.to_linear();
 
@@ -238,46 +248,74 @@ mod tests {
 
     #[test]
     fn volume_conversion_special() {
+        use Volume::{Decibels, Linear};
+
         assert!(
-            Volume::from_decibels(f32::INFINITY)
-                .to_linear()
-                .is_infinite(),
+            Decibels(f32::INFINITY).to_linear().is_infinite(),
             "Infinite decibels is equivalent to infinite linear scale"
         );
         assert!(
-            Volume::from_linear(f32::INFINITY)
-                .to_decibels()
-                .is_infinite(),
+            Linear(f32::INFINITY).to_decibels().is_infinite(),
             "Infinite linear scale is equivalent to infinite decibels"
         );
 
         assert!(
-            Volume::from_linear(f32::NEG_INFINITY)
-                .to_decibels()
-                .is_infinite(),
+            Linear(f32::NEG_INFINITY).to_decibels().is_infinite(),
             "Negative infinite linear scale is equivalent to infinite decibels"
         );
         assert!(
-            Volume::from_decibels(f32::NEG_INFINITY).to_linear().abs() == 0.0,
+            Decibels(f32::NEG_INFINITY).to_linear().abs() == 0.0,
             "Negative infinity decibels is equivalent to zero linear scale"
         );
 
         assert!(
-            Volume::from_linear(0.0).to_decibels().is_infinite(),
+            Linear(0.0).to_decibels().is_infinite(),
             "Zero linear scale is equivalent to negative infinity decibels"
         );
         assert!(
-            Volume::from_linear(-0.0).to_decibels().is_infinite(),
+            Linear(-0.0).to_decibels().is_infinite(),
             "Negative zero linear scale is equivalent to negative infinity decibels"
         );
 
         assert!(
-            Volume::from_decibels(f32::NAN).to_linear().is_nan(),
+            Decibels(f32::NAN).to_linear().is_nan(),
             "NaN decibels is equivalent to NaN linear scale"
         );
         assert!(
-            Volume::from_linear(f32::NAN).to_decibels().is_nan(),
+            Linear(f32::NAN).to_decibels().is_nan(),
             "NaN linear scale is equivalent to NaN decibels"
         );
+    }
+
+    #[test]
+    fn volume_ops() {
+        use Volume::{Decibels, Linear};
+
+        // Linear to Linear.
+        assert_eq!(Linear(0.5) + Linear(0.5), Linear(1.0));
+        assert_eq!(Linear(0.5) + Linear(0.1), Linear(0.6));
+        assert_eq!(Linear(0.5) + Linear(-0.5), Linear(0.0));
+
+        // Decibels to Decibels.
+        assert_eq!(Decibels(0.0) + Decibels(0.0), Decibels(3.0103002));
+        assert_eq!(Decibels(6.0) + Decibels(6.0), Decibels(9.0103));
+        assert_eq!(Decibels(-6.0) + Decibels(-6.0), Decibels(-2.9897));
+        // https://math.stackexchange.com/a/2486440
+        assert_eq!(Decibels(90.0) + Decibels(90.0), Decibels(93.0103));
+        // https://au.noisemeters.com/apps/db-calculator/
+        assert_eq!(
+            Decibels(94.0) + Decibels(96.0) + Decibels(98.0),
+            Decibels(101.07296)
+        );
+
+        // Linear to Linear.
+        assert_eq!(Linear(0.5) - Linear(0.5), Linear(0.0));
+        assert_eq!(Linear(0.5) - Linear(0.1), Linear(0.4));
+        assert_eq!(Linear(0.5) - Linear(-0.5), Linear(1.0));
+
+        // Decibels to Decibels.
+        assert_eq!(Decibels(0.0) - Decibels(0.0), Decibels(f32::NEG_INFINITY));
+        assert_eq!(Decibels(6.0) - Decibels(4.0), Decibels(1.6707666));
+        assert_eq!(Decibels(-6.0) - Decibels(-6.0), Decibels(f32::NEG_INFINITY));
     }
 }
