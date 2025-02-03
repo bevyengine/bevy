@@ -35,7 +35,6 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let mu = ray_dir_ws.y;
     let t_max = max_atmosphere_distance(r, mu);
 
-    // Raymarch with quadratic distribution
     let sample_count = mix(1.0, f32(settings.sky_view_lut_samples), clamp(t_max * 0.01, 0.0, 1.0));
     var total_inscattering = vec3(0.0);
     var throughput = vec3(1.0);
