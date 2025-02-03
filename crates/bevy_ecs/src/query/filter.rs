@@ -86,6 +86,8 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
+    ///
+    /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
@@ -94,7 +96,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
     ///
-    /// Implementors of this method will generally either have a trivial `true` body (for archetypal filters),
+    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
     /// or call [`WorldQuery::fetch`] to access the raw data needed to make the final decision on filter inclusion.
     ///
     /// # Safety
