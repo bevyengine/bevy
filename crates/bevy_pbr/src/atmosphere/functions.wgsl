@@ -135,10 +135,18 @@ fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
 fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
     let view_pos = view.view_from_clip * vec4(uv_to_ndc(uv), depth, 1.0);
     let dist = length(view_pos.xyz / view_pos.w) * settings.scene_units_to_m;
-    let uvw = vec3(uv, dist / settings.aerial_view_lut_max_distance);
+    let t_max = settings.aerial_view_lut_max_distance;
+    let num_slices = f32(settings.aerial_view_lut_size.z);
+    // Offset the W coordinate by -0.5 over the max distance in order to 
+    // align sampling position with slice boundaries, since each texel 
+    // stores the integral over its entire slice
+    let uvw = vec3(uv, saturate(dist / t_max - 0.5 / num_slices));
     let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
+    // Treat the first slice specially since there is 0 scattering at the camera
+    let delta_slice = t_max / num_slices;
+    let fade = saturate(dist / delta_slice);
     // Recover the values from log space
-    return vec4(exp(sample.rgb), exp(-sample.a));
+    return vec4(exp(sample.rgb) * fade, exp(sample.a) * fade);
 }
 
 // PHASE FUNCTIONS
