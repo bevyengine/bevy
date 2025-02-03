@@ -509,6 +509,9 @@ mod tests {
     #[derive(Component)]
     struct A;
 
+    #[derive(Component)]
+    struct B;
+
     #[test]
     fn related_to_empty_filter() {
         let mut world = World::default();
@@ -536,6 +539,32 @@ mod tests {
         let parent = world.spawn(A).id();
         let child = world.spawn(ChildOf(parent)).id();
         let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, With<A>>>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_same_with() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child = world.spawn((A, ChildOf(parent))).id();
+        let mut query_state =
+            world.query_filtered::<Entity, (With<A>, RelatedTo<ChildOf, With<A>>)>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    // If this test fails but the one above passes,
+    // the RelatedTo filter is probably not matching enough archetypes.
+    #[test]
+    fn related_to_different_with() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child = world.spawn((B, ChildOf(parent))).id();
+        let mut query_state =
+            world.query_filtered::<Entity, (With<B>, RelatedTo<ChildOf, With<A>>)>();
         let fetched_child = query_state.iter(&world).next().unwrap();
 
         assert_eq!(child, fetched_child);
