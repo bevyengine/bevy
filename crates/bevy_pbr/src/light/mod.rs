@@ -23,7 +23,10 @@ use bevy_utils::Parallel;
 use crate::{prelude::EnvironmentMapLight, *};
 
 mod ambient_light;
-#[expect(deprecated)]
+#[expect(
+    deprecated,
+    reason = "AmbientLight has been replaced by EnvironmentMapLight"
+)]
 pub use ambient_light::AmbientLight;
 
 mod point_light;
@@ -527,7 +530,10 @@ pub enum SimulationLightSystems {
 #[derive(Component)]
 pub struct EnvironmentMapLightFromAmbientLight;
 
-#[expect(deprecated)]
+#[expect(
+    deprecated,
+    reason = "AmbientLight has been replaced by EnvironmentMapLight"
+)]
 pub fn map_ambient_lights(
     mut commands: Commands,
     mut image_assets: ResMut<Assets<Image>>,
