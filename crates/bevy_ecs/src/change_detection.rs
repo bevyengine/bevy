@@ -1240,7 +1240,7 @@ impl<T> TrackLocationOption<T> {
     }
 
     /// Returns the contained value or a default.
-    /// If if the `track_location` feature is enabled, this always returns the contained value.
+    /// If the `track_location` feature is enabled, this always returns the contained value.
     /// If it is disabled, this always returns `T::Default()`.
     #[inline]
     pub fn unwrap_or_default(self) -> T
@@ -1251,7 +1251,7 @@ impl<T> TrackLocationOption<T> {
     }
 
     /// Converts an `TrackLocationOption` to an `Option` to allow run-time branching.
-    /// If if the `track_location` feature is enabled, this always returns `Some`.
+    /// If the `track_location` feature is enabled, this always returns `Some`.
     /// If it is disabled, this always returns `None`.
     #[inline]
     pub fn into_option(self) -> Option<T> {
@@ -1263,13 +1263,6 @@ impl<T> TrackLocationOption<T> {
         {
             None
         }
-    }
-
-    /// Extracts the inner `T` unconditionally.
-    #[cfg(feature = "track_location")]
-    #[inline]
-    pub fn into_inner(self) -> T {
-        self.value
     }
 }
 
