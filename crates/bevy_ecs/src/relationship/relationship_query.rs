@@ -390,13 +390,16 @@ unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
         table_row: TableRow,
     ) -> Self::Item<'w> {
         // Look up the relationship
-        let relation =
-            <&'static R as WorldQuery>::fetch(&mut fetch.relation_fetch, entity, table_row);
+        // SAFETY: the safety requirements for calling `fetch` on `R` are a subset of the safety requirements for calling this method
+        let relation = unsafe {
+            <&'static R as WorldQuery>::fetch(&mut fetch.relation_fetch, entity, table_row)
+        };
         // Then figure out what the related entity is
         let related_entity = relation.get();
 
         // Finally, check if the related entity matches the filter
-        <F as WorldQuery>::fetch(&mut fetch.filter_fetch, related_entity, table_row)
+        // SAFETY: the safety requirements for calling `fetch` on `F` are a subset of the safety requirements for calling this method
+        unsafe { <F as WorldQuery>::fetch(&mut fetch.filter_fetch, related_entity, table_row) }
     }
 
     fn update_component_access(
