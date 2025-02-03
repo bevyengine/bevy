@@ -381,6 +381,7 @@ unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
             &state.relation_state,
             table,
         );
+        <&R as WorldQuery>::set_table(&mut fetch.relation_fetch, &state.relation_state, table);
         <F as WorldQuery>::set_table(&mut fetch.filter_fetch, &state.filter_state, table);
     }
 
