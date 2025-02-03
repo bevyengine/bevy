@@ -645,6 +645,11 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "image_rect"
+path = "examples/2d/image_rect.rs"
+doc-scrape-examples = true
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 doc-scrape-examples = true
