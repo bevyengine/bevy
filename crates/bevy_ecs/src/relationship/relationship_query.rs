@@ -316,16 +316,16 @@ pub struct RelatedTo<R: Relationship, F: QueryFilter> {
 unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
     type Item<'a> = <F as WorldQuery>::Item<'a>;
 
-    type Fetch<'a> = RelatedToFetch<'a, R, F>;
+    type Fetch<'a> = RelatedFilterFetch<'a, R, F>;
 
-    type State = RelatedToState<R, F>;
+    type State = RelatedFilterState<R, F>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         <F as WorldQuery>::shrink(item)
     }
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-        RelatedToFetch {
+        RelatedFilterFetch {
             relation_fetch: <&'static R as WorldQuery>::shrink_fetch(fetch.relation_fetch),
             filter_fetch: <F as WorldQuery>::shrink_fetch(fetch.filter_fetch),
         }
@@ -337,7 +337,7 @@ unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> Self::Fetch<'w> {
-        RelatedToFetch {
+        RelatedFilterFetch {
             relation_fetch: <&'static R as WorldQuery>::init_fetch(
                 world,
                 &state.relation_state,
@@ -411,14 +411,14 @@ unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
     }
 
     fn init_state(world: &mut crate::prelude::World) -> Self::State {
-        RelatedToState {
+        RelatedFilterState {
             relation_state: <&'static R as WorldQuery>::init_state(world),
             filter_state: <F as WorldQuery>::init_state(world),
         }
     }
 
     fn get_state(components: &crate::component::Components) -> Option<Self::State> {
-        Some(RelatedToState {
+        Some(RelatedFilterState {
             relation_state: <&'static R as WorldQuery>::get_state(components)?,
             filter_state: <F as WorldQuery>::get_state(components)?,
         })
@@ -467,10 +467,10 @@ unsafe impl<R: Relationship, F: QueryFilter> QueryFilter for RelatedTo<R, F> {
     }
 }
 
-/// The [`WorldQuery::Fetch`] type for [`RelatedTo`].
+/// The [`WorldQuery::Fetch`] type for [`RelatedTo`] and similar types.
 ///
-/// This is used internally to implement [`WorldQuery`] for [`RelatedTo`].
-pub struct RelatedToFetch<'w, R: Relationship, F: QueryFilter> {
+/// This is used internally to implement [`WorldQuery`].
+pub struct RelatedFilterFetch<'w, R: Relationship, F: QueryFilter> {
     /// The fetch for the relationship component,
     /// used to look up the target entity.
     relation_fetch: <&'static R as WorldQuery>::Fetch<'w>,
@@ -479,7 +479,7 @@ pub struct RelatedToFetch<'w, R: Relationship, F: QueryFilter> {
     filter_fetch: <F as WorldQuery>::Fetch<'w>,
 }
 
-impl<'w, R: Relationship, F: QueryFilter> Clone for RelatedToFetch<'w, R, F> {
+impl<'w, R: Relationship, F: QueryFilter> Clone for RelatedFilterFetch<'w, R, F> {
     fn clone(&self) -> Self {
         Self {
             relation_fetch: self.relation_fetch.clone(),
@@ -488,10 +488,10 @@ impl<'w, R: Relationship, F: QueryFilter> Clone for RelatedToFetch<'w, R, F> {
     }
 }
 
-/// The [`WorldQuery::State`] type for [`RelatedTo`].
+/// The [`WorldQuery::State`] type for [`RelatedTo`] and similar types..
 ///
-/// This is used internally to implement [`WorldQuery`] for [`RelatedTo`].
-pub struct RelatedToState<R: Relationship, F: QueryFilter> {
+/// This is used internally to implement [`WorldQuery`].
+pub struct RelatedFilterState<R: Relationship, F: QueryFilter> {
     /// The state for the relationship component,
     /// used to look up the target entity.
     relation_state: <&'static R as WorldQuery>::State,
