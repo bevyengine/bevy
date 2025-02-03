@@ -501,7 +501,7 @@ pub struct RelatedToState<R: Relationship, F: QueryFilter> {
 mod tests {
     use super::RelatedTo;
     use crate as bevy_ecs;
-    use crate::prelude::{ChildOf, Component, Entity, With, World};
+    use crate::prelude::{Changed, ChildOf, Component, Entity, With, Without, World};
 
     #[derive(Component)]
     struct A;
@@ -528,13 +528,50 @@ mod tests {
     }
 
     #[test]
-    fn related_to() {
+    fn related_to_with() {
         let mut world = World::default();
-        let entity = world.spawn(A).id();
-        let child = world.spawn(ChildOf(entity)).id();
+        let parent = world.spawn(A).id();
+        let child = world.spawn(ChildOf(parent)).id();
         let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, With<A>>>();
         let fetched_child = query_state.iter(&world).next().unwrap();
 
         assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_changed() {
+        let mut world = World::default();
+        let parent = world.spawn(A).id();
+        let child = world.spawn(ChildOf(parent)).id();
+        // Changed is true when entities are first added, so this should match
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, Changed<A>>>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_without() {
+        let mut world = World::default();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, Without<A>>>();
+        let fetched_child = query_state.iter(&world).next().unwrap();
+
+        assert_eq!(child, fetched_child);
+    }
+
+    #[test]
+    fn related_to_impossible_filter() {
+        let mut world = World::default();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+        // No entity could possibly match this filter:
+        // it requires entities to both have and not have the `A` component.
+        let mut query_state =
+            world.query_filtered::<Entity, RelatedTo<ChildOf, (With<A>, Without<A>)>>();
+        let maybe_fetched_child = query_state.get(&world, child);
+
+        assert!(maybe_fetched_child.is_err());
     }
 }
