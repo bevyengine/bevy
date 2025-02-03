@@ -2825,7 +2825,8 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 
     fn world_access_level() -> WorldAccessLevel {
-        todo!()
+        // TODO: Don't assume exclusive access
+        WorldAccessLevel::Exclusive
     }
 }
 
