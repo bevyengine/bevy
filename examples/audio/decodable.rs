@@ -86,7 +86,7 @@ fn main() {
     let mut app = App::new();
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins.set(AudioPlugin {
-        global_volume: Volume::from_linear(0.2).into(),
+        global_volume: Volume::Linear(0.2).into(),
         ..default()
     }))
     .add_audio_source::<SineAudio>()
