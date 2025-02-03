@@ -208,7 +208,7 @@ macro_rules! impl_tuple_world_query {
             #[inline]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*)
             }
 
@@ -223,7 +223,7 @@ macro_rules! impl_tuple_world_query {
             ) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
             }
 
@@ -231,7 +231,7 @@ macro_rules! impl_tuple_world_query {
             unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 $(unsafe { $name::set_table($name, $state, table); })*
             }
 
@@ -242,7 +242,7 @@ macro_rules! impl_tuple_world_query {
                 table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe { $name::fetch($name, entity, table_row) },)*)
             }
 
