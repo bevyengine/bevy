@@ -980,8 +980,6 @@ pub fn prepare_uinodes(
                         || (batch_image_handle != AssetId::default()
                             && extracted_uinode.image != AssetId::default()
                             && batch_image_handle != extracted_uinode.image)
-                        || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(extracted_uinode.extracted_camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
                             batch_item_index = item_index;
