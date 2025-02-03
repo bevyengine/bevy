@@ -40,12 +40,16 @@ use variadics_please::all_tuples;
 /// [`QueryFilter`]: crate::query::QueryFilter
 pub unsafe trait WorldQuery {
     /// The item returned by this [`WorldQuery`]
-    /// For `QueryData` this will be the item returned by the query.
+    /// For `QueryData` this will be the data retrieved by the query,
+    /// and is visible to the end user when calling e.g. `Query<Self>::get`.
+    ///
     /// For `QueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
     /// or a tuple of such things.
+    /// Archetypal query filters (like `With`) set this to `()`, as the filtering is done by selecting the archetypes to iterate over,
+    /// while non-archetypal query filters (like `Changed`) set this to a `bool` and evaluate the filter for each entity.
     type Item<'a>;
 
-    /// Per archetype/table state used by this [`WorldQuery`] to fetch [`Self::Item`](WorldQuery::Item)
+    /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](WorldQuery::Item) for each entity.
     type Fetch<'a>: Clone;
 
     /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
@@ -59,7 +63,8 @@ pub unsafe trait WorldQuery {
     /// This function manually implements subtyping for the query fetches.
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
-    /// Creates a new instance of this fetch.
+    /// Creates a new instance of [`Self::Fetch`](WorldQuery::Fetch),
+    /// by combining data from the [`World`] with the cashed [`Self::State`](WorldQuery::State).
     /// Readonly accesses resources registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
@@ -76,7 +81,9 @@ pub unsafe trait WorldQuery {
     ) -> Self::Fetch<'w>;
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
-    /// all of the matched components. This is used to select a more efficient "table iterator"
+    /// all of the matched components.
+    ///
+    /// This is used to select a more efficient "table iterator"
     /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] must be used before
     /// [`WorldQuery::fetch`] can be called for iterators. If this returns false,
     /// [`WorldQuery::set_archetype`] must be used before [`WorldQuery::fetch`] can be called for
