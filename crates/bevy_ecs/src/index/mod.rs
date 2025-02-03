@@ -198,9 +198,7 @@ impl<C: Component<Mutability = Immutable>> Index<C> {
 
         let markers = (0..bits)
             .map(|bit| Self::alloc_new_marker(world, bit, options.marker_storage))
-            .collect::<Vec<_>>()
-            .into_boxed_slice()
-            .into();
+            .collect();
 
         Self {
             mapping: Box::new(options.index_storage),
