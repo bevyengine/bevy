@@ -115,12 +115,6 @@
 //! This makes iterating through a subset of the total archetype faster, but decreases the performance
 //! of iterating the whole archetype by a small amount.
 //!
-//! ## Component ID Exhaustion
-//!
-//! Fragmenting requires unique [component IDs](ComponentId), and they are finite.
-//! For components with a small number of values in use at any one time, this is acceptable.
-//! But for components with a _large_ number of unique values (e.g., components containing floating point numbers),
-//! the pool of available component IDs will be quickly exhausted.
 //!
 //! ## Mutation Overhead
 //!
