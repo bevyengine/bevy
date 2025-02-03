@@ -87,7 +87,6 @@ struct UiTextureSliceVertex {
 pub struct UiTextureSlicerBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
-    pub camera: Entity,
 }
 
 #[derive(Resource)]
@@ -454,7 +453,6 @@ pub fn prepare_ui_slices(
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: texture_slices.image,
-                                camera: texture_slices.extracted_camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));
