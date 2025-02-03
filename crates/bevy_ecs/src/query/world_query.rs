@@ -64,7 +64,7 @@ pub unsafe trait WorldQuery {
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
     /// Creates a new instance of [`Self::Fetch`](WorldQuery::Fetch),
-    /// by combining data from the [`World`] with the cashed [`Self::State`](WorldQuery::State).
+    /// by combining data from the [`World`] with the cached [`Self::State`](WorldQuery::State).
     /// Readonly accesses resources registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
