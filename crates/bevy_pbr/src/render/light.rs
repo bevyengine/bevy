@@ -1299,7 +1299,7 @@ pub fn prepare_lights(
                 if first {
                     // Subsequent views with the same light entity will reuse the same shadow map
                     shadow_render_phases
-                        .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                        .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                     live_shadow_mapping_lights.insert(retained_view_entity);
                 }
             }
@@ -1396,7 +1396,8 @@ pub fn prepare_lights(
 
             if first {
                 // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                shadow_render_phases
+                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(retained_view_entity);
             }
         }
@@ -1539,7 +1540,8 @@ pub fn prepare_lights(
                 // Subsequent views with the same light entity will **NOT** reuse the same shadow map
                 // (Because the cascades are unique to each view)
                 // TODO: Implement GPU culling for shadow passes.
-                shadow_render_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                shadow_render_phases
+                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(retained_view_entity);
             }
         }
@@ -1884,11 +1886,17 @@ pub fn queue_shadows<M: Material>(
             };
 
             for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some((_, pipeline_id)) =
+                let Some((current_change_tick, pipeline_id)) =
                     specialized_material_pipeline_cache.get(&(view_light_entity, main_entity))
                 else {
                     continue;
                 };
+
+                // Skip the entity if it's cached in a bin and up to date.
+                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
+                    continue;
+                }
+
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
                     continue;
@@ -1920,8 +1928,12 @@ pub fn queue_shadows<M: Material>(
                         mesh_instance.should_batch(),
                         &gpu_preprocessing_support,
                     ),
+                    *current_change_tick,
                 );
             }
+
+            // Remove invalid entities from the bins.
+            shadow_phase.sweep_old_entities();
         }
     }
 }
