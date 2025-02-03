@@ -134,6 +134,11 @@ impl<'w> UnsafeWorldCell<'w> {
     #[cfg_attr(debug_assertions, inline(never), track_caller)]
     #[cfg_attr(not(debug_assertions), inline(always))]
     pub(crate) fn assert_allows_mutable_access(self) {
+        // This annotation is needed because the
+        // allows_mutable_access field doesn't exist otherwise.
+        // Kinda weird, since debug_assert would never be called,
+        // but CI complained in https://github.com/bevyengine/bevy/pull/17393
+        #[cfg(debug_assertions)]
         debug_assert!(
             self.allows_mutable_access,
             "mutating world data via `World::as_unsafe_world_cell_readonly` is forbidden"
