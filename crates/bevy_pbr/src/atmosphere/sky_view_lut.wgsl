@@ -8,6 +8,7 @@
             sample_local_inscattering, get_local_r, view_radius,
             max_atmosphere_distance, direction_atmosphere_to_world,
             sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
+            MIDPOINT_RATIO
         },
     }
 }
@@ -34,21 +35,14 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let mu = ray_dir_ws.y;
     let t_max = max_atmosphere_distance(r, mu);
 
-    // Raymarch with quadratic distribution
     let sample_count = mix(1.0, f32(settings.sky_view_lut_samples), clamp(t_max * 0.01, 0.0, 1.0));
-    let sample_count_floor = floor(sample_count);
-    let t_max_floor = t_max * sample_count_floor / sample_count;
     var total_inscattering = vec3(0.0);
     var throughput = vec3(1.0);
+    var prev_t = 0.0;
     for (var s = 0.0; s < sample_count; s += 1.0) {
-        // Use quadratic distribution like reference
-        var t0 = (s / sample_count_floor);
-        var t1 = ((s + 1.0) / sample_count_floor);
-        t0 = t0 * t0;
-        t1 = t1 * t1;
-        t1 = select(t_max_floor * t1, t_max, t1 > 1.0);
-        let t_i = t_max_floor * t0 + (t1 - t_max_floor * t0) * 0.3;
-        let dt_i = t1 - t_max_floor * t0;
+        let t_i = t_max * (s + MIDPOINT_RATIO) / sample_count;
+        let dt_i = (t_i - prev_t);
+        prev_t = t_i;
 
         let local_r = get_local_r(r, mu, t_i);
         let local_up = get_local_up(r, t_i, ray_dir_ws);
