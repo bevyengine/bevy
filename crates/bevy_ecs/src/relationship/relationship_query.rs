@@ -414,7 +414,23 @@ unsafe impl<R: Relationship, F: QueryFilter> QueryFilter for RelatedTo<R, F> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        todo!("How does this differ from `fetch`?")
+        // First, look up the relationship
+        // SAFETY: the caller promises that we only call this method after WorldQuery::set_table or WorldQuery::set_archetype,
+        // and that the entity and table_row are in the range of the current table and archetype.
+        // No simultaneous conflicting component accesses exist, as both parts of the filter are read-only.
+        let relation = unsafe {
+            <&'static R as WorldQuery>::fetch(&mut fetch.relation_fetch, entity, table_row)
+        };
+
+        // Then figure out what the related entity is
+        let related_entity = relation.get();
+
+        // Finally, check if the related entity matches the filter
+        // SAFETY: the safety invariants for calling `filter_fetch` on `F` are upheld by the caller,
+        // as they are the same as the safety invariants for calling this method
+        unsafe {
+            <F as QueryFilter>::filter_fetch(&mut fetch.filter_fetch, related_entity, table_row)
+        }
     }
 }
 
