@@ -45,8 +45,10 @@ pub unsafe trait WorldQuery {
     ///
     /// For `QueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
     /// or a tuple of such things.
-    /// Archetypal query filters (like `With`) set this to `()`, as the filtering is done by selecting the archetypes to iterate over,
-    /// while non-archetypal query filters (like `Changed`) set this to a `bool` and evaluate the filter for each entity.
+    /// Archetypal query filters (like `With`) set this to `()`,
+    /// as the filtering is done by selecting the archetypes to iterate over via [`WorldQuery::matches_component_set`],
+    /// while non-archetypal query filters (like `Changed`) set this to a `bool` and evaluate the filter for each entity,
+    /// after the set of possible archetypes has been narrowed down.
     type Item<'a>;
 
     /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](WorldQuery::Item) for each entity.
@@ -154,7 +156,8 @@ pub unsafe trait WorldQuery {
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
     /// Used to check which [`Archetype`]s can be skipped by the query
-    /// (if none of the [`Component`](crate::component::Component)s match)
+    /// (if none of the [`Component`](crate::component::Component)s match).
+    /// This is how archetypal query filters like `With` work.
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
