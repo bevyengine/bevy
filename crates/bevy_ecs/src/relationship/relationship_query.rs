@@ -354,6 +354,7 @@ unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
         }
     }
 
+    // Both R and F must be dense for every archetype retrieved to correspond to a table.
     const IS_DENSE: bool = <F as WorldQuery>::IS_DENSE & <&R as WorldQuery>::IS_DENSE;
 
     unsafe fn set_archetype<'w>(
