@@ -291,11 +291,14 @@ unsafe impl<R: Relationship, F: QueryFilter> WorldQuery for RelatedTo<R, F> {
     type State = RelatedToState<R, F>;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
+        <F as WorldQuery>::shrink(item)
     }
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
-        fetch
+        RelatedToFetch {
+            relation_fetch: <&'static R as WorldQuery>::shrink_fetch(fetch.relation_fetch),
+            filter_fetch: <F as WorldQuery>::shrink_fetch(fetch.filter_fetch),
+        }
     }
 
     unsafe fn init_fetch<'w>(
