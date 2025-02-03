@@ -507,6 +507,27 @@ mod tests {
     struct A;
 
     #[test]
+    fn related_to_empty_filter() {
+        let mut world = World::default();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn(ChildOf(parent)).id();
+        let _unrelated = world.spawn_empty().id();
+        let grandchild = world.spawn(ChildOf(child)).id();
+
+        let mut query_state = world.query_filtered::<Entity, RelatedTo<ChildOf, ()>>();
+        for matching_entity in query_state.iter(&world) {
+            let matches_child_or_grandchild =
+                matching_entity == child || matching_entity == grandchild;
+            assert!(
+                matches_child_or_grandchild,
+                "Entity {matching_entity} should have a parent"
+            );
+        }
+
+        assert_eq!(query_state.iter(&world).count(), 2);
+    }
+
+    #[test]
     fn related_to() {
         let mut world = World::default();
         let entity = world.spawn(A).id();
