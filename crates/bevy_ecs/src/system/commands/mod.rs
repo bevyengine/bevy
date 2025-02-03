@@ -2169,6 +2169,38 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
             .queue(entity_command::insert_from_world::<T>(InsertMode::Keep));
         self
     }
+
+    /// Get the [`EntityCommands`] from which the [`EntityEntryCommands`] was initiated.
+    ///
+    /// This allows you to continue chaining method calls after calling [`EntityCommands::entry`].
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct PlayerEntity { entity: Entity }
+    /// #[derive(Component)]
+    /// struct Level(u32);
+    ///
+    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    ///     commands
+    ///         .entity(player.entity)
+    ///         .entry::<Level>()
+    ///         // Modify the component if it exists
+    ///         .and_modify(|mut lvl| lvl.0 += 1)
+    ///         // Otherwise insert a default value
+    ///         .or_insert(Level(0))
+    ///         // Return the EntityCommands for the entity
+    ///         .entity()
+    ///         // And continue chaining method calls
+    ///         .insert(Name::new("Player"));
+    /// }
+    /// # bevy_ecs::system::assert_is_system(level_up_system);
+    /// ```
+    pub fn entity(&mut self) -> EntityCommands {
+        self.entity_commands.reborrow()
+    }
 }
 
 #[cfg(test)]
@@ -2258,6 +2290,10 @@ mod tests {
         commands.entity(entity).entry::<W<String>>().or_from_world();
         queue.apply(&mut world);
         assert_eq!("*****", &world.get::<W<String>>(entity).unwrap().0);
+        let mut commands = Commands::new(&mut queue, &world);
+        let id = commands.entity(entity).entry::<W<u64>>().entity().id();
+        queue.apply(&mut world);
+        assert_eq!(id, entity);
     }
 
     #[test]
@@ -2516,15 +2552,15 @@ mod tests {
 
         fn nothing() {}
 
-        assert!(world.iter_resources().count() == 0);
+        let resources = world.iter_resources().count();
         let id = world.register_system_cached(nothing);
-        assert!(world.iter_resources().count() == 1);
+        assert_eq!(world.iter_resources().count(), resources + 1);
         assert!(world.get_entity(id.entity).is_ok());
 
         let mut commands = Commands::new(&mut queue, &world);
         commands.unregister_system_cached(nothing);
         queue.apply(&mut world);
-        assert!(world.iter_resources().count() == 0);
+        assert_eq!(world.iter_resources().count(), resources);
         assert!(world.get_entity(id.entity).is_err());
     }
 

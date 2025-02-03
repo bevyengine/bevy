@@ -1,5 +1,6 @@
 use core::fmt;
 
+use bevy_platform_support::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
 use bevy_ecs::{
@@ -20,9 +21,26 @@ pub struct RootNodePair {
     pub(super) user_root_node: taffy::NodeId,
 }
 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct LayoutNode {
+    // Implicit "viewport" node if this `LayoutNode` corresponds to a root UI node entity
+    pub(super) viewport_id: Option<taffy::NodeId>,
+    // The id of the node in the taffy tree
+    pub(super) id: taffy::NodeId,
+}
+
+impl From<taffy::NodeId> for LayoutNode {
+    fn from(value: taffy::NodeId) -> Self {
+        LayoutNode {
+            viewport_id: None,
+            id: value,
+        }
+    }
+}
+
 #[derive(Resource)]
 pub struct UiSurface {
-    pub(super) entity_to_taffy: EntityHashMap<taffy::NodeId>,
+    pub(super) entity_to_taffy: EntityHashMap<LayoutNode>,
     pub(super) camera_entity_to_taffy: EntityHashMap<EntityHashMap<taffy::NodeId>>,
     pub(super) camera_roots: EntityHashMap<Vec<RootNodePair>>,
     pub(super) taffy: TaffyTree<NodeMeasure>,
@@ -74,43 +92,45 @@ impl UiSurface {
     ) {
         let taffy = &mut self.taffy;
 
-        let mut added = false;
-        let taffy_node_id = *self.entity_to_taffy.entry(entity).or_insert_with(|| {
-            added = true;
-            if let Some(measure) = new_node_context.take() {
-                taffy
-                    .new_leaf_with_context(convert::from_node(node, layout_context, true), measure)
-                    .unwrap()
-            } else {
-                taffy
-                    .new_leaf(convert::from_node(node, layout_context, false))
-                    .unwrap()
-            }
-        });
+        match self.entity_to_taffy.entry(entity) {
+            Entry::Occupied(entry) => {
+                let taffy_node = *entry.get();
+                let has_measure = if new_node_context.is_some() {
+                    taffy
+                        .set_node_context(taffy_node.id, new_node_context)
+                        .unwrap();
+                    true
+                } else {
+                    taffy.get_node_context(taffy_node.id).is_some()
+                };
 
-        if !added {
-            let has_measure = if new_node_context.is_some() {
                 taffy
-                    .set_node_context(taffy_node_id, new_node_context)
+                    .set_style(
+                        taffy_node.id,
+                        convert::from_node(node, layout_context, has_measure),
+                    )
                     .unwrap();
-                true
-            } else {
-                taffy.get_node_context(taffy_node_id).is_some()
-            };
-
-            taffy
-                .set_style(
-                    taffy_node_id,
-                    convert::from_node(node, layout_context, has_measure),
-                )
-                .unwrap();
+            }
+            Entry::Vacant(entry) => {
+                let taffy_node = if let Some(measure) = new_node_context.take() {
+                    taffy.new_leaf_with_context(
+                        convert::from_node(node, layout_context, true),
+                        measure,
+                    )
+                } else {
+                    taffy.new_leaf(convert::from_node(node, layout_context, false))
+                };
+                entry.insert(taffy_node.unwrap().into());
+            }
         }
     }
 
     /// Update the `MeasureFunc` of the taffy node corresponding to the given [`Entity`] if the node exists.
     pub fn update_node_context(&mut self, entity: Entity, context: NodeMeasure) -> Option<()> {
         let taffy_node = self.entity_to_taffy.get(&entity)?;
-        self.taffy.set_node_context(*taffy_node, Some(context)).ok()
+        self.taffy
+            .set_node_context(taffy_node.id, Some(context))
+            .ok()
     }
 
     /// Update the children of the taffy node corresponding to the given [`Entity`].
@@ -118,28 +138,31 @@ impl UiSurface {
         self.taffy_children_scratch.clear();
 
         for child in children {
-            if let Some(taffy_node) = self.entity_to_taffy.get(&child) {
-                self.taffy_children_scratch.push(*taffy_node);
+            if let Some(taffy_node) = self.entity_to_taffy.get_mut(&child) {
+                self.taffy_children_scratch.push(taffy_node.id);
+                if let Some(viewport_id) = taffy_node.viewport_id.take() {
+                    self.taffy.remove(viewport_id).ok();
+                }
             }
         }
 
         let taffy_node = self.entity_to_taffy.get(&entity).unwrap();
         self.taffy
-            .set_children(*taffy_node, &self.taffy_children_scratch)
+            .set_children(taffy_node.id, &self.taffy_children_scratch)
             .unwrap();
     }
 
     /// Removes children from the entity's taffy node if it exists. Does nothing otherwise.
     pub fn try_remove_children(&mut self, entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_children(*taffy_node, &[]).unwrap();
+            self.taffy.set_children(taffy_node.id, &[]).unwrap();
         }
     }
 
     /// Removes the measure from the entity's taffy node if it exists. Does nothing otherwise.
     pub fn try_remove_node_context(&mut self, entity: Entity) {
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
-            self.taffy.set_node_context(*taffy_node, None).unwrap();
+            self.taffy.set_node_context(taffy_node.id, None).unwrap();
         }
     }
 
@@ -166,25 +189,26 @@ impl UiSurface {
         let existing_roots = self.camera_roots.entry(camera_id).or_default();
         let mut new_roots = Vec::new();
         for entity in children {
-            let node = *self.entity_to_taffy.get(&entity).unwrap();
+            let node = self.entity_to_taffy.get_mut(&entity).unwrap();
             let root_node = existing_roots
                 .iter()
-                .find(|n| n.user_root_node == node)
+                .find(|n| n.user_root_node == node.id)
                 .cloned()
                 .unwrap_or_else(|| {
-                    if let Some(previous_parent) = self.taffy.parent(node) {
+                    if let Some(previous_parent) = self.taffy.parent(node.id) {
                         // remove the root node from the previous implicit node's children
-                        self.taffy.remove_child(previous_parent, node).unwrap();
+                        self.taffy.remove_child(previous_parent, node.id).unwrap();
                     }
 
-                    let viewport_node = *camera_root_node_map
-                        .entry(entity)
-                        .or_insert_with(|| self.taffy.new_leaf(viewport_style.clone()).unwrap());
-                    self.taffy.add_child(viewport_node, node).unwrap();
-
+                    let viewport_node = *camera_root_node_map.entry(entity).or_insert_with(|| {
+                        node.viewport_id
+                            .unwrap_or_else(|| self.taffy.new_leaf(viewport_style.clone()).unwrap())
+                    });
+                    node.viewport_id = Some(viewport_node);
+                    self.taffy.add_child(viewport_node, node.id).unwrap();
                     RootNodePair {
                         implicit_viewport_node: viewport_node,
-                        user_root_node: node,
+                        user_root_node: node.id,
                     }
                 });
             new_roots.push(root_node);
@@ -257,18 +281,22 @@ impl UiSurface {
     pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(camera_root_node_map) = self.camera_entity_to_taffy.remove(&entity) {
-                for (_, node) in camera_root_node_map.iter() {
+                for (entity, node) in camera_root_node_map.iter() {
                     self.taffy.remove(*node).unwrap();
+                    self.entity_to_taffy.get_mut(entity).unwrap().viewport_id = None;
                 }
             }
         }
     }
 
-    /// Removes each entity from the internal map and then removes their associated node from taffy
+    /// Removes each entity from the internal map and then removes their associated nodes from taffy
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
-                self.taffy.remove(node).unwrap();
+                self.taffy.remove(node.id).unwrap();
+                if let Some(viewport_node) = node.viewport_id {
+                    self.taffy.remove(viewport_node).ok();
+                }
             }
         }
     }
@@ -292,10 +320,10 @@ impl UiSurface {
             self.taffy.disable_rounding();
         }
 
-        let out = match self.taffy.layout(*taffy_node).cloned() {
+        let out = match self.taffy.layout(taffy_node.id).cloned() {
             Ok(layout) => {
                 self.taffy.disable_rounding();
-                let taffy_size = self.taffy.layout(*taffy_node).unwrap().size;
+                let taffy_size = self.taffy.layout(taffy_node.id).unwrap().size;
                 let unrounded_size = Vec2::new(taffy_size.width, taffy_size.height);
                 Ok((layout, unrounded_size))
             }
@@ -352,7 +380,7 @@ mod tests {
         let root_node_taffy = ui_surface.entity_to_taffy.get(&root_node_entity)?;
         root_node_pairs
             .iter()
-            .find(|&root_node_pair| root_node_pair.user_root_node == *root_node_taffy)
+            .find(|&root_node_pair| root_node_pair.user_root_node == root_node_taffy.id)
     }
 
     #[test]
@@ -454,7 +482,10 @@ mod tests {
         assert!(root_node_pair.is_some());
         assert_eq!(
             Some(root_node_pair.unwrap().user_root_node).as_ref(),
-            ui_surface.entity_to_taffy.get(&root_node_entity)
+            ui_surface
+                .entity_to_taffy
+                .get(&root_node_entity)
+                .map(|taffy_node| &taffy_node.id)
         );
 
         assert_eq!(
@@ -595,7 +626,7 @@ mod tests {
 
         let parent_node = *ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         let child_node = *ui_surface.entity_to_taffy.get(&child_entity).unwrap();
-        assert_eq!(ui_surface.taffy.parent(child_node), Some(parent_node));
+        assert_eq!(ui_surface.taffy.parent(child_node.id), Some(parent_node.id));
     }
 
     #[expect(
@@ -619,7 +650,7 @@ mod tests {
         // set up the relationship manually
         ui_surface
             .taffy
-            .add_child(root_taffy_node, child_taffy)
+            .add_child(root_taffy_node.id, child_taffy.id)
             .unwrap();
 
         ui_surface.set_camera_children(camera_entity, [root_node_entity].into_iter());
@@ -645,14 +676,17 @@ mod tests {
             get_root_node_pair_exact(&ui_surface, root_node_entity, camera_entity)
                 .expect("expected root node pair");
 
-        assert_eq!(ui_surface.taffy.parent(child_taffy), Some(root_taffy_node));
-        let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
+        assert_eq!(
+            ui_surface.taffy.parent(child_taffy.id),
+            Some(root_taffy_node.id)
+        );
+        let root_taffy_children = ui_surface.taffy.children(root_taffy_node.id).unwrap();
         assert!(
-            root_taffy_children.contains(&child_taffy),
+            root_taffy_children.contains(&child_taffy.id),
             "root node is not a parent of child node"
         );
         assert_eq!(
-            ui_surface.taffy.child_count(root_taffy_node),
+            ui_surface.taffy.child_count(root_taffy_node.id),
             1,
             "expected root node child count to be 1"
         );
@@ -679,13 +713,13 @@ mod tests {
             "child of root node should not be associated with camera"
         );
 
-        let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
+        let root_taffy_children = ui_surface.taffy.children(root_taffy_node.id).unwrap();
         assert!(
-            root_taffy_children.contains(&child_taffy),
+            root_taffy_children.contains(&child_taffy.id),
             "root node is not a parent of child node"
         );
         assert_eq!(
-            ui_surface.taffy.child_count(root_taffy_node),
+            ui_surface.taffy.child_count(root_taffy_node.id),
             1,
             "expected root node child count to be 1"
         );
@@ -711,13 +745,13 @@ mod tests {
         );
 
         let child_taffy = ui_surface.entity_to_taffy.get(&child_entity).unwrap();
-        let root_taffy_children = ui_surface.taffy.children(root_taffy_node).unwrap();
+        let root_taffy_children = ui_surface.taffy.children(root_taffy_node.id).unwrap();
         assert!(
-            root_taffy_children.contains(child_taffy),
+            root_taffy_children.contains(&child_taffy.id),
             "root node is not a parent of child node"
         );
         assert_eq!(
-            ui_surface.taffy.child_count(root_taffy_node),
+            ui_surface.taffy.child_count(root_taffy_node.id),
             1,
             "expected root node child count to be 1"
         );
