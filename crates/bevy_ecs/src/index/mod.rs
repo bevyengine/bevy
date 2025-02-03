@@ -56,7 +56,7 @@
 //! # Query By Index
 //!
 //! Instead of filtering by value in the body of a system, we can instead use [`QueryByIndex`] and treat
-//! our `Planet` as an [indexable component](`IndexableComponent`).
+//! our `Planet` as an indexable component.
 //!
 //! First, we need to modify `Planet` to include implementations for `Clone` and `Hash`, and to mark it as
 //! an immutable component:
@@ -129,8 +129,10 @@
 //! existent overhead.
 
 mod query_by_index;
+mod storage;
 
 pub use query_by_index::*;
+pub use storage::*;
 
 use crate::{
     self as bevy_ecs,
@@ -138,30 +140,30 @@ use crate::{
     entity::Entity,
     prelude::Trigger,
     system::{Commands, Query, ResMut},
-    world::{FromWorld, OnInsert, OnReplace, World},
+    world::{OnInsert, OnReplace, World},
 };
-use alloc::{format, vec::Vec};
+use alloc::{boxed::Box, format, vec::Vec};
 use bevy_ecs_macros::Resource;
-use bevy_platform_support::{collections::HashMap, hash::FixedHasher};
+use bevy_platform_support::{collections::HashMap, hash::FixedHasher, sync::Arc};
 use bevy_ptr::OwningPtr;
-use core::{alloc::Layout, hash::Hash, ptr::NonNull};
-
-/// A marker trait describing the requirements for a [`Component`] to be indexed and accessed via [`QueryByIndex`].
-///
-/// See the module docs for more information.
-pub trait IndexableComponent: Component<Mutability = Immutable> + Eq + Hash + Clone {}
-
-impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> IndexableComponent for C {}
+use bevy_utils::default;
+use core::{alloc::Layout, hash::Hash, marker::PhantomData, ptr::NonNull};
+use thiserror::Error;
 
 /// This [`Resource`] is responsible for managing a value-to-[`ComponentId`] mapping, allowing
 /// [`QueryByIndex`] to simply filter by [`ComponentId`] on a standard [`Query`].
 #[derive(Resource)]
-struct Index<C: IndexableComponent> {
-    /// Maps `C` values to an index within [`slots`](Index::slots)
-    mapping: HashMap<C, usize>,
+struct Index<C: Component<Mutability = Immutable>> {
+    /// Maps `C` values to an index within [`slots`](Index::slots).
+    ///
+    /// We use a `Box<dyn IndexStorage<C>>` instead of a concrete type parameter to ensure two indexes
+    /// for the same component `C` never exist.
+    mapping: Box<dyn IndexStorage<C>>,
     /// A collection of ZST dynamic [`Component`]s which (in combination) uniquely address a _value_
     /// of `C` within the [`World`].
-    markers: Vec<ComponentId>,
+    ///
+    /// We use an [`Arc`] to allow for cheap cloning by [`QueryByIndex`].
+    markers: Arc<[ComponentId]>,
     /// A list of liveness counts.
     /// Once a value hits zero, it is free for reuse.
     /// If no values are zero, you must append to the end of the list.
@@ -170,41 +172,56 @@ struct Index<C: IndexableComponent> {
     spare_slots: Vec<usize>,
 }
 
+/// Internal state for a [slot](Index::slots) within an [`Index`].
 struct IndexState {
+    /// A count of how many living [entities](Entity) exist with the world.
+    ///
+    /// Once this value reaches zero, this slot can be re-allocated for a different
+    /// value.
     active: usize,
 }
 
-impl<C: IndexableComponent> FromWorld for Index<C> {
-    fn from_world(world: &mut World) -> Self {
-        let bits = 8 * size_of::<C>().min(size_of::<u32>());
+/// Errors returned by [`track_entity`](Index::track_entity).
+#[derive(Error, Debug)]
+enum TrackEntityError {
+    /// The total address space allocated for this index has been exhausted.
+    #[error("address space exhausted")]
+    AddressSpaceExhausted,
+    /// An entity set to be tracked did not contain a suitable value.
+    #[error("entity was expected to have the indexable component but it was not found")]
+    EntityMissingValue,
+}
+
+impl<C: Component<Mutability = Immutable>> Index<C> {
+    fn new<S: IndexStorage<C>>(world: &mut World, options: IndexOptions<C, S>) -> Self {
+        let bits = 8 * options.address_space.min(size_of::<u32>());
 
         let markers = (0..bits)
-            .map(|bit| Self::alloc_new_marker(world, bit, StorageType::Table))
-            .collect::<Vec<_>>();
+            .map(|bit| Self::alloc_new_marker(world, bit, options.marker_storage))
+            .collect::<Vec<_>>()
+            .into_boxed_slice()
+            .into();
 
         Self {
-            mapping: HashMap::with_hasher(FixedHasher),
+            mapping: Box::new(options.index_storage),
             markers,
             slots: Vec::new(),
             spare_slots: Vec::new(),
         }
     }
-}
 
-impl<C: IndexableComponent> Index<C> {
-    fn track_entity(&mut self, world: &mut World, entity: Entity) {
+    fn track_entity(&mut self, world: &mut World, entity: Entity) -> Result<(), TrackEntityError> {
         let Some(value) = world.get::<C>(entity) else {
-            return;
+            return Err(TrackEntityError::EntityMissingValue);
         };
 
         let slot_index = match self.mapping.get(value) {
-            Some(&index) => {
+            Some(index) => {
                 self.slots[index].active += 1;
                 index
             }
             None => {
                 let spare_slot = self.spare_slots.pop();
-                let value = value.clone();
 
                 match spare_slot {
                     Some(index) => {
@@ -213,6 +230,10 @@ impl<C: IndexableComponent> Index<C> {
                         index
                     }
                     None => {
+                        if self.slots.len() >= 1 << self.markers.len() {
+                            return Err(TrackEntityError::AddressSpaceExhausted);
+                        }
+
                         let index = self.slots.len();
                         self.mapping.insert(value, index);
                         self.slots.push(IndexState { active: 1 });
@@ -238,29 +259,49 @@ impl<C: IndexableComponent> Index<C> {
         unsafe {
             world.entity_mut(entity).insert_by_ids(&ids, zsts);
         }
+
+        Ok(())
     }
 
+    /// Observer for [`OnInsert`] events for the indexed [`Component`] `C`.
     fn on_insert(trigger: Trigger<OnInsert, C>, mut commands: Commands) {
         let entity = trigger.target();
 
         commands.queue(move |world: &mut World| {
             world.resource_scope::<Self, _>(|world, mut index| {
-                index.track_entity(world, entity);
+                if let Err(error) = index.track_entity(world, entity) {
+                    match error {
+                        TrackEntityError::AddressSpaceExhausted => {
+                            log::error!(
+                                "Entity {:?} could not be indexed by component {} as the total addressable space ({} bits) has been exhausted. Consider increasing the address space using `add_index_with_options`.",
+                                entity,
+                                disqualified::ShortName::of::<C>(),
+                                index.markers.len(),
+                            );
+                        },
+                        TrackEntityError::EntityMissingValue => {
+                            // Swallow error.
+                            // This was likely caused by the component `C` being removed
+                            // before deferred commands were applied in response to the insertion.
+                        },
+                    }
+                }
             });
         });
     }
 
+    /// Observer for [`OnReplace`] events for the indexed [`Component`] `C`.
     fn on_replace(
         trigger: Trigger<OnReplace, C>,
         query: Query<&C>,
-        mut index: ResMut<Index<C>>,
+        mut index: ResMut<Self>,
         mut commands: Commands,
     ) {
         let entity = trigger.target();
 
         let value = query.get(entity).unwrap();
 
-        let &slot_index = index.mapping.get(value).unwrap();
+        let slot_index = index.mapping.get(value).unwrap();
 
         let slot = &mut index.slots[slot_index];
 
@@ -302,6 +343,8 @@ impl<C: IndexableComponent> Index<C> {
         world.register_component_with_descriptor(descriptor)
     }
 
+    /// Gets the [`ComponentId`]s of all markers that _must_ be included on an [`Entity`] allocated
+    /// to a particular slot index.
     fn ids_for(&self, index: usize) -> Vec<ComponentId> {
         self.markers
             .iter()
@@ -311,17 +354,82 @@ impl<C: IndexableComponent> Index<C> {
     }
 }
 
+/// Options when configuring an index for a given indexable component `C`.
+pub struct IndexOptions<
+    C: Component<Mutability = Immutable>,
+    S: IndexStorage<C> = HashMap<C, usize>,
+> {
+    /// Marker components will be added to indexed entities to allow for efficient lookups.
+    /// This controls the [`StorageType`] that will be used with these markers.
+    /// It is recommended to use [`Table`](StorageType::Table) for more efficient querying, but a
+    /// [`SpareSet`](StorageType::SparseSet) may be more appropriate in certain circumstances.
+    ///
+    /// This defaults to [`Table`](StorageType::Table).
+    pub marker_storage: StorageType,
+    /// Marker components are combined into a unique address for each distinct value of the indexed
+    /// component.
+    /// This controls how many markers will be used to create that unique address.
+    /// Note that a value greater than 32 will be reduced down to 32.
+    /// Bevy's [`World`] only supports 2^32 entities alive at any one moment in time, so an address space
+    /// of 32 is sufficient to uniquely refer to every individual [`Entity`] in the entire [`World`].
+    ///
+    /// Selecting a non-default value may lead to a panic at runtime or entities missing from the
+    /// index if the address space is exhausted.
+    ///
+    /// This defaults to [`size_of<C>`]
+    pub address_space: usize,
+    /// A storage backend for this index.
+    /// For certain indexing strategies and [`Component`] types, you may be able to greatly
+    /// optimize the utility and performance of an index by creating a custom backend.
+    ///
+    /// See [`IndexStorage`] for details around the implementation of a custom backend.
+    ///
+    /// This defaults to [`HashMap<C, usize>`].
+    pub index_storage: S,
+    #[doc(hidden)]
+    pub _phantom: PhantomData<fn(&C)>,
+}
+
+impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> Default
+    for IndexOptions<C, HashMap<C, usize>>
+{
+    fn default() -> Self {
+        Self {
+            marker_storage: StorageType::Table,
+            address_space: size_of::<C>(),
+            index_storage: HashMap::with_hasher(FixedHasher),
+            _phantom: PhantomData,
+        }
+    }
+}
+
 /// Extension methods for [`World`] to assist with indexing components.
 pub trait WorldIndexExtension {
+    /// Create and track an index for `C` with the provided options.
+    /// This is required to use the [`QueryByIndex`] system parameter.
+    ///
+    /// See also [`add_index`](WorldIndexExtension::add_index).
+    fn add_index_with_options<C: Component<Mutability = Immutable>, S: IndexStorage<C>>(
+        &mut self,
+        options: IndexOptions<C, S>,
+    ) -> &mut Self;
+
     /// Create and track an index for `C`.
     /// This is required to use the [`QueryByIndex`] system parameter.
-    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self;
+    ///
+    /// See also [`add_index_with_options`](WorldIndexExtension::add_index_with_options).
+    fn add_index<C: Component<Mutability = Immutable> + Eq + Hash + Clone>(&mut self) -> &mut Self {
+        self.add_index_with_options::<C, HashMap<C, usize>>(default())
+    }
 }
 
 impl WorldIndexExtension for World {
-    fn add_index<C: IndexableComponent>(&mut self) -> &mut Self {
+    fn add_index_with_options<C: Component<Mutability = Immutable>, S: IndexStorage<C>>(
+        &mut self,
+        options: IndexOptions<C, S>,
+    ) -> &mut Self {
         if self.get_resource::<Index<C>>().is_none() {
-            let mut index = Index::<C>::from_world(self);
+            let mut index = Index::<C>::new(self, options);
 
             self.query::<(Entity, &C)>()
                 .iter(self)
@@ -329,7 +437,21 @@ impl WorldIndexExtension for World {
                 .collect::<Vec<_>>()
                 .into_iter()
                 .for_each(|entity| {
-                    index.track_entity(self, entity);
+                    if let Err(error) = index.track_entity(self, entity) {
+                        match error {
+                            TrackEntityError::AddressSpaceExhausted => {
+                                log::error!(
+                                    "Entity {:?} could not be indexed by component {} as the total addressable space ({} bits) has been exhausted. Consider increasing the address space using `add_index_with_options`.",
+                                    entity,
+                                    disqualified::ShortName::of::<C>(),
+                                    index.markers.len(),
+                                );
+                            },
+                            TrackEntityError::EntityMissingValue => {
+                                unreachable!();
+                            },
+                        }
+                    }
                 });
 
             self.insert_resource(index);

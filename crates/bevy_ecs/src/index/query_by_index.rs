@@ -2,16 +2,16 @@ use alloc::vec::Vec;
 
 use crate::{
     archetype::Archetype,
-    component::{ComponentId, Tick},
-    index::WorldIndexExtension,
+    component::{ComponentId, Immutable, Tick},
+    prelude::Component,
     query::{QueryBuilder, QueryData, QueryFilter, QueryState, With},
     system::{Query, QueryLens, Res, SystemMeta, SystemParam},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-use super::{Index, IndexableComponent};
+use super::Index;
 
-/// This system parameter allows querying by an [indexable component](`IndexableComponent`) value.
+/// This system parameter allows querying by an indexable component value.
 ///
 /// # Examples
 ///
@@ -52,7 +52,7 @@ use super::{Index, IndexableComponent};
 pub struct QueryByIndex<
     'world,
     'state,
-    C: IndexableComponent,
+    C: Component<Mutability = Immutable>,
     D: QueryData + 'static,
     F: QueryFilter + 'static = (),
 > {
@@ -63,7 +63,9 @@ pub struct QueryByIndex<
     index: Res<'world, Index<C>>,
 }
 
-impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C, D, F> {
+impl<C: Component<Mutability = Immutable>, D: QueryData, F: QueryFilter>
+    QueryByIndex<'_, '_, C, D, F>
+{
     /// Return a [`QueryLens`] returning entities with a component `C` of the provided value.
     ///
     /// # Examples
@@ -134,7 +136,7 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
         mut state: QueryState<T, U>,
     ) -> QueryState<T, U> {
         match self.index.mapping.get(value) {
-            Some(&index) => {
+            Some(index) => {
                 state = (0..self.index.markers.len())
                     .map(|i| (i, 1 << i))
                     .take_while(|&(_, mask)| mask <= self.index.slots.len())
@@ -165,7 +167,7 @@ impl<C: IndexableComponent, D: QueryData, F: QueryFilter> QueryByIndex<'_, '_, C
 
 #[doc(hidden)]
 pub struct QueryByIndexState<
-    C: IndexableComponent,
+    C: Component<Mutability = Immutable>,
     D: QueryData + 'static,
     F: QueryFilter + 'static,
 > {
@@ -177,22 +179,15 @@ pub struct QueryByIndexState<
     with_states: Vec<QueryState<(), With<C>>>,
 }
 
-impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
+impl<C: Component<Mutability = Immutable>, D: QueryData + 'static, F: QueryFilter + 'static>
     QueryByIndexState<C, D, F>
 {
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        let index = match world.get_resource::<Index<C>>() {
-            Some(index) => index,
-            None => {
-                log::warn!(
-                    "Using `QueryByIndex` for `{}` without setting up an index is discouraged.\nPlease call `app.add_index::<{}>()` during setup",
-                    disqualified::ShortName::of::<C>(),
-                    disqualified::ShortName::of::<C>(),
-                );
-
-                world.add_index::<C>();
-                world.get_resource::<Index<C>>().unwrap()
-            }
+        let Some(index) = world.get_resource::<Index<C>>() else {
+            panic!(
+                "Index not setup prior to usage. Please call `app.add_index::<{}>()` during setup",
+                disqualified::ShortName::of::<C>(),
+            );
         };
 
         let ids = index.markers.clone();
@@ -256,8 +251,8 @@ impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static>
 }
 
 // SAFETY: We rely on the known-safe implementations of `SystemParam` for `Res` and `Query`.
-unsafe impl<C: IndexableComponent, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
-    for QueryByIndex<'_, '_, C, D, F>
+unsafe impl<C: Component<Mutability = Immutable>, D: QueryData + 'static, F: QueryFilter + 'static>
+    SystemParam for QueryByIndex<'_, '_, C, D, F>
 {
     type State = QueryByIndexState<C, D, F>;
     type Item<'w, 's> = QueryByIndex<'w, 's, C, D, F>;
