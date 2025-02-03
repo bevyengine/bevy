@@ -484,6 +484,7 @@ impl<'w, R: Relationship, F: QueryFilter> Clone for RelatedFilterFetch<'w, R, F>
 pub struct RelatedFilterState<R: Relationship, F: QueryFilter> {
     /// The state for the relationship component,
     /// used to look up the target entity.
+    /// This type evaluates to [`ComponentId`](crate::components::ComponentId).
     relation_state: <&'static R as WorldQuery>::State,
     /// The state for the filter component,
     /// used to determine if the target entity matches the filter.
