@@ -112,6 +112,7 @@ pub struct TransparentUi {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    pub index: usize,
     pub indexed: bool,
 }
 

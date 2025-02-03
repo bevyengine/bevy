@@ -157,7 +157,9 @@ impl Plugin for SpritePlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpritePipeline>();
+            render_app
+                .init_resource::<SpriteBatches>()
+                .init_resource::<SpritePipeline>();
         }
     }
 }
