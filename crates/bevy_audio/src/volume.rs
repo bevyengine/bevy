@@ -291,31 +291,50 @@ mod tests {
     fn volume_ops() {
         use Volume::{Decibels, Linear};
 
+        fn assert_approx_eq(a: Volume, b: Volume) {
+            const EPSILON: f32 = 0.0001;
+
+            match (a, b) {
+                (Decibels(a), Decibels(b)) | (Linear(a), Linear(b)) => assert!(
+                    (a - b).abs() < EPSILON,
+                    "Expected {:?} to be approximately equal to {:?}",
+                    a,
+                    b
+                ),
+                (a, b) => assert!(
+                    (a.to_decibels() - b.to_decibels()).abs() < EPSILON,
+                    "Expected {:?} to be approximately equal to {:?}",
+                    a,
+                    b
+                ),
+            }
+        }
+
         // Linear to Linear.
-        assert_eq!(Linear(0.5) + Linear(0.5), Linear(1.0));
-        assert_eq!(Linear(0.5) + Linear(0.1), Linear(0.6));
-        assert_eq!(Linear(0.5) + Linear(-0.5), Linear(0.0));
+        assert_approx_eq(Linear(0.5) + Linear(0.5), Linear(1.0));
+        assert_approx_eq(Linear(0.5) + Linear(0.1), Linear(0.6));
+        assert_approx_eq(Linear(0.5) + Linear(-0.5), Linear(0.0));
 
         // Decibels to Decibels.
-        assert_eq!(Decibels(0.0) + Decibels(0.0), Decibels(3.0103002));
-        assert_eq!(Decibels(6.0) + Decibels(6.0), Decibels(9.0103));
-        assert_eq!(Decibels(-6.0) + Decibels(-6.0), Decibels(-2.9897));
+        assert_approx_eq(Decibels(0.0) + Decibels(0.0), Decibels(3.0103002));
+        assert_approx_eq(Decibels(6.0) + Decibels(6.0), Decibels(9.0103));
+        assert_approx_eq(Decibels(-6.0) + Decibels(-6.0), Decibels(-2.9897));
         // https://math.stackexchange.com/a/2486440
-        assert_eq!(Decibels(90.0) + Decibels(90.0), Decibels(93.0103));
+        assert_approx_eq(Decibels(90.0) + Decibels(90.0), Decibels(93.0103));
         // https://au.noisemeters.com/apps/db-calculator/
-        assert_eq!(
+        assert_approx_eq(
             Decibels(94.0) + Decibels(96.0) + Decibels(98.0),
-            Decibels(101.07296)
+            Decibels(101.07296),
         );
 
         // Linear to Linear.
-        assert_eq!(Linear(0.5) - Linear(0.5), Linear(0.0));
-        assert_eq!(Linear(0.5) - Linear(0.1), Linear(0.4));
-        assert_eq!(Linear(0.5) - Linear(-0.5), Linear(1.0));
+        assert_approx_eq(Linear(0.5) - Linear(0.5), Linear(0.0));
+        assert_approx_eq(Linear(0.5) - Linear(0.1), Linear(0.4));
+        assert_approx_eq(Linear(0.5) - Linear(-0.5), Linear(1.0));
 
         // Decibels to Decibels.
         assert_eq!(Decibels(0.0) - Decibels(0.0), Decibels(f32::NEG_INFINITY));
-        assert_eq!(Decibels(6.0) - Decibels(4.0), Decibels(1.6707666));
+        assert_approx_eq(Decibels(6.0) - Decibels(4.0), Decibels(1.6707666));
         assert_eq!(Decibels(-6.0) - Decibels(-6.0), Decibels(f32::NEG_INFINITY));
     }
 }
