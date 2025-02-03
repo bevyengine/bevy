@@ -282,6 +282,7 @@ where
 /// This works by looking up the related entity using the `R` relationship component,
 /// then checking if that related entity matches the filter given in `F`.
 ///
+///
 /// # Examples
 ///
 /// ```rust
@@ -307,6 +308,29 @@ where
 /// }
 ///
 /// world.run_system_once(iterate_related_to_a);
+/// ```
+/// Note that type can be nested to filter for entities that have e.g. a grandparent with a certain component.
+/// When defining particularly complex filters like this, type aliases for a specific choice of `R` can be helpful to improve legibility!
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::RunSystemOnce;
+///
+/// #[derive(Component)]
+/// struct A;
+///
+/// type WithParent<A> = RelatedTo<ChildOf, With<A>>;
+///
+/// let mut world = World::new();
+/// let parent = world.spawn(A).id();
+/// let child = world.spawn(ChildOf(parent))).id();
+/// let grandchild = world.spawn(ChildOf(child)).id();
+///
+/// let mut parent_query = world.query::<Entity, WithParent<A>>();
+/// assert!(parent_query.get(child).is_ok());
+///
+/// let mut grandparent_query = world.query::<Entity, WithParent<WithParent<A>>>();
+/// assert!(grandparent_query.get(grandchild).is_ok());
 /// ```
 pub struct RelatedTo<R: Relationship, F: QueryFilter> {
     _relationship: PhantomData<R>,
@@ -617,5 +641,20 @@ mod tests {
         // even though its parent has the `A` component.
         let maybe_fetched_child_without = query_state.get(&world, child_without);
         assert!(maybe_fetched_child_without.is_err());
+    }
+
+    #[test]
+    fn related_to_nested() {
+        let mut world = World::default();
+        let grandparent = world.spawn(A).id();
+        let parent = world.spawn((B, ChildOf(grandparent))).id();
+        let child = world.spawn(ChildOf(parent)).id();
+
+        // Look for entities that have a parent with A and a grandparent with B
+        let mut query_state = world
+            .query_filtered::<Entity, RelatedTo<ChildOf, (With<A>, RelatedTo<ChildOf, With<B>>)>>();
+        assert!(query_state.get(&world, child).is_ok());
+        assert!(query_state.get(&world, parent).is_err());
+        assert!(query_state.get(&world, grandparent).is_err());
     }
 }
