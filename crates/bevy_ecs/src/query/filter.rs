@@ -93,8 +93,6 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
-    /// If the implementation of [`WorldQuery::matches_component_set`] is incorrect,
-    /// this method may never be called, and your query filter may fail to check entities that should be included.
     ///
     /// Implementors of this method will generally either have a trivial `true` body (for archetypal filters),
     /// or call [`WorldQuery::fetch`] to access the raw data needed to make the final decision on filter inclusion.
