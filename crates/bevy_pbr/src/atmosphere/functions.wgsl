@@ -146,7 +146,7 @@ fn sample_aerial_view_lut(uv: vec2<f32>, depth: f32) -> vec4<f32> {
     let delta_slice = t_max / num_slices;
     let fade = saturate(dist / delta_slice);
     // Recover the values from log space
-    return vec4(exp(sample.rgb) * fade, exp(sample.a) * fade);
+    return exp(sample) * fade;
 }
 
 // PHASE FUNCTIONS
