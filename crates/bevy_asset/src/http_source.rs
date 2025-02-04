@@ -2,7 +2,7 @@ use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::AssetApp;
 use bevy_app::App;
-use bevy_tasks::ConditionalSendFuture;
+use bevy_utils::ConditionalSendFuture;
 use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
