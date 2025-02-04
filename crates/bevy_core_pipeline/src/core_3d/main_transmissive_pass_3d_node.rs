@@ -5,7 +5,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
-    render_resource::{Extent3d, RenderPassDescriptor, StoreOp},
+    render_resource::{Extent3d, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -53,7 +53,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         let render_pass_descriptor = RenderPassDescriptor {
             label: Some("main_transmissive_pass_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+            depth_stencil_attachment: Some(depth.get_read_only_attachment()),
             timestamp_writes: None,
             occlusion_query_set: None,
         };
