@@ -83,6 +83,7 @@ pub trait Relationship: Component + Sized {
                 core::any::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
+            return;
         }
         if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
             if let Some(mut relationship_target) =
@@ -275,5 +276,28 @@ mod tests {
         let b = world.spawn(Likes(a)).id();
         let c = world.spawn(Likes(a)).id();
         assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+    }
+
+    #[test]
+    fn self_relationship_fails() {
+        use crate::hierarchy::{ChildOf, Children};
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.entity_mut(a).insert(ChildOf(a));
+        assert!(!world.entity(a).contains::<ChildOf>());
+        assert!(!world.entity(a).contains::<Children>());
+    }
+
+    #[test]
+    fn relationship_with_missing_target_fails() {
+        use crate::hierarchy::{ChildOf, Children};
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.despawn(a);
+        let b = world.spawn(ChildOf(a)).id();
+        assert!(!world.entity(b).contains::<ChildOf>());
+        assert!(!world.entity(b).contains::<Children>());
     }
 }
