@@ -435,7 +435,7 @@ impl BundleInfo {
             .collect();
 
         // ensure components are valid
-        for id in component_ids.iter().cloned() {
+        for id in component_ids.iter().copied() {
             // Safety: caller ensures the ids are valid
             let info = unsafe { components.get_info_unchecked(id) };
             storages.prepare_component(info);
