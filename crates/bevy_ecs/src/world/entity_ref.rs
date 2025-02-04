@@ -1782,7 +1782,6 @@ impl<'w> EntityWorldMut<'w> {
                     entity,
                     old_location,
                 )
-                .unwrap() // safe since we know the component existed on the entity
             })
         };
 
@@ -1959,7 +1958,7 @@ impl<'w> EntityWorldMut<'w> {
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
-                        .unwrap()
+                        .unwrap() // safe since we know the component existed on the entity
                         .remove(entity);
                 }
             }
