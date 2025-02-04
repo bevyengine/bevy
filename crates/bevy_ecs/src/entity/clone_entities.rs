@@ -648,7 +648,7 @@ impl<'w> EntityCloneBuilder<'w> {
             self.filter.remove(&id);
         }
         if self.attach_required_components {
-            let components = self.world.components().lock_read();
+            let components = self.world.components_mut().as_mut();
             if let Some(required) = components.get_required_components(id) {
                 for required_id in required.iter_ids() {
                     if self.filter_allows_components {

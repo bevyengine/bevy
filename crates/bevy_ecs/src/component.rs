@@ -2273,11 +2273,8 @@ impl<'a> ComponentsViewReadonly for ComponentsRef<'a> {
 
     #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        if let Some(old) = self.cold.indices.get(&type_id) {
-            Some(*old)
-        } else {
-            self.staged.indices.get(&type_id).cloned()
-        }
+        let cold = self.cold.indices.get(&type_id);
+        cold.or_else(|| self.staged.indices.get(&type_id)).copied()
     }
 
     #[inline]
@@ -3230,7 +3227,7 @@ impl<'a> RequiredComponentsStagedRef<'a> {
     /// Iterates the required components
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &RequiredComponents> {
-        [self.working].into_iter().chain(self.cold)
+        iter::once(self.working).chain(self.cold)
     }
 
     /// See [`RequiredComponents::iter_ids`]
@@ -3271,7 +3268,7 @@ impl<'a> RequiredByStagedRef<'a> {
     }
 }
 
-// TODO: replace ComponentInfoRef with https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html when it is stableized.
+// TODO: replace LockedComponentReference with https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html when it is stableized.
 
 /// A reference to a particular component's info that may or may not need to lock [`Components`].
 pub enum ComponentInfoRef<'a> {
