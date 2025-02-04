@@ -108,7 +108,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// Returns the first and all the rest of the elements of the slice, or `None` if it is empty.
     ///
     /// Equivalent to [`[T]::split_first`](slice::split_first).
-    pub const fn split_first(&self) -> Option<(&T, &UniqueEntitySlice<T>)> {
+    pub const fn split_first(&self) -> Option<(&T, &Self)> {
         let Some((first, rest)) = self.0.split_first() else {
             return None;
         };
@@ -119,7 +119,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// Returns the last and all the rest of the elements of the slice, or `None` if it is empty.
     ///
     /// Equivalent to [`[T]::split_last`](slice::split_last).
-    pub const fn split_last(&self) -> Option<(&T, &UniqueEntitySlice<T>)> {
+    pub const fn split_last(&self) -> Option<(&T, &Self)> {
         let Some((last, rest)) = self.0.split_last() else {
             return None;
         };
@@ -150,7 +150,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     ///
     /// Note that `UniqueEntitySlice::get_mut` cannot be called with a [`usize`].
     ///
-    /// [`[T]::get`]: `slice::get_mut`s
+    /// [`[T]::get_mut`]: `slice::get_mut`s
     pub fn get_mut<I>(&mut self, index: I) -> Option<&mut Self>
     where
         Self: Index<I>,
@@ -165,8 +165,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     ///
     /// Equivalent to the range functionality of [`[T]::get_unchecked`].
     ///
-    /// Note that calling `UniqueEntitySlice::get_unchecked` with an index will deref
-    /// to [`[T]::get_unchecked`].
+    /// Note that only the inner [`[T]::get_unchecked`] supports indexing with a [`usize`].
     ///
     /// # Safety
     ///
@@ -230,7 +229,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// Divides one slice into two at an index.
     ///
     /// Equivalent to [`[T]::split_at`](slice::split_at)
-    pub const fn split_at(&self, mid: usize) -> (&UniqueEntitySlice<T>, &UniqueEntitySlice<T>) {
+    pub const fn split_at(&self, mid: usize) -> (&Self, &Self) {
         let (left, right) = self.0.split_at(mid);
         // SAFETY: All elements in the original slice are unique.
         unsafe {
@@ -244,10 +243,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// Divides one mutable slice into two at an index.
     ///
     /// Equivalent to [`[T]::split_at_mut`](slice::split_at_mut)
-    pub const fn split_at_mut(
-        &mut self,
-        mid: usize,
-    ) -> (&mut UniqueEntitySlice<T>, &mut UniqueEntitySlice<T>) {
+    pub const fn split_at_mut(&mut self, mid: usize) -> (&mut Self, &mut Self) {
         let (left, right) = self.0.split_at_mut(mid);
         // SAFETY: All elements in the original slice are unique.
         unsafe {
@@ -267,10 +263,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// `mid` must be safe to use in [`[T]::split_at_unchecked`].
     ///
     /// [`[T]::split_at_unchecked`]: `slice::split_at_unchecked`
-    pub const unsafe fn split_at_unchecked(
-        &self,
-        mid: usize,
-    ) -> (&UniqueEntitySlice<T>, &UniqueEntitySlice<T>) {
+    pub const unsafe fn split_at_unchecked(&self, mid: usize) -> (&Self, &Self) {
         // SAFETY: The safety contract is upheld by the caller.
         let (left, right) = unsafe { self.0.split_at_unchecked(mid) };
         // SAFETY: All elements in the original slice are unique.
@@ -291,10 +284,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// `mid` must be safe to use in [`[T]::split_at_mut_unchecked`].
     ///
     /// [`[T]::split_at_mut_unchecked`]: `slice::split_at_mut_unchecked`
-    pub const unsafe fn split_at_mut_unchecked(
-        &mut self,
-        mid: usize,
-    ) -> (&mut UniqueEntitySlice<T>, &mut UniqueEntitySlice<T>) {
+    pub const unsafe fn split_at_mut_unchecked(&mut self, mid: usize) -> (&mut Self, &mut Self) {
         // SAFETY: The safety contract is upheld by the caller.
         let (left, right) = unsafe { self.0.split_at_mut_unchecked(mid) };
         // SAFETY: All elements in the original slice are unique.
@@ -310,10 +300,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// too short.
     ///
     /// Equivalent to [`[T]::split_at_checked`](slice::split_at_checked).
-    pub const fn split_at_checked(
-        &self,
-        mid: usize,
-    ) -> Option<(&UniqueEntitySlice<T>, &UniqueEntitySlice<T>)> {
+    pub const fn split_at_checked(&self, mid: usize) -> Option<(&Self, &Self)> {
         let Some((left, right)) = self.0.split_at_checked(mid) else {
             return None;
         };
@@ -330,10 +317,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// slice is too short.
     ///
     /// Equivalent to [`[T]::split_at_mut_checked`](slice::split_at_mut_checked).
-    pub const fn split_at_mut_checked(
-        &mut self,
-        mid: usize,
-    ) -> Option<(&mut UniqueEntitySlice<T>, &mut UniqueEntitySlice<T>)> {
+    pub const fn split_at_mut_checked(&mut self, mid: usize) -> Option<(&mut Self, &mut Self)> {
         let Some((left, right)) = self.0.split_at_mut_checked(mid) else {
             return None;
         };
@@ -400,7 +384,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// Copies all elements from `src` into `self`, using a memcpy.
     ///
     /// Equivalent to [`[T]::copy_from_slice`](slice::copy_from_slice).
-    pub fn copy_from_slice(&mut self, src: &UniqueEntitySlice<T>)
+    pub fn copy_from_slice(&mut self, src: &Self)
     where
         T: Copy,
     {
@@ -461,7 +445,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
     /// Converts `self` into a vector without clones or allocation.
     ///
     /// Equivalent to [`[T]::into_vec`](slice::into_vec).
-    pub fn into_vec(self: Box<UniqueEntitySlice<T>>) -> UniqueEntityVec<T> {
+    pub fn into_vec(self: Box<Self>) -> UniqueEntityVec<T> {
         // SAFETY:
         // This matches the implementation of `slice::into_vec`.
         // All elements in the original slice are unique.
