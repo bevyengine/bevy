@@ -401,7 +401,38 @@ pub trait Component: Send + Sync + 'static {
     type Mutability: ComponentMutability;
 
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
-    fn register_component_hooks(_hooks: &mut ComponentHooks) {}
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use the individual hook methods instead (e.g., `Component::on_add`, etc.)"
+    )]
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.update_from_component::<Self>();
+    }
+
+    /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_add() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_insert` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_insert() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_replace` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_replace() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_remove` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_remove() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_despawn` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_despawn() -> Option<ComponentHook> {
+        None
+    }
 
     /// Registers required components.
     fn register_required_components(
@@ -575,6 +606,26 @@ pub struct ComponentHooks {
 }
 
 impl ComponentHooks {
+    pub(crate) fn update_from_component<C: Component + ?Sized>(&mut self) -> &mut Self {
+        if let Some(hook) = C::on_add() {
+            self.on_add(hook);
+        }
+        if let Some(hook) = C::on_insert() {
+            self.on_insert(hook);
+        }
+        if let Some(hook) = C::on_replace() {
+            self.on_replace(hook);
+        }
+        if let Some(hook) = C::on_remove() {
+            self.on_remove(hook);
+        }
+        if let Some(hook) = C::on_despawn() {
+            self.on_despawn(hook);
+        }
+
+        self
+    }
+
     /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
     /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
     /// adding all of its components.
@@ -1181,7 +1232,14 @@ impl Components {
                 recursion_check_stack,
             );
             let info = &mut self.components[id.index()];
+
+            #[expect(
+                deprecated,
+                reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
+            )]
+            // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
             T::register_component_hooks(&mut info.hooks);
+
             info.required_components = required_components;
             let clone_handler = T::get_component_clone_handler();
             self.component_clone_handlers

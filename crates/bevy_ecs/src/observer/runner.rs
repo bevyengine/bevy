@@ -2,7 +2,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentHooks, ComponentId, HookContext, Mutable, StorageType},
+    component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -65,13 +65,16 @@ impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
 
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|mut world, HookContext { entity, .. }| {
+    fn on_add() -> Option<ComponentHook> {
+        Some(|mut world, HookContext { entity, .. }| {
             world.commands().queue(move |world: &mut World| {
                 world.register_observer(entity);
             });
-        });
-        hooks.on_remove(|mut world, HookContext { entity, .. }| {
+        })
+    }
+
+    fn on_remove() -> Option<ComponentHook> {
+        Some(|mut world, HookContext { entity, .. }| {
             let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
@@ -83,7 +86,7 @@ impl Component for ObserverState {
             world.commands().queue(move |world: &mut World| {
                 world.unregister_observer(entity, descriptor);
             });
-        });
+        })
     }
 }
 
@@ -322,14 +325,14 @@ impl Observer {
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, context| {
+    fn on_add() -> Option<ComponentHook> {
+        Some(|world, context| {
             let Some(observe) = world.get::<Self>(context.entity) else {
                 return;
             };
             let hook = observe.hook_on_add;
             hook(world, context);
-        });
+        })
     }
 }
 
