@@ -381,16 +381,6 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
         self.0.rotate_right(mid);
     }
 
-    /// Copies all elements from `src` into `self`, using a memcpy.
-    ///
-    /// Equivalent to [`[T]::copy_from_slice`](slice::copy_from_slice).
-    pub fn copy_from_slice(&mut self, src: &Self)
-    where
-        T: Copy,
-    {
-        self.0.copy_from_slice(src);
-    }
-
     /// Sorts the slice, preserving initial order of equal elements.
     ///
     /// Equivalent to [`[T]::sort`](slice::sort()).
