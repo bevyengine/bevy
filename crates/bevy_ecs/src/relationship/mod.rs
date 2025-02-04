@@ -280,24 +280,36 @@ mod tests {
 
     #[test]
     fn self_relationship_fails() {
-        use crate::hierarchy::{ChildOf, Children};
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
         let a = world.spawn_empty().id();
-        world.entity_mut(a).insert(ChildOf(a));
-        assert!(!world.entity(a).contains::<ChildOf>());
-        assert!(!world.entity(a).contains::<Children>());
+        world.entity_mut(a).insert(Rel(a));
+        assert!(!world.entity(a).contains::<Rel>());
+        assert!(!world.entity(a).contains::<RelTarget>());
     }
 
     #[test]
     fn relationship_with_missing_target_fails() {
-        use crate::hierarchy::{ChildOf, Children};
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
         let a = world.spawn_empty().id();
         world.despawn(a);
-        let b = world.spawn(ChildOf(a)).id();
-        assert!(!world.entity(b).contains::<ChildOf>());
-        assert!(!world.entity(b).contains::<Children>());
+        let b = world.spawn(Rel(a)).id();
+        assert!(!world.entity(b).contains::<Rel>());
+        assert!(!world.entity(b).contains::<RelTarget>());
     }
 }
