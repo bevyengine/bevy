@@ -656,7 +656,7 @@ pub struct AddedFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::Table
         Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
         // T::STORAGE_TYPE = StorageType::SparseSet
-        &'w ComponentSparseSet,
+        Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -701,11 +701,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
             ticks: StorageSwitch::new(
                 || None,
                 || {
-                    // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components' ticks in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
-                    unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() }
+                    // SAFETY: Storages can be accessed during fetch.
+                    unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
             last_run,
@@ -767,9 +764,10 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
+                // SAFETY: The caller ensures `entity` is in range and has the component.
                 let tick = unsafe {
-                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
+                    ComponentSparseSet::get_added_tick(sparse_set.debug_checked_unwrap(), entity)
+                        .debug_checked_unwrap()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
@@ -890,7 +888,11 @@ pub struct Changed<T>(PhantomData<T>);
 
 #[doc(hidden)]
 pub struct ChangedFetch<'w, T: Component> {
-    ticks: StorageSwitch<T, Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>, &'w ComponentSparseSet>,
+    ticks: StorageSwitch<
+        T,
+        Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        Option<&'w ComponentSparseSet>,
+    >,
     last_run: Tick,
     this_run: Tick,
 }
@@ -934,11 +936,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
             ticks: StorageSwitch::new(
                 || None,
                 || {
-                    // SAFETY: The underlying type associated with `component_id` is `T`,
-                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
-                    // Note that we do not actually access any components' ticks in this function, we just get a shared
-                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
-                    unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() }
+                    // SAFETY: Storages can be accessed during fetch.
+                    unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
             last_run,
@@ -1000,9 +999,10 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
             },
             |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
+                // SAFETY: The caller ensures `entity` is in range and has the component.
                 let tick = unsafe {
-                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
+                    ComponentSparseSet::get_changed_tick(sparse_set.debug_checked_unwrap(), entity)
+                        .debug_checked_unwrap()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
