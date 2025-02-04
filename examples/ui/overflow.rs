@@ -40,6 +40,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Overflow::hidden_x(),
                 Overflow::hidden_y(),
                 Overflow::hidden(),
+                Overflow {
+                    x: OverflowAxis::Hidden,
+                    y: OverflowAxis::Clip,
+                },
             ] {
                 parent
                     .spawn(Node {
