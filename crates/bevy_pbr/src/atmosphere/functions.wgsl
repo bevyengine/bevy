@@ -162,7 +162,7 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
     // which requires us to offset the w coordinate by half a slice. For
     // example, if we wanted the value of the integral at the boundary between slices,
     // we'd need to sample at the center of the previous slice, and vice-versa for
-    // sampling in the middle of a slice.
+    // sampling in the center of a slice.
     let uvw = vec3(uv, saturate(t / t_max - 0.5 / num_slices));
     let sample = textureSampleLevel(aerial_view_lut, aerial_view_lut_sampler, uvw, 0.0);
     // Since sampling anywhere between w=0 and w=t_slice will clamp to the first slice,
