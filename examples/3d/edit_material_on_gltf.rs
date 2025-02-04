@@ -21,7 +21,8 @@ fn main() {
         .run();
 }
 
-/// This is added to a [`SceneRoot`] and will cause the [`StandardMaterial::base_color`] of all materials
+/// This is added to a [`SceneRoot`] and will cause the [`StandardMaterial::base_color`]
+/// of all materials to be overwritten
 #[derive(Component)]
 struct ColorOverride(Color);
 
@@ -36,7 +37,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(0., 1., 0.25).looking_at(Vec3::ZERO, Dir3::Y),
     ));
 
-    // This model will keep its original material
+    // This model will keep its original materials
     commands.spawn(SceneRoot(asset_server.load(
         GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
     )));
