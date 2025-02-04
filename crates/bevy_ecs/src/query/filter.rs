@@ -66,7 +66,6 @@ use variadics_please::all_tuples;
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// [`fetch`]: Self::fetch
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
 /// [`State`]: Self::State
@@ -97,7 +96,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// ones that are compatible with the Filter's access.
     ///
     /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
-    /// or call [`WorldQuery::fetch`] to access the raw data needed to make the final decision on filter inclusion.
+    /// or access the necessary data within this function to make the final decision on filter inclusion.
     ///
     /// # Safety
     ///

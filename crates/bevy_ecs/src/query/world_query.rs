@@ -13,11 +13,11 @@ use variadics_please::all_tuples;
 /// # Safety
 ///
 /// Implementor must ensure that
-/// [`update_component_access`], [`matches_component_set`], [`fetch`] and [`init_fetch`]
+/// [`update_component_access`], [`matches_component_set`], [`QueryData::fetch`] and [`init_fetch`]
 /// obey the following:
 ///
-/// - For each component mutably accessed by [`fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
-/// - For each component readonly accessed by [`fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
+/// - For each component mutably accessed by [`QueryData::fetch`], [`update_component_access`] should add write access unless read or write access has already been added, in which case it should panic.
+/// - For each component readonly accessed by [`QueryData::fetch`], [`update_component_access`] should add read access unless write access has already been added, in which case it should panic.
 /// - If `fetch` mutably accesses the same component twice, [`update_component_access`] should panic.
 /// - [`update_component_access`] may not add a `Without` filter for a component unless [`matches_component_set`] always returns `false` when the component set contains that component.
 /// - [`update_component_access`] may not add a `With` filter for a component unless [`matches_component_set`] always returns `false` when the component set doesn't contain that component.
@@ -30,7 +30,7 @@ use variadics_please::all_tuples;
 ///
 /// When implementing [`update_component_access`], note that `add_read` and `add_write` both also add a `With` filter, whereas `extend_access` does not change the filters.
 ///
-/// [`fetch`]: Self::fetch
+/// [`QueryData::fetch`]: crate::query::QueryData::fetch
 /// [`init_fetch`]: Self::init_fetch
 /// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
@@ -38,7 +38,7 @@ use variadics_please::all_tuples;
 /// [`QueryData`]: crate::query::QueryData
 /// [`QueryFilter`]: crate::query::QueryFilter
 pub unsafe trait WorldQuery {
-    /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](WorldQuery::Item) for each entity.
+    /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](crate::query::QueryData::Item) for each entity.
     type Fetch<'a>: Clone;
 
     /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
@@ -71,8 +71,8 @@ pub unsafe trait WorldQuery {
     ///
     /// This is used to select a more efficient "table iterator"
     /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] must be used before
-    /// [`WorldQuery::fetch`] can be called for iterators. If this returns false,
-    /// [`WorldQuery::set_archetype`] must be used before [`WorldQuery::fetch`] can be called for
+    /// [`QueryData::fetch`](crate::query::QueryData::fetch) can be called for iterators. If this returns false,
+    /// [`WorldQuery::set_archetype`] must be used before [`QueryData::fetch`](crate::query::QueryData::fetch) can be called for
     /// iterators.
     const IS_DENSE: bool;
 
