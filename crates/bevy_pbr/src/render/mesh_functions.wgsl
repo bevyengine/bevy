@@ -132,3 +132,7 @@ fn get_visibility_range_dither_level(instance_index: u32, world_position: vec4<f
     return offset + clamp(level, 0, 16);
 }
 #endif
+
+fn get_tag(instance_index: u32) -> u32 {
+    return mesh[instance_index].tag;
+}

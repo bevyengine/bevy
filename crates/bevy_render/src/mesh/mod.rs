@@ -21,7 +21,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d};
+pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
 use wgpu::IndexFormat;
 
 /// Registers all [`MeshBuilder`] types.
