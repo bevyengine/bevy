@@ -656,6 +656,7 @@ pub struct AddedFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::Table
         Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
         // T::STORAGE_TYPE = StorageType::SparseSet
+        // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
@@ -891,6 +892,7 @@ pub struct ChangedFetch<'w, T: Component> {
     ticks: StorageSwitch<
         T,
         Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
