@@ -37,25 +37,20 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(0., 1., 0.25).looking_at(Vec3::ZERO, Dir3::Y),
     ));
 
+    // FlightHelmet handle
+    let flight_helmet = asset_server
+        .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     // This model will keep its original materials
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
-    )));
+    commands.spawn(SceneRoot(flight_helmet.clone()));
     // This model will be tinted red
     commands.spawn((
-        SceneRoot(
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ),
+        SceneRoot(flight_helmet.clone()),
         Transform::from_xyz(-1.25, 0., 0.),
         ColorOverride(palettes::tailwind::RED_300.into()),
     ));
     // This model will be tinted green
     commands.spawn((
-        SceneRoot(
-            asset_server
-                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
-        ),
+        SceneRoot(flight_helmet),
         Transform::from_xyz(1.25, 0., 0.),
         ColorOverride(palettes::tailwind::GREEN_300.into()),
     ));
@@ -83,6 +78,9 @@ fn change_material(
             .and_then(|id| asset_materials.get_mut(id.id()))
         {
             // Create a copy of the material and override base color
+            // If you intend on creating multiple models with the same tint, it
+            // is best to cache the handle somewhere, as having multiple materials
+            // that are identical is expensive
             let mut new_material = material.clone();
             new_material.base_color = color_override.0;
 
