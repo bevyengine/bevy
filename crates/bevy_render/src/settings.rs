@@ -101,7 +101,7 @@ impl Default for WgpuSettings {
         };
 
         let dx12_shader_compiler =
-            Dx12Compiler::from_env().unwrap_or(if !cfg!(feature = "statically-linked-dxc") {
+            Dx12Compiler::from_env().unwrap_or(if cfg!(feature = "statically-linked-dxc") {
                 Dx12Compiler::StaticDxc
             } else {
                 Dx12Compiler::DynamicDxc {
