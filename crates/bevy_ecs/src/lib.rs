@@ -134,6 +134,7 @@ mod tests {
         change_detection::Ref,
         component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
+        entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
@@ -1530,6 +1531,8 @@ mod tests {
     #[test]
     fn filtered_query_access() {
         let mut world = World::new();
+        // We remove entity disabling so it doesn't affect our query filters
+        world.remove_resource::<DefaultQueryFilters>();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
@@ -2658,6 +2661,16 @@ mod tests {
         #[derive(Component, Default)]
         #[require(B)]
         struct C;
+
+        World::new().register_component::<A>();
+    }
+
+    #[test]
+    #[should_panic = "Recursive required components detected: A → A\nhelp: Remove require(A)."]
+    fn required_components_self_errors() {
+        #[derive(Component, Default)]
+        #[require(A)]
+        struct A;
 
         World::new().register_component::<A>();
     }

@@ -1072,9 +1072,16 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type Item<'world, 'state> = DeferredWorld<'world>;
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.component_access_set.read_all();
+        assert!(
+            !system_meta
+                .component_access_set
+                .combined_access()
+                .has_any_read(),
+            "DeferredWorld in system {} conflicts with a previous access.",
+            system_meta.name,
+        );
         system_meta.component_access_set.write_all();
-        system_meta.set_has_deferred();
+        system_meta.archetype_component_access.write_all();
     }
 
     unsafe fn get_param<'world, 'state>(

@@ -309,6 +309,16 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes_all_resources || !self.resource_writes.is_clear()
     }
 
+    /// Returns `true` if this accesses any resources or components.
+    pub fn has_any_read(&self) -> bool {
+        self.has_any_component_read() || self.has_any_resource_read()
+    }
+
+    /// Returns `true` if this accesses any resources or components mutably.
+    pub fn has_any_write(&self) -> bool {
+        self.has_any_component_write() || self.has_any_resource_write()
+    }
+
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
     ///
     /// This is a component whose value is not accessed (and thus will never cause conflicts),
@@ -1319,12 +1329,16 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
 
     /// Marks the set as reading all possible indices of type T.
     pub fn read_all(&mut self) {
-        self.combined_access.read_all();
+        let mut filter = FilteredAccess::matches_everything();
+        filter.read_all();
+        self.add(filter);
     }
 
     /// Marks the set as writing all T.
     pub fn write_all(&mut self) {
-        self.combined_access.write_all();
+        let mut filter = FilteredAccess::matches_everything();
+        filter.write_all();
+        self.add(filter);
     }
 
     /// Removes all accesses stored in this set.
