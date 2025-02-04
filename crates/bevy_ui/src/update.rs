@@ -88,15 +88,13 @@ fn update_clipping(
     } else {
         // If `maybe_inherited_clip` is `Some`, use the intersection between
         // current node's clip and the inherited clip. This handles the case
-        // of nested `Overflow::Hidden` nodes. If parent `clip` is not
+        // of nested `Overflow::Hidden` nodes. If the parent's clip is not
         // defined, use the current node's clip.
 
-        let mut visible = Rect::from_center_size(
+        let mut clip_rect = Rect::from_center_size(
             global_transform.translation().truncate(),
             computed_node.size(),
         );
-
-        let mut interactable = visible;
 
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
@@ -108,13 +106,20 @@ fn update_clipping(
             crate::OverflowClipBox::PaddingBox => computed_node.border(),
         };
 
-        visible.min.x += clip_inset.left;
-        visible.min.y += clip_inset.top;
-        visible.max.x -= clip_inset.right;
-        visible.max.y -= clip_inset.bottom;
+        clip_rect.min.x += clip_inset.left;
+        clip_rect.min.y += clip_inset.top;
+        clip_rect.max.x -= clip_inset.right;
+        clip_rect.max.y -= clip_inset.bottom;
 
-        visible = visible
-            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
+        if 0. < node.overflow_clip_margin.margin {
+            clip_rect = clip_rect
+                .inflate(node.overflow_clip_margin.margin / computed_node.inverse_scale_factor);
+        }
+
+        let mut current_clip = CalculatedClip {
+            visible: clip_rect,
+            interactable: clip_rect,
+        };
 
         let resolve_local_axis =
             |overflow_axis, v_min: &mut f32, v_max: &mut f32, i_min: &mut f32, i_max: &mut f32| {
@@ -131,31 +136,28 @@ fn update_clipping(
 
         resolve_local_axis(
             node.overflow.x,
-            &mut visible.min.x,
-            &mut visible.max.x,
-            &mut interactable.min.x,
-            &mut interactable.max.x,
+            &mut current_clip.visible.min.x,
+            &mut current_clip.visible.max.x,
+            &mut current_clip.interactable.min.x,
+            &mut current_clip.interactable.max.x,
         );
 
         resolve_local_axis(
             node.overflow.y,
-            &mut visible.min.y,
-            &mut visible.max.y,
-            &mut interactable.min.y,
-            &mut interactable.max.y,
+            &mut current_clip.visible.min.y,
+            &mut current_clip.visible.max.y,
+            &mut current_clip.interactable.min.y,
+            &mut current_clip.interactable.max.y,
         );
 
         if let Some(inherited_clip) = maybe_inherited_clip {
-            Some(CalculatedClip {
-                visible: inherited_clip.visible.intersect(visible),
-                interactable: inherited_clip.interactable.intersect(interactable),
-            })
-        } else {
-            Some(CalculatedClip {
-                visible,
-                interactable,
-            })
+            current_clip.visible = current_clip.visible.intersect(inherited_clip.visible);
+            current_clip.interactable = current_clip
+                .interactable
+                .intersect(inherited_clip.interactable);
         }
+
+        Some(current_clip)
     };
 
     for child in ui_children.iter_ui_children(entity) {
