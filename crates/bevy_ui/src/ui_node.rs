@@ -1149,6 +1149,11 @@ impl OverflowAxis {
     pub const fn is_visible(&self) -> bool {
         matches!(self, Self::Visible)
     }
+
+    /// Overflow is interactable on this axis
+    pub const fn is_interactable(&self) -> bool {
+        matches!(self, Self::Visible | Self::Hidden)
+    }
 }
 
 impl Default for OverflowAxis {
@@ -2133,12 +2138,15 @@ impl Outline {
     }
 }
 
-/// The calculated clip of the node
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
+/// The calculated clip of the node.
+/// The two rects are intersected to find the visable area.
+#[derive(Component, Default, Copy, Clone, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct CalculatedClip {
-    /// The rect of the clip
-    pub clip: Rect,
+    /// Content outside this `Rect` is not visable
+    pub visible: Rect,
+    /// Content outside this `Rect` is not interactable
+    pub interactable: Rect,
 }
 
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
