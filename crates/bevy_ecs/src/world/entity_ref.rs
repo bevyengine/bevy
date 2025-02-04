@@ -1958,7 +1958,8 @@ impl<'w> EntityWorldMut<'w> {
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
-                        .unwrap() // safe since we know the component existed on the entity
+                        // Set exists because the component existed on the entity
+                        .unwrap() 
                         .remove(entity);
                 }
             }
@@ -2363,7 +2364,7 @@ impl<'w> EntityWorldMut<'w> {
             table_row = remove_result.table_row;
 
             for component_id in archetype.sparse_set_components() {
-                // unwrap is safe since the set must have existed for the component to be added.
+                // set must have existed for the component to be added.
                 let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
                 sparse_set.remove(self.entity);
             }

@@ -1225,6 +1225,7 @@ pub struct RefFetch<'w, T: Component> {
             MaybeThinSlicePtrLocation<'w>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
+        // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
@@ -1419,6 +1420,7 @@ pub struct WriteFetch<'w, T: Component> {
             MaybeThinSlicePtrLocation<'w>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
+        // Can be `None` when the component has never been inserted
         Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
