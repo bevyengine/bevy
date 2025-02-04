@@ -545,7 +545,7 @@ impl BundleInfo {
                 StorageType::Table => {
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
-                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                     // the target table contains the component.
                     let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
@@ -572,7 +572,7 @@ impl BundleInfo {
                 }
                 StorageType::SparseSet => {
                     let sparse_set =
-                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
                     sparse_set.insert(
