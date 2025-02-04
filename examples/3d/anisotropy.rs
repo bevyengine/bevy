@@ -1,5 +1,7 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
+use std::fmt::Display;
+
 use bevy::{
     color::palettes::{self, css::WHITE},
     core_pipeline::Skybox,
@@ -62,6 +64,16 @@ impl Scene {
             Self::BarnLamp => Self::Sphere,
             Self::Sphere => Self::BarnLamp,
         }
+    }
+}
+
+impl Display for Scene {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let scene_name = match self {
+            Self::BarnLamp => "Barn Lamp",
+            Self::Sphere => "Sphere",
+        };
+        write!(f, "{scene_name}")
     }
 }
 
@@ -337,11 +349,8 @@ impl AppStatus {
             LightMode::EnvironmentMap => "Press Space to switch to a directional light",
         };
 
-        // Choose the appropriate help text for the light toggle.
-        let mesh_help_text = match self.visible_scene {
-            Scene::BarnLamp => "Press Q to change to Sphere",
-            Scene::Sphere => "Press Q to change to Barn Lamp",
-        };
+        // Choose the appropriate help text for the scene selector.
+        let mesh_help_text = format!("Press Q to change to {}", self.visible_scene.next());
 
         // Build the `Text` object.
         format!(
