@@ -389,10 +389,10 @@ impl BundleInfo {
         mut component_ids: Vec<ComponentId>,
         id: BundleId,
     ) -> BundleInfo {
+        // check for duplicates
         let mut deduped = component_ids.clone();
         deduped.sort_unstable();
         deduped.dedup();
-
         if deduped.len() != component_ids.len() {
             // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
             let mut seen = <HashSet<_>>::default();
@@ -415,31 +415,31 @@ impl BundleInfo {
             panic!("Bundle {bundle_type_name} has duplicate components: {names}");
         }
 
+        // handle explicit components
         let explicit_components_len = component_ids.len();
         let mut required_components = RequiredComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { components.get_info_unchecked(component_id) };
             required_components.merge(info.required_components());
+            storages.prepare_component(info);
         }
         required_components.remove_explicit_components(&component_ids);
+
+        // handle required components
         let required_components = required_components
             .0
             .into_iter()
             .map(|(component_id, v)| {
+                // Safety: These ids came out of the passed `components`, so they must be valid.
+                let info = unsafe { components.get_info_unchecked(component_id) };
+                storages.prepare_component(info);
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
                 // components. This ordering is important!
                 component_ids.push(component_id);
                 v.constructor
             })
             .collect();
-
-        // ensure components are valid
-        for id in component_ids.iter().copied() {
-            // Safety: caller ensures the ids are valid
-            let info = unsafe { components.get_info_unchecked(id) };
-            storages.prepare_component(info);
-        }
 
         // SAFETY: The caller ensures that component_ids:
         // - is valid for the associated world
