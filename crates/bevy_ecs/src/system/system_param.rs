@@ -1151,10 +1151,6 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
-const MUT_DEFERRED_WORLD_ERROR: &str = "DeferredWorld requires exclusive access \
-    to the entire world, but a previous system parameter already registered \
-    access to a part of it. Allowing this would break Rust's mutability rules";
-
 // SAFETY: `DeferredWorld` registers exclusive access to the entire world.
 unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
