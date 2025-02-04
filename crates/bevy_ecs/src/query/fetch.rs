@@ -1105,7 +1105,10 @@ unsafe impl<T: Component> WorldQuery for &T {
             components: StorageSwitch::new(
                 || None,
                 || {
-                    // SAFETY: Storages can be accessed during fetch.
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // Note that we do not actually access any components' ticks in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
@@ -1268,7 +1271,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             components: StorageSwitch::new(
                 || None,
                 || {
-                    // SAFETY: Storages can be accessed during fetch.
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // Note that we do not actually access any components' ticks in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
@@ -1463,7 +1469,10 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             components: StorageSwitch::new(
                 || None,
                 || {
-                    // SAFETY: Storages can be accessed during fetch.
+                    // SAFETY: The underlying type associated with `component_id` is `T`,
+                    // which we are allowed to access since we registered it in `update_archetype_component_access`.
+                    // Note that we do not actually access any components' ticks in this function, we just get a shared
+                    // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
                     unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
