@@ -2,19 +2,13 @@ use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::AssetApp;
 use bevy_app::App;
-use bevy_utils::ConditionalSendFuture;
+use bevy_tasks::ConditionalSendFuture;
+use std::boxed::Box;
 use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
 /// Any asset path that begins with `http` or `https` will be loaded from the web
 /// via `fetch`(wasm) or `ureq`(native).
-///
-/// Due to [licensing complexities](https://github.com/briansmith/ring/issues/1827)
-/// secure `https` requests are disabled by default in non-wasm builds.
-/// To enable add this to your dependencies in Cargo.toml:
-/// ```toml
-/// ureq = { version = "*", features = ["tls"] }
-/// ```
 pub fn http_source_plugin(app: &mut App) {
     app.register_asset_source(
         "http",
@@ -66,13 +60,18 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
-    use std::io::{self, BufReader, Read};
+    use bevy_platform_support::sync::LazyLock;
+    use std::{
+        boxed::Box,
+        io::{self, BufReader, Read},
+        vec::Vec,
+    };
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
             io::Error::new(
                 io::ErrorKind::Other,
-                format!("non-utf8 path: {}", path.display()),
+                std::format!("non-utf8 path: {}", path.display()),
             )
             .into(),
         )
@@ -82,10 +81,9 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     if let Some(data) = http_asset_cache::try_load_from_cache(str_path)? {
         return Ok(Box::new(VecReader::new(data)));
     }
-    use once_cell::sync::Lazy;
     use ureq::Agent;
 
-    static AGENT: Lazy<Agent> = Lazy::new(|| {
+    static AGENT: LazyLock<Agent> = LazyLock::new(|| {
         use alloc::sync::Arc;
         use ureq::{
             tls::{TlsConfig, TlsProvider},
@@ -129,7 +127,7 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         Err(err) => Err(AssetReaderError::Io(
             io::Error::new(
                 io::ErrorKind::Other,
-                format!(
+                std::format!(
                     "unexpected error while loading asset {}: {}",
                     path.display(),
                     err
@@ -179,13 +177,15 @@ mod http_asset_cache {
     use std::fs::{self, File};
     use std::io::{self, Read, Write};
     use std::path::PathBuf;
+    use std::string::String;
+    use std::vec::Vec;
 
     const CACHE_DIR: &str = ".http-asset-cache";
 
     fn url_to_hash(url: &str) -> String {
         let mut hasher = DefaultHasher::new();
         url.hash(&mut hasher);
-        format!("{:x}", hasher.finish())
+        std::format!("{:x}", hasher.finish())
     }
 
     pub fn try_load_from_cache(url: &str) -> Result<Option<Vec<u8>>, io::Error> {

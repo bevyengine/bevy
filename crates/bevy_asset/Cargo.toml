@@ -14,7 +14,7 @@ keywords = ["bevy"]
 file_watcher = ["notify-debouncer-full", "watch"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
-http_source = ["ureq", "rustls", "once_cell"]
+http_source = ["ureq", "rustls"]
 http_source_cache = []
 asset_processor = []
 watch = []
@@ -75,7 +75,6 @@ ureq = { version = "3.0.4", optional = true, default-features = false, features 
   "gzip",
   "json",
 ] }
-once_cell = { version = "1.20", optional = true }
 rustls = { version = "0.23", optional = true, default-features = false, features = [
   "aws_lc_rs",
   "logging",
