@@ -13,6 +13,10 @@ rustc-ice-*
 dxcompiler.dll
 dxil.dll
 
+# DX12 wgpu backend
+dxcompiler.dll
+dxil.dll
+
 # Cargo
 Cargo.lock
 .cargo/config
