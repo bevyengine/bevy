@@ -2825,8 +2825,11 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     }
 
     fn world_access_level() -> WorldAccessLevel {
-        // TODO: Don't assume exclusive access
-        WorldAccessLevel::Exclusive
+        // We don't allow users to create DynSystemParam's that hold exclusive
+        // params, so we can safely return Shared here. This is technically
+        // over-restrictive when storing `WorldAccessLevel::None` params, but we
+        // can't conditionally return based on the held state.
+        WorldAccessLevel::Shared
     }
 }
 

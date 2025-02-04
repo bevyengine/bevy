@@ -8,6 +8,7 @@ use crate::{
     resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
+        WorldAccessLevel,
     },
     world::{
         FilteredResources, FilteredResourcesBuilder, FilteredResourcesMut,
@@ -513,6 +514,11 @@ impl<'a> DynParamBuilder<'a> {
     /// Creates a new [`DynParamBuilder`] by wrapping a [`SystemParamBuilder`] of any type.
     /// The built [`DynSystemParam`] can be downcast to `T`.
     pub fn new<T: SystemParam + 'static>(builder: impl SystemParamBuilder<T> + 'a) -> Self {
+        assert_ne!(
+            T::world_access_level(),
+            WorldAccessLevel::Exclusive,
+            "DynSystemParam cannot hold exclusive system parameters"
+        );
         Self(Box::new(|world, meta| {
             DynSystemParamState::new::<T>(builder.build(world, meta))
         }))
