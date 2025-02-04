@@ -10,8 +10,6 @@ use bevy::{
 
 /// The initial position of the camera.
 const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);
-/// Number of meshes that the scene has
-const MESH_COUNT: u8 = 2;
 
 /// The current settings of the app, as chosen by the user.
 #[derive(Resource)]
@@ -21,7 +19,7 @@ struct AppStatus {
     /// Whether anisotropy is enabled.
     anisotropy_enabled: bool,
     /// Which mesh is visible
-    visible_mesh: u8,
+    visible_scene: Scene,
 }
 
 /// Which type of light we're using: a directional light, a point light, or an
@@ -51,8 +49,21 @@ struct MaterialVariants {
     isotropic: Handle<StandardMaterial>,
 }
 
-#[derive(Component)]
-struct VisibleWhen(u8);
+#[derive(Default, Clone, Copy, PartialEq, Eq, Component)]
+enum Scene {
+    #[default]
+    BarnLamp,
+    Sphere,
+}
+
+impl Scene {
+    fn next(&self) -> Self {
+        match self {
+            Self::BarnLamp => Self::Sphere,
+            Self::Sphere => Self::BarnLamp,
+        }
+    }
+}
 
 /// The application entry point.
 fn main() {
@@ -85,7 +96,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
     commands.spawn((
         SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
         Transform::from_xyz(0.0, 0.07, -0.13),
-        VisibleWhen(0),
+        Scene::BarnLamp,
     ));
 
     commands.spawn((
@@ -100,10 +111,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
             base_color: palettes::tailwind::GRAY_300.into(),
             anisotropy_rotation: 0.5,
             anisotropy_strength: 1.,
-
-            ..Default::default()
+            ..default()
         })),
-        VisibleWhen(1),
+        Scene::Sphere,
         Visibility::Hidden,
     ));
 
@@ -193,7 +203,7 @@ fn handle_input(
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
     mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
-    mut scenes: Query<(&mut Visibility, &VisibleWhen)>,
+    mut scenes: Query<(&mut Visibility, &Scene)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -252,16 +262,15 @@ fn handle_input(
     }
 
     let visibility_index = if keyboard.just_pressed(KeyCode::KeyQ) {
-        let new_index = (app_status.visible_mesh + 1) % MESH_COUNT;
-        Some(new_index)
+        Some(app_status.visible_scene.next())
     } else {
         None
     };
 
     if let Some(index) = visibility_index {
-        app_status.visible_mesh = index;
-        for (mut visibility, visible_when) in scenes.iter_mut() {
-            let new_vis = if visible_when.0 == index {
+        app_status.visible_scene = index;
+        for (mut visibility, scene) in scenes.iter_mut() {
+            let new_vis = if *scene == index {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden
@@ -335,10 +344,9 @@ impl AppStatus {
         };
 
         // Choose the appropriate help text for the light toggle.
-        let mesh_help_text = match self.visible_mesh {
-            0 => "Press Q to change to Sphere",
-            1 => "Press Q to change to Barn Lamp",
-            _ => unreachable!("Should never be any other value"),
+        let mesh_help_text = match self.visible_scene {
+            Scene::BarnLamp => "Press Q to change to Sphere",
+            Scene::Sphere => "Press Q to change to Barn Lamp",
         };
 
         // Build the `Text` object.
@@ -355,7 +363,7 @@ impl Default for AppStatus {
         Self {
             light_mode: default(),
             anisotropy_enabled: true,
-            visible_mesh: 0,
+            visible_scene: default(),
         }
     }
 }
