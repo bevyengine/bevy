@@ -27,7 +27,7 @@ enum SpecializeImplTargets {
 impl Parse for SpecializeImplTargets {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let paths = input.parse_terminated(Path::parse, Token![,])?;
-        if !paths.is_empty() && paths[0].is_ident(SPECIALIZE_ALL_IDENT) {
+        if paths.first().is_some_and(|p| p.is_ident(SPECIALIZE_ALL_IDENT)) {
             Ok(SpecializeImplTargets::All)
         } else {
             Ok(SpecializeImplTargets::Specific(paths.into_iter().collect()))
