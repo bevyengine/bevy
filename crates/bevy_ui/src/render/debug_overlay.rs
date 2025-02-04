@@ -96,7 +96,7 @@ pub fn extract_debug_overlay(
             },
             clip: maybe_clip
                 .filter(|_| !debug_options.show_clipped)
-                .map(|clip| clip.clip),
+                .map(|clip| clip.visible),
             image: AssetId::default(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
