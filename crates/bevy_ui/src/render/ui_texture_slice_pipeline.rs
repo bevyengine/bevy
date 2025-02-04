@@ -318,7 +318,7 @@ pub fn extract_ui_texture_slices(
                 min: Vec2::ZERO,
                 max: uinode.size,
             },
-            clip: clip.map(|clip| clip.clip),
+            clip: clip.map(|clip| clip.visible),
             image: image.image.id(),
             extracted_camera_entity,
             image_scale_mode,

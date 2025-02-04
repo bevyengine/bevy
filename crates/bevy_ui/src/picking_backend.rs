@@ -149,9 +149,9 @@ pub fn ui_picking(
         }
 
         // Intersect with the calculated clip rect to find the bounds of the visible region of the node
-        let visible_rect = node
+        let interactable_rect = node
             .calculated_clip
-            .map(|clip| node_rect.intersect(clip.clip))
+            .map(|clip| node_rect.intersect(clip.interactable))
             .unwrap_or(node_rect);
 
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
@@ -162,7 +162,7 @@ pub fn ui_picking(
         for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
             let relative_cursor_position = (*cursor_position - node_rect.min) / node_rect.size();
 
-            if visible_rect
+            if interactable_rect
                 .normalize(node_rect)
                 .contains(relative_cursor_position)
                 && pick_rounded_rect(

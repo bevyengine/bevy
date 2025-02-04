@@ -26,6 +26,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 height: Val::Percent(100.),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
+                flex_wrap: FlexWrap::Wrap,
                 ..Default::default()
             },
             BackgroundColor(ANTIQUE_WHITE.into()),
@@ -36,6 +37,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 Overflow::clip_x(),
                 Overflow::clip_y(),
                 Overflow::clip(),
+                Overflow::hidden_x(),
+                Overflow::hidden_y(),
+                Overflow::hidden(),
             ] {
                 parent
                     .spawn(Node {
@@ -84,11 +88,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     Interaction::default(),
-                                    Outline {
-                                        width: Val::Px(2.),
-                                        offset: Val::Px(2.),
-                                        color: Color::NONE,
-                                    },
                                 ));
                             });
                     });
@@ -96,13 +95,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn update_outlines(mut outlines_query: Query<(&mut Outline, Ref<Interaction>)>) {
-    for (mut outline, interaction) in outlines_query.iter_mut() {
+fn update_outlines(mut interactions_query: Query<(&mut ImageNode, Ref<Interaction>)>) {
+    for (mut image_node, interaction) in interactions_query.iter_mut() {
         if interaction.is_changed() {
-            outline.color = match *interaction {
+            image_node.color = match *interaction {
                 Interaction::Pressed => RED.into(),
-                Interaction::Hovered => WHITE.into(),
-                Interaction::None => Color::NONE,
+                Interaction::Hovered => YELLOW.into(),
+                Interaction::None => Color::WHITE,
             };
         }
     }

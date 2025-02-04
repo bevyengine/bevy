@@ -2144,13 +2144,14 @@ impl Outline {
 }
 
 /// The calculated clip of the node.
-/// The two rects are intersected to find the visable area.
+/// Split into two `Rect`s that can be intersected with the node's bounding rect
+/// to find it's visible and interactable areas.
 #[derive(Component, Default, Copy, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]
 pub struct CalculatedClip {
-    /// Content outside this `Rect` is not visable
+    /// Content outside this `Rect` should not be visible
     pub visible: Rect,
-    /// Content outside this `Rect` is not interactable
+    /// Content outside this `Rect` should not be interactable
     pub interactable: Rect,
 }
 

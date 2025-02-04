@@ -409,7 +409,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             },
             border: computed_node.border(),
             border_radius: computed_node.border_radius(),
-            clip: clip.map(|clip| clip.clip),
+            clip: clip.map(|clip| clip.visible),
             extracted_camera_entity,
             main_entity: entity.into(),
         });

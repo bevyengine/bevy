@@ -250,7 +250,7 @@ pub fn ui_focus_system(
             // Intersect with the calculated clip rect to find the bounds of the visible region of the node
             let visible_rect = node
                 .calculated_clip
-                .map(|clip| node_rect.intersect(clip.clip))
+                .map(|clip| node_rect.intersect(clip.interactable))
                 .unwrap_or(node_rect);
 
             let cursor_position = camera_cursor_positions.get(&camera_entity);

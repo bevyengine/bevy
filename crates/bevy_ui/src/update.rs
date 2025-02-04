@@ -91,12 +91,12 @@ fn update_clipping(
         // of nested `Overflow::Hidden` nodes. If parent `clip` is not
         // defined, use the current node's clip.
 
-        let mut node_rect = Rect::from_center_size(
+        let mut visible = Rect::from_center_size(
             global_transform.translation().truncate(),
             computed_node.size(),
         );
 
-        let mut interactable = node_rect;
+        let mut interactable = visible;
 
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
@@ -108,15 +108,15 @@ fn update_clipping(
             crate::OverflowClipBox::PaddingBox => computed_node.border(),
         };
 
-        node_rect.min.x += clip_inset.left;
-        node_rect.min.y += clip_inset.top;
-        node_rect.max.x -= clip_inset.right;
-        node_rect.max.y -= clip_inset.bottom;
+        visible.min.x += clip_inset.left;
+        visible.min.y += clip_inset.top;
+        visible.max.x -= clip_inset.right;
+        visible.max.y -= clip_inset.bottom;
 
-        node_rect = node_rect
+        visible = visible
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
 
-        let resolve_axis =
+        let resolve_local_axis =
             |overflow_axis, v_min: &mut f32, v_max: &mut f32, i_min: &mut f32, i_max: &mut f32| {
                 if overflow_axis == OverflowAxis::Visible {
                     *v_min = -f32::INFINITY;
@@ -129,30 +129,30 @@ fn update_clipping(
                 }
             };
 
-        resolve_axis(
+        resolve_local_axis(
             node.overflow.x,
-            &mut node_rect.min.x,
-            &mut node_rect.max.x,
+            &mut visible.min.x,
+            &mut visible.max.x,
             &mut interactable.min.x,
             &mut interactable.max.x,
         );
 
-        resolve_axis(
+        resolve_local_axis(
             node.overflow.y,
-            &mut node_rect.min.y,
-            &mut node_rect.max.y,
+            &mut visible.min.y,
+            &mut visible.max.y,
             &mut interactable.min.y,
             &mut interactable.max.y,
         );
 
         if let Some(inherited_clip) = maybe_inherited_clip {
             Some(CalculatedClip {
-                visible: inherited_clip.visible.intersect(node_rect),
+                visible: inherited_clip.visible.intersect(visible),
                 interactable: inherited_clip.interactable.intersect(interactable),
             })
         } else {
             Some(CalculatedClip {
-                visible: node_rect,
+                visible,
                 interactable,
             })
         }

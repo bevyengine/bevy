@@ -317,7 +317,7 @@ pub fn extract_shadows(
                 transform: transform.compute_matrix() * Mat4::from_translation(offset.extend(0.)),
                 color: drop_shadow.color.into(),
                 bounds: shadow_size + 6. * blur_radius,
-                clip: clip.map(|clip| clip.clip),
+                clip: clip.map(|clip| clip.visible),
                 extracted_camera_entity,
                 radius,
                 blur_radius,

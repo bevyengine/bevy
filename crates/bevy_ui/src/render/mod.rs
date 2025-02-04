@@ -366,7 +366,7 @@ pub fn extract_uinode_background_colors(
                 min: Vec2::ZERO,
                 max: uinode.size,
             },
-            clip: clip.map(|clip| clip.clip),
+            clip: clip.map(|clip| clip.visible),
             image: AssetId::default(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
@@ -450,7 +450,7 @@ pub fn extract_uinode_images(
             stack_index: uinode.stack_index,
             color: image.color.into(),
             rect,
-            clip: clip.map(|clip| clip.clip),
+            clip: clip.map(|clip| clip.visible),
             image: image.image.id(),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
@@ -519,7 +519,7 @@ pub fn extract_uinode_borders(
                         ..Default::default()
                     },
                     image,
-                    clip: maybe_clip.map(|clip| clip.clip),
+                    clip: maybe_clip.map(|clip| clip.visible),
                     extracted_camera_entity,
                     item: ExtractedUiItem::Node {
                         atlas_scaling: None,
@@ -552,7 +552,7 @@ pub fn extract_uinode_borders(
                     ..Default::default()
                 },
                 image,
-                clip: maybe_clip.map(|clip| clip.clip),
+                clip: maybe_clip.map(|clip| clip.visible),
                 extracted_camera_entity,
                 item: ExtractedUiItem::Node {
                     transform: global_transform.compute_matrix(),
@@ -785,7 +785,7 @@ pub fn extract_text_sections(
                     stack_index: uinode.stack_index,
                     color,
                     image: atlas_info.texture.id(),
-                    clip: clip.map(|clip| clip.clip),
+                    clip: clip.map(|clip| clip.visible),
                     extracted_camera_entity,
                     rect,
                     item: ExtractedUiItem::Glyphs { range: start..end },
