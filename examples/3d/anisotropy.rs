@@ -112,20 +112,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 
 /// Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    let help_text = app_status.create_help_text();
-    commands
-        .spawn((Node {
+    commands.spawn((
+        app_status.create_help_text(),
+        Node {
             position_type: PositionType::Absolute,
-            flex_direction: FlexDirection::Column,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        },))
-        .with_children(|parent| {
-            for text in help_text {
-                parent.spawn(Node::default()).with_child(text);
-            }
-        });
+        },
+    ));
 }
 
 /// For each material, creates a version with the anisotropy removed.
@@ -278,8 +273,8 @@ fn handle_input(
 
 /// A system that updates the help text based on the current app status.
 fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
-    for (mut text_node, text) in text_query.iter_mut().zip(app_status.create_help_text()) {
-        *text_node = text;
+    for mut text in text_query.iter_mut() {
+        *text = app_status.create_help_text();
     }
 }
 
@@ -324,7 +319,7 @@ fn spawn_point_light(commands: &mut Commands) {
 
 impl AppStatus {
     /// Creates the help text as appropriate for the current app status.
-    fn create_help_text(&self) -> Vec<Text> {
+    fn create_help_text(&self) -> Text {
         // Choose the appropriate help text for the anisotropy toggle.
         let material_variant_help_text = if self.anisotropy_enabled {
             "Press Enter to disable anisotropy"
@@ -347,11 +342,11 @@ impl AppStatus {
         };
 
         // Build the `Text` object.
-        vec![
-            material_variant_help_text.into(),
-            light_help_text.into(),
-            mesh_help_text.into(),
-        ]
+        format!(
+            "{}\n{}\n{}",
+            material_variant_help_text, light_help_text, mesh_help_text,
+        )
+        .into()
     }
 }
 
