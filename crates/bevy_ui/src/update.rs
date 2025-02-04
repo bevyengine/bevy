@@ -49,7 +49,7 @@ fn update_clipping(
         Option<&mut CalculatedClip>,
     )>,
     entity: Entity,
-    mut maybe_inherited_clip: Option<Rect>,
+    mut maybe_inherited_clip: Option<CalculatedClip>,
 ) {
     let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
         node_query.get_mut(entity)
@@ -59,17 +59,15 @@ fn update_clipping(
 
     // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
     if node.display == Display::None {
-        maybe_inherited_clip = Some(Rect::default());
+        maybe_inherited_clip = Some(CalculatedClip::default());
     }
 
     // Update this node's CalculatedClip component
     if let Some(mut calculated_clip) = maybe_calculated_clip {
         if let Some(inherited_clip) = maybe_inherited_clip {
             // Replace the previous calculated clip with the inherited clipping rect
-            if calculated_clip.clip != inherited_clip {
-                *calculated_clip = CalculatedClip {
-                    clip: inherited_clip,
-                };
+            if *calculated_clip != inherited_clip {
+                *calculated_clip = inherited_clip;
             }
         } else {
             // No inherited clipping rect, remove the component
@@ -77,14 +75,12 @@ fn update_clipping(
         }
     } else if let Some(inherited_clip) = maybe_inherited_clip {
         // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
-        commands.entity(entity).try_insert(CalculatedClip {
-            clip: inherited_clip,
-        });
+        commands.entity(entity).try_insert(inherited_clip);
     }
 
     // Calculate new clip rectangle for children nodes
     let children_clip = if node.overflow.is_visible() {
-        // When `Visible`, children might be visible even when they are outside
+        // When overflow is visible, children might be visible even when they are outside
         // the current node's boundaries. In this case they inherit the current
         // node's parent clip. If an ancestor is set as `Hidden`, that clip will
         // be used; otherwise this will be `None`.
@@ -95,10 +91,12 @@ fn update_clipping(
         // of nested `Overflow::Hidden` nodes. If parent `clip` is not
         // defined, use the current node's clip.
 
-        let mut clip_rect = Rect::from_center_size(
+        let mut node_rect = Rect::from_center_size(
             global_transform.translation().truncate(),
             computed_node.size(),
         );
+
+        let mut interactable = node_rect;
 
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
@@ -110,23 +108,54 @@ fn update_clipping(
             crate::OverflowClipBox::PaddingBox => computed_node.border(),
         };
 
-        clip_rect.min.x += clip_inset.left;
-        clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        node_rect.min.x += clip_inset.left;
+        node_rect.min.y += clip_inset.top;
+        node_rect.max.x -= clip_inset.right;
+        node_rect.max.y -= clip_inset.bottom;
 
-        clip_rect = clip_rect
+        node_rect = node_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
 
-        if node.overflow.x == OverflowAxis::Visible {
-            clip_rect.min.x = -f32::INFINITY;
-            clip_rect.max.x = f32::INFINITY;
+        let resolve_axis =
+            |overflow_axis, v_min: &mut f32, v_max: &mut f32, i_min: &mut f32, i_max: &mut f32| {
+                if overflow_axis == OverflowAxis::Visible {
+                    *v_min = -f32::INFINITY;
+                    *v_max = f32::INFINITY;
+                }
+
+                if matches!(overflow_axis, OverflowAxis::Visible | OverflowAxis::Hidden) {
+                    *i_min = -f32::INFINITY;
+                    *i_max = f32::INFINITY;
+                }
+            };
+
+        resolve_axis(
+            node.overflow.x,
+            &mut node_rect.min.x,
+            &mut node_rect.max.x,
+            &mut interactable.min.x,
+            &mut interactable.max.x,
+        );
+
+        resolve_axis(
+            node.overflow.y,
+            &mut node_rect.min.y,
+            &mut node_rect.max.y,
+            &mut interactable.min.y,
+            &mut interactable.max.y,
+        );
+
+        if let Some(inherited_clip) = maybe_inherited_clip {
+            Some(CalculatedClip {
+                visible: inherited_clip.visible.intersect(node_rect),
+                interactable: inherited_clip.interactable.intersect(interactable),
+            })
+        } else {
+            Some(CalculatedClip {
+                visible: node_rect,
+                interactable,
+            })
         }
-        if node.overflow.y == OverflowAxis::Visible {
-            clip_rect.min.y = -f32::INFINITY;
-            clip_rect.max.y = f32::INFINITY;
-        }
-        Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
     };
 
     for child in ui_children.iter_ui_children(entity) {

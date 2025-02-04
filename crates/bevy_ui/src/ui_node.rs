@@ -1093,6 +1093,11 @@ impl Overflow {
         self.x.is_visible() && self.y.is_visible()
     }
 
+    /// Overflow is interactable on both axes
+    pub const fn is_interactable(&self) -> bool {
+        self.x.is_interactable() && self.y.is_interactable()
+    }
+
     pub const fn scroll() -> Self {
         Self {
             x: OverflowAxis::Scroll,
