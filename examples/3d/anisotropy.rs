@@ -261,16 +261,10 @@ fn handle_input(
         }
     }
 
-    let visibility_index = if keyboard.just_pressed(KeyCode::KeyQ) {
-        Some(app_status.visible_scene.next())
-    } else {
-        None
-    };
-
-    if let Some(index) = visibility_index {
-        app_status.visible_scene = index;
+    if keyboard.just_pressed(KeyCode::KeyQ) {
+        app_status.visible_scene = app_status.visible_scene.next();
         for (mut visibility, scene) in scenes.iter_mut() {
-            let new_vis = if *scene == index {
+            let new_vis = if *scene == app_status.visible_scene {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden
