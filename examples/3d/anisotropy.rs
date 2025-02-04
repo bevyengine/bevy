@@ -1,11 +1,17 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
 use bevy::{
-    color::palettes::css::WHITE, core_pipeline::Skybox, math::vec3, prelude::*, time::Stopwatch,
+    color::palettes::{self, css::WHITE},
+    core_pipeline::Skybox,
+    math::vec3,
+    prelude::*,
+    time::Stopwatch,
 };
 
 /// The initial position of the camera.
 const CAMERA_INITIAL_POSITION: Vec3 = vec3(-0.4, 0.0, 0.0);
+/// Number of meshes that the scene has
+const MESH_COUNT: u8 = 2;
 
 /// The current settings of the app, as chosen by the user.
 #[derive(Resource)]
@@ -14,6 +20,8 @@ struct AppStatus {
     light_mode: LightMode,
     /// Whether anisotropy is enabled.
     anisotropy_enabled: bool,
+    /// Which mesh is visible
+    visible_mesh: u8,
 }
 
 /// Which type of light we're using: a directional light, a point light, or an
@@ -42,6 +50,9 @@ struct MaterialVariants {
     /// The version of the material with anisotropy removed.
     isotropic: Handle<StandardMaterial>,
 }
+
+#[derive(Component)]
+struct VisibleWhen(u8);
 
 /// The application entry point.
 fn main() {
@@ -74,6 +85,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
     commands.spawn((
         SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
         Transform::from_xyz(0.0, 0.07, -0.13),
+        VisibleWhen(0),
+    ));
+
+    commands.spawn((
+        Mesh3d(
+            asset_server.add(
+                Mesh::from(Sphere::new(0.1))
+                    .with_generated_tangents()
+                    .unwrap(),
+            ),
+        ),
+        MeshMaterial3d(asset_server.add(StandardMaterial {
+            base_color: palettes::tailwind::GRAY_300.into(),
+            anisotropy_rotation: 0.5,
+            anisotropy_strength: 1.,
+
+            ..Default::default()
+        })),
+        VisibleWhen(1),
+        Visibility::Hidden,
     ));
 
     spawn_text(&mut commands, &app_status);
@@ -81,15 +112,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 
 /// Spawns the help text.
 fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
-    commands.spawn((
-        app_status.create_help_text(),
-        Node {
+    let help_text = app_status.create_help_text();
+    commands
+        .spawn((Node {
             position_type: PositionType::Absolute,
+            flex_direction: FlexDirection::Column,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        },
-    ));
+        },))
+        .with_children(|parent| {
+            for text in help_text {
+                parent.spawn(Node::default()).with_child(text);
+            }
+        });
 }
 
 /// For each material, creates a version with the anisotropy removed.
@@ -162,6 +198,7 @@ fn handle_input(
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
     mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
+    mut scenes: Query<(&mut Visibility, &VisibleWhen)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -218,12 +255,31 @@ fn handle_input(
             }
         }
     }
+
+    let visibility_index = if keyboard.just_pressed(KeyCode::KeyQ) {
+        let new_index = (app_status.visible_mesh + 1) % MESH_COUNT;
+        Some(new_index)
+    } else {
+        None
+    };
+
+    if let Some(index) = visibility_index {
+        app_status.visible_mesh = index;
+        for (mut visibility, visible_when) in scenes.iter_mut() {
+            let new_vis = if visible_when.0 == index {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            *visibility = new_vis;
+        }
+    }
 }
 
 /// A system that updates the help text based on the current app status.
 fn update_help_text(mut text_query: Query<&mut Text>, app_status: Res<AppStatus>) {
-    for mut text in text_query.iter_mut() {
-        *text = app_status.create_help_text();
+    for (mut text_node, text) in text_query.iter_mut().zip(app_status.create_help_text()) {
+        *text_node = text;
     }
 }
 
@@ -268,7 +324,7 @@ fn spawn_point_light(commands: &mut Commands) {
 
 impl AppStatus {
     /// Creates the help text as appropriate for the current app status.
-    fn create_help_text(&self) -> Text {
+    fn create_help_text(&self) -> Vec<Text> {
         // Choose the appropriate help text for the anisotropy toggle.
         let material_variant_help_text = if self.anisotropy_enabled {
             "Press Enter to disable anisotropy"
@@ -283,11 +339,19 @@ impl AppStatus {
             LightMode::EnvironmentMap => "Press Space to switch to a directional light",
         };
 
+        // Choose the appropriate help text for the light toggle.
+        let mesh_help_text = match self.visible_mesh {
+            0 => "Press Q to change to Sphere",
+            1 => "Press Q to change to Barn Lamp",
+            _ => unreachable!("Should never be any other value"),
+        };
+
         // Build the `Text` object.
-        Text(format!(
-            "{}\n{}",
-            material_variant_help_text, light_help_text
-        ))
+        vec![
+            material_variant_help_text.into(),
+            light_help_text.into(),
+            mesh_help_text.into(),
+        ]
     }
 }
 
@@ -296,6 +360,7 @@ impl Default for AppStatus {
         Self {
             light_mode: default(),
             anisotropy_enabled: true,
+            visible_mesh: 0,
         }
     }
 }
