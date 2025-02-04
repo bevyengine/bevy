@@ -9,7 +9,7 @@ use bevy_ecs::{
     archetype::Archetype,
     component::{ComponentId, Tick},
     prelude::{Entity, Resource, World},
-    query::{FilteredAccess, QueryFilter, QueryItem, ReadFetch, WorldQuery},
+    query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -151,12 +151,9 @@ pub struct AssetChangedState<A: AsAssetId> {
 #[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
-    type Item<'w> = ();
     type Fetch<'w> = AssetChangedFetch<'w, A>;
 
     type State = AssetChangedState<A>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(_: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {}
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -227,8 +224,6 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
             }
         }
     }
-
-    unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {}
 
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {

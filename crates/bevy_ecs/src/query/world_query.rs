@@ -1,9 +1,8 @@
 use crate::{
     archetype::Archetype,
     component::{ComponentId, Components, Tick},
-    entity::Entity,
     query::FilteredAccess,
-    storage::{Table, TableRow},
+    storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
@@ -39,18 +38,6 @@ use variadics_please::all_tuples;
 /// [`QueryData`]: crate::query::QueryData
 /// [`QueryFilter`]: crate::query::QueryFilter
 pub unsafe trait WorldQuery {
-    /// The item returned by this [`WorldQuery`]
-    /// For `QueryData` this will be the data retrieved by the query,
-    /// and is visible to the end user when calling e.g. `Query<Self>::get`.
-    ///
-    /// For `QueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
-    /// or a tuple of such things.
-    /// Archetypal query filters (like `With`) set this to `()`,
-    /// as the filtering is done by selecting the archetypes to iterate over via [`WorldQuery::matches_component_set`],
-    /// while non-archetypal query filters (like `Changed`) set this to a `bool` and evaluate the filter for each entity,
-    /// after the set of possible archetypes has been narrowed down.
-    type Item<'a>;
-
     /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](WorldQuery::Item) for each entity.
     type Fetch<'a>: Clone;
 
@@ -58,9 +45,6 @@ pub unsafe trait WorldQuery {
     /// so it is best to move as much data / computation here as possible to reduce the cost of
     /// constructing [`Self::Fetch`](WorldQuery::Fetch).
     type State: Send + Sync + Sized;
-
-    /// This function manually implements subtyping for the query items.
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
 
     /// This function manually implements subtyping for the query fetches.
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
@@ -122,23 +106,6 @@ pub unsafe trait WorldQuery {
     /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
     fn set_access(_state: &mut Self::State, _access: &FilteredAccess<ComponentId>) {}
 
-    /// Fetch [`Self::Item`](`WorldQuery::Item`) for either the given `entity` in the current [`Table`],
-    /// or for the given `entity` in the current [`Archetype`]. This must always be called after
-    /// [`WorldQuery::set_table`] with a `table_row` in the range of the current [`Table`] or after
-    /// [`WorldQuery::set_archetype`]  with an `entity` in the current archetype.
-    /// Accesses components registered in [`WorldQuery::update_component_access`].
-    ///
-    /// # Safety
-    ///
-    /// - Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
-    ///   `table_row` must be in the range of the current table and archetype.
-    /// - There must not be simultaneous conflicting component access registered in `update_component_access`.
-    unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> Self::Item<'w>;
-
     /// Adds any component accesses used by this [`WorldQuery`] to `access`.
     ///
     /// Used to check which queries are disjoint and can run in parallel
@@ -191,15 +158,8 @@ macro_rules! impl_tuple_world_query {
         /// This is sound because `matches_component_set` always returns `false` if any the subqueries' implementations return `false`.
         unsafe impl<$($name: WorldQuery),*> WorldQuery for ($($name,)*) {
             type Fetch<'w> = ($($name::Fetch<'w>,)*);
-            type Item<'w> = ($($name::Item<'w>,)*);
             type State = ($($name::State,)*);
 
-            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-                let ($($name,)*) = item;
-                ($(
-                    $name::shrink($name),
-                )*)
-            }
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
                 let ($($name,)*) = fetch;
@@ -238,16 +198,6 @@ macro_rules! impl_tuple_world_query {
                 $(unsafe { $name::set_table($name, $state, table); })*
             }
 
-            #[inline(always)]
-            unsafe fn fetch<'w>(
-                fetch: &mut Self::Fetch<'w>,
-                entity: Entity,
-                table_row: TableRow
-            ) -> Self::Item<'w> {
-                let ($($name,)*) = fetch;
-                // SAFETY: The invariants are upheld by the caller.
-                ($(unsafe { $name::fetch($name, entity, table_row) },)*)
-            }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($name,)*) = state;
