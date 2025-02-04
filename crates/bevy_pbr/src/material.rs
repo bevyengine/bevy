@@ -278,10 +278,7 @@ where
                 PostUpdate,
                 (
                     mark_meshes_as_changed_if_their_materials_changed::<M>.ambiguous_with_all(),
-                    check_light_entities_needing_specialization::<M>
-                        .after(AssetEvents),
-                    check_entities_needing_specialization::<M>
-                        .after(AssetEvents)
+                    check_entities_needing_specialization::<M>.after(AssetEvents),
                 )
                     .after(mark_3d_meshes_as_changed_if_their_assets_changed),
             );
@@ -289,7 +286,8 @@ where
         if self.shadows_enabled {
             app.add_systems(
                 PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEvents),
+                check_light_entities_needing_specialization::<M>
+                    .after(check_entities_needing_specialization::<M>),
             );
         }
 
