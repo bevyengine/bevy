@@ -307,6 +307,21 @@ impl ObserverDescriptor {
             .extend(descriptor.components.iter().copied());
         self.entities.extend(descriptor.entities.iter().copied());
     }
+
+    /// Returns the `events` that the observer is watching.
+    pub fn events(&self) -> &[ComponentId] {
+        &self.events
+    }
+
+    /// Returns the `components` that the observer is watching.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
+    }
+
+    /// Returns the `entities` that the observer is watching.
+    pub fn entities(&self) -> &[Entity] {
+        &self.entities
+    }
 }
 
 /// Event trigger metadata for a given [`Observer`],

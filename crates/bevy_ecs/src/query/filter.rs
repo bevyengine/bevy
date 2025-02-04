@@ -86,6 +86,8 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
+    ///
+    /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
@@ -93,6 +95,9 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
+    ///
+    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// or call [`WorldQuery::fetch`] to access the raw data needed to make the final decision on filter inclusion.
     ///
     /// # Safety
     ///
@@ -426,7 +431,7 @@ macro_rules! impl_or_query_filter {
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
-                    // SAFETY: The invariants are uphold by the caller.
+                    // SAFETY: The invariants are upheld by the caller.
                     fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
                     matches: false,
                 },)*)
@@ -439,7 +444,7 @@ macro_rules! impl_or_query_filter {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
-                        // SAFETY: The invariants are uphold by the caller.
+                        // SAFETY: The invariants are upheld by the caller.
                         unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
                     }
                 )*
@@ -457,7 +462,7 @@ macro_rules! impl_or_query_filter {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
-                        // SAFETY: The invariants are uphold by the caller.
+                        // SAFETY: The invariants are upheld by the caller.
                        unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
                     }
                 )*
@@ -470,7 +475,7 @@ macro_rules! impl_or_query_filter {
                 table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
             }
 
@@ -521,7 +526,7 @@ macro_rules! impl_or_query_filter {
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 unsafe { Self::fetch(fetch, entity, table_row) }
             }
         }
@@ -554,7 +559,7 @@ macro_rules! impl_tuple_query_filter {
                 table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }
         }
@@ -805,7 +810,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         unsafe { Self::fetch(fetch, entity, table_row) }
     }
 }
@@ -1039,7 +1044,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         unsafe { Self::fetch(fetch, entity, table_row) }
     }
 }
