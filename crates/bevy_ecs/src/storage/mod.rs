@@ -37,6 +37,7 @@ use crate::component::{ComponentInfo, StorageType};
 #[derive(Default)]
 pub struct Storages {
     /// Backing storage for [`SparseSet`] components.
+    /// Note that sparse sets are only present for components that have been spawned or have had a relevant bundle registered.
     pub sparse_sets: SparseSets,
     /// Backing storage for [`Table`] components.
     pub tables: Tables,
