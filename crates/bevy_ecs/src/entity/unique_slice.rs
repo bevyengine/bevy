@@ -16,12 +16,12 @@ use alloc::{
     collections::VecDeque,
     rc::Rc,
     sync::Arc,
-    vec::{self, Vec},
+    vec::Vec,
 };
 
 use super::{
-    EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
-    UniqueEntityVec,
+    unique_vec, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow,
+    UniqueEntityIter, UniqueEntityVec,
 };
 
 /// A slice that contains only unique entities.
@@ -514,7 +514,7 @@ impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a Box<UniqueEntitySlice<T>> 
 impl<T: TrustedEntityBorrow> IntoIterator for Box<UniqueEntitySlice<T>> {
     type Item = T;
 
-    type IntoIter = UniqueEntityIter<vec::IntoIter<T>>;
+    type IntoIter = unique_vec::IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.into_vec().into_iter()
