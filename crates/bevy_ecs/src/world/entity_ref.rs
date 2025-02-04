@@ -1959,7 +1959,7 @@ impl<'w> EntityWorldMut<'w> {
                         .sparse_sets
                         .get_mut(component_id)
                         // Set exists because the component existed on the entity
-                        .unwrap() 
+                        .unwrap()
                         .remove(entity);
                 }
             }
