@@ -1091,7 +1091,7 @@ pub struct ReadFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::Table
         Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
         // T::STORAGE_TYPE = StorageType::SparseSet
-        &'w ComponentSparseSet,
+        Option<&'w ComponentSparseSet>,
     >,
 }
 
@@ -1130,13 +1130,7 @@ unsafe impl<T: Component> WorldQuery for &T {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    unsafe {
-                        world
-                            .storages()
-                            .sparse_sets
-                            .get(component_id)
-                            .debug_checked_unwrap()
-                    }
+                    unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
         }
@@ -1233,7 +1227,12 @@ unsafe impl<T: Component> QueryData for &T {
             },
             |sparse_set| {
                 // SAFETY: Caller ensures `entity` is in range.
-                let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
+                let item = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get(entity)
+                        .debug_checked_unwrap()
+                };
                 item.deref()
             },
         )
@@ -1255,7 +1254,8 @@ pub struct RefFetch<'w, T: Component> {
             MaybeThinSlicePtrLocation<'w>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
-        &'w ComponentSparseSet,
+        // Can be `None` when the component has never been inserted
+        Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -1296,13 +1296,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    unsafe {
-                        world
-                            .storages()
-                            .sparse_sets
-                            .get(component_id)
-                            .debug_checked_unwrap()
-                    }
+                    unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
             last_run,
@@ -1424,9 +1418,13 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 }
             },
             |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let (component, ticks, _caller) =
-                    unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
+                // SAFETY: The caller ensures `entity` is in range and has the component.
+                let (component, ticks, _caller) = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_with_ticks(entity)
+                        .debug_checked_unwrap()
+                };
 
                 Ref {
                     value: component.deref(),
@@ -1454,7 +1452,8 @@ pub struct WriteFetch<'w, T: Component> {
             MaybeThinSlicePtrLocation<'w>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
-        &'w ComponentSparseSet,
+        // Can be `None` when the component has never been inserted
+        Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -1495,13 +1494,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components in `Self::fetch`.
-                    unsafe {
-                        world
-                            .storages()
-                            .sparse_sets
-                            .get(component_id)
-                            .debug_checked_unwrap()
-                    }
+                    unsafe { world.storages().sparse_sets.get(component_id) }
                 },
             ),
             last_run,
@@ -1623,9 +1616,13 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 }
             },
             |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let (component, ticks, _caller) =
-                    unsafe { sparse_set.get_with_ticks(entity).debug_checked_unwrap() };
+                // SAFETY: The caller ensures `entity` is in range and has the component.
+                let (component, ticks, _caller) = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_with_ticks(entity)
+                        .debug_checked_unwrap()
+                };
 
                 Mut {
                     value: component.assert_unique().deref_mut(),
