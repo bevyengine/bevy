@@ -627,6 +627,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a [`QueryCombinationIter`] over all combinations of `K` query items without repetition.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// This iterator is always guaranteed to return results from each unique pair of matching entities.
     /// Iteration order is not guaranteed.
@@ -749,6 +750,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns an iterator over the query items generated from an [`Entity`] list.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// Items are returned in the order of the list of entities, and may not be unique if the input
     /// doesn't guarantee uniqueness. Entities that don't match the query are skipped.
@@ -1044,6 +1046,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a parallel iterator over the query results for the given [`World`](crate::world::World).
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// This parallel iterator is always guaranteed to return results from each matching entity once and
     /// only once.  Iteration order and thread assignment is not guaranteed.
@@ -1219,7 +1222,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.reborrow().get_inner(entity)
     }
 
-    /// Returns the query item for the given [`Entity`], with the actual "inner" world lifetime, by consuming the [`Query`].
+    /// Returns the query item for the given [`Entity`].
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
     ///
@@ -1256,6 +1260,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns the query items for the given array of [`Entity`].
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// The returned query items are in the same order as the input.
     /// In case of a nonexisting entity, duplicate entities or mismatched component, a [`QueryEntityError`] is returned instead.
@@ -1482,6 +1487,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
     ///
@@ -1505,7 +1511,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_single`](Self::get_single) to get the read-only query item.
-    /// - [`get_single_mut`](Self::get_single_mut) to get items using a mutable reference.
+    /// - [`get_single_mut`](Self::get_single_mut) to get the mutable query item.
     #[inline]
     pub fn get_single_inner(self) -> Result<D::Item<'w>, QuerySingleError> {
         // SAFETY:
@@ -1751,6 +1757,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a [`QueryLens`] that can be used to get a query with a more general fetch.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// For example, this can transform a `Query<(&A, &mut B)>` to a `Query<&B>`.
     /// This can be useful for passing the query to another function. Note that since
@@ -1837,6 +1844,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Equivalent to [`Self::transmute_lens_inner`] but also includes a [`QueryFilter`] type.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// Note that the lens will iterate the same tables and archetypes as the original query. This means that
     /// additional archetypal query terms like [`With`](crate::query::With) and [`Without`](crate::query::Without)
@@ -1935,6 +1943,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Returns a [`QueryLens`] that can be used to get a query with the combined fetch.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// For example, this can take a `Query<&A>` and a `Query<&B>` and return a `Query<(&A, &B)>`.
     /// The returned query will only return items with both `A` and `B`. Note that since filters
@@ -1980,6 +1989,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 
     /// Equivalent to [`Self::join_inner`] but also includes a [`QueryFilter`] type.
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
     /// Note that the lens with iterate a subset of the original queries' tables
     /// and archetypes. This means that additional archetypal query terms like
@@ -2018,7 +2028,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY:
         // - `self.world` has permission to access the required components.
-        // - The query is read-only, so it can be aliased even if it was originally mutable.
+        // - We consume the query, so mutable queries cannot alias.
+        //   Read-only queries are `Copy`, but may alias themselves.
         unsafe {
             self.state
                 .iter_unchecked_manual(self.world, self.last_run, self.this_run)

@@ -320,7 +320,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
     ///
-    /// This can only be called for read-only queries, see [`Self::query_mut`] for write-queries.
+    /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
     pub fn query<'w, 's>(&'s mut self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
         self.update_archetypes(world);
         self.query_manual(world)
@@ -333,10 +333,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// belongs to an archetype that has not been cached.
     ///
     /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
-    /// The cache is also updated in [`QueryState::new`], `QueryState::get`, or any method with mutable
+    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
     /// access to `self`.
     ///
-    /// This can only be called for read-only queries, see [`Self::query_mut`] for mutable queries.
+    /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
     pub fn query_manual<'w, 's>(&'s self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
         // SAFETY: We have read access to the entire world, and we call `as_readonly()` so the query only performs read access.
         unsafe {
@@ -364,7 +364,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: UnsafeWorldCell<'w>,
     ) -> Query<'w, 's, D, F> {
         self.update_archetypes_unsafe_world_cell(world);
-        self.query_unchecked_manual(world)
+        // SAFETY: Caller ensures we have the required access
+        unsafe { self.query_unchecked_manual(world) }
     }
 
     /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
@@ -374,7 +375,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// belongs to an archetype that has not been cached.
     ///
     /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
-    /// The cache is also updated in [`QueryState::new`], `QueryState::get`, or any method with mutable
+    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
     /// access to `self`.
     ///
     /// # Safety
@@ -415,7 +416,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// belongs to an archetype that has not been cached.
     ///
     /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
-    /// The cache is also updated in [`QueryState::new`], `QueryState::get`, or any method with mutable
+    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
     /// access to `self`.
     ///
     /// # Safety
