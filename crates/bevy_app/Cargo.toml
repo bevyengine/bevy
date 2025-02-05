@@ -74,6 +74,7 @@ portable-atomic = [
 web = [
   "bevy_platform_support/web",
   "bevy_tasks?/web",
+  "bevy_reflect?/web",
   "dep:wasm-bindgen",
   "dep:web-sys",
   "dep:console_error_panic_hook",

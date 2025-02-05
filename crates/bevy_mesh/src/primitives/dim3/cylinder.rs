@@ -1,9 +1,11 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{ops, primitives::Cylinder};
+use bevy_reflect::prelude::*;
 
 /// Anchoring options for [`CylinderMeshBuilder`]
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, Reflect)]
+#[reflect(Default, Debug)]
 pub enum CylinderAnchor {
     #[default]
     /// Midpoint between the top and bottom caps of the cylinder
@@ -15,7 +17,8 @@ pub enum CylinderAnchor {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`Cylinder`] shape.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct CylinderMeshBuilder {
     /// The [`Cylinder`] shape.
     pub cylinder: Cylinder,

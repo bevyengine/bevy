@@ -327,6 +327,9 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features 
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "web",
 ] }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
 
 [lints]
 workspace = true

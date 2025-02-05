@@ -48,7 +48,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    view::{NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::TypeIdMap;
@@ -100,7 +100,7 @@ pub struct GpuMeshPreprocessPlugin {
 pub struct EarlyGpuPreprocessNode {
     view_query: QueryState<
         (
-            Entity,
+            Read<ExtractedView>,
             Option<Read<PreprocessBindGroups>>,
             Option<Read<ViewUniformOffset>>,
             Has<NoIndirectDrawing>,
@@ -120,7 +120,11 @@ pub struct EarlyGpuPreprocessNode {
 /// metadata for the subsequent [`LatePrepassBuildIndirectParametersNode`].
 pub struct LateGpuPreprocessNode {
     view_query: QueryState<
-        (Entity, Read<PreprocessBindGroups>, Read<ViewUniformOffset>),
+        (
+            Read<ExtractedView>,
+            Read<PreprocessBindGroups>,
+            Read<ViewUniformOffset>,
+        ),
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
@@ -580,7 +584,8 @@ impl Node for EarlyGpuPreprocessNode {
             };
 
             // Grab the work item buffers for this view.
-            let Some(phase_work_item_buffers) = index_buffers.get(&view) else {
+            let Some(phase_work_item_buffers) = index_buffers.get(&view.retained_view_entity)
+            else {
                 warn!("The preprocessing index buffer wasn't present");
                 continue;
             };
@@ -791,7 +796,8 @@ impl Node for LateGpuPreprocessNode {
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
             // Grab the work item buffers for this view.
-            let Some(phase_work_item_buffers) = work_item_buffers.get(&view) else {
+            let Some(phase_work_item_buffers) = work_item_buffers.get(&view.retained_view_entity)
+            else {
                 warn!("The preprocessing index buffer wasn't present");
                 continue;
             };
@@ -1619,6 +1625,7 @@ impl BuildIndirectParametersPipeline {
 )]
 pub fn prepare_preprocess_bind_groups(
     mut commands: Commands,
+    views: Query<(Entity, &ExtractedView)>,
     view_depth_pyramids: Query<(&ViewDepthPyramid, &PreviousViewUniformOffset)>,
     render_device: Res<RenderDevice>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
@@ -1651,14 +1658,19 @@ pub fn prepare_preprocess_bind_groups(
     let mut any_indirect = false;
 
     // Loop over each view.
-    for (view, phase_work_item_buffers) in work_item_buffers {
+    for (view_entity, view) in &views {
+        let Some(phase_work_item_buffers) = work_item_buffers.get(&view.retained_view_entity)
+        else {
+            continue;
+        };
+
         let mut bind_groups = TypeIdMap::default();
 
         // Loop over each phase.
         for (&phase_id, work_item_buffers) in phase_work_item_buffers {
             // Create the `PreprocessBindGroupBuilder`.
             let preprocess_bind_group_builder = PreprocessBindGroupBuilder {
-                view: *view,
+                view: view_entity,
                 late_indexed_indirect_parameters_buffer,
                 late_non_indexed_indirect_parameters_buffer,
                 render_device: &render_device,
@@ -1719,7 +1731,7 @@ pub fn prepare_preprocess_bind_groups(
 
         // Save the bind groups.
         commands
-            .entity(*view)
+            .entity(view_entity)
             .insert(PreprocessBindGroups(bind_groups));
     }
 

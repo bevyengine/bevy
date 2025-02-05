@@ -86,10 +86,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         match field_kind {
             BundleFieldKind::Component => {
                 field_component_ids.push(quote! {
-                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, &mut *ids);
                 });
                 field_required_components.push(quote! {
-                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, storages, required_components);
+                    <#field_type as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);
                 });
                 field_get_component_ids.push(quote! {
                     <#field_type as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);
@@ -134,7 +134,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
-                storages: &mut #ecs_path::storage::Storages,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ){
                 #(#field_component_ids)*
@@ -159,7 +158,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
             fn register_required_components(
                 components: &mut #ecs_path::component::Components,
-                storages: &mut #ecs_path::storage::Storages,
                 required_components: &mut #ecs_path::component::RequiredComponents
             ){
                 #(#field_required_components)*

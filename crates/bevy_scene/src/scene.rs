@@ -1,7 +1,10 @@
+use core::any::TypeId;
+
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
+    entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
     world::World,
 };
@@ -59,8 +62,16 @@ impl Scene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
+        let self_dqf_id = self
+            .world
+            .components()
+            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+
         // Resources archetype
         for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if Some(component_id) == self_dqf_id {
+                continue;
+            }
             if !resource_data.is_present() {
                 continue;
             }
