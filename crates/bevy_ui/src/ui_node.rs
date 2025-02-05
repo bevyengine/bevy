@@ -323,6 +323,9 @@ impl From<Vec2> for ScrollPosition {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ComputedNodeTargetSize,
+    ComputedNodeScaleFactor,
+    ComputedNodeTargetCamera,
     BackgroundColor,
     BorderColor,
     BorderRadius,
@@ -331,10 +334,7 @@ impl From<Vec2> for ScrollPosition {
     Transform,
     Visibility,
     VisibilityClass,
-    ZIndex,
-    ComputedNodeTargetSize,
-    ComputedNodeScaleFactor,
-    ComputedNodeTargetCamera
+    ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
