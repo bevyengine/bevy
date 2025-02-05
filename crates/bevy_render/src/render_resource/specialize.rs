@@ -198,7 +198,7 @@ pub struct Specializer<T: Specializable, S: Specialize<T>> {
     specializer: S,
     user_specializer: Option<SpecializeFn<T, S>>,
     base_descriptor: T::Descriptor,
-    pipelines: HashMap<S::Key, T::CachedId>,
+    specialized: HashMap<S::Key, T::CachedId>,
 }
 
 impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
@@ -215,13 +215,13 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
             specializer,
             user_specializer,
             base_descriptor,
-            pipelines: Default::default(),
+            specialized: Default::default(),
         }
     }
 
     /// Specializes a resource given the [`Specialize`] implementation's key type.
     pub fn specialize(&mut self, pipeline_cache: &PipelineCache, key: S::Key) -> T::CachedId {
-        self.pipelines
+        self.specialized
             .entry(key.clone())
             .or_insert_with(|| {
                 let mut descriptor = self.base_descriptor.clone();
@@ -239,7 +239,11 @@ impl<T: Specializable, S: Specialize<T>> Specializer<T, S> {
 /// that also satisfy [`FromWorld`] and [`HasBaseDescriptor`]. This will create
 /// a [`Specializer`] with no user specializer, and the base descriptor taken
 /// from the [`Specialize`] implementation.
-impl<T: Specializable, S: FromWorld + HasBaseDescriptor<T>> FromWorld for Specializer<T, S> {
+impl<T, S> FromWorld for Specializer<T, S>
+where
+    T: Specializable,
+    S: FromWorld + Specialize<T> + HasBaseDescriptor<T>,
+{
     fn from_world(world: &mut World) -> Self {
         let specializer = S::from_world(world);
         let base_descriptor = specializer.base_descriptor();
