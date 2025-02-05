@@ -3955,6 +3955,19 @@ wasm = true
 required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
+name = "text_picking"
+path = "examples/picking/text_picking.rs"
+doc-scrape-examples = true
+required-features = ["bevy_ui_picking_backend"]
+
+[package.metadata.example.text_picking]
+name = "Text Picking"
+description = "Demonstrates picking text"
+category = "Picking"
+wasm = true
+required-features = ["bevy_ui_picking_backend"]
+
+[[example]]
 name = "debug_picking"
 path = "examples/picking/debug_picking.rs"
 doc-scrape-examples = true
