@@ -332,9 +332,9 @@ impl From<Vec2> for ScrollPosition {
     Visibility,
     VisibilityClass,
     ZIndex,
-    ResolvedUiTargetSize,
-    ResolvedUiScale,
-    ResolvedUiTargetCamera
+    ComputedNodeTargetSize,
+    ComputedNodeScaleFactor,
+    ComputedNodeTargetCamera
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
