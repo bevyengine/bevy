@@ -1134,6 +1134,7 @@ pub fn extract_cameras(
                     })
                     .collect(),
             };
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
