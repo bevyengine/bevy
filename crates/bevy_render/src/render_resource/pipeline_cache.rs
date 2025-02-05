@@ -12,13 +12,15 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
+use bevy_reflect::GetPath;
 use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
+use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 #[cfg(feature = "shader_format_spirv")]
 use wgpu::util::make_spirv;
 use wgpu::{
@@ -127,6 +129,7 @@ struct ShaderData {
 
 struct ShaderCache {
     data: HashMap<AssetId<Shader>, ShaderData>,
+    asset_paths: HashMap<PathBuf, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
@@ -179,6 +182,7 @@ impl ShaderCache {
         Self {
             composer,
             data: Default::default(),
+            asset_paths: Default::default(),
             shaders: Default::default(),
             import_path_shaders: Default::default(),
             waiting_on_import: Default::default(),
@@ -223,6 +227,32 @@ impl ShaderCache {
             .shaders
             .get(&id)
             .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
+
+        // Lifetime hacks to work around
+        let wesl_source: Option<ShaderSource> = if let Source::Wesl(_) = shader.source {
+            #[cfg(feature = "shader_format_wesl")]
+            {
+                let resource = wesl::Resource::new("/".to_owned() + &shader.path);
+                let compiled = wesl::compile(
+                    &resource,
+                    self,
+                    &wesl::EscapeMangler::default(),
+                    &wesl::CompileOptions::default(),
+                )
+                .unwrap();
+
+                info!("compiled shader {:?}", compiled.to_string());
+                let naga = naga::front::wgsl::parse_str(&compiled.to_string()).unwrap();
+                Some(ShaderSource::Naga(Cow::Owned(naga)))
+            }
+            #[cfg(not(feature = "shader_format_wesl"))]
+            {
+                None
+            }
+        } else {
+            None
+        };
+
         let data = self.data.entry(id).or_default();
         let n_asset_imports = shader
             .imports()
@@ -267,6 +297,8 @@ impl ShaderCache {
                 let shader_source = match &shader.source {
                     #[cfg(feature = "shader_format_spirv")]
                     Source::SpirV(data) => make_spirv(data),
+                    #[cfg(feature = "shader_format_wesl")]
+                    Source::Wesl(_) => wesl_source.unwrap(),
                     #[cfg(not(feature = "shader_format_spirv"))]
                     Source::SpirV(_) => {
                         unimplemented!(
@@ -398,6 +430,11 @@ impl ShaderCache {
             }
         }
 
+        if let Source::Wesl(_) = shader.source {
+            info!("Setting shader {:?}", wesl::clean_path(shader.path.clone()));
+            self.asset_paths
+                .insert(wesl::clean_path("/".to_owned() + &shader.path.clone()), id);
+        }
         self.shaders.insert(id, shader);
         pipelines_to_queue
     }
@@ -409,6 +446,29 @@ impl ShaderCache {
         }
 
         pipelines_to_queue
+    }
+}
+
+pub struct ShaderResolver<'a> {
+    asset_paths: &'a HashMap<PathBuf, AssetId<Shader>>,
+    shaders: &'a HashMap<AssetId<Shader>, Shader>,
+}
+
+#[cfg(feature = "shader_format_wesl")]
+impl wesl::Resolver for ShaderResolver {
+    fn resolve_source(&self, resource: &wesl::Resource) -> Result<Cow<str>, wesl::ResolveError> {
+        let asset_id = self
+            .asset_paths
+            .get(&resource.path().to_path_buf())
+            .ok_or_else(|| {
+                wesl::ResolveError::FileNotFound(
+                    resource.path().to_path_buf(),
+                    "Invalid asset id".to_string(),
+                )
+            })?;
+
+        let shader = self.shaders.get(asset_id).unwrap();
+        Ok(Cow::Borrowed(shader.source.as_str()))
     }
 }
 
