@@ -136,6 +136,7 @@ mod tests {
         change_detection::Ref,
         component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
+        entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
         resource::Resource,
@@ -230,13 +231,9 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <FooBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -284,13 +281,9 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <NestedBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -340,13 +333,9 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <BundleWithIgnored as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -1532,6 +1521,8 @@ mod tests {
     #[test]
     fn filtered_query_access() {
         let mut world = World::new();
+        // We remove entity disabling so it doesn't affect our query filters
+        world.remove_resource::<DefaultQueryFilters>();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
@@ -2660,6 +2651,16 @@ mod tests {
         #[derive(Component, Default)]
         #[require(B)]
         struct C;
+
+        World::new().register_component::<A>();
+    }
+
+    #[test]
+    #[should_panic = "Recursive required components detected: A → A\nhelp: Remove require(A)."]
+    fn required_components_self_errors() {
+        #[derive(Component, Default)]
+        #[require(A)]
+        struct A;
 
         World::new().register_component::<A>();
     }
