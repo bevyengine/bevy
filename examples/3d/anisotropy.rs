@@ -1,7 +1,13 @@
 //! Demonstrates anisotropy with the glTF sample barn lamp model.
 
+use std::fmt::Display;
+
 use bevy::{
-    color::palettes::css::WHITE, core_pipeline::Skybox, math::vec3, prelude::*, time::Stopwatch,
+    color::palettes::{self, css::WHITE},
+    core_pipeline::Skybox,
+    math::vec3,
+    prelude::*,
+    time::Stopwatch,
 };
 
 /// The initial position of the camera.
@@ -14,6 +20,8 @@ struct AppStatus {
     light_mode: LightMode,
     /// Whether anisotropy is enabled.
     anisotropy_enabled: bool,
+    /// Which mesh is visible
+    visible_scene: Scene,
 }
 
 /// Which type of light we're using: a directional light, a point light, or an
@@ -41,6 +49,32 @@ struct MaterialVariants {
     anisotropic: Handle<StandardMaterial>,
     /// The version of the material with anisotropy removed.
     isotropic: Handle<StandardMaterial>,
+}
+
+#[derive(Default, Clone, Copy, PartialEq, Eq, Component)]
+enum Scene {
+    #[default]
+    BarnLamp,
+    Sphere,
+}
+
+impl Scene {
+    fn next(&self) -> Self {
+        match self {
+            Self::BarnLamp => Self::Sphere,
+            Self::Sphere => Self::BarnLamp,
+        }
+    }
+}
+
+impl Display for Scene {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let scene_name = match self {
+            Self::BarnLamp => "Barn Lamp",
+            Self::Sphere => "Sphere",
+        };
+        write!(f, "{scene_name}")
+    }
 }
 
 /// The application entry point.
@@ -74,6 +108,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
     commands.spawn((
         SceneRoot(asset_server.load("models/AnisotropyBarnLamp/AnisotropyBarnLamp.gltf#Scene0")),
         Transform::from_xyz(0.0, 0.07, -0.13),
+        Scene::BarnLamp,
+    ));
+
+    commands.spawn((
+        Mesh3d(
+            asset_server.add(
+                Mesh::from(Sphere::new(0.1))
+                    .with_generated_tangents()
+                    .unwrap(),
+            ),
+        ),
+        MeshMaterial3d(asset_server.add(StandardMaterial {
+            base_color: palettes::tailwind::GRAY_300.into(),
+            anisotropy_rotation: 0.5,
+            anisotropy_strength: 1.,
+            ..default()
+        })),
+        Scene::Sphere,
+        Visibility::Hidden,
     ));
 
     spawn_text(&mut commands, &app_status);
@@ -162,6 +215,7 @@ fn handle_input(
     cameras: Query<Entity, With<Camera>>,
     lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>)>>,
     mut meshes: Query<(&mut MeshMaterial3d<StandardMaterial>, &MaterialVariants)>,
+    mut scenes: Query<(&mut Visibility, &Scene)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
 ) {
@@ -216,6 +270,18 @@ fn handle_input(
             } else {
                 material_variants.isotropic.clone()
             }
+        }
+    }
+
+    if keyboard.just_pressed(KeyCode::KeyQ) {
+        app_status.visible_scene = app_status.visible_scene.next();
+        for (mut visibility, scene) in scenes.iter_mut() {
+            let new_vis = if *scene == app_status.visible_scene {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            *visibility = new_vis;
         }
     }
 }
@@ -283,11 +349,15 @@ impl AppStatus {
             LightMode::EnvironmentMap => "Press Space to switch to a directional light",
         };
 
+        // Choose the appropriate help text for the scene selector.
+        let mesh_help_text = format!("Press Q to change to {}", self.visible_scene.next());
+
         // Build the `Text` object.
-        Text(format!(
-            "{}\n{}",
-            material_variant_help_text, light_help_text
-        ))
+        format!(
+            "{}\n{}\n{}",
+            material_variant_help_text, light_help_text, mesh_help_text,
+        )
+        .into()
     }
 }
 
@@ -296,6 +366,7 @@ impl Default for AppStatus {
         Self {
             light_mode: default(),
             anisotropy_enabled: true,
+            visible_scene: default(),
         }
     }
 }
