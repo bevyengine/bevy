@@ -501,6 +501,24 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
     }
 }
 
+/// Creates a weak [`Handle`] from a string literal containing a UUID.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_asset::{Handle, weak_handle};
+/// # type Shader = ();
+/// const SHADER: Handle<Shader> = weak_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
+/// ```
+#[macro_export]
+macro_rules! weak_handle {
+    ($uuid:expr) => {{
+        $crate::Handle::Weak($crate::AssetId::Uuid {
+            uuid: $crate::uuid::uuid!($uuid),
+        })
+    }};
+}
+
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
 #[derive(Error, Debug, PartialEq, Clone)]
 #[non_exhaustive]
