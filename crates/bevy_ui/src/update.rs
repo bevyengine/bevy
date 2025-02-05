@@ -228,7 +228,9 @@ fn update_contexts_recursively(
     )>,
     visited: &mut EntityHashSet,
 ) {
-    visited.insert(entity);
+    if !visited.insert(entity) {
+        return;
+    }
     if query
         .get_mut(entity)
         .map(
