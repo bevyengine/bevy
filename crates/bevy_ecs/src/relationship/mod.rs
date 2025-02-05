@@ -83,6 +83,7 @@ pub trait Relationship: Component + Sized {
                 core::any::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
+            return;
         }
         if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
             if let Some(mut relationship_target) =
@@ -275,5 +276,40 @@ mod tests {
         let b = world.spawn(Likes(a)).id();
         let c = world.spawn(Likes(a)).id();
         assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+    }
+
+    #[test]
+    fn self_relationship_fails() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.entity_mut(a).insert(Rel(a));
+        assert!(!world.entity(a).contains::<Rel>());
+        assert!(!world.entity(a).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn relationship_with_missing_target_fails() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.despawn(a);
+        let b = world.spawn(Rel(a)).id();
+        assert!(!world.entity(b).contains::<Rel>());
+        assert!(!world.entity(b).contains::<RelTarget>());
     }
 }
