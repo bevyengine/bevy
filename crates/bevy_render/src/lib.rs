@@ -295,11 +295,17 @@ impl Plugin for RenderPlugin {
                         .cloned();
                     let settings = render_creation.clone();
                     let async_renderer = async move {
-                        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
                             backends,
-                            dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
                             flags: settings.instance_flags,
-                            gles_minor_version: settings.gles3_minor_version,
+                            backend_options: wgpu::BackendOptions {
+                                gl: wgpu::GlBackendOptions {
+                                    gles_minor_version: settings.gles3_minor_version,
+                                },
+                                dx12: wgpu::Dx12BackendOptions {
+                                    shader_compiler: settings.dx12_shader_compiler.clone(),
+                                },
+                            },
                         });
 
                         let surface = primary_window.and_then(|wrapper| {

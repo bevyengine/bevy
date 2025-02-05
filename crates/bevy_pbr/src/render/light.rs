@@ -1078,6 +1078,7 @@ pub fn prepare_lights(
                     all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                 ))]
                 dimension: Some(TextureViewDimension::Cube),
+                usage: None,
                 aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
                 mip_level_count: None,
@@ -1121,6 +1122,7 @@ pub fn prepare_lights(
                 dimension: Some(TextureViewDimension::D2Array),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 dimension: Some(TextureViewDimension::D2),
+                usage: None,
                 aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
                 mip_level_count: None,
@@ -1243,6 +1245,7 @@ pub fn prepare_lights(
                                     label: Some("point_light_shadow_map_texture_view"),
                                     format: None,
                                     dimension: Some(TextureViewDimension::D2),
+                                    usage: None,
                                     aspect: TextureAspect::All,
                                     base_mip_level: 0,
                                     mip_level_count: None,
@@ -1344,6 +1347,7 @@ pub fn prepare_lights(
                             label: Some("spot_light_shadow_map_texture_view"),
                             format: None,
                             dimension: Some(TextureViewDimension::D2),
+                            usage: None,
                             aspect: TextureAspect::All,
                             base_mip_level: 0,
                             mip_level_count: None,
@@ -1477,6 +1481,7 @@ pub fn prepare_lights(
                             label: Some("directional_light_shadow_map_array_texture_view"),
                             format: None,
                             dimension: Some(TextureViewDimension::D2),
+                            usage: None,
                             aspect: TextureAspect::All,
                             base_mip_level: 0,
                             mip_level_count: None,
