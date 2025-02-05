@@ -124,12 +124,16 @@ impl ImageNode {
     /// texture atlases.
     /// The following example setup function demonstrates this use.
     /// ```rust
-    /// use bevy::prelude::*;
+    /// use bevy_asset::{Asset,AssetServer};
+    /// use bevy_ecs::prelude::{Commands,Res,ResMut};
+    /// use bevy_image::TextureAtlasLayout;
+    /// use bevy_math::UVec2;
+    /// use bevy_ui::Node;
+    /// use bevy_ui::prelude::Display;
     /// fn setup(
     ///   mut commands: Commands,
     ///   asset_server: Res<AssetServer>,
     ///   mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
-    ///   mut ui_scale : ResMut<UiScale>,
     /// ) {
     ///   let texture = asset_server.load("textures/array_texture.png");
     ///   let layout = TextureAtlasLayout::from_grid(UVec2::splat(250), 1, 3, None, None);
