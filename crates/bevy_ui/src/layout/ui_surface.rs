@@ -347,10 +347,6 @@ mod tests {
         assert_eq!(ui_surface.taffy.total_node_count(), 2);
     }
 
-    #[expect(
-        unreachable_code,
-        reason = "Certain pieces of code tested here cause the test to fail if made reachable; see #16362 for progress on fixing this"
-    )]
     #[test]
     fn test_remove_entities() {
         let mut ui_surface = UiSurface::default();
@@ -365,8 +361,6 @@ mod tests {
 
         ui_surface.remove_entities([root_node_entity]);
         assert!(!ui_surface.entity_to_taffy.contains_key(&root_node_entity));
-
-        return; // TODO: can't pass the test if we continue - not implemented (remove allow(unreachable_code))
     }
 
     #[test]
@@ -457,7 +451,7 @@ mod tests {
             "expected root node child count to be 1"
         );
 
-        // re-associate root node with camera
+        // re-associate root node with viewport node
         ui_surface.get_or_insert_taffy_viewport_node(root_node_entity);
 
         let child_taffy = ui_surface.entity_to_taffy.get(&child_entity).unwrap();
