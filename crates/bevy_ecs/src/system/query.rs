@@ -2097,7 +2097,21 @@ pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = ()> {
 
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     /// Create a [`Query`] from the underlying [`QueryState`].
-    pub fn query(&mut self) -> Query<'w, '_, Q, F> {
+    pub fn query(&mut self) -> Query<'_, '_, Q, F> {
+        Query {
+            world: self.world,
+            state: &self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
+    }
+}
+
+impl<'w, Q: ReadOnlyQueryData, F: QueryFilter> QueryLens<'w, Q, F> {
+    /// Create a [`Query`] from the underlying [`QueryState`].
+    /// This returns results with the actual "inner" world lifetime,
+    /// so it may only be used with read-only queries to prevent mutable aliasing.
+    pub fn query_inner(&self) -> Query<'w, '_, Q, F> {
         Query {
             world: self.world,
             state: &self.state,
@@ -2108,9 +2122,9 @@ impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
 }
 
 impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
-    for Query<'w, 's, Q, F>
+    for Query<'s, 's, Q, F>
 {
-    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'w, 's, Q, F> {
+    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'s, 's, Q, F> {
         value.query()
     }
 }
