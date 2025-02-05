@@ -1,7 +1,5 @@
 //! Provides an abstracted system for staging modifications attomically.
 
-use core::ops::{Deref, DerefMut};
-
 use bevy_platform_support::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
@@ -50,15 +48,6 @@ pub enum MaybeStaged<C, S> {
     Cold(C),
     /// There is staging necessary.
     Staged(S),
-}
-
-/// A general purpose enum for representing data that may or may not need to be locked.
-/// This is very useful when synchronizing staging.
-pub enum MaybeLocked<L, F> {
-    /// There is a lock held
-    Locked(L),
-    /// There is no lock held
-    Free(F),
 }
 
 /// A struct that allows read-optimized operations while still allowing mutation.
@@ -249,26 +238,6 @@ impl<T: StagedChanges> StagedRefLocked<'_, T> {
         StagedRef {
             cold: &self.cold,
             staged: &self.staged,
-        }
-    }
-}
-
-impl<L: Deref<Target = F>, F> Deref for MaybeLocked<L, F> {
-    type Target = F;
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            MaybeLocked::Locked(v) => v,
-            MaybeLocked::Free(v) => v,
-        }
-    }
-}
-
-impl<L: Deref<Target = F> + DerefMut, F> DerefMut for MaybeLocked<L, F> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        match self {
-            MaybeLocked::Locked(v) => v,
-            MaybeLocked::Free(v) => v,
         }
     }
 }
