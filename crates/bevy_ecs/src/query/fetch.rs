@@ -280,15 +280,8 @@ pub unsafe trait QueryData: WorldQuery {
     type ReadOnly: ReadOnlyQueryData<State = <Self as WorldQuery>::State>;
 
     /// The item returned by this [`WorldQuery`]
-    /// For `QueryData` this will be the data retrieved by the query,
+    /// This will be the data retrieved by the query,
     /// and is visible to the end user when calling e.g. `Query<Self>::get`.
-    ///
-    /// For `QueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
-    /// or a tuple of such things.
-    /// Archetypal query filters (like `With`) set this to `()`,
-    /// as the filtering is done by selecting the archetypes to iterate over via [`WorldQuery::matches_component_set`],
-    /// while non-archetypal query filters (like `Changed`) set this to a `bool` and evaluate the filter for each entity,
-    /// after the set of possible archetypes has been narrowed down.
     type Item<'a>;
 
     /// This function manually implements subtyping for the query items.
