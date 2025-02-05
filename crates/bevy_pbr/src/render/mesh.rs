@@ -541,7 +541,7 @@ pub struct MeshInputUniform {
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
     /// Padding.
-    pub pad_b: u32,
+    pub pad: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
