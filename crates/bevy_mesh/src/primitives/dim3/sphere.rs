@@ -1,6 +1,6 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{ops, primitives::Sphere, Dir3, Vec3};
+use bevy_math::{ops, primitives::Sphere, Dir3};
 use bevy_reflect::prelude::*;
 use core::f32::consts::PI;
 use hexasphere::shapes::IcoSphere;
@@ -162,7 +162,7 @@ impl SphereMeshBuilder {
         let indices = Indices::U32(indices);
 
         let tangent = if let Some(tangent_axis) = self.tangent_axis {
-            Self::calculate_tangents(normals.as_slice(), &tangent_axis)
+            super::calculate_tangents_around_axis(normals.as_slice(), &tangent_axis)
         } else {
             vec![]
         };
@@ -238,7 +238,7 @@ impl SphereMeshBuilder {
         }
 
         let tangents = if let Some(tangent_axis) = self.tangent_axis {
-            Self::calculate_tangents(normals.as_slice(), &tangent_axis)
+            super::calculate_tangents_around_axis(normals.as_slice(), &tangent_axis)
         } else {
             vec![]
         };
@@ -252,14 +252,6 @@ impl SphereMeshBuilder {
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         .with_inserted_attribute_if_not_empty(Mesh::ATTRIBUTE_TANGENT, tangents)
-    }
-
-    fn calculate_tangents(normals: &[[f32; 3]], tangent_axis: &Dir3) -> Vec<[f32; 4]> {
-        normals
-            .iter()
-            .map(|normal| Vec3::from_array(*normal))
-            .map(|normal| tangent_axis.cross(normal).extend(1.).to_array())
-            .collect()
     }
 }
 

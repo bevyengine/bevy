@@ -19,3 +19,13 @@ pub use sphere::*;
 pub use tetrahedron::*;
 pub use torus::*;
 pub use triangle3d::*;
+
+use bevy_math::{Dir3, Vec3};
+
+fn calculate_tangents_around_axis(normals: &[[f32; 3]], tangent_axis: &Dir3) -> Vec<[f32; 4]> {
+    normals
+        .iter()
+        .map(|normal| Vec3::from_array(*normal))
+        .map(|normal| tangent_axis.cross(normal).extend(1.).to_array())
+        .collect()
+}
