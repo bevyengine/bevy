@@ -4,7 +4,6 @@ use core::any::TypeId;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
-    entity::Entity,
     query::{Has, With},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
