@@ -119,8 +119,8 @@ impl ImageNode {
         self
     }
 
-    /// `with_rect` crops an `ImageNode` to the portion described by
-    /// a `Rect`. This can be applied to `ImageNode`s created from
+    /// Crops an `ImageNode` to the portion described by
+    /// the provided `Rect`, measured from the top-left corner. This can be applied to `ImageNode`s created from
     /// texture atlases.
     /// The following example setup function demonstrates this use.
     ///
@@ -134,6 +134,7 @@ impl ImageNode {
     /// use bevy_ui::Node;
     /// use bevy_ui::prelude::{Display,ImageNode};
     /// use std::default::Default;
+    ///
     /// fn setup(
     ///   mut commands: Commands,
     ///   asset_server: Res<AssetServer>,
