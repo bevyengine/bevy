@@ -425,6 +425,12 @@ impl EntityCloner {
         }
     }
 
+    /// Returns `true` if this cloner is configured to clone entities recursively.
+    #[inline]
+    pub fn is_recursive(&self) -> bool {
+        self.is_recursive
+    }
+
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
     fn clone_entity_internal(
         &mut self,
