@@ -111,12 +111,15 @@ petgraph = { version = "0.6", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
-uuid = { version = "1.0", default-features = false, optional = true, features = [
+uuid = { version = "1.13.1", default-features = false, optional = true, features = [
   "v4",
   "serde",
 ] }
 variadics_please = "1.1"
 wgpu-types = { version = "23", features = ["serde"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [dev-dependencies]
 ron = "0.8.0"
