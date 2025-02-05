@@ -1,4 +1,4 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ComputedNodeScaleFactor};
+use crate::{ComputedNodeScaleFactor, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;

@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ContentSize, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
-    ComputedNodeScaleFactor,
+    ComputedNode, ComputedNodeScaleFactor, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
+    NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;

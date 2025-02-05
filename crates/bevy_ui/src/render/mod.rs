@@ -9,8 +9,8 @@ mod debug_overlay;
 
 use crate::widget::ImageNode;
 use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, Outline,
-    ResolvedBorderRadius, ComputedNodeTargetCamera, UiAntiAlias,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
+    ComputedNodeTargetCamera, Outline, ResolvedBorderRadius, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
