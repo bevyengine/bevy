@@ -1,6 +1,6 @@
 use crate::{
     component::{
-        Component, ComponentCloneBehavior, ComponentHooks, HookContext, Mutable, StorageType,
+        Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
     },
     entity::{ComponentCloneCtx, Entity, EntityClonerBuilder},
     observer::ObserverState,
@@ -17,8 +17,8 @@ impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
 
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_remove(|mut world, HookContext { entity, .. }| {
+    fn on_remove() -> Option<ComponentHook> {
+        Some(|mut world, HookContext { entity, .. }| {
             let observed_by = {
                 let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
                 core::mem::take(&mut component.0)
@@ -43,7 +43,7 @@ impl Component for ObservedBy {
                     world.commands().entity(e).despawn();
                 }
             }
-        });
+        })
     }
 
     fn clone_behavior() -> ComponentCloneBehavior {

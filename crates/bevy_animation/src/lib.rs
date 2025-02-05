@@ -32,7 +32,7 @@ use crate::{
 };
 
 use bevy_app::{Animation, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, Assets};
+use bevy_asset::{Asset, AssetApp, AssetEvents, Assets};
 use bevy_ecs::{prelude::*, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
@@ -1239,7 +1239,7 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    graph::thread_animation_graphs,
+                    graph::thread_animation_graphs.before(AssetEvents),
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
