@@ -1227,7 +1227,12 @@ unsafe impl<T: Component> QueryData for &T {
             },
             |sparse_set| {
                 // SAFETY: Caller ensures `entity` is in range.
-                let item = unsafe { sparse_set.get(entity).debug_checked_unwrap() };
+                let item = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get(entity)
+                        .debug_checked_unwrap()
+                };
                 item.deref()
             },
         )

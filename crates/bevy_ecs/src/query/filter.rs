@@ -767,7 +767,10 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
-                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_added_tick(entity)
+                        .debug_checked_unwrap()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
@@ -992,7 +995,10 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range.
                 let tick = unsafe {
-                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_changed_tick(entity)
+                        .debug_checked_unwrap()
                 };
 
                 tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
