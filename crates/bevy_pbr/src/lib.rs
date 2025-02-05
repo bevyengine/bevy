@@ -72,10 +72,16 @@ pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, Volumetr
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[expect(
+        deprecated,
+        reason = "AmbientLight has been replaced by EnvironmentMapLight"
+    )]
+    #[doc(hidden)]
+    pub use crate::light::AmbientLight;
     #[doc(hidden)]
     pub use crate::{
         fog::{DistanceFog, FogFalloff},
-        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
+        light::{light_consts, DirectionalLight, PointLight, SpotLight},
         light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
@@ -142,7 +148,6 @@ pub const PBR_FRAGMENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(229504928
 pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
 pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
-pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
     Handle::weak_from_u128(17035894873630133905);
 pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
@@ -253,12 +258,6 @@ impl Plugin for PbrPlugin {
         );
         load_internal_asset!(
             app,
-            PBR_AMBIENT_HANDLE,
-            "render/pbr_ambient.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
             PBR_FRAGMENT_HANDLE,
             "render/pbr_fragment.wgsl",
             Shader::from_wgsl
@@ -296,6 +295,10 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
 
+        #[expect(
+            deprecated,
+            reason = "AmbientLight has been replaced by EnvironmentMapLight"
+        )]
         app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
@@ -370,6 +373,9 @@ impl Plugin for PbrPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    map_ambient_lights
+                        .in_set(SimulationLightSystems::MapAmbientLights)
+                        .after(CameraUpdateSystem),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystem),
