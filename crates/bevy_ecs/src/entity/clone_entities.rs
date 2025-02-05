@@ -41,7 +41,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
     #[cfg(not(feature = "bevy_reflect"))]
     #[expect(dead_code)]
-    type_registry: Option<()>,
+    type_registry: Option<&'a ()>,
 }
 
 impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
@@ -62,7 +62,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         entity_cloner: &'a mut EntityCloner,
         mapper: &'a mut dyn EntityMapper,
         #[cfg(feature = "bevy_reflect")] type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
-        #[cfg(not(feature = "bevy_reflect"))] type_registry: Option<()>,
+        #[cfg(not(feature = "bevy_reflect"))] type_registry: Option<&'a ()>,
     ) -> Self {
         Self {
             component_id,
@@ -273,7 +273,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 }
 
-/// A configuration determining how to clone enities. This can be built using [`EntityCloner::build`], which
+/// A configuration determining how to clone entities. This can be built using [`EntityCloner::build`], which
 /// returns an [`EntityClonerBuilder`].
 ///
 /// After configuration is complete an entity can be cloned using [`Self::clone_entity`].
