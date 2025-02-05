@@ -1,4 +1,9 @@
-//! Demonstrates how to query for a component _value_ using indexes.
+//! Demonstrates how to efficiently query for a component _value_ using automatically updated indexes.
+//!
+//! This pattern can be substantially faster than iterating over and filtering for matching components,
+//! at the expense of slower mutations and component insertion.
+//!
+//! See the [`bevy::ecs::index`] module docs for in-depth information.
 
 use bevy::{dev_tools::fps_overlay::FpsOverlayPlugin, prelude::*};
 use rand::{Rng, SeedableRng};
