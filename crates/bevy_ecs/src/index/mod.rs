@@ -187,7 +187,7 @@ enum TrackEntityError {
 
 impl<C: Component<Mutability = Immutable>> Index<C> {
     fn new<S: IndexStorage<C>>(world: &mut World, options: IndexOptions<C, S>) -> Self {
-        let bits = 8 * options.address_space.min(size_of::<u32>());
+        let bits = 8 * (options.address_space.min(size_of::<u32>() as u8) as u16);
 
         let markers = (0..bits)
             .map(|bit| Self::alloc_new_marker(world, bit, options.marker_storage))
@@ -317,7 +317,7 @@ impl<C: Component<Mutability = Immutable>> Index<C> {
     /// Creates a new marker component for this index.
     /// It represents a ZST and is not tied to a particular value.
     /// This allows moving entities into new archetypes based on the indexed value.
-    fn alloc_new_marker(world: &mut World, bit: usize, storage_type: StorageType) -> ComponentId {
+    fn alloc_new_marker(world: &mut World, bit: u16, storage_type: StorageType) -> ComponentId {
         // SAFETY:
         // - ZST is Send + Sync
         // - No drop function provided or required
@@ -368,7 +368,7 @@ pub struct IndexOptions<
     /// index if the address space is exhausted.
     ///
     /// This defaults to [`size_of<C>`]
-    pub address_space: usize,
+    pub address_space: u8,
     /// A storage backend for this index.
     /// For certain indexing strategies and [`Component`] types, you may be able to greatly
     /// optimize the utility and performance of an index by creating a custom backend.
@@ -387,7 +387,7 @@ impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> Default
     fn default() -> Self {
         Self {
             marker_storage: StorageType::Table,
-            address_space: size_of::<C>(),
+            address_space: size_of::<C>() as u8,
             index_storage: HashMap::with_hasher(FixedHasher),
             _phantom: PhantomData,
         }

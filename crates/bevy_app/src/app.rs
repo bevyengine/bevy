@@ -18,7 +18,7 @@ use bevy_ecs::{
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::HashMap;
-use core::{fmt::Debug, hash::Hash, num::NonZero, panic::AssertUnwindSafe};
+use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 use thiserror::Error;
 
@@ -1460,7 +1460,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use core::{iter, marker::PhantomData};
+    use core::{iter, marker::PhantomData, hash::Hash};
     use std::sync::Mutex;
 
     use bevy_ecs::{
