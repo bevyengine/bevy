@@ -7,6 +7,11 @@ crates/**/target
 benches/**/target
 tools/**/target
 **/*.rs.bk
+rustc-ice-*
+
+# DX12 wgpu backend
+dxcompiler.dll
+dxil.dll
 
 # DX12 wgpu backend
 dxcompiler.dll
@@ -21,6 +26,7 @@ Cargo.lock
 assets/**/*.meta
 crates/bevy_asset/imported_assets
 imported_assets
+.http-asset-cache
 
 # Bevy Examples
 example_showcase_config.ron

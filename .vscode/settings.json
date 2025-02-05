@@ -1,0 +1,3 @@
+{
+	"rust-analyzer.cargo.features": ["http_source","http_source_cache"]
+}
