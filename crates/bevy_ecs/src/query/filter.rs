@@ -140,7 +140,7 @@ pub struct With<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because `fetch` does not access any components.
+/// This is sound because [`Query_filter::filter_fetch`] does not access any components.
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
@@ -240,7 +240,7 @@ pub struct Without<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because `fetch` does not access any components.
+/// This is sound because [`Query_filter::filter_fetch`] does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
@@ -379,7 +379,7 @@ macro_rules! impl_or_query_filter {
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
         /// SAFETY:
-        /// `fetch` accesses are a subset of the subqueries' accesses
+        /// [`Query_filter::filter_fetch`] accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
@@ -647,7 +647,7 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
 }
 
 /// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
+/// [`QueryFilter::filter_fetch`] accesses a single component in a readonly way.
 /// This is sound because `update_component_access` adds read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
