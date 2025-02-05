@@ -2,7 +2,7 @@
 //!
 //! Run with the feature `http_source`, and optionally `http_source_cache`
 //! for a simple caching mechanism that never invalidates.
-//! 
+//!
 use bevy::prelude::*;
 
 fn main() {
