@@ -23,6 +23,7 @@ pub struct Stager<'a, T: StagedChanges> {
 }
 
 /// A struct that allows accessing changes while reading from cold storage.
+#[derive(Clone, Copy)]
 pub struct StagedRef<'a, T: StagedChanges> {
     /// The storage that is read optimized.
     pub cold: &'a T::Cold,
