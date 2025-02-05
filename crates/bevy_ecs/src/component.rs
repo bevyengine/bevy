@@ -2078,7 +2078,7 @@ impl RequiredComponents {
             //
             // This would be resolved by https://github.com/rust-lang/rust/issues/123430
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             use alloc::boxed::Box;
 
             #[cfg(feature = "track_location")]
@@ -2095,10 +2095,10 @@ impl RequiredComponents {
             type Constructor =
                 dyn for<'a, 'b> Fn(&'a mut Table, &'b mut SparseSets, Tick, TableRow, Entity);
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             type Intermediate<T> = Box<T>;
 
-            #[cfg(not(feature = "portable-atomic"))]
+            #[cfg(target_has_atomic = "ptr")]
             type Intermediate<T> = Arc<T>;
 
             let boxed: Intermediate<Constructor> = Intermediate::new(

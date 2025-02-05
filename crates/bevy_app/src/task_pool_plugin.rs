@@ -1,11 +1,3 @@
-#![cfg_attr(
-    feature = "portable-atomic",
-    expect(
-        clippy::redundant_closure,
-        reason = "bevy_platform_support::sync::Arc has subtly different implicit behavior"
-    )
-)]
-
 use crate::{App, Plugin};
 
 use alloc::string::ToString;
