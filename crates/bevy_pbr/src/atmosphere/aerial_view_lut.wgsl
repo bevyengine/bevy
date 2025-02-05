@@ -55,12 +55,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
                 break;
             }
         }
-        // We only have one channel to store transmittance, so we store the mean
-        let mean_transmittance = (throughput.r + throughput.g + throughput.b) / 3.0;
 
         // Store in log space to allow linear interpolation of exponential values between slices
-        let log_transmittance = -log(max(mean_transmittance, 1e-6)); // Avoid log(0)
         let log_inscattering = log(max(total_inscattering, vec3(1e-6)));
-        textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(log_inscattering, log_transmittance));
+        textureStore(aerial_view_lut_out, vec3(vec2<u32>(idx.xy), slice_i), vec4(log_inscattering, 0.0));
     }
 }
