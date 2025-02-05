@@ -102,6 +102,7 @@ pub enum UiSystem {
     /// Runs in [`PreUpdate`].
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
+    Context,
     Prepare,
     /// After this label, the ui layout state has been updated.
     ///
@@ -171,6 +172,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
+                    UiSystem::Context,
                     UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
                     UiSystem::Layout,
                     UiSystem::PostLayout,
@@ -194,7 +196,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_target_camera_system.in_set(UiSystem::Prepare),
+                update_target_camera_system.in_set(UiSystem::Context),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
