@@ -514,8 +514,9 @@ pub enum UntypedAssetConversionError {
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
+    use bevy_platform_support::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
-    use bevy_utils::FixedHasher;
     use core::hash::BuildHasher;
 
     use super::*;
@@ -551,8 +552,11 @@ mod tests {
     }
 
     /// Typed and Untyped `Handles` should be orderable amongst each other and themselves
-    #[allow(clippy::cmp_owned)]
     #[test]
+    #[expect(
+        clippy::cmp_owned,
+        reason = "This lints on the assertion that a typed handle converted to an untyped handle maintains its ordering compared to an untyped handle. While the conversion would normally be useless, we need to ensure that converted handles maintain their ordering, making the conversion necessary here."
+    )]
     fn ordering() {
         assert!(UUID_1 < UUID_2);
 

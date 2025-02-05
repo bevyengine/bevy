@@ -24,8 +24,7 @@ use node::AutoExposureNode;
 use pipeline::{
     AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline, METERING_SHADER_HANDLE,
 };
-#[allow(deprecated)]
-pub use settings::{AutoExposure, AutoExposureSettings};
+pub use settings::AutoExposure;
 
 use crate::{
     auto_exposure::compensation_curve::GpuAutoExposureCompensationCurve,

@@ -4,11 +4,10 @@ use crate::{
 };
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+use tracing::warn;
 
 use crate::{AudioSink, AudioSinkPlayback};
 
@@ -47,11 +46,11 @@ impl Default for AudioOutput {
 }
 
 /// Marker for internal use, to despawn entities when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackDespawnMarker;
 
 /// Marker for internal use, to remove audio components when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackRemoveMarker;
 
 #[derive(SystemParam)]
@@ -253,12 +252,12 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_spatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_nonspatial_remove {

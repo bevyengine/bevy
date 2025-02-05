@@ -1760,7 +1760,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         this_run: Tick,
     ) -> OptionFetch<'w, T> {
         OptionFetch {
-            // SAFETY: The invariants are uphold by the caller.
+            // SAFETY: The invariants are upheld by the caller.
             fetch: unsafe { T::init_fetch(world, state, last_run, this_run) },
             matches: false,
         }
@@ -1777,7 +1777,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) {
         fetch.matches = T::matches_component_set(state, &|id| archetype.contains(id));
         if fetch.matches {
-            // SAFETY: The invariants are uphold by the caller.
+            // SAFETY: The invariants are upheld by the caller.
             unsafe {
                 T::set_archetype(&mut fetch.fetch, state, archetype, table);
             }
@@ -1788,7 +1788,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn set_table<'w>(fetch: &mut OptionFetch<'w, T>, state: &T::State, table: &'w Table) {
         fetch.matches = T::matches_component_set(state, &|id| table.has_column(id));
         if fetch.matches {
-            // SAFETY: The invariants are uphold by the caller.
+            // SAFETY: The invariants are upheld by the caller.
             unsafe {
                 T::set_table(&mut fetch.fetch, state, table);
             }
@@ -1803,7 +1803,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     ) -> Self::Item<'w> {
         fetch
             .matches
-            // SAFETY: The invariants are uphold by the caller.
+            // SAFETY: The invariants are upheld by the caller.
             .then(|| unsafe { T::fetch(&mut fetch.fetch, entity, table_row) })
     }
 
@@ -2015,8 +2015,6 @@ pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
         $(#[$meta])*
         // SAFETY: defers to soundness `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for ($($name,)*) {
@@ -2033,8 +2031,22 @@ macro_rules! impl_tuple_query_data {
 macro_rules! impl_anytuple_fetch {
     ($(#[$meta:meta])* $(($name: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` and `update_archetype_component_access` adds accesses according to the implementations of all the subqueries.
@@ -2059,10 +2071,9 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
             unsafe fn init_fetch<'w>(_world: UnsafeWorldCell<'w>, state: &Self::State, _last_run: Tick, _this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                 // SAFETY: The invariants are uphold by the caller.
+                 // SAFETY: The invariants are upheld by the caller.
                 ($(( unsafe { $name::init_fetch(_world, $name, _last_run, _this_run) }, false),)*)
             }
 
@@ -2080,7 +2091,7 @@ macro_rules! impl_anytuple_fetch {
                 $(
                     $name.1 = $name::matches_component_set($state, &|id| _archetype.contains(id));
                     if $name.1 {
-                         // SAFETY: The invariants are uphold by the caller.
+                         // SAFETY: The invariants are upheld by the caller.
                         unsafe { $name::set_archetype(&mut $name.0, $state, _archetype, _table); }
                     }
                 )*
@@ -2100,7 +2111,6 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[inline(always)]
-            #[allow(clippy::unused_unit)]
             unsafe fn fetch<'w>(
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
@@ -2139,11 +2149,9 @@ macro_rules! impl_anytuple_fetch {
                 <($(Option<$name>,)*)>::update_component_access(state, access);
 
             }
-            #[allow(unused_variables)]
             fn init_state(world: &mut World) -> Self::State {
                 ($($name::init_state(world),)*)
             }
-            #[allow(unused_variables)]
             fn get_state(components: &Components) -> Option<Self::State> {
                 Some(($($name::get_state(components)?,)*))
             }
@@ -2155,8 +2163,6 @@ macro_rules! impl_anytuple_fetch {
         }
 
         $(#[$meta])*
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
         // SAFETY: defers to soundness of `$name: WorldQuery` impl
         unsafe impl<$($name: QueryData),*> QueryData for AnyOf<($($name,)*)> {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;

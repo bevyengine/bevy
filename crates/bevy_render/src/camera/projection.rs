@@ -637,8 +637,8 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = (projection_width * self.viewport_origin.x).round();
-        let origin_y = (projection_height * self.viewport_origin.y).round();
+        let origin_x = projection_width * self.viewport_origin.x;
+        let origin_y = projection_height * self.viewport_origin.y;
 
         self.area = Rect::new(
             self.scale * -origin_x,

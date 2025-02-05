@@ -1,8 +1,8 @@
 //! Demonstrates how to observe life-cycle triggers as well as define custom ones.
 
 use bevy::{
+    platform_support::collections::{HashMap, HashSet},
     prelude::*,
-    utils::{HashMap, HashSet},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -142,7 +142,7 @@ fn on_remove_mine(
 }
 
 fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
-    // If a triggered event is targeting a specific entity you can access it with `.entity()`
+    // If a triggered event is targeting a specific entity you can access it with `.target()`
     let id = trigger.target();
     let Some(mut entity) = commands.get_entity(id) else {
         return;
@@ -172,9 +172,13 @@ fn draw_shapes(mut gizmos: Gizmos, mines: Query<&Mine>) {
 fn handle_click(
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     camera: Single<(&Camera, &GlobalTransform)>,
-    windows: Single<&Window>,
+    windows: Query<&Window>,
     mut commands: Commands,
 ) {
+    let Ok(windows) = windows.get_single() else {
+        return;
+    };
+
     let (camera, camera_transform) = *camera;
     if let Some(pos) = windows
         .cursor_position()

@@ -1,9 +1,9 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{Mesh3d, MeshVertexBufferLayoutRef},
@@ -39,6 +39,7 @@ impl Plugin for WireframePlugin {
             .register_type::<WireframeColor>()
             .init_resource::<WireframeConfig>()
             .add_plugins(MaterialPlugin::<WireframeMaterial>::default())
+            .register_asset_reflect::<WireframeMaterial>()
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
@@ -127,7 +128,6 @@ fn global_color_changed(
 }
 
 /// Updates the wireframe material when the color in [`WireframeColor`] changes
-#[allow(clippy::type_complexity)]
 fn wireframe_color_changed(
     mut materials: ResMut<Assets<WireframeMaterial>>,
     mut colors_changed: Query<
@@ -204,7 +204,7 @@ fn apply_global_wireframe_material(
     }
 }
 
-/// Gets an handle to a wireframe material with a fallback on the default material
+/// Gets a handle to a wireframe material with a fallback on the default material
 fn get_wireframe_material(
     maybe_color: Option<&WireframeColor>,
     wireframe_materials: &mut Assets<WireframeMaterial>,
@@ -220,7 +220,7 @@ fn get_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
+#[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
 pub struct WireframeMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

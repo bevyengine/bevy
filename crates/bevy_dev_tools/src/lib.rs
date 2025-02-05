@@ -15,6 +15,8 @@ pub mod ci_testing;
 
 pub mod fps_overlay;
 
+pub mod picking_debug;
+
 pub mod states;
 
 /// Enables developer tools in an [`App`]. This plugin is added automatically with `bevy_dev_tools`

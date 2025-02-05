@@ -29,13 +29,13 @@ use super::GpuArrayBufferable;
 /// from system RAM to VRAM.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`BufferVec`]
 /// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 /// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
 /// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
-/// * [`BufferVec`]
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
 /// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 pub struct RawBufferVec<T: NoUninit> {
     values: Vec<T>,
     buffer: Option<Buffer>,
@@ -202,6 +202,18 @@ impl<T: NoUninit> RawBufferVec<T> {
     }
 }
 
+impl<T> RawBufferVec<T>
+where
+    T: NoUninit + Default,
+{
+    pub fn grow_set(&mut self, index: u32, value: T) {
+        while index as usize + 1 > self.len() {
+            self.values.push(T::default());
+        }
+        self.values[index as usize] = value;
+    }
+}
+
 impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
@@ -221,6 +233,15 @@ impl<T: NoUninit> Extend<T> for RawBufferVec<T> {
 /// CPU access to the data after it's been added via [`BufferVec::push`]. If you
 /// need CPU access to the data, consider another type, such as
 /// [`StorageBuffer`][super::StorageBuffer].
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`]
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`Texture`](crate::render_resource::Texture)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 pub struct BufferVec<T>
 where
     T: ShaderType + WriteInto,

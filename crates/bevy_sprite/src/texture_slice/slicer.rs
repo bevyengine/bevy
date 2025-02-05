@@ -217,7 +217,7 @@ impl TextureSlicer {
         if self.border.left + self.border.right >= rect.size().x
             || self.border.top + self.border.bottom >= rect.size().y
         {
-            bevy_utils::tracing::error!(
+            tracing::error!(
                 "TextureSlicer::border has out of bounds values. No slicing will be applied"
             );
             return vec![TextureSlice {

@@ -1,9 +1,10 @@
 //! Batching functionality when GPU preprocessing isn't in use.
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::system::{Res, ResMut, Resource, StaticSystemParam};
-use bevy_utils::tracing::error;
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::{Res, ResMut, StaticSystemParam};
 use smallvec::{smallvec, SmallVec};
+use tracing::error;
 use wgpu::BindingResource;
 
 use crate::{
@@ -145,7 +146,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     batch_sets.push(batch_set);
                 }
                 BinnedRenderPhaseBatchSets::Direct(_)
-                | BinnedRenderPhaseBatchSets::MultidrawIndirect(_) => {
+                | BinnedRenderPhaseBatchSets::MultidrawIndirect { .. } => {
                     error!(
                         "Dynamic uniform batch sets should be used when GPU preprocessing is off"
                     );

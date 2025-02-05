@@ -10,6 +10,7 @@ use crate::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
+    experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     prelude::Shader,
     primitives::Frustum,
@@ -17,6 +18,7 @@ use crate::{
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::MainEntity,
     texture::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
         TextureCache,
@@ -30,10 +32,10 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_platform_support::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
@@ -108,9 +110,11 @@ impl Plugin for ViewPlugin {
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
+            .register_type::<OcclusionCulling>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Msaa>::default(),
+                ExtractComponentPlugin::<OcclusionCulling>::default(),
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));
@@ -184,8 +188,69 @@ impl Msaa {
     }
 }
 
+/// An identifier for a view that is stable across frames.
+///
+/// We can't use [`Entity`] for this because render world entities aren't
+/// stable, and we can't use just [`MainEntity`] because some main world views
+/// extract to multiple render world views. For example, a directional light
+/// extracts to one render world view per cascade, and a point light extracts to
+/// one render world view per cubemap face. So we pair the main entity with an
+/// *auxiliary entity* and a *subview index*, which *together* uniquely identify
+/// a view in the render world in a way that's stable from frame to frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RetainedViewEntity {
+    /// The main entity that this view corresponds to.
+    pub main_entity: MainEntity,
+
+    /// Another entity associated with the view entity.
+    ///
+    /// This is currently used for shadow cascades. If there are multiple
+    /// cameras, each camera needs to have its own set of shadow cascades. Thus
+    /// the light and subview index aren't themselves enough to uniquely
+    /// identify a shadow cascade: we need the camera that the cascade is
+    /// associated with as well. This entity stores that camera.
+    ///
+    /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
+    pub auxiliary_entity: MainEntity,
+
+    /// The index of the view corresponding to the entity.
+    ///
+    /// For example, for point lights that cast shadows, this is the index of
+    /// the cubemap face (0 through 5 inclusive). For directional lights, this
+    /// is the index of the cascade.
+    pub subview_index: u32,
+}
+
+impl RetainedViewEntity {
+    /// Creates a new [`RetainedViewEntity`] from the given main world entity,
+    /// auxiliary main world entity, and subview index.
+    ///
+    /// See [`RetainedViewEntity::subview_index`] for an explanation of what
+    /// `auxiliary_entity` and `subview_index` are.
+    pub fn new(
+        main_entity: MainEntity,
+        auxiliary_entity: Option<MainEntity>,
+        subview_index: u32,
+    ) -> Self {
+        Self {
+            main_entity,
+            auxiliary_entity: auxiliary_entity.unwrap_or(Entity::PLACEHOLDER.into()),
+            subview_index,
+        }
+    }
+}
+
+/// Describes a camera in the render world.
+///
+/// Each entity in the main world can potentially extract to multiple subviews,
+/// each of which has a [`RetainedViewEntity::subview_index`]. For instance, 3D
+/// cameras extract to both a 3D camera subview with index 0 and a special UI
+/// subview with index 1. Likewise, point lights with shadows extract to 6
+/// subviews, one for each side of the shadow cubemap.
 #[derive(Component)]
 pub struct ExtractedView {
+    /// The entity in the main world corresponding to this render world view.
+    pub retained_view_entity: RetainedViewEntity,
     /// Typically a right-handed projection matrix, one of either:
     ///
     /// Perspective (infinite reverse z)
@@ -631,10 +696,10 @@ impl From<ColorGrading> for ColorGradingUniform {
 ///
 /// The vast majority of applications will not need to use this component, as it
 /// generally reduces rendering performance.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoIndirectDrawing;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoCpuCulling;
 
 impl ViewTarget {

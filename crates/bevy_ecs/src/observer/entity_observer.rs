@@ -1,5 +1,7 @@
 use crate::{
-    component::{Component, ComponentCloneHandler, ComponentHooks, Mutable, StorageType},
+    component::{
+        Component, ComponentCloneHandler, ComponentHooks, HookContext, Mutable, StorageType,
+    },
     entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
     observer::ObserverState,
     world::{DeferredWorld, World},
@@ -8,14 +10,14 @@ use alloc::vec::Vec;
 
 /// Tracks a list of entity observers for the [`Entity`] [`ObservedBy`] is added to.
 #[derive(Default)]
-pub(crate) struct ObservedBy(pub(crate) Vec<Entity>);
+pub struct ObservedBy(pub(crate) Vec<Entity>);
 
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
 
     fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_remove(|mut world, entity, _| {
+        hooks.on_remove(|mut world, HookContext { entity, .. }| {
             let observed_by = {
                 let mut component = world.get_mut::<ObservedBy>(entity).unwrap();
                 core::mem::take(&mut component.0)
@@ -116,7 +118,8 @@ mod tests {
         entity::EntityCloneBuilder,
         event::Event,
         observer::{CloneEntityWithObserversExt, Trigger},
-        system::{ResMut, Resource},
+        resource::Resource,
+        system::ResMut,
         world::World,
     };
 

@@ -2,7 +2,7 @@ use alloc::{vec, vec::Vec};
 use core::fmt::Debug;
 use smallvec::SmallVec;
 
-use bevy_utils::{HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
@@ -86,7 +86,7 @@ pub(crate) struct CheckGraphResults {
     pub(crate) transitive_reduction: DiGraph,
     /// Variant of the graph with all possible transitive edges.
     // TODO: this will very likely be used by "if-needed" ordering
-    #[allow(dead_code)]
+    #[expect(dead_code, reason = "See the TODO above this attribute.")]
     pub(crate) transitive_closure: DiGraph,
 }
 

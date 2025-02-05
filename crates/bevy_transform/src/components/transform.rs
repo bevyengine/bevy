@@ -8,20 +8,41 @@ use bevy_ecs::{component::Component, prelude::require};
 #[cfg(feature = "bevy_reflect")]
 use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
 
+/// Checks that a vector with the given squared length is normalized.
+///
+/// Warns for small error with a length threshold of approximately `1e-4`,
+/// and panics for large error with a length threshold of approximately `1e-2`.
+#[cfg(debug_assertions)]
+fn assert_is_normalized(message: &str, length_squared: f32) {
+    use bevy_math::ops;
+    #[cfg(feature = "std")]
+    use std::eprintln;
+
+    let length_error_squared = ops::abs(length_squared - 1.0);
+
+    // Panic for large error and warn for slight error.
+    if length_error_squared > 2e-2 || length_error_squared.is_nan() {
+        // Length error is approximately 1e-2 or more.
+        panic!("Error: {message}",);
+    } else if length_error_squared > 2e-4 {
+        // Length error is approximately 1e-4 or more.
+        #[cfg(feature = "std")]
+        eprintln!("Warning: {message}",);
+    }
+}
+
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
-///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
 ///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// frame if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
@@ -314,8 +335,21 @@ impl Transform {
     /// Rotates this [`Transform`] around the given `axis` by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
+    ///
+    /// # Warning
+    ///
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
+    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
+    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
+    /// each call to this method.
     #[inline]
     pub fn rotate_axis(&mut self, axis: Dir3, angle: f32) {
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The axis given to `Transform::rotate_axis` is not normalized. This may be a result of obtaining \
+            the axis from the transform. See the documentation of `Transform::rotate_axis` for more details.",
+            axis.length_squared(),
+        );
         self.rotate(Quat::from_axis_angle(axis.into(), angle));
     }
 
@@ -352,8 +386,21 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
+    ///
+    /// # Warning
+    ///
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
+    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
+    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
+    /// each call to this method.
     #[inline]
     pub fn rotate_local_axis(&mut self, axis: Dir3, angle: f32) {
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The axis given to `Transform::rotate_axis_local` is not normalized. This may be a result of obtaining \
+            the axis from the transform. See the documentation of `Transform::rotate_axis_local` for more details.",
+            axis.length_squared(),
+        );
         self.rotate_local(Quat::from_axis_angle(axis.into(), angle));
     }
 

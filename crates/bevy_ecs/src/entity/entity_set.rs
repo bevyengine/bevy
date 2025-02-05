@@ -3,21 +3,19 @@ use alloc::{
     collections::{btree_map, btree_set},
     rc::Rc,
 };
+use bevy_platform_support::collections::HashSet;
 
 use core::{
     array,
     fmt::{Debug, Formatter},
+    hash::{BuildHasher, Hash},
     iter::{self, FusedIterator},
     option, result,
 };
 
-use super::Entity;
+use super::{Entity, UniqueEntitySlice};
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
+use bevy_platform_support::sync::Arc;
 
 /// A trait for entity borrows.
 ///
@@ -148,7 +146,21 @@ impl<T: IntoIterator<IntoIter: EntitySetIterator>> EntitySet for T {}
 ///
 /// `x != y` must hold for any 2 elements returned by the iterator.
 /// This is always true for iterators that cannot return more than one element.
-pub unsafe trait EntitySetIterator: Iterator<Item: TrustedEntityBorrow> {}
+pub unsafe trait EntitySetIterator: Iterator<Item: TrustedEntityBorrow> {
+    /// Transforms an `EntitySetIterator` into a collection.
+    ///
+    /// This is a specialized form of [`collect`], for collections which benefit from the uniqueness guarantee.
+    /// When present, this should always be preferred over [`collect`].
+    ///
+    /// [`collect`]: Iterator::collect
+    //  FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow `Iterator::collect`
+    fn collect_set<B: FromEntitySetIterator<Self::Item>>(self) -> B
+    where
+        Self: Sized,
+    {
+        FromEntitySetIterator::from_entity_set_iter(self)
+    }
+}
 
 // SAFETY:
 // A correct `BTreeMap` contains only unique keys.
@@ -295,6 +307,36 @@ unsafe impl<I: EntitySetIterator, P: FnMut(&<I as Iterator>::Item) -> bool> Enti
 // SAFETY: Discarding elements maintains uniqueness.
 unsafe impl<I: EntitySetIterator> EntitySetIterator for iter::StepBy<I> {}
 
+/// Conversion from an `EntitySetIterator`.
+///
+/// Some collections, while they can be constructed from plain iterators,
+/// benefit strongly from the additional uniqeness guarantee [`EntitySetIterator`] offers.
+/// Mirroring [`Iterator::collect`]/[`FromIterator::from_iter`], [`EntitySetIterator::collect_set`] and
+/// `FromEntitySetIterator::from_entity_set_iter` can be used for construction.
+///
+/// See also: [`EntitySet`].
+// FIXME: When subtrait item shadowing stabilizes, this should be renamed and shadow `FromIterator::from_iter`
+pub trait FromEntitySetIterator<A: TrustedEntityBorrow>: FromIterator<A> {
+    /// Creates a value from an [`EntitySetIterator`].
+    fn from_entity_set_iter<T: EntitySet<Item = A>>(set_iter: T) -> Self;
+}
+
+impl<T: TrustedEntityBorrow + Hash, S: BuildHasher + Default> FromEntitySetIterator<T>
+    for HashSet<T, S>
+{
+    fn from_entity_set_iter<I: EntitySet<Item = T>>(set_iter: I) -> Self {
+        let iter = set_iter.into_iter();
+        let set = HashSet::<T, S>::with_capacity_and_hasher(iter.size_hint().0, S::default());
+        iter.fold(set, |mut set, e| {
+            // SAFETY: Every element in self is unique.
+            unsafe {
+                set.insert_unique_unchecked(e);
+            }
+            set
+        })
+    }
+}
+
 /// An iterator that yields unique entities.
 ///
 /// This wrapper can provide an [`EntitySetIterator`] implementation when an instance of `I` is known to uphold uniqueness.
@@ -308,6 +350,7 @@ impl<I: EntitySetIterator> UniqueEntityIter<I> {
         Self { iter }
     }
 }
+
 impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
     /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
     ///
@@ -316,6 +359,26 @@ impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
     pub unsafe fn from_iterator_unchecked(iter: I) -> Self {
         Self { iter }
+    }
+
+    /// Returns the inner `I`.
+    pub fn into_inner(self) -> I {
+        self.iter
+    }
+
+    /// Returns a reference to the inner `I`.
+    pub fn as_inner(&self) -> &I {
+        &self.iter
+    }
+
+    /// Returns a mutable reference to the inner `I`.
+    ///
+    /// # Safety
+    ///
+    /// `self` must always contain an iterator that yields unique elements,
+    /// even while this reference is live.
+    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+        &mut self.iter
     }
 }
 
@@ -352,6 +415,24 @@ impl<T, I: Iterator<Item: TrustedEntityBorrow> + AsRef<[T]>> AsRef<[T]> for Uniq
     }
 }
 
+impl<T: TrustedEntityBorrow, I: Iterator<Item: TrustedEntityBorrow> + AsRef<[T]>>
+    AsRef<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+{
+    fn as_ref(&self) -> &UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.iter.as_ref()) }
+    }
+}
+
+impl<T: TrustedEntityBorrow, I: Iterator<Item: TrustedEntityBorrow> + AsMut<[T]>>
+    AsMut<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+{
+    fn as_mut(&mut self) -> &mut UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.iter.as_mut()) }
+    }
+}
+
 // Default does not guarantee uniqueness, meaning `I` needs to be EntitySetIterator.
 impl<I: EntitySetIterator + Default> Default for UniqueEntityIter<I> {
     fn default() -> Self {
@@ -382,25 +463,24 @@ impl<I: Iterator<Item: TrustedEntityBorrow> + Debug> Debug for UniqueEntityIter<
 mod tests {
     use alloc::{vec, vec::Vec};
 
-    #[allow(unused_imports)]
     use crate::prelude::{Schedule, World};
 
-    #[allow(unused_imports)]
     use crate::component::Component;
+    use crate::entity::Entity;
     use crate::query::{QueryState, With};
     use crate::system::Query;
     use crate::world::Mut;
-    #[allow(unused_imports)]
     use crate::{self as bevy_ecs};
-    #[allow(unused_imports)]
-    use crate::{entity::Entity, world::unsafe_world_cell};
 
     use super::UniqueEntityIter;
 
     #[derive(Component, Clone)]
     pub struct Thing;
 
-    #[allow(clippy::iter_skip_zero)]
+    #[expect(
+        clippy::iter_skip_zero,
+        reason = "The `skip(0)` is used to ensure that the `Skip` iterator implements `EntitySet`, which is needed to pass the iterator as the `entities` parameter."
+    )]
     #[test]
     fn preserving_uniqueness() {
         let mut world = World::new();
