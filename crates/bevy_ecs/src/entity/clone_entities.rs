@@ -420,7 +420,7 @@ impl EntityCloner {
     pub fn build(world: &mut World) -> EntityClonerBuilder {
         EntityClonerBuilder {
             world,
-            attach_required_components: false,
+            attach_required_components: true,
             entity_cloner: EntityCloner::default(),
         }
     }
@@ -575,8 +575,7 @@ pub struct EntityClonerBuilder<'w> {
 }
 
 impl<'w> EntityClonerBuilder<'w> {
-    /// Internally consumes the builder to construct an [`EntityCloner`], calls [`EntityCloner::clone_entity`] on the
-    /// builder's [`World`], and returns the resulting [`EntityCloner`].
+    /// Internally calls [`EntityCloner::clone_entity`] on the builder's [`World`].
     pub fn clone_entity(&mut self, source: Entity, target: Entity) -> &mut Self {
         self.entity_cloner.clone_entity(self.world, source, target);
         self
@@ -734,6 +733,17 @@ impl<'w> EntityClonerBuilder<'w> {
         if let Some(id) = self.world.components().component_id::<T>() {
             self.entity_cloner.clone_behavior_overrides.remove(&id);
         }
+        self
+    }
+
+    /// Removes a previously set override of [`ComponentCloneBehavior`] for a given `component_id` in this builder.
+    pub fn remove_clone_behavior_override_with_id(
+        &mut self,
+        component_id: ComponentId,
+    ) -> &mut Self {
+        self.entity_cloner
+            .clone_behavior_overrides
+            .remove(&component_id);
         self
     }
 
