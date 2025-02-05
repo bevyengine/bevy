@@ -1054,7 +1054,7 @@ fn remove_mesh_input_uniform(
     let removed_render_mesh_instance = render_mesh_instances.remove(&entity)?;
 
     let removed_uniform_index = removed_render_mesh_instance.current_uniform_index.get();
-    current_input_buffer.remove(removed_uniform_index);
+    current_input_buffer.remove_unchecked(removed_uniform_index);
     Some(removed_uniform_index)
 }
 
