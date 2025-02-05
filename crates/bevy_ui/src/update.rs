@@ -7,7 +7,6 @@ use crate::{
 };
 
 use super::ComputedNode;
-use bevy_asset::Assets;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{hash_set::EntityHashSet, Entity},
@@ -15,12 +14,10 @@ use bevy_ecs::{
     query::{Changed, With},
     system::{Commands, Local, Query, Res},
 };
-use bevy_image::Image;
 use bevy_math::{Rect, UVec2};
-use bevy_render::camera::{Camera, ManualTextureViews};
+use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-use bevy_window::{PrimaryWindow, Window};
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -177,8 +174,6 @@ pub fn update_target_camera_system(
             })
             .unwrap_or((1., UVec2::ZERO));
 
-        println!("p = {}", new_target_size);
-
         update_contexts_recursively(
             root_entity,
             new_scale_factor,
@@ -235,9 +230,6 @@ fn update_contexts_recursively(
         )
         .unwrap_or(false)
     {
-        println!("cam = {camera}");
-        println!("target size = {target_size}");
-        println!("sf = {scale_factor}");
         for child in ui_children.iter_ui_children(entity) {
             update_contexts_recursively(
                 child,

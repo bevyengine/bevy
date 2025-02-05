@@ -170,10 +170,8 @@ fn set_camera_viewports(
     for resize_event in resize_events.read() {
         let window = windows.get(resize_event.window).unwrap();
         let size = window.physical_size() / 2;
-        println!("size = {size}");
 
         for (camera_position, mut camera) in &mut query {
-            println!("position = {}", camera_position.pos * size);
             camera.viewport = Some(Viewport {
                 physical_position: camera_position.pos * size,
                 physical_size: size,
