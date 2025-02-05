@@ -9,8 +9,8 @@ mod debug_overlay;
 
 use crate::widget::ImageNode;
 use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
-    Outline, ResolvedBorderRadius, UiAntiAlias, UiTargetCamera,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
+    ComputedNodeTargetCamera, Outline, ResolvedBorderRadius, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -254,17 +254,14 @@ impl ExtractedUiNodes {
 
 #[derive(SystemParam)]
 pub struct UiCameraMap<'w, 's> {
-    default: DefaultUiCamera<'w, 's>,
     mapping: Query<'w, 's, RenderEntity>,
 }
 
 impl<'w, 's> UiCameraMap<'w, 's> {
     /// Get the default camera and create the mapper
     pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
-        let default_camera_entity = self.default.get();
         UiCameraMapper {
             mapping: &self.mapping,
-            default_camera_entity,
             camera_entity: Entity::PLACEHOLDER,
             render_entity: Entity::PLACEHOLDER,
         }
@@ -273,17 +270,14 @@ impl<'w, 's> UiCameraMap<'w, 's> {
 
 pub struct UiCameraMapper<'w, 's> {
     mapping: &'w Query<'w, 's, RenderEntity>,
-    default_camera_entity: Option<Entity>,
     camera_entity: Entity,
     render_entity: Entity,
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, camera: Option<&UiTargetCamera>) -> Option<Entity> {
-        let camera_entity = camera
-            .map(UiTargetCamera::entity)
-            .or(self.default_camera_entity)?;
+    pub fn map(&mut self, camera: &ComputedNodeTargetCamera) -> Option<Entity> {
+        let camera_entity = camera.0;
         if self.camera_entity != camera_entity {
             let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
                 return None;
@@ -335,7 +329,7 @@ pub fn extract_uinode_background_colors(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTargetCamera,
             &BackgroundColor,
         )>,
     >,
@@ -394,7 +388,7 @@ pub fn extract_uinode_images(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTargetCamera,
             &ImageNode,
         )>,
     >,
@@ -478,7 +472,7 @@ pub fn extract_uinode_borders(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -494,7 +488,7 @@ pub fn extract_uinode_borders(
         global_transform,
         inherited_visibility,
         maybe_clip,
-        maybe_camera,
+        camera,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
@@ -503,7 +497,7 @@ pub fn extract_uinode_borders(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(maybe_camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -706,7 +700,7 @@ pub fn extract_text_sections(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTargetCamera,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,

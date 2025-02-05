@@ -2,17 +2,20 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, UiTargetCamera,
+    CalculatedClip, ComputedNodeScaleFactor, ComputedNodeTargetCamera, ComputedNodeTargetSize,
+    DefaultUiCamera, Display, Node, OverflowAxis, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
 use bevy_ecs::{
-    entity::Entity,
+    change_detection::DetectChangesMut,
+    entity::{hash_set::EntityHashSet, Entity},
+    hierarchy::ChildOf,
     query::{Changed, With},
-    system::{Commands, Query},
+    system::{Commands, Local, Query, Res},
 };
-use bevy_math::Rect;
-use bevy_platform_support::collections::HashSet;
+use bevy_math::{Rect, UVec2};
+use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 
@@ -135,84 +138,108 @@ fn update_clipping(
 }
 
 pub fn update_target_camera_system(
-    mut commands: Commands,
-    changed_root_nodes_query: Query<
-        (Entity, Option<&UiTargetCamera>),
-        (With<Node>, Changed<UiTargetCamera>),
-    >,
-    node_query: Query<(Entity, Option<&UiTargetCamera>), With<Node>>,
+    default_ui_camera: DefaultUiCamera,
+    ui_scale: Res<UiScale>,
+    camera_query: Query<&Camera>,
+    target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
+    mut context_query: Query<(
+        &mut ComputedNodeScaleFactor,
+        &mut ComputedNodeTargetSize,
+        &mut ComputedNodeTargetCamera,
+    )>,
     ui_children: UiChildren,
+    reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTargetCamera>)>,
+    mut visited: Local<EntityHashSet>,
 ) {
-    // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
-    // and updates done for changed_children_query can overlap with itself or with root_node_query
-    let mut updated_entities = <HashSet<_>>::default();
+    visited.clear();
+    let default_camera_entity = default_ui_camera.get();
 
-    // Assuming that UiTargetCamera is manually set on the root node only,
-    // update root nodes first, since it implies the biggest change
-    for (root_node, target_camera) in changed_root_nodes_query.iter_many(ui_root_nodes.iter()) {
-        update_children_target_camera(
-            root_node,
-            target_camera,
-            &node_query,
+    for root_entity in ui_root_nodes.iter() {
+        let camera_entity = target_camera_query
+            .get(root_entity)
+            .ok()
+            .map(UiTargetCamera::entity)
+            .or(default_camera_entity)
+            .unwrap_or(Entity::PLACEHOLDER);
+
+        let (new_scale_factor, new_target_size) = camera_query
+            .get(camera_entity)
+            .ok()
+            .map(|camera| {
+                (
+                    camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
+                    camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
+                )
+            })
+            .unwrap_or((1., UVec2::ZERO));
+
+        update_contexts_recursively(
+            root_entity,
+            new_scale_factor,
+            new_target_size,
+            camera_entity,
             &ui_children,
-            &mut commands,
-            &mut updated_entities,
+            &mut context_query,
+            &mut visited,
         );
     }
 
-    // If the root node UiTargetCamera was changed, then every child is updated
-    // by this point, and iteration will be skipped.
-    // Otherwise, update changed children
-    for (parent, target_camera) in &node_query {
-        if !ui_children.is_changed(parent) {
+    for (entity, child_of) in reparented_nodes.iter() {
+        let Ok((new_scale_factor, new_target_size, camera_entity)) = context_query.get(child_of.0)
+        else {
             continue;
-        }
+        };
 
-        update_children_target_camera(
-            parent,
-            target_camera,
-            &node_query,
+        update_contexts_recursively(
+            entity,
+            new_scale_factor.0,
+            new_target_size.0,
+            camera_entity.0,
             &ui_children,
-            &mut commands,
-            &mut updated_entities,
+            &mut context_query,
+            &mut visited,
         );
     }
 }
 
-fn update_children_target_camera(
+fn update_contexts_recursively(
     entity: Entity,
-    camera_to_set: Option<&UiTargetCamera>,
-    node_query: &Query<(Entity, Option<&UiTargetCamera>), With<Node>>,
+    scale_factor: f32,
+    target_size: UVec2,
+    camera: Entity,
     ui_children: &UiChildren,
-    commands: &mut Commands,
-    updated_entities: &mut HashSet<Entity>,
+    query: &mut Query<(
+        &mut ComputedNodeScaleFactor,
+        &mut ComputedNodeTargetSize,
+        &mut ComputedNodeTargetCamera,
+    )>,
+    visited: &mut EntityHashSet,
 ) {
-    for child in ui_children.iter_ui_children(entity) {
-        // Skip if the child has already been updated or update is not needed
-        if updated_entities.contains(&child)
-            || camera_to_set == node_query.get(child).ok().and_then(|(_, camera)| camera)
-        {
-            continue;
+    if !visited.insert(entity) {
+        return;
+    }
+    if query
+        .get_mut(entity)
+        .map(
+            |(mut node_scale_factor, mut node_target_size, mut node_camera)| {
+                node_scale_factor.set_if_neq(ComputedNodeScaleFactor(scale_factor))
+                    | node_target_size.set_if_neq(ComputedNodeTargetSize(target_size))
+                    | node_camera.set_if_neq(ComputedNodeTargetCamera(camera))
+            },
+        )
+        .unwrap_or(false)
+    {
+        for child in ui_children.iter_ui_children(entity) {
+            update_contexts_recursively(
+                child,
+                scale_factor,
+                target_size,
+                camera,
+                ui_children,
+                query,
+                visited,
+            );
         }
-
-        match camera_to_set {
-            Some(camera) => {
-                commands.entity(child).try_insert(camera.clone());
-            }
-            None => {
-                commands.entity(child).remove::<UiTargetCamera>();
-            }
-        }
-        updated_entities.insert(child);
-
-        update_children_target_camera(
-            child,
-            camera_to_set,
-            node_query,
-            ui_children,
-            commands,
-            updated_entities,
-        );
     }
 }
