@@ -212,7 +212,7 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use bevy_app::{App, Last, Plugin, PreUpdate};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
@@ -580,7 +580,7 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
-                Last,
+                PostUpdate,
                 Assets::<A>::asset_events
                     .run_if(Assets::<A>::asset_events_condition)
                     .in_set(AssetEvents),
