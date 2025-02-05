@@ -1193,4 +1193,68 @@ mod tests {
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
         assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
     }
+
+    #[test]
+    fn no_viewport_node_leak_on_root_despawned() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_root_entity = world.spawn(Node::default()).id();
+
+        // The UI schedule synchronizes Bevy UI's internal `TaffyTree` with the
+        // main world's tree of `Node` entities.
+        ui_schedule.run(&mut world);
+
+        // Two taffy nodes are added to the internal `TaffyTree` for each root UI entity.
+        // An implicit taffy node representing the viewport and a taffy node corresponding to the
+        // root UI entity which is parented to the viewport taffy node.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            2
+        );
+
+        world.despawn(ui_root_entity);
+
+        // The UI schedule removes both the taffy node corresponding to `ui_root_entity` and its
+        // parent viewport node.
+        ui_schedule.run(&mut world);
+
+        // Both taffy nodes should now be removed from the internal `TaffyTree`
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            0
+        );
+    }
+
+    #[test]
+    fn no_viewport_node_leak_on_parented_root() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_root_entity_1 = world.spawn(Node::default()).id();
+        let ui_root_entity_2 = world.spawn(Node::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        // There are two UI root entities. Each root taffy node is given it's own viewport node parent,
+        // so a total of four taffy nodes are added to the `TaffyTree` by the UI schedule.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            4
+        );
+
+        // Parent `ui_root_entity_2` onto `ui_root_entity_1` so now only `ui_root_entity_1` is a
+        // UI root entity.
+        world
+            .entity_mut(ui_root_entity_1)
+            .add_child(ui_root_entity_2);
+
+        // Now there is only one root node so the second viewport node is removed by
+        // the UI schedule.
+        ui_schedule.run(&mut world);
+
+        // There is only one viewport node now, so the `TaffyTree` contains 3 nodes in total.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            3
+        );
+    }
 }
