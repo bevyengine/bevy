@@ -2,7 +2,10 @@ use crate::MainWorld;
 use bevy_ecs::{
     component::Tick,
     prelude::*,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    system::{
+        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState,
+        WorldAccessLevel,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use core::ops::{Deref, DerefMut};
@@ -119,6 +122,10 @@ where
         };
         let item = state.state.get(main_world.into_inner());
         Extract { item }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        P::world_access_level()
     }
 }
 

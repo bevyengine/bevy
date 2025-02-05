@@ -11,7 +11,7 @@ use crate::{
     },
     resource::Resource,
     storage::ResourceData,
-    system::{Query, Single, SystemMeta},
+    system::{Query, Single, SystemMeta, SystemState},
     world::{
         unsafe_world_cell::UnsafeWorldCell, DeferredWorld, FilteredResources, FilteredResourcesMut,
         FromWorld, World,
@@ -287,6 +287,10 @@ pub unsafe trait SystemParam: Sized {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state>;
+
+    /// Returns the access level required by this [`SystemParam`] to access the
+    /// [`World`] via [`SystemParam::get_param`].
+    fn world_access_level() -> WorldAccessLevel;
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
@@ -297,6 +301,31 @@ pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
+
+/// The level of access a [`SystemParam`] needs from the [`World`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum WorldAccessLevel {
+    /// The [`SystemParam`] does not need access to the [`World`] beyond
+    /// [`SystemParam::init_state`].
+    None,
+    /// The [`SystemParam`] needs access to the [`World`] for
+    /// [`SystemParam::get_param`] and registers its required access to the
+    /// [`SystemMeta`]. All other [`SystemParam`]s must be [`WorldAccessLevel::Shared`]
+    /// and register their access to the [`SystemMeta`] accordingly, or
+    /// [`WorldAccessLevel::None`].
+    Shared,
+    /// The [`SystemParam`] needs exclusive access to the [`World`] for
+    /// [`SystemParam::get_param`] which requires all other [`SystemParam`]s to
+    /// be [`WorldAccessLevel::None`].
+    Exclusive,
+}
+
+/// Asserts that the given [`SystemParam`] has a valid [`WorldAccessLevel`].
+pub fn assert_valid_world_access_level<P: SystemParam>() {
+    // This will panic on params/tuples whose fields/members have conflicting
+    // access levels.
+    let _ = P::world_access_level();
+}
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
 unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> ReadOnlySystemParam
@@ -335,6 +364,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
         unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -436,6 +469,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         }
         is_valid
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
@@ -502,6 +539,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         }
         is_valid
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
@@ -562,6 +603,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         !unsafe {
             state.is_empty_unsafe_world_cell(world, system_meta.last_run, world.change_tick())
         }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -774,6 +819,27 @@ macro_rules! impl_param_set {
                     change_tick,
                 }
             }
+
+            fn world_access_level() -> WorldAccessLevel {
+                let mut shared = false;
+                $(
+                    match $param::world_access_level() {
+                        WorldAccessLevel::Exclusive => {
+                            return WorldAccessLevel::Exclusive;
+                        }
+                        WorldAccessLevel::Shared => {
+                            shared = true;
+                        }
+                        WorldAccessLevel::None => {}
+                    }
+                )*
+
+                if shared {
+                    WorldAccessLevel::Shared
+                } else {
+                    WorldAccessLevel::None
+                }
+            }
         }
 
         impl<'w, 's, $($param: SystemParam,)*> ParamSet<'w, 's, ($($param,)*)>
@@ -875,6 +941,10 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             changed_by: _caller.deref(),
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: Only reads a single World resource
@@ -909,6 +979,10 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
                 #[cfg(feature = "track_location")]
                 changed_by: _caller.deref(),
             })
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -988,6 +1062,10 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             changed_by: value.changed_by,
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: this impl defers to `ResMut`, which initializes and validates the correct world access.
@@ -1020,9 +1098,13 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
                 changed_by: value.changed_by,
             })
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
-/// SAFETY: only reads world
+// SAFETY: only reads world
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
 // SAFETY: `read_all` access is set and conflicts result in a panic
@@ -1042,7 +1124,6 @@ unsafe impl SystemParam for &'_ World {
         system_meta.archetype_component_access.extend(&access);
 
         let mut filtered_access = FilteredAccess::default();
-
         filtered_access.read_all();
         if !system_meta
             .component_access_set
@@ -1064,9 +1145,13 @@ unsafe impl SystemParam for &'_ World {
         // SAFETY: Read-only access to the entire world was registered in `init_state`.
         unsafe { world.world() }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
-/// SAFETY: `DeferredWorld` can read all components and resources but cannot be used to gain any other mutable references.
+// SAFETY: `DeferredWorld` registers exclusive access to the entire world.
 unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type State = ();
     type Item<'world, 'state> = DeferredWorld<'world>;
@@ -1091,6 +1176,122 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         world.into_deferred()
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Exclusive
+    }
+}
+
+const MUT_WORLD_ERROR: &str = "&mut World requires exclusive access to the \
+    entire world, but a previous system parameter already registered access to \
+    a part of it. Allowing this would break Rust's mutability rules";
+
+// SAFETY: `&mut World` registers exclusive access to the entire world.
+unsafe impl SystemParam for &mut World {
+    type State = ();
+    type Item<'w, 's> = &'w mut World;
+
+    fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+        let mut access = Access::default();
+        access.read_all();
+        access.write_all();
+        if !system_meta
+            .archetype_component_access
+            .is_compatible(&access)
+        {
+            panic!("{}", MUT_WORLD_ERROR);
+        }
+        system_meta.archetype_component_access.extend(&access);
+
+        let mut filtered_access = FilteredAccess::default();
+        filtered_access.read_all();
+        filtered_access.write_all();
+        if !system_meta
+            .component_access_set
+            .get_conflicts_single(&filtered_access)
+            .is_empty()
+        {
+            panic!("{}", MUT_WORLD_ERROR);
+        }
+        system_meta.component_access_set.add(filtered_access);
+
+        system_meta.set_has_deferred();
+        system_meta.set_non_send();
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        // SAFETY: Exclusive access to the entire world was registered in `init_state`.
+        unsafe { world.world_mut() }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Exclusive
+    }
+}
+
+// SAFETY: `&mut QueryState` only accesses internal state
+unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
+    for &mut QueryState<D, F>
+{
+    type State = QueryState<D, F>;
+    type Item<'w, 's> = &'s mut QueryState<D, F>;
+
+    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        QueryState::new(world)
+    }
+
+    unsafe fn new_archetype(
+        state: &mut Self::State,
+        archetype: &Archetype,
+        system_meta: &mut SystemMeta,
+    ) {
+        state.new_archetype(archetype, &mut system_meta.archetype_component_access);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
+    }
+}
+
+// SAFETY: `&mut SystemState` only accesses internal state
+unsafe impl<P: SystemParam + 'static> SystemParam for &mut SystemState<P> {
+    type State = SystemState<P>;
+    type Item<'w, 's> = &'s mut SystemState<P>;
+
+    fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
+        SystemState::new(world)
+    }
+
+    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+        state.apply(world);
+    }
+
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: UnsafeWorldCell<'world>,
+        _change_tick: Tick,
+    ) -> Self::Item<'world, 'state> {
+        state
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
     }
 }
 
@@ -1204,6 +1405,10 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         Local(state.get())
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
     }
 }
 
@@ -1394,6 +1599,10 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     ) -> Self::Item<'w, 's> {
         Deferred(state.get())
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
+    }
 }
 
 /// Shared borrow of a non-[`Send`] resource.
@@ -1543,6 +1752,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             changed_by: _caller.deref(),
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1574,6 +1787,10 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
                 #[cfg(feature = "track_location")]
                 changed_by: _caller.deref(),
             })
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -1651,6 +1868,10 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             changed_by: _caller.deref_mut(),
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
@@ -1678,6 +1899,10 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
                 changed_by: _caller.deref_mut(),
             })
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: Only reads World archetypes
@@ -1698,6 +1923,10 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.archetypes()
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -1720,6 +1949,10 @@ unsafe impl<'a> SystemParam for &'a Components {
     ) -> Self::Item<'w, 's> {
         world.components()
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: Only reads World entities
@@ -1741,6 +1974,10 @@ unsafe impl<'a> SystemParam for &'a Entities {
     ) -> Self::Item<'w, 's> {
         world.entities()
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: Only reads World bundles
@@ -1761,6 +1998,10 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.bundles()
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -1814,6 +2055,10 @@ unsafe impl SystemParam for SystemChangeTick {
             last_run: system_meta.last_run,
             this_run: change_tick,
         }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
     }
 }
 
@@ -1878,6 +2123,10 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
             T::queue(state, system_meta, world.reborrow());
         }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        T::world_access_level()
+    }
 }
 
 // SAFETY: When initialized with `init_state`, `get_param` returns an empty `Vec` and does no access.
@@ -1928,6 +2177,10 @@ unsafe impl<T: SystemParam> SystemParam for ParamSet<'_, '_, Vec<T>> {
         for state in state {
             T::queue(state, system_meta, world.reborrow());
         }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        T::world_access_level()
     }
 }
 
@@ -2039,6 +2292,42 @@ macro_rules! impl_system_param_tuple {
                     reason = "Zero-length tuples won't have any params to get."
                 )]
                 ($($param::get_param($param, system_meta, world, change_tick),)*)
+            }
+
+            fn world_access_level() -> WorldAccessLevel {
+                #[allow(unused_mut, reason = "tuple might be zero-length")]
+                let mut exclusive = false;
+                #[allow(unused_mut, reason = "tuple might be zero-length")]
+                let mut shared = false;
+                $(
+                    match $param::world_access_level() {
+                        WorldAccessLevel::Exclusive => {
+                            if shared || exclusive {
+                                let type_name = core::any::type_name::<$param>();
+                                panic!("error[B0002]: {type_name} conflicts with a previous system parameter. {type_name} is exclusive, and so cannot be combined with any system parameter that accesses the World.");
+                            } else {
+                                exclusive = true;
+                            }
+                        }
+                        WorldAccessLevel::Shared => {
+                            if exclusive {
+                                let type_name = core::any::type_name::<$param>();
+                                panic!("error[B0002]: {type_name} conflicts with a previous system parameter which is exclusive. {type_name} is shared, and so cannot be combined with any system parameter that accesses the World exclusively.");
+                            } else {
+                                shared = true;
+                            }
+                        }
+                        WorldAccessLevel::None => {}
+                    }
+                )*
+
+                if exclusive {
+                    WorldAccessLevel::Exclusive
+                } else if shared {
+                    WorldAccessLevel::Shared
+                } else {
+                    WorldAccessLevel::None
+                }
             }
         }
     };
@@ -2204,6 +2493,10 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         // SAFETY: Defer to the safety of P::SystemParam
         StaticSystemParam(unsafe { P::get_param(state, system_meta, world, change_tick) })
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        P::world_access_level()
+    }
 }
 
 // SAFETY: No world access.
@@ -2221,6 +2514,10 @@ unsafe impl<T: ?Sized> SystemParam for PhantomData<T> {
         _change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
         PhantomData
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
     }
 }
 
@@ -2522,6 +2819,14 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
     fn queue(state: &mut Self::State, system_meta: &SystemMeta, world: DeferredWorld) {
         state.0.queue(system_meta, world);
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        // We don't allow users to create DynSystemParam's that hold exclusive
+        // params, so we can safely return Shared here. This is technically
+        // over-restrictive when storing `WorldAccessLevel::None` params, but we
+        // can't conditionally return based on the held state.
+        WorldAccessLevel::Shared
+    }
 }
 
 // SAFETY: When initialized with `init_state`, `get_param` returns a `FilteredResources` with no access.
@@ -2545,6 +2850,10 @@ unsafe impl SystemParam for FilteredResources<'_, '_> {
         // SAFETY: The caller ensures that `world` has access to anything registered in `init_state` or `build`,
         // and the builder registers `access` in `build`.
         unsafe { FilteredResources::new(world, state, system_meta.last_run, change_tick) }
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }
 
@@ -2573,14 +2882,19 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
         // and the builder registers `access` in `build`.
         unsafe { FilteredResourcesMut::new(world, state, system_meta.last_run, change_tick) }
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::assert_is_system,
+        self as bevy_ecs,
+        prelude::Component,
+        system::{assert_is_system, IntoSystem, System},
     };
     use core::cell::RefCell;
 
@@ -2810,5 +3124,157 @@ mod tests {
         let _query: Query<()> = p.downcast_mut().unwrap();
         let _query: Query<()> = p.downcast_mut_inner().unwrap();
         let _query: Query<()> = p.downcast().unwrap();
+    }
+
+    #[derive(Component, Resource)]
+    struct Foo;
+
+    fn check_conflict<M>(system: impl IntoSystem<(), (), M>) {
+        let mut world = World::new();
+        let mut system = IntoSystem::into_system(system);
+        system.initialize(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_world_archetypes() {
+        fn system(_: &mut World, _: &Archetypes, _: &Components, _: &Entities, _: &Bundles) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_multiple() {
+        fn system(_: &mut World, _: &mut World) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_deferred_world() {
+        fn system(_: &mut World, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_query() {
+        fn system(_: &mut World, _: Query<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_query_mut_world() {
+        fn system(_: Query<&Foo>, _: &mut World) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_mut_world_resource() {
+        fn system(_: &mut World, _: Res<Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_resource_mut_world() {
+        fn system(_: Res<Foo>, _: &mut World) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_local() {
+        fn system(_: &mut World, _: Local<u32>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_query_state() {
+        fn system(_: &mut World, _: &mut QueryState<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_system_state() {
+        fn system(_: &mut World, _: &mut SystemState<Query<&Foo>>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_mut_world_system_state_recursive() {
+        fn system(_: &mut World, _: &mut SystemState<&mut SystemState<Query<&Foo>>>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_deferred_world_multiple() {
+        fn system(_: DeferredWorld, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_deferred_world_query() {
+        fn system(_: DeferredWorld, _: Query<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_query_deferred_world() {
+        fn system(_: Query<&Foo>, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_deferred_world_resource() {
+        fn system(_: DeferredWorld, _: Res<Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    #[should_panic]
+    fn conflict_resource_deferred_world() {
+        fn system(_: Res<Foo>, _: DeferredWorld) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_deferred_world_local() {
+        fn system(_: DeferredWorld, _: Local<u32>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_deferred_world_query_state() {
+        fn system(_: DeferredWorld, _: &mut QueryState<&Foo>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn no_conflict_deferred_world_system_state() {
+        fn system(_: DeferredWorld, _: &mut SystemState<Query<&Foo>>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn param_set_no_conflicts() {
+        fn system(_: ParamSet<(&mut World, DeferredWorld, &World, Query<&Foo>)>) {}
+        check_conflict(system);
+    }
+
+    #[test]
+    fn derived_deferred_world_system_state() {
+        #[derive(SystemParam)]
+        struct Test<'w, 's> {
+            _dw: DeferredWorld<'w>,
+            _ss: &'s mut SystemState<Query<'static, 'static, &'static Foo>>,
+        }
+        fn system(_: Test) {}
+        check_conflict(system);
     }
 }
