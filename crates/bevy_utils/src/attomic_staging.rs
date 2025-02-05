@@ -157,18 +157,24 @@ impl<T: StagedChanges> StageOnWrite<T> {
         }
     }
 
-    /// Easily run a stager function to stage changes easily.
+    /// Easily run a stager function to stage changes.
     #[inline]
     pub fn stage_scope_locked<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
         f(&mut self.stage_lock().as_stager())
     }
 
-    /// Easily run a stager function to stage changes easily. Then, try to apply those staged changes if it can do so without blocking.
+    /// Easily run a stager function to stage changes. Then, try to apply those staged changes if it can do so without blocking.
     #[inline]
     pub fn stage_scope_locked_eager<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
         let v = self.stage_scope_locked(f);
         self.apply_staged_non_blocking();
         v
+    }
+
+    /// Easily run a stager function to stage changes and return locked data.
+    #[inline]
+    pub fn stage_locked_scope<R>(&self, f: impl FnOnce(StagerLocked<T>) -> R) -> R {
+        f(self.stage_lock())
     }
 
     /// Constructs a [`Stager`] that will stage changes.
