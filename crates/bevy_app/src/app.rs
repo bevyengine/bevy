@@ -1532,7 +1532,6 @@ mod tests {
     #[test]
     fn test_derive_app_label() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
@@ -1664,7 +1663,6 @@ mod tests {
     #[test]
     fn test_extract_sees_changes() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
         struct MySubApp;

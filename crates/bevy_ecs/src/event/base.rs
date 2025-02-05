@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use crate::component::ComponentId;
 use crate::world::World;
 use crate::{component::Component, traversal::Traversal};

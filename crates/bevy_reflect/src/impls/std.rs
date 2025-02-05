@@ -4,7 +4,7 @@
 )]
 
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
+    impl_type_path, map_apply, map_partial_eq, map_try_apply,
     prelude::ReflectDefault,
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
@@ -2441,8 +2441,8 @@ crate::func::macros::impl_function_traits!(&'static Location<'static>);
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
-        TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
+        Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry,
+        Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
     use bevy_platform_support::collections::HashMap;

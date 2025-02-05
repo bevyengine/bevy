@@ -19,6 +19,9 @@
 //!
 //! See the documentation on [Gizmos](crate::gizmos::Gizmos) for more examples.
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_gizmos;
+
 /// System set label for the systems handling the rendering of gizmos.
 #[derive(SystemSet, Clone, Debug, Hash, PartialEq, Eq)]
 pub enum GizmoRenderSystem {

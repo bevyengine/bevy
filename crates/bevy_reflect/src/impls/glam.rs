@@ -1,4 +1,3 @@
-use crate as bevy_reflect;
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
 use assert_type_match::assert_type_match;
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};

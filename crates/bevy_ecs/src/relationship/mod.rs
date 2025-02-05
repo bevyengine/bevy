@@ -255,7 +255,6 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;

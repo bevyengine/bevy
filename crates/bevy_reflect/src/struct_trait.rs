@@ -1,6 +1,5 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect,
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     type_info::impl_type_methods,
     ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
@@ -585,7 +584,6 @@ pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut Formatter<'_>) -> core::fmt
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
     #[derive(Reflect, Default)]
     struct MyStruct {
