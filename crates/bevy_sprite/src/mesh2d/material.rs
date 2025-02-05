@@ -238,6 +238,12 @@ impl<M: Material2d> Default for Material2dPlugin<M> {
     }
 }
 
+#[derive(Resource, Debug)]
+struct MaterialCounts(usize);
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+struct MaterialSet(usize);
+
 impl<M: Material2d> Plugin for Material2dPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -247,6 +253,13 @@ where
             .register_type::<MeshMaterial2d<M>>()
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default());
 
+        let current_material = app
+            .world_mut()
+            .remove_resource::<MaterialCounts>()
+            .map(|mc| mc.0 + 1)
+            .unwrap_or_default();
+        app.insert_resource(MaterialCounts(current_material));
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Opaque2d, DrawMaterial2d<M>>()
@@ -254,17 +267,30 @@ where
                 .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_systems(ExtractSchedule, extract_mesh_materials_2d::<M>)
-                .add_systems(
+                .add_systems(ExtractSchedule, extract_mesh_materials_2d::<M>);
+            if current_material == 0 {
+                render_app.add_systems(
                     Render,
                     queue_material2d_meshes::<M>
                         .in_set(RenderSet::QueueMeshes)
+                        .in_set(MaterialSet(current_material))
                         .after(prepare_assets::<PreparedMaterial2d<M>>),
                 );
+            } else {
+                render_app.add_systems(
+                    Render,
+                    queue_material2d_meshes::<M>
+                        .in_set(RenderSet::QueueMeshes)
+                        .in_set(MaterialSet(current_material))
+                        .after(MaterialSet(current_material - 1))
+                        .after(prepare_assets::<PreparedMaterial2d<M>>),
+                );
+            }
         }
     }
 
     fn finish(&self, app: &mut App) {
+        app.world_mut().remove_resource::<MaterialCounts>();
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<Material2dPipeline<M>>();
         }
