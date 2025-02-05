@@ -10,9 +10,10 @@ use super::ComputedNode;
 use bevy_asset::Assets;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::Entity,
-    query::With,
-    system::{Commands, Query, Res},
+    entity::{hash_set::EntityHashSet, Entity},
+    hierarchy::ChildOf,
+    query::{Changed, With},
+    system::{Commands, Local, Query, Res},
 };
 use bevy_image::Image;
 use bevy_math::{Rect, UVec2};
@@ -155,7 +156,10 @@ pub fn resolve_target_camera_system(
     )>,
     manual_texture_views: Res<ManualTextureViews>,
     ui_children: UiChildren,
+    reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTargetCamera>)>,
+    mut visited: Local<EntityHashSet>,
 ) {
+    visited.clear();
     let default_camera_entity = default_ui_camera.get();
     let primary_window = primary_window_query.get_single().ok();
 
@@ -167,7 +171,7 @@ pub fn resolve_target_camera_system(
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
-        let (new_scale_factor, new_res) = camera_query
+        let (new_scale_factor, new_target_size) = camera_query
             .get(camera_entity)
             .ok()
             .and_then(|camera| camera.target.normalize(primary_window))
@@ -185,10 +189,28 @@ pub fn resolve_target_camera_system(
         update_contexts_recursively(
             root_entity,
             new_scale_factor,
-            new_res,
+            new_target_size,
             camera_entity,
             &ui_children,
             &mut context_query,
+            &mut visited,
+        );
+    }
+
+    for (entity, child_of) in reparented_nodes.iter() {
+        let Ok((new_scale_factor, new_target_size, camera_entity)) = context_query.get(child_of.0)
+        else {
+            continue;
+        };
+
+        update_contexts_recursively(
+            entity,
+            new_scale_factor.0,
+            new_target_size.0,
+            camera_entity.0,
+            &ui_children,
+            &mut context_query,
+            &mut visited,
         );
     }
 }
@@ -196,7 +218,7 @@ pub fn resolve_target_camera_system(
 fn update_contexts_recursively(
     entity: Entity,
     scale_factor: f32,
-    res: UVec2,
+    target_size: UVec2,
     camera: Entity,
     ui_children: &UiChildren,
     query: &mut Query<(
@@ -204,13 +226,30 @@ fn update_contexts_recursively(
         &mut ComputedNodeTargetSize,
         &mut ComputedNodeTargetCamera,
     )>,
+    visited: &mut EntityHashSet,
 ) {
-    if let Ok((mut sf, mut r, mut c)) = query.get_mut(entity) {
-        sf.set_if_neq(ComputedNodeScaleFactor(scale_factor));
-        r.set_if_neq(ComputedNodeTargetSize(res));
-        c.set_if_neq(ComputedNodeTargetCamera(camera));
-    }
-    for child in ui_children.iter_ui_children(entity) {
-        update_contexts_recursively(child, scale_factor, res, camera, ui_children, query);
+    visited.insert(entity);
+    if query
+        .get_mut(entity)
+        .map(
+            |(mut node_scale_factor, mut node_target_size, mut node_camera)| {
+                node_scale_factor.set_if_neq(ComputedNodeScaleFactor(scale_factor))
+                    | node_target_size.set_if_neq(ComputedNodeTargetSize(target_size))
+                    | node_camera.set_if_neq(ComputedNodeTargetCamera(camera))
+            },
+        )
+        .unwrap_or(false)
+    {
+        for child in ui_children.iter_ui_children(entity) {
+            update_contexts_recursively(
+                child,
+                scale_factor,
+                target_size,
+                camera,
+                ui_children,
+                query,
+                visited,
+            );
+        }
     }
 }

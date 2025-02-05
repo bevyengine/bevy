@@ -1,12 +1,12 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
+use crate::ui_node::{ComputedNodeScaleFactor, ComputedNodeTargetCamera, ComputedNodeTargetSize};
 use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_reflect::prelude::*;
 use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
 use core::marker::PhantomData;
-
 #[cfg(feature = "ghost_nodes")]
 use smallvec::SmallVec;
 
@@ -20,7 +20,13 @@ use smallvec::SmallVec;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
 #[reflect(Component, Debug)]
-#[require(Visibility, Transform)]
+#[require(
+    Visibility,
+    Transform,
+    ComputedNodeScaleFactor,
+    ComputedNodeTargetSize,
+    ComputedNodeTargetCamera
+)]
 pub struct GhostNode {
     // This is a workaround to ensure that GhostNode is only constructable when the appropriate feature flag is enabled
     #[reflect(ignore)]
