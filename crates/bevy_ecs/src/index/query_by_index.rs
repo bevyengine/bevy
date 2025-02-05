@@ -165,6 +165,9 @@ impl<C: Component<Mutability = Immutable>, D: QueryData, F: QueryFilter>
     }
 }
 
+/// The [`SystemParam::State`] type for [`QueryByIndex`], which caches information needed for queries.
+/// Hidden from documentation as it is purely an implementation detail for [`QueryByIndex`] that may
+/// change at any time to better suit [`QueryByIndex`]s needs.
 #[doc(hidden)]
 pub struct QueryByIndexState<
     C: Component<Mutability = Immutable>,
