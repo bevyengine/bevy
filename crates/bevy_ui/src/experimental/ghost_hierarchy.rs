@@ -186,7 +186,7 @@ impl<'w, 's> Iterator for UiChildrenIter<'w, 's> {
                     return Some(entity);
                 }
                 if let Some(children) = children {
-                    self.stack.extend(children.iter().rev().copied());
+                    self.stack.extend(children.iter().rev());
                 }
             }
         }

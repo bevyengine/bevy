@@ -334,7 +334,6 @@ mod test {
                 .get::<Children>(parent)
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             children,
         );
@@ -353,7 +352,6 @@ mod test {
                 .get::<Children>(parent)
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             vec![children[1]]
         );
@@ -363,7 +361,6 @@ mod test {
                 .get::<Children>(children[1])
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             vec![children[0]]
         );
@@ -377,7 +374,6 @@ mod test {
                 .get::<Children>(parent)
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             vec![children[1]]
         );
