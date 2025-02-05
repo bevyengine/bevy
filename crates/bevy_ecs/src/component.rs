@@ -8,7 +8,7 @@ use crate::{
     entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
     resource::Resource,
-    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
@@ -438,7 +438,6 @@ pub trait Component: Send + Sync + 'static {
     fn register_required_components(
         _component_id: ComponentId,
         _components: &mut Components,
-        _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
         _recursion_check_stack: &mut Vec<ComponentId>,
@@ -1193,14 +1192,13 @@ impl Components {
     /// * [`Components::component_id()`]
     /// * [`Components::register_component_with_descriptor()`]
     #[inline]
-    pub fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        self.register_component_internal::<T>(storages, &mut Vec::new())
+    pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        self.register_component_internal::<T>(&mut Vec::new())
     }
 
     #[inline]
     fn register_component_internal<T: Component>(
         &mut self,
-        storages: &mut Storages,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
         let mut is_new_registration = false;
@@ -1214,7 +1212,6 @@ impl Components {
             *indices.entry(type_id).or_insert_with(|| {
                 let id = Components::register_component_inner(
                     components,
-                    storages,
                     ComponentDescriptor::new::<T>(),
                 );
                 is_new_registration = true;
@@ -1226,7 +1223,6 @@ impl Components {
             T::register_required_components(
                 id,
                 self,
-                storages,
                 &mut required_components,
                 0,
                 recursion_check_stack,
@@ -1261,23 +1257,18 @@ impl Components {
     /// * [`Components::register_component()`]
     pub fn register_component_with_descriptor(
         &mut self,
-        storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::register_component_inner(&mut self.components, storages, descriptor)
+        Components::register_component_inner(&mut self.components, descriptor)
     }
 
     #[inline]
     fn register_component_inner(
         components: &mut Vec<ComponentInfo>,
-        storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         let component_id = ComponentId(components.len());
         let info = ComponentInfo::new(component_id, descriptor);
-        if info.descriptor.storage_type == StorageType::SparseSet {
-            storages.sparse_sets.get_or_insert(&info);
-        }
         components.push(info);
         component_id
     }
@@ -1512,14 +1503,13 @@ impl Components {
     #[doc(hidden)]
     pub fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
-        storages: &mut Storages,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) {
-        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
-        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
+        let requiree = self.register_component_internal::<T>(recursion_check_stack);
+        let required = self.register_component_internal::<R>(recursion_check_stack);
 
         // SAFETY: We just created the components.
         unsafe {
@@ -2111,11 +2101,10 @@ impl RequiredComponents {
     pub fn register<C: Component>(
         &mut self,
         components: &mut Components,
-        storages: &mut Storages,
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {
-        let component_id = components.register_component::<C>(storages);
+        let component_id = components.register_component::<C>();
         self.register_by_id(component_id, constructor, inheritance_depth);
     }
 
