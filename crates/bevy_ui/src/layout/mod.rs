@@ -1106,8 +1106,10 @@ mod tests {
                 None,
             );
 
-            ui_surface.compute_camera_layout(
-                params.camera_entity,
+            let taffy_root = ui_surface.get_or_insert_implicit_root(params.root_node_entity);
+
+            ui_surface.compute_layout(
+                taffy_root,
                 UVec2::new(800, 600),
                 &mut computed_text_block_query,
                 &mut font_system,
