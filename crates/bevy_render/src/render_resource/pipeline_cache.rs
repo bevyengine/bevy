@@ -1069,6 +1069,18 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         Capabilities::SUBGROUP_VERTEX_STAGE,
         features.contains(Features::SUBGROUP_VERTEX),
     );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT32_ATOMIC,
+        features.contains(Features::SHADER_FLOAT32_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_ATOMIC,
+        features.contains(Features::TEXTURE_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_INT64_ATOMIC,
+        features.contains(Features::TEXTURE_INT64_ATOMIC),
+    );
 
     capabilities
 }

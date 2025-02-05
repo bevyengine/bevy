@@ -87,14 +87,12 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 
         let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
-            if let Some(wrapped_texture) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = wrapped_texture.try_unwrap() {
-                    // TODO(clean): winit docs recommends calling pre_present_notify before this.
-                    // though `present()` doesn't present the frame, it schedules it to be presented
-                    // by wgpu.
-                    // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
-                    surface_texture.present();
-                }
+            if let Some(surface_texture) = window.swap_chain_texture.take() {
+                // TODO(clean): winit docs recommends calling pre_present_notify before this.
+                // though `present()` doesn't present the frame, it schedules it to be presented
+                // by wgpu.
+                // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
+                surface_texture.present();
             }
         }
 
@@ -224,10 +222,8 @@ pub async fn initialize_renderer(
         // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures on platforms
         // that report them as supported:
         // <https://github.com/gfx-rs/wgpu/issues/5488>
-        // WGPU also currently doesn't actually support these features yet, so we should disable
-        // them until they are safe to enable.
-        features -= wgpu::Features::RAY_QUERY;
-        features -= wgpu::Features::RAY_TRACING_ACCELERATION_STRUCTURE;
+        features -= wgpu::Features::EXPERIMENTAL_RAY_QUERY;
+        features -= wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE;
 
         limits = adapter.limits();
     }

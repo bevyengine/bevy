@@ -13,10 +13,10 @@ use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use wgpu::{SamplerDescriptor, TextureViewDescriptor};
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
 };
 
 pub trait BevyDefault {
@@ -343,7 +343,7 @@ pub struct Image {
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
-    pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
+    pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
 }
 
@@ -559,7 +559,7 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    pub fn as_wgpu(&self) -> SamplerDescriptor {
+    pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
             address_mode_u: self.address_mode_u.into(),
@@ -669,8 +669,8 @@ impl From<SamplerBorderColor> for ImageSamplerBorderColor {
     }
 }
 
-impl<'a> From<SamplerDescriptor<'a>> for ImageSamplerDescriptor {
-    fn from(value: SamplerDescriptor) -> Self {
+impl From<SamplerDescriptor<Option<&str>>> for ImageSamplerDescriptor {
+    fn from(value: SamplerDescriptor<Option<&str>>) -> Self {
         ImageSamplerDescriptor {
             label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),

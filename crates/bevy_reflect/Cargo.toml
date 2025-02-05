@@ -116,7 +116,7 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "23", features = ["serde"], optional = true }
+wgpu-types = { version = "24", features = ["serde"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }
