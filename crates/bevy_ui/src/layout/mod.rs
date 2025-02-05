@@ -1,8 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ComputedNodeScaleFactor, ComputedNodeTargetSize, ContentSize,
-    Display, LayoutConfig, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverflowAxis,
-    ScrollPosition, Val,
+    Display, LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -16,10 +15,9 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
-use bevy_utils::default;
 use thiserror::Error;
 use tracing::warn;
-use ui_surface::{get_text_buffer, UiSurface};
+use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
 
