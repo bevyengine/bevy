@@ -13,13 +13,12 @@ pub use parallel_scope::*;
 
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use core::panic::Location;
 use log::error;
 
 use crate::{
     self as bevy_ecs,
     bundle::{Bundle, InsertMode},
-    change_detection::Mut,
+    change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityCloneBuilder},
     event::Event,
@@ -683,11 +682,10 @@ impl<'w, 's> Commands<'w, 's> {
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
         B: Bundle,
     {
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
-                #[cfg(feature = "track_location")]
                 caller,
             ) {
                 error!(
