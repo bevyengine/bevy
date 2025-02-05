@@ -159,10 +159,10 @@ with UI components as a child of an entity without UI components, your UI layout
     });
 
     for ui_root_entity in ui_root_node_query.iter() {
-        let implicit_root = ui_surface.get_or_insert_implicit_root(ui_root_entity);
         let (_, _, _, target_size, target_scale_factor) = node_query.get(ui_root_entity).unwrap();
+
         ui_surface.compute_layout(
-            implicit_root,
+            ui_root_entity,
             target_size.0,
             &mut buffer_query,
             &mut font_system,

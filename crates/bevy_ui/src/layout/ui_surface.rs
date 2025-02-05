@@ -199,11 +199,13 @@ impl UiSurface {
     /// Compute the layout for the given implicit taffy viewport node
     pub fn compute_layout<'a>(
         &mut self,
-        implicit_viewport_node: taffy::NodeId,
+        ui_root_entity: Entity,
         render_target_resolution: UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
         font_system: &'a mut CosmicFontSystem,
     ) {
+        let implicit_viewport_node = self.get_or_insert_implicit_root(ui_root_entity);
+
         let available_space = taffy::geometry::Size {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
