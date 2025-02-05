@@ -1,6 +1,6 @@
 use crate::{
     entity::Entity,
-    query::{QueryData, QueryFilter, WorldQuery},
+    query::{QueryData, QueryFilter},
     relationship::{Relationship, RelationshipTarget},
     system::Query,
 };
@@ -14,7 +14,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// target entity of that relationship.
     pub fn related<R: Relationship>(&'w self, entity: Entity) -> Option<Entity>
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w R>,
+        <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
     {
         self.get(entity).map(R::get).ok()
     }
@@ -26,7 +26,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entity: Entity,
     ) -> impl Iterator<Item = Entity> + 'w
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+        <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w S>,
     {
         self.get(entity)
             .into_iter()
@@ -42,7 +42,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// If your relationship is not a tree (like Bevy's hierarchy), be sure to stop if you encounter a duplicate entity.
     pub fn root_ancestor<R: Relationship>(&'w self, entity: Entity) -> Entity
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w R>,
+        <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w R>,
     {
         // Recursively search up the tree until we're out of parents
         match self.get(entity) {
@@ -62,7 +62,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entity: Entity,
     ) -> impl Iterator<Item = Entity> + 'w
     where
-        <D as QueryData>::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+        <D as QueryData>::ReadOnly: QueryData<Item<'w> = &'w S>,
         SourceIter<'w, S>: DoubleEndedIterator,
     {
         self.iter_descendants_depth_first(entity).filter(|entity| {
@@ -80,7 +80,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entity: Entity,
     ) -> impl Iterator<Item = Entity> + 'w
     where
-        D::ReadOnly: WorldQuery<Item<'w> = (Option<&'w R>, Option<&'w R::RelationshipTarget>)>,
+        D::ReadOnly: QueryData<Item<'w> = (Option<&'w R>, Option<&'w R::RelationshipTarget>)>,
     {
         self.get(entity)
             .ok()
@@ -103,7 +103,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entity: Entity,
     ) -> DescendantIter<'w, 's, D, F, S>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+        D::ReadOnly: QueryData<Item<'w> = &'w S>,
     {
         DescendantIter::new(self, entity)
     }
@@ -120,7 +120,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entity: Entity,
     ) -> DescendantDepthFirstIter<'w, 's, D, F, S>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+        D::ReadOnly: QueryData<Item<'w> = &'w S>,
         SourceIter<'w, S>: DoubleEndedIterator,
     {
         DescendantDepthFirstIter::new(self, entity)
@@ -137,7 +137,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         entity: Entity,
     ) -> AncestorIter<'w, 's, D, F, R>
     where
-        D::ReadOnly: WorldQuery<Item<'w> = &'w R>,
+        D::ReadOnly: QueryData<Item<'w> = &'w R>,
     {
         AncestorIter::new(self, entity)
     }
@@ -148,7 +148,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 /// Traverses the hierarchy breadth-first.
 pub struct DescendantIter<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+    D::ReadOnly: QueryData<Item<'w> = &'w S>,
 {
     children_query: &'w Query<'w, 's, D, F>,
     vecdeque: VecDeque<Entity>,
@@ -156,7 +156,7 @@ where
 
 impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> DescendantIter<'w, 's, D, F, S>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+    D::ReadOnly: QueryData<Item<'w> = &'w S>,
 {
     /// Returns a new [`DescendantIter`].
     pub fn new(children_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
@@ -174,7 +174,7 @@ where
 impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
     for DescendantIter<'w, 's, D, F, S>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+    D::ReadOnly: QueryData<Item<'w> = &'w S>,
 {
     type Item = Entity;
 
@@ -194,7 +194,7 @@ where
 /// Traverses the hierarchy depth-first.
 pub struct DescendantDepthFirstIter<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+    D::ReadOnly: QueryData<Item<'w> = &'w S>,
 {
     children_query: &'w Query<'w, 's, D, F>,
     stack: SmallVec<[Entity; 8]>,
@@ -203,7 +203,7 @@ where
 impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget>
     DescendantDepthFirstIter<'w, 's, D, F, S>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+    D::ReadOnly: QueryData<Item<'w> = &'w S>,
     SourceIter<'w, S>: DoubleEndedIterator,
 {
     /// Returns a new [`DescendantDepthFirstIter`].
@@ -220,7 +220,7 @@ where
 impl<'w, 's, D: QueryData, F: QueryFilter, S: RelationshipTarget> Iterator
     for DescendantDepthFirstIter<'w, 's, D, F, S>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w S>,
+    D::ReadOnly: QueryData<Item<'w> = &'w S>,
     SourceIter<'w, S>: DoubleEndedIterator,
 {
     type Item = Entity;
@@ -239,7 +239,7 @@ where
 /// An [`Iterator`] of [`Entity`]s over the ancestors of an [`Entity`].
 pub struct AncestorIter<'w, 's, D: QueryData, F: QueryFilter, R: Relationship>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w R>,
+    D::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
     parent_query: &'w Query<'w, 's, D, F>,
     next: Option<Entity>,
@@ -247,7 +247,7 @@ where
 
 impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship> AncestorIter<'w, 's, D, F, R>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w R>,
+    D::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
     /// Returns a new [`AncestorIter`].
     pub fn new(parent_query: &'w Query<'w, 's, D, F>, entity: Entity) -> Self {
@@ -261,7 +261,7 @@ where
 impl<'w, 's, D: QueryData, F: QueryFilter, R: Relationship> Iterator
     for AncestorIter<'w, 's, D, F, R>
 where
-    D::ReadOnly: WorldQuery<Item<'w> = &'w R>,
+    D::ReadOnly: QueryData<Item<'w> = &'w R>,
 {
     type Item = Entity;
 
