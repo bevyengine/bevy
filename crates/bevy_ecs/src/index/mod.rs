@@ -353,7 +353,9 @@ pub struct IndexOptions<
     /// Marker components will be added to indexed entities to allow for efficient lookups.
     /// This controls the [`StorageType`] that will be used with these markers.
     /// It is recommended to use [`Table`](StorageType::Table) for more efficient querying, but a
-    /// [`SpareSet`](StorageType::SparseSet) may be more appropriate in certain circumstances.
+    /// [`SpareSet`](StorageType::SparseSet) may be more appropriate where iteration performance is
+    /// of lesser importance and the number of simultaneous unique values of `C` is large.
+    /// Ensure you benchmark both options appropriately if you are experiencing performance issues.
     ///
     /// This defaults to [`Table`](StorageType::Table).
     pub marker_storage: StorageType,
