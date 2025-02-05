@@ -174,9 +174,18 @@ pub struct QueryByIndexState<
     primary_query_state: QueryState<D, (F, With<C>)>,
     index_state: ComponentId,
 
-    // TODO: THERE MUST BE A BETTER WAY
-    without_states: Vec<QueryState<(), With<C>>>, // No, With<C> is not a typo
+    // TODO: Instead of storing 1 QueryState per marker component, it would be nice to instead
+    // track all marker components and then "somehow" create a `With<Marker #N>`/`Without<Marker #N>`
+    // query filter from that.
+    /// A list of [`QueryState`]s which each include a filter condition of `With<Marker #N>`.
+    /// Since the marking component is dynamic, it is missing from the type signature of the state.
+    /// Note that this includes `With<C>` purely for communicative purposes, `With<Marker #N>` is a
+    /// strict subset of `With<C>`.
     with_states: Vec<QueryState<(), With<C>>>,
+    /// A list of [`QueryState`]s which each include a filter condition of `Without<Marker #N>`.
+    /// Since the marking component is dynamic, it is missing from the type signature of the state.
+    /// Note that this includes `With<C>` to limit the scope of this `QueryState`.
+    without_states: Vec<QueryState<(), With<C>>>, // No, With<C> is not a typo
 }
 
 impl<C: Component<Mutability = Immutable>, D: QueryData + 'static, F: QueryFilter + 'static>
