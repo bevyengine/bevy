@@ -1,5 +1,7 @@
 //! Provides an abstracted system for staging modifications attomically.
 
+use core::ops::{Deref, DerefMut};
+
 use bevy_platform_support::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
@@ -44,10 +46,19 @@ pub struct StagedRefLocked<'a, T: StagedChanges> {
 
 /// A general purpose enum for representing data that may or may not need to be staged.
 pub enum MaybeStaged<C, S> {
-    /// There is staging necessary.
-    Staged(S),
     /// There is no staging necessary.
     Cold(C),
+    /// There is staging necessary.
+    Staged(S),
+}
+
+/// A general purpose enum for representing data that may or may not need to be locked.
+/// This is very useful when synchronizing staging.
+pub enum MaybeLocked<L, F> {
+    /// There is a lock held
+    Locked(L),
+    /// There is no lock held
+    Free(F),
 }
 
 /// A struct that allows read-optimized operations while still allowing mutation.
@@ -174,6 +185,21 @@ impl<T: StagedChanges> StageOnWrite<T> {
             staged: self.staged.read().unwrap(),
         }
     }
+
+    /// Runs different logic depending on if additional changes are already staged. This can be faster than greedily applying staged changes if there are already staged changes.
+    pub fn maybe_stage<C, S>(
+        &mut self,
+        for_full: impl FnOnce(&mut T::Cold) -> C,
+        for_staged: impl FnOnce(Stager<T>) -> S,
+    ) -> MaybeStaged<C, S> {
+        let staged = self.staged.get_mut().unwrap();
+        let cold = self.cold.get_mut().unwrap();
+        if staged.any_staged() {
+            MaybeStaged::Staged(for_staged(Stager { cold, staged }))
+        } else {
+            MaybeStaged::Cold(for_full(cold))
+        }
+    }
 }
 
 impl<T: StagedChanges> StagerLocked<'_, T> {
@@ -203,6 +229,26 @@ impl<T: StagedChanges> StagedRefLocked<'_, T> {
         StagedRef {
             cold: &self.cold,
             staged: &self.staged,
+        }
+    }
+}
+
+impl<L: Deref<Target = F>, F> Deref for MaybeLocked<L, F> {
+    type Target = F;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MaybeLocked::Locked(v) => v,
+            MaybeLocked::Free(v) => v,
+        }
+    }
+}
+
+impl<L: Deref<Target = F> + DerefMut, F> DerefMut for MaybeLocked<L, F> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            MaybeLocked::Locked(v) => v,
+            MaybeLocked::Free(v) => v,
         }
     }
 }
