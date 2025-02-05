@@ -1,4 +1,4 @@
-use crate::ui_node::ResolvedUiTargetCamera;
+use crate::ui_node::ComputedNodeTargetCamera;
 use crate::CalculatedClip;
 use crate::ComputedNode;
 use bevy_asset::AssetId;
@@ -64,7 +64,7 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            &ResolvedUiTargetCamera,
+            &ComputedNodeTargetCamera,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
