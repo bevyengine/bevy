@@ -251,18 +251,6 @@ impl UiSurface {
             .unwrap();
     }
 
-    /// Removes each camera entity from the internal map and then removes their associated node from taffy
-    pub fn remove_camera_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        for entity in entities {
-            if let Some(camera_root_node_map) = self.camera_entity_to_taffy.remove(&entity) {
-                for (entity, node) in camera_root_node_map.iter() {
-                    self.taffy.remove(*node).unwrap();
-                    self.entity_to_taffy.get_mut(entity).unwrap().viewport_id = None;
-                }
-            }
-        }
-    }
-
     /// Removes each entity from the internal map and then removes their associated nodes from taffy
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
