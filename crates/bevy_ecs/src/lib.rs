@@ -74,7 +74,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
-        component::{require, Component},
+        component::{require, Component, ComponentsView, ComponentsViewReadonly},
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
@@ -129,10 +129,13 @@ pub mod __macro_exports {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::{
+        ComponentsViewReadonly, ComponentsViewRef, RequiredComponentsStagedRef,
+    };
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        component::{require, Component, ComponentId, RequiredComponentsError},
         entity::Entity,
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
@@ -229,13 +232,9 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <FooBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -283,13 +282,9 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <NestedBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -339,13 +334,9 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <BundleWithIgnored as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -2615,21 +2606,38 @@ mod tests {
         world.register_required_components::<Z, B>();
 
         world.spawn(X);
+        let components = world.components.as_ref();
 
-        let required_a = world.get_required_components::<A>().unwrap();
-        let required_b = world.get_required_components::<B>().unwrap();
-        let required_c = world.get_required_components::<C>().unwrap();
-        let required_x = world.get_required_components::<X>().unwrap();
-        let required_y = world.get_required_components::<Y>().unwrap();
-        let required_z = world.get_required_components::<Z>().unwrap();
+        let required_a = components
+            .get_required_components(components.component_id::<A>().unwrap())
+            .unwrap();
+        let required_b = components
+            .get_required_components(components.component_id::<B>().unwrap())
+            .unwrap();
+        let required_c = components
+            .get_required_components(components.component_id::<C>().unwrap())
+            .unwrap();
+        let required_x = components
+            .get_required_components(components.component_id::<X>().unwrap())
+            .unwrap();
+        let required_y = components
+            .get_required_components(components.component_id::<Y>().unwrap())
+            .unwrap();
+        let required_z = components
+            .get_required_components(components.component_id::<Z>().unwrap())
+            .unwrap();
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: &RequiredComponents) -> Vec<(ComponentId, u16)> {
+        fn to_vec(required: RequiredComponentsStagedRef) -> Vec<(ComponentId, u16)> {
             let mut vec = required
-                .0
                 .iter()
-                .map(|(id, component)| (*id, component.inheritance_depth))
+                .flat_map(|required| {
+                    required
+                        .0
+                        .iter()
+                        .map(|(id, component)| (*id, component.inheritance_depth))
+                })
                 .collect::<Vec<_>>();
             vec.sort_by_key(|(id, _)| *id);
             vec

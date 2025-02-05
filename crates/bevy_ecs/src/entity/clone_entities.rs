@@ -8,6 +8,7 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
+use crate::component::{ComponentInfoRef, ComponentsViewReadonly, ComponentsViewRef};
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
@@ -28,7 +29,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     target_components_ptrs: &'a mut Vec<PtrMut<'b>>,
     target_components_buffer: &'b Bump,
     components: &'a Components,
-    component_info: &'a ComponentInfo,
+    component_info: ComponentInfoRef<'a>,
     entity_cloner: &'a EntityCloner,
     #[cfg(feature = "bevy_reflect")]
     type_registry: Option<&'a crate::reflect::AppTypeRegistry>,
@@ -89,7 +90,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
 
     /// Returns the [`ComponentInfo`] of the component being cloned.
     pub fn component_info(&self) -> &ComponentInfo {
-        self.component_info
+        &self.component_info
     }
 
     /// Returns a reference to the component on the source entity.
@@ -310,12 +311,11 @@ impl EntityCloner {
                 continue;
             }
 
-            let global_handlers = components.get_component_clone_handlers();
             let handler = match self.clone_handlers_overrides.get(&component) {
                 Some(handler) => handler
                     .get_handler()
-                    .unwrap_or_else(|| global_handlers.get_default_handler()),
-                None => global_handlers.get_handler(component),
+                    .unwrap_or_else(|| components.get_default_clone_handler()),
+                None => components.get_clone_handler(component),
             };
 
             // SAFETY:
@@ -648,8 +648,9 @@ impl<'w> EntityCloneBuilder<'w> {
             self.filter.remove(&id);
         }
         if self.attach_required_components {
-            if let Some(info) = self.world.components().get_info(id) {
-                for required_id in info.required_components().iter_ids() {
+            let components = self.world.components_mut().as_mut();
+            if let Some(required) = components.get_required_components(id) {
+                for required_id in required.iter_ids() {
                     if self.filter_allows_components {
                         self.filter.insert(required_id);
                     } else {
@@ -668,8 +669,9 @@ impl<'w> EntityCloneBuilder<'w> {
             self.filter.insert(id);
         }
         if self.attach_required_components {
-            if let Some(info) = self.world.components().get_info(id) {
-                for required_id in info.required_components().iter_ids() {
+            let components = self.world.components().lock_read();
+            if let Some(required) = components.get_required_components(id) {
+                for required_id in required.iter_ids() {
                     if self.filter_allows_components {
                         self.filter.remove(&required_id);
                     } else {

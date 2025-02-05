@@ -2,7 +2,10 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, ComponentsViewReadonly, Mutable,
+        StorageType,
+    },
     entity::{
         Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
     },
@@ -1614,10 +1617,11 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
-        let bundle_id = self
-            .world
-            .bundles
-            .init_component_info(&self.world.components, component_id);
+        let bundle_id = self.world.bundles.init_component_info(
+            &self.world.components,
+            &mut self.world.storages,
+            component_id,
+        );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
 
         let bundle_inserter = BundleInserter::new_with_id(
@@ -1665,10 +1669,11 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
-        let bundle_id = self
-            .world
-            .bundles
-            .init_dynamic_info(&self.world.components, component_ids);
+        let bundle_id = self.world.bundles.init_dynamic_info(
+            &self.world.components,
+            &mut self.world.storages,
+            component_ids,
+        );
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
         let bundle_inserter = BundleInserter::new_with_id(
@@ -1771,6 +1776,7 @@ impl<'w> EntityWorldMut<'w> {
                 // - entity location is valid
                 // - table row is removed below, without dropping the contents
                 // - `components` comes from the same world as `storages`
+                // - the component exists on the entity
                 take_component(
                     storages,
                     components,
@@ -1955,7 +1961,7 @@ impl<'w> EntityWorldMut<'w> {
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
-                        .unwrap()
+                        .unwrap() // safe since we know the component existed on the entity
                         .remove(entity);
                 }
             }
@@ -2000,9 +2006,11 @@ impl<'w> EntityWorldMut<'w> {
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let storages = &mut self.world.storages;
         let components = &mut self.world.components;
-        let bundle_info = self.world.bundles.register_info::<T>(components, storages);
+        let bundle_info = self
+            .world
+            .bundles
+            .register_info::<T>(components, &mut self.world.storages);
 
         // SAFETY: the `BundleInfo` is initialized above
         self.location = unsafe {
@@ -2035,11 +2043,11 @@ impl<'w> EntityWorldMut<'w> {
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let storages = &mut self.world.storages;
         let components = &mut self.world.components;
         let bundles = &mut self.world.bundles;
 
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(components, storages);
+        let bundle_id =
+            bundles.register_contributed_bundle_info::<T>(components, &mut self.world.storages);
 
         // SAFETY: the dynamic `BundleInfo` is initialized above
         self.location = unsafe {
@@ -2076,10 +2084,12 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         self.assert_not_despawned();
         let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
         let components = &mut self.world.components;
 
-        let retained_bundle = self.world.bundles.register_info::<T>(components, storages);
+        let retained_bundle = self
+            .world
+            .bundles
+            .register_info::<T>(components, &mut self.world.storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_location = self.location;
@@ -2090,7 +2100,10 @@ impl<'w> EntityWorldMut<'w> {
             .components()
             .filter(|c| !retained_bundle_info.contributed_components().contains(c))
             .collect::<Vec<_>>();
-        let remove_bundle = self.world.bundles.init_dynamic_info(components, to_remove);
+        let remove_bundle =
+            self.world
+                .bundles
+                .init_dynamic_info(components, &mut self.world.storages, to_remove);
 
         // SAFETY: the `BundleInfo` for the components to remove is initialized above
         self.location = unsafe {
@@ -2131,10 +2144,11 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let components = &mut self.world.components;
 
-        let bundle_id = self
-            .world
-            .bundles
-            .init_component_info(components, component_id);
+        let bundle_id = self.world.bundles.init_component_info(
+            components,
+            &mut self.world.storages,
+            component_id,
+        );
 
         // SAFETY: the `BundleInfo` for this `component_id` is initialized above
         self.location = unsafe {
@@ -2162,10 +2176,11 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let components = &mut self.world.components;
 
-        let bundle_id = self
-            .world
-            .bundles
-            .init_dynamic_info(components, component_ids);
+        let bundle_id = self.world.bundles.init_dynamic_info(
+            components,
+            &mut self.world.storages,
+            component_ids,
+        );
 
         // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
         unsafe {
@@ -2203,10 +2218,11 @@ impl<'w> EntityWorldMut<'w> {
         let component_ids: Vec<ComponentId> = self.archetype().components().collect();
         let components = &mut self.world.components;
 
-        let bundle_id = self
-            .world
-            .bundles
-            .init_dynamic_info(components, component_ids.as_slice());
+        let bundle_id = self.world.bundles.init_dynamic_info(
+            components,
+            &mut self.world.storages,
+            component_ids.as_slice(),
+        );
 
         // SAFETY: the `BundleInfo` for this `component_id` is initialized above
         self.location = unsafe {
@@ -2354,6 +2370,7 @@ impl<'w> EntityWorldMut<'w> {
             table_row = remove_result.table_row;
 
             for component_id in archetype.sparse_set_components() {
+                // unwrap is safe since the set must have existed for the component to be added.
                 let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
                 sparse_set.remove(self.entity);
             }
@@ -4113,6 +4130,9 @@ unsafe fn insert_dynamic_bundle<
 /// - `component_id` must be valid
 /// - `components` must come from the same world as `self`
 /// - The relevant table row **must be removed** by the caller once all components are taken, without dropping the value
+///
+/// # Panics
+/// Panics if the entity did not have the component.
 #[inline]
 pub(crate) unsafe fn take_component<'a>(
     storages: &'a mut Storages,
@@ -4404,7 +4424,7 @@ mod tests {
     #[cfg(feature = "track_location")]
     use {core::panic::Location, std::sync::OnceLock};
 
-    use crate::component::HookContext;
+    use crate::component::{ComponentsViewReadonly, HookContext};
     use crate::{
         self as bevy_ecs,
         change_detection::MutUntyped,

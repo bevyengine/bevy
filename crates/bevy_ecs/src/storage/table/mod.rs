@@ -755,7 +755,7 @@ impl Tables {
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
-                    table = table.add_column(components.get_info_unchecked(*component_id));
+                    table = table.add_column(&components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
                 (component_ids.into(), TableId::from_usize(tables.len() - 1))
@@ -816,11 +816,12 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::component::ComponentsView;
     use crate::{
         component::{Component, Components, Tick},
         entity::Entity,
         ptr::OwningPtr,
-        storage::{Storages, TableBuilder, TableId, TableRow, Tables},
+        storage::{TableBuilder, TableId, TableRow, Tables},
     };
     use alloc::vec::Vec;
 
@@ -845,11 +846,10 @@ mod tests {
     #[test]
     fn table() {
         let mut components = Components::default();
-        let mut storages = Storages::default();
-        let component_id = components.register_component::<W<TableRow>>(&mut storages);
+        let component_id = components.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
-            .add_column(components.get_info(component_id).unwrap())
+            .add_column(&components.get_info(component_id).unwrap())
             .build();
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
