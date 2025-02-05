@@ -71,15 +71,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add = hook_register_function_call(quote! {on_add}, attrs.on_add);
-    let mut on_insert = hook_register_function_call(quote! {on_insert}, attrs.on_insert);
-    let mut on_replace = hook_register_function_call(quote! {on_replace}, attrs.on_replace);
-    let on_remove: Option<TokenStream2> =
-        hook_register_function_call(quote! {on_remove}, attrs.on_remove);
-    let mut on_despawn = hook_register_function_call(quote! {on_despawn}, attrs.on_despawn);
+    let on_add_path = attrs.on_add.map(|path| path.to_token_stream());
+    let on_remove_path = attrs.on_remove.map(|path| path.to_token_stream());
 
-    if relationship.is_some() {
-        if on_insert.is_some() {
+    let on_insert_path = if relationship.is_some() {
+        if attrs.on_insert.is_some() {
             return syn::Error::new(
                 ast.span(),
                 "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
@@ -88,11 +84,13 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into();
         }
 
-        on_insert = Some(
-            quote!(hooks.on_insert(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert);),
-        );
+        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert))
+    } else {
+        attrs.on_insert.map(|path| path.to_token_stream())
+    };
 
-        if on_replace.is_some() {
+    let on_replace_path = if relationship.is_some() {
+        if attrs.on_replace.is_some() {
             return syn::Error::new(
                 ast.span(),
                 "Custom on_replace hooks are not supported as Relationships already define an on_replace hook",
@@ -101,13 +99,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into();
         }
 
-        on_replace = Some(
-            quote!(hooks.on_replace(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace);),
-        );
-    }
-
-    if let Some(relationship_target) = &attrs.relationship_target {
-        if on_replace.is_some() {
+        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace))
+    } else if attrs.relationship_target.is_some() {
+        if attrs.on_replace.is_some() {
             return syn::Error::new(
                 ast.span(),
                 "Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook",
@@ -116,25 +110,36 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into();
         }
 
-        on_replace = Some(
-            quote!(hooks.on_replace(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace);),
-        );
+        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace))
+    } else {
+        attrs.on_replace.map(|path| path.to_token_stream())
+    };
 
-        if relationship_target.despawn_descendants {
-            if on_despawn.is_some() {
-                return syn::Error::new(
-                    ast.span(),
-                    "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the despawn_descendants attribute",
-                )
-                .into_compile_error()
-                .into();
-            }
-
-            on_despawn = Some(
-                quote!(hooks.on_despawn(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn);),
-            );
+    let on_despawn_path = if attrs
+        .relationship_target
+        .is_some_and(|target| target.despawn_descendants)
+    {
+        if attrs.on_despawn.is_some() {
+            return syn::Error::new(
+                ast.span(),
+                "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the despawn_descendants attribute",
+            )
+            .into_compile_error()
+            .into();
         }
-    }
+
+        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn))
+    } else {
+        attrs.on_despawn.map(|path| path.to_token_stream())
+    };
+
+    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
+    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
+    let on_replace =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
+    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
+    let on_despawn =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
 
     ast.generics
         .make_where_clause()
@@ -232,14 +237,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
                 recursion_check_stack.pop();
             }
 
-            #[allow(unused_variables)]
-            fn register_component_hooks(hooks: &mut #bevy_ecs_path::component::ComponentHooks) {
-                #on_add
-                #on_insert
-                #on_replace
-                #on_remove
-                #on_despawn
-            }
+            #on_add
+            #on_insert
+            #on_replace
+            #on_remove
+            #on_despawn
 
             fn get_component_clone_handler() -> #bevy_ecs_path::component::ComponentCloneHandler {
                 #clone_handler
@@ -444,10 +446,17 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
 }
 
 fn hook_register_function_call(
+    bevy_ecs_path: &Path,
     hook: TokenStream2,
-    function: Option<ExprPath>,
+    function: Option<TokenStream2>,
 ) -> Option<TokenStream2> {
-    function.map(|meta| quote! { hooks. #hook (#meta); })
+    function.map(|meta| {
+        quote! {
+            fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                ::core::option::Option::Some(#meta)
+            }
+        }
+    })
 }
 
 impl Parse for Relationship {
