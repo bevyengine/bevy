@@ -1,5 +1,6 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
+#[cfg(feature = "ghost_nodes")]
 use crate::ui_node::{ComputedNodeScaleFactor, ComputedNodeTargetCamera, ComputedNodeTargetSize};
 use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
@@ -11,7 +12,6 @@ use bevy_render::view::Visibility;
 use bevy_transform::prelude::Transform;
 #[cfg(feature = "ghost_nodes")]
 use smallvec::SmallVec;
-
 /// Marker component for entities that should be ignored within UI hierarchies.
 ///
 /// The UI systems will traverse past these and treat their first non-ghost descendants as direct children of their first non-ghost ancestor.
