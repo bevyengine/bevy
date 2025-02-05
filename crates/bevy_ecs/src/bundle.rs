@@ -151,11 +151,7 @@ use variadics_please::all_tuples;
 pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
-    fn component_ids(
-        components: &mut Components,
-        storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
-    );
+    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId));
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
@@ -176,7 +172,6 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
     /// Registers components that are required by the components in this [`Bundle`].
     fn register_required_components(
         _components: &mut Components,
-        _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
     );
 }
@@ -198,12 +193,8 @@ pub trait DynamicBundle {
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
-    fn component_ids(
-        components: &mut Components,
-        storages: &mut Storages,
-        ids: &mut impl FnMut(ComponentId),
-    ) {
-        ids(components.register_component::<C>(storages));
+    fn component_ids(components: &mut Components, ids: &mut impl FnMut(ComponentId)) {
+        ids(components.register_component::<C>());
     }
 
     unsafe fn from_components<T, F>(ctx: &mut T, func: &mut F) -> Self
@@ -219,14 +210,12 @@ unsafe impl<C: Component> Bundle for C {
 
     fn register_required_components(
         components: &mut Components,
-        storages: &mut Storages,
         required_components: &mut RequiredComponents,
     ) {
-        let component_id = components.register_component::<C>(storages);
+        let component_id = components.register_component::<C>();
         <C as Component>::register_required_components(
             component_id,
             components,
-            storages,
             required_components,
             0,
             &mut Vec::new(),
@@ -264,8 +253,8 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, storages, ids);)*
+            fn component_ids(components: &mut Components,  ids: &mut impl FnMut(ComponentId)){
+                $(<$name as Bundle>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
@@ -291,10 +280,9 @@ macro_rules! tuple_impl {
 
             fn register_required_components(
                 components: &mut Components,
-                storages: &mut Storages,
                 required_components: &mut RequiredComponents,
             ) {
-                $(<$name as Bundle>::register_required_components(components, storages, required_components);)*
+                $(<$name as Bundle>::register_required_components(components, required_components);)*
             }
         }
 
@@ -392,19 +380,19 @@ impl BundleInfo {
     ///
     /// # Safety
     ///
-    /// Every ID in `component_ids` must be valid within the World that owns the `BundleInfo`,
-    /// must have its storage initialized (i.e. columns created in tables, sparse set created),
+    /// Every ID in `component_ids` must be valid within the World that owns the `BundleInfo`
     /// and must be in the same order as the source bundle type writes its components in.
     unsafe fn new(
         bundle_type_name: &'static str,
+        storages: &mut Storages,
         components: &Components,
         mut component_ids: Vec<ComponentId>,
         id: BundleId,
     ) -> BundleInfo {
+        // check for duplicates
         let mut deduped = component_ids.clone();
         deduped.sort_unstable();
         deduped.dedup();
-
         if deduped.len() != component_ids.len() {
             // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
             let mut seen = <HashSet<_>>::default();
@@ -427,18 +415,25 @@ impl BundleInfo {
             panic!("Bundle {bundle_type_name} has duplicate components: {names}");
         }
 
+        // handle explicit components
         let explicit_components_len = component_ids.len();
         let mut required_components = RequiredComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { components.get_info_unchecked(component_id) };
             required_components.merge(info.required_components());
+            storages.prepare_component(info);
         }
         required_components.remove_explicit_components(&component_ids);
+
+        // handle required components
         let required_components = required_components
             .0
             .into_iter()
             .map(|(component_id, v)| {
+                // Safety: These ids came out of the passed `components`, so they must be valid.
+                let info = unsafe { components.get_info_unchecked(component_id) };
+                storages.prepare_component(info);
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
                 // components. This ordering is important!
                 component_ids.push(component_id);
@@ -550,7 +545,7 @@ impl BundleInfo {
                 StorageType::Table => {
                     // SAFETY: bundle_component is a valid index for this bundle
                     let status = unsafe { bundle_component_status.get_status(bundle_component) };
-                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                    // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                     // the target table contains the component.
                     let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
@@ -577,7 +572,7 @@ impl BundleInfo {
                 }
                 StorageType::SparseSet => {
                     let sparse_set =
-                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new requires that
+                        // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
                     sparse_set.insert(
@@ -1540,14 +1535,14 @@ impl Bundles {
         let bundle_infos = &mut self.bundle_infos;
         let id = *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
             let mut component_ids= Vec::new();
-            T::component_ids(components, storages, &mut |id| component_ids.push(id));
+            T::component_ids(components, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
             let bundle_info =
                 // SAFETY: T::component_id ensures:
                 // - its info was created
                 // - appropriate storage for it has been initialized.
                 // - it was created in the same order as the components in T
-                unsafe { BundleInfo::new(core::any::type_name::<T>(), components, component_ids, id) };
+                unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -1577,7 +1572,7 @@ impl Bundles {
                 };
                 // SAFETY: this is sound because the contributed_components Vec for explicit_bundle_id will not be accessed mutably as
                 // part of init_dynamic_info. No mutable references will be created and the allocation will remain valid.
-                self.init_dynamic_info(components, core::slice::from_raw_parts(ptr, len))
+                self.init_dynamic_info(storages, components, core::slice::from_raw_parts(ptr, len))
             };
             self.contributed_bundle_ids.insert(TypeId::of::<T>(), id);
             id
@@ -1615,6 +1610,7 @@ impl Bundles {
     /// provided [`Components`].
     pub(crate) fn init_dynamic_info(
         &mut self,
+        storages: &mut Storages,
         components: &Components,
         component_ids: &[ComponentId],
     ) -> BundleId {
@@ -1626,8 +1622,12 @@ impl Bundles {
             .raw_entry_mut()
             .from_key(component_ids)
             .or_insert_with(|| {
-                let (id, storages) =
-                    initialize_dynamic_bundle(bundle_infos, components, Vec::from(component_ids));
+                let (id, storages) = initialize_dynamic_bundle(
+                    bundle_infos,
+                    storages,
+                    components,
+                    Vec::from(component_ids),
+                );
                 // SAFETY: The ID always increases when new bundles are added, and so, the ID is unique.
                 unsafe {
                     self.dynamic_bundle_storages
@@ -1645,6 +1645,7 @@ impl Bundles {
     /// Panics if the provided [`ComponentId`] does not exist in the provided [`Components`].
     pub(crate) fn init_component_info(
         &mut self,
+        storages: &mut Storages,
         components: &Components,
         component_id: ComponentId,
     ) -> BundleId {
@@ -1653,8 +1654,12 @@ impl Bundles {
             .dynamic_component_bundle_ids
             .entry(component_id)
             .or_insert_with(|| {
-                let (id, storage_type) =
-                    initialize_dynamic_bundle(bundle_infos, components, vec![component_id]);
+                let (id, storage_type) = initialize_dynamic_bundle(
+                    bundle_infos,
+                    storages,
+                    components,
+                    vec![component_id],
+                );
                 self.dynamic_component_storages.insert(id, storage_type[0]);
                 id
             });
@@ -1666,6 +1671,7 @@ impl Bundles {
 /// and initializes a [`BundleInfo`].
 fn initialize_dynamic_bundle(
     bundle_infos: &mut Vec<BundleInfo>,
+    storages: &mut Storages,
     components: &Components,
     component_ids: Vec<ComponentId>,
 ) -> (BundleId, Vec<StorageType>) {
@@ -1681,7 +1687,7 @@ fn initialize_dynamic_bundle(
     let id = BundleId(bundle_infos.len());
     let bundle_info =
         // SAFETY: `component_ids` are valid as they were just checked
-        unsafe { BundleInfo::new("<dynamic bundle>", components, component_ids, id) };
+        unsafe { BundleInfo::new("<dynamic bundle>", storages, components, component_ids, id) };
     bundle_infos.push(bundle_info);
 
     (id, storage_types)

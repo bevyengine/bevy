@@ -616,7 +616,7 @@ impl SparseSets {
         self.sets.iter().map(|(id, data)| (*id, data))
     }
 
-    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
         self.sets.get(component_id)
@@ -638,7 +638,7 @@ impl SparseSets {
         self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
     pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
     }
