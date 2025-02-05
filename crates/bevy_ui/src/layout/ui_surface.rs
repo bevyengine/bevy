@@ -169,50 +169,31 @@ impl UiSurface {
     }
 
     /// Sets the ui root node entities as children to the root node in the taffy layout.
-    pub fn set_root_children(&mut self, camera_id: Entity, children: impl Iterator<Item = Entity>) {
-        let viewport_style = taffy::style::Style {
-            display: taffy::style::Display::Grid,
-            // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
-            // So this is setting width:100% and height:100%
-            size: taffy::geometry::Size {
-                width: taffy::style::Dimension::Percent(1.0),
-                height: taffy::style::Dimension::Percent(1.0),
-            },
-            align_items: Some(taffy::style::AlignItems::Start),
-            justify_items: Some(taffy::style::JustifyItems::Start),
-            ..default()
-        };
-
-        let camera_root_node_map = self.camera_entity_to_taffy.entry(camera_id).or_default();
-        let existing_roots = self.camera_roots.entry(camera_id).or_default();
-        let mut new_roots = Vec::new();
-        for entity in children {
-            let node = self.entity_to_taffy.get_mut(&entity).unwrap();
-            let root_node = existing_roots
-                .iter()
-                .find(|n| n.user_root_node == node.id)
-                .cloned()
-                .unwrap_or_else(|| {
-                    if let Some(previous_parent) = self.taffy.parent(node.id) {
-                        // remove the root node from the previous implicit node's children
-                        self.taffy.remove_child(previous_parent, node.id).unwrap();
-                    }
-
-                    let viewport_node = *camera_root_node_map.entry(entity).or_insert_with(|| {
-                        node.viewport_id
-                            .unwrap_or_else(|| self.taffy.new_leaf(viewport_style.clone()).unwrap())
-                    });
-                    node.viewport_id = Some(viewport_node);
-                    self.taffy.add_child(viewport_node, node.id).unwrap();
-                    RootNodePair {
-                        implicit_viewport_node: viewport_node,
-                        user_root_node: node.id,
-                    }
-                });
-            new_roots.push(root_node);
-        }
-
-        self.camera_roots.insert(camera_id, new_roots);
+    pub fn get_or_insert_implicit_root(&mut self, ui_root_entity: Entity) -> taffy::NodeId {
+        *self
+            .implicit_root_nodes
+            .entry(ui_root_entity)
+            .or_insert_with(|| {
+                let root_node = self.entity_to_taffy.get_mut(&ui_root_entity).unwrap();
+                let implicit_root = self
+                    .taffy
+                    .new_leaf(taffy::style::Style {
+                        display: taffy::style::Display::Grid,
+                        // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
+                        // So this is setting width:100% and height:100%
+                        size: taffy::geometry::Size {
+                            width: taffy::style::Dimension::Percent(1.0),
+                            height: taffy::style::Dimension::Percent(1.0),
+                        },
+                        align_items: Some(taffy::style::AlignItems::Start),
+                        justify_items: Some(taffy::style::JustifyItems::Start),
+                        ..default()
+                    })
+                    .unwrap();
+                self.taffy.add_child(implicit_root, root_node.id).unwrap();
+                root_node.viewport_id = Some(implicit_root);
+                implicit_root
+            })
     }
 
     /// Compute the layout for each window entity's corresponding root node in the layout.

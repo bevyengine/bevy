@@ -161,35 +161,7 @@ with UI components as a child of an entity without UI components, your UI layout
     });
 
     for ui_root_entity in ui_root_node_query.iter() {
-        let UiSurface {
-            taffy,
-            implicit_root_nodes,
-            entity_to_taffy,
-            ..
-        } = ui_surface.as_mut();
-
-        let implicit_root = *implicit_root_nodes
-            .entry(ui_root_entity)
-            .or_insert_with(|| {
-                let root_node = entity_to_taffy.get_mut(&ui_root_entity).unwrap();
-                let implicit_root = taffy
-                    .new_leaf(taffy::style::Style {
-                        display: taffy::style::Display::Grid,
-                        // Note: Taffy percentages are floats ranging from 0.0 to 1.0.
-                        // So this is setting width:100% and height:100%
-                        size: taffy::geometry::Size {
-                            width: taffy::style::Dimension::Percent(1.0),
-                            height: taffy::style::Dimension::Percent(1.0),
-                        },
-                        align_items: Some(taffy::style::AlignItems::Start),
-                        justify_items: Some(taffy::style::JustifyItems::Start),
-                        ..default()
-                    })
-                    .unwrap();
-                taffy.add_child(implicit_root, root_node.id).unwrap();
-                root_node.viewport_id = Some(implicit_root);
-                implicit_root
-            });
+        let implicit_root = ui_surface.get_or_insert_implicit_root(ui_root_entity);
 
         let (_, _, _, target_size, target_scale_factor) = node_query.get(ui_root_entity).unwrap();
 
@@ -198,7 +170,8 @@ with UI components as a child of an entity without UI components, your UI layout
             height: taffy::style::AvailableSpace::Definite(target_size.0.y as f32),
         };
 
-        taffy
+        ui_surface
+            .taffy
             .compute_layout_with_measure(
                 implicit_root,
                 available_space,
