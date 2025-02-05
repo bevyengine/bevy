@@ -4,6 +4,7 @@ use variadics_please::all_tuples;
 use crate::{
     result::Result,
     schedule::{
+        auto_insert_apply_deferred::IgnoreDeferred,
         condition::{BoxedCondition, Condition},
         graph::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{InternedSystemSet, IntoSystemSet, SystemSet},
@@ -137,7 +138,7 @@ impl<T> NodeConfigs<T> {
                 config
                     .graph_info
                     .dependencies
-                    .push(Dependency::new(DependencyKind::BeforeNoSync, set));
+                    .push(Dependency::new(DependencyKind::Before, set).add_config(IgnoreDeferred));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -153,7 +154,7 @@ impl<T> NodeConfigs<T> {
                 config
                     .graph_info
                     .dependencies
-                    .push(Dependency::new(DependencyKind::AfterNoSync, set));
+                    .push(Dependency::new(DependencyKind::After, set).add_config(IgnoreDeferred));
             }
             Self::Configs { configs, .. } => {
                 for config in configs {
@@ -224,9 +225,9 @@ impl<T> NodeConfigs<T> {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
-                *chained = Chain::Yes;
+                chained.set_chained();
             }
-        }
+        };
         self
     }
 
@@ -234,7 +235,7 @@ impl<T> NodeConfigs<T> {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
             Self::Configs { chained, .. } => {
-                *chained = Chain::YesIgnoreDeferred;
+                chained.set_chained_with_config(IgnoreDeferred);
             }
         }
         self
@@ -582,7 +583,7 @@ macro_rules! impl_system_collection {
                 SystemConfigs::Configs {
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: Chain::No,
+                    chained: Default::default(),
                 }
             }
         }
@@ -820,7 +821,7 @@ macro_rules! impl_system_set_collection {
                 SystemSetConfigs::Configs {
                     configs: vec![$($set.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: Chain::No,
+                    chained: Default::default(),
                 }
             }
         }
