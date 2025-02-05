@@ -37,7 +37,7 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, AssetEvents, Assets, Handle};
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
@@ -115,7 +115,7 @@ impl Plugin for SpritePlugin {
                 (
                     calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                     (
-                        compute_slices_on_asset_event,
+                        compute_slices_on_asset_event.before(AssetEvents),
                         compute_slices_on_sprite_change,
                     )
                         .in_set(SpriteSystem::ComputeSlices),
@@ -157,7 +157,9 @@ impl Plugin for SpritePlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpritePipeline>();
+            render_app
+                .init_resource::<SpriteBatches>()
+                .init_resource::<SpritePipeline>();
         }
     }
 }

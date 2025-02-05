@@ -186,6 +186,16 @@ impl Msaa {
     pub fn samples(&self) -> u32 {
         *self as u32
     }
+
+    pub fn from_samples(samples: u32) -> Self {
+        match samples {
+            1 => Msaa::Off,
+            2 => Msaa::Sample2,
+            4 => Msaa::Sample4,
+            8 => Msaa::Sample8,
+            _ => panic!("Unsupported MSAA sample count: {}", samples),
+        }
+    }
 }
 
 /// An identifier for a view that is stable across frames.
