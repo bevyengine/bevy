@@ -1683,7 +1683,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         // SAFETY:
         // `self.world` has permission to access the required components.
         // The original query iter has not been iterated on, so no items are aliased from it.
-        let query_lens = unsafe { query_lens_state.iter_many_unchecked_manual(world, self.entity_iter) }.into_iter();
+        let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }
+            .iter_many_inner(self.entity_iter);
         let mut keyed_query: Vec<_> = query_lens
             .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
