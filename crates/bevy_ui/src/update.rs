@@ -140,7 +140,7 @@ fn update_clipping(
     }
 }
 
-pub fn resolve_target_camera_system(
+pub fn update_target_camera_system(
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     primary_window_query: Query<Entity, With<PrimaryWindow>>,
