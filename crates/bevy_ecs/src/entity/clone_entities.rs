@@ -431,7 +431,7 @@ impl EntityCloner {
         self.is_recursive
     }
 
-    /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
+    /// Clones and inserts components from the `source` entity into the entity mapped by `mapper` from `source` using the stored configuration.
     fn clone_entity_internal(
         &mut self,
         world: &mut World,
