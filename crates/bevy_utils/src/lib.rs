@@ -22,6 +22,7 @@ pub mod prelude {
     pub use crate::default;
 }
 
+pub mod attomic_staging;
 pub mod synccell;
 pub mod syncunsafecell;
 
@@ -187,3 +188,5 @@ mod tests {
         );
     }
 }
+
+impl<T: attomic_staging::StagedChanges> attomic_staging::Stager<'_, T> {}
