@@ -166,7 +166,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     /// Easily run a stager function to stage changes easily. Then, try to apply those staged changes if it can do so without blocking.
     #[inline]
     pub fn stage_scope_locked_eager<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
-        let v = f(&mut self.stage_lock().as_stager());
+        let v = self.stage_scope_locked(f);
         self.apply_staged_non_blocking();
         v
     }
