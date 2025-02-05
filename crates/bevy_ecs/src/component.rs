@@ -799,7 +799,7 @@ impl ComponentInfo {
         self.descriptor.mutable
     }
 
-    /// Returns `true` if the current component is mutable.
+    /// Returns [`ComponentCloneBehavior`] of the current component.
     #[inline]
     pub fn clone_behavior(&self) -> &ComponentCloneBehavior {
         &self.descriptor.clone_behavior

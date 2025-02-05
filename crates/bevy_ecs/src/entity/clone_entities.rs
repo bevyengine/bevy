@@ -581,7 +581,7 @@ impl<'w> EntityClonerBuilder<'w> {
         self.entity_cloner.clone_entity(self.world, source, target);
         self
     }
-    /// Finishes configuring the builder and clones `source` entity to `target`.
+    /// Finishes configuring [`EntityCloner`] returns it.
     pub fn finish(self) -> EntityCloner {
         self.entity_cloner
     }
