@@ -13,7 +13,7 @@ use core::{
     option, result,
 };
 
-use super::Entity;
+use super::{Entity, UniqueEntitySlice};
 
 use bevy_platform_support::sync::Arc;
 
@@ -350,6 +350,7 @@ impl<I: EntitySetIterator> UniqueEntityIter<I> {
         Self { iter }
     }
 }
+
 impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
     /// Constructs a [`UniqueEntityIter`] from an iterator unsafely.
     ///
@@ -358,6 +359,26 @@ impl<I: Iterator<Item: TrustedEntityBorrow>> UniqueEntityIter<I> {
     /// As in, the resulting iterator must adhere to the safety contract of [`EntitySetIterator`].
     pub unsafe fn from_iterator_unchecked(iter: I) -> Self {
         Self { iter }
+    }
+
+    /// Returns the inner `I`.
+    pub fn into_inner(self) -> I {
+        self.iter
+    }
+
+    /// Returns a reference to the inner `I`.
+    pub fn as_inner(&self) -> &I {
+        &self.iter
+    }
+
+    /// Returns a mutable reference to the inner `I`.
+    ///
+    /// # Safety
+    ///
+    /// `self` must always contain an iterator that yields unique elements,
+    /// even while this reference is live.
+    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+        &mut self.iter
     }
 }
 
@@ -391,6 +412,24 @@ unsafe impl<I: Iterator<Item: TrustedEntityBorrow>> EntitySetIterator for Unique
 impl<T, I: Iterator<Item: TrustedEntityBorrow> + AsRef<[T]>> AsRef<[T]> for UniqueEntityIter<I> {
     fn as_ref(&self) -> &[T] {
         self.iter.as_ref()
+    }
+}
+
+impl<T: TrustedEntityBorrow, I: Iterator<Item: TrustedEntityBorrow> + AsRef<[T]>>
+    AsRef<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+{
+    fn as_ref(&self) -> &UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.iter.as_ref()) }
+    }
+}
+
+impl<T: TrustedEntityBorrow, I: Iterator<Item: TrustedEntityBorrow> + AsMut<[T]>>
+    AsMut<UniqueEntitySlice<T>> for UniqueEntityIter<I>
+{
+    fn as_mut(&mut self) -> &mut UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.iter.as_mut()) }
     }
 }
 
