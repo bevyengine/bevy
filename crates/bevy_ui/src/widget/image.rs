@@ -133,6 +133,7 @@ impl ImageNode {
     /// use bevy_math::{UVec2,Rect};
     /// use bevy_ui::Node;
     /// use bevy_ui::prelude::{Display,ImageNode};
+    /// use std::default::Default;
     /// fn setup(
     ///   mut commands: Commands,
     ///   asset_server: Res<AssetServer>,
@@ -144,7 +145,7 @@ impl ImageNode {
     ///
     ///   commands.spawn(Node {
     ///     display: Display::Flex,
-    ///     ..default()
+    ///     ..Default::default()
     ///   })
     ///   .with_children(|parent| {
     /// // this example node shows a texture constrained by a rect
