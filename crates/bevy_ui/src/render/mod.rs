@@ -883,21 +883,17 @@ pub fn extract_text_shadows(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
             }) {
-                let id = commands.spawn(TemporaryRenderEntity).id();
-
-                extracted_uinodes.uinodes.insert(
-                    id,
-                    ExtractedUiNode {
-                        stack_index: uinode.stack_index,
-                        color: shadow.color.into(),
-                        image: atlas_info.texture.id(),
-                        clip: clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
-                        rect,
-                        item: ExtractedUiItem::Glyphs { range: start..end },
-                        main_entity: entity.into(),
-                    },
-                );
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    stack_index: uinode.stack_index,
+                    color: shadow.color.into(),
+                    image: atlas_info.texture.id(),
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    rect,
+                    item: ExtractedUiItem::Glyphs { range: start..end },
+                    main_entity: entity.into(),
+                });
                 start = end;
             }
 
