@@ -366,18 +366,8 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         state: &'s mut QueryState<D, F>,
     ) -> Query<'_, 's, D, F> {
-        state.validate_world(self.world.id());
-        state.update_archetypes(self);
-        // SAFETY: We ran validate_world to ensure our state matches
-        unsafe {
-            let world_cell = self.world;
-            Query::new(
-                world_cell,
-                state,
-                world_cell.last_change_tick(),
-                world_cell.change_tick(),
-            )
-        }
+        // SAFETY: We have mutable access to the entire world
+        unsafe { state.query_unchecked(self.world) }
     }
 
     /// Gets a mutable reference to the resource of the given type
