@@ -143,10 +143,7 @@ fn update_clipping(
 pub fn update_target_camera_system(
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
-    primary_window_query: Query<Entity, With<PrimaryWindow>>,
-    images: Res<Assets<Image>>,
     camera_query: Query<&Camera>,
-    window_query: Query<(Entity, &Window)>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
     mut context_query: Query<(
@@ -154,14 +151,12 @@ pub fn update_target_camera_system(
         &mut ComputedNodeTargetSize,
         &mut ComputedNodeTargetCamera,
     )>,
-    manual_texture_views: Res<ManualTextureViews>,
     ui_children: UiChildren,
     reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTargetCamera>)>,
     mut visited: Local<EntityHashSet>,
 ) {
     visited.clear();
     let default_camera_entity = default_ui_camera.get();
-    let primary_window = primary_window_query.get_single().ok();
 
     for root_entity in ui_root_nodes.iter() {
         let camera_entity = target_camera_query
@@ -174,17 +169,15 @@ pub fn update_target_camera_system(
         let (new_scale_factor, new_target_size) = camera_query
             .get(camera_entity)
             .ok()
-            .and_then(|camera| camera.target.normalize(primary_window))
-            .and_then(|normalized_render_target| {
-                normalized_render_target.get_render_target_info(
-                    window_query.iter(),
-                    &images,
-                    &manual_texture_views,
+            .map(|camera| {
+                (
+                    camera.target_scaling_factor().unwrap_or(1.) * ui_scale.0,
+                    camera.physical_viewport_size().unwrap_or(UVec2::ZERO),
                 )
             })
-            .map(|info| (info.scale_factor, info.physical_size))
-            .map(|(sf, r)| (sf * ui_scale.0, r))
-            .unwrap_or((ui_scale.0, UVec2::ZERO));
+            .unwrap_or((1., UVec2::ZERO));
+
+        println!("p = {}", new_target_size);
 
         update_contexts_recursively(
             root_entity,
@@ -242,6 +235,9 @@ fn update_contexts_recursively(
         )
         .unwrap_or(false)
     {
+        println!("cam = {camera}");
+        println!("target size = {target_size}");
+        println!("sf = {scale_factor}");
         for child in ui_children.iter_ui_children(entity) {
             update_contexts_recursively(
                 child,
