@@ -162,55 +162,13 @@ with UI components as a child of an entity without UI components, your UI layout
 
     for ui_root_entity in ui_root_node_query.iter() {
         let implicit_root = ui_surface.get_or_insert_implicit_root(ui_root_entity);
-
         let (_, _, _, target_size, target_scale_factor) = node_query.get(ui_root_entity).unwrap();
-
-        let available_space = taffy::geometry::Size {
-            width: taffy::style::AvailableSpace::Definite(target_size.0.x as f32),
-            height: taffy::style::AvailableSpace::Definite(target_size.0.y as f32),
-        };
-
-        ui_surface
-            .taffy
-            .compute_layout_with_measure(
-                implicit_root,
-                available_space,
-                |known_dimensions: taffy::Size<Option<f32>>,
-                 available_space: taffy::Size<taffy::AvailableSpace>,
-                 _node_id: taffy::NodeId,
-                 context: Option<&mut NodeMeasure>,
-                 style: &taffy::Style|
-                 -> taffy::Size<f32> {
-                    context
-                        .map(|ctx| {
-                            let buffer = get_text_buffer(
-                                crate::widget::TextMeasure::needs_buffer(
-                                    known_dimensions.height,
-                                    available_space.width,
-                                ),
-                                ctx,
-                                &mut buffer_query,
-                            );
-                            let size = ctx.measure(
-                                MeasureArgs {
-                                    width: known_dimensions.width,
-                                    height: known_dimensions.height,
-                                    available_width: available_space.width,
-                                    available_height: available_space.height,
-                                    font_system: &mut font_system,
-                                    buffer,
-                                },
-                                style,
-                            );
-                            taffy::Size {
-                                width: size.x,
-                                height: size.y,
-                            }
-                        })
-                        .unwrap_or(taffy::Size::ZERO)
-                },
-            )
-            .unwrap();
+        ui_surface.compute_layout(
+            implicit_root,
+            target_size.0,
+            &mut buffer_query,
+            &mut font_system,
+        );
 
         update_uinode_geometry_recursive(
             &mut commands,

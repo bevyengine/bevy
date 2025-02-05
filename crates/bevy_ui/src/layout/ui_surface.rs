@@ -168,7 +168,7 @@ impl UiSurface {
         }
     }
 
-    /// Sets the ui root node entities as children to the root node in the taffy layout.
+    /// Gets or inserts an implicit taffy viewport node corresponding to the given UI root entity
     pub fn get_or_insert_implicit_root(&mut self, ui_root_entity: Entity) -> taffy::NodeId {
         *self
             .implicit_root_nodes
@@ -196,64 +196,59 @@ impl UiSurface {
             })
     }
 
-    /// Compute the layout for each window entity's corresponding root node in the layout.
-    pub fn compute_camera_layout<'a>(
+    /// Compute the layout for the given implicit taffy viewport node
+    pub fn compute_layout<'a>(
         &mut self,
-        camera: Entity,
+        implicit_viewport_node: taffy::NodeId,
         render_target_resolution: UVec2,
         buffer_query: &'a mut bevy_ecs::prelude::Query<&mut bevy_text::ComputedTextBlock>,
         font_system: &'a mut CosmicFontSystem,
     ) {
-        let Some(camera_root_nodes) = self.camera_roots.get(&camera) else {
-            return;
-        };
-
         let available_space = taffy::geometry::Size {
             width: taffy::style::AvailableSpace::Definite(render_target_resolution.x as f32),
             height: taffy::style::AvailableSpace::Definite(render_target_resolution.y as f32),
         };
-        for root_nodes in camera_root_nodes {
-            self.taffy
-                .compute_layout_with_measure(
-                    root_nodes.implicit_viewport_node,
-                    available_space,
-                    |known_dimensions: taffy::Size<Option<f32>>,
-                     available_space: taffy::Size<taffy::AvailableSpace>,
-                     _node_id: taffy::NodeId,
-                     context: Option<&mut NodeMeasure>,
-                     style: &taffy::Style|
-                     -> taffy::Size<f32> {
-                        context
-                            .map(|ctx| {
-                                let buffer = get_text_buffer(
-                                    crate::widget::TextMeasure::needs_buffer(
-                                        known_dimensions.height,
-                                        available_space.width,
-                                    ),
-                                    ctx,
-                                    buffer_query,
-                                );
-                                let size = ctx.measure(
-                                    MeasureArgs {
-                                        width: known_dimensions.width,
-                                        height: known_dimensions.height,
-                                        available_width: available_space.width,
-                                        available_height: available_space.height,
-                                        font_system,
-                                        buffer,
-                                    },
-                                    style,
-                                );
-                                taffy::Size {
-                                    width: size.x,
-                                    height: size.y,
-                                }
-                            })
-                            .unwrap_or(taffy::Size::ZERO)
-                    },
-                )
-                .unwrap();
-        }
+
+        self.taffy
+            .compute_layout_with_measure(
+                implicit_viewport_node,
+                available_space,
+                |known_dimensions: taffy::Size<Option<f32>>,
+                 available_space: taffy::Size<taffy::AvailableSpace>,
+                 _node_id: taffy::NodeId,
+                 context: Option<&mut NodeMeasure>,
+                 style: &taffy::Style|
+                 -> taffy::Size<f32> {
+                    context
+                        .map(|ctx| {
+                            let buffer = get_text_buffer(
+                                crate::widget::TextMeasure::needs_buffer(
+                                    known_dimensions.height,
+                                    available_space.width,
+                                ),
+                                ctx,
+                                buffer_query,
+                            );
+                            let size = ctx.measure(
+                                MeasureArgs {
+                                    width: known_dimensions.width,
+                                    height: known_dimensions.height,
+                                    available_width: available_space.width,
+                                    available_height: available_space.height,
+                                    font_system,
+                                    buffer,
+                                },
+                                style,
+                            );
+                            taffy::Size {
+                                width: size.x,
+                                height: size.y,
+                            }
+                        })
+                        .unwrap_or(taffy::Size::ZERO)
+                },
+            )
+            .unwrap();
     }
 
     /// Removes each camera entity from the internal map and then removes their associated node from taffy
