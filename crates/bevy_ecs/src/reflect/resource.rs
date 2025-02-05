@@ -6,11 +6,12 @@
 
 use crate::{
     change_detection::Mut,
-    component::ComponentId,
+    component::{ComponentId, ComponentMutability},
     resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
+use disqualified::ShortName;
 
 use super::from_reflect_with_fallback;
 
@@ -197,16 +198,25 @@ impl<R: Resource + FromReflect + TypePath> FromType<R> for ReflectResource {
                 world.insert_resource(resource);
             },
             apply: |world, reflected_resource| {
-                let mut resource = world.resource_mut::<R>();
+                if !R::Mutability::MUTABLE {
+                    let name = ShortName::of::<R>();
+                    panic!("Cannot call `ReflectResource::apply` on component {name}. It is immutable, and cannot modified through reflection");
+                }
+
+                // SAFETY: `R` is mutable, as checked above
+                let mut resource = unsafe { world.get_resource_mut_assume_mutable::<R>().unwrap() };
                 resource.apply(reflected_resource);
             },
             apply_or_insert: |world, reflected_resource, registry| {
-                if let Some(mut resource) = world.get_resource_mut::<R>() {
-                    resource.apply(reflected_resource);
-                } else {
+                if !R::Mutability::MUTABLE | !world.contains_resource::<R>() {
                     let resource =
                         from_reflect_with_fallback::<R>(reflected_resource, world, registry);
                     world.insert_resource(resource);
+                } else {
+                    // SAFETY: `R` is mutable, as checked above
+                    let mut resource =
+                        unsafe { world.get_resource_mut_assume_mutable::<R>().unwrap() };
+                    resource.apply(reflected_resource);
                 }
             },
             remove: |world| {

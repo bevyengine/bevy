@@ -737,7 +737,7 @@ mod tests {
         #[derive(Event)]
         struct E;
 
-        #[derive(Resource, Component)]
+        #[derive(Resource)]
         struct RC;
 
         fn empty_system() {}
