@@ -168,6 +168,20 @@ impl<T: StagedChanges> StageOnWrite<T> {
         }
     }
 
+    /// Easily run a stager function to stage changes easily.
+    #[inline]
+    pub fn stage_scope_locked<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
+        f(&mut self.stage_lock().as_stager())
+    }
+
+    /// Easily run a stager function to stage changes easily. Then, try to apply those staged changes if it can do so without blocking.
+    #[inline]
+    pub fn stage_scope_locked_eager<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
+        let v = f(&mut self.stage_lock().as_stager());
+        self.apply_staged_non_blocking();
+        v
+    }
+
     /// Constructs a [`Stager`] that will stage changes.
     #[inline]
     pub fn read(&mut self) -> StagedRef<'_, T> {
@@ -184,6 +198,12 @@ impl<T: StagedChanges> StageOnWrite<T> {
             cold: self.cold.read().unwrap(),
             staged: self.staged.read().unwrap(),
         }
+    }
+
+    /// Easily run a [`StagedRef`] function.
+    #[inline]
+    pub fn read_scope_locked<R>(&self, f: impl FnOnce(&StagedRef<T>) -> R) -> R {
+        f(&self.read_lock().as_staged_ref())
     }
 
     /// Runs different logic depending on if additional changes are already staged. This can be faster than greedily applying staged changes if there are already staged changes.
