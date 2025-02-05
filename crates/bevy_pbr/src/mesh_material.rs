@@ -1,5 +1,5 @@
 use crate::Material;
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{AsAssetId, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -55,5 +55,13 @@ impl<M: Material> From<MeshMaterial3d<M>> for AssetId<M> {
 impl<M: Material> From<&MeshMaterial3d<M>> for AssetId<M> {
     fn from(material: &MeshMaterial3d<M>) -> Self {
         material.id()
+    }
+}
+
+impl<M: Material> AsAssetId for MeshMaterial3d<M> {
+    type Asset = M;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
     }
 }

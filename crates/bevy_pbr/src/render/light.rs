@@ -5,6 +5,9 @@ use bevy_asset::UntypedAssetId;
 use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Tick;
+use bevy_ecs::entity::EntityHash;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
@@ -37,7 +40,7 @@ use bevy_render::{
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::default;
-use core::{hash::Hash, ops::Range};
+use core::{hash::Hash, marker::PhantomData, ops::Range};
 #[cfg(feature = "trace")]
 use tracing::info_span;
 use tracing::{error, warn};
@@ -1580,25 +1583,99 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
     });
 }
 
-/// For each shadow cascade, iterates over all the meshes "visible" from it and
-/// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
-/// appropriate.
-pub fn queue_shadows<M: Material>(
-    shadow_draw_functions: Res<DrawFunctions<Shadow>>,
+// These will be extracted in the material extraction, which will also clear the needs_specialization
+// collection.
+pub fn check_light_entities_needing_specialization<M: Material>(
+    needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
+    mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
+    mut removed_components: RemovedComponents<NotShadowCaster>,
+) {
+    for entity in &needs_specialization {
+        entities_needing_specialization.push(entity);
+    }
+
+    for removed in removed_components.read() {
+        entities_needing_specialization.entities.push(removed);
+    }
+}
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct LightKeyCache(EntityHashMap<MeshPipelineKey>);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct LightSpecializationTicks(EntityHashMap<Tick>);
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct SpecializedShadowMaterialPipelineCache<M> {
+    // (view_light_entity, visible_entity) -> (tick, pipeline_id)
+    #[deref]
+    map: HashMap<(Entity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
+    marker: PhantomData<M>,
+}
+
+impl<M> Default for SpecializedShadowMaterialPipelineCache<M> {
+    fn default() -> Self {
+        Self {
+            map: HashMap::default(),
+            marker: PhantomData,
+        }
+    }
+}
+
+pub fn check_views_lights_need_specialization(
+    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
+    view_light_entities: Query<(&LightEntity, &ExtractedView)>,
+    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
+    mut light_key_cache: ResMut<LightKeyCache>,
+    mut light_specialization_ticks: ResMut<LightSpecializationTicks>,
+    ticks: SystemChangeTick,
+) {
+    for (entity, view_lights) in &view_lights {
+        for view_light_entity in view_lights.lights.iter().copied() {
+            let Ok((light_entity, extracted_view_light)) =
+                view_light_entities.get(view_light_entity)
+            else {
+                continue;
+            };
+            if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
+                continue;
+            }
+
+            let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
+            let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
+            light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
+            if let Some(current_key) = light_key_cache.get_mut(&entity) {
+                if *current_key != light_key {
+                    light_key_cache.insert(view_light_entity, light_key);
+                    light_specialization_ticks.insert(view_light_entity, ticks.this_run());
+                }
+            } else {
+                light_key_cache.insert(view_light_entity, light_key);
+                light_specialization_ticks.insert(view_light_entity, ticks.this_run());
+            }
+        }
+    }
+}
+
+pub fn specialize_shadows<M: Material>(
     prepass_pipeline: Res<PrepassPipeline<M>>,
-    (render_meshes, render_mesh_instances, render_materials, render_material_instances): (
+    (
+        render_meshes,
+        render_mesh_instances,
+        render_materials,
+        render_material_instances,
+        material_bind_group_allocator,
+    ): (
         Res<RenderAssets<RenderMesh>>,
         Res<RenderMeshInstances>,
         Res<RenderAssets<PreparedMaterial<M>>>,
         Res<RenderMaterialInstances<M>>,
+        Res<MaterialBindGroupAllocator<M>>,
     ),
-    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
-    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
+    shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
-    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-    mesh_allocator: Res<MeshAllocator>,
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1607,24 +1684,28 @@ pub fn queue_shadows<M: Material>(
         With<ExtractedDirectionalLight>,
     >,
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
+    light_key_cache: Res<LightKeyCache>,
+    mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
+    light_specialization_ticks: Res<LightSpecializationTicks>,
+    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
+    ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     for (entity, view_lights) in &view_lights {
-        let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
                 view_light_entities.get(view_light_entity)
             else {
                 continue;
             };
-            let Some(shadow_phase) =
-                shadow_render_phases.get_mut(&extracted_view_light.retained_view_entity)
-            else {
+            if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
+                continue;
+            }
+            let Some(light_key) = light_key_cache.get(&view_light_entity) else {
                 continue;
             };
 
-            let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,
@@ -1648,14 +1729,25 @@ pub fn queue_shadows<M: Material>(
                     .get(*light_entity)
                     .expect("Failed to get spot light visible entities"),
             };
-            let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
-            light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
 
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
-            for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
+            for (_, visible_entity) in visible_entities.iter().copied() {
+                let view_tick = light_specialization_ticks.get(&view_light_entity).unwrap();
+                let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
+                let last_specialized_tick = specialized_material_pipeline_cache
+                    .get(&(view_light_entity, visible_entity))
+                    .map(|(tick, _)| *tick);
+                let needs_specialization = last_specialized_tick.is_none_or(|tick| {
+                    view_tick.is_newer_than(tick, ticks.this_run())
+                        || entity_tick.is_newer_than(tick, ticks.this_run())
+                });
+                if !needs_specialization {
+                    continue;
+                }
+                let Some(mesh_instance) =
+                    render_mesh_instances.render_mesh_queue_data(visible_entity)
                 else {
                     continue;
                 };
@@ -1665,7 +1757,7 @@ pub fn queue_shadows<M: Material>(
                 {
                     continue;
                 }
-                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                let Some(material_asset_id) = render_material_instances.get(&visible_entity) else {
                     continue;
                 };
                 let Some(material) = render_materials.get(*material_asset_id) else {
@@ -1681,14 +1773,17 @@ pub fn queue_shadows<M: Material>(
                 };
 
                 let mut mesh_key =
-                    light_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
+                    *light_key | MeshPipelineKey::from_bits_retain(mesh.key_bits.bits());
 
                 // Even though we don't use the lightmap in the shadow map, the
                 // `SetMeshBindGroup` render command will bind the data for it. So
                 // we need to include the appropriate flag in the mesh pipeline key
                 // to ensure that the necessary bind group layout entries are
                 // present.
-                if render_lightmaps.render_lightmaps.contains_key(&main_entity) {
+                if render_lightmaps
+                    .render_lightmaps
+                    .contains_key(&visible_entity)
+                {
                     mesh_key |= MeshPipelineKey::LIGHTMAPPED;
                 }
 
@@ -1720,11 +1815,96 @@ pub fn queue_shadows<M: Material>(
                     }
                 };
 
+                specialized_material_pipeline_cache.insert(
+                    (view_light_entity, visible_entity),
+                    (ticks.this_run(), pipeline_id),
+                );
+            }
+        }
+    }
+}
+
+/// For each shadow cascade, iterates over all the meshes "visible" from it and
+/// adds them to [`BinnedRenderPhase`]s or [`SortedRenderPhase`]s as
+/// appropriate.
+pub fn queue_shadows<M: Material>(
+    shadow_draw_functions: Res<DrawFunctions<Shadow>>,
+    render_mesh_instances: Res<RenderMeshInstances>,
+    mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    mesh_allocator: Res<MeshAllocator>,
+    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
+    view_light_entities: Query<(&LightEntity, &ExtractedView)>,
+    point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
+    directional_light_entities: Query<
+        &RenderCascadesVisibleEntities,
+        With<ExtractedDirectionalLight>,
+    >,
+    spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
+    specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache<M>>,
+) where
+    M::Data: PartialEq + Eq + Hash + Clone,
+{
+    let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawPrepass<M>>();
+    for (entity, view_lights) in &view_lights {
+        for view_light_entity in view_lights.lights.iter().copied() {
+            let Ok((light_entity, extracted_view_light)) =
+                view_light_entities.get(view_light_entity)
+            else {
+                continue;
+            };
+            let Some(shadow_phase) =
+                shadow_render_phases.get_mut(&extracted_view_light.retained_view_entity)
+            else {
+                continue;
+            };
+
+            let visible_entities = match light_entity {
+                LightEntity::Directional {
+                    light_entity,
+                    cascade_index,
+                } => directional_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get directional light visible entities")
+                    .entities
+                    .get(&entity)
+                    .expect("Failed to get directional light visible entities for view")
+                    .get(*cascade_index)
+                    .expect("Failed to get directional light visible entities for cascade"),
+                LightEntity::Point {
+                    light_entity,
+                    face_index,
+                } => point_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get point light visible entities")
+                    .get(*face_index),
+                LightEntity::Spot { light_entity } => spot_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get spot light visible entities"),
+            };
+
+            for (entity, main_entity) in visible_entities.iter().copied() {
+                let Some((_, pipeline_id)) =
+                    specialized_material_pipeline_cache.get(&(view_light_entity, main_entity))
+                else {
+                    continue;
+                };
+                let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
+                else {
+                    continue;
+                };
+                if !mesh_instance
+                    .flags
+                    .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
+                {
+                    continue;
+                }
+
                 let (vertex_slab, index_slab) =
                     mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
                 let batch_set_key = ShadowBatchSetKey {
-                    pipeline: pipeline_id,
+                    pipeline: *pipeline_id,
                     draw_function: draw_shadow_mesh,
                     vertex_slab: vertex_slab.unwrap_or_default(),
                     index_slab,

@@ -293,7 +293,7 @@ mod tests {
     use std::println;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
+    use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::{
         component::Component,
@@ -410,7 +410,7 @@ mod tests {
             .init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0, 0, 0]))
             .add_systems(Update, add_some)
-            .add_systems(Last, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEvents));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0
@@ -445,7 +445,7 @@ mod tests {
                 },
             )
             .add_systems(Update, update_some)
-            .add_systems(Last, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEvents));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0

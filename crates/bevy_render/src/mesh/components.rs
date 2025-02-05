@@ -2,7 +2,7 @@ use crate::{
     mesh::Mesh,
     view::{self, Visibility, VisibilityClass},
 };
-use bevy_asset::{AssetEvent, AssetId, Handle};
+use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut, component::Component, event::EventReader, prelude::require,
@@ -58,6 +58,14 @@ impl From<&Mesh2d> for AssetId<Mesh> {
     }
 }
 
+impl AsAssetId for Mesh2d {
+    type Asset = Mesh;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
+    }
+}
+
 /// A component for 3D meshes. Requires a [`MeshMaterial3d`] to be rendered, commonly using a [`StandardMaterial`].
 ///
 /// [`MeshMaterial3d`]: <https://docs.rs/bevy/latest/bevy/pbr/struct.MeshMaterial3d.html>
@@ -103,6 +111,14 @@ impl From<Mesh3d> for AssetId<Mesh> {
 impl From<&Mesh3d> for AssetId<Mesh> {
     fn from(mesh: &Mesh3d) -> Self {
         mesh.id()
+    }
+}
+
+impl AsAssetId for Mesh3d {
+    type Asset = Mesh;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
     }
 }
 
