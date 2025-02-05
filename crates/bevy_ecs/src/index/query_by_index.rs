@@ -169,11 +169,7 @@ impl<C: Component<Mutability = Immutable>, D: QueryData, F: QueryFilter>
 /// Hidden from documentation as it is purely an implementation detail for [`QueryByIndex`] that may
 /// change at any time to better suit [`QueryByIndex`]s needs.
 #[doc(hidden)]
-pub struct QueryByIndexState<
-    C: Component<Mutability = Immutable>,
-    D: QueryData + 'static,
-    F: QueryFilter + 'static,
-> {
+pub struct QueryByIndexState<C: Component<Mutability = Immutable>, D: QueryData, F: QueryFilter> {
     primary_query_state: QueryState<D, (F, With<C>)>,
     index_state: ComponentId,
 
