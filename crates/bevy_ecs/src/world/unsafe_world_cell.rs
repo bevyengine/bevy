@@ -5,7 +5,10 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MaybeUnsafeCellLocation, MutUntyped, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
+    component::{
+        ComponentId, ComponentTicks, Components, ComponentsViewReadonly, Mutable, StorageType,
+        Tick, TickCells,
+    },
     entity::{Entities, Entity, EntityBorrow, EntityLocation},
     observer::Observers,
     prelude::Component,

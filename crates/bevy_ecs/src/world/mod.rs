@@ -36,8 +36,8 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
-        RequiredComponentsError, Tick,
+        ComponentInfoRef, ComponentTicks, Components, ComponentsView, ComponentsViewInternal,
+        ComponentsViewReadonly, Mutable, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     entity_disabling::{DefaultQueryFilters, Disabled},
@@ -223,6 +223,12 @@ impl World {
         &self.components
     }
 
+    /// Retrieves this world's [`Components`] collection mutably.
+    #[inline]
+    pub fn components_mut(&mut self) -> &mut Components {
+        &mut self.components
+    }
+
     /// Retrieves this world's [`Storages`] collection.
     #[inline]
     pub fn storages(&self) -> &Storages {
@@ -251,7 +257,12 @@ impl World {
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.components.register_component::<T>(&mut self.storages)
+        self.components.register_component::<T>()
+    }
+
+    /// A synchronized version of [`Self::register_component`]
+    pub fn register_component_synced<T: Component>(&self) -> ComponentId {
+        self.components.register_component_synced::<T>()
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
@@ -501,17 +512,34 @@ impl World {
         }
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
-    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
-        let id = self.components().component_id::<C>()?;
-        let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+    /// A synchronized version of [`try_register_required_components_with`](Self::try_register_required_components_with)
+    pub fn try_register_required_components_with_synced<T: Component, R: Component>(
+        &self,
+        constructor: fn() -> R,
+    ) -> Result<(), RequiredComponentsError> {
+        let mut components = self.components().lock();
+        let requiree = components.register_component::<T>();
+
+        // TODO: Remove this panic and update archetype edges accordingly when required components are added
+        if self.archetypes().component_index().contains_key(&requiree) {
+            return Err(RequiredComponentsError::ArchetypeExists(requiree));
+        }
+
+        let required = components.register_component::<R>();
+
+        // SAFETY: We just created the `required` and `requiree` components.
+        unsafe { components.register_required_components::<R>(requiree, required, constructor) }
     }
 
-    /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
-    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
-        let component_info = self.components().get_info(id)?;
-        Some(component_info.required_components())
+    /// Retrieves the [components info](ComponentInfoRef) for the given component type, if it exists.
+    pub fn get_component_info<C: Component>(&self) -> Option<ComponentInfoRef<'_>> {
+        let id = self.components().component_id::<C>()?;
+        self.components().get_info(id)
+    }
+
+    /// Retrieves the [components info](ComponentInfoRef) for the component of the given [`ComponentId`], if it exists.
+    pub fn get_component_info_by_id(&self, id: ComponentId) -> Option<ComponentInfoRef<'_>> {
+        self.components().get_info(id)
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
@@ -528,7 +556,7 @@ impl World {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
-            .register_component_with_descriptor(&mut self.storages, descriptor)
+            .register_component_with_descriptor(descriptor)
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -568,6 +596,11 @@ impl World {
     /// [`World::insert_resource`] instead.
     pub fn register_resource<R: Resource>(&mut self) -> ComponentId {
         self.components.register_resource::<R>()
+    }
+
+    /// A synchronized version of [`register_resource`](Self::register_resource)
+    pub fn register_resource_synced<R: Resource>(&mut self) -> ComponentId {
+        self.components.register_resource_synced::<R>()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -830,9 +863,9 @@ impl World {
         }
     }
 
-    /// Returns the components of an [`Entity`] through [`ComponentInfo`].
+    /// Returns the components of an [`Entity`] through its [`info`](ComponentInfoRef).
     #[inline]
-    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = &ComponentInfo> {
+    pub fn inspect_entity(&self, entity: Entity) -> impl Iterator<Item = ComponentInfoRef<'_>> {
         let entity_location = self
             .entities()
             .get(entity)
@@ -2954,6 +2987,12 @@ impl World {
         self.flush_commands();
     }
 
+    /// Functionally, this does nothing. However, cleaning can improve performance by re-aranging data, so this should be done periodically.
+    #[inline]
+    pub fn clean(&mut self) {
+        self.components.clean();
+    }
+
     /// Increments the world's current change tick and returns the old value.
     ///
     /// If you need to call this method, but do not have `&mut` access to the world,
@@ -3217,7 +3256,7 @@ impl World {
     ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
     /// ```
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        self.components.get_component_clone_handlers_mut()
+        self.components.clean().get_component_clone_handlers_mut()
     }
 }
 
@@ -3343,7 +3382,7 @@ impl World {
     /// }
     /// ```
     #[inline]
-    pub fn iter_resources(&self) -> impl Iterator<Item = (&ComponentInfo, Ptr<'_>)> {
+    pub fn iter_resources(&self) -> impl Iterator<Item = (ComponentInfoRef<'_>, Ptr<'_>)> {
         self.storages
             .resources
             .iter()
@@ -3424,7 +3463,9 @@ impl World {
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
     #[inline]
-    pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
+    pub fn iter_resources_mut(
+        &mut self,
+    ) -> impl Iterator<Item = (ComponentInfoRef<'_>, MutUntyped<'_>)> {
         self.storages
             .resources
             .iter()
@@ -3770,7 +3811,7 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
+        component::{ComponentDescriptor, ComponentInfoRef, ComponentsViewReadonly, StorageType},
         entity::hash_set::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
@@ -3997,24 +4038,26 @@ mod tests {
         world.insert_resource(TestResource3);
         world.remove_resource::<TestResource3>();
 
-        let mut iter = world.iter_resources_mut();
+        {
+            let mut iter = world.iter_resources_mut();
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource>());
-        // SAFETY: We know that the resource is of type `TestResource`
-        unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
-        };
+            let (info, mut mut_untyped) = iter.next().unwrap();
+            assert_eq!(info.name(), core::any::type_name::<TestResource>());
+            // SAFETY: We know that the resource is of type `TestResource`
+            unsafe {
+                mut_untyped.as_mut().deref_mut::<TestResource>().0 = 43;
+            };
 
-        let (info, mut mut_untyped) = iter.next().unwrap();
-        assert_eq!(info.name(), core::any::type_name::<TestResource2>());
-        // SAFETY: We know that the resource is of type `TestResource2`
-        unsafe {
-            mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
-        };
+            let (info, mut mut_untyped) = iter.next().unwrap();
+            assert_eq!(info.name(), core::any::type_name::<TestResource2>());
+            // SAFETY: We know that the resource is of type `TestResource2`
+            unsafe {
+                mut_untyped.as_mut().deref_mut::<TestResource2>().0 = "Hello, world?".to_string();
+            };
 
-        assert!(iter.next().is_none());
-        drop(iter);
+            assert!(iter.next().is_none());
+            drop(iter);
+        }
 
         assert_eq!(world.resource::<TestResource>().0, 43);
         assert_eq!(
@@ -4161,10 +4204,10 @@ mod tests {
         let ent5 = world.spawn(Bar).id();
         let ent6 = world.spawn(Baz).id();
 
-        fn to_type_ids(component_infos: Vec<&ComponentInfo>) -> HashSet<Option<TypeId>> {
+        fn to_type_ids(component_infos: Vec<ComponentInfoRef>) -> HashSet<Option<TypeId>> {
             component_infos
                 .into_iter()
-                .map(ComponentInfo::type_id)
+                .map(|info| info.type_id())
                 .collect()
         }
 
