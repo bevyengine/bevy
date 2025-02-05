@@ -123,13 +123,16 @@ impl ImageNode {
     /// a `Rect`. This can be applied to `ImageNode`s created from
     /// texture atlases.
     /// The following example setup function demonstrates this use.
-    /// ```rust
-    /// use bevy_asset::{Asset,AssetServer};
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_asset::{Assets,AssetServer};
     /// use bevy_ecs::prelude::{Commands,Res,ResMut};
-    /// use bevy_image::TextureAtlasLayout;
-    /// use bevy_math::UVec2;
+    /// use bevy_image::{TextureAtlas,TextureAtlasLayout};
+    /// use bevy_math::{UVec2,Rect};
     /// use bevy_ui::Node;
-    /// use bevy_ui::prelude::Display;
+    /// use bevy_ui::prelude::{Display,ImageNode};
     /// fn setup(
     ///   mut commands: Commands,
     ///   asset_server: Res<AssetServer>,
