@@ -23,7 +23,7 @@ use super::Index;
 /// struct Player(u8);
 ///
 /// // Indexing is opt-in through `World::add_index`
-/// world.add_index::<Player>();
+/// world.add_index(IndexOptions::<Player>::default());
 /// # for i in 0..6 {
 /// #   for _ in 0..(i + 1) {
 /// #       world.spawn(Player(i));
@@ -81,7 +81,7 @@ impl<C: Component<Mutability = Immutable>, D: QueryData, F: QueryFilter>
     ///     Blue,
     /// }
     ///
-    /// world.add_index::<FavoriteColor>();
+    /// world.add_index(IndexOptions::<FavoriteColor>::default());
     ///
     /// fn find_red_fans(mut by_color: QueryByIndex<FavoriteColor, Entity>) {
     ///     let mut lens = by_color.at(&FavoriteColor::Red);
@@ -185,7 +185,7 @@ impl<C: Component<Mutability = Immutable>, D: QueryData + 'static, F: QueryFilte
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let Some(index) = world.get_resource::<Index<C>>() else {
             panic!(
-                "Index not setup prior to usage. Please call `app.add_index::<{}>()` during setup",
+                "Index not setup prior to usage. Please call `app.add_index(IndexOptions::<{}>::default())` during setup",
                 disqualified::ShortName::of::<C>(),
             );
         };

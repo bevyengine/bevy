@@ -76,7 +76,7 @@
 //! # #[component(immutable)]
 //! # struct Planet(&'static str);
 //! # let mut world = World::new();
-//! world.add_index::<Planet>();
+//! world.add_index(IndexOptions::<Planet>::default());
 //! ```
 //!
 //! This sets up the necessary mechanisms behind the scenes to track `Planet` components and make
@@ -140,7 +140,6 @@ use alloc::{boxed::Box, format, vec::Vec};
 use bevy_ecs_macros::Resource;
 use bevy_platform_support::{collections::HashMap, hash::FixedHasher, sync::Arc};
 use bevy_ptr::OwningPtr;
-use bevy_utils::default;
 use core::{alloc::Layout, hash::Hash, marker::PhantomData, ptr::NonNull};
 use thiserror::Error;
 
@@ -265,7 +264,7 @@ impl<C: Component<Mutability = Immutable>> Index<C> {
                     match error {
                         TrackEntityError::AddressSpaceExhausted => {
                             log::error!(
-                                "Entity {:?} could not be indexed by component {} as the total addressable space ({} bits) has been exhausted. Consider increasing the address space using `add_index_with_options`.",
+                                "Entity {:?} could not be indexed by component {} as the total addressable space ({} bits) has been exhausted. Consider increasing the address space using `IndexOptions::address_space`.",
                                 entity,
                                 disqualified::ShortName::of::<C>(),
                                 index.markers.len(),
@@ -395,45 +394,26 @@ impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> Default
     }
 }
 
-/// Extension methods for [`World`] to assist with indexing components.
-pub trait WorldIndexExtension {
-    /// Create and track an index for `C` with the provided options.
-    /// This is required to use the [`QueryByIndex`] system parameter.
-    ///
-    /// See also [`add_index`](WorldIndexExtension::add_index).
-    fn add_index_with_options<C: Component<Mutability = Immutable>, S: IndexStorage<C>>(
-        &mut self,
-        options: IndexOptions<C, S>,
-    ) -> &mut Self;
+impl<C: Component<Mutability = Immutable>, S: IndexStorage<C>> IndexOptions<C, S> {
+    /// Performs initial setup for an index.
+    // Note that this is placed here instead of inlined into `World` to allow most
+    // most of the indexing internals to stay private.
+    #[inline]
+    pub(crate) fn setup_index(self, world: &mut World) {
+        if world.get_resource::<Index<C>>().is_none() {
+            let mut index = Index::<C>::new(world, self);
 
-    /// Create and track an index for `C`.
-    /// This is required to use the [`QueryByIndex`] system parameter.
-    ///
-    /// See also [`add_index_with_options`](WorldIndexExtension::add_index_with_options).
-    fn add_index<C: Component<Mutability = Immutable> + Eq + Hash + Clone>(&mut self) -> &mut Self {
-        self.add_index_with_options::<C, HashMap<C, usize>>(default())
-    }
-}
-
-impl WorldIndexExtension for World {
-    fn add_index_with_options<C: Component<Mutability = Immutable>, S: IndexStorage<C>>(
-        &mut self,
-        options: IndexOptions<C, S>,
-    ) -> &mut Self {
-        if self.get_resource::<Index<C>>().is_none() {
-            let mut index = Index::<C>::new(self, options);
-
-            self.query::<(Entity, &C)>()
-                .iter(self)
+            world.query::<(Entity, &C)>()
+                .iter(world)
                 .map(|(entity, _)| entity)
                 .collect::<Vec<_>>()
                 .into_iter()
                 .for_each(|entity| {
-                    if let Err(error) = index.track_entity(self, entity) {
+                    if let Err(error) = index.track_entity(world, entity) {
                         match error {
                             TrackEntityError::AddressSpaceExhausted => {
                                 log::error!(
-                                    "Entity {:?} could not be indexed by component {} as the total addressable space ({} bits) has been exhausted. Consider increasing the address space using `add_index_with_options`.",
+                                    "Entity {:?} could not be indexed by component {} as the total addressable space ({} bits) has been exhausted. Consider increasing the address space using `IndexOptions::address_space`.",
                                     entity,
                                     disqualified::ShortName::of::<C>(),
                                     index.markers.len(),
@@ -446,11 +426,9 @@ impl WorldIndexExtension for World {
                     }
                 });
 
-            self.insert_resource(index);
-            self.add_observer(Index::<C>::on_insert);
-            self.add_observer(Index::<C>::on_replace);
+            world.insert_resource(index);
+            world.add_observer(Index::<C>::on_insert);
+            world.add_observer(Index::<C>::on_replace);
         }
-
-        self
     }
 }

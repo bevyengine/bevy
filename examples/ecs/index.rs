@@ -25,7 +25,7 @@ fn main() {
             }),
             FpsOverlayPlugin::default(),
         ))
-        .add_index::<Chunk>()
+        .add_index(IndexOptions::<Chunk>::default())
         .insert_resource(Time::<Fixed>::from_seconds(0.1))
         .add_systems(Startup, setup)
         .add_systems(Update, randomly_revive)

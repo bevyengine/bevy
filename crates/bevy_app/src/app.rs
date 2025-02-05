@@ -1331,55 +1331,14 @@ impl App {
     /// This allows querying by component _value_ to be very performant, at the expense of a small
     /// amount of overhead when modifying the indexed component.
     ///
-    /// See also [`add_index_with_options`](App::add_index_with_options).
+    /// The [options](IndexOptions) provided allow control over how `C` is indexed, which may
+    /// allow you to improve the ergonomics or performance of an index over recommended defaults.
     ///
     /// # Examples
     ///
     /// ```rust
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # let mut app = App::new();
-    /// #[derive(Component, PartialEq, Eq, Hash, Clone)]
-    /// #[component(immutable)]
-    /// enum FavoriteColor {
-    ///     Red,
-    ///     Green,
-    ///     Blue,
-    /// }
-    ///
-    /// app.add_index::<FavoriteColor>();
-    ///
-    /// fn find_red_fans(mut query: QueryByIndex<FavoriteColor, Entity>) {
-    ///     let mut lens = query.at(&FavoriteColor::Red);
-    ///     for entity in lens.query().iter() {
-    ///         println!("{entity:?} likes the color Red!");
-    ///     }
-    /// }
-    /// # app.add_systems(Update, find_red_fans);
-    /// ```
-    pub fn add_index<C: Component<Mutability = Immutable> + Eq + Hash + Clone>(
-        &mut self,
-    ) -> &mut Self {
-        self.world_mut().add_index::<C>();
-        self
-    }
-
-    /// Creates and maintains an index for the provided immutable [`Component`] `C` using observers.
-    ///
-    /// This allows querying by component _value_ to be very performant, at the expense of a small
-    /// amount of overhead when modifying the indexed component.
-    ///
-    /// The [options](IndexOptions) provided allow finer control over how `C` is indexed, which may
-    /// allow you to improve the ergonomics or performance of an index over recommended defaults.
-    ///
-    /// See also [`add_index`](App::add_index).
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::{prelude::*, index::IndexOptions};
     /// # use bevy_utils::default;
     /// #
     /// # let mut app = App::new();
@@ -1391,7 +1350,7 @@ impl App {
     ///     Blue,
     /// }
     ///
-    /// app.add_index_with_options(IndexOptions::<FavoriteColor> {
+    /// app.add_index(IndexOptions::<FavoriteColor> {
     ///     // FavoriteColor only has 3 states, so can be totally addressed in 2 bits.
     ///     address_space: 2,
     ///     ..default()
@@ -1405,11 +1364,11 @@ impl App {
     /// }
     /// # app.add_systems(Update, find_red_fans);
     /// ```
-    pub fn add_index_with_options<C: Component<Mutability = Immutable>, S: IndexStorage<C>>(
+    pub fn add_index<C: Component<Mutability = Immutable>, S: IndexStorage<C>>(
         &mut self,
         options: IndexOptions<C, S>,
     ) -> &mut Self {
-        self.world_mut().add_index_with_options(options);
+        self.world_mut().add_index(options);
         self
     }
 }

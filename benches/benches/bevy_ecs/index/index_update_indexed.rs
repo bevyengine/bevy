@@ -30,7 +30,7 @@ impl Benchmark {
     pub fn new() -> Self {
         let mut world = World::new();
 
-        world.add_index::<Planet>();
+        world.add_index(IndexOptions::<Planet>::default());
 
         world.spawn_batch((0..PLANETS).map(Planet).cycle().take(SPAWNS));
 
