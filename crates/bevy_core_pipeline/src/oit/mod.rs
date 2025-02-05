@@ -69,8 +69,8 @@ impl Component for OrderIndependentTransparencySettings {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
 
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, context| {
+    fn on_add() -> Option<ComponentHook> {
+        Some(|world, context| {
             if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
                 if value.layer_count > 32 {
                     warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.", 
@@ -79,7 +79,7 @@ impl Component for OrderIndependentTransparencySettings {
                     );
                 }
             }
-        });
+        })
     }
 }
 
