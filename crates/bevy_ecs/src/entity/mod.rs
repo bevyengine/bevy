@@ -66,6 +66,10 @@ mod index_set;
 pub use index_map::EntityIndexMap;
 pub use index_set::EntityIndexSet;
 
+mod unique_slice;
+
+pub use unique_slice::*;
+
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     identifier::{
