@@ -1460,7 +1460,7 @@ impl Termination for AppExit {
 
 #[cfg(test)]
 mod tests {
-    use core::{iter, marker::PhantomData, hash::Hash};
+    use core::{hash::Hash, iter, marker::PhantomData};
     use std::sync::Mutex;
 
     use bevy_ecs::{
