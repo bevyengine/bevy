@@ -1,6 +1,6 @@
 //! Provides an abstracted system for staging modifications attomically.
 
-use bevy_platform_support::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use bevy_platform_support::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
 pub trait StagedChanges {
@@ -61,6 +61,9 @@ pub struct StageOnWrite<T: StagedChanges> {
     /// Staged data stores recent modifications to cold. It's [`RwLock`] coordinates mutations.
     staged: RwLock<T>,
 }
+
+/// A type alias for putting [`StageOnWrite`] in an [`Arc`].
+pub type AttomicStageOnWrite<T> = Arc<StageOnWrite<T>>;
 
 impl<T: StagedChanges + Default> StageOnWrite<T> {
     /// Creates a new [`StageOnWrite`]
