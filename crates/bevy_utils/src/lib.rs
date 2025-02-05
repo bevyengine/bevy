@@ -188,5 +188,3 @@ mod tests {
         );
     }
 }
-
-impl<T: attomic_staging::StagedChanges> attomic_staging::Stager<'_, T> {}
