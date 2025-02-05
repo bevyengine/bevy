@@ -1164,7 +1164,7 @@ impl RenderMeshInstanceGpuBuilder {
                 self.shared.material_bindings_index.slot,
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
-            pad_b: 0,
+            pad: 0,
         };
 
         // Did the last frame contain this entity as well?
