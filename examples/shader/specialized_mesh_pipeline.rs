@@ -280,7 +280,6 @@ fn queue_custom_mesh_pipeline(
     ),
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
     views: Query<(
-        Entity,
         &RenderVisibleEntities,
         &ExtractedView,
         &Msaa,
@@ -318,14 +317,8 @@ fn queue_custom_mesh_pipeline(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (
-        view_entity,
-        view_visible_entities,
-        view,
-        msaa,
-        no_indirect_drawing,
-        gpu_occlusion_culling,
-    ) in views.iter()
+    for (view_visible_entities, view, msaa, no_indirect_drawing, gpu_occlusion_culling) in
+        views.iter()
     {
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
@@ -336,7 +329,7 @@ fn queue_custom_mesh_pipeline(
         // enabled.
         let work_item_buffer = gpu_preprocessing::get_or_create_work_item_buffer::<Opaque3d>(
             work_item_buffers,
-            view_entity,
+            view.retained_view_entity,
             no_indirect_drawing,
             gpu_occlusion_culling,
             late_indexed_indirect_parameters_buffer,
