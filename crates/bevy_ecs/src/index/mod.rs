@@ -364,8 +364,8 @@ pub struct IndexOptions<
     /// Bevy's [`World`] only supports 2^32 entities alive at any one moment in time, so an address space
     /// of 32 is sufficient to uniquely refer to every individual [`Entity`] in the entire [`World`].
     ///
-    /// Selecting a non-default value may lead to a panic at runtime or entities missing from the
-    /// index if the address space is exhausted.
+    /// Selecting a value lower than the default value may lead to a panic at runtime or entities
+    /// missing from the index if the address space is exhausted.
     ///
     /// This defaults to [`size_of<C>`]
     pub address_space: u8,
