@@ -226,7 +226,7 @@ pub fn update_previous_view_data(
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Component, PartialEq, Default)]
 pub struct PreviousGlobalTransform(pub Affine3A);
 
 #[cfg(not(feature = "meshlet"))]
@@ -237,15 +237,19 @@ type PreviousMeshFilter = Or<(With<Mesh3d>, With<MeshletMesh3d>)>;
 pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
     views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
-    meshes: Query<(Entity, &GlobalTransform), PreviousMeshFilter>,
+    meshes: Query<(Entity, &GlobalTransform, Option<&PreviousGlobalTransform>), PreviousMeshFilter>,
 ) {
     let should_run = views.iter().any(|camera| camera.is_active);
 
     if should_run {
-        for (entity, transform) in &meshes {
-            commands
-                .entity(entity)
-                .try_insert(PreviousGlobalTransform(transform.affine()));
+        for (entity, transform, old_previous_transform) in &meshes {
+            let new_previous_transform = PreviousGlobalTransform(transform.affine());
+            // Make sure not to trigger change detection on
+            // `PreviousGlobalTransform` if the previous transform hasn't
+            // changed.
+            if old_previous_transform != Some(&new_previous_transform) {
+                commands.entity(entity).try_insert(new_previous_transform);
+            }
         }
     }
 }
