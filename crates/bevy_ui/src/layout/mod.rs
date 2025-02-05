@@ -1085,11 +1085,9 @@ mod tests {
 
         let (mut world, ..) = setup_ui_test_world();
 
-        let camera_entity = Entity::from_raw(0);
         let root_node_entity = Entity::from_raw(1);
 
         struct TestSystemParam {
-            camera_entity: Entity,
             root_node_entity: Entity,
         }
 
@@ -1106,23 +1104,15 @@ mod tests {
                 None,
             );
 
-            let taffy_root = ui_surface.get_or_insert_implicit_root(params.root_node_entity);
-
             ui_surface.compute_layout(
-                taffy_root,
+                params.root_node_entity,
                 UVec2::new(800, 600),
                 &mut computed_text_block_query,
                 &mut font_system,
             );
         }
 
-        let _ = world.run_system_once_with(
-            test_system,
-            TestSystemParam {
-                camera_entity,
-                root_node_entity,
-            },
-        );
+        let _ = world.run_system_once_with(test_system, TestSystemParam { root_node_entity });
 
         let ui_surface = world.resource::<UiSurface>();
 
