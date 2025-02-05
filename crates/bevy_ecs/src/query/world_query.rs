@@ -40,12 +40,18 @@ use variadics_please::all_tuples;
 /// [`QueryFilter`]: crate::query::QueryFilter
 pub unsafe trait WorldQuery {
     /// The item returned by this [`WorldQuery`]
-    /// For `QueryData` this will be the item returned by the query.
+    /// For `QueryData` this will be the data retrieved by the query,
+    /// and is visible to the end user when calling e.g. `Query<Self>::get`.
+    ///
     /// For `QueryFilter` this will be either `()`, or a `bool` indicating whether the entity should be included
     /// or a tuple of such things.
+    /// Archetypal query filters (like `With`) set this to `()`,
+    /// as the filtering is done by selecting the archetypes to iterate over via [`WorldQuery::matches_component_set`],
+    /// while non-archetypal query filters (like `Changed`) set this to a `bool` and evaluate the filter for each entity,
+    /// after the set of possible archetypes has been narrowed down.
     type Item<'a>;
 
-    /// Per archetype/table state used by this [`WorldQuery`] to fetch [`Self::Item`](WorldQuery::Item)
+    /// Per archetype/table state retrieved by this [`WorldQuery`] to compute [`Self::Item`](WorldQuery::Item) for each entity.
     type Fetch<'a>: Clone;
 
     /// State used to construct a [`Self::Fetch`](WorldQuery::Fetch). This will be cached inside [`QueryState`](crate::query::QueryState),
@@ -59,7 +65,8 @@ pub unsafe trait WorldQuery {
     /// This function manually implements subtyping for the query fetches.
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;
 
-    /// Creates a new instance of this fetch.
+    /// Creates a new instance of [`Self::Fetch`](WorldQuery::Fetch),
+    /// by combining data from the [`World`] with the cached [`Self::State`](WorldQuery::State).
     /// Readonly accesses resources registered in [`WorldQuery::update_component_access`].
     ///
     /// # Safety
@@ -76,7 +83,9 @@ pub unsafe trait WorldQuery {
     ) -> Self::Fetch<'w>;
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
-    /// all of the matched components. This is used to select a more efficient "table iterator"
+    /// all of the matched components.
+    ///
+    /// This is used to select a more efficient "table iterator"
     /// for "dense" queries. If this returns true, [`WorldQuery::set_table`] must be used before
     /// [`WorldQuery::fetch`] can be called for iterators. If this returns false,
     /// [`WorldQuery::set_archetype`] must be used before [`WorldQuery::fetch`] can be called for
@@ -147,7 +156,8 @@ pub unsafe trait WorldQuery {
     /// Returns `true` if this query matches a set of components. Otherwise, returns `false`.
     ///
     /// Used to check which [`Archetype`]s can be skipped by the query
-    /// (if none of the [`Component`](crate::component::Component)s match)
+    /// (if none of the [`Component`](crate::component::Component)s match).
+    /// This is how archetypal query filters like `With` work.
     fn matches_component_set(
         state: &Self::State,
         set_contains_id: &impl Fn(ComponentId) -> bool,
@@ -201,7 +211,7 @@ macro_rules! impl_tuple_world_query {
             #[inline]
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe { $name::init_fetch(world, $name, last_run, this_run) },)*)
             }
 
@@ -216,7 +226,7 @@ macro_rules! impl_tuple_world_query {
             ) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 $(unsafe { $name::set_archetype($name, $state, archetype, table); })*
             }
 
@@ -224,7 +234,7 @@ macro_rules! impl_tuple_world_query {
             unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
                 let ($($name,)*) = fetch;
                 let ($($state,)*) = state;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 $(unsafe { $name::set_table($name, $state, table); })*
             }
 
@@ -235,7 +245,7 @@ macro_rules! impl_tuple_world_query {
                 table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 ($(unsafe { $name::fetch($name, entity, table_row) },)*)
             }
 

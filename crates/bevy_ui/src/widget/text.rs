@@ -61,7 +61,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
+/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -86,6 +86,12 @@ impl Default for TextNodeFlags {
 ///     Text::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq)]

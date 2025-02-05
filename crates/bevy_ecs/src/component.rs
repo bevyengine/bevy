@@ -2189,7 +2189,7 @@ pub fn enforce_no_required_components_recursion(
                     .join(" → "),
                 if direct_recursion {
                     format!(
-                        "Remove require({})",
+                        "Remove require({}).",
                         ShortName(components.get_name(requiree).unwrap())
                     )
                 } else {
@@ -2225,7 +2225,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
 /// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
-///   
+///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
