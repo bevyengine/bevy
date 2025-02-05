@@ -2098,12 +2098,9 @@ pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = ()> {
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     /// Create a [`Query`] from the underlying [`QueryState`].
     pub fn query(&mut self) -> Query<'w, '_, Q, F> {
-        Query {
-            world: self.world,
-            state: &self.state,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
+        // SAFETY: construction of a `QueryLens` requires ensuring the provided parameters will
+        // uphold the safety invariants of `Query::new`
+        unsafe { Query::new(self.world, &self.state, self.last_run, self.this_run) }
     }
 
     /// Creates a new [`QueryLens`].
@@ -2114,8 +2111,8 @@ impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     ///
     /// # Safety
     ///
-    /// This will create a query that could violate memory safety rules. Make sure that this is only
-    /// called in ways that ensure the queries have unique mutable access.
+    /// `QueryLens` can be used to construct a `Query` by internally calling `Query::new`.
+    /// All safety invariants of `Query::new` must be upheld when calling `QueryLens::new`.
     #[inline]
     pub(crate) unsafe fn new(
         world: UnsafeWorldCell<'w>,
