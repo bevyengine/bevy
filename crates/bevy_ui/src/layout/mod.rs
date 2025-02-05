@@ -170,7 +170,7 @@ with UI components as a child of an entity without UI components, your UI layout
         let implicit_root = *implicit_root_nodes
             .entry(ui_root_entity)
             .or_insert_with(|| {
-                let root_node = entity_to_taffy[&ui_root_entity];
+                let root_node = entity_to_taffy.get_mut(&ui_root_entity).unwrap();
                 let implicit_root = taffy
                     .new_leaf(taffy::style::Style {
                         display: taffy::style::Display::Grid,
@@ -186,6 +186,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     })
                     .unwrap();
                 taffy.add_child(implicit_root, root_node.id).unwrap();
+                root_node.viewport_id = Some(implicit_root);
                 implicit_root
             });
 

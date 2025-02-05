@@ -292,8 +292,10 @@ impl UiSurface {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
                 self.taffy.remove(node.id).unwrap();
+                println!("try remove viewport node");
                 if let Some(viewport_node) = node.viewport_id {
                     self.taffy.remove(viewport_node).ok();
+                    println!("removed viewport node");
                 }
             }
         }
