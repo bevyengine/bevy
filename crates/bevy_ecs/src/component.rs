@@ -778,11 +778,7 @@ impl ComponentInfo {
     /// are not accessed from the wrong thread.
     #[inline]
     pub fn is_send_and_sync(&self) -> bool {
-        match self.descriptor.sendability {
-            ComponentSendability::SendAndSync => true,
-            ComponentSendability::NonSend => false,
-            ComponentSendability::ThreadLocal => false,
-        }
+        self.descriptor.is_send_and_sync
     }
 
     /// Create a new [`ComponentInfo`].
@@ -886,21 +882,6 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
-/// Indicates how a component is handled when sent between threads.
-#[derive(Clone, Debug)]
-enum ComponentSendability {
-    /// The component can safely be sent between threads.
-    SendAndSync,
-
-    /// The component cannot safely be sent between threads. If an attempt is made to access this
-    /// component from a different thread, program panics.
-    NonSend,
-
-    /// The component data will be copied across threads when accessed from a different thread.
-    /// This uses more memory and mutating across threads is not possible.
-    ThreadLocal,
-}
-
 /// A value describing a component or resource, which may or may not correspond to a Rust type.
 #[derive(Clone)]
 pub struct ComponentDescriptor {
@@ -910,7 +891,7 @@ pub struct ComponentDescriptor {
     storage_type: StorageType,
     // SAFETY: This must remain private. It must only be set to "true" if this component is
     // actually Send + Sync
-    sendability: ComponentSendability,
+    is_send_and_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
@@ -926,7 +907,7 @@ impl Debug for ComponentDescriptor {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
             .field("storage_type", &self.storage_type)
-            .field("sendability", &self.sendability)
+            .field("is_send_and_sync", &self.is_send_and_sync)
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
@@ -950,7 +931,7 @@ impl ComponentDescriptor {
         Self {
             name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type: T::STORAGE_TYPE,
-            sendability: ComponentSendability::SendAndSync,
+            is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
@@ -973,7 +954,7 @@ impl ComponentDescriptor {
         Self {
             name: name.into(),
             storage_type,
-            sendability: ComponentSendability::SendAndSync,
+            is_send_and_sync: true,
             type_id: None,
             layout,
             drop,
@@ -990,7 +971,7 @@ impl ComponentDescriptor {
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
-            sendability: ComponentSendability::SendAndSync,
+            is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
@@ -1002,19 +983,7 @@ impl ComponentDescriptor {
         Self {
             name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type,
-            sendability: ComponentSendability::NonSend,
-            type_id: Some(TypeId::of::<T>()),
-            layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-            mutable: true,
-        }
-    }
-
-    fn new_thread_local<T: Any>(storage_type: StorageType) -> Self {
-        Self {
-            name: Cow::Borrowed(core::any::type_name::<T>()),
-            storage_type,
-            sendability: ComponentSendability::ThreadLocal,
+            is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
@@ -1713,19 +1682,6 @@ impl Components {
         }
     }
 
-    /// Registers a [thread-local resource](thread_local!) of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    #[inline]
-    pub fn register_thread_local<T: Any>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_thread_local::<T>(StorageType::default())
-            })
-        }
-    }
-
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
@@ -1748,16 +1704,6 @@ impl Components {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         let component_id = ComponentId(components.len());
-        let component = match descriptor.sendability {
-            ComponentSendability::ThreadLocal => {
-                #![feature(thread_local)]
-                #[thread_local]
-                static comp = ComponentInfo::new(component_id, descriptor);
-            }
-            _ => {
-                ComponentInfo::new(component_id, descriptor)
-            }
-        };
         components.push(ComponentInfo::new(component_id, descriptor));
         component_id
     }
