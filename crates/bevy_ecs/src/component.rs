@@ -9,7 +9,7 @@ use crate::{
     query::DebugCheckedUnwrap,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
-    system::{Local, SystemParam},
+    system::{Commands, Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -179,10 +179,6 @@ pub use bevy_ecs_macros::require;
 /// }
 ///
 /// # let mut world = World::default();
-/// // This will implicitly also insert C with the init_c() constructor
-/// let id = world.spawn(A).id();
-/// assert_eq!(&C(10), world.entity(id).get::<C>().unwrap());
-///
 /// // This will implicitly also insert C with the `|| C(20)` constructor closure
 /// let id = world.spawn(B).id();
 /// assert_eq!(&C(20), world.entity(id).get::<C>().unwrap());
@@ -416,10 +412,20 @@ pub trait Component: Send + Sync + 'static {
 
     /// Called when registering this component, allowing to override clone function (or disable cloning altogether) for this component.
     ///
-    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::default_handler()
+    /// See [Handlers section of `EntityClonerBuilder`](crate::entity::EntityClonerBuilder#handlers) to understand how this affects handler priority.
+    #[inline]
+    fn clone_behavior() -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Default
     }
+
+    /// Visits entities stored on the component.
+    #[inline]
+    fn visit_entities(_this: &Self, _f: impl FnMut(Entity)) {}
+
+    /// Returns pointers to every entity stored on the component. This will be used to remap entity references when this entity
+    /// is cloned.
+    #[inline]
+    fn visit_entities_mut(_this: &mut Self, _f: impl FnMut(&mut Entity)) {}
 }
 
 mod private {
@@ -743,6 +749,12 @@ impl ComponentInfo {
         self.descriptor.mutable
     }
 
+    /// Returns `true` if the current component is mutable.
+    #[inline]
+    pub fn clone_behavior(&self) -> &ComponentCloneBehavior {
+        &self.descriptor.clone_behavior
+    }
+
     /// Returns the [`TypeId`] of the underlying component type.
     /// Returns `None` if the component does not correspond to a Rust type.
     #[inline]
@@ -899,6 +911,7 @@ pub struct ComponentDescriptor {
     // None if the underlying type doesn't need to be dropped
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
+    clone_behavior: ComponentCloneBehavior,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -911,6 +924,7 @@ impl Debug for ComponentDescriptor {
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
+            .field("clone_behavior", &self.clone_behavior)
             .finish()
     }
 }
@@ -936,6 +950,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
+            clone_behavior: T::clone_behavior(),
         }
     }
 
@@ -950,6 +965,7 @@ impl ComponentDescriptor {
         layout: Layout,
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
+        clone_behavior: ComponentCloneBehavior,
     ) -> Self {
         Self {
             name: name.into(),
@@ -959,6 +975,7 @@ impl ComponentDescriptor {
             layout,
             drop,
             mutable,
+            clone_behavior,
         }
     }
 
@@ -976,6 +993,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
+            clone_behavior: ComponentCloneBehavior::Default,
         }
     }
 
@@ -988,6 +1006,7 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
+            clone_behavior: ComponentCloneBehavior::Default,
         }
     }
 
@@ -1018,107 +1037,55 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
+pub type ComponentCloneFn = fn(&mut Commands, &mut ComponentCloneCtx);
 
-/// A struct instructing which clone handler to use when cloning a component.
-#[derive(Debug)]
-pub struct ComponentCloneHandler(Option<ComponentCloneFn>);
+/// The clone behavior to use when cloning a [`Component`].
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum ComponentCloneBehavior {
+    /// Uses the default behavior (which is passed to [`ComponentCloneBehavior::resolve`])
+    #[default]
+    Default,
+    /// Do not clone this component.
+    Ignore,
+    /// Uses a custom [`ComponentCloneFn`].
+    Custom(ComponentCloneFn),
+    /// Uses a [`ComponentCloneFn`] that produces an empty version of the given relationship target.
+    // TODO: this exists so that the current scene spawning code can know when to skip these components.
+    // When we move to actually cloning entities in scene spawning code, this should be removed in favor of Custom, as the
+    // distinction will no longer be necessary.
+    RelationshipTarget(ComponentCloneFn),
+}
 
-impl ComponentCloneHandler {
-    /// Use the global default function to clone the component with this handler.
-    pub fn default_handler() -> Self {
-        Self(None)
-    }
-
-    /// Do not clone the component. When a command to clone an entity is issued, component with this handler will be skipped.
-    pub fn ignore() -> Self {
-        Self(Some(component_clone_ignore))
-    }
-
+impl ComponentCloneBehavior {
     /// Set clone handler based on `Clone` trait.
     ///
     /// If set as a handler for a component that is not the same as the one used to create this handler, it will panic.
-    pub fn clone_handler<C: Component + Clone>() -> Self {
-        Self(Some(component_clone_via_clone::<C>))
+    pub fn clone<C: Component + Clone>() -> Self {
+        Self::Custom(component_clone_via_clone::<C>)
     }
 
     /// Set clone handler based on `Reflect` trait.
     #[cfg(feature = "bevy_reflect")]
-    pub fn reflect_handler() -> Self {
-        Self(Some(component_clone_via_reflect))
+    pub fn reflect() -> Self {
+        Self::Custom(component_clone_via_reflect)
     }
 
-    /// Set a custom handler for the component.
-    pub fn custom_handler(handler: ComponentCloneFn) -> Self {
-        Self(Some(handler))
+    /// Returns the "global default"
+    pub fn global_default_fn() -> ComponentCloneFn {
+        #[cfg(feature = "bevy_reflect")]
+        return component_clone_via_reflect;
+        #[cfg(not(feature = "bevy_reflect"))]
+        return component_clone_ignore;
     }
 
-    /// Get [`ComponentCloneFn`] representing this handler or `None` if set to default handler.
-    pub fn get_handler(&self) -> Option<ComponentCloneFn> {
-        self.0
-    }
-}
-
-/// A registry of component clone handlers. Allows to set global default and per-component clone function for all components in the world.
-#[derive(Debug)]
-pub struct ComponentCloneHandlers {
-    handlers: Vec<Option<ComponentCloneFn>>,
-    default_handler: ComponentCloneFn,
-}
-
-impl ComponentCloneHandlers {
-    /// Sets the default handler for this registry. All components with [`default`](ComponentCloneHandler::default_handler) handler, as well as any component that does not have an
-    /// explicitly registered clone function will use this handler.
-    ///
-    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    pub fn set_default_handler(&mut self, handler: ComponentCloneFn) {
-        self.default_handler = handler;
-    }
-
-    /// Returns the currently registered default handler.
-    pub fn get_default_handler(&self) -> ComponentCloneFn {
-        self.default_handler
-    }
-
-    /// Sets a handler for a specific component.
-    ///
-    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    pub fn set_component_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
-        if id.0 >= self.handlers.len() {
-            self.handlers.resize(id.0 + 1, None);
-        }
-        self.handlers[id.0] = handler.0;
-    }
-
-    /// Checks if the specified component is registered. If not, the component will use the default global handler.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    pub fn is_handler_registered(&self, id: ComponentId) -> bool {
-        self.handlers.get(id.0).is_some_and(Option::is_some)
-    }
-
-    /// Gets a handler to clone a component. This can be one of the following:
-    /// - Custom clone function for this specific component.
-    /// - Default global handler.
-    /// - A [`component_clone_ignore`] (no cloning).
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    pub fn get_handler(&self, id: ComponentId) -> ComponentCloneFn {
-        match self.handlers.get(id.0) {
-            Some(Some(handler)) => *handler,
-            Some(None) | None => self.default_handler,
-        }
-    }
-}
-
-impl Default for ComponentCloneHandlers {
-    fn default() -> Self {
-        Self {
-            handlers: Default::default(),
-            #[cfg(feature = "bevy_reflect")]
-            default_handler: component_clone_via_reflect,
-            #[cfg(not(feature = "bevy_reflect"))]
-            default_handler: component_clone_ignore,
+    /// Resolves the [`ComponentCloneBehavior`] to a [`ComponentCloneFn`]. If [`ComponentCloneBehavior::Default`] is
+    /// specified, the given `default` function will be used.
+    pub fn resolve(&self, default: ComponentCloneFn) -> ComponentCloneFn {
+        match self {
+            ComponentCloneBehavior::Default => default,
+            ComponentCloneBehavior::Ignore => component_clone_ignore,
+            ComponentCloneBehavior::Custom(custom)
+            | ComponentCloneBehavior::RelationshipTarget(custom) => *custom,
         }
     }
 }
@@ -1129,7 +1096,6 @@ pub struct Components {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
-    component_clone_handlers: ComponentCloneHandlers,
 }
 
 impl Components {
@@ -1183,9 +1149,6 @@ impl Components {
             let info = &mut self.components[id.index()];
             T::register_component_hooks(&mut info.hooks);
             info.required_components = required_components;
-            let clone_handler = T::get_component_clone_handler();
-            self.component_clone_handlers
-                .set_component_handler(id, clone_handler);
         }
         id
     }
@@ -1546,16 +1509,6 @@ impl Components {
         self.components
             .get_mut(id.0)
             .map(|info| &mut info.required_by)
-    }
-
-    /// Retrieves the [`ComponentCloneHandlers`]. Can be used to get clone functions for components.
-    pub fn get_component_clone_handlers(&self) -> &ComponentCloneHandlers {
-        &self.component_clone_handlers
-    }
-
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        &mut self.component_clone_handlers
     }
 
     /// Type-erased equivalent of [`Components::component_id()`].
@@ -2201,12 +2154,11 @@ pub fn enforce_no_required_components_recursion(
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using the [`Clone`] trait.
-/// Can be [set](ComponentCloneHandlers::set_component_handler) as clone handler for the specific component it is implemented for.
+/// Can be [set](Component::clone_behavior) as clone handler for the specific component it is implemented for.
 /// It will panic if set as handler for any other component.
 ///
-/// See [`ComponentCloneHandlers`] for more details.
 pub fn component_clone_via_clone<C: Clone + Component>(
-    _world: &mut DeferredWorld,
+    _commands: &mut Commands,
     ctx: &mut ComponentCloneCtx,
 ) {
     if let Some(component) = ctx.read_source_component::<C>() {
@@ -2215,7 +2167,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 }
 
 /// Component [clone handler function](ComponentCloneFn) implemented using reflect.
-/// Can be [set](ComponentCloneHandlers::set_component_handler) as clone handler for any registered component,
+/// Can be [set](Component::clone_behavior) as clone handler for any registered component,
 /// but only reflected components will be cloned.
 ///
 /// To clone a component using this handler, the following must be true:
@@ -2228,9 +2180,9 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
-/// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
+/// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentCloneCtx) {
     let Some(registry) = ctx.type_registry() else {
         return;
     };
@@ -2273,7 +2225,7 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();
-        world.commands().queue(move |world: &mut World| {
+        commands.queue(move |world: &mut World| {
             let mut component = reflect_from_world.from_world(world);
             assert_eq!(type_id, (*component).type_id());
             component.apply(source_component_cloned.as_partial_reflect());
@@ -2294,14 +2246,14 @@ pub fn component_clone_via_reflect(world: &mut DeferredWorld, ctx: &mut Componen
 
 /// Noop implementation of component clone handler function.
 ///
-/// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.
-pub fn component_clone_ignore(_world: &mut DeferredWorld, _ctx: &mut ComponentCloneCtx) {}
+/// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
+pub fn component_clone_ignore(_commands: &mut Commands, _ctx: &mut ComponentCloneCtx) {}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]
-pub struct ComponentCloneSpecializationWrapper<T>(PhantomData<T>);
+pub struct DefaultCloneBehaviorSpecialization<T>(PhantomData<T>);
 
-impl<T> Default for ComponentCloneSpecializationWrapper<T> {
+impl<T> Default for DefaultCloneBehaviorSpecialization<T> {
     fn default() -> Self {
         Self(PhantomData)
     }
@@ -2309,22 +2261,22 @@ impl<T> Default for ComponentCloneSpecializationWrapper<T> {
 
 /// Base trait for components clone specialization using autoderef.
 #[doc(hidden)]
-pub trait ComponentCloneBase {
-    fn get_component_clone_handler(&self) -> ComponentCloneHandler;
+pub trait DefaultCloneBehaviorBase {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
 }
-impl<C: Component> ComponentCloneBase for ComponentCloneSpecializationWrapper<C> {
-    fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::default_handler()
+impl<C> DefaultCloneBehaviorBase for DefaultCloneBehaviorSpecialization<C> {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Default
     }
 }
 
 /// Specialized trait for components clone specialization using autoderef.
 #[doc(hidden)]
-pub trait ComponentCloneViaClone {
-    fn get_component_clone_handler(&self) -> ComponentCloneHandler;
+pub trait DefaultCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
 }
-impl<C: Clone + Component> ComponentCloneViaClone for &ComponentCloneSpecializationWrapper<C> {
-    fn get_component_clone_handler(&self) -> ComponentCloneHandler {
-        ComponentCloneHandler::clone_handler::<C>()
+impl<C: Clone + Component> DefaultCloneBehaviorViaClone for &DefaultCloneBehaviorSpecialization<C> {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::clone::<C>()
     }
 }

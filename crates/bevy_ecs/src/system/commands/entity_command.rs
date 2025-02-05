@@ -13,7 +13,7 @@ use core::panic::Location;
 use crate::{
     bundle::{Bundle, InsertMode},
     component::{Component, ComponentId, ComponentInfo},
-    entity::{Entity, EntityCloneBuilder},
+    entity::{Entity, EntityClonerBuilder},
     event::Event,
     result::Result,
     system::{command::HandleError, Command, IntoObserverSystem},
@@ -324,10 +324,10 @@ pub fn observe<E: Event, B: Bundle, M>(
 }
 
 /// An [`EntityCommand`] that clones parts of an entity onto another entity,
-/// configured through [`EntityCloneBuilder`].
+/// configured through [`EntityClonerBuilder`].
 pub fn clone_with(
     target: Entity,
-    config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+    config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
 ) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.clone_with(target, config);
