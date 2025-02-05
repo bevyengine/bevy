@@ -519,6 +519,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         #(#fields: #field_locals,)*
                     }
                 }
+
+                fn world_access_level() -> #path::system::WorldAccessLevel {
+                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::world_access_level()
+                }
             }
 
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`

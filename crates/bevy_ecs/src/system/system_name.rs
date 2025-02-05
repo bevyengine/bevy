@@ -1,12 +1,14 @@
 use crate::{
     component::Tick,
     prelude::World,
-    system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 use alloc::borrow::Cow;
 use core::ops::Deref;
 use derive_more::derive::{AsRef, Display, Into};
+
+use super::WorldAccessLevel;
 
 /// [`SystemParam`] that returns the name of the system which it is used in.
 ///
@@ -70,23 +72,14 @@ unsafe impl SystemParam for SystemName<'_> {
     ) -> Self::Item<'w, 's> {
         SystemName(name)
     }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::None
+    }
 }
 
 // SAFETY: Only reads internal system state
 unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
-
-impl ExclusiveSystemParam for SystemName<'_> {
-    type State = Cow<'static, str>;
-    type Item<'s> = SystemName<'s>;
-
-    fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.name.clone()
-    }
-
-    fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
-        SystemName(state)
-    }
-}
 
 #[cfg(test)]
 mod tests {
