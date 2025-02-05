@@ -124,6 +124,7 @@ impl ImageNode {
     /// texture atlases.
     /// The following example setup function demonstrates this use.
     /// ```rust
+    /// use bevy::prelude::*;
     /// fn setup(
     ///   mut commands: Commands,
     ///   asset_server: Res<AssetServer>,
