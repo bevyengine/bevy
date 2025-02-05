@@ -216,20 +216,18 @@ mod tests {
             .with_children(|parent| {
                 parent.spawn((A(2), Node::default()));
                 parent
-                    .spawn((A(3), GhostNode::new()))
+                    .spawn((A(3), GhostNode))
                     .with_child((A(4), Node::default()));
             });
 
         // Ghost root
-        world
-            .spawn((A(5), GhostNode::new()))
-            .with_children(|parent| {
-                parent.spawn((A(6), Node::default()));
-                parent
-                    .spawn((A(7), GhostNode::new()))
-                    .with_child((A(8), Node::default()))
-                    .with_child(A(9));
-            });
+        world.spawn((A(5), GhostNode)).with_children(|parent| {
+            parent.spawn((A(6), Node::default()));
+            parent
+                .spawn((A(7), GhostNode))
+                .with_child((A(8), Node::default()))
+                .with_child(A(9));
+        });
 
         let mut system_state = SystemState::<(UiRootNodes, Query<&A>)>::new(world);
         let (ui_root_nodes, a_query) = system_state.get(world);
@@ -244,15 +242,15 @@ mod tests {
         let world = &mut World::new();
 
         let n1 = world.spawn((A(1), Node::default())).id();
-        let n2 = world.spawn((A(2), GhostNode::new())).id();
-        let n3 = world.spawn((A(3), GhostNode::new())).id();
+        let n2 = world.spawn((A(2), GhostNode)).id();
+        let n3 = world.spawn((A(3), GhostNode)).id();
         let n4 = world.spawn((A(4), Node::default())).id();
         let n5 = world.spawn((A(5), Node::default())).id();
 
-        let n6 = world.spawn((A(6), GhostNode::new())).id();
-        let n7 = world.spawn((A(7), GhostNode::new())).id();
+        let n6 = world.spawn((A(6), GhostNode)).id();
+        let n7 = world.spawn((A(7), GhostNode)).id();
         let n8 = world.spawn((A(8), Node::default())).id();
-        let n9 = world.spawn((A(9), GhostNode::new())).id();
+        let n9 = world.spawn((A(9), GhostNode)).id();
         let n10 = world.spawn((A(10), Node::default())).id();
 
         let no_ui = world.spawn_empty().id();
