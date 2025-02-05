@@ -273,8 +273,65 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 }
 
-/// A cloning configuration capable of cloning entities in a given world. See [`EntityClonerBuilder`] for configuration
-/// options, and [`EntityCloner::clone_entity`] to clone a given entity.
+/// A configuration determining how to clone enities. This can be built using [`EntityCloner::build`], which
+/// returns an [`EntityClonerBuilder`].
+///
+/// After configuration is complete an entity can be cloned using [`Self::clone_entity`].
+///
+///```
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::EntityCloner;
+///
+/// #[derive(Component, Clone, PartialEq, Eq)]
+/// struct A {
+///     field: usize,
+/// }
+///
+/// let mut world = World::default();
+///
+/// let component = A { field: 5 };
+///
+/// let entity = world.spawn(component.clone()).id();
+/// let entity_clone = world.spawn_empty().id();
+///
+/// EntityCloner::build(&mut world).clone_entity(entity, entity_clone);
+///
+/// assert!(world.get::<A>(entity_clone).is_some_and(|c| *c == component));
+///```
+///
+/// # Default cloning strategy
+/// By default, all types that derive [`Component`] and implement either [`Clone`] or `Reflect` (with `ReflectComponent`) will be cloned
+/// (with `Clone`-based implementation preferred in case component implements both).
+///
+/// It should be noted that if `Component` is implemented manually or if `Clone` implementation is conditional
+/// (like when deriving `Clone` for a type with a generic parameter without `Clone` bound),
+/// the component will be cloned using the [default cloning strategy](crate::component::ComponentCloneBehavior::global_default_fn).
+/// To use `Clone`-based handler ([`ComponentCloneBehavior::clone`]) in this case it should be set manually using one
+/// of the methods mentioned in the [Clone Behaviors](#Clone-Behaviors) section
+///
+/// Here's an example of how to do it using [`clone_behavior`](Component::clone_behavior):
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable};
+/// #[derive(Clone)]
+/// struct SomeComponent;
+///
+/// impl Component for SomeComponent {
+///     const STORAGE_TYPE: StorageType = StorageType::Table;
+///     type Mutability = Mutable;
+///     fn clone_behavior() -> ComponentCloneBehavior {
+///         ComponentCloneBehavior::clone::<Self>()
+///     }
+/// }
+/// ```
+///
+/// # Clone Behaviors
+/// [`EntityCloner`] clones entities by cloning components using [`ComponentCloneBehavior`], and there are multiple layers
+/// to decide which handler to use for which component. The overall hierarchy looks like this (priority from most to least):
+/// 1. local overrides using [`EntityClonerBuilder::override_clone_behavior`]
+/// 2. component-defined handler using [`Component::clone_behavior`]
+/// 3. default handler override using [`EntityClonerBuilder::with_default_clone_fn`].
+/// 4. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
 #[derive(Debug)]
 pub struct EntityCloner {
     filter_allows_components: bool,
@@ -380,11 +437,6 @@ impl EntityCloner {
         let bump = Bump::new();
         let mut bundle_scratch: BundleScratch;
         {
-            // SAFETY:
-            // - `source_entity` is read-only.
-            // - `type_registry` is read-only.
-            // - `components` is read-only.
-            // - `deferred_world` disallows structural ecs changes, which means all read-only resources above a not affected.
             let world = world.as_unsafe_world_cell();
             let source_entity = world.get_entity(source).expect("Source entity must exist");
 
@@ -514,63 +566,7 @@ impl EntityCloner {
     }
 }
 
-/// Builder struct to clone an entity. Allows configuring which components to clone, as well as how to clone them.
-/// After configuration is complete an entity can be cloned using [`Self::clone_entity`].
-///
-///```
-/// use bevy_ecs::prelude::*;
-/// use bevy_ecs::entity::EntityCloner;
-///
-/// #[derive(Component, Clone, PartialEq, Eq)]
-/// struct A {
-///     field: usize,
-/// }
-///
-/// let mut world = World::default();
-///
-/// let component = A { field: 5 };
-///
-/// let entity = world.spawn(component.clone()).id();
-/// let entity_clone = world.spawn_empty().id();
-///
-/// EntityCloner::build(&mut world).clone_entity(entity, entity_clone);
-///
-/// assert!(world.get::<A>(entity_clone).is_some_and(|c| *c == component));
-///```
-///
-/// # Default cloning strategy
-/// By default, all types that derive [`Component`] and implement either [`Clone`] or `Reflect` (with `ReflectComponent`) will be cloned
-/// (with `Clone`-based implementation preferred in case component implements both).
-///
-/// It should be noted that if `Component` is implemented manually or if `Clone` implementation is conditional
-/// (like when deriving `Clone` for a type with a generic parameter without `Clone` bound),
-/// the component will be cloned using the [default cloning strategy](crate::component::ComponentCloneBehavior::global_default_fn).
-/// To use `Clone`-based handler ([`ComponentCloneBehavior::clone`]) in this case it should be set manually using one
-/// of the methods mentioned in the [Handlers](#handlers) section
-///
-/// Here's an example of how to do it using [`clone_behavior`](Component::clone_behavior):
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::component::{StorageType, ComponentCloneBehavior, Mutable};
-/// #[derive(Clone)]
-/// struct SomeComponent;
-///
-/// impl Component for SomeComponent {
-///     const STORAGE_TYPE: StorageType = StorageType::Table;
-///     type Mutability = Mutable;
-///     fn clone_behavior() -> ComponentCloneBehavior {
-///         ComponentCloneBehavior::clone::<Self>()
-///     }
-/// }
-/// ```
-///
-/// # Handlers
-/// `EntityClonerBuilder` clones entities by cloning components using [`ComponentCloneBehavior`], and there are multiple layers
-/// to decide which handler to use for which component. The overall hierarchy looks like this (priority from most to least):
-/// 1. local overrides using [`EntityClonerBuilder::override_clone_behavior`]
-/// 2. component-defined handler using [`Component::clone_behavior`]
-/// 3. default handler override using [`EntityClonerBuilder::with_default_clone_fn`].
-/// 4. reflect-based or noop default clone handler depending on if `bevy_reflect` feature is enabled or not.
+/// A builder for configuring [`EntityCloner`]. See [`EntityCloner`] for more information.
 #[derive(Debug)]
 pub struct EntityClonerBuilder<'w> {
     world: &'w mut World,
