@@ -1,4 +1,4 @@
-use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ResolvedUiScale};
+use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, ComputedNodeScaleFactor};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -260,7 +260,7 @@ pub fn update_image_content_size_system(
             &mut ContentSize,
             Ref<ImageNode>,
             &mut ImageNodeSize,
-            Ref<ResolvedUiScale>,
+            Ref<ComputedNodeScaleFactor>,
         ),
         UpdateImageFilter,
     >,

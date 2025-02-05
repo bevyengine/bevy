@@ -183,7 +183,7 @@ fn set_camera_viewports(
 
 fn button_system(
     interaction_query: Query<
-        (&Interaction, &ResolvedUiTargetCamera, &RotateCamera),
+        (&Interaction, &ComputedNodeTargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,

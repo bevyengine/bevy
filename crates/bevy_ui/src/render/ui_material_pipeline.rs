@@ -374,7 +374,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedUiTargetCamera,
+            &ComputedNodeTargetCamera,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,

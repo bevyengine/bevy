@@ -10,7 +10,7 @@ mod debug_overlay;
 use crate::widget::ImageNode;
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, Outline,
-    ResolvedBorderRadius, ResolvedUiTargetCamera, UiAntiAlias,
+    ResolvedBorderRadius, ComputedNodeTargetCamera, UiAntiAlias,
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
@@ -276,7 +276,7 @@ pub struct UiCameraMapper<'w, 's> {
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, camera: &ResolvedUiTargetCamera) -> Option<Entity> {
+    pub fn map(&mut self, camera: &ComputedNodeTargetCamera) -> Option<Entity> {
         let camera_entity = camera.0;
         if self.camera_entity != camera_entity {
             let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
@@ -329,7 +329,7 @@ pub fn extract_uinode_background_colors(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedUiTargetCamera,
+            &ComputedNodeTargetCamera,
             &BackgroundColor,
         )>,
     >,
@@ -388,7 +388,7 @@ pub fn extract_uinode_images(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedUiTargetCamera,
+            &ComputedNodeTargetCamera,
             &ImageNode,
         )>,
     >,
@@ -472,7 +472,7 @@ pub fn extract_uinode_borders(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedUiTargetCamera,
+            &ComputedNodeTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -700,7 +700,7 @@ pub fn extract_text_sections(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ResolvedUiTargetCamera,
+            &ComputedNodeTargetCamera,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,

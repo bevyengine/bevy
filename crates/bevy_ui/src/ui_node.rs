@@ -2771,15 +2771,15 @@ impl Default for BoxShadowSamples {
 /// Scale factor of the UI node's render target.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct ResolvedUiScale(pub(crate) f32);
+pub struct ComputedNodeScaleFactor(pub(crate) f32);
 
-impl Default for ResolvedUiScale {
+impl Default for ComputedNodeScaleFactor {
     fn default() -> Self {
         Self(1.0)
     }
 }
 
-impl ResolvedUiScale {
+impl ComputedNodeScaleFactor {
     pub fn get(&self) -> f32 {
         self.0
     }
@@ -2788,15 +2788,15 @@ impl ResolvedUiScale {
 /// Size of the UI node's render target in physical pixels.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct ResolvedUiTargetSize(pub(crate) UVec2);
+pub struct ComputedNodeTargetSize(pub(crate) UVec2);
 
-impl Default for ResolvedUiTargetSize {
+impl Default for ComputedNodeTargetSize {
     fn default() -> Self {
         Self(UVec2::ZERO)
     }
 }
 
-impl ResolvedUiTargetSize {
+impl ComputedNodeTargetSize {
     pub fn get(&self) -> UVec2 {
         self.0
     }
@@ -2805,15 +2805,15 @@ impl ResolvedUiTargetSize {
 /// ID of the UI node's camera target.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct ResolvedUiTargetCamera(pub(crate) Entity);
+pub struct ComputedNodeTargetCamera(pub(crate) Entity);
 
-impl Default for ResolvedUiTargetCamera {
+impl Default for ComputedNodeTargetCamera {
     fn default() -> Self {
         Self(Entity::PLACEHOLDER)
     }
 }
 
-impl ResolvedUiTargetCamera {
+impl ComputedNodeTargetCamera {
     pub fn get(&self) -> Option<Entity> {
         Some(self.0).filter(|&entity| entity != Entity::PLACEHOLDER)
     }

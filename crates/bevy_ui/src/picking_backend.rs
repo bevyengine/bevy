@@ -51,7 +51,7 @@ pub struct NodeQuery {
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ResolvedUiTargetCamera,
+    target_camera: &'static ComputedNodeTargetCamera,
 }
 
 /// Computes the UI node entities under each pointer.

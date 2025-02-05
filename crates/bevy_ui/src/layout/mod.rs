@@ -1,7 +1,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ContentSize, Display, LayoutConfig, Measure, MeasureArgs, Node,
-    NodeMeasure, Outline, OverflowAxis, ResolvedUiScale, ResolvedUiTargetSize, ScrollPosition, Val,
+    BorderRadius, ComputedNode, ComputedNodeScaleFactor, ComputedNodeTargetSize, ContentSize,
+    Display, LayoutConfig, Measure, MeasureArgs, Node, NodeMeasure, Outline, OverflowAxis,
+    ScrollPosition, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -78,8 +79,8 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Ref<ResolvedUiTargetSize>,
-        Ref<ResolvedUiScale>,
+        Ref<ComputedNodeTargetSize>,
+        Ref<ComputedNodeScaleFactor>,
     )>,
     computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,

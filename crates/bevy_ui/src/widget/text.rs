@@ -1,6 +1,6 @@
 use crate::{
     ComputedNode, ContentSize, FixedMeasure, Measure, MeasureArgs, Node, NodeMeasure,
-    ResolvedUiScale,
+    ComputedNodeScaleFactor,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -254,7 +254,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Ref<ResolvedUiScale>,
+            Ref<ComputedNodeScaleFactor>,
         ),
         With<Node>,
     >,
