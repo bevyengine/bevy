@@ -119,11 +119,10 @@ impl ImageNode {
         self
     }
 
-    /// with_rect crops an ImageNode to the portion described by
-    /// a Rect. This can be applied to ImageNodes created from
+    /// `with_rect` crops an `ImageNode` to the portion described by
+    /// a `Rect`. This can be applied to `ImageNode`s created from
     /// texture atlases.
-    ///
-    /// the following example setup function demonstrates this use
+    /// The following example setup function demonstrates this use.
     /// ```rust
     /// fn setup(
     ///   mut commands: Commands,
@@ -156,7 +155,9 @@ impl ImageNode {
     ///       },
     ///     ).with_rect(
     ///        Rect::new(0., 0., 150., 150.)
-    ///      ));});}
+    ///      ));
+    ///   });
+    /// }
     ///````
     #[must_use]
     pub const fn with_rect(mut self, rect: Rect) -> Self {
