@@ -820,7 +820,7 @@ mod tests {
         component::{Component, Components, Tick},
         entity::Entity,
         ptr::OwningPtr,
-        storage::{Storages, TableBuilder, TableId, TableRow, Tables},
+        storage::{TableBuilder, TableId, TableRow, Tables},
     };
     use alloc::vec::Vec;
 
@@ -845,8 +845,7 @@ mod tests {
     #[test]
     fn table() {
         let mut components = Components::default();
-        let mut storages = Storages::default();
-        let component_id = components.register_component::<W<TableRow>>(&mut storages);
+        let component_id = components.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())
