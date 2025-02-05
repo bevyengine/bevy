@@ -927,6 +927,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "edit_material_on_gltf"
+path = "examples/3d/edit_material_on_gltf.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.edit_material_on_gltf]
+name = "Edit Gltf Material"
+description = "Showcases changing materials of a Gltf after Scene spawn"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "lighting"
 path = "examples/3d/lighting.rs"
 doc-scrape-examples = true
