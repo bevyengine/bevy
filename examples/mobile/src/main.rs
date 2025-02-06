@@ -1,3 +1,18 @@
+//! # Mobile Example (Desktop Entry Point)
+//!
+//! This is the desktop entry point for a Bevy application designed to simulate
+//! a mobile environment. It runs on a PC but uses a mobile-like window resolution
+//! (360x640) for development and testing purposes.
+//!
+//! ## Features:
+//! - Uses `DefaultPlugins` with a custom `AssetPlugin` to load assets from a specific directory.
+//! - Configures the primary window to start in a 360x640 resolution (portrait mode).
+//! - Implements a system to toggle the window orientation between portrait and landscape using the keyboard.
+//!
+//! ## Controls:
+//! - Press `L` to switch to landscape mode (640x360).
+//! - Press `P` to switch back to portrait mode (360x640).
+
 use bevy::prelude::*;
 use bevy::window::{PrimaryWindow, WindowResolution};
 

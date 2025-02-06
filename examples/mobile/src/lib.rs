@@ -43,23 +43,26 @@ fn main() {
     .run();
 }
 
+#[expect(
+    missing_docs,
+    reason = "This is a simple marker struct and does not require documentation."
+)]
 pub struct MainPlugin;
 
 impl Plugin for MainPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .insert_resource(WinitSettings::mobile())
-        .add_systems(Startup, (setup_scene, setup_music))
-        .add_systems(
-            Update,
-            (
-                touch_camera,
-                button_handler,
-                // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
-                // This ensures we don't try to manage audio that hasn't been initialized yet.
-                handle_lifetime.run_if(any_with_component::<AudioSink>),
-            ),
-        );
+        app.insert_resource(WinitSettings::mobile())
+            .add_systems(Startup, (setup_scene, setup_music))
+            .add_systems(
+                Update,
+                (
+                    touch_camera,
+                    button_handler,
+                    // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
+                    // This ensures we don't try to manage audio that hasn't been initialized yet.
+                    handle_lifetime.run_if(any_with_component::<AudioSink>),
+                ),
+            );
     }
 }
 
@@ -209,4 +212,3 @@ fn handle_lifetime(
         }
     }
 }
-
