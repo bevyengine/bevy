@@ -28,7 +28,7 @@ bevy_render = { path = "../bevy_render", version = "0.15.1", optional = true }
 
 # other
 serde = { version = "1.0", features = ["derive"], optional = true }
-uuid = { version = "1.1", features = ["v4"] }
+uuid = { version = "=1.12", features = ["v4"] }
 derive_more = { version = "1", default-features = false, features = [
   "error",
   "from",

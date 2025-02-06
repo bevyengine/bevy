@@ -20,7 +20,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.15.1" }
 
 # other
 serde = { version = "1.0", optional = true }
-uuid = "1.0"
+uuid = "=1.12"
 
 [features]
 default = ["bevy_reflect"]
