@@ -4,22 +4,16 @@ use crate::{
 };
 use serde::{ser::SerializeTupleStruct, Serialize};
 
+use super::ReflectSerializerProcessor;
+
 /// A serializer for [`TupleStruct`] values.
-pub(super) struct TupleStructSerializer<'a> {
-    tuple_struct: &'a dyn TupleStruct,
-    registry: &'a TypeRegistry,
+pub(super) struct TupleStructSerializer<'a, P> {
+    pub tuple_struct: &'a dyn TupleStruct,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a P>,
 }
 
-impl<'a> TupleStructSerializer<'a> {
-    pub fn new(tuple_struct: &'a dyn TupleStruct, registry: &'a TypeRegistry) -> Self {
-        Self {
-            tuple_struct,
-            registry,
-        }
-    }
-}
-
-impl<'a> Serialize for TupleStructSerializer<'a> {
+impl<P: ReflectSerializerProcessor> Serialize for TupleStructSerializer<'_, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -53,7 +47,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             let field = self.tuple_struct.field(0).unwrap();
             return serializer.serialize_newtype_struct(
                 tuple_struct_info.type_path_table().ident().unwrap(),
-                &TypedReflectSerializer::new_internal(field, self.registry),
+                &TypedReflectSerializer::new_internal(field, self.registry, self.processor),
             );
         }
 
@@ -63,13 +57,14 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
         )?;
 
         for (index, value) in self.tuple_struct.iter_fields().enumerate() {
-            if serialization_data
-                .map(|data| data.is_field_skipped(index))
-                .unwrap_or(false)
-            {
+            if serialization_data.is_some_and(|data| data.is_field_skipped(index)) {
                 continue;
             }
-            state.serialize_field(&TypedReflectSerializer::new_internal(value, self.registry))?;
+            state.serialize_field(&TypedReflectSerializer::new_internal(
+                value,
+                self.registry,
+                self.processor,
+            ))?;
         }
         state.end()
     }

@@ -2,6 +2,7 @@
 //!
 //! Usage: spawn more entities by clicking on the screen.
 
+use core::time::Duration;
 use std::str::FromStr;
 
 use argh::FromArgs;
@@ -14,7 +15,6 @@ use bevy::{
         render_resource::{Extent3d, TextureDimension, TextureFormat},
     },
     sprite::AlphaMode2d,
-    utils::Duration,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -142,7 +142,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings {
@@ -216,7 +216,6 @@ struct BirdResources {
 #[derive(Component)]
 struct StatsText;
 
-#[allow(clippy::too_many_arguments)]
 fn setup(
     mut commands: Commands,
     args: Res<Args>,
@@ -323,18 +322,21 @@ fn setup(
     commands.insert_resource(scheduled);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
     time: Res<Time>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    window: Single<&Window>,
+    window: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
     mut rng: Local<Option<ChaCha8Rng>>,
     mut wave: Local<usize>,
 ) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     if rng.is_none() {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -387,7 +389,6 @@ fn bird_velocity_transform(
 
 const FIXED_DELTA_TIME: f32 = 1.0 / 60.0;
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_birds(
     commands: &mut Commands,
     args: &Args,
@@ -532,7 +533,11 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
         velocity.y = 0.0;
     }
 }
-fn collision_system(window: Single<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+fn collision_system(window: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     let half_extents = 0.5 * window.size();
 
     for (mut bird, transform) in &mut bird_query {

@@ -2,7 +2,7 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, Display, Node, OverflowAxis, TargetCamera,
+    CalculatedClip, Display, Node, OverflowAxis, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -12,9 +12,9 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 use bevy_math::Rect;
+use bevy_platform_support::collections::HashSet;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashSet;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -115,7 +115,8 @@ fn update_clipping(
         clip_rect.max.x -= clip_inset.right;
         clip_rect.max.y -= clip_inset.bottom;
 
-        clip_rect = clip_rect.inflate(node.overflow_clip_margin.margin.max(0.));
+        clip_rect = clip_rect
+            .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
 
         if node.overflow.x == OverflowAxis::Visible {
             clip_rect.min.x = -f32::INFINITY;
@@ -136,18 +137,18 @@ fn update_clipping(
 pub fn update_target_camera_system(
     mut commands: Commands,
     changed_root_nodes_query: Query<
-        (Entity, Option<&TargetCamera>),
-        (With<Node>, Changed<TargetCamera>),
+        (Entity, Option<&UiTargetCamera>),
+        (With<Node>, Changed<UiTargetCamera>),
     >,
-    node_query: Query<(Entity, Option<&TargetCamera>), With<Node>>,
+    node_query: Query<(Entity, Option<&UiTargetCamera>), With<Node>>,
     ui_root_nodes: UiRootNodes,
     ui_children: UiChildren,
 ) {
     // Track updated entities to prevent redundant updates, as `Commands` changes are deferred,
     // and updates done for changed_children_query can overlap with itself or with root_node_query
-    let mut updated_entities = HashSet::new();
+    let mut updated_entities = <HashSet<_>>::default();
 
-    // Assuming that TargetCamera is manually set on the root node only,
+    // Assuming that UiTargetCamera is manually set on the root node only,
     // update root nodes first, since it implies the biggest change
     for (root_node, target_camera) in changed_root_nodes_query.iter_many(ui_root_nodes.iter()) {
         update_children_target_camera(
@@ -160,7 +161,7 @@ pub fn update_target_camera_system(
         );
     }
 
-    // If the root node TargetCamera was changed, then every child is updated
+    // If the root node UiTargetCamera was changed, then every child is updated
     // by this point, and iteration will be skipped.
     // Otherwise, update changed children
     for (parent, target_camera) in &node_query {
@@ -181,8 +182,8 @@ pub fn update_target_camera_system(
 
 fn update_children_target_camera(
     entity: Entity,
-    camera_to_set: Option<&TargetCamera>,
-    node_query: &Query<(Entity, Option<&TargetCamera>), With<Node>>,
+    camera_to_set: Option<&UiTargetCamera>,
+    node_query: &Query<(Entity, Option<&UiTargetCamera>), With<Node>>,
     ui_children: &UiChildren,
     commands: &mut Commands,
     updated_entities: &mut HashSet<Entity>,
@@ -200,7 +201,7 @@ fn update_children_target_camera(
                 commands.entity(child).try_insert(camera.clone());
             }
             None => {
-                commands.entity(child).remove::<TargetCamera>();
+                commands.entity(child).remove::<UiTargetCamera>();
             }
         }
         updated_entities.insert(child);

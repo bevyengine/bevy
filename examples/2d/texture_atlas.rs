@@ -30,7 +30,7 @@ enum AppState {
 struct RpgSpriteFolder(Handle<LoadedFolder>);
 
 fn load_textures(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // load multiple, individual sprites from a folder
+    // Load multiple, individual sprites from a folder
     commands.insert_resource(RpgSpriteFolder(asset_server.load_folder("textures/rpg")));
 }
 
@@ -57,7 +57,7 @@ fn setup(
 ) {
     let loaded_folder = loaded_folders.get(&rpg_sprite_handles.0).unwrap();
 
-    // create texture atlases with different padding and sampling
+    // Create texture atlases with different padding and sampling
 
     let (texture_atlas_linear, linear_sources, linear_texture) = create_texture_atlas(
         loaded_folder,
@@ -93,59 +93,58 @@ fn setup(
         );
     let atlas_nearest_padded_handle = texture_atlases.add(texture_atlas_nearest_padded);
 
-    // setup 2d scene
     commands.spawn(Camera2d);
 
-    // padded textures are to the right, unpadded to the left
+    // Padded textures are to the right, unpadded to the left
 
-    // draw unpadded texture atlas
+    // Draw unpadded texture atlas
     commands.spawn((
         Sprite::from_image(linear_texture.clone()),
         Transform {
-            translation: Vec3::new(-250.0, -130.0, 0.0),
-            scale: Vec3::splat(0.8),
+            translation: Vec3::new(-250.0, -160.0, 0.0),
+            scale: Vec3::splat(0.5),
             ..default()
         },
     ));
 
-    // draw padded texture atlas
+    // Draw padded texture atlas
     commands.spawn((
         Sprite::from_image(linear_padded_texture.clone()),
         Transform {
-            translation: Vec3::new(250.0, -130.0, 0.0),
-            scale: Vec3::splat(0.8),
+            translation: Vec3::new(250.0, -160.0, 0.0),
+            scale: Vec3::splat(0.5),
             ..default()
         },
     ));
 
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
-    // padding label text style
+    // Padding label text style
     let text_style: TextFont = TextFont {
         font: font.clone(),
         font_size: 42.0,
         ..default()
     };
 
-    // labels to indicate padding
+    // Labels to indicate padding
 
     // No padding
     create_label(
         &mut commands,
-        (-250.0, 330.0, 0.0),
+        (-250.0, 250.0, 0.0),
         "No padding",
         text_style.clone(),
     );
 
     // Padding
-    create_label(&mut commands, (250.0, 330.0, 0.0), "Padding", text_style);
+    create_label(&mut commands, (250.0, 250.0, 0.0), "Padding", text_style);
 
-    // get handle to a sprite to render
+    // Get handle to a sprite to render
     let vendor_handle: Handle<Image> = asset_server
         .get_handle("textures/rpg/chars/vendor/generic-rpg-vendor.png")
         .unwrap();
 
-    // configuration array to render sprites through iteration
+    // Configuration array to render sprites through iteration
     let configurations: [(
         &str,
         Handle<TextureAtlasLayout>,
@@ -183,17 +182,17 @@ fn setup(
         ),
     ];
 
-    // label text style
+    // Label text style
     let sampling_label_style = TextFont {
         font,
         font_size: 25.0,
         ..default()
     };
 
-    let base_y = 170.0; // y position of the sprites
+    let base_y = 80.0; // y position of the sprites
 
     for (sampling, atlas_handle, atlas_sources, atlas_texture, x) in configurations {
-        // render a sprite from the texture_atlas
+        // Render a sprite from the texture_atlas
         create_sprite_from_atlas(
             &mut commands,
             (x, base_y, 0.0),
@@ -203,10 +202,10 @@ fn setup(
             &vendor_handle,
         );
 
-        // render a label to indicate the sampling setting
+        // Render a label to indicate the sampling setting
         create_label(
             &mut commands,
-            (x, base_y + 110.0, 0.0), // offset to y position of the sprite
+            (x, base_y + 110.0, 0.0), // Offset to y position of the sprite
             sampling,
             sampling_label_style.clone(),
         );
@@ -228,7 +227,7 @@ fn create_texture_atlas(
         let id = handle.id().typed_unchecked::<Image>();
         let Some(texture) = textures.get(id) else {
             warn!(
-                "{:?} did not resolve to an `Image` asset.",
+                "{} did not resolve to an `Image` asset.",
                 handle.path().unwrap()
             );
             continue;

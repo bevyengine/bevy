@@ -1,5 +1,4 @@
-// FIXME(15321): solve CI failures, then replace with `#![expect()]`.
-#![allow(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
 use bevy_macro_utils::BevyManifest;
@@ -8,7 +7,7 @@ use quote::{format_ident, quote};
 use syn::{parse_macro_input, Data, DeriveInput, Path};
 
 pub(crate) fn bevy_asset_path() -> Path {
-    BevyManifest::default().get_path("bevy_asset")
+    BevyManifest::shared().get_path("bevy_asset")
 }
 
 const DEPENDENCY_ATTRIBUTE: &str = "dependency";

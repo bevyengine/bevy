@@ -4,8 +4,9 @@ use crate::{
     type_info::impl_type_methods,
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
-use alloc::sync::Arc;
-use bevy_utils::HashMap;
+use alloc::{boxed::Box, format, string::String};
+use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::sync::Arc;
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].

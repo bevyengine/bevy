@@ -4,8 +4,41 @@ use syn::{parse_macro_input, spanned::Spanned, DeriveInput, Pat, Path, Result};
 
 use crate::bevy_state_path;
 
+pub const STATES: &str = "states";
+pub const SCOPED_ENTITIES: &str = "scoped_entities";
+
+struct StatesAttrs {
+    scoped_entities_enabled: bool,
+}
+
+fn parse_states_attr(ast: &DeriveInput) -> Result<StatesAttrs> {
+    let mut attrs = StatesAttrs {
+        scoped_entities_enabled: false,
+    };
+
+    for attr in ast.attrs.iter() {
+        if attr.path().is_ident(STATES) {
+            attr.parse_nested_meta(|nested| {
+                if nested.path.is_ident(SCOPED_ENTITIES) {
+                    attrs.scoped_entities_enabled = true;
+                    Ok(())
+                } else {
+                    Err(nested.error("Unsupported attribute"))
+                }
+            })?;
+        }
+    }
+
+    Ok(attrs)
+}
+
 pub fn derive_states(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
+
+    let attrs = match parse_states_attr(&ast) {
+        Ok(attrs) => attrs,
+        Err(e) => return e.into_compile_error().into(),
+    };
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -23,8 +56,12 @@ pub fn derive_states(input: TokenStream) -> TokenStream {
 
     let struct_name = &ast.ident;
 
+    let scoped_entities_enabled = attrs.scoped_entities_enabled;
+
     quote! {
-        impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {}
+        impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
+            const SCOPED_ENTITIES_ENABLED: bool = #scoped_entities_enabled;
+        }
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {
         }
@@ -37,7 +74,7 @@ struct Source {
     source_value: Pat,
 }
 
-fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
+fn parse_sources_attr(ast: &DeriveInput) -> Result<(StatesAttrs, Source)> {
     let mut result = ast
         .attrs
         .iter()
@@ -73,16 +110,19 @@ fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
         ));
     }
 
+    let states_attrs = parse_states_attr(ast)?;
+
     let Some(result) = result.pop() else {
         return Err(syn::Error::new(ast.span(), "SubStates require a source"));
     };
 
-    Ok(result)
+    Ok((states_attrs, result))
 }
 
 pub fn derive_substates(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let sources = parse_sources_attr(&ast).expect("Failed to parse substate sources");
+    let (states_attrs, sources) =
+        parse_sources_attr(&ast).expect("Failed to parse substate sources");
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
@@ -113,6 +153,8 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
     let source_state_type = sources.source_type;
     let source_state_value = sources.source_value;
 
+    let scoped_entities_enabled = states_attrs.scoped_entities_enabled;
+
     let result = quote! {
         impl #impl_generics #trait_path for #struct_name #ty_generics #where_clause {
             type SourceStates = #source_state_type;
@@ -124,6 +166,8 @@ pub fn derive_substates(input: TokenStream) -> TokenStream {
 
         impl #impl_generics #state_trait_path for #struct_name #ty_generics #where_clause {
             const DEPENDENCY_DEPTH : usize = <Self as #trait_path>::SourceStates::SET_DEPENDENCY_DEPTH + 1;
+
+            const SCOPED_ENTITIES_ENABLED: bool = #scoped_entities_enabled;
         }
 
         impl #impl_generics #state_mutation_trait_path for #struct_name #ty_generics #where_clause {

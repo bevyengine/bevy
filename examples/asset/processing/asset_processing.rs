@@ -113,7 +113,10 @@ struct CoolTextRon {
 #[derive(Asset, TypePath, Debug)]
 struct CoolText {
     text: String,
-    #[allow(unused)]
+    #[expect(
+        dead_code,
+        reason = "Used to show that our assets can hold handles to other assets"
+    )]
     dependencies: Vec<Handle<Text>>,
 }
 

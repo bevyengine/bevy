@@ -6,8 +6,8 @@ use bevy_ecs::{
 use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
-use self::gpu_preprocessing::IndirectParametersBuffer;
-use crate::sync_world::MainEntity;
+use self::gpu_preprocessing::IndirectParametersBuffers;
+use crate::{render_phase::PhaseItemExtraIndex, sync_world::MainEntity};
 use crate::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
@@ -20,7 +20,7 @@ pub mod gpu_preprocessing;
 pub mod no_gpu_preprocessing;
 
 /// Add this component to mesh entities to disable automatic batching
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct NoAutomaticBatching;
 
 /// Data necessary to be equal for two draw commands to be mergeable
@@ -54,7 +54,14 @@ impl<T: PartialEq> BatchMeta<T> {
         BatchMeta {
             pipeline_id: item.cached_pipeline(),
             draw_function_id: item.draw_function(),
-            dynamic_offset: item.extra_index().as_dynamic_offset(),
+            dynamic_offset: match item.extra_index() {
+                PhaseItemExtraIndex::DynamicOffset(dynamic_offset) => {
+                    NonMaxU32::new(dynamic_offset)
+                }
+                PhaseItemExtraIndex::None | PhaseItemExtraIndex::IndirectParametersIndex { .. } => {
+                    None
+                }
+            },
             user_data,
         }
     }
@@ -99,7 +106,7 @@ pub trait GetBatchData {
 pub trait GetFullBatchData: GetBatchData {
     /// The per-instance data that was inserted into the
     /// [`crate::render_resource::BufferVec`] during extraction.
-    type BufferInputData: Pod + Sync + Send;
+    type BufferInputData: Pod + Default + Sync + Send;
 
     /// Get the per-instance data to be inserted into the
     /// [`crate::render_resource::GpuArrayBuffer`].
@@ -109,7 +116,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// [`GetFullBatchData::get_index_and_compare_data`] instead.
     fn get_binned_batch_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<Self::BufferData>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -121,7 +128,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_index_and_compare_data(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
@@ -133,21 +140,40 @@ pub trait GetFullBatchData: GetBatchData {
     /// function will never be called.
     fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
-        query_item: (Entity, MainEntity),
+        query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Pushes [`gpu_preprocessing::IndirectParameters`] necessary to draw this
-    /// batch onto the given [`IndirectParametersBuffer`], and returns its
-    /// index.
+    /// Writes the [`gpu_preprocessing::IndirectParametersMetadata`] necessary
+    /// to draw this batch into the given metadata buffer at the given index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).
-    fn get_batch_indirect_parameters_index(
-        param: &SystemParamItem<Self::Param>,
-        indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        entity: (Entity, MainEntity),
-        instance_index: u32,
-    ) -> Option<NonMaxU32>;
+    ///
+    /// * `mesh_index` describes the index of the first mesh instance in this
+    ///   batch in the `MeshInputUniform` buffer.
+    ///
+    /// * `indexed` is true if the mesh is indexed or false if it's non-indexed.
+    ///
+    /// * `base_output_index` is the index of the first mesh instance in this
+    ///   batch in the `MeshUniform` output buffer.
+    ///
+    /// * `batch_set_index` is the index of the batch set in the
+    ///   [`gpu_preprocessing::IndirectBatchSet`] buffer, if this batch belongs to
+    ///   a batch set.
+    ///
+    /// * `indirect_parameters_buffers` is the buffer in which to write the
+    ///   metadata.
+    ///
+    /// * `indirect_parameters_offset` is the index in that buffer at which to
+    ///   write the metadata.
+    fn write_batch_indirect_parameters_metadata(
+        mesh_index: u32,
+        indexed: bool,
+        base_output_index: u32,
+        batch_set_index: Option<NonMaxU32>,
+        indirect_parameters_buffers: &mut IndirectParametersBuffers,
+        indirect_parameters_offset: u32,
+    );
 }
 
 /// Sorts a render phase that uses bins.
@@ -156,6 +182,7 @@ where
     BPI: BinnedPhaseItem,
 {
     for phase in phases.values_mut() {
+        phase.multidrawable_mesh_keys.sort_unstable();
         phase.batchable_mesh_keys.sort_unstable();
         phase.unbatchable_mesh_keys.sort_unstable();
     }

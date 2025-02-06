@@ -164,7 +164,7 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
 /// Adds the buttons for the global controls (those that control the scene as a
 /// whole as opposed to shadows, midtones, or highlights).
 fn add_buttons_for_global_controls(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
 ) {
@@ -196,7 +196,7 @@ fn add_buttons_for_global_controls(
 /// Adds the buttons that control color grading for individual sections
 /// (highlights, midtones, shadows).
 fn add_buttons_for_section(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     section: SelectedColorGradingSection,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
@@ -234,7 +234,7 @@ fn add_buttons_for_section(
 
 /// Adds a button that controls one of the color grading values.
 fn add_button_for_value(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     option: SelectedColorGradingOption,
     color_grading: &ColorGrading,
     font: &Handle<Font>,
@@ -315,7 +315,7 @@ fn add_help_text(
 
 /// Adds some text to the scene.
 fn add_text<'a>(
-    parent: &'a mut ChildBuilder,
+    parent: &'a mut ChildSpawnerCommands,
     label: &str,
     font: &Handle<Font>,
     color: Color,

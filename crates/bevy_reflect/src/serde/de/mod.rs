@@ -24,20 +24,27 @@ mod tuples;
 
 #[cfg(test)]
 mod tests {
+    use alloc::{
+        boxed::Box,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bincode::Options;
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
-    use serde::de::IgnoredAny;
-    use serde::Deserializer;
-
     use serde::{de::DeserializeSeed, Deserialize};
+    use serde::{de::IgnoredAny, Deserializer};
 
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform_support::collections::{HashMap, HashSet};
 
-    use crate::serde::ReflectDeserializerProcessor;
-    use crate::{self as bevy_reflect, TypeRegistration};
     use crate::{
-        serde::{ReflectDeserializer, ReflectSerializer, TypedReflectDeserializer},
-        DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistry,
+        self as bevy_reflect,
+        serde::{
+            ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
+            TypedReflectDeserializer,
+        },
+        DynamicEnum, FromReflect, PartialReflect, Reflect, ReflectDeserialize, TypeRegistration,
+        TypeRegistry,
     };
 
     #[derive(Reflect, Debug, PartialEq)]
@@ -148,10 +155,10 @@ mod tests {
     }
 
     fn get_my_struct() -> MyStruct {
-        let mut map = HashMap::new();
+        let mut map = <HashMap<_, _>>::default();
         map.insert(64, 32);
 
-        let mut set = HashSet::new();
+        let mut set = <HashSet<_>>::default();
         set.insert(64);
 
         MyStruct {

@@ -1,4 +1,5 @@
 use crate::TaskPool;
+use alloc::vec::Vec;
 
 mod adapters;
 pub use adapters::*;

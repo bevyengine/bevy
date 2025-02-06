@@ -26,7 +26,7 @@ pub fn empty_systems(criterion: &mut Criterion) {
             schedule.add_systems(empty);
         }
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", amount), |bencher| {
+        group.bench_function(format!("{:03}_systems", amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -38,7 +38,7 @@ pub fn empty_systems(criterion: &mut Criterion) {
             schedule.add_systems((empty, empty, empty, empty, empty));
         }
         schedule.run(&mut world);
-        group.bench_function(&format!("{:03}_systems", 5 * amount), |bencher| {
+        group.bench_function(format!("{:03}_systems", 5 * amount), |bencher| {
             bencher.iter(|| {
                 schedule.run(&mut world);
             });
@@ -80,7 +80,7 @@ pub fn busy_systems(criterion: &mut Criterion) {
             }
             schedule.run(&mut world);
             group.bench_function(
-                &format!(
+                format!(
                     "{:02}x_entities_{:02}_systems",
                     entity_bunches,
                     3 * system_amount + 3
@@ -131,7 +131,7 @@ pub fn contrived(criterion: &mut Criterion) {
             }
             schedule.run(&mut world);
             group.bench_function(
-                &format!(
+                format!(
                     "{:02}x_entities_{:02}_systems",
                     entity_bunches,
                     3 * system_amount + 3

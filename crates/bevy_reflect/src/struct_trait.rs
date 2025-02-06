@@ -6,9 +6,10 @@ use crate::{
     ApplyError, Generics, NamedField, PartialReflect, Reflect, ReflectKind, ReflectMut,
     ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
 };
-use alloc::{borrow::Cow, sync::Arc};
+use alloc::{borrow::Cow, boxed::Box, vec::Vec};
+use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::sync::Arc;
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::HashMap;
 use core::{
     fmt::{Debug, Formatter},
     slice::Iter,

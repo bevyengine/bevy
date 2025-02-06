@@ -25,7 +25,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
-|bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
@@ -33,7 +32,8 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
-|bevy_ui_picking_backend|Provides an implementation for picking ui|
+|bevy_ui_picking_backend|Provides an implementation for picking UI|
+|bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
@@ -61,12 +61,16 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
+|bevy_image|Load and access image data. Usually added by an image format|
+|bevy_remote|Enable the Bevy Remote Protocol|
+|bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
 |dds|DDS compressed texture support|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
+|experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
@@ -83,7 +87,7 @@ The default feature set enables most of the expected features of a game engine, 
 |mp3|MP3 audio format support|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_multi_layer_material_textures|Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
-|pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
+|pbr_specular_textures|Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
@@ -105,7 +109,7 @@ The default feature set enables most of the expected features of a game engine, 
 |trace_chrome|Tracing support, saving a file in Chrome Tracing format|
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
-|track_change_detection|Enables source location tracking for change detection, which can assist with debugging|
+|track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|

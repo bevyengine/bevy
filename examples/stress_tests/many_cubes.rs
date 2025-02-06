@@ -20,7 +20,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{GpuCulling, NoCpuCulling, NoFrustumCulling},
+        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -59,9 +59,9 @@ struct Args {
     #[argh(switch)]
     no_automatic_batching: bool,
 
-    /// whether to enable GPU culling.
+    /// whether to disable indirect drawing.
     #[argh(switch)]
-    gpu_culling: bool,
+    no_indirect_drawing: bool,
 
     /// whether to disable CPU culling.
     #[argh(switch)]
@@ -111,7 +111,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings {
@@ -176,8 +176,8 @@ fn setup(
 
             // camera
             let mut camera = commands.spawn(Camera3d::default());
-            if args.gpu_culling {
-                camera.insert(GpuCulling);
+            if args.no_indirect_drawing {
+                camera.insert(NoIndirectDrawing);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);

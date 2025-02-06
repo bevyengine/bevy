@@ -34,6 +34,10 @@ The determining factor for what kind of work should go in each pool is latency r
   await receiving data from somewhere (i.e. disk) and signal other systems when the data is ready
   for consumption. (likely via channels)
 
+## `no_std` Support
+
+To enable `no_std` support in this crate, you will need to disable default features, and enable the `edge_executor` and `critical-section` features. For platforms without full support for Rust atomics, you may also need to enable the `portable-atomic` feature.
+
 [bevy]: https://bevyengine.org
 [rayon]: https://github.com/rayon-rs/rayon
 [async-executor]: https://github.com/stjepang/async-executor

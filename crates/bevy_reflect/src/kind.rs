@@ -1,4 +1,5 @@
-use derive_more::derive::{Display, Error};
+use alloc::boxed::Box;
+use thiserror::Error;
 
 #[cfg(feature = "functions")]
 use crate::func::Function;
@@ -130,8 +131,8 @@ macro_rules! impl_reflect_kind_conversions {
 /// Caused when a type was expected to be of a certain [kind], but was not.
 ///
 /// [kind]: ReflectKind
-#[derive(Debug, Error, Display)]
-#[display("kind mismatch: expected {expected:?}, received {received:?}")]
+#[derive(Debug, Error)]
+#[error("kind mismatch: expected {expected:?}, received {received:?}")]
 pub struct ReflectKindMismatchError {
     pub expected: ReflectKind,
     pub received: ReflectKind,
@@ -273,6 +274,7 @@ impl ReflectOwned {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use std::collections::HashSet;
 
     use super::*;
@@ -296,7 +298,7 @@ mod tests {
 
     #[test]
     fn should_cast_mut() {
-        let mut value: HashSet<i32> = HashSet::new();
+        let mut value: HashSet<i32> = HashSet::default();
 
         let result = value.reflect_mut().as_set();
         assert!(result.is_ok());

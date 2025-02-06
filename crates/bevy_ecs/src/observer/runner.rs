@@ -1,7 +1,8 @@
+use alloc::{boxed::Box, vec, vec::Vec};
 use core::any::Any;
 
 use crate::{
-    component::{ComponentHook, ComponentHooks, ComponentId, StorageType},
+    component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
@@ -62,14 +63,18 @@ impl ObserverState {
 
 impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    type Mutability = Mutable;
 
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|mut world, entity, _| {
+    fn on_add() -> Option<ComponentHook> {
+        Some(|mut world, HookContext { entity, .. }| {
             world.commands().queue(move |world: &mut World| {
                 world.register_observer(entity);
             });
-        });
-        hooks.on_remove(|mut world, entity, _| {
+        })
+    }
+
+    fn on_remove() -> Option<ComponentHook> {
+        Some(|mut world, HookContext { entity, .. }| {
             let descriptor = core::mem::take(
                 &mut world
                     .entity_mut(entity)
@@ -81,7 +86,7 @@ impl Component for ObserverState {
             world.commands().queue(move |world: &mut World| {
                 world.unregister_observer(entity, descriptor);
             });
-        });
+        })
     }
 }
 
@@ -196,8 +201,8 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
-///     println!("Entity {:?} goes BOOM!", trigger.entity());
-///     commands.entity(trigger.entity()).despawn();
+///     println!("Entity {} goes BOOM!", trigger.target());
+///     commands.entity(trigger.target()).despawn();
 /// });
 ///
 /// world.flush();
@@ -230,7 +235,7 @@ pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: 
 /// # struct Explode;
 /// world.entity_mut(e1).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
-///     commands.entity(trigger.entity()).despawn();
+///     commands.entity(trigger.target()).despawn();
 /// });
 ///
 /// world.entity_mut(e2).observe(|trigger: Trigger<Explode>, mut commands: Commands| {
@@ -310,18 +315,24 @@ impl Observer {
         self.descriptor.events.push(event);
         self
     }
+
+    /// Returns the [`ObserverDescriptor`] for this [`Observer`].
+    pub fn descriptor(&self) -> &ObserverDescriptor {
+        &self.descriptor
+    }
 }
 
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, entity, _id| {
-            let Some(observe) = world.get::<Self>(entity) else {
+    type Mutability = Mutable;
+    fn on_add() -> Option<ComponentHook> {
+        Some(|world, context| {
+            let Some(observe) = world.get::<Self>(context.entity) else {
                 return;
             };
             let hook = observe.hook_on_add;
-            hook(world, entity, _id);
-        });
+            hook(world, context);
+        })
     }
 }
 
@@ -381,7 +392,7 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
 }
 
-/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`ComponentHooks::on_add`).
+/// A [`ComponentHook`] used by [`Observer`] to handle its [`on-add`](`crate::component::ComponentHooks::on_add`).
 ///
 /// This function exists separate from [`Observer`] to allow [`Observer`] to have its type parameters
 /// erased.
@@ -391,17 +402,16 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 /// ensure type parameters match.
 fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld<'_>,
-    entity: Entity,
-    _: ComponentId,
+    HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_type = world.register_component::<E>();
+        let event_id = E::register_component_id(world);
         let mut components = Vec::new();
-        B::component_ids(&mut world.components, &mut world.storages, &mut |id| {
+        B::component_ids(&mut world.components, &mut |id| {
             components.push(id);
         });
         let mut descriptor = ObserverDescriptor {
-            events: vec![event_type],
+            events: vec![event_id],
             components,
             ..Default::default()
         };

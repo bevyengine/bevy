@@ -4,6 +4,7 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
 //! Accessibility for Bevy
 //!
@@ -12,6 +13,9 @@
 //! If you need to use `accesskit`, you will need to add it as a separate dependency in your `Cargo.toml`.
 //!
 //! Make sure to use the same version of `accesskit` as Bevy.
+
+#[cfg(feature = "std")]
+extern crate std;
 
 extern crate alloc;
 
@@ -22,14 +26,26 @@ use accesskit::Node;
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, Event, ReflectResource},
+    prelude::{Component, Event},
+    resource::Resource,
     schedule::SystemSet,
-    system::Resource,
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::reflect::ReflectResource, bevy_reflect::std_traits::ReflectDefault,
+    bevy_reflect::Reflect,
+};
+
+#[cfg(feature = "serialize")]
+use serde::{Deserialize, Serialize};
+
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
 #[derive(Event, Deref, DerefMut)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 
 /// Resource that tracks whether an assistive technology has requested
@@ -38,6 +54,7 @@ pub struct ActionRequest(pub accesskit::ActionRequest);
 /// Useful if a third-party plugin needs to conditionally integrate with
 /// `AccessKit`
 #[derive(Resource, Default, Clone, Debug, Deref, DerefMut)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Resource))]
 pub struct AccessibilityRequested(Arc<AtomicBool>);
 
 impl AccessibilityRequested {
@@ -60,6 +77,12 @@ impl AccessibilityRequested {
 /// accessibility updates instead. Without this, the external library and ECS
 /// will generate conflicting updates.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Resource))]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct ManageAccessibilityUpdates(bool);
 
 impl Default for ManageAccessibilityUpdates {
@@ -89,6 +112,7 @@ impl ManageAccessibilityUpdates {
 /// If the entity doesn't have a parent, or if the immediate parent doesn't have
 /// an `AccessibilityNode`, its node will be an immediate child of the primary window.
 #[derive(Component, Clone, Deref, DerefMut)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct AccessibilityNode(pub Node);
 
 impl From<Node> for AccessibilityNode {
@@ -97,13 +121,14 @@ impl From<Node> for AccessibilityNode {
     }
 }
 
-/// Resource representing which entity has keyboard focus, if any.
-#[derive(Resource, Default, Deref, DerefMut, Reflect)]
-#[reflect(Resource, Default)]
-pub struct Focus(pub Option<Entity>);
-
 /// Set enum for the systems relating to accessibility
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+#[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
 pub enum AccessibilitySystem {
     /// Update the accessibility tree
     Update,
@@ -115,11 +140,8 @@ pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<Focus>();
-
         app.init_resource::<AccessibilityRequested>()
             .init_resource::<ManageAccessibilityUpdates>()
-            .init_resource::<Focus>()
             .allow_ambiguous_component::<AccessibilityNode>();
     }
 }

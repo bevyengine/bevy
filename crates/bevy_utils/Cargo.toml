@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,32 +10,37 @@ keywords = ["bevy"]
 
 [features]
 default = ["std", "serde"]
-std = [
-  "alloc",
-  "tracing/std",
-  "ahash/std",
-  "dep:thread_local",
-  "ahash/runtime-rng",
-]
-alloc = ["hashbrown/default"]
-detailed_trace = []
-serde = ["hashbrown/serde"]
+
+# Functionality
+
+## Adds serialization support through `serde`.
+serde = ["bevy_platform_support/serialize"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = ["alloc", "bevy_platform_support/std", "dep:thread_local"]
+
+## Allows access to the `alloc` crate.
+alloc = ["bevy_platform_support/alloc"]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = ["bevy_platform_support/critical-section"]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
+portable-atomic = ["bevy_platform_support/portable-atomic"]
 
 [dependencies]
-ahash = { version = "0.8.7", default-features = false, features = [
-  "compile-time-rng",
-] }
-tracing = { version = "0.1", default-features = false }
-hashbrown = { version = "0.14.2", default-features = false }
-bevy_utils_proc_macros = { version = "0.15.0-dev", path = "macros" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
+
 thread_local = { version = "1.0", optional = true }
 
 [dev-dependencies]
 static_assertions = "1.1.0"
-
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2.0", features = ["js"] }
-web-time = { version = "1.1" }
 
 [lints]
 workspace = true

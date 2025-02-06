@@ -22,6 +22,7 @@ use core::error::Error;
 
 #[cfg(target_os = "android")]
 mod android_tracing;
+mod once;
 
 #[cfg(feature = "trace_tracy_memory")]
 #[global_allocator]
@@ -33,21 +34,21 @@ static GLOBAL: tracy_client::ProfiledAllocator<std::alloc::System> =
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use bevy_utils::tracing::{
+    pub use tracing::{
         debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
     };
 
     #[doc(hidden)]
-    pub use bevy_utils::{debug_once, error_once, info_once, once, trace_once, warn_once};
+    pub use crate::{debug_once, error_once, info_once, trace_once, warn_once};
+
+    #[doc(hidden)]
+    pub use bevy_utils::once;
 }
 
-pub use bevy_utils::{
-    debug_once, error_once, info_once, once, trace_once,
-    tracing::{
-        debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn, warn_span,
-        Level,
-    },
-    warn_once,
+pub use bevy_utils::once;
+pub use tracing::{
+    self, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
+    warn_span, Level,
 };
 pub use tracing_subscriber;
 
@@ -61,7 +62,7 @@ use tracing_subscriber::{
 };
 #[cfg(feature = "tracing-chrome")]
 use {
-    bevy_ecs::system::Resource,
+    bevy_ecs::resource::Resource,
     bevy_utils::synccell::SyncCell,
     tracing_subscriber::fmt::{format::DefaultFields, FormattedFields},
 };
@@ -89,7 +90,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::LogPlugin;
-/// # use bevy_utils::tracing::Level;
+/// # use tracing::Level;
 /// fn main() {
 ///     App::new()
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
@@ -134,7 +135,70 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 ///         .run();
 /// }
 /// ```
+/// # Example Setup
 ///
+/// For a quick setup that enables all first-party logging while not showing any of your dependencies'
+/// log data, you can configure the plugin as shown below.
+///
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::*;
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(LogPlugin {
+///         filter: "warn,my_crate=trace".to_string(), //specific filters
+///         level: Level::TRACE,//Change this to be globally change levels
+///         ..Default::default()
+///         }))
+///     .run();
+/// ```
+/// The filter (in this case an `EnvFilter`) chooses whether to print the log. The most specific filters apply with higher priority.
+/// Let's start with an example: `filter: "warn".to_string()` will only print logs with level `warn` level or greater.
+/// From here, we can change to `filter: "warn,my_crate=trace".to_string()`. Logs will print at level `warn` unless it's in `mycrate`,
+/// which will instead print at `trace` level because `my_crate=trace` is more specific.
+///
+///
+/// ## Log levels
+/// Events can be logged at various levels of importance.
+/// Only events at your configured log level and higher will be shown.
+/// ```no_run
+/// # use bevy_log::*;
+/// // here is how you write new logs at each "log level" (in "most important" to
+/// // "least important" order)
+/// error!("something failed");
+/// warn!("something bad happened that isn't a failure, but that's worth calling out");
+/// info!("helpful information that is worth printing by default");
+/// debug!("helpful for debugging");
+/// trace!("very noisy");
+/// ```
+/// In addition to `format!` style arguments, you can print a variable's debug
+/// value by using syntax like: `trace(?my_value)`.
+///
+/// ## Per module logging levels
+/// Modules can have different logging levels using syntax like `crate_name::module_name=debug`.
+///
+///
+/// ```no_run
+/// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
+/// # use bevy_log::*;
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(LogPlugin {
+///         filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), // Specific filters
+///         level: Level::TRACE, // Change this to be globally change levels
+///         ..Default::default()
+///     }))
+///     .run();
+/// ```
+/// The idea is that instead of deleting logs when they are no longer immediately applicable,
+/// you just disable them. If you do need to log in the future, then you can enable the logs instead of having to rewrite them.
+///
+/// ## Further reading
+///
+/// The `tracing` crate has much more functionality than these examples can show.
+/// Much of this configuration can be done with "layers" in the `log` crate.
+/// Check out:
+/// - Using spans to add more fine grained filters to logs
+/// - Adding instruments to capture more function information
+/// - Creating layers to add additional context such as line numbers
 /// # Panics
 ///
 /// This plugin should not be added multiple times in the same process. This plugin
@@ -169,7 +233,7 @@ pub struct LogPlugin {
     /// Because [`BoxedLayer`] takes a `dyn Layer`, `Vec<Layer>` is also an acceptable return value.
     ///
     /// Access to [`App`] is also provided to allow for communication between the
-    /// [`Subscriber`](bevy_utils::tracing::Subscriber) and the [`App`].
+    /// [`Subscriber`](tracing::Subscriber) and the [`App`].
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
@@ -301,7 +365,7 @@ impl Plugin for LogPlugin {
 
         let logger_already_set = LogTracer::init().is_err();
         let subscriber_already_set =
-            bevy_utils::tracing::subscriber::set_global_default(finished_subscriber).is_err();
+            tracing::subscriber::set_global_default(finished_subscriber).is_err();
 
         match (logger_already_set, subscriber_already_set) {
             (true, true) => error!(

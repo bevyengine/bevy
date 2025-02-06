@@ -1,4 +1,5 @@
 use crate::PartialReflect;
+use alloc::boxed::Box;
 
 /// The return type of a [`DynamicFunction`] or [`DynamicFunctionMut`].
 ///

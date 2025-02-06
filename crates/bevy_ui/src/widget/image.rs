@@ -2,11 +2,11 @@ use crate::{ContentSize, Measure, MeasureArgs, Node, NodeMeasure, UiScale};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_sprite::{TextureAtlas, TextureAtlasLayout, TextureSlicer};
+use bevy_sprite::TextureSlicer;
 use bevy_window::{PrimaryWindow, Window};
 use taffy::{MaybeMath, MaybeResolve};
 
@@ -279,10 +279,15 @@ pub fn update_image_content_size_system(
             continue;
         }
 
-        if let Some(size) = match &image.texture_atlas {
-            Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
-            None => textures.get(&image.image).map(Image::size),
-        } {
+        if let Some(size) =
+            image
+                .rect
+                .map(|rect| rect.size().as_uvec2())
+                .or_else(|| match &image.texture_atlas {
+                    Some(atlas) => atlas.texture_rect(&atlases).map(|t| t.size()),
+                    None => textures.get(&image.image).map(Image::size),
+                })
+        {
             // Update only if size or scale factor has changed to avoid needless layout calculations
             if size != image_size.size
                 || combined_scale_factor != *previous_combined_scale_factor

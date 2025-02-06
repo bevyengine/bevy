@@ -20,12 +20,6 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, example_control_system);
 
-    // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
-    // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
-    // until WebGPU is ready and no longer behind a feature flag in Web browsers.
-    #[cfg(target_arch = "wasm32")]
-    app.insert_resource(Msaa::Off);
-
     app.run();
 }
 
@@ -155,6 +149,11 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
+        // Since this example uses HDR, we must disable MSAA for Wasm builds, at least
+        // until WebGPU is ready and no longer behind a feature flag in Web browsers.
+        #[cfg(target_arch = "wasm32")]
+        Msaa::Off,
     ));
 
     // Controls Text
@@ -247,7 +246,6 @@ impl Default for ExampleState {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&MeshMaterial3d<StandardMaterial>, &ExampleControls)>,

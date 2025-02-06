@@ -25,6 +25,7 @@ enum AppState {
 // in [`AppState::InGame`], the [`IsPaused`] state resource
 // will not exist.
 #[source(AppState = AppState::InGame)]
+#[states(scoped_entities)]
 enum IsPaused {
     #[default]
     Running,
@@ -43,7 +44,6 @@ fn main() {
         .add_systems(OnExit(AppState::Menu), cleanup_menu)
         .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(OnEnter(IsPaused::Paused), setup_paused_screen)
-        .enable_state_scoped_entities::<IsPaused>()
         .add_systems(
             Update,
             (
@@ -84,7 +84,7 @@ fn menu(
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn_recursive();
+    commands.entity(menu_data.button_entity).despawn();
 }
 
 const SPEED: f32 = 100.0;

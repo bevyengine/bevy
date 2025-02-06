@@ -2,7 +2,10 @@ use super::{
     instance_manager::InstanceManager, resource_manager::ResourceManager,
     MESHLET_MESH_MATERIAL_SHADER_HANDLE,
 };
-use crate::{environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume, *};
+use crate::{
+    environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume,
+    material_bind_groups::MaterialBindGroupAllocator, *,
+};
 use bevy_asset::AssetServer;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -10,6 +13,7 @@ use bevy_core_pipeline::{
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::TemporalJitter,
     mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
@@ -17,7 +21,6 @@ use bevy_render::{
     render_resource::*,
     view::ExtractedView,
 };
-use bevy_utils::{HashMap, HashSet};
 use core::hash::Hash;
 
 /// A list of `(Material ID, Pipeline, BindGroup)` for a view for use in [`super::MeshletMainOpaquePass3dNode`].
@@ -26,7 +29,6 @@ pub struct MeshletViewMaterialsMainOpaquePass(pub Vec<(u32, CachedRenderPipeline
 
 /// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletMainOpaquePass3dNode`],
 /// and register the material with [`InstanceManager`].
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
@@ -36,6 +38,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
     mesh_pipeline: Res<MeshPipeline>,
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     asset_server: Res<AssetServer>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
     mut views: Query<
@@ -45,7 +48,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             Option<&Tonemapping>,
             Option<&DebandDither>,
             Option<&ShadowFilteringMethod>,
-            Has<ScreenSpaceAmbientOcclusion>,
+            (Has<ScreenSpaceAmbientOcclusion>, Has<DistanceFog>),
             (
                 Has<NormalPrepass>,
                 Has<DepthPrepass>,
@@ -70,7 +73,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         tonemapping,
         dither,
         shadow_filter_method,
-        ssao,
+        (ssao, distance_fog),
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
         temporal_jitter,
         projection,
@@ -110,6 +113,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             view_key |= match projection {
                 Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
                 Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Custom(_) => MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD,
             };
         }
 
@@ -138,11 +142,19 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
         if ssao {
             view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
         }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
+        }
 
         view_key |= MeshPipelineKey::from_primitive_topology(PrimitiveTopology::TriangleList);
 
         for material_id in render_material_instances.values().collect::<HashSet<_>>() {
             let Some(material) = render_materials.get(*material_id) else {
+                continue;
+            };
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
                 continue;
             };
 
@@ -156,7 +168,9 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             let Ok(material_pipeline_descriptor) = material_pipeline.specialize(
                 MaterialPipelineKey {
                     mesh_key: view_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material_bind_group
+                        .get_extra_data(material.binding.slot)
+                        .clone(),
                 },
                 fake_vertex_buffer_layout,
             ) else {
@@ -208,7 +222,17 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             let pipeline_id = *cache.entry(view_key).or_insert_with(|| {
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
             });
-            materials.push((material_id, pipeline_id, material.bind_group.clone()));
+
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
+                continue;
+            };
+            let Some(bind_group) = material_bind_group.get_bind_group() else {
+                continue;
+            };
+
+            materials.push((material_id, pipeline_id, (*bind_group).clone()));
         }
     }
 }
@@ -225,7 +249,6 @@ pub struct MeshletViewMaterialsDeferredGBufferPrepass(
 
 /// Prepare [`Material`] pipelines for [`super::MeshletMesh`] entities for use in [`super::MeshletPrepassNode`],
 /// and [`super::MeshletDeferredGBufferPrepassNode`] and register the material with [`InstanceManager`].
-#[allow(clippy::too_many_arguments)]
 pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     resource_manager: ResMut<ResourceManager>,
     mut instance_manager: ResMut<InstanceManager>,
@@ -235,6 +258,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
     render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
     render_material_instances: Res<RenderMaterialInstances<M>>,
     mut mesh_vertex_buffer_layouts: ResMut<MeshVertexBufferLayouts>,
+    material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     asset_server: Res<AssetServer>,
     mut views: Query<
         (
@@ -273,6 +297,11 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             let Some(material) = render_materials.get(*material_id) else {
                 continue;
             };
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
+                continue;
+            };
 
             if material.properties.alpha_mode != AlphaMode::Opaque
                 || material.properties.reads_view_transmission_texture
@@ -293,7 +322,9 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             let Ok(material_pipeline_descriptor) = prepass_pipeline.specialize(
                 MaterialPipelineKey {
                     mesh_key: view_key,
-                    bind_group_data: material.key.clone(),
+                    bind_group_data: material_bind_group
+                        .get_extra_data(material.binding.slot)
+                        .clone(),
                 },
                 fake_vertex_buffer_layout,
             ) else {
@@ -363,7 +394,16 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
                 pipeline_cache.queue_render_pipeline(pipeline_descriptor.clone())
             });
 
-            let item = (material_id, pipeline_id, material.bind_group.clone());
+            let Some(material_bind_group) =
+                material_bind_group_allocator.get(material.binding.group)
+            else {
+                continue;
+            };
+            let Some(bind_group) = material_bind_group.get_bind_group() else {
+                continue;
+            };
+
+            let item = (material_id, pipeline_id, (*bind_group).clone());
             if view_key.contains(MeshPipelineKey::DEFERRED_PREPASS) {
                 deferred_materials.push(item);
             } else {
