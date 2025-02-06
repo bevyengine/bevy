@@ -246,7 +246,9 @@
 //! }
 //! ```
 
-use bevy_platform_support::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use bevy_platform_support::sync::{
+    PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError,
+};
 use core::ops::{Deref, DerefMut};
 
 #[cfg(feature = "alloc")]
@@ -270,15 +272,19 @@ pub trait StagedChanges: Default {
 pub trait StagableWritesTypes {
     /// This is the type that will store staged changes.
     type Staging: StagedChanges;
-    /// This is the type that will store [`Cold`](StagedChanges::Cold) for [`Staging`](Self::Staging).
+    /// This is the type that will reference [`Cold`](StagedChanges::Cold) for [`Staging`](Self::Staging).
     /// This is left generalized so that it can be put in a lock or otherwise if necessary.
     type ColdRef<'a>: Deref<Target = <Self::Staging as StagedChanges>::Cold>
     where
         <Self::Staging as StagedChanges>::Cold: 'a;
+    /// This is the type that will mutably reference [`Cold`](StagedChanges::Cold) for [`Staging`](Self::Staging).
+    /// This is left generalized so that it can be put in a lock or otherwise if necessary.
+    type ColdMut<'a>: Deref<Target = <Self::Staging as StagedChanges>::Cold>
+    where
+        <Self::Staging as StagedChanges>::Cold: 'a;
 }
 
-/// This trait generallizes the stage on write concept.
-pub trait StagableWrites: StagableWritesTypes {
+pub trait StagableWritesCore: StagableWritesTypes {
     /// Allows raw access to reading cold storage, which may still have unapplied staged changes that make this out of date.
     /// Use this to return data attached to a lock guard when one such guard is already in existence.
     ///
@@ -290,7 +296,28 @@ pub trait StagableWrites: StagableWritesTypes {
     ///
     /// This must never deadlock if there is already a read for this value on this thread.
     fn raw_read_staged(&self) -> RwLockReadGuard<'_, Self::Staging>;
+
+    /// Same as [`raw_read_cold`](StagableWritesCore::raw_read_cold), but never blocks.
+    fn raw_read_cold_non_blocking(&self) -> Option<Self::ColdRef<'_>>;
+
+    /// Same as [`raw_read_staged`](StagableWritesCore::raw_read_staged), but never blocks.
+    fn raw_read_staged_non_blocking(&self) -> Option<RwLockReadGuard<'_, Self::Staging>>;
+
+    /// Allows raw access to reading staged changes, which may be missing context of cold storage.
+    fn raw_write_staged(&self) -> RwLockWriteGuard<'_, Self::Staging>;
+
+    /// Same as [`raw_write_staged`](StagableWritesCore::raw_write_staged), but never blocks.
+    fn raw_write_staged_non_blocking(&self) -> Option<RwLockWriteGuard<'_, Self::Staging>>;
+
+    /// Same as [`raw_write_cold`](StagableWritesCore::raw_write_cold), but never locks.
+    fn raw_write_cold_mut(&mut self) -> &mut <Self::Staging as StagedChanges>::Cold;
+
+    /// Same as [`raw_write_staged`](StagableWritesCore::raw_write_staged), but never locks.
+    fn raw_write_staged_mut(&mut self) -> &mut Self::Staging;
 }
+
+/// This trait generallizes the stage on write concept.
+pub trait StagableWrites: StagableWritesTypes {}
 
 /// A struct that allows staging changes while reading from cold storage.
 /// Generally, staging changes should be implemented on this type.
@@ -398,18 +425,28 @@ impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
         = &'a T::Cold
     where
         T::Cold: 'a;
+
+    type ColdMut<'a>
+        = &'a mut T::Cold
+    where
+        <Self::Staging as StagedChanges>::Cold: 'a;
 }
 
-impl<T: StagedChanges> StagableWritesTypes for AtomicStageOnWrite<T> {
+impl<T: StagedChanges> StagableWritesTypes for AtomicStageOnWriteInner<T> {
     type Staging = T;
 
     type ColdRef<'a>
         = RwLockReadGuard<'a, T::Cold>
     where
         T::Cold: 'a;
+
+    type ColdMut<'a>
+        = RwLockWriteGuard<'a, T::Cold>
+    where
+        T::Cold: 'a;
 }
 
-impl<T: StagedChanges> StagableWrites for StageOnWrite<T> {
+impl<T: StagedChanges> StagableWritesCore for StageOnWrite<T> {
     fn raw_read_cold(&self) -> Self::ColdRef<'_> {
         &self.cold
     }
@@ -417,15 +454,87 @@ impl<T: StagedChanges> StagableWrites for StageOnWrite<T> {
     fn raw_read_staged(&self) -> RwLockReadGuard<'_, Self::Staging> {
         self.staged.read().unwrap_or_else(PoisonError::into_inner)
     }
+
+    fn raw_read_cold_non_blocking(&self) -> Option<Self::ColdRef<'_>> {
+        Some(&self.cold)
+    }
+
+    fn raw_read_staged_non_blocking(&self) -> Option<RwLockReadGuard<'_, Self::Staging>> {
+        match self.staged.try_read() {
+            Ok(read) => Some(read),
+            Err(TryLockError::Poisoned(poison)) => Some(poison.into_inner()),
+            Err(TryLockError::WouldBlock) => None,
+        }
+    }
+
+    fn raw_write_staged(&self) -> RwLockWriteGuard<'_, Self::Staging> {
+        self.staged.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn raw_write_staged_non_blocking(&self) -> Option<RwLockWriteGuard<'_, Self::Staging>> {
+        match self.staged.try_write() {
+            Ok(read) => Some(read),
+            Err(TryLockError::Poisoned(poison)) => Some(poison.into_inner()),
+            Err(TryLockError::WouldBlock) => None,
+        }
+    }
+
+    fn raw_write_cold_mut(&mut self) -> &mut <Self::Staging as StagedChanges>::Cold {
+        &mut self.cold
+    }
+
+    fn raw_write_staged_mut(&mut self) -> &mut Self::Staging {
+        self.staged
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
 }
 
-impl<T: StagedChanges> StagableWrites for AtomicStageOnWrite<T> {
+impl<T: StagedChanges> StagableWritesCore for AtomicStageOnWriteInner<T> {
     fn raw_read_cold(&self) -> Self::ColdRef<'_> {
-        self.0.cold.read().unwrap_or_else(PoisonError::into_inner)
+        self.cold.read().unwrap_or_else(PoisonError::into_inner)
     }
 
     fn raw_read_staged(&self) -> RwLockReadGuard<'_, Self::Staging> {
-        self.0.staged.read().unwrap_or_else(PoisonError::into_inner)
+        self.staged.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn raw_read_cold_non_blocking(&self) -> Option<Self::ColdRef<'_>> {
+        match self.cold.try_read() {
+            Ok(read) => Some(read),
+            Err(TryLockError::Poisoned(poison)) => Some(poison.into_inner()),
+            Err(TryLockError::WouldBlock) => None,
+        }
+    }
+
+    fn raw_read_staged_non_blocking(&self) -> Option<RwLockReadGuard<'_, Self::Staging>> {
+        match self.staged.try_read() {
+            Ok(read) => Some(read),
+            Err(TryLockError::Poisoned(poison)) => Some(poison.into_inner()),
+            Err(TryLockError::WouldBlock) => None,
+        }
+    }
+
+    fn raw_write_staged(&self) -> RwLockWriteGuard<'_, Self::Staging> {
+        self.staged.write().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn raw_write_staged_non_blocking(&self) -> Option<RwLockWriteGuard<'_, Self::Staging>> {
+        match self.staged.try_write() {
+            Ok(read) => Some(read),
+            Err(TryLockError::Poisoned(poison)) => Some(poison.into_inner()),
+            Err(TryLockError::WouldBlock) => None,
+        }
+    }
+
+    fn raw_write_cold_mut(&mut self) -> &mut <Self::Staging as StagedChanges>::Cold {
+        self.cold.get_mut().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn raw_write_staged_mut(&mut self) -> &mut Self::Staging {
+        self.staged
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
     }
 }
 
