@@ -135,6 +135,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 
     /// Constructs a [`StagerLocked`], locking internally.
+    ///
+    /// # Deadlocks
+    ///
+    /// This deadlocks if there are any other lock guards on this thread for this value.
     #[inline]
     pub fn stage_lock(&self) -> StagerLocked<'_, T, &T::Cold> {
         StagerLocked {
@@ -153,6 +157,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 
     /// Constructs a [`StagedRefLocked`], locking internally.
+    ///
+    /// # Deadlocks
+    ///
+    /// This deadlocks if there are any write lock guards on this thread for this value.
     #[inline]
     pub fn read_lock(&self) -> StagedRefLocked<'_, T, &T::Cold> {
         StagedRefLocked {
@@ -178,12 +186,20 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 
     /// Easily run a stager function to stage changes.
+    ///
+    /// # Deadlocks
+    ///
+    /// This deadlocks if there are any other lock guards on this thread for this value.
     #[inline]
     pub fn stage_scope_locked<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
         f(&mut self.stage_lock().as_stager())
     }
 
     /// Easily run a [`StagedRef`] function.
+    ///
+    /// # Deadlocks
+    ///
+    /// This deadlocks if there are any write lock guards on this thread for this value.
     #[inline]
     pub fn read_scope_locked<R>(&self, f: impl FnOnce(&StagedRef<T>) -> R) -> R {
         f(&self.read_lock().as_staged_ref())
