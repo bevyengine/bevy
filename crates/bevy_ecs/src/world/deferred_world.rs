@@ -707,7 +707,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         mut target: Entity,
-        components: &[ComponentId],
+        components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
@@ -719,7 +719,7 @@ impl<'w> DeferredWorld<'w> {
                 self.reborrow(),
                 event,
                 target,
-                components.iter().copied(),
+                components.clone(),
                 data,
                 &mut propagate,
                 #[cfg(feature = "track_location")]
