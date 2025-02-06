@@ -564,6 +564,11 @@ pub struct AtomicStageOnWrite<T: StagedChanges> {
 #[derive(Clone)]
 pub struct ArcStageOnWrite<T: StagedChanges>(pub Arc<AtomicStageOnWrite<T>>);
 
+/// Although it is is often enough to pass around references to a [`StagableWritesCore`], it is sometimes desierable to encapsulate that reference here.
+/// That enables utilities like [`StagableWrites`]
+#[derive(Copy)]
+pub struct RefStageOnWrite<'a, T: StagableWritesCore>(pub &'a T);
+
 impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
     type Staging = T;
 
@@ -851,6 +856,31 @@ impl<T: StagedChanges> Deref for ArcStageOnWrite<T> {
     }
 }
 
+impl<T: StagableWritesCore> Deref for RefStageOnWrite<'_, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<T: StagableWritesCore> StagableWrites for RefStageOnWrite<'_, T> {
+    type Core = T;
+
+    fn get_core(&self) -> &Self::Core {
+        self.0
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<T: StagedChanges> StagableWrites for ArcStageOnWrite<T> {
+    type Core = AtomicStageOnWrite<T>;
+
+    fn get_core(&self) -> &Self::Core {
+        &self.0
+    }
+}
+
 impl<'a, T: StagableWritesCore> StagerLocked<'a, T> {
     /// Allows a user to view this as a [`Stager`].
     #[inline]
@@ -912,6 +942,12 @@ impl<'a, T: StagedChanges> Clone for StagedRef<'a, T> {
             staged: self.staged,
             cold: self.cold,
         }
+    }
+}
+
+impl<'a, T: StagableWritesCore> Clone for RefStageOnWrite<'a, T> {
+    fn clone(&self) -> Self {
+        Self(self.0)
     }
 }
 
