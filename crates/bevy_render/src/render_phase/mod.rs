@@ -239,18 +239,6 @@ where
     }
 }
 
-impl<BPI> PartialEq for CachedBinKey<BPI>
-where
-    BPI: BinnedPhaseItem,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.batch_set_key == other.batch_set_key
-            && self.bin_key == other.bin_key
-            && self.phase_type == other.phase_type
-            && self.change_tick == other.change_tick
-    }
-}
-
 /// How we store and render the batch sets.
 ///
 /// Each one of these corresponds to a [`GpuPreprocessingMode`].
@@ -532,7 +520,10 @@ where
         // If the entity changed bins, record its old bin so that we can remove
         // the entity from it.
         if let Some(old_bin_key) = old_bin_key {
-            if old_bin_key != new_bin_key {
+            if old_bin_key.batch_set_key != new_bin_key.batch_set_key
+                || old_bin_key.bin_key != new_bin_key.bin_key
+                || old_bin_key.phase_type != new_bin_key.phase_type
+            {
                 self.entities_that_changed_bins.push(EntityThatChangedBins {
                     main_entity,
                     old_bin_key,
