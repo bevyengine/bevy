@@ -137,7 +137,7 @@ fn update_clipping(
     }
 }
 
-pub fn update_target_camera_system(
+pub fn update_ui_context_system(
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
@@ -241,5 +241,362 @@ fn update_contexts_recursively(
                 visited,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_asset::AssetEvent;
+    use bevy_asset::Assets;
+    use bevy_core_pipeline::core_2d::Camera2d;
+    use bevy_ecs::event::Events;
+    use bevy_ecs::hierarchy::ChildOf;
+    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::Schedule;
+    use bevy_ecs::world::World;
+    use bevy_image::Image;
+    use bevy_math::UVec2;
+    use bevy_render::camera::Camera;
+    use bevy_render::camera::ManualTextureViews;
+    use bevy_render::camera::RenderTarget;
+    use bevy_utils::default;
+    use bevy_window::PrimaryWindow;
+    use bevy_window::Window;
+    use bevy_window::WindowCreated;
+    use bevy_window::WindowRef;
+    use bevy_window::WindowResized;
+    use bevy_window::WindowResolution;
+    use bevy_window::WindowScaleFactorChanged;
+
+    use crate::ComputedNodeScaleFactor;
+    use crate::ComputedNodeTargetCamera;
+    use crate::ComputedNodeTargetSize;
+    use crate::IsDefaultUiCamera;
+    use crate::Node;
+    use crate::UiScale;
+    use crate::UiTargetCamera;
+
+    fn setup_test_world_and_schedule() -> (World, Schedule) {
+        let mut world = World::new();
+
+        world.init_resource::<UiScale>();
+
+        // init resources required by `camera_system`
+        world.init_resource::<Events<WindowScaleFactorChanged>>();
+        world.init_resource::<Events<WindowResized>>();
+        world.init_resource::<Events<WindowCreated>>();
+        world.init_resource::<Events<AssetEvent<Image>>>();
+        world.init_resource::<Assets<Image>>();
+        world.init_resource::<ManualTextureViews>();
+
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(
+            (
+                bevy_render::camera::camera_system,
+                super::update_ui_context_system,
+            )
+                .chain(),
+        );
+
+        (world, schedule)
+    }
+
+    #[test]
+    fn update_context_for_single_ui_root() {
+        let (mut world, mut schedule) = setup_test_world_and_schedule();
+
+        let scale_factor = 10.;
+        let resolution = UVec2::new(1000, 500);
+
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(resolution.x as f32, resolution.y as f32)
+                    .with_scale_factor_override(10.),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        let camera = world.spawn(Camera2d).id();
+
+        let uinode = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            scale_factor
+        );
+
+        assert_eq!(
+            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+            resolution
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera
+        );
+    }
+
+    #[test]
+    fn update_multiple_context_for_multiple_ui_roots() {
+        let (mut world, mut schedule) = setup_test_world_and_schedule();
+
+        let scale1 = 1.;
+        let size1 = UVec2::new(100, 100);
+        let scale2 = 2.;
+        let size2 = UVec2::new(200, 200);
+
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
+                    .with_scale_factor_override(scale1),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        let window_2 = world
+            .spawn((Window {
+                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
+                    .with_scale_factor_override(scale2),
+                ..Default::default()
+            },))
+            .id();
+
+        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
+        let camera2 = world
+            .spawn((
+                Camera2d,
+                Camera {
+                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let uinode1a = world.spawn(Node::default()).id();
+        let uinode2a = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
+        let uinode2b = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
+        let uinode2c = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
+        let uinode1b = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        for (uinode, camera, scale_factor, size) in [
+            (uinode1a, camera1, scale1, size1),
+            (uinode1b, camera1, scale1, size1),
+            (uinode2a, camera2, scale2, size2),
+            (uinode2b, camera2, scale2, size2),
+            (uinode2c, camera2, scale2, size2),
+        ] {
+            assert_eq!(
+                world.get::<ComputedNodeTargetCamera>(uinode).unwrap().get(),
+                Some(camera)
+            );
+
+            assert_eq!(
+                world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+                scale_factor
+            );
+
+            assert_eq!(
+                world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+                size
+            );
+        }
+    }
+
+    #[test]
+    fn update_context_on_changed_camera() {
+        let (mut world, mut schedule) = setup_test_world_and_schedule();
+
+        let scale1 = 1.;
+        let size1 = UVec2::new(100, 100);
+        let scale2 = 2.;
+        let size2 = UVec2::new(200, 200);
+
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
+                    .with_scale_factor_override(scale1),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        let window_2 = world
+            .spawn((Window {
+                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
+                    .with_scale_factor_override(scale2),
+                ..Default::default()
+            },))
+            .id();
+
+        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
+        let camera2 = world
+            .spawn((
+                Camera2d,
+                Camera {
+                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let uinode = world.spawn(Node::default()).id();
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            scale1
+        );
+
+        assert_eq!(
+            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+            size1
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera1
+        );
+
+        world.entity_mut(uinode).insert(UiTargetCamera(camera2));
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            scale2
+        );
+
+        assert_eq!(
+            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+            size2
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera2
+        );
+    }
+
+    #[test]
+    fn update_context_after_parent_removed() {
+        let (mut world, mut schedule) = setup_test_world_and_schedule();
+
+        let scale1 = 1.;
+        let size1 = UVec2::new(100, 100);
+        let scale2 = 2.;
+        let size2 = UVec2::new(200, 200);
+
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
+                    .with_scale_factor_override(scale1),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        let window_2 = world
+            .spawn((Window {
+                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
+                    .with_scale_factor_override(scale2),
+                ..Default::default()
+            },))
+            .id();
+
+        let camera1 = world.spawn((Camera2d, IsDefaultUiCamera)).id();
+        let camera2 = world
+            .spawn((
+                Camera2d,
+                Camera {
+                    target: RenderTarget::Window(WindowRef::Entity(window_2)),
+                    ..default()
+                },
+            ))
+            .id();
+
+        let uinode1 = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
+        let uinode2 = world.spawn(Node::default()).add_child(uinode1).id();
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<ComputedNodeScaleFactor>(uinode1).unwrap().get(),
+            scale1
+        );
+
+        assert_eq!(
+            world.get::<ComputedNodeTargetSize>(uinode1).unwrap().get(),
+            size1
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode1)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera1
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode2)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera1
+        );
+
+        world.entity_mut(uinode1).remove::<ChildOf>();
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<ComputedNodeScaleFactor>(uinode1).unwrap().get(),
+            scale2
+        );
+
+        assert_eq!(
+            world.get::<ComputedNodeTargetSize>(uinode1).unwrap().get(),
+            size2
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode1)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera2
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode2)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera1
+        );
     }
 }

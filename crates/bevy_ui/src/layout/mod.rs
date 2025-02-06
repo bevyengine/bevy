@@ -364,7 +364,7 @@ mod tests {
 
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_target_camera_system, ContentSize, LayoutContext,
+        update::update_ui_context_system, ContentSize, LayoutContext,
     };
 
     // these window dimensions are easy to convert to and from percentage values
@@ -404,7 +404,7 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_target_camera_system,
+                update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
                 sync_simple_transforms,
@@ -1003,7 +1003,7 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_target_camera_system,
+                update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
             )
