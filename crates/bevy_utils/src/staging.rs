@@ -282,7 +282,7 @@ pub trait StagableWrites: StagableWritesTypes {
     /// Allows raw access to reading cold storage, which may still have unapplied staged changes that make this out of date.
     /// Use this to return data attached to a lock guard when one such guard is already in existence.
     ///
-    /// This must never deadlock if there is already a [`Self::ColdStorage`] for this value on this thread.
+    /// This must never deadlock if there is already a read for this value on this thread.
     fn raw_read_cold(&self) -> Self::ColdRef<'_>;
 
     /// Allows raw access to reading staged changes, which may be missing context of cold storage.
