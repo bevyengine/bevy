@@ -255,6 +255,9 @@ use bevy_platform_support::sync::{
 };
 use core::ops::{Deref, DerefMut};
 
+#[cfg(feature = "alloc")]
+use bevy_platform_support::sync::Arc;
+
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
 pub trait StagedChanges: Default {
     /// The more compact data structure that these changes compact into.
@@ -400,12 +403,8 @@ pub trait StagableWritesCore: StagableWritesTypes {
     }
 
     /// Constructs a [`StagedRefLocked`], locking internally.
-    ///
-    /// # Safety
-    ///
-    /// There must not be any write lock guards on this thread for this value. Otherwise it deadlocks.
     #[inline]
-    unsafe fn read_lock_unsafe(&self) -> StagedRefLocked<'_, Self> {
+    fn read_lock(&self) -> StagedRefLocked<'_, Self> {
         StagedRefLocked {
             inner: self,
             cold: self.raw_read_cold(),
@@ -415,6 +414,7 @@ pub trait StagableWritesCore: StagableWritesTypes {
 
     /// Runs different logic depending on if additional changes are already staged.
     /// This can be faster than greedily applying staged changes if there are already staged changes.
+    #[inline]
     fn maybe_stage<C, S>(
         &mut self,
         for_full: impl FnOnce(&mut <Self::ColdMut<'_> as Deref>::Target) -> C,
@@ -427,43 +427,49 @@ pub trait StagableWritesCore: StagableWritesTypes {
             MaybeStaged::Cold(for_full(cold))
         }
     }
+
+    /// Easily run a [`StagedRef`] function.
+    #[inline]
+    fn read_scope_locked<R>(
+        &self,
+        f: impl FnOnce(&StagedRef<<Self as StagableWritesTypes>::Staging>) -> R,
+    ) -> R {
+        f(&self.read_lock().as_staged_ref())
+    }
 }
 
-/// This trait generallizes the stage on write concept.
-pub trait StagableWrites: Deref
-where
-    Self::Target: StagableWritesCore,
-{
+/// This trait provides some conviniencies around [`StagableWritesCore`].
+///
+/// For example, mutable references are used to enforce safety for some functions.
+pub trait StagableWrites {
+    /// This is the inner [`StagableWritesCore`] type responsible for the bulk of the implementation.
+    type Core: StagableWritesCore;
+
+    /// Gets the inner core.
+    fn get_core(&self) -> &Self::Core;
+
     /// Exactly the same as [`StagableWritesCore::stage_lock_usafe`]
     #[inline]
-    fn stage_lock(&mut self) -> StagerLocked<'_, Self::Target> {
+    fn stage_lock(&mut self) -> StagerLocked<'_, Self::Core> {
         // Safety: Because we have exclusive, mutable access, this is safe.
-        unsafe { self.stage_lock_unsafe() }
-    }
-
-    /// Exactly the same as [`StagableWritesCore::read_lock_unsafe`]
-    #[inline]
-    fn read_lock(&self) -> StagedRefLocked<'_, Self::Target> {
-        // Safety: Because we have exclusive, mutable access, this is safe.
-        unsafe { self.read_lock_unsafe() }
+        unsafe { self.get_core().stage_lock_unsafe() }
     }
 
     /// Easily run a stager function to stage changes.
     #[inline]
     fn stage_scope_locked<R>(
         &mut self,
-        f: impl FnOnce(&mut Stager<<Self::Target as StagableWritesTypes>::Staging>) -> R,
+        f: impl FnOnce(&mut Stager<<Self::Core as StagableWritesTypes>::Staging>) -> R,
     ) -> R {
         f(&mut self.stage_lock().as_stager())
     }
+}
 
-    /// Easily run a [`StagedRef`] function.
-    #[inline]
-    fn read_scope_locked<R>(
-        &mut self,
-        f: impl FnOnce(&StagedRef<<Self::Target as StagableWritesTypes>::Staging>) -> R,
-    ) -> R {
-        f(&self.read_lock().as_staged_ref())
+impl<T: StagableWritesCore> StagableWrites for T {
+    type Core = T;
+
+    fn get_core(&self) -> &Self::Core {
+        self
     }
 }
 
@@ -538,7 +544,7 @@ pub struct StageOnWrite<T: StagedChanges> {
 /// See [`StageOnWrite`] for details.
 #[cfg(feature = "alloc")]
 #[derive(Default, Debug)]
-pub struct AtomicStageOnWriteInner<T: StagedChanges> {
+pub struct AtomicStageOnWrite<T: StagedChanges> {
     /// Cold data is read optimized.
     /// This lives behind a [`RwLock`], but it is only written to for applying changes in a non-blocking way.
     /// This will only block if a thread tries to read from it while it is having changes applied, but that is extremely rare.
@@ -548,26 +554,15 @@ pub struct AtomicStageOnWriteInner<T: StagedChanges> {
     staged: RwLock<T>,
 }
 
-// /// A version of [`StageOnWrite`] designed for atomic use.
-// /// See [`StageOnWrite`] for details.
-// ///
-// /// This type includes a baked in [`Arc`], so it can be shared across threads.
-// ///
-// /// Many of it's methods take `&mut self` to ensure access is exclusive, preventing possible deadlocks.
-// /// This doesn not guarantee there are no deadlocks when working with multiple clones of this on the same thread.
-// /// Here's an example:
-// ///
-// /// ```compile_fail
-// /// use ...
-// /// let mut stage_on_write = AtomicStageOnWrite::<MyStagingType>::default();
-// /// let reading = stage_on_write.read_lock();
-// /// stage_on_write.apply_staged_non_blocking();
-// /// ```
-// ///
-// /// Remember to use [`apply_staged_non_blocking`](Self::apply_staged_non_blocking) or similar methods periodically as a best practice.
-// #[cfg(feature = "alloc")]
-// #[derive(Clone)]
-// pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
+/// A version of [`StageOnWrite`] designed for atomic use.
+/// See [`StageOnWrite`] for details.
+///
+/// This type includes a baked in [`Arc`], so it can be shared across threads.
+///
+/// Remember to use [`apply_staged_non_blocking`](Self::apply_staged_non_blocking) or similar methods periodically as a best practice.
+#[cfg(feature = "alloc")]
+#[derive(Clone)]
+pub struct ArcStageOnWrite<T: StagedChanges>(pub Arc<AtomicStageOnWrite<T>>);
 
 impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
     type Staging = T;
@@ -583,7 +578,7 @@ impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
         <Self::Staging as StagedChanges>::Cold: 'a;
 }
 
-impl<T: StagedChanges> StagableWritesTypes for AtomicStageOnWriteInner<T> {
+impl<T: StagedChanges> StagableWritesTypes for AtomicStageOnWrite<T> {
     type Staging = T;
 
     type ColdRef<'a>
@@ -652,7 +647,7 @@ impl<T: StagedChanges> StagableWritesCore for StageOnWrite<T> {
     }
 }
 
-impl<T: StagedChanges> StagableWritesCore for AtomicStageOnWriteInner<T> {
+impl<T: StagedChanges> StagableWritesCore for AtomicStageOnWrite<T> {
     #[inline]
     fn raw_read_cold(&self) -> Self::ColdRef<'_> {
         self.cold.read().unwrap_or_else(PoisonError::into_inner)
@@ -721,8 +716,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 }
 
-#[cfg(feature = "alloc")]
-impl<T: StagedChanges> AtomicStageOnWriteInner<T> {
+impl<T: StagedChanges> AtomicStageOnWrite<T> {
     /// Constructs a new [`AtomicStageOnWriteInner`] with the given value and no staged changes.
     pub fn new(value: T::Cold) -> Self {
         Self {
@@ -810,15 +804,51 @@ impl<T: StagedChanges> AtomicStageOnWriteInner<T> {
             }))
         }
     }
+}
 
-    // /// Easily run a stager function to stage changes.
-    // /// Then, tries to apply those changes if doing so wouldn't lock.
-    // #[inline]
-    // pub fn stage_scope_locked_eager<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
-    //     let result = self.stage_scope_locked(f);
-    //     self.apply_staged_non_blocking();
-    //     result
-    // }
+#[cfg(feature = "alloc")]
+impl<T: StagedChanges> ArcStageOnWrite<T> {
+    /// Constructs a new [`ArcStageOnWrite`] with the given value and no staged changes.
+    pub fn new(value: T::Cold) -> Self {
+        Self(Arc::new(AtomicStageOnWrite::new(value)))
+    }
+
+    /// Exactly the same as [`AtomicStageOnWrite::maybe_stage`], but uses `&mut` to maintain safety.
+    pub fn maybe_stage<C, S>(
+        &mut self,
+        for_full: impl FnOnce(&mut T::Cold) -> C,
+        for_staged: impl FnOnce(&mut Stager<T>) -> S,
+    ) -> MaybeStaged<C, S> {
+        // Safety: Safe since we have an exclusive reference to self.
+        unsafe { self.maybe_stage_unsafe(for_full, for_staged) }
+    }
+
+    /// Easily run a stager function to stage changes.
+    /// Then, tries to apply those changes if doing so wouldn't lock.
+    ///
+    /// # Deadlocks
+    ///
+    /// This can still deadlock if this [`Arc`] has been cloned around on the same thread and is still being locked on.
+    /// But that is very unlikely.
+    #[inline]
+    pub fn stage_scope_locked_eager<R>(&mut self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
+        // Safety: Since this has mutible access to self, we can be reasonably sure this is safe.
+        // The only way this isn't safe is if the arc has been cloned on the same thread instead of passed by ref.
+        // But that is documented above
+        let mut lock = unsafe { self.stage_lock_unsafe() };
+        let result = f(&mut lock.as_stager());
+        self.apply_staged_non_blocking();
+        result
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl<T: StagedChanges> Deref for ArcStageOnWrite<T> {
+    type Target = Arc<AtomicStageOnWrite<T>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 impl<'a, T: StagableWritesCore> StagerLocked<'a, T> {
