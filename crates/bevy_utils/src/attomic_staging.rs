@@ -1,5 +1,7 @@
 //! Provides an abstracted system for staging modifications attomically.
 
+use core::ops::Deref;
+
 use bevy_platform_support::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
@@ -14,6 +16,9 @@ pub trait StagedChanges {
     fn any_staged(&self) -> bool;
 }
 
+/// A trait that signifies that it holds an immutable reference to a cold type (ie. [`StagedChanges::Cold`]).
+pub trait ColdStorage<T: StagedChanges>: Deref<Target = T::Cold> {}
+
 /// A struct that allows staging changes while reading from cold storage.
 pub struct Stager<'a, T: StagedChanges> {
     /// The storage that is read optimized.
@@ -23,7 +28,7 @@ pub struct Stager<'a, T: StagedChanges> {
 }
 
 /// A struct that allows accessing changes while reading from cold storage.
-#[derive(Clone, Copy)]
+#[derive(Copy)]
 pub struct StagedRef<'a, T: StagedChanges> {
     /// The storage that is read optimized.
     pub cold: &'a T::Cold,
@@ -32,14 +37,14 @@ pub struct StagedRef<'a, T: StagedChanges> {
 }
 
 /// A locked version of [`Stager`]
-pub struct StagerLocked<'a, T: StagedChanges> {
-    cold: RwLockReadGuard<'a, T::Cold>,
+pub struct StagerLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
+    cold: C,
     staged: RwLockWriteGuard<'a, T>,
 }
 
 /// A locked version of [`StagedRef`]
-pub struct StagedRefLocked<'a, T: StagedChanges> {
-    cold: RwLockReadGuard<'a, T::Cold>,
+pub struct StagedRefLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
+    cold: C,
     staged: RwLockReadGuard<'a, T>,
 }
 
@@ -154,7 +159,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
 
     /// Constructs a [`StagerLocked`], locking internally.
     #[inline]
-    pub fn stage_lock(&self) -> StagerLocked<'_, T> {
+    pub fn stage_lock(&self) -> StagerLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
         StagerLocked {
             cold: self.cold.read().unwrap(),
             staged: self.staged.write().unwrap(),
@@ -177,7 +182,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
 
     /// Easily run a stager function to stage changes and return locked data.
     #[inline]
-    pub fn stage_locked_scope<R>(&self, f: impl FnOnce(StagerLocked<T>) -> R) -> R {
+    pub fn stage_locked_scope<R>(
+        &self,
+        f: impl FnOnce(StagerLocked<T, RwLockReadGuard<'_, T::Cold>>) -> R,
+    ) -> R {
         f(self.stage_lock())
     }
 
@@ -192,7 +200,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
 
     /// Constructs a [`StagerLocked`], locking internally.
     #[inline]
-    pub fn read_lock(&self) -> StagedRefLocked<'_, T> {
+    pub fn read_lock(&self) -> StagedRefLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
         StagedRefLocked {
             cold: self.cold.read().unwrap(),
             staged: self.staged.read().unwrap(),
@@ -221,7 +229,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 }
 
-impl<T: StagedChanges> StagerLocked<'_, T> {
+impl<T: StagedChanges, C: ColdStorage<T>> StagerLocked<'_, T, C> {
     /// Allows a user to view this as a [`Stager`].
     #[inline]
     pub fn as_stager(&mut self) -> Stager<'_, T> {
@@ -241,7 +249,7 @@ impl<T: StagedChanges> StagerLocked<'_, T> {
     }
 }
 
-impl<T: StagedChanges> StagedRefLocked<'_, T> {
+impl<T: StagedChanges, C: ColdStorage<T>> StagedRefLocked<'_, T, C> {
     /// Allows a user to view this as a [`StagedRef`].
     #[inline]
     pub fn as_staged_ref(&self) -> StagedRef<'_, T> {
@@ -251,3 +259,16 @@ impl<T: StagedChanges> StagedRefLocked<'_, T> {
         }
     }
 }
+
+impl<'a, T: StagedChanges> Clone for StagedRef<'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            staged: self.staged,
+            cold: self.cold,
+        }
+    }
+}
+
+impl<T: StagedChanges> ColdStorage<T> for RwLockReadGuard<'_, T::Cold> {}
+
+impl<T: StagedChanges> ColdStorage<T> for &'_ T::Cold {}
