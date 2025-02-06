@@ -386,7 +386,7 @@ pub trait StagableWritesCore: StagableWritesTypes {
     #[inline]
     unsafe fn stage_lock_unsafe(&self) -> StagerLocked<'_, Self> {
         StagerLocked {
-            inner: self,
+            inner: RefStageOnWrite(self),
             cold: self.raw_read_cold(),
             staged: self.raw_write_staged(),
         }
@@ -406,7 +406,7 @@ pub trait StagableWritesCore: StagableWritesTypes {
     #[inline]
     fn read_lock(&self) -> StagedRefLocked<'_, Self> {
         StagedRefLocked {
-            inner: self,
+            inner: RefStageOnWrite(self),
             cold: self.raw_read_cold(),
             staged: self.raw_read_staged(),
         }
@@ -485,7 +485,7 @@ pub struct Stager<'a, T: StagedChanges> {
 
 /// A struct that allows accessing changes while reading from cold storage.
 /// Generally, reading data should be implemented on this type.
-#[derive(Copy, Debug)]
+#[derive(Debug)]
 pub struct StagedRef<'a, T: StagedChanges> {
     /// The storage that is read optimized.
     pub cold: &'a T::Cold,
@@ -497,7 +497,7 @@ pub struct StagedRef<'a, T: StagedChanges> {
 /// Use this to hold a lock guard while using [`StagerLocked::as_stager`] or similar.
 #[derive(Debug)]
 pub struct StagerLocked<'a, T: StagableWritesCore> {
-    inner: &'a T,
+    inner: RefStageOnWrite<'a, T>,
     /// The storage that is read optimized.
     pub cold: T::ColdRef<'a>,
     /// The staged changes.
@@ -508,7 +508,7 @@ pub struct StagerLocked<'a, T: StagableWritesCore> {
 /// Use this to hold a lock guard while using [`StagerLocked::as_staged_ref`].
 #[derive(Debug)]
 pub struct StagedRefLocked<'a, T: StagableWritesCore> {
-    inner: &'a T,
+    inner: RefStageOnWrite<'a, T>,
     /// The storage that is read optimized.
     pub cold: T::ColdRef<'a>,
     /// The staged changes.
@@ -566,7 +566,7 @@ pub struct ArcStageOnWrite<T: StagedChanges>(pub Arc<AtomicStageOnWrite<T>>);
 
 /// Although it is is often enough to pass around references to a [`StagableWritesCore`], it is sometimes desierable to encapsulate that reference here.
 /// That enables utilities like [`StagableWrites`]
-#[derive(Copy)]
+#[derive(Debug)]
 pub struct RefStageOnWrite<'a, T: StagableWritesCore>(pub &'a T);
 
 impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
@@ -902,7 +902,7 @@ impl<'a, T: StagableWritesCore> StagerLocked<'a, T> {
 
     /// Releases the lock, returning the underlying [`StagableWrites`] structure.
     #[inline]
-    pub fn release(self) -> &'a T {
+    pub fn release(self) -> RefStageOnWrite<'a, T> {
         self.inner
     }
 }
@@ -919,35 +919,36 @@ impl<'a, T: StagableWritesCore> StagedRefLocked<'a, T> {
 
     /// Releases the lock, returning the underlying [`StagableWrites`] structure.
     #[inline]
-    pub fn release(self) -> &'a T {
+    pub fn release(self) -> RefStageOnWrite<'a, T> {
         self.inner
     }
 
     /// Allows returning a reference to the locked staged data without releasing its lock.
     #[inline]
     pub fn get_staged_guard(&self) -> RwLockReadGuard<'a, T::Staging> {
-        self.inner.raw_read_staged()
+        self.inner.0.raw_read_staged()
     }
 
     /// Allows returning a reference to the cold data without releasing its lock (it it has one).
     #[inline]
     pub fn get_cold_guard(&self) -> T::ColdRef<'a> {
-        self.inner.raw_read_cold()
+        self.inner.0.raw_read_cold()
     }
 }
 
 impl<'a, T: StagedChanges> Clone for StagedRef<'a, T> {
     fn clone(&self) -> Self {
-        Self {
-            staged: self.staged,
-            cold: self.cold,
-        }
+        *self
     }
 }
 
+impl<'a, T: StagedChanges> Copy for StagedRef<'a, T> {}
+
+impl<'a, T: StagableWritesCore> Copy for RefStageOnWrite<'a, T> {}
+
 impl<'a, T: StagableWritesCore> Clone for RefStageOnWrite<'a, T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
