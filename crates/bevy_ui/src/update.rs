@@ -601,4 +601,60 @@ mod tests {
             camera1
         );
     }
+
+    #[test]
+    fn update_great_grandchild() {
+        let (mut world, mut schedule) = setup_test_world_and_schedule();
+
+        let scale = 1.;
+        let size = UVec2::new(100, 100);
+
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(size.x as f32, size.y as f32)
+                    .with_scale_factor_override(scale),
+                ..Default::default()
+            },
+            PrimaryWindow,
+        ));
+
+        let camera = world.spawn(Camera2d).id();
+
+        let uinode = world.spawn(Node::default()).id();
+        world.spawn(Node::default()).with_children(|builder| {
+            builder.spawn(Node::default()).with_children(|builder| {
+                builder.spawn(Node::default()).add_child(uinode);
+            });
+        });
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            scale
+        );
+
+        assert_eq!(
+            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+            size
+        );
+
+        assert_eq!(
+            world
+                .get::<ComputedNodeTargetCamera>(uinode)
+                .unwrap()
+                .get()
+                .unwrap(),
+            camera
+        );
+
+        world.resource_mut::<UiScale>().0 = 2.;
+
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            2.
+        );
+    }
 }
