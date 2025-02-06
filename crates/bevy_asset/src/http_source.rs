@@ -1,9 +1,9 @@
 use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::AssetApp;
+use alloc::boxed::Box;
 use bevy_app::App;
 use bevy_tasks::ConditionalSendFuture;
-use std::boxed::Box;
 use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
@@ -58,14 +58,11 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
+async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
+    use alloc::{boxed::Box, vec::Vec};
     use bevy_platform_support::sync::LazyLock;
-    use std::{
-        boxed::Box,
-        io::{self, BufReader, Read},
-        vec::Vec,
-    };
+    use std::io::{self, BufReader, Read};
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -172,13 +169,13 @@ impl AssetReader for HttpSourceAssetReader {
 /// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
 #[cfg(feature = "http_source_cache")]
 mod http_asset_cache {
+    use alloc::string::String;
+    use alloc::vec::Vec;
     use core::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
     use std::fs::{self, File};
     use std::io::{self, Read, Write};
     use std::path::PathBuf;
-    use std::string::String;
-    use std::vec::Vec;
 
     const CACHE_DIR: &str = ".http-asset-cache";
 
