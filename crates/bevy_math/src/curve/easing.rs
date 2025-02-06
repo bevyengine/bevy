@@ -367,21 +367,25 @@ pub mod easing_functions {
 
     use crate::{ops, FloatPow};
 
+    /// Linear
     #[inline]
-    pub(crate) fn linear(t: f32) -> f32 {
+    pub fn linear(t: f32) -> f32 {
         t
     }
 
+    /// Quadratic In
     #[inline]
-    pub(crate) fn quadratic_in(t: f32) -> f32 {
+    pub fn quadratic_in(t: f32) -> f32 {
         t.squared()
     }
+    /// Quadratic Out
     #[inline]
-    pub(crate) fn quadratic_out(t: f32) -> f32 {
+    pub fn quadratic_out(t: f32) -> f32 {
         1.0 - (1.0 - t).squared()
     }
+    /// Quadratic In Out
     #[inline]
-    pub(crate) fn quadratic_in_out(t: f32) -> f32 {
+    pub fn quadratic_in_out(t: f32) -> f32 {
         if t < 0.5 {
             2.0 * t.squared()
         } else {
@@ -389,16 +393,19 @@ pub mod easing_functions {
         }
     }
 
+    /// Cubic In
     #[inline]
-    pub(crate) fn cubic_in(t: f32) -> f32 {
+    pub fn cubic_in(t: f32) -> f32 {
         t.cubed()
     }
+    /// Cubic Out
     #[inline]
-    pub(crate) fn cubic_out(t: f32) -> f32 {
+    pub fn cubic_out(t: f32) -> f32 {
         1.0 - (1.0 - t).cubed()
     }
+    /// Cubic In Out
     #[inline]
-    pub(crate) fn cubic_in_out(t: f32) -> f32 {
+    pub fn cubic_in_out(t: f32) -> f32 {
         if t < 0.5 {
             4.0 * t.cubed()
         } else {
@@ -406,16 +413,19 @@ pub mod easing_functions {
         }
     }
 
+    /// Quartic In
     #[inline]
-    pub(crate) fn quartic_in(t: f32) -> f32 {
+    pub fn quartic_in(t: f32) -> f32 {
         t * t * t * t
     }
+    /// Quartic Out
     #[inline]
-    pub(crate) fn quartic_out(t: f32) -> f32 {
+    pub fn quartic_out(t: f32) -> f32 {
         1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t) * (1.0 - t)
     }
+    /// Quartic In Out
     #[inline]
-    pub(crate) fn quartic_in_out(t: f32) -> f32 {
+    pub fn quartic_in_out(t: f32) -> f32 {
         if t < 0.5 {
             8.0 * t * t * t * t
         } else {
@@ -423,16 +433,19 @@ pub mod easing_functions {
         }
     }
 
+    /// Quintic In
     #[inline]
-    pub(crate) fn quintic_in(t: f32) -> f32 {
+    pub fn quintic_in(t: f32) -> f32 {
         t * t * t * t * t
     }
+    /// Quintic Out
     #[inline]
-    pub(crate) fn quintic_out(t: f32) -> f32 {
+    pub fn quintic_out(t: f32) -> f32 {
         1.0 - (1.0 - t) * (1.0 - t) * (1.0 - t) * (1.0 - t) * (1.0 - t)
     }
+    /// Quintic In Out
     #[inline]
-    pub(crate) fn quintic_in_out(t: f32) -> f32 {
+    pub fn quintic_in_out(t: f32) -> f32 {
         if t < 0.5 {
             16.0 * t * t * t * t * t
         } else {
@@ -445,59 +458,71 @@ pub mod easing_functions {
         }
     }
 
+    /// Smoothstep In
     #[inline]
-    pub(crate) fn smoothstep_in(t: f32) -> f32 {
+    pub fn smoothstep_in(t: f32) -> f32 {
         ((1.5 - 0.5 * t) * t) * t
     }
 
+    /// Smoothstep Out
     #[inline]
-    pub(crate) fn smoothstep_out(t: f32) -> f32 {
+    pub fn smoothstep_out(t: f32) -> f32 {
         (1.5 + (-0.5 * t) * t) * t
     }
 
+    /// Smoothstep
     #[inline]
-    pub(crate) fn smoothstep(t: f32) -> f32 {
+    pub fn smoothstep(t: f32) -> f32 {
         ((3.0 - 2.0 * t) * t) * t
     }
 
+    /// Smootherstep In
     #[inline]
-    pub(crate) fn smootherstep_in(t: f32) -> f32 {
+    pub fn smootherstep_in(t: f32) -> f32 {
         (((2.5 + (-1.875 + 0.375 * t) * t) * t) * t) * t
     }
 
+    /// Smootherstep Out
     #[inline]
-    pub(crate) fn smootherstep_out(t: f32) -> f32 {
+    pub fn smootherstep_out(t: f32) -> f32 {
         (1.875 + ((-1.25 + (0.375 * t) * t) * t) * t) * t
     }
 
+    /// Smootherstep
     #[inline]
-    pub(crate) fn smootherstep(t: f32) -> f32 {
+    pub fn smootherstep(t: f32) -> f32 {
         (((10.0 + (-15.0 + 6.0 * t) * t) * t) * t) * t
     }
 
+    /// Sine In
     #[inline]
-    pub(crate) fn sine_in(t: f32) -> f32 {
+    pub fn sine_in(t: f32) -> f32 {
         1.0 - ops::cos(t * FRAC_PI_2)
     }
+    /// Sine Out
     #[inline]
-    pub(crate) fn sine_out(t: f32) -> f32 {
+    pub fn sine_out(t: f32) -> f32 {
         ops::sin(t * FRAC_PI_2)
     }
+    /// Sine In Out
     #[inline]
-    pub(crate) fn sine_in_out(t: f32) -> f32 {
+    pub fn sine_in_out(t: f32) -> f32 {
         -(ops::cos(PI * t) - 1.0) / 2.0
     }
 
+    /// Circular In
     #[inline]
-    pub(crate) fn circular_in(t: f32) -> f32 {
+    pub fn circular_in(t: f32) -> f32 {
         1.0 - ops::sqrt(1.0 - t.squared())
     }
+    /// Circular Out
     #[inline]
-    pub(crate) fn circular_out(t: f32) -> f32 {
+    pub fn circular_out(t: f32) -> f32 {
         ops::sqrt(1.0 - (t - 1.0).squared())
     }
+    /// Circular In Out
     #[inline]
-    pub(crate) fn circular_in_out(t: f32) -> f32 {
+    pub fn circular_in_out(t: f32) -> f32 {
         if t < 0.5 {
             (1.0 - ops::sqrt(1.0 - (2.0 * t).squared())) / 2.0
         } else {
@@ -519,18 +544,21 @@ pub mod easing_functions {
         reason = "This is deliberately more precise than an f32 will allow, as truncating the value might imply that the value is carefully chosen."
     )]
     const FRAC_1_1023: f32 = 0.00097751710654936461388074291;
+    /// Exponential In
     #[inline]
-    pub(crate) fn exponential_in(t: f32) -> f32 {
+    pub fn exponential_in(t: f32) -> f32 {
         // Derived from a rescaled exponential formula `(2^(10*t) - 1) / (2^10 - 1)`
         // See <https://www.wolframalpha.com/input?i=solve+over+the+reals%3A+pow%282%2C+10-A%29+-+pow%282%2C+-A%29%3D+1>
         ops::exp2(10.0 * t - LOG2_1023) - FRAC_1_1023
     }
+    /// Exponential Out
     #[inline]
-    pub(crate) fn exponential_out(t: f32) -> f32 {
+    pub fn exponential_out(t: f32) -> f32 {
         (FRAC_1_1023 + 1.0) - ops::exp2(-10.0 * t - (LOG2_1023 - 10.0))
     }
+    /// Exponential In Out
     #[inline]
-    pub(crate) fn exponential_in_out(t: f32) -> f32 {
+    pub fn exponential_in_out(t: f32) -> f32 {
         if t < 0.5 {
             ops::exp2(20.0 * t - (LOG2_1023 + 1.0)) - (FRAC_1_1023 / 2.0)
         } else {
@@ -538,20 +566,23 @@ pub mod easing_functions {
         }
     }
 
+    /// Back In
     #[inline]
-    pub(crate) fn back_in(t: f32) -> f32 {
+    pub fn back_in(t: f32) -> f32 {
         let c = 1.70158;
 
         (c + 1.0) * t.cubed() - c * t.squared()
     }
+    /// Back Out
     #[inline]
-    pub(crate) fn back_out(t: f32) -> f32 {
+    pub fn back_out(t: f32) -> f32 {
         let c = 1.70158;
 
         1.0 + (c + 1.0) * (t - 1.0).cubed() + c * (t - 1.0).squared()
     }
+    /// Back In Out
     #[inline]
-    pub(crate) fn back_in_out(t: f32) -> f32 {
+    pub fn back_in_out(t: f32) -> f32 {
         let c1 = 1.70158;
         let c2 = c1 + 1.525;
 
@@ -562,16 +593,19 @@ pub mod easing_functions {
         }
     }
 
+    /// Elastic In
     #[inline]
-    pub(crate) fn elastic_in(t: f32) -> f32 {
+    pub fn elastic_in(t: f32) -> f32 {
         -ops::powf(2.0, 10.0 * t - 10.0) * ops::sin((t * 10.0 - 10.75) * 2.0 * FRAC_PI_3)
     }
+    /// Elastic Out
     #[inline]
-    pub(crate) fn elastic_out(t: f32) -> f32 {
+    pub fn elastic_out(t: f32) -> f32 {
         ops::powf(2.0, -10.0 * t) * ops::sin((t * 10.0 - 0.75) * 2.0 * FRAC_PI_3) + 1.0
     }
+    /// Elastic In Out
     #[inline]
-    pub(crate) fn elastic_in_out(t: f32) -> f32 {
+    pub fn elastic_in_out(t: f32) -> f32 {
         let c = (2.0 * PI) / 4.5;
 
         if t < 0.5 {
@@ -582,11 +616,13 @@ pub mod easing_functions {
     }
 
     #[inline]
-    pub(crate) fn bounce_in(t: f32) -> f32 {
+    /// Bounce In
+    pub fn bounce_in(t: f32) -> f32 {
         1.0 - bounce_out(1.0 - t)
     }
+    /// Bounce Out
     #[inline]
-    pub(crate) fn bounce_out(t: f32) -> f32 {
+    pub fn bounce_out(t: f32) -> f32 {
         if t < 4.0 / 11.0 {
             (121.0 * t.squared()) / 16.0
         } else if t < 8.0 / 11.0 {
@@ -597,8 +633,9 @@ pub mod easing_functions {
             (54.0 / 5.0 * t.squared()) - (513.0 / 25.0 * t) + 268.0 / 25.0
         }
     }
+    /// Bounce In Out
     #[inline]
-    pub(crate) fn bounce_in_out(t: f32) -> f32 {
+    pub fn bounce_in_out(t: f32) -> f32 {
         if t < 0.5 {
             (1.0 - bounce_out(1.0 - 2.0 * t)) / 2.0
         } else {
@@ -606,13 +643,15 @@ pub mod easing_functions {
         }
     }
 
+    /// Steps
     #[inline]
-    pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
+    pub fn steps(num_steps: usize, t: f32) -> f32 {
         ops::round(t * num_steps as f32) / num_steps.max(1) as f32
     }
 
+    /// Elastic
     #[inline]
-    pub(crate) fn elastic(omega: f32, t: f32) -> f32 {
+    pub fn elastic(omega: f32, t: f32) -> f32 {
         1.0 - (1.0 - t).squared() * (2.0 * ops::sin(omega * t) / omega + ops::cos(omega * t))
     }
 }
