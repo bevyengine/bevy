@@ -4420,7 +4420,6 @@ mod tests {
 
     use crate::component::HookContext;
     use crate::{
-        self as bevy_ecs,
         change_detection::MutUntyped,
         component::ComponentId,
         prelude::*,

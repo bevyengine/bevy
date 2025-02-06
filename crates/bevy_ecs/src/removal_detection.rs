@@ -1,7 +1,6 @@
 //! Alerting events when a component is removed from an entity.
 
 use crate::{
-    self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
     event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},

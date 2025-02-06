@@ -2481,10 +2481,7 @@ mod tests {
     use bevy_ecs_macros::QueryData;
 
     use super::*;
-    use crate::{
-        self as bevy_ecs,
-        system::{assert_is_system, Query},
-    };
+    use crate::system::{assert_is_system, Query};
 
     #[derive(Component)]
     pub struct A;

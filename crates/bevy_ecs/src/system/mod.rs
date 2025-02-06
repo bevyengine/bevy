@@ -330,7 +330,6 @@ mod tests {
     use std::println;
 
     use crate::{
-        self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,

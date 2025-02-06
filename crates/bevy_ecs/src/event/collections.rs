@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use alloc::vec::Vec;
 use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
@@ -398,7 +397,7 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_ecs, event::Events};
+    use crate::event::Events;
     use bevy_ecs_macros::Event;
 
     #[test]

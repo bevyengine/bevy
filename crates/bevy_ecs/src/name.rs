@@ -1,6 +1,6 @@
 //! Provides the [`Name`] [`Component`], used for identifying an [`Entity`].
 
-use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
+use crate::{component::Component, entity::Entity, query::QueryData};
 
 use alloc::{
     borrow::{Cow, ToOwned},

@@ -29,7 +29,6 @@ mod tests {
     use alloc::{string::ToString, vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
-    pub use crate as bevy_ecs;
     pub use crate::{
         prelude::World,
         resource::Resource,
@@ -730,8 +729,6 @@ mod tests {
         use alloc::collections::BTreeSet;
 
         use super::*;
-        // Required to make the derive macro behave
-        use crate as bevy_ecs;
         use crate::prelude::*;
 
         #[derive(Resource)]

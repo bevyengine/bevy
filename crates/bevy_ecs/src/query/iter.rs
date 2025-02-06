@@ -1309,7 +1309,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     ///     // We need to collect the internal iterator before iterating mutably
     ///     let mut parent_query_iter = query.iter_many_mut(entity_list)
     ///         .sort::<Entity>();
-    ///     
+    ///
     ///     let mut scratch_value = 0;
     ///     while let Some(mut part_value) = parent_query_iter.fetch_next_back()
     ///     {
@@ -2582,7 +2582,6 @@ mod tests {
     use crate::component::Component;
     use crate::entity::Entity;
     use crate::prelude::World;
-    use crate::{self as bevy_ecs};
 
     #[derive(Component, Debug, PartialEq, PartialOrd, Clone, Copy)]
     struct A(f32);

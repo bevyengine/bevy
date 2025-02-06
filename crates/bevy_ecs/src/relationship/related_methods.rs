@@ -249,7 +249,6 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_ecs;
     use crate::prelude::{ChildOf, Children, Component};
 
     #[derive(Component, Clone, Copy)]

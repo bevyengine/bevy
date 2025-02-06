@@ -9,9 +9,9 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
-    FromReflect, Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics,
+    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].

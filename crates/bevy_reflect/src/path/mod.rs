@@ -512,7 +512,6 @@ impl core::ops::IndexMut<usize> for ParsedPath {
 )]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::*;
     use alloc::vec;
 
