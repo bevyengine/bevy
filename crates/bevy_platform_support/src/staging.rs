@@ -121,7 +121,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
         }
     }
 
-    /// Gets the inner cold data if it is safe.
+    /// Gets the inner cold data if there are no staged changes.
     /// If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     #[inline]
     pub fn full(&mut self) -> Option<&mut T::Cold> {
@@ -241,7 +241,7 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         }))
     }
 
-    /// Gets the inner cold data if it is safe.
+    /// Gets the inner cold data if there are no staged changes.
     /// If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     ///
     /// Note that this **Blocks**, so generally prefer [`full_non_blocking`](Self::full_non_blocking).
@@ -268,7 +268,7 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         cold
     }
 
-    /// Gets the inner cold data if it is safe.
+    /// Gets the inner cold data if there are no staged changes and nobody is reading from the cold data.
     #[inline]
     pub fn full_non_blocking(&mut self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
         let staged = self.0.staged.try_read().ok()?;
