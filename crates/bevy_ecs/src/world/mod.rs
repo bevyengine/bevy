@@ -36,12 +36,13 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
+        ComponentInfo, ComponentTicks, Components, Immutable, Mutable, RequiredComponents,
         RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     entity_disabling::{DefaultQueryFilters, Disabled},
     event::{Event, EventId, Events, SendBatchIds},
+    index::{IndexOptions, IndexStorage},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
@@ -3695,6 +3696,20 @@ impl World {
         let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
         schedules.allow_ambiguous_resource::<T>(self);
         self.insert_resource(schedules);
+    }
+}
+
+// Methods relating to component indexing
+impl World {
+    /// Create and track an index for `C`.
+    /// This is required to use the [`QueryByIndex`](crate::index::QueryByIndex) system parameter.
+    pub fn add_index<C: Component<Mutability = Immutable>, S: IndexStorage<C>>(
+        &mut self,
+        options: IndexOptions<C, S>,
+    ) -> &mut Self {
+        options.setup_index(self);
+
+        self
     }
 }
 
