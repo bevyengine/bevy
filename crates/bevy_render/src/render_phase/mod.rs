@@ -176,6 +176,15 @@ where
     /// Note that each bit in this bit set refers to an *index* in the
     /// [`IndexMap`] (i.e. a bucket in the hash table). They aren't entity IDs.
     valid_cached_entity_bin_keys: FixedBitSet,
+
+    /// The set of entities that changed bins this frame.
+    ///
+    /// An entity will only be present in this list if it was in one bin on the
+    /// previous frame and is in a new bin on this frame. Each list entry
+    /// specifies the bin the entity used to be in. We use this in order to
+    /// remove the entity from the old bin during
+    /// [`BinnedRenderPhase::sweep_old_entities`].
+    entities_that_changed_bins: Vec<EntityThatChangedBins<BPI>>,
 }
 
 /// All entities that share a mesh and a material and can be batched as part of
@@ -184,6 +193,18 @@ where
 pub struct RenderBin {
     /// A list of the entities in each bin.
     entities: IndexSet<MainEntity, EntityHash>,
+}
+
+/// Information that we track about an entity that was in one bin on the
+/// previous frame and is in a different bin this frame.
+struct EntityThatChangedBins<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    /// The entity.
+    main_entity: MainEntity,
+    /// The key that identifies the bin that this entity used to be in.
+    old_bin_key: CachedBinKey<BPI>,
 }
 
 /// Information that we keep about an entity currently within a bin.
@@ -202,6 +223,32 @@ where
     ///
     /// We use this to detect when the entity needs to be invalidated.
     pub change_tick: Tick,
+}
+
+impl<BPI> Clone for CachedBinKey<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    fn clone(&self) -> Self {
+        CachedBinKey {
+            batch_set_key: self.batch_set_key.clone(),
+            bin_key: self.bin_key.clone(),
+            phase_type: self.phase_type,
+            change_tick: self.change_tick,
+        }
+    }
+}
+
+impl<BPI> PartialEq for CachedBinKey<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.batch_set_key == other.batch_set_key
+            && self.bin_key == other.bin_key
+            && self.phase_type == other.phase_type
+            && self.change_tick == other.change_tick
+    }
 }
 
 /// How we store and render the batch sets.
@@ -471,19 +518,29 @@ where
             }
         }
 
-        let index = self
-            .cached_entity_bin_keys
-            .insert_full(
-                main_entity,
-                CachedBinKey {
-                    batch_set_key,
-                    bin_key,
-                    phase_type,
-                    change_tick,
-                },
-            )
-            .0;
+        let new_bin_key = CachedBinKey {
+            batch_set_key,
+            bin_key,
+            phase_type,
+            change_tick,
+        };
 
+        let (index, old_bin_key) = self
+            .cached_entity_bin_keys
+            .insert_full(main_entity, new_bin_key.clone());
+
+        // If the entity changed bins, record its old bin so that we can remove
+        // the entity from it.
+        if let Some(old_bin_key) = old_bin_key {
+            if old_bin_key != new_bin_key {
+                self.entities_that_changed_bins.push(EntityThatChangedBins {
+                    main_entity,
+                    old_bin_key,
+                });
+            }
+        }
+
+        // Mark the entity as valid.
         self.valid_cached_entity_bin_keys.grow_and_insert(index);
     }
 
@@ -746,6 +803,8 @@ where
             .grow(self.cached_entity_bin_keys.len());
         self.valid_cached_entity_bin_keys
             .set_range(self.cached_entity_bin_keys.len().., true);
+
+        self.entities_that_changed_bins.clear();
     }
 
     /// Checks to see whether the entity is in a bin and returns true if it's
@@ -789,73 +848,111 @@ where
                 continue;
             };
 
-            // Remove the entity from the bin. If this makes the bin empty,
-            // remove the bin as well.
-            match entity_bin_key.phase_type {
-                BinnedRenderPhaseType::MultidrawableMesh => {
-                    if let Entry::Occupied(mut batch_set_entry) = self
-                        .multidrawable_mesh_values
-                        .entry(entity_bin_key.batch_set_key.clone())
-                    {
-                        if let Entry::Occupied(mut bin_entry) = batch_set_entry
-                            .get_mut()
-                            .entry(entity_bin_key.bin_key.clone())
-                        {
-                            bin_entry.get_mut().remove(entity);
+            remove_entity_from_bin(
+                entity,
+                &entity_bin_key,
+                &mut self.multidrawable_mesh_values,
+                &mut self.batchable_mesh_values,
+                &mut self.unbatchable_mesh_values,
+                &mut self.non_mesh_items,
+            );
+        }
 
-                            // If the bin is now empty, remove the bin.
-                            if bin_entry.get_mut().is_empty() {
-                                bin_entry.remove();
-                            }
-                        }
+        // If an entity changed bins, we need to remove it from its old bin.
+        for entity_that_changed_bins in self.entities_that_changed_bins.drain(..) {
+            remove_entity_from_bin(
+                entity_that_changed_bins.main_entity,
+                &entity_that_changed_bins.old_bin_key,
+                &mut self.multidrawable_mesh_values,
+                &mut self.batchable_mesh_values,
+                &mut self.unbatchable_mesh_values,
+                &mut self.non_mesh_items,
+            );
+        }
+    }
+}
 
-                        // If the batch set is now empty, remove it.
-                        if batch_set_entry.get_mut().is_empty() {
-                            batch_set_entry.remove();
-                        }
+/// Removes an entity from a bin.
+///
+/// If this makes the bin empty, this function removes the bin as well.
+///
+/// This is a standalone function instead of a method on [`BinnedRenderPhase`]
+/// for borrow check reasons.
+fn remove_entity_from_bin<BPI>(
+    entity: MainEntity,
+    entity_bin_key: &CachedBinKey<BPI>,
+    multidrawable_mesh_values: &mut HashMap<BPI::BatchSetKey, HashMap<BPI::BinKey, RenderBin>>,
+    batchable_mesh_values: &mut HashMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
+    unbatchable_mesh_values: &mut HashMap<
+        (BPI::BatchSetKey, BPI::BinKey),
+        UnbatchableBinnedEntities,
+    >,
+    non_mesh_items: &mut HashMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
+) where
+    BPI: BinnedPhaseItem,
+{
+    match entity_bin_key.phase_type {
+        BinnedRenderPhaseType::MultidrawableMesh => {
+            if let Entry::Occupied(mut batch_set_entry) =
+                multidrawable_mesh_values.entry(entity_bin_key.batch_set_key.clone())
+            {
+                if let Entry::Occupied(mut bin_entry) = batch_set_entry
+                    .get_mut()
+                    .entry(entity_bin_key.bin_key.clone())
+                {
+                    bin_entry.get_mut().remove(entity);
+
+                    // If the bin is now empty, remove the bin.
+                    if bin_entry.get_mut().is_empty() {
+                        bin_entry.remove();
                     }
                 }
 
-                BinnedRenderPhaseType::BatchableMesh => {
-                    if let Entry::Occupied(mut bin_entry) = self.batchable_mesh_values.entry((
-                        entity_bin_key.batch_set_key.clone(),
-                        entity_bin_key.bin_key.clone(),
-                    )) {
-                        bin_entry.get_mut().remove(entity);
-
-                        // If the bin is now empty, remove the bin.
-                        if bin_entry.get_mut().is_empty() {
-                            bin_entry.remove();
-                        }
-                    }
+                // If the batch set is now empty, remove it.
+                if batch_set_entry.get_mut().is_empty() {
+                    batch_set_entry.remove();
                 }
+            }
+        }
 
-                BinnedRenderPhaseType::UnbatchableMesh => {
-                    if let Entry::Occupied(mut bin_entry) = self.unbatchable_mesh_values.entry((
-                        entity_bin_key.batch_set_key.clone(),
-                        entity_bin_key.bin_key.clone(),
-                    )) {
-                        bin_entry.get_mut().entities.remove(&entity);
+        BinnedRenderPhaseType::BatchableMesh => {
+            if let Entry::Occupied(mut bin_entry) = batchable_mesh_values.entry((
+                entity_bin_key.batch_set_key.clone(),
+                entity_bin_key.bin_key.clone(),
+            )) {
+                bin_entry.get_mut().remove(entity);
 
-                        // If the bin is now empty, remove the bin.
-                        if bin_entry.get_mut().entities.is_empty() {
-                            bin_entry.remove();
-                        }
-                    }
+                // If the bin is now empty, remove the bin.
+                if bin_entry.get_mut().is_empty() {
+                    bin_entry.remove();
                 }
+            }
+        }
 
-                BinnedRenderPhaseType::NonMesh => {
-                    if let Entry::Occupied(mut bin_entry) = self.non_mesh_items.entry((
-                        entity_bin_key.batch_set_key.clone(),
-                        entity_bin_key.bin_key.clone(),
-                    )) {
-                        bin_entry.get_mut().remove(entity);
+        BinnedRenderPhaseType::UnbatchableMesh => {
+            if let Entry::Occupied(mut bin_entry) = unbatchable_mesh_values.entry((
+                entity_bin_key.batch_set_key.clone(),
+                entity_bin_key.bin_key.clone(),
+            )) {
+                bin_entry.get_mut().entities.remove(&entity);
 
-                        // If the bin is now empty, remove the bin.
-                        if bin_entry.get_mut().is_empty() {
-                            bin_entry.remove();
-                        }
-                    }
+                // If the bin is now empty, remove the bin.
+                if bin_entry.get_mut().entities.is_empty() {
+                    bin_entry.remove();
+                }
+            }
+        }
+
+        BinnedRenderPhaseType::NonMesh => {
+            if let Entry::Occupied(mut bin_entry) = non_mesh_items.entry((
+                entity_bin_key.batch_set_key.clone(),
+                entity_bin_key.bin_key.clone(),
+            )) {
+                bin_entry.get_mut().remove(entity);
+
+                // If the bin is now empty, remove the bin.
+                if bin_entry.get_mut().is_empty() {
+                    bin_entry.remove();
                 }
             }
         }
@@ -886,6 +983,7 @@ where
             },
             cached_entity_bin_keys: IndexMap::default(),
             valid_cached_entity_bin_keys: FixedBitSet::new(),
+            entities_that_changed_bins: vec![],
         }
     }
 }

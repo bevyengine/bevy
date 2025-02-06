@@ -1096,10 +1096,14 @@ pub fn queue_prepass_material_meshes<M: Material>(
             };
 
             // Skip the entity if it's cached in a bin and up to date.
-            if opaque_phase.as_mut().is_some_and(|opaque_phase| {
-                opaque_phase.validate_cached_entity(*visible_entity, *current_change_tick)
-            }) || alpha_mask_phase.as_mut().is_some_and(|alpha_mask_phase| {
-                alpha_mask_phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            if opaque_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            }) || alpha_mask_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            }) || opaque_deferred_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            }) || alpha_mask_deferred_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
             }) {
                 continue;
             }
@@ -1226,11 +1230,17 @@ pub fn queue_prepass_material_meshes<M: Material>(
         }
 
         // Remove invalid entities from the bins.
-        if let Some(opaque_phase) = opaque_phase {
-            opaque_phase.sweep_old_entities();
+        if let Some(phase) = opaque_phase {
+            phase.sweep_old_entities();
         }
-        if let Some(alpha_mask_phase) = alpha_mask_phase {
-            alpha_mask_phase.sweep_old_entities();
+        if let Some(phase) = alpha_mask_phase {
+            phase.sweep_old_entities();
+        }
+        if let Some(phase) = opaque_deferred_phase {
+            phase.sweep_old_entities();
+        }
+        if let Some(phase) = alpha_mask_deferred_phase {
+            phase.sweep_old_entities();
         }
     }
 }
