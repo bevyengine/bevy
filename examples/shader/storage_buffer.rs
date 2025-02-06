@@ -79,11 +79,11 @@ fn update(
     // But we do need to at least mark the others as changed, so that Bevy will
     // reupload their contents to the GPU.
     for material in &material_handles.0[1..] {
-        materials.get_mut(material);
+        materials.get_cloned_mut(material);
     }
-    let material = materials.get_mut(&material_handles.0[0]).unwrap();
+    let material = materials.get_cloned_mut(&material_handles.0[0]).unwrap();
 
-    let buffer = buffers.get_mut(&material.colors).unwrap();
+    let buffer = buffers.get_cloned_mut(&material.colors).unwrap();
     buffer.set_data(
         (0..5)
             .map(|i| {

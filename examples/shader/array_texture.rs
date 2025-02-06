@@ -63,7 +63,7 @@ fn create_array_texture(
         return;
     }
     loading_texture.is_loaded = true;
-    let image = images.get_mut(&loading_texture.handle).unwrap();
+    let image = images.get_cloned_mut(&loading_texture.handle).unwrap();
 
     // Create a new array texture asset from the loaded texture.
     let array_layers = 4;
