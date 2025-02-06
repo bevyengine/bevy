@@ -1,5 +1,250 @@
 //! Provides an abstracted system for staging modifications to data structures that rarely change.
 //! See [`StageOnWrite`] as a starting point.
+//!
+//! Here's an example of this utility in action for registering players. This is a bit contrived, but it should communicate the idea.
+//!
+//! ```
+//! use core::mem::take;
+//! use std::sync::RwLockReadGuard;
+//! use core::ops::{Deref, DerefMut};
+//!
+//! use crate as bevy_utils;
+//! use bevy_platform_support::collections::HashMap;
+//! use bevy_platform_support::prelude::String;
+//! use bevy_utils::staging::{
+//!     MaybeStaged, StagableWrites, StageOnWrite, StagedChanges, StagedRef, StagedRefLocked,
+//!     Stager, StagerLocked,
+//! };
+//!
+//! /// Stores some arbitrary player data.
+//! #[derive(Debug, Clone)]
+//! pub struct PlayerData {
+//!     name: String,
+//!     secs_in_game: u32,
+//!     id: PlayerId,
+//! }
+//!
+//! /// A unique id per player
+//! #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
+//! pub struct PlayerId(u32);
+//!
+//! /// The standard collection of players
+//! #[derive(Default, Debug)]
+//! pub struct Players(HashMap<PlayerId, PlayerData>);
+//!
+//! /// When a change is made to a player
+//! #[derive(Default, Debug)]
+//! pub struct StagedPlayerChanges {
+//!     replacements: HashMap<PlayerId, PlayerData>,
+//!     additional_time_played: HashMap<PlayerId, u32>,
+//! }
+//!
+//! impl StagedChanges for StagedPlayerChanges {
+//!     type Cold = Players;
+//!
+//!     fn apply_staged(&mut self, storage: &mut Self::Cold) {
+//!         for replaced in self.replacements.drain() {
+//!             storage.0.insert(replaced.0, replaced.1);
+//!         }
+//!         for (id, new_time) in self.additional_time_played.iter_mut() {
+//!             if let Some(player) = storage.0.get_mut(id) {
+//!                 player.secs_in_game += take(new_time);
+//!             }
+//!         }
+//!     }
+//!
+//!     fn any_staged(&self) -> bool {
+//!         !self.replacements.is_empty() || !self.additional_time_played.is_empty()
+//!     }
+//! }
+//!
+//! /// Allows read only access to player data.
+//! trait PlayerAccess {
+//!     fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>>;
+//!     fn get_secs_in_game(&self, id: PlayerId) -> Option<u32>;
+//! }
+//!
+//! impl PlayerAccess for Players {
+//!     fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
+//!         self.0.get(&id).map(|player| player.name.as_str())
+//!     }
+//!
+//!     fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
+//!         self.0.get(&id).map(|player| player.secs_in_game)
+//!     }
+//! }
+//!
+//! impl PlayerAccess for StagedRef<'_, StagedPlayerChanges> {
+//!     fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
+//!         if let Some(staged) = self.staged.replacements.get(&id) {
+//!             Some(MaybeStaged::Staged(staged.name.as_str()))
+//!         } else {
+//!             self.cold.get_name(id).map(MaybeStaged::Cold)
+//!         }
+//!     }
+//!
+//!     fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
+//!         let base = if let Some(staged) = self.staged.replacements.get(&id) {
+//!             Some(staged.secs_in_game)
+//!         } else {
+//!             self.cold.0.get(&id).map(|player| player.secs_in_game)
+//!         }?;
+//!         let additional = self
+//!             .staged
+//!             .additional_time_played
+//!             .get(&id)
+//!             .copied()
+//!             .unwrap_or_default();
+//!         Some(base + additional)
+//!     }
+//! }
+//!
+//! /// Allows mutable access to player data.
+//! trait PlayerAccessMut {
+//!     fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>>;
+//!     fn add_secs_in_game(&mut self, id: PlayerId, secs: u32);
+//!     fn add(&mut self, name: String) -> PlayerId;
+//! }
+//!
+//! impl PlayerAccessMut for Players {
+//!     fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>> {
+//!         self.0.get_mut(&id).map(|player| player.name.as_mut_str())
+//!     }
+//!
+//!     fn add_secs_in_game(&mut self, id: PlayerId, secs: u32) {
+//!         if let Some(player) = self.0.get_mut(&id) {
+//!             player.secs_in_game += secs;
+//!         }
+//!     }
+//!
+//!     fn add(&mut self, name: String) -> PlayerId {
+//!         let id = PlayerId(self.0.len() as u32);
+//!         self.0.insert(
+//!             id,
+//!             PlayerData {
+//!                 name,
+//!                 secs_in_game: 0,
+//!                 id,
+//!             },
+//!         );
+//!         id
+//!     }
+//! }
+//!
+//! impl PlayerAccessMut for Stager<'_, StagedPlayerChanges> {
+//!     fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>> {
+//!         if !self.cold.0.contains_key(&id) && !self.staged.replacements.contains_key(&id) {
+//!             return None;
+//!         }
+//!
+//!         let player = self
+//!             .staged
+//!             .replacements
+//!             .entry(id)
+//!             .or_insert_with(|| self.cold.0.get(&id).cloned().unwrap());
+//!         Some(player.name.as_mut_str())
+//!     }
+//!
+//!     fn add_secs_in_game(&mut self, id: PlayerId, secs: u32) {
+//!         *self.staged.additional_time_played.entry(id).or_default() += secs;
+//!     }
+//!
+//!     fn add(&mut self, name: String) -> PlayerId {
+//!         let id = PlayerId((self.cold.0.len() + self.staged.replacements.len()) as u32);
+//!         self.staged.replacements.insert(
+//!             id,
+//!             PlayerData {
+//!                 name,
+//!                 secs_in_game: 0,
+//!                 id,
+//!             },
+//!         );
+//!         id
+//!     }
+//! }
+//!
+//! struct LockedNameStagedRef<'a> {
+//!     staged: RwLockReadGuard<'a, StagedPlayerChanges>,
+//!     // must be valid
+//!     id: PlayerId,
+//! }
+//!
+//! struct LockedNameColdRef<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> {
+//!     cold: T::ColdStorage<'a>,
+//!     // must be valid
+//!     id: PlayerId,
+//! }
+//!
+//! impl Deref for LockedNameStagedRef<'_> {
+//!     type Target = str;
+//!
+//!     fn deref(&self) -> &Self::Target {
+//!         self.staged
+//!             .replacements
+//!             .get(&self.id)
+//!             .unwrap()
+//!             .name
+//!             .as_str()
+//!     }
+//! }
+//!
+//! impl<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> Deref for LockedNameColdRef<'a, T> {
+//!     type Target = str;
+//!
+//!     fn deref(&self) -> &Self::Target {
+//!         self.cold.deref().0.get(&self.id).unwrap().name.as_str()
+//!     }
+//! }
+//!
+//! #[derive(Debug, Default)]
+//! pub struct PlayerRegistry {
+//!     players: StageOnWrite<StagedPlayerChanges>,
+//! }
+//!
+//! impl PlayerRegistry {
+//!     /// Runs relatively rarely
+//!     pub fn player_joined(&self, name: String) -> PlayerId {
+//!         self.players.stage_scope_locked(|stager| stager.add(name))
+//!     }
+//!
+//!     /// Runs very often
+//!     pub fn get_name<'a>(&'a self, id: PlayerId) -> Option<impl Deref<Target = str> + 'a> {
+//!         {
+//!             let this = self.players.read_lock();
+//!             if this.staged.replacements.contains_key(&id) {
+//!                 Some(MaybeStaged::Staged(LockedNameStagedRef {
+//!                     staged: this.get_staged_guard(),
+//!                     id,
+//!                 }))
+//!             } else if this.cold.0.contains_key(&id) {
+//!                 Some(MaybeStaged::Cold(LockedNameColdRef::<
+//!                     StageOnWrite<StagedPlayerChanges>,
+//!                 > {
+//!                     cold: this.get_cold_guard(),
+//!                     id,
+//!                 }))
+//!             } else {
+//!                 None
+//!             }
+//!         }
+//!     }
+//!
+//!     /// Cleans up internal data to make reading faster.
+//!     pub fn clean(&mut self) {
+//!         self.players.apply_staged_for_full();
+//!     }
+//!
+//!     /// Allows reading in bulk without extra locking.
+//!     pub fn bulk_read(&self) -> StagedRefLocked<'_, StageOnWrite<StagedPlayerChanges>> {
+//!         self.players.read_lock()
+//!     }
+//!
+//!     /// Allows writing in bulk without extra locking.
+//!     pub fn bulk_write(&self) -> StagerLocked<'_, StageOnWrite<StagedPlayerChanges>> {
+//!         self.players.stage_lock()
+//!     }
+//! }
+//! ```
 
 use bevy_platform_support::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use core::ops::{Deref, DerefMut};
@@ -20,27 +265,30 @@ pub trait StagedChanges: Default {
     fn any_staged(&self) -> bool;
 }
 
-/// A trait that signifies that it holds an immutable reference to a cold type (ie. [`StagedChanges::Cold`]).
-pub trait ColdStorage<T: StagedChanges>: Deref<Target = T::Cold> {}
-
+/// This trait defines relevant types for [`StagableWrites`].
+/// See [`this github issue`](https://github.com/rust-lang/rust/issues/87479) for why this needs to be separate.
 pub trait StagableWritesTypes {
+    /// This is the type that will store staged changes.
     type Staging: StagedChanges;
-    type ColdStorage<'a>: Deref<Target = <Self::Staging as StagedChanges>::Cold>
+    /// This is the type that will store [`Cold`](StagedChanges::Cold) for [`Staging`](Self::Staging).
+    /// This is left generalized so that it can be put in a lock or otherwise if necessary.
+    type ColdRef<'a>: Deref<Target = <Self::Staging as StagedChanges>::Cold>
     where
         <Self::Staging as StagedChanges>::Cold: 'a;
 }
 
+/// This trait generallizes the stage on write concept.
 pub trait StagableWrites: StagableWritesTypes {
     /// Allows raw access to reading cold storage, which may still have unapplied staged changes that make this out of date.
-    /// Only use this if you really know what you are doing.
+    /// Use this to return data attached to a lock guard when one such guard is already in existence.
+    ///
     /// This must never deadlock if there is already a [`Self::ColdStorage`] for this value on this thread.
-    #[doc(hidden)]
-    fn raw_read_cold(&self) -> Self::ColdStorage<'_>;
+    fn raw_read_cold(&self) -> Self::ColdRef<'_>;
 
     /// Allows raw access to reading staged changes, which may be missing context of cold storage.
-    /// Only use this if you really know what you are doing.
+    /// Use this to return data attached to a lock guard when one such guard is already in existence.
+    ///
     /// This must never deadlock if there is already a read for this value on this thread.
-    #[doc(hidden)]
     fn raw_read_staged(&self) -> RwLockReadGuard<'_, Self::Staging>;
 }
 
@@ -69,7 +317,9 @@ pub struct StagedRef<'a, T: StagedChanges> {
 #[derive(Debug)]
 pub struct StagerLocked<'a, T: StagableWrites> {
     inner: &'a T,
-    pub cold: T::ColdStorage<'a>,
+    /// The storage that is read optimized.
+    pub cold: T::ColdRef<'a>,
+    /// The staged changes.
     pub staged: RwLockWriteGuard<'a, T::Staging>,
 }
 
@@ -78,7 +328,9 @@ pub struct StagerLocked<'a, T: StagableWrites> {
 #[derive(Debug)]
 pub struct StagedRefLocked<'a, T: StagableWrites> {
     inner: &'a T,
-    pub cold: T::ColdStorage<'a>,
+    /// The storage that is read optimized.
+    pub cold: T::ColdRef<'a>,
+    /// The staged changes.
     pub staged: RwLockReadGuard<'a, T::Staging>,
 }
 
@@ -142,7 +394,7 @@ pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>)
 impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
     type Staging = T;
 
-    type ColdStorage<'a>
+    type ColdRef<'a>
         = &'a T::Cold
     where
         T::Cold: 'a;
@@ -151,14 +403,14 @@ impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
 impl<T: StagedChanges> StagableWritesTypes for AtomicStageOnWrite<T> {
     type Staging = T;
 
-    type ColdStorage<'a>
+    type ColdRef<'a>
         = RwLockReadGuard<'a, T::Cold>
     where
         T::Cold: 'a;
 }
 
 impl<T: StagedChanges> StagableWrites for StageOnWrite<T> {
-    fn raw_read_cold(&self) -> Self::ColdStorage<'_> {
+    fn raw_read_cold(&self) -> Self::ColdRef<'_> {
         &self.cold
     }
 
@@ -168,7 +420,7 @@ impl<T: StagedChanges> StagableWrites for StageOnWrite<T> {
 }
 
 impl<T: StagedChanges> StagableWrites for AtomicStageOnWrite<T> {
-    fn raw_read_cold(&self) -> Self::ColdStorage<'_> {
+    fn raw_read_cold(&self) -> Self::ColdRef<'_> {
         self.0.cold.read().unwrap_or_else(PoisonError::into_inner)
     }
 
@@ -551,7 +803,7 @@ impl<'a, T: StagableWrites> StagedRefLocked<'a, T> {
 
     /// Allows returning a reference to the cold data without releasing its lock (it it has one).
     #[inline]
-    pub fn get_cold_guard(&self) -> T::ColdStorage<'a> {
+    pub fn get_cold_guard(&self) -> T::ColdRef<'a> {
         self.inner.raw_read_cold()
     }
 }
@@ -584,10 +836,6 @@ where
         Self::new(T::Cold::default())
     }
 }
-
-impl<T: StagedChanges> ColdStorage<T> for RwLockReadGuard<'_, T::Cold> {}
-
-impl<T: StagedChanges> ColdStorage<T> for &'_ T::Cold {}
 
 impl<C: Deref, S: Deref<Target = C::Target>> Deref for MaybeStaged<C, S> {
     type Target = C::Target;
@@ -642,248 +890,5 @@ mod tests {
         data.stage_scope_locked(|stager| stager.staged.added.push(5));
         let full = data.apply_staged_for_full();
         assert_eq!(&full[..], &[5]);
-    }
-}
-
-mod example {
-    use core::mem::take;
-    use core::ops::{Deref, DerefMut};
-    use std::sync::RwLockReadGuard;
-
-    use crate as bevy_utils;
-    use bevy_platform_support::collections::HashMap;
-    use bevy_platform_support::prelude::String;
-    use bevy_utils::staging::{
-        MaybeStaged, StagableWrites, StageOnWrite, StagedChanges, StagedRef, StagedRefLocked,
-        Stager, StagerLocked,
-    };
-
-    /// Stores some arbitrary player data.
-    #[derive(Debug, Clone)]
-    pub struct PlayerData {
-        name: String,
-        secs_in_game: u32,
-        id: PlayerId,
-    }
-
-    /// A unique id per player
-    #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct PlayerId(u32);
-
-    /// The standard collection of players
-    #[derive(Default, Debug)]
-    pub struct Players(HashMap<PlayerId, PlayerData>);
-
-    /// When a change is made to a player
-    #[derive(Default, Debug)]
-    pub struct StagedPlayerChanges {
-        replacements: HashMap<PlayerId, PlayerData>,
-        additional_time_played: HashMap<PlayerId, u32>,
-    }
-
-    impl StagedChanges for StagedPlayerChanges {
-        type Cold = Players;
-
-        fn apply_staged(&mut self, storage: &mut Self::Cold) {
-            for replaced in self.replacements.drain() {
-                storage.0.insert(replaced.0, replaced.1);
-            }
-            for (id, new_time) in self.additional_time_played.iter_mut() {
-                if let Some(player) = storage.0.get_mut(id) {
-                    player.secs_in_game += take(new_time);
-                }
-            }
-        }
-
-        fn any_staged(&self) -> bool {
-            !self.replacements.is_empty() || !self.additional_time_played.is_empty()
-        }
-    }
-
-    /// Allows read only access to player data.
-    trait PlayerAccess {
-        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>>;
-        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32>;
-    }
-
-    impl PlayerAccess for Players {
-        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
-            self.0.get(&id).map(|player| player.name.as_str())
-        }
-
-        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
-            self.0.get(&id).map(|player| player.secs_in_game)
-        }
-    }
-
-    impl PlayerAccess for StagedRef<'_, StagedPlayerChanges> {
-        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
-            if let Some(staged) = self.staged.replacements.get(&id) {
-                Some(MaybeStaged::Staged(staged.name.as_str()))
-            } else {
-                self.cold.get_name(id).map(MaybeStaged::Cold)
-            }
-        }
-
-        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
-            let base = if let Some(staged) = self.staged.replacements.get(&id) {
-                Some(staged.secs_in_game)
-            } else {
-                self.cold.0.get(&id).map(|player| player.secs_in_game)
-            }?;
-            let additional = self
-                .staged
-                .additional_time_played
-                .get(&id)
-                .copied()
-                .unwrap_or_default();
-            Some(base + additional)
-        }
-    }
-
-    /// Allows read only access to player data.
-    trait PlayerAccessMut {
-        fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>>;
-        fn add_secs_in_game(&mut self, id: PlayerId, secs: u32);
-        fn add(&mut self, name: String) -> PlayerId;
-    }
-
-    impl PlayerAccessMut for Players {
-        fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>> {
-            self.0.get_mut(&id).map(|player| player.name.as_mut_str())
-        }
-
-        fn add_secs_in_game(&mut self, id: PlayerId, secs: u32) {
-            if let Some(player) = self.0.get_mut(&id) {
-                player.secs_in_game += secs;
-            }
-        }
-
-        fn add(&mut self, name: String) -> PlayerId {
-            let id = PlayerId(self.0.len() as u32);
-            self.0.insert(
-                id,
-                PlayerData {
-                    name,
-                    secs_in_game: 0,
-                    id,
-                },
-            );
-            id
-        }
-    }
-
-    impl PlayerAccessMut for Stager<'_, StagedPlayerChanges> {
-        fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>> {
-            if !self.cold.0.contains_key(&id) && !self.staged.replacements.contains_key(&id) {
-                return None;
-            }
-
-            let player = self
-                .staged
-                .replacements
-                .entry(id)
-                .or_insert_with(|| self.cold.0.get(&id).cloned().unwrap());
-            Some(player.name.as_mut_str())
-        }
-
-        fn add_secs_in_game(&mut self, id: PlayerId, secs: u32) {
-            *self.staged.additional_time_played.entry(id).or_default() += secs;
-        }
-
-        fn add(&mut self, name: String) -> PlayerId {
-            let id = PlayerId((self.cold.0.len() + self.staged.replacements.len()) as u32);
-            self.staged.replacements.insert(
-                id,
-                PlayerData {
-                    name,
-                    secs_in_game: 0,
-                    id,
-                },
-            );
-            id
-        }
-    }
-
-    struct LockedNameStagedRef<'a> {
-        staged: RwLockReadGuard<'a, StagedPlayerChanges>,
-        // must be valid
-        id: PlayerId,
-    }
-
-    struct LockedNameColdRef<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> {
-        cold: T::ColdStorage<'a>,
-        // must be valid
-        id: PlayerId,
-    }
-
-    impl Deref for LockedNameStagedRef<'_> {
-        type Target = str;
-
-        fn deref(&self) -> &Self::Target {
-            self.staged
-                .replacements
-                .get(&self.id)
-                .unwrap()
-                .name
-                .as_str()
-        }
-    }
-
-    impl<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> Deref for LockedNameColdRef<'a, T> {
-        type Target = str;
-
-        fn deref(&self) -> &Self::Target {
-            self.cold.deref().0.get(&self.id).unwrap().name.as_str()
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct PlayerRegistry {
-        players: StageOnWrite<StagedPlayerChanges>,
-    }
-
-    impl PlayerRegistry {
-        /// Runs relatively rarely
-        pub fn player_joined(&self, name: String) -> PlayerId {
-            self.players.stage_scope_locked(|stager| stager.add(name))
-        }
-
-        /// Runs very often
-        pub fn get_name<'a>(&'a self, id: PlayerId) -> Option<impl Deref<Target = str> + 'a> {
-            {
-                let this = self.players.read_lock();
-                if this.staged.replacements.contains_key(&id) {
-                    Some(MaybeStaged::Staged(LockedNameStagedRef {
-                        staged: this.get_staged_guard(),
-                        id,
-                    }))
-                } else if this.cold.0.contains_key(&id) {
-                    Some(MaybeStaged::Cold(LockedNameColdRef::<
-                        StageOnWrite<StagedPlayerChanges>,
-                    > {
-                        cold: this.get_cold_guard(),
-                        id,
-                    }))
-                } else {
-                    None
-                }
-            }
-        }
-
-        /// Cleans up internal data to make reading faster.
-        pub fn clean(&mut self) {
-            self.players.apply_staged_for_full();
-        }
-
-        /// Allows reading in bulk without extra locking.
-        pub fn bulk_read(&self) -> StagedRefLocked<'_, StageOnWrite<StagedPlayerChanges>> {
-            self.players.read_lock()
-        }
-
-        /// Allows writing in bulk without extra locking.
-        pub fn bulk_write(&self) -> StagerLocked<'_, StageOnWrite<StagedPlayerChanges>> {
-            self.players.stage_lock()
-        }
     }
 }
