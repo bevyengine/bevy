@@ -457,9 +457,6 @@ meshlet = ["bevy_internal/meshlet"]
 # Enables processing meshes into meshlet meshes for bevy_pbr
 meshlet_processor = ["bevy_internal/meshlet_processor"]
 
-# Enable support for the ios_simulator by downgrading some rendering capabilities
-ios_simulator = ["bevy_internal/ios_simulator"]
-
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 

@@ -1062,7 +1062,7 @@ pub fn prepare_lights(
                 // NOTE: iOS Simulator is missing CubeArray support so we use Cube instead.
                 // See https://github.com/bevyengine/bevy/pull/12052 - remove if support is added.
                 #[cfg(all(
-                    not(feature = "ios_simulator"),
+                    not(target_abi = "sim"),
                     any(
                         not(feature = "webgl"),
                         not(target_arch = "wasm32"),
@@ -1071,7 +1071,7 @@ pub fn prepare_lights(
                 ))]
                 dimension: Some(TextureViewDimension::CubeArray),
                 #[cfg(any(
-                    feature = "ios_simulator",
+                    target_abi = "sim",
                     all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                 ))]
                 dimension: Some(TextureViewDimension::Cube),
