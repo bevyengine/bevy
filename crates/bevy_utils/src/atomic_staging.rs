@@ -90,7 +90,8 @@ impl<T: StagedChanges> StageOnWrite<T> {
         }
     }
 
-    /// Applies any staged changes before returning the full value with all changes applied. Immediately after this, [`any_staged`](Self::any_staged) will be false.
+    /// Applies any staged changes before returning the full value with all changes applied.
+    /// Immediately after this, [`any_staged`](Self::any_staged) will be false.
     #[inline]
     pub fn apply_staged_for_full(&mut self) -> &mut T::Cold {
         let staged = self.staged.get_mut().unwrap();
@@ -142,16 +143,17 @@ impl<T: StagedChanges> StageOnWrite<T> {
         }
     }
 
-    /// Runs different logic depending on if additional changes are already staged. This can be faster than greedily applying staged changes if there are already staged changes.
+    /// Runs different logic depending on if additional changes are already staged.
+    /// This can be faster than greedily applying staged changes if there are already staged changes.
     pub fn maybe_stage<C, S>(
         &mut self,
         for_full: impl FnOnce(&mut T::Cold) -> C,
-        for_staged: impl FnOnce(Stager<T>) -> S,
+        for_staged: impl FnOnce(&mut Stager<T>) -> S,
     ) -> MaybeStaged<C, S> {
         let staged = self.staged.get_mut().unwrap();
         let cold = &mut self.cold;
         if staged.any_staged() {
-            MaybeStaged::Staged(for_staged(Stager { cold, staged }))
+            MaybeStaged::Staged(for_staged(&mut Stager { cold, staged }))
         } else {
             MaybeStaged::Cold(for_full(cold))
         }
@@ -173,11 +175,73 @@ impl<T: StagedChanges> StageOnWrite<T> {
 impl<T: StagedChanges> AtomicStageOnWrite<T> {
     /// Gets the inner cold data if it is safe. If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     #[inline]
-    pub fn full_locked(&self) -> Option<&RwLock<T::Cold>> {
-        if self.any_staged() {
+    pub fn full_locked(&mut self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
+        if self.0.staged.read().unwrap().any_staged() {
             None
         } else {
-            Some(&self.0.cold)
+            Some(self.0.cold.write().unwrap())
+        }
+    }
+
+    /// Applies any staged changes before returning the full value with all changes applied.
+    /// Immediately after this, [`any_staged`](Self::any_staged) will be false.
+    #[inline]
+    pub fn apply_staged_for_full_locked(&mut self) -> RwLockWriteGuard<'_, T::Cold> {
+        let mut staged = self.0.staged.write().unwrap();
+        let mut cold = self.0.cold.write().unwrap();
+        if staged.any_staged() {
+            staged.apply_staged(&mut cold);
+        }
+        cold
+    }
+
+    /// Gets the inner cold data if it is safe.
+    #[inline]
+    pub fn full_non_blocking(&mut self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
+        let staged = self.0.staged.try_read().ok()?;
+        if staged.any_staged() {
+            None
+        } else {
+            self.0.cold.try_write().ok()
+        }
+    }
+
+    /// Applies any staged changes before returning the full value with all changes applied.
+    #[inline]
+    pub fn apply_staged_for_full_non_blocking(&mut self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
+        let mut cold = self.0.cold.try_write().ok()?;
+        match self.0.staged.try_write() {
+            Ok(mut staged) => {
+                if staged.any_staged() {
+                    staged.apply_staged(&mut cold);
+                }
+                Some(cold)
+            }
+            Err(_) => {
+                let staged = self.0.staged.read().unwrap();
+                if staged.any_staged() {
+                    None
+                } else {
+                    Some(cold)
+                }
+            }
+        }
+    }
+
+    /// If possible applies any staged changes. Returns true if it can guarantee there are no more staged changes.
+    #[inline]
+    pub fn apply_staged_non_blocking(&mut self) -> bool {
+        let Ok(mut staged) = self.0.staged.try_write() else {
+            return false;
+        };
+        if staged.any_staged() {
+            let Ok(mut cold) = self.0.cold.try_write() else {
+                return false;
+            };
+            staged.apply_staged(&mut cold);
+            true
+        } else {
+            false
         }
     }
 
@@ -187,74 +251,61 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         self.0.staged.read().unwrap().any_staged()
     }
 
-    /// A version of [`apply_staged_for_full`](Self::apply_staged_for_full) that locks (and may block).
-    /// Returns `None` if no changes needed to be made, and the stage could be skipped.
-    #[inline]
-    pub fn apply_staged_lock(&self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
-        let mut staged = self.0.staged.write().unwrap();
-        if staged.any_staged() {
-            let mut cold = self.0.cold.write().unwrap();
-            staged.apply_staged(&mut cold);
-            Some(cold)
-        } else {
-            None
-        }
-    }
-
-    /// A version of [`apply_staged_for_full`](Self::apply_staged_for_full) that locks and never blocks.
-    /// If a read on another thread is immediately hit, that may block, but this will not. Returns `None`
-    /// if either their were no changes to be made and the stage could be skipped, or if the operation would block.
-    #[inline]
-    pub fn apply_staged_non_blocking(&self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
-        let mut staged = self.0.staged.write().unwrap();
-        if staged.any_staged() {
-            let mut cold = self.0.cold.try_write().ok()?;
-            staged.apply_staged(&mut cold);
-            Some(cold)
-        } else {
-            None
-        }
-    }
-
     /// Constructs a [`StagerLocked`], locking internally.
     #[inline]
-    pub fn stage_lock(&self) -> StagerLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
+    pub fn stage_lock(&mut self) -> StagerLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
         StagerLocked {
             cold: self.0.cold.read().unwrap(),
             staged: self.0.staged.write().unwrap(),
         }
     }
 
-    /// Easily run a stager function to stage changes.
-    #[inline]
-    pub fn stage_scope_locked<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
-        f(&mut self.stage_lock().as_stager())
-    }
-
-    /// Easily run a stager function to stage changes. Then, try to apply those staged changes if it can do so without blocking.
-    #[inline]
-    pub fn stage_scope_locked_eager<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
-        let v = self.stage_scope_locked(f);
-        self.apply_staged_non_blocking();
-        v
-    }
-
-    /// Easily run a stager function to stage changes and return locked data.
-    #[inline]
-    pub fn stage_locked_scope<R>(
-        &self,
-        f: impl FnOnce(StagerLocked<T, RwLockReadGuard<'_, T::Cold>>) -> R,
-    ) -> R {
-        f(self.stage_lock())
-    }
-
-    /// Constructs a [`StagerLocked`], locking internally.
+    /// Constructs a [`StagedRefLocked`], locking internally.
     #[inline]
     pub fn read_lock(&self) -> StagedRefLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
         StagedRefLocked {
             cold: self.0.cold.read().unwrap(),
             staged: self.0.staged.read().unwrap(),
         }
+    }
+
+    /// Runs different logic depending on if additional changes are already staged and if using cold would block.
+    /// This *can* be faster than greedily applying staged changes if there are already staged changes.
+    pub fn maybe_stage<C, S>(
+        &mut self,
+        for_full: impl FnOnce(&mut T::Cold) -> C,
+        for_staged: impl FnOnce(&mut Stager<T>) -> S,
+    ) -> MaybeStaged<C, S> {
+        let mut staged = self.0.staged.write().unwrap();
+        if staged.any_staged() {
+            let cold = self.0.cold.read().unwrap();
+            MaybeStaged::Staged(for_staged(&mut Stager {
+                cold: &cold,
+                staged: &mut staged,
+            }))
+        } else if let Ok(mut cold) = self.0.cold.try_write() {
+            MaybeStaged::Cold(for_full(&mut cold))
+        } else {
+            let cold = self.0.cold.read().unwrap();
+            MaybeStaged::Staged(for_staged(&mut Stager {
+                cold: &cold,
+                staged: &mut staged,
+            }))
+        }
+    }
+
+    /// Easily run a stager function to stage changes.
+    #[inline]
+    pub fn stage_scope_locked<R>(&mut self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
+        f(&mut self.stage_lock().as_stager())
+    }
+
+    /// Easily run a stager function to stage changes. Then, tries to apply those changes if doing so wouldn't lock.
+    #[inline]
+    pub fn stage_scope_locked_eager<R>(&mut self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
+        let result = self.stage_scope_locked(f);
+        self.apply_staged_non_blocking();
+        result
     }
 
     /// Easily run a [`StagedRef`] function.
