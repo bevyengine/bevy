@@ -111,6 +111,11 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.entity_cloner.is_recursive
     }
 
+    /// Returns this context's [`EntityMapper`].
+    pub fn entity_mapper(&mut self) -> &mut dyn EntityMapper {
+        self.mapper
+    }
+
     /// Returns a reference to the component on the source entity.
     ///
     /// Will return `None` if `ComponentId` of requested component does not match `ComponentId` of source component
@@ -437,7 +442,7 @@ impl EntityCloner {
         world: &mut World,
         source: Entity,
         mapper: &mut dyn EntityMapper,
-    ) {
+    ) -> Entity {
         let target = mapper.get_mapped(source);
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
         let bump = Bump::new();
@@ -522,6 +527,7 @@ impl EntityCloner {
         // - All `component_ids` are from the same world as `target` entity
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe { bundle_scratch.write(world, target) };
+        target
     }
 
     /// Clones and inserts components from the `source` entity into `target` entity using the stored configuration.
@@ -540,9 +546,10 @@ impl EntityCloner {
     /// by [`RelationshipTarget`](crate::relationship::RelationshipTarget) components with
     /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN)
     #[track_caller]
-    pub fn spawn_clone(&mut self, world: &mut World, source: Entity) {
+    pub fn spawn_clone(&mut self, world: &mut World, source: Entity) -> Entity {
         let target = world.spawn_empty().id();
         self.clone_entity(world, source, target);
+        target
     }
 
     /// Clones the entity into whatever entity `mapper` chooses for it.
@@ -552,8 +559,8 @@ impl EntityCloner {
         world: &mut World,
         source: Entity,
         mapper: &mut dyn EntityMapper,
-    ) {
-        self.clone_entity_internal(world, source, mapper);
+    ) -> Entity {
+        let target = self.clone_entity_internal(world, source, mapper);
         loop {
             let queued = self.clone_queue.borrow_mut().pop_front();
             if let Some(queued) = queued {
@@ -564,6 +571,7 @@ impl EntityCloner {
                 break;
             }
         }
+        target
     }
 
     fn is_cloning_allowed(&self, component: &ComponentId) -> bool {
@@ -807,14 +815,17 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
-        entity::EntityCloner,
+        entity::{hash_map::EntityHashMap, Entity, EntityCloner},
         hierarchy::{ChildOf, Children},
+        reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
+        resource::Resource,
         system::Commands,
-        world::World,
+        world::{FromWorld, World},
     };
     use alloc::vec::Vec;
     use bevy_ecs_macros::require;
     use bevy_ptr::OwningPtr;
+    use bevy_reflect::Reflect;
     use core::{alloc::Layout, ops::Deref};
 
     #[cfg(feature = "bevy_reflect")]
@@ -1277,5 +1288,38 @@ mod tests {
             world.entity(root).get::<Children>().unwrap().deref(),
             &[child1, child2]
         );
+    }
+
+    #[test]
+    fn clone_with_reflect_from_world() {
+        #[derive(Component, Reflect, PartialEq, Eq, Debug)]
+        #[reflect(Component, FromWorld, from_reflect = false)]
+        struct SomeRef(#[entities] Entity);
+
+        #[derive(Resource)]
+        struct FromWorldCalled(bool);
+
+        impl FromWorld for SomeRef {
+            fn from_world(world: &mut World) -> Self {
+                world.insert_resource(FromWorldCalled(true));
+                SomeRef(Entity::PLACEHOLDER)
+            }
+        }
+        let mut world = World::new();
+        let registry = AppTypeRegistry::default();
+        registry.write().register::<SomeRef>();
+        world.insert_resource(registry);
+
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn(SomeRef(a)).id();
+        let d = world.spawn_empty().id();
+        let mut map = EntityHashMap::<Entity>::new();
+        map.insert(a, b);
+        map.insert(c, d);
+
+        let cloned = EntityCloner::default().clone_entity_mapped(&mut world, c, &mut map);
+        assert_eq!(*world.entity(cloned).get::<SomeRef>().unwrap(), SomeRef(b));
+        assert!(world.resource::<FromWorldCalled>().0);
     }
 }

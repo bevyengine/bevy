@@ -2230,7 +2230,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
 pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentCloneCtx) {
-    let Some(registry) = ctx.type_registry() else {
+    let Some(app_registry) = ctx.type_registry().cloned() else {
         return;
     };
     let Some(source_component_reflect) = ctx.read_source_component_reflect() else {
@@ -2239,16 +2239,24 @@ pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentC
     let component_info = ctx.component_info();
     // checked in read_source_component_reflect
     let type_id = component_info.type_id().unwrap();
-    let registry = registry.read();
+    let registry = app_registry.read();
 
     // Try to clone using ReflectFromReflect
     if let Some(reflect_from_reflect) =
         registry.get_type_data::<bevy_reflect::ReflectFromReflect>(type_id)
     {
-        if let Some(component) =
+        if let Some(mut component) =
             reflect_from_reflect.from_reflect(source_component_reflect.as_partial_reflect())
         {
+            if let Some(reflect_component) =
+                registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
+            {
+                reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
+                    *entity = ctx.entity_mapper().get_mapped(*entity);
+                });
+            }
             drop(registry);
+
             ctx.write_target_component_reflect(component);
             return;
         }
@@ -2268,14 +2276,36 @@ pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentC
         registry.get_type_data::<crate::reflect::ReflectFromWorld>(type_id)
     {
         let reflect_from_world = reflect_from_world.clone();
+        let mut mapped_entities = Vec::new();
+        if let Some(reflect_component) =
+            registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
+        {
+            reflect_component.visit_entities(&*source_component_reflect, &mut |entity| {
+                mapped_entities.push(entity);
+            });
+        }
         let source_component_cloned = source_component_reflect.clone_value();
         let component_layout = component_info.layout();
         let target = ctx.target();
         let component_id = ctx.component_id();
+        for entity in mapped_entities.iter_mut() {
+            *entity = ctx.entity_mapper().get_mapped(*entity);
+        }
+        drop(registry);
         commands.queue(move |world: &mut World| {
             let mut component = reflect_from_world.from_world(world);
             assert_eq!(type_id, (*component).type_id());
             component.apply(source_component_cloned.as_partial_reflect());
+            if let Some(reflect_component) = app_registry
+                .read()
+                .get_type_data::<crate::reflect::ReflectComponent>(type_id)
+            {
+                let mut i = 0;
+                reflect_component.visit_entities_mut(&mut *component, &mut |entity| {
+                    *entity = mapped_entities[i];
+                    i += 1;
+                });
+            }
             // SAFETY:
             // - component_id is from the same world as target entity
             // - component is a valid value represented by component_id

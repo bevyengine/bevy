@@ -115,6 +115,8 @@ pub struct ReflectComponentFns {
     pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
+    /// Function pointer implementing [`ReflectComponent::visit_entities()`].
+    pub visit_entities: fn(&dyn Reflect, &mut dyn FnMut(Entity)),
     /// Function pointer implementing [`ReflectComponent::visit_entities_mut()`].
     pub visit_entities_mut: fn(&mut dyn Reflect, &mut dyn FnMut(&mut Entity)),
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
@@ -282,6 +284,11 @@ impl ReflectComponent {
         &self.0
     }
 
+    /// Calls a dynamic version of [`Component::visit_entities`].
+    pub fn visit_entities(&self, component: &dyn Reflect, func: &mut dyn FnMut(Entity)) {
+        (self.0.visit_entities)(component, func);
+    }
+
     /// Calls a dynamic version of [`Component::visit_entities_mut`].
     pub fn visit_entities_mut(
         &self,
@@ -378,6 +385,10 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             register_component: |world: &mut World| -> ComponentId {
                 world.register_component::<C>()
+            },
+            visit_entities: |reflect: &dyn Reflect, func: &mut dyn FnMut(Entity)| {
+                let component = reflect.downcast_ref::<C>().unwrap();
+                Component::visit_entities(component, func);
             },
             visit_entities_mut: |reflect: &mut dyn Reflect, func: &mut dyn FnMut(&mut Entity)| {
                 let component = reflect.downcast_mut::<C>().unwrap();
