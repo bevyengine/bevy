@@ -2,7 +2,7 @@
 //! See [`StageOnWrite`] as a starting point.
 
 use bevy_platform_support::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
-use core::ops::Deref;
+use core::ops::{Deref, DerefMut};
 
 #[cfg(feature = "alloc")]
 use bevy_platform_support::sync::Arc;
@@ -22,6 +22,27 @@ pub trait StagedChanges: Default {
 
 /// A trait that signifies that it holds an immutable reference to a cold type (ie. [`StagedChanges::Cold`]).
 pub trait ColdStorage<T: StagedChanges>: Deref<Target = T::Cold> {}
+
+pub trait StagableWritesTypes {
+    type Staging: StagedChanges;
+    type ColdStorage<'a>: Deref<Target = <Self::Staging as StagedChanges>::Cold>
+    where
+        <Self::Staging as StagedChanges>::Cold: 'a;
+}
+
+pub trait StagableWrites: StagableWritesTypes {
+    /// Allows raw access to reading cold storage, which may still have unapplied staged changes that make this out of date.
+    /// Only use this if you really know what you are doing.
+    /// This must never deadlock if there is already a [`Self::ColdStorage`] for this value on this thread.
+    #[doc(hidden)]
+    fn raw_read_cold(&self) -> Self::ColdStorage<'_>;
+
+    /// Allows raw access to reading staged changes, which may be missing context of cold storage.
+    /// Only use this if you really know what you are doing.
+    /// This must never deadlock if there is already a read for this value on this thread.
+    #[doc(hidden)]
+    fn raw_read_staged(&self) -> RwLockReadGuard<'_, Self::Staging>;
+}
 
 /// A struct that allows staging changes while reading from cold storage.
 /// Generally, staging changes should be implemented on this type.
@@ -44,16 +65,18 @@ pub struct StagedRef<'a, T: StagedChanges> {
 
 /// A locked version of [`Stager`].
 /// Use this to hold a lock guard while using [`StagerLocked::as_stager`] or similar.
-pub struct StagerLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
-    cold: C,
-    staged: RwLockWriteGuard<'a, T>,
+pub struct StagerLocked<'a, T: StagableWrites> {
+    inner: &'a T,
+    pub cold: T::ColdStorage<'a>,
+    pub staged: RwLockWriteGuard<'a, T::Staging>,
 }
 
 /// A locked version of [`StagedRef`].
 /// Use this to hold a lock guard while using [`StagerLocked::as_staged_ref`].
-pub struct StagedRefLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
-    cold: C,
-    staged: RwLockReadGuard<'a, T>,
+pub struct StagedRefLocked<'a, T: StagableWrites> {
+    inner: &'a T,
+    pub cold: T::ColdStorage<'a>,
+    pub staged: RwLockReadGuard<'a, T::Staging>,
 }
 
 /// A general purpose enum for representing data that may or may not need to be staged.
@@ -112,6 +135,44 @@ struct AtomicStageOnWriteInner<T: StagedChanges> {
 #[derive(Clone)]
 pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
 
+impl<T: StagedChanges> StagableWritesTypes for StageOnWrite<T> {
+    type Staging = T;
+
+    type ColdStorage<'a>
+        = &'a T::Cold
+    where
+        T::Cold: 'a;
+}
+
+impl<T: StagedChanges> StagableWritesTypes for AtomicStageOnWrite<T> {
+    type Staging = T;
+
+    type ColdStorage<'a>
+        = RwLockReadGuard<'a, T::Cold>
+    where
+        T::Cold: 'a;
+}
+
+impl<T: StagedChanges> StagableWrites for StageOnWrite<T> {
+    fn raw_read_cold(&self) -> Self::ColdStorage<'_> {
+        &self.cold
+    }
+
+    fn raw_read_staged(&self) -> RwLockReadGuard<'_, Self::Staging> {
+        self.staged.read().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+impl<T: StagedChanges> StagableWrites for AtomicStageOnWrite<T> {
+    fn raw_read_cold(&self) -> Self::ColdStorage<'_> {
+        self.0.cold.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn raw_read_staged(&self) -> RwLockReadGuard<'_, Self::Staging> {
+        self.0.staged.read().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
 impl<T: StagedChanges> StageOnWrite<T> {
     /// Constructs a new [`StageOnWrite`] with the given value and no staged changes.
     pub fn new(value: T::Cold) -> Self {
@@ -152,7 +213,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 
     /// Returns true if and only if there are staged changes that could be applied.
-    /// If you only have a immutable reference, consider using [`read_scope_locked`] with [`StagedChanges::any_staged`].
+    /// If you only have a immutable reference, consider using [`read_scope_locked`](Self::read_scope_locked) with [`StagedChanges::any_staged`].
     #[inline]
     pub fn any_staged(&mut self) -> bool {
         self.staged
@@ -179,8 +240,9 @@ impl<T: StagedChanges> StageOnWrite<T> {
     ///
     /// This deadlocks if there are any other lock guards on this thread for this value.
     #[inline]
-    pub fn stage_lock(&self) -> StagerLocked<'_, T, &T::Cold> {
+    pub fn stage_lock(&self) -> StagerLocked<'_, Self> {
         StagerLocked {
+            inner: self,
             cold: &self.cold,
             staged: self.staged.write().unwrap_or_else(PoisonError::into_inner),
         }
@@ -204,8 +266,9 @@ impl<T: StagedChanges> StageOnWrite<T> {
     ///
     /// This deadlocks if there are any write lock guards on this thread for this value.
     #[inline]
-    pub fn read_lock(&self) -> StagedRefLocked<'_, T, &T::Cold> {
+    pub fn read_lock(&self) -> StagedRefLocked<'_, Self> {
         StagedRefLocked {
+            inner: self,
             cold: &self.cold,
             staged: self.staged.read().unwrap_or_else(PoisonError::into_inner),
         }
@@ -361,8 +424,9 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
 
     /// Constructs a [`StagerLocked`], locking internally.
     #[inline]
-    pub fn stage_lock(&mut self) -> StagerLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
+    pub fn stage_lock(&mut self) -> StagerLocked<'_, Self> {
         StagerLocked {
+            inner: self,
             cold: self.0.cold.read().unwrap_or_else(PoisonError::into_inner),
             staged: self
                 .0
@@ -374,8 +438,9 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
 
     /// Constructs a [`StagedRefLocked`], locking internally.
     #[inline]
-    pub fn read_lock(&self) -> StagedRefLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
+    pub fn read_lock(&self) -> StagedRefLocked<'_, Self> {
         StagedRefLocked {
+            inner: self,
             cold: self.0.cold.read().unwrap_or_else(PoisonError::into_inner),
             staged: self.0.staged.read().unwrap_or_else(PoisonError::into_inner),
         }
@@ -432,10 +497,10 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
     }
 }
 
-impl<T: StagedChanges, C: ColdStorage<T>> StagerLocked<'_, T, C> {
+impl<'a, T: StagableWrites> StagerLocked<'a, T> {
     /// Allows a user to view this as a [`Stager`].
     #[inline]
-    pub fn as_stager(&mut self) -> Stager<'_, T> {
+    pub fn as_stager(&mut self) -> Stager<'_, T::Staging> {
         Stager {
             cold: &self.cold,
             staged: &mut self.staged,
@@ -444,22 +509,46 @@ impl<T: StagedChanges, C: ColdStorage<T>> StagerLocked<'_, T, C> {
 
     /// Allows a user to view this as a [`StagedRef`].
     #[inline]
-    pub fn as_staged_ref(&self) -> StagedRef<'_, T> {
+    pub fn as_staged_ref(&self) -> StagedRef<'_, T::Staging> {
         StagedRef {
             cold: &self.cold,
             staged: &self.staged,
         }
     }
+
+    /// Releases the lock, returning the underlying [`StagableWrites`] structure.
+    #[inline]
+    pub fn release(self) -> &'a T {
+        self.inner
+    }
 }
 
-impl<T: StagedChanges, C: ColdStorage<T>> StagedRefLocked<'_, T, C> {
+impl<'a, T: StagableWrites> StagedRefLocked<'a, T> {
     /// Allows a user to view this as a [`StagedRef`].
     #[inline]
-    pub fn as_staged_ref(&self) -> StagedRef<'_, T> {
+    pub fn as_staged_ref(&self) -> StagedRef<'_, T::Staging> {
         StagedRef {
             cold: &self.cold,
             staged: &self.staged,
         }
+    }
+
+    /// Releases the lock, returning the underlying [`StagableWrites`] structure.
+    #[inline]
+    pub fn release(self) -> &'a T {
+        self.inner
+    }
+
+    /// Allows returning a reference to the locked staged data without releasing its lock.
+    #[inline]
+    pub fn get_staged_guard(&self) -> RwLockReadGuard<'a, T::Staging> {
+        self.inner.raw_read_staged()
+    }
+
+    /// Allows returning a reference to the cold data without releasing its lock (it it has one).
+    #[inline]
+    pub fn get_cold_guard(&self) -> T::ColdStorage<'a> {
+        self.inner.raw_read_cold()
     }
 }
 
@@ -468,6 +557,16 @@ impl<'a, T: StagedChanges> Clone for StagedRef<'a, T> {
         Self {
             staged: self.staged,
             cold: self.cold,
+        }
+    }
+}
+
+impl<'a, T: StagableWrites> Clone for StagedRefLocked<'a, T> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner,
+            staged: self.get_staged_guard(),
+            cold: self.get_cold_guard(),
         }
     }
 }
@@ -485,6 +584,26 @@ where
 impl<T: StagedChanges> ColdStorage<T> for RwLockReadGuard<'_, T::Cold> {}
 
 impl<T: StagedChanges> ColdStorage<T> for &'_ T::Cold {}
+
+impl<C: Deref, S: Deref<Target = C::Target>> Deref for MaybeStaged<C, S> {
+    type Target = C::Target;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            MaybeStaged::Cold(c) => c,
+            MaybeStaged::Staged(s) => s,
+        }
+    }
+}
+
+impl<C: DerefMut, S: DerefMut<Target = C::Target>> DerefMut for MaybeStaged<C, S> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        match self {
+            MaybeStaged::Cold(c) => c,
+            MaybeStaged::Staged(s) => s,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -519,5 +638,254 @@ mod tests {
         data.stage_scope_locked(|stager| stager.staged.added.push(5));
         let full = data.apply_staged_for_full();
         assert_eq!(&full[..], &[5]);
+    }
+}
+
+mod example {
+    use core::mem::take;
+    use core::ops::{Deref, DerefMut};
+    use std::sync::RwLockReadGuard;
+
+    use crate as bevy_utils;
+    use bevy_platform_support::collections::HashMap;
+    use bevy_platform_support::prelude::String;
+    use bevy_utils::staging::{MaybeStaged, StagedChanges, StagedRef};
+
+    use super::{ColdStorage, StagableWrites, StageOnWrite, StagedRefLocked, Stager};
+
+    /// Stores some arbitrary player data.
+    #[derive(Debug, Clone)]
+    struct PlayerData {
+        name: String,
+        secs_in_game: u32,
+        id: PlayerId,
+    }
+
+    /// A unique id per player
+    #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
+    struct PlayerId(u32);
+
+    /// The standard collection of players
+    #[derive(Default, Debug)]
+    struct Players(HashMap<PlayerId, PlayerData>);
+
+    /// When a change is made to a player
+    #[derive(Default, Debug)]
+    struct StagedPlayerChanges {
+        replacements: HashMap<PlayerId, PlayerData>,
+        additional_time_played: HashMap<PlayerId, u32>,
+    }
+
+    impl StagedChanges for StagedPlayerChanges {
+        type Cold = Players;
+
+        fn apply_staged(&mut self, storage: &mut Self::Cold) {
+            for replaced in self.replacements.drain() {
+                storage.0.insert(replaced.0, replaced.1);
+            }
+            for (id, new_time) in self.additional_time_played.iter_mut() {
+                if let Some(player) = storage.0.get_mut(id) {
+                    player.secs_in_game += take(new_time);
+                }
+            }
+        }
+
+        fn any_staged(&self) -> bool {
+            !self.replacements.is_empty() || !self.additional_time_played.is_empty()
+        }
+    }
+
+    /// Allows read only access to player data.
+    trait PlayerAccess {
+        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>>;
+        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32>;
+    }
+
+    impl PlayerAccess for Players {
+        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
+            self.0.get(&id).map(|player| player.name.as_str())
+        }
+
+        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
+            self.0.get(&id).map(|player| player.secs_in_game)
+        }
+    }
+
+    impl PlayerAccess for StagedRef<'_, StagedPlayerChanges> {
+        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
+            if let Some(staged) = self.staged.replacements.get(&id) {
+                Some(MaybeStaged::Staged(staged.name.as_str()))
+            } else {
+                self.cold.get_name(id).map(MaybeStaged::Cold)
+            }
+        }
+
+        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
+            let base = if let Some(staged) = self.staged.replacements.get(&id) {
+                Some(staged.secs_in_game)
+            } else {
+                self.cold.0.get(&id).map(|player| player.secs_in_game)
+            }?;
+            let additional = self
+                .staged
+                .additional_time_played
+                .get(&id)
+                .copied()
+                .unwrap_or_default();
+            Some(base + additional)
+        }
+    }
+
+    /// Allows read only access to player data.
+    trait PlayerAccessMut {
+        fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>>;
+        fn add_secs_in_game(&mut self, id: PlayerId, secs: u32);
+        fn add(&mut self, name: String) -> PlayerId;
+    }
+
+    impl PlayerAccessMut for Players {
+        fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>> {
+            self.0.get_mut(&id).map(|player| player.name.as_mut_str())
+        }
+
+        fn add_secs_in_game(&mut self, id: PlayerId, secs: u32) {
+            if let Some(player) = self.0.get_mut(&id) {
+                player.secs_in_game += secs;
+            }
+        }
+
+        fn add(&mut self, name: String) -> PlayerId {
+            let id = PlayerId(self.0.len() as u32);
+            self.0.insert(
+                id,
+                PlayerData {
+                    name,
+                    secs_in_game: 0,
+                    id,
+                },
+            );
+            id
+        }
+    }
+
+    impl PlayerAccessMut for Stager<'_, StagedPlayerChanges> {
+        fn get_name_mut(&mut self, id: PlayerId) -> Option<impl DerefMut<Target = str>> {
+            if !self.cold.0.contains_key(&id) && !self.staged.replacements.contains_key(&id) {
+                return None;
+            }
+
+            let player = self
+                .staged
+                .replacements
+                .entry(id)
+                .or_insert_with(|| self.cold.0.get(&id).cloned().unwrap());
+            Some(player.name.as_mut_str())
+        }
+
+        fn add_secs_in_game(&mut self, id: PlayerId, secs: u32) {
+            *self.staged.additional_time_played.entry(id).or_default() += secs;
+        }
+
+        fn add(&mut self, name: String) -> PlayerId {
+            let id = PlayerId((self.cold.0.len() + self.staged.replacements.len()) as u32);
+            self.staged.replacements.insert(
+                id,
+                PlayerData {
+                    name,
+                    secs_in_game: 0,
+                    id,
+                },
+            );
+            id
+        }
+    }
+
+    struct LockedNameStagedRef<'a> {
+        staged: RwLockReadGuard<'a, StagedPlayerChanges>,
+        // must be valid
+        id: PlayerId,
+    }
+
+    struct LockedNameColdRef<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> {
+        cold: T::ColdStorage<'a>,
+        // must be valid
+        id: PlayerId,
+    }
+
+    impl Deref for LockedNameStagedRef<'_> {
+        type Target = str;
+
+        fn deref(&self) -> &Self::Target {
+            self.staged
+                .replacements
+                .get(&self.id)
+                .unwrap()
+                .name
+                .as_str()
+        }
+    }
+
+    impl<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> Deref for LockedNameColdRef<'a, T> {
+        type Target = str;
+
+        fn deref(&self) -> &Self::Target {
+            self.cold.deref().0.get(&self.id).unwrap().name.as_str()
+        }
+    }
+
+    impl<T: StagableWrites<Staging = StagedPlayerChanges>> PlayerAccess for StagedRefLocked<'_, T> {
+        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
+            let this = self.clone();
+            if this.staged.replacements.contains_key(&id) {
+                Some(MaybeStaged::Staged(LockedNameStagedRef {
+                    staged: this.get_staged_guard(),
+                    id,
+                }))
+            } else if this.cold.0.contains_key(&id) {
+                Some(MaybeStaged::Cold(LockedNameColdRef::<T> {
+                    cold: this.get_cold_guard(),
+                    id,
+                }))
+            } else {
+                None
+            }
+        }
+
+        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
+            self.as_staged_ref().get_secs_in_game(id)
+        }
+    }
+
+    pub struct PlayerRegistry {
+        players: StageOnWrite<StagedPlayerChanges>,
+    }
+
+    impl PlayerRegistry {
+        /// Runs relatively rarely
+        pub fn player_joined(&self, name: String) -> PlayerId {
+            self.players.stage_scope_locked(|stager| stager.add(name))
+        }
+
+        /// Runs very often
+        pub fn get_name<'a>(&'a self, id: PlayerId) -> Option<impl Deref<Target = str> + 'a> {
+            {
+                let this = self.players.read_lock();
+                if this.staged.replacements.contains_key(&id) {
+                    Some(MaybeStaged::Staged(LockedNameStagedRef {
+                        staged: this.get_staged_guard(),
+                        id,
+                    }))
+                } else if this.cold.0.contains_key(&id) {
+                    Some(MaybeStaged::Cold(LockedNameColdRef::<
+                        StageOnWrite<StagedPlayerChanges>,
+                    > {
+                        cold: this.get_cold_guard(),
+                        id,
+                    }))
+                } else {
+                    None
+                }
+            }
+        }
     }
 }
