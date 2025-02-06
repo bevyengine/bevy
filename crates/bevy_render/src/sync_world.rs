@@ -153,7 +153,7 @@ unsafe impl TrustedEntityBorrow for RenderEntity {}
 /// Component added on the render world entities to keep track of the corresponding main world entity.
 ///
 /// Can also be used as a newtype wrapper for main world entities.
-#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Component, Deref, Copy, Clone, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
 pub struct MainEntity(Entity);
 impl MainEntity {
     #[inline]
