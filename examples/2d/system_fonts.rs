@@ -4,7 +4,7 @@
 //! font.
 //! Pressing the spacebar key will select the next font.
 
-use bevy::{prelude::*, text::FontLibrary, utils::HashSet};
+use bevy::{platform_support::collections::HashSet, prelude::*, text::FontLibrary};
 
 fn main() {
     App::new()
