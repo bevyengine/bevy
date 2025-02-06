@@ -112,13 +112,14 @@
 //!
 //! To provide the maximum iteration speed, the indexable component is fragmented, meaning each unique
 //! value is stored in its own archetype.
+//! Archetypes are reused when values are no longer in use;
+//! and so the cost paid scales with the maximum number of unique values alive _simultaneously_.
 //! This makes iterating through a subset of the total archetypes faster, but decreases the performance
 //! of iterating all archetypes by a small amount.
-//! 
-//! This also has the potential to multiply the number of unused [`Archetypes`](crate::archetype::Archetype)
-//! by the number of _simultaneously living_ unique values within an index.
-//! Since Bevy does not currently have a mechanism for cleaning up [`Archetypes`](crate::archetype::Archetype)
-//! that are no longer used, this can present itself like a memory leak.
+//!
+//! This also has the potential to multiply the number of unused [`Archetypes`](crate::archetype::Archetype).
+//! Since Bevy does not currently have a mechanism for cleaning up unused [`Archetypes`](crate::archetype::Archetype),
+//! this can present itself like a memory leak.
 //! If you find your application consuming substantially more memory when using indexing, please
 //! [open an issue on GitHub](https://github.com/bevyengine/bevy/issues/new/choose) to help us
 //! improve memory performance in real-world applications.
