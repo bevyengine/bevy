@@ -1,3 +1,7 @@
+#![expect(
+    unsafe_code,
+    reason = "This module marks some items as unsafe to alert users to deadlock potential."
+)]
 //! Provides an abstracted system for staging modifications to data structures that rarely change.
 //! See [`StageOnWrite`] as a starting point.
 //!
@@ -373,11 +377,11 @@ pub trait StagableWritesCore: StagableWritesTypes {
 
     /// Constructs a [`StagerLocked`], locking internally.
     ///
-    /// # Deadlocks
+    /// # Safety
     ///
-    /// This deadlocks if there are any other lock guards on this thread for this value.
+    /// There must not be any other lock guards on this thread for this value. Otherwise it deadlocks.
     #[inline]
-    fn stage_lock(&self) -> StagerLocked<'_, Self> {
+    unsafe fn stage_lock_unsafe(&self) -> StagerLocked<'_, Self> {
         StagerLocked {
             inner: self,
             cold: self.raw_read_cold(),
@@ -397,11 +401,11 @@ pub trait StagableWritesCore: StagableWritesTypes {
 
     /// Constructs a [`StagedRefLocked`], locking internally.
     ///
-    /// # Deadlocks
+    /// # Safety
     ///
-    /// This deadlocks if there are any write lock guards on this thread for this value.
+    /// There must not be any write lock guards on this thread for this value. Otherwise it deadlocks.
     #[inline]
-    fn read_lock(&self) -> StagedRefLocked<'_, Self> {
+    unsafe fn read_lock_unsafe(&self) -> StagedRefLocked<'_, Self> {
         StagedRefLocked {
             inner: self,
             cold: self.raw_read_cold(),
@@ -423,30 +427,45 @@ pub trait StagableWritesCore: StagableWritesTypes {
             MaybeStaged::Cold(for_full(cold))
         }
     }
+}
+
+/// This trait generallizes the stage on write concept.
+pub trait StagableWrites: Deref
+where
+    Self::Target: StagableWritesCore,
+{
+    /// Exactly the same as [`StagableWritesCore::stage_lock_usafe`]
+    #[inline]
+    fn stage_lock(&mut self) -> StagerLocked<'_, Self::Target> {
+        // Safety: Because we have exclusive, mutable access, this is safe.
+        unsafe { self.stage_lock_unsafe() }
+    }
+
+    /// Exactly the same as [`StagableWritesCore::read_lock_unsafe`]
+    #[inline]
+    fn read_lock(&self) -> StagedRefLocked<'_, Self::Target> {
+        // Safety: Because we have exclusive, mutable access, this is safe.
+        unsafe { self.read_lock_unsafe() }
+    }
 
     /// Easily run a stager function to stage changes.
-    ///
-    /// # Deadlocks
-    ///
-    /// This deadlocks if there are any other lock guards on this thread for this value.
     #[inline]
-    fn stage_scope_locked<R>(&self, f: impl FnOnce(&mut Stager<Self::Staging>) -> R) -> R {
+    fn stage_scope_locked<R>(
+        &mut self,
+        f: impl FnOnce(&mut Stager<<Self::Target as StagableWritesTypes>::Staging>) -> R,
+    ) -> R {
         f(&mut self.stage_lock().as_stager())
     }
 
     /// Easily run a [`StagedRef`] function.
-    ///
-    /// # Deadlocks
-    ///
-    /// This deadlocks if there are any write lock guards on this thread for this value.
     #[inline]
-    fn read_scope_locked<R>(&self, f: impl FnOnce(&StagedRef<Self::Staging>) -> R) -> R {
+    fn read_scope_locked<R>(
+        &mut self,
+        f: impl FnOnce(&StagedRef<<Self::Target as StagableWritesTypes>::Staging>) -> R,
+    ) -> R {
         f(&self.read_lock().as_staged_ref())
     }
 }
-
-/// This trait generallizes the stage on write concept.
-pub trait StagableWrites: StagableWritesTypes {}
 
 /// A struct that allows staging changes while reading from cold storage.
 /// Generally, staging changes should be implemented on this type.
@@ -765,7 +784,11 @@ impl<T: StagedChanges> AtomicStageOnWriteInner<T> {
 
     /// Runs different logic depending on if additional changes are already staged and if using cold directly would block.
     /// This *can* be faster than greedily applying staged changes if there are no staged changes and no reads from cold.
-    pub fn maybe_stage<C, S>(
+    ///
+    /// # Safety
+    ///
+    /// There must not be any other lock guards for this value on this thread. Otherwise, this will deadlock.
+    pub unsafe fn maybe_stage_unsafe<C, S>(
         &self,
         for_full: impl FnOnce(&mut T::Cold) -> C,
         for_staged: impl FnOnce(&mut Stager<T>) -> S,
@@ -788,14 +811,14 @@ impl<T: StagedChanges> AtomicStageOnWriteInner<T> {
         }
     }
 
-    /// Easily run a stager function to stage changes.
-    /// Then, tries to apply those changes if doing so wouldn't lock.
-    #[inline]
-    pub fn stage_scope_locked_eager<R>(&mut self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
-        let result = self.stage_scope_locked(f);
-        self.apply_staged_non_blocking();
-        result
-    }
+    // /// Easily run a stager function to stage changes.
+    // /// Then, tries to apply those changes if doing so wouldn't lock.
+    // #[inline]
+    // pub fn stage_scope_locked_eager<R>(&self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
+    //     let result = self.stage_scope_locked(f);
+    //     self.apply_staged_non_blocking();
+    //     result
+    // }
 }
 
 impl<'a, T: StagableWritesCore> StagerLocked<'a, T> {
