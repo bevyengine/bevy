@@ -5,7 +5,7 @@ use core::ops::Deref;
 use bevy_platform_support::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
-pub trait StagedChanges {
+pub trait StagedChanges: Default {
     /// The more compact data structure that these changes compact into.
     type Cold;
 
@@ -89,6 +89,14 @@ struct AtomicStageOnWriteInner<T: StagedChanges> {
 pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
 
 impl<T: StagedChanges> StageOnWrite<T> {
+    /// Constructs a new [`StageOnWrite`] with the given value and no staged changes.
+    pub fn new(value: T::Cold) -> Self {
+        Self {
+            cold: value,
+            staged: RwLock::default(),
+        }
+    }
+
     /// Gets the inner cold data if it is safe. If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     #[inline]
     pub fn full(&mut self) -> Option<&mut T::Cold> {
@@ -183,6 +191,14 @@ impl<T: StagedChanges> StageOnWrite<T> {
 }
 
 impl<T: StagedChanges> AtomicStageOnWrite<T> {
+    /// Constructs a new [`AtomicStageOnWrite`] with the given value and no staged changes.
+    pub fn new(value: T::Cold) -> Self {
+        Self(Arc::new(AtomicStageOnWriteInner {
+            cold: RwLock::new(value),
+            staged: RwLock::default(),
+        }))
+    }
+
     /// Gets the inner cold data if it is safe. If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     ///
     /// Note that this **Blocks**, so generally prefer [`full_non_blocking`](Self::full_non_blocking).
@@ -366,6 +382,15 @@ impl<'a, T: StagedChanges> Clone for StagedRef<'a, T> {
             staged: self.staged,
             cold: self.cold,
         }
+    }
+}
+
+impl<T: StagedChanges> Default for AtomicStageOnWrite<T>
+where
+    T::Cold: Default,
+{
+    fn default() -> Self {
+        Self::new(T::Cold::default())
     }
 }
 
