@@ -11,10 +11,6 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            brightness: 1000.,
-            ..default()
-        })
         .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, update)
@@ -24,6 +20,7 @@ fn main() {
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
@@ -36,6 +33,10 @@ fn setup(
         Msaa::Off,
         ScreenSpaceAmbientOcclusion::default(),
         TemporalAntiAliasing::default(),
+        EnvironmentMapLight {
+            intensity: 1000.0,
+            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+        },
     ));
 
     let material = materials.add(StandardMaterial {
