@@ -1,4 +1,5 @@
-//! Provides an abstracted system for staging modifications to data structures that rarely change. See [`StageOnWrite`] as a starting point.
+//! Provides an abstracted system for staging modifications to data structures that rarely change.
+//! See [`StageOnWrite`] as a starting point.
 
 use crate::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use core::ops::Deref;
@@ -11,17 +12,19 @@ pub trait StagedChanges: Default {
     /// The more compact data structure that these changes compact into.
     type Cold;
 
-    /// This applies these changes to the passed [`Cold`](Self::Cold). When this is done, there should be no more staged changes, and [`any_staged`](Self::any_staged) should be false.
+    /// This applies these changes to the passed [`Cold`](Self::Cold).
+    /// When this is done, there should be no more staged changes, and [`any_staged`](Self::any_staged) should be `false`.
     fn apply_staged(&mut self, storage: &mut Self::Cold);
 
-    /// Returns true if and only if there are staged changes that could be applied.
+    /// Returns `true` if and only if there are staged changes that could be applied.
     fn any_staged(&self) -> bool;
 }
 
 /// A trait that signifies that it holds an immutable reference to a cold type (ie. [`StagedChanges::Cold`]).
 pub trait ColdStorage<T: StagedChanges>: Deref<Target = T::Cold> {}
 
-/// A struct that allows staging changes while reading from cold storage. Generally, staging changes should be implemented on this type.
+/// A struct that allows staging changes while reading from cold storage.
+/// Generally, staging changes should be implemented on this type.
 pub struct Stager<'a, T: StagedChanges> {
     /// The storage that is read optimized.
     pub cold: &'a T::Cold,
@@ -29,7 +32,8 @@ pub struct Stager<'a, T: StagedChanges> {
     pub staged: &'a mut T,
 }
 
-/// A struct that allows accessing changes while reading from cold storage. Generally, reading data should be implemented on this type.
+/// A struct that allows accessing changes while reading from cold storage.
+/// Generally, reading data should be implemented on this type.
 #[derive(Copy)]
 pub struct StagedRef<'a, T: StagedChanges> {
     /// The storage that is read optimized.
@@ -38,13 +42,15 @@ pub struct StagedRef<'a, T: StagedChanges> {
     pub staged: &'a T,
 }
 
-/// A locked version of [`Stager`]. Use this to hold a lock guard while using [`StagerLocked::as_stager`] or similar.
+/// A locked version of [`Stager`].
+/// Use this to hold a lock guard while using [`StagerLocked::as_stager`] or similar.
 pub struct StagerLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
     cold: C,
     staged: RwLockWriteGuard<'a, T>,
 }
 
-/// A locked version of [`StagedRef`] Use this to hold a lock guard while using [`StagerLocked::as_staged_ref`].
+/// A locked version of [`StagedRef`].
+/// Use this to hold a lock guard while using [`StagerLocked::as_staged_ref`].
 pub struct StagedRefLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
     cold: C,
     staged: RwLockReadGuard<'a, T>,
@@ -58,9 +64,10 @@ pub enum MaybeStaged<C, S> {
     Staged(S),
 }
 
-/// A struct that allows read-optimized operations while still allowing mutation. When mutattions are made,
-/// they are staged. Then, at user-defined times, they are applied to the read-optimized storage. This allows muttations
-/// through [`RwLock`]s without needing to constantly lock old or cold data.
+/// A struct that allows read-optimized operations while still allowing mutation.
+/// When mutations are made, they are staged.
+/// Then, at user-defined times, they are applied to the read-optimized storage.
+/// This allows mutations through [`RwLock`]s without needing to constantly lock old or cold data.
 ///
 /// This is not designed for atomic use (ie. in an `Arc`).
 #[cfg_attr(feature = "alloc", doc = "See [`AtomicStageOnWrite`] for that.")]
@@ -75,20 +82,21 @@ pub struct StageOnWrite<T: StagedChanges> {
 #[cfg(feature = "alloc")]
 #[derive(Default)]
 struct AtomicStageOnWriteInner<T: StagedChanges> {
-    /// Cold data is read optimized. This lives behind a [`RwLock`], but it is only written to for applying changes in
-    /// a non-blocking way. In other worlds this locks, but almost never blocks. (It can technically block if a thread
-    /// tries to read from it while it is having changes applied, but that is extremely rare.)
+    /// Cold data is read optimized.
+    /// This lives behind a [`RwLock`], but it is only written to for applying changes in a non-blocking way.
+    /// This will only block if a thread tries to read from it while it is having changes applied, but that is extremely rare.
     cold: RwLock<T::Cold>,
-    /// Staged data stores recent modifications to cold. It's [`RwLock`] coordinates mutations.
+    /// Staged data stores recent modifications to cold.
+    /// It's [`RwLock`] coordinates mutations.
     staged: RwLock<T>,
 }
 
-/// A version of [`StageOnWrite`] designed for atomic use. See [`StageOnWrite`] for details.
+/// A version of [`StageOnWrite`] designed for atomic use.
+/// See [`StageOnWrite`] for details.
 ///
-/// This type includes a baked in [`Arc`], so it can be shared similarly. Many of it's methods take `&mut self` even though
-/// it doesn't technically need the mutation. This is done to signify that the methods involve a state change of the data and to prevent deadlocks.
-/// Because everything that involves a write lock requires `&mut self`, it is impossible to deadlock because doing so would require another lock guard
-/// with the same lifetime, which rust will complaine about. If you do not want this behavior, see [`AtomicStageOnWriteInner`].
+/// This type includes a baked in [`Arc`], so it can be shared across threads.
+/// Many of it's methods take `&mut self` to ensure access is exclusive, preventing possible deadlocks.
+/// If you do not want this behavior, see [`AtomicStageOnWriteInner`].
 #[cfg(feature = "alloc")]
 #[derive(Clone)]
 pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
@@ -102,7 +110,8 @@ impl<T: StagedChanges> StageOnWrite<T> {
         }
     }
 
-    /// Gets the inner cold data if it is safe. If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
+    /// Gets the inner cold data if it is safe.
+    /// If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     #[inline]
     pub fn full(&mut self) -> Option<&mut T::Cold> {
         if self.staged.get_mut().unwrap().any_staged() {
@@ -221,7 +230,8 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         }))
     }
 
-    /// Gets the inner cold data if it is safe. If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
+    /// Gets the inner cold data if it is safe.
+    /// If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     ///
     /// Note that this **Blocks**, so generally prefer [`full_non_blocking`](Self::full_non_blocking).
     #[inline]
@@ -280,7 +290,8 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         }
     }
 
-    /// If possible applies any staged changes. Returns true if it can guarantee there are no more staged changes.
+    /// If possible applies any staged changes.
+    /// Returns true if it can guarantee there are no more staged changes.
     #[inline]
     pub fn apply_staged_non_blocking(&mut self) -> bool {
         let Ok(mut staged) = self.0.staged.try_write() else {
@@ -352,7 +363,8 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         f(&mut self.stage_lock().as_stager())
     }
 
-    /// Easily run a stager function to stage changes. Then, tries to apply those changes if doing so wouldn't lock.
+    /// Easily run a stager function to stage changes.
+    /// Then, tries to apply those changes if doing so wouldn't lock.
     #[inline]
     pub fn stage_scope_locked_eager<R>(&mut self, f: impl FnOnce(&mut Stager<T>) -> R) -> R {
         let result = self.stage_scope_locked(f);
@@ -461,6 +473,6 @@ mod tests {
         let mut data = StageOnWrite::<StagedNumVec>::default();
         data.stage_scope_locked(|stager| stager.staged.added.push(5));
         let full = data.apply_staged_for_full();
-        assert_eq!(full[0], 5);
+        assert_eq!(full[..], &[5]);
     }
 }
