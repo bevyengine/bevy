@@ -397,3 +397,47 @@ where
 impl<T: StagedChanges> ColdStorage<T> for RwLockReadGuard<'_, T::Cold> {}
 
 impl<T: StagedChanges> ColdStorage<T> for &'_ T::Cold {}
+
+#[cfg(test)]
+mod tests {
+    use bevy_platform_support::{collections::HashMap, prelude::Vec};
+
+    use super::*;
+
+    #[derive(Default)]
+    struct StagedNumVec {
+        added: Vec<u32>,
+        changed: HashMap<usize, u32>,
+    }
+
+    impl StagedChanges for StagedNumVec {
+        type Cold = Vec<u32>;
+
+        fn apply_staged(&mut self, storage: &mut Self::Cold) {
+            storage.append(&mut self.added);
+            for (index, new) in self.changed.drain() {
+                storage[index] = new;
+            }
+        }
+
+        fn any_staged(&self) -> bool {
+            !self.added.is_empty() || !self.changed.is_empty()
+        }
+    }
+
+    // This is commented out, as it intentionally does not compile. This demonstrates how `AtomicStageOnWrite` prevents deadlock using the borrow checker.
+    // #[test]
+    // fn test_no_compile_for_deadlock() {
+    //     let mut stage_on_write = AtomicStageOnWrite::<StagedNumVec>::default();
+    //     let reading = stage_on_write.read_lock();
+    //     stage_on_write.apply_staged_non_blocking();
+    // }
+
+    #[test]
+    fn test_simple_stage() {
+        let mut data = StageOnWrite::<StagedNumVec>::default();
+        data.stage_scope_locked(|stager| stager.staged.added.push(5));
+        let full = data.apply_staged_for_full();
+        assert_eq!(full[0], 5);
+    }
+}
