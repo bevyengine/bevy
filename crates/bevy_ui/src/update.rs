@@ -534,6 +534,7 @@ mod tests {
             ))
             .id();
 
+        // `UiTargetCamera` is ignored on non-root UI nodes
         let uinode1 = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
         let uinode2 = world.spawn(Node::default()).add_child(uinode1).id();
 
@@ -567,6 +568,7 @@ mod tests {
             camera1
         );
 
+        // Now `uinode1` is a root UI node its `UiTargetCamera` component will be used and its camera target set to `camera2`.
         world.entity_mut(uinode1).remove::<ChildOf>();
 
         schedule.run(&mut world);
