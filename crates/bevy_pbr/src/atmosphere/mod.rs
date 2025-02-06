@@ -46,6 +46,8 @@ use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    renderer::RenderDevice,
+    settings::WgpuFeatures,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -157,6 +159,15 @@ impl Plugin for AtmospherePlugin {
         };
 
         let render_adapter = render_app.world().resource::<RenderAdapter>();
+        let render_device = render_app.world().resource::<RenderDevice>();
+
+        if !render_device
+            .features()
+            .contains(WgpuFeatures::DUAL_SOURCE_BLENDING)
+        {
+            warn!("AtmospherePlugin not loaded. GPU lacks support for dual-source blending.");
+            return;
+        }
 
         if !render_adapter
             .get_downlevel_capabilities()
