@@ -23,7 +23,7 @@ use bevy_render::{
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{load_internal_asset, AssetServer, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -64,14 +64,17 @@ use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderSet::PrepareAssets;
 use core::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(921124473254008983);
+pub const PREPASS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("ce810284-f1ae-4439-ab2e-0d6b204b6284");
 
 pub const PREPASS_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(5533152893177403494);
+    weak_handle!("3e83537e-ae17-489c-a18a-999bc9c1d252");
 
-pub const PREPASS_UTILS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4603948296044544);
+pub const PREPASS_UTILS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("02e4643a-a14b-48eb-a339-0c47aeab0d7e");
 
-pub const PREPASS_IO_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(81212356509530944);
+pub const PREPASS_IO_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("1c065187-c99b-4b7c-ba59-c1575482d2c9");
 
 /// Sets up everything required to use the prepass pipeline.
 ///
