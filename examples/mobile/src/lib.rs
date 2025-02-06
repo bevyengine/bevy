@@ -35,23 +35,32 @@ fn main() {
                     ..default()
                 }),
                 ..default()
-            }),
+            })
+            .add(MainPlugin),
     )
     // Make the winit loop wait more aggressively when no user input is received
     // This can help reduce cpu usage on mobile devices
-    .insert_resource(WinitSettings::mobile())
-    .add_systems(Startup, (setup_scene, setup_music))
-    .add_systems(
-        Update,
-        (
-            touch_camera,
-            button_handler,
-            // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
-            // This ensures we don't try to manage audio that hasn't been initialized yet.
-            handle_lifetime.run_if(any_with_component::<AudioSink>),
-        ),
-    )
     .run();
+}
+
+pub struct MainPlugin;
+
+impl Plugin for MainPlugin {
+    fn build(&self, app: &mut App) {
+        app
+        .insert_resource(WinitSettings::mobile())
+        .add_systems(Startup, (setup_scene, setup_music))
+        .add_systems(
+            Update,
+            (
+                touch_camera,
+                button_handler,
+                // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
+                // This ensures we don't try to manage audio that hasn't been initialized yet.
+                handle_lifetime.run_if(any_with_component::<AudioSink>),
+            ),
+        );
+    }
 }
 
 fn touch_camera(
@@ -200,3 +209,4 @@ fn handle_lifetime(
         }
     }
 }
+
