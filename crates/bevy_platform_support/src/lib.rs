@@ -21,7 +21,6 @@ pub mod time;
 
 #[cfg(feature = "alloc")]
 pub mod collections;
-#[cfg(feature = "alloc")]
 pub mod staging;
 
 /// Frequently used items which would typically be included in most contexts.

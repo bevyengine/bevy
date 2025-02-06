@@ -1,9 +1,10 @@
 //! Provides an abstracted system for staging modifications to data structures that rarely change. See [`StageOnWrite`] as a starting point.
 
+use crate::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use core::ops::Deref;
 
-use crate::alloc::sync::Arc;
-use crate::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+#[cfg(feature = "alloc")]
+use crate::sync::Arc;
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
 pub trait StagedChanges: Default {
@@ -61,7 +62,8 @@ pub enum MaybeStaged<C, S> {
 /// they are staged. Then, at user-defined times, they are applied to the read-optimized storage. This allows muttations
 /// through [`RwLock`]s without needing to constantly lock old or cold data.
 ///
-/// This is not designed for atomic use (ie. in an [`Arc`]). See [`AtomicStageOnWrite`] for that.
+/// This is not designed for atomic use (ie. in an `Arc`).
+#[cfg_attr(feature = "alloc", doc = "See [`AtomicStageOnWrite`] for that.")]
 #[derive(Default)]
 pub struct StageOnWrite<T: StagedChanges> {
     /// Cold data is read optimized.
@@ -70,6 +72,7 @@ pub struct StageOnWrite<T: StagedChanges> {
     staged: RwLock<T>,
 }
 
+#[cfg(feature = "alloc")]
 #[derive(Default)]
 struct AtomicStageOnWriteInner<T: StagedChanges> {
     /// Cold data is read optimized. This lives behind a [`RwLock`], but it is only written to for applying changes in
@@ -86,6 +89,7 @@ struct AtomicStageOnWriteInner<T: StagedChanges> {
 /// it doesn't technically need the mutation. This is done to signify that the methods involve a state change of the data and to prevent deadlocks.
 /// Because everything that involves a write lock requires `&mut self`, it is impossible to deadlock because doing so would require another lock guard
 /// with the same lifetime, which rust will complaine about. If you do not want this behavior, see [`AtomicStageOnWriteInner`].
+#[cfg(feature = "alloc")]
 #[derive(Clone)]
 pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
 
@@ -207,6 +211,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: StagedChanges> AtomicStageOnWrite<T> {
     /// Constructs a new [`AtomicStageOnWrite`] with the given value and no staged changes.
     pub fn new(value: T::Cold) -> Self {
@@ -402,6 +407,7 @@ impl<'a, T: StagedChanges> Clone for StagedRef<'a, T> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: StagedChanges> Default for AtomicStageOnWrite<T>
 where
     T::Cold: Default,
