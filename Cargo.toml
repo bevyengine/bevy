@@ -514,7 +514,7 @@ accesskit = "0.17"
 smol = "2"
 smol-macros = "0.1"
 smol-hyper = "0.1"
-ureq = { version = "2.10", default-features = false, features = ["json", "tls"] }
+ureq = { version = "3", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
