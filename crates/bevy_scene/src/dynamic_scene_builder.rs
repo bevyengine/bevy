@@ -709,7 +709,7 @@ mod tests {
 
     #[test]
     fn should_use_from_reflect() {
-        #[derive(Resource, Component, Reflect)]
+        #[derive(Resource, Reflect)]
         #[reflect(Resource, Component)]
         struct SomeType(i32);
 
