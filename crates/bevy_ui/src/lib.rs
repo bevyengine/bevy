@@ -102,8 +102,9 @@ pub enum UiSystem {
     /// Runs in [`PreUpdate`].
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
-    Context,
     Prepare,
+    /// Update content requirements before layout
+    Content,
     /// After this label, the ui layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
@@ -173,8 +174,8 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Context,
-                    UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
+                    UiSystem::Prepare.after(Animation),
+                    UiSystem::Content,
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )
@@ -197,7 +198,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_ui_context_system.in_set(UiSystem::Context),
+                update_ui_context_system.in_set(UiSystem::Content),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
@@ -211,7 +212,7 @@ impl Plugin for UiPlugin {
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .in_set(UiSystem::Prepare)
+                    .in_set(UiSystem::Content)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
@@ -263,7 +264,7 @@ fn build_text_interop(app: &mut App) {
                 widget::measure_text_system,
             )
                 .chain()
-                .in_set(UiSystem::Prepare)
+                .in_set(UiSystem::Content)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 // Potential conflict: `Assets<Image>`
