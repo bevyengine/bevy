@@ -4,7 +4,7 @@
 //! Bevy.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{component::Component, prelude::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
@@ -12,7 +12,7 @@ use crate::{extract_component::ExtractComponent, render_resource::Shader};
 
 /// The handle to the `mesh_preprocess_types.wgsl` compute shader.
 pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2720440370122465935);
+    weak_handle!("7bf7bdb1-ec53-4417-987f-9ec36533287c");
 
 /// Enables GPU occlusion culling.
 ///

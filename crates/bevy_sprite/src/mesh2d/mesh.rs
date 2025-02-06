@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
@@ -55,13 +55,20 @@ use tracing::error;
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
-pub const MESH2D_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(7646632476603252194);
-pub const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(12677582416765805110);
-pub const MESH2D_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6901431444735842434);
-pub const MESH2D_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8994673400261890424);
-pub const MESH2D_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(8983617858458862856);
-pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(4976379308250389413);
-pub const MESH2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2971387252468633715);
+pub const MESH2D_VERTEX_OUTPUT: Handle<Shader> =
+    weak_handle!("71e279c7-85a0-46ac-9a76-1586cbf506d0");
+pub const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("01087b0d-91e9-46ac-8628-dfe19a7d4b83");
+pub const MESH2D_VIEW_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("fbdd8b80-503d-4688-bcec-db29ab4620b2");
+pub const MESH2D_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("199f2089-6e99-4348-9bb1-d82816640a7f");
+pub const MESH2D_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("a7bd44cc-0580-4427-9a00-721cf386b6e4");
+pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("0d08ff71-68c1-4017-83e2-bfc34d285c51");
+pub const MESH2D_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("91a7602b-df95-4ea3-9d97-076abcb69d91");
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
