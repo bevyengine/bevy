@@ -1,7 +1,7 @@
 //! Provides an abstracted system for staging modifications to data structures that rarely change.
 //! See [`StageOnWrite`] as a starting point.
 
-use crate::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use core::ops::Deref;
 
 #[cfg(feature = "alloc")]
@@ -125,7 +125,12 @@ impl<T: StagedChanges> StageOnWrite<T> {
     /// If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
     #[inline]
     pub fn full(&mut self) -> Option<&mut T::Cold> {
-        if self.staged.get_mut().unwrap().any_staged() {
+        if self
+            .staged
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .any_staged()
+        {
             None
         } else {
             Some(&mut self.cold)
@@ -136,7 +141,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
     /// Immediately after this, [`any_staged`](Self::any_staged) will be false.
     #[inline]
     pub fn apply_staged_for_full(&mut self) -> &mut T::Cold {
-        let staged = self.staged.get_mut().unwrap();
+        let staged = self
+            .staged
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner);
         if staged.any_staged() {
             staged.apply_staged(&mut self.cold);
         }
@@ -147,7 +155,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
     /// If you only have a immutable reference, consider using [`read_scope_locked`] with [`StagedChanges::any_staged`].
     #[inline]
     pub fn any_staged(&mut self) -> bool {
-        self.staged.get_mut().unwrap().any_staged()
+        self.staged
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .any_staged()
     }
 
     /// Constructs a [`Stager`] that will stage changes.
@@ -155,7 +166,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
     pub fn stage(&mut self) -> Stager<'_, T> {
         Stager {
             cold: &mut self.cold,
-            staged: self.staged.get_mut().unwrap(),
+            staged: self
+                .staged
+                .get_mut()
+                .unwrap_or_else(PoisonError::into_inner),
         }
     }
 
@@ -168,7 +182,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     pub fn stage_lock(&self) -> StagerLocked<'_, T, &T::Cold> {
         StagerLocked {
             cold: &self.cold,
-            staged: self.staged.write().unwrap(),
+            staged: self.staged.write().unwrap_or_else(PoisonError::into_inner),
         }
     }
 
@@ -177,7 +191,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
     pub fn read(&mut self) -> StagedRef<'_, T> {
         StagedRef {
             cold: &self.cold,
-            staged: self.staged.get_mut().unwrap(),
+            staged: self
+                .staged
+                .get_mut()
+                .unwrap_or_else(PoisonError::into_inner),
         }
     }
 
@@ -190,7 +207,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     pub fn read_lock(&self) -> StagedRefLocked<'_, T, &T::Cold> {
         StagedRefLocked {
             cold: &self.cold,
-            staged: self.staged.read().unwrap(),
+            staged: self.staged.read().unwrap_or_else(PoisonError::into_inner),
         }
     }
 
@@ -201,7 +218,10 @@ impl<T: StagedChanges> StageOnWrite<T> {
         for_full: impl FnOnce(&mut T::Cold) -> C,
         for_staged: impl FnOnce(&mut Stager<T>) -> S,
     ) -> MaybeStaged<C, S> {
-        let staged = self.staged.get_mut().unwrap();
+        let staged = self
+            .staged
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner);
         let cold = &mut self.cold;
         if staged.any_staged() {
             MaybeStaged::Staged(for_staged(&mut Stager { cold, staged }))
@@ -247,10 +267,16 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
     /// Note that this **Blocks**, so generally prefer [`full_non_blocking`](Self::full_non_blocking).
     #[inline]
     pub fn full_locked(&mut self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
-        if self.0.staged.read().unwrap().any_staged() {
+        if self
+            .0
+            .staged
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .any_staged()
+        {
             None
         } else {
-            Some(self.0.cold.write().unwrap())
+            Some(self.0.cold.write().unwrap_or_else(PoisonError::into_inner))
         }
     }
 
@@ -260,8 +286,12 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
     /// Note that this **Blocks**, so generally prefer [`apply_staged_for_full_non_blocking`](Self::apply_staged_for_full_non_blocking).
     #[inline]
     pub fn apply_staged_for_full_locked(&mut self) -> RwLockWriteGuard<'_, T::Cold> {
-        let mut staged = self.0.staged.write().unwrap();
-        let mut cold = self.0.cold.write().unwrap();
+        let mut staged = self
+            .0
+            .staged
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
+        let mut cold = self.0.cold.write().unwrap_or_else(PoisonError::into_inner);
         if staged.any_staged() {
             staged.apply_staged(&mut cold);
         }
@@ -291,7 +321,7 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
                 Some(cold)
             }
             Err(_) => {
-                let staged = self.0.staged.read().unwrap();
+                let staged = self.0.staged.read().unwrap_or_else(PoisonError::into_inner);
                 if staged.any_staged() {
                     None
                 } else {
@@ -322,15 +352,23 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
     /// Returns true if and only if there are staged changes that could be applied.
     #[inline]
     pub fn any_staged(&self) -> bool {
-        self.0.staged.read().unwrap().any_staged()
+        self.0
+            .staged
+            .read()
+            .unwrap_or_else(PoisonError::into_inner)
+            .any_staged()
     }
 
     /// Constructs a [`StagerLocked`], locking internally.
     #[inline]
     pub fn stage_lock(&mut self) -> StagerLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
         StagerLocked {
-            cold: self.0.cold.read().unwrap(),
-            staged: self.0.staged.write().unwrap(),
+            cold: self.0.cold.read().unwrap_or_else(PoisonError::into_inner),
+            staged: self
+                .0
+                .staged
+                .write()
+                .unwrap_or_else(PoisonError::into_inner),
         }
     }
 
@@ -338,8 +376,8 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
     #[inline]
     pub fn read_lock(&self) -> StagedRefLocked<'_, T, RwLockReadGuard<'_, T::Cold>> {
         StagedRefLocked {
-            cold: self.0.cold.read().unwrap(),
-            staged: self.0.staged.read().unwrap(),
+            cold: self.0.cold.read().unwrap_or_else(PoisonError::into_inner),
+            staged: self.0.staged.read().unwrap_or_else(PoisonError::into_inner),
         }
     }
 
@@ -350,9 +388,13 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         for_full: impl FnOnce(&mut T::Cold) -> C,
         for_staged: impl FnOnce(&mut Stager<T>) -> S,
     ) -> MaybeStaged<C, S> {
-        let mut staged = self.0.staged.write().unwrap();
+        let mut staged = self
+            .0
+            .staged
+            .write()
+            .unwrap_or_else(PoisonError::into_inner);
         if staged.any_staged() {
-            let cold = self.0.cold.read().unwrap();
+            let cold = self.0.cold.read().unwrap_or_else(PoisonError::into_inner);
             MaybeStaged::Staged(for_staged(&mut Stager {
                 cold: &cold,
                 staged: &mut staged,
@@ -360,7 +402,7 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         } else if let Ok(mut cold) = self.0.cold.try_write() {
             MaybeStaged::Cold(for_full(&mut cold))
         } else {
-            let cold = self.0.cold.read().unwrap();
+            let cold = self.0.cold.read().unwrap_or_else(PoisonError::into_inner);
             MaybeStaged::Staged(for_staged(&mut Stager {
                 cold: &cold,
                 staged: &mut staged,
