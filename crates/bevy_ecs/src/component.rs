@@ -8,7 +8,7 @@ use crate::{
     entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
     resource::Resource,
-    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
+    storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Local, SystemParam},
     world::{DeferredWorld, FromWorld, World},
 };
@@ -401,13 +401,43 @@ pub trait Component: Send + Sync + 'static {
     type Mutability: ComponentMutability;
 
     /// Called when registering this component, allowing mutable access to its [`ComponentHooks`].
-    fn register_component_hooks(_hooks: &mut ComponentHooks) {}
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use the individual hook methods instead (e.g., `Component::on_add`, etc.)"
+    )]
+    fn register_component_hooks(hooks: &mut ComponentHooks) {
+        hooks.update_from_component::<Self>();
+    }
+
+    /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_add() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_insert` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_insert() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_replace` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_replace() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_remove` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_remove() -> Option<ComponentHook> {
+        None
+    }
+
+    /// Gets the `on_despawn` [`ComponentHook`] for this [`Component`] if one is defined.
+    fn on_despawn() -> Option<ComponentHook> {
+        None
+    }
 
     /// Registers required components.
     fn register_required_components(
         _component_id: ComponentId,
         _components: &mut Components,
-        _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
         _recursion_check_stack: &mut Vec<ComponentId>,
@@ -575,6 +605,26 @@ pub struct ComponentHooks {
 }
 
 impl ComponentHooks {
+    pub(crate) fn update_from_component<C: Component + ?Sized>(&mut self) -> &mut Self {
+        if let Some(hook) = C::on_add() {
+            self.on_add(hook);
+        }
+        if let Some(hook) = C::on_insert() {
+            self.on_insert(hook);
+        }
+        if let Some(hook) = C::on_replace() {
+            self.on_replace(hook);
+        }
+        if let Some(hook) = C::on_remove() {
+            self.on_remove(hook);
+        }
+        if let Some(hook) = C::on_despawn() {
+            self.on_despawn(hook);
+        }
+
+        self
+    }
+
     /// Register a [`ComponentHook`] that will be run when this component is added to an entity.
     /// An `on_add` hook will always run before `on_insert` hooks. Spawning an entity counts as
     /// adding all of its components.
@@ -1142,14 +1192,13 @@ impl Components {
     /// * [`Components::component_id()`]
     /// * [`Components::register_component_with_descriptor()`]
     #[inline]
-    pub fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        self.register_component_internal::<T>(storages, &mut Vec::new())
+    pub fn register_component<T: Component>(&mut self) -> ComponentId {
+        self.register_component_internal::<T>(&mut Vec::new())
     }
 
     #[inline]
     fn register_component_internal<T: Component>(
         &mut self,
-        storages: &mut Storages,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
         let mut is_new_registration = false;
@@ -1163,7 +1212,6 @@ impl Components {
             *indices.entry(type_id).or_insert_with(|| {
                 let id = Components::register_component_inner(
                     components,
-                    storages,
                     ComponentDescriptor::new::<T>(),
                 );
                 is_new_registration = true;
@@ -1175,13 +1223,19 @@ impl Components {
             T::register_required_components(
                 id,
                 self,
-                storages,
                 &mut required_components,
                 0,
                 recursion_check_stack,
             );
             let info = &mut self.components[id.index()];
+
+            #[expect(
+                deprecated,
+                reason = "need to use this method until it is removed to ensure user defined components register hooks correctly"
+            )]
+            // TODO: Replace with `info.hooks.update_from_component::<T>();` once `Component::register_component_hooks` is removed
             T::register_component_hooks(&mut info.hooks);
+
             info.required_components = required_components;
             let clone_handler = T::get_component_clone_handler();
             self.component_clone_handlers
@@ -1203,23 +1257,18 @@ impl Components {
     /// * [`Components::register_component()`]
     pub fn register_component_with_descriptor(
         &mut self,
-        storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
-        Components::register_component_inner(&mut self.components, storages, descriptor)
+        Components::register_component_inner(&mut self.components, descriptor)
     }
 
     #[inline]
     fn register_component_inner(
         components: &mut Vec<ComponentInfo>,
-        storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         let component_id = ComponentId(components.len());
         let info = ComponentInfo::new(component_id, descriptor);
-        if info.descriptor.storage_type == StorageType::SparseSet {
-            storages.sparse_sets.get_or_insert(&info);
-        }
         components.push(info);
         component_id
     }
@@ -1454,14 +1503,13 @@ impl Components {
     #[doc(hidden)]
     pub fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
-        storages: &mut Storages,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) {
-        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
-        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
+        let requiree = self.register_component_internal::<T>(recursion_check_stack);
+        let required = self.register_component_internal::<R>(recursion_check_stack);
 
         // SAFETY: We just created the components.
         unsafe {
@@ -2053,11 +2101,10 @@ impl RequiredComponents {
     pub fn register<C: Component>(
         &mut self,
         components: &mut Components,
-        storages: &mut Storages,
         constructor: fn() -> C,
         inheritance_depth: u16,
     ) {
-        let component_id = components.register_component::<C>(storages);
+        let component_id = components.register_component::<C>();
         self.register_by_id(component_id, constructor, inheritance_depth);
     }
 
@@ -2189,7 +2236,7 @@ pub fn enforce_no_required_components_recursion(
                     .join(" → "),
                 if direct_recursion {
                     format!(
-                        "Remove require({})",
+                        "Remove require({}).",
                         ShortName(components.get_name(requiree).unwrap())
                     )
                 } else {
@@ -2225,7 +2272,7 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 /// - Component has [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) registered
 /// - Component has one of the following registered: [`ReflectFromReflect`](bevy_reflect::ReflectFromReflect),
 ///   [`ReflectDefault`](bevy_reflect::std_traits::ReflectDefault), [`ReflectFromWorld`](crate::reflect::ReflectFromWorld)
-///   
+///
 /// If any of the conditions is not satisfied, the component will be skipped.
 ///
 /// See [`EntityCloneBuilder`](crate::entity::EntityCloneBuilder) for details.

@@ -35,7 +35,8 @@ use bytemuck::{Pod, Zeroable};
 
 use super::{stack_z_offsets, UiCameraMap, UiCameraView, QUAD_INDICES, QUAD_VERTEX_POSITIONS};
 
-pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17717747047134343426);
+pub const BOX_SHADOW_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("d2991ecd-134f-4f82-adf5-0fcc86f02227");
 
 /// A plugin that enables the rendering of box shadows.
 pub struct BoxShadowPlugin;

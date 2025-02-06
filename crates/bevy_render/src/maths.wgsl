@@ -105,7 +105,9 @@ fn project_onto(lhs: vec3<f32>, rhs: vec3<f32>) -> vec3<f32> {
 // accuracy can be sacrificed for greater sample count.
 
 fn fast_sqrt(x: f32) -> f32 {
-    return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
+    let n = bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
+    // One Newton's method iteration for better precision
+    return 0.5 * (n + x / n);
 }
 
 // Slightly less accurate than fast_acos_4, but much simpler.
