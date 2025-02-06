@@ -72,7 +72,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     pub event: E,
 }
 
-/// A traversal query (eg it implements [`Traversal`]) intended for use with [`Pointer`] events.
+/// A traversal query (i.e. it implements [`Traversal`]) intended for use with [`Pointer`] events.
 ///
 /// This will always traverse to the parent, if the entity being visited has one. Otherwise, it
 /// propagates to the pointer's window and stops there.
@@ -143,7 +143,7 @@ impl<E: Debug + Clone + Reflect> Pointer<E> {
     }
 }
 
-/// Fires when a pointer is canceled, and it's current interaction state is dropped.
+/// Fires when a pointer is canceled, and its current interaction state is dropped.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct Cancel {
     /// Information about the picking intersection.

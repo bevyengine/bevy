@@ -3,7 +3,7 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, Assets, Handle};
 use bevy_ecs::component::{require, Component};
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
@@ -16,8 +16,10 @@ use bevy_render::{
     },
 };
 
-const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> = Handle::weak_from_u128(19376620402995522466);
-const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(29376620402995522466);
+const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> =
+    weak_handle!("afa817f9-1869-4e0c-ac0d-d8cd1552d38a");
+const FORWARD_DECAL_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("f8dfbef4-d88b-42ae-9af4-d9661e9f1648");
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
