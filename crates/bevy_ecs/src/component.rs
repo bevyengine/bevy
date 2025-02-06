@@ -2280,7 +2280,7 @@ pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentC
         if let Some(reflect_component) =
             registry.get_type_data::<crate::reflect::ReflectComponent>(type_id)
         {
-            reflect_component.visit_entities(&*source_component_reflect, &mut |entity| {
+            reflect_component.visit_entities(source_component_reflect, &mut |entity| {
                 mapped_entities.push(entity);
             });
         }
