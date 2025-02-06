@@ -1,5 +1,5 @@
 use crate::{
-    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, UiStack, UiTargetCamera,
+    CalculatedClip, ComputedNode, ComputedNodeTargetCamera, ResolvedBorderRadius, UiStack,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
@@ -141,7 +141,7 @@ pub struct NodeQuery {
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: Option<&'static UiTargetCamera>,
+    target_camera: &'static ComputedNodeTargetCamera,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -150,7 +150,6 @@ pub struct NodeQuery {
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -212,8 +211,6 @@ pub fn ui_focus_system(
         })
         .collect();
 
-    let default_camera_entity = default_ui_camera.get();
-
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
@@ -237,10 +234,7 @@ pub fn ui_focus_system(
                 }
                 return None;
             }
-            let camera_entity = node
-                .target_camera
-                .map(UiTargetCamera::entity)
-                .or(default_camera_entity)?;
+            let camera_entity = node.target_camera.get()?;
 
             let node_rect = Rect::from_center_size(
                 node.global_transform.translation().truncate(),

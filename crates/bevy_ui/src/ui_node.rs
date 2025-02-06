@@ -2,11 +2,12 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     view::Visibility,
+    view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -322,6 +323,9 @@ impl From<Vec2> for ScrollPosition {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ComputedNodeTargetSize,
+    ComputedNodeScaleFactor,
+    ComputedNodeTargetCamera,
     BackgroundColor,
     BorderColor,
     BorderRadius,
@@ -329,6 +333,7 @@ impl From<Vec2> for ScrollPosition {
     ScrollPosition,
     Transform,
     Visibility,
+    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
@@ -2760,6 +2765,57 @@ pub struct BoxShadowSamples(pub u32);
 impl Default for BoxShadowSamples {
     fn default() -> Self {
         Self(4)
+    }
+}
+
+/// Scale factor of the UI node's render target.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct ComputedNodeScaleFactor(pub(crate) f32);
+
+impl Default for ComputedNodeScaleFactor {
+    fn default() -> Self {
+        Self(1.0)
+    }
+}
+
+impl ComputedNodeScaleFactor {
+    pub fn get(&self) -> f32 {
+        self.0
+    }
+}
+
+/// Size of the UI node's render target in physical pixels.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct ComputedNodeTargetSize(pub(crate) UVec2);
+
+impl Default for ComputedNodeTargetSize {
+    fn default() -> Self {
+        Self(UVec2::ZERO)
+    }
+}
+
+impl ComputedNodeTargetSize {
+    pub fn get(&self) -> UVec2 {
+        self.0
+    }
+}
+
+/// ID of the UI node's camera target.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct ComputedNodeTargetCamera(pub(crate) Entity);
+
+impl Default for ComputedNodeTargetCamera {
+    fn default() -> Self {
+        Self(Entity::PLACEHOLDER)
+    }
+}
+
+impl ComputedNodeTargetCamera {
+    pub fn get(&self) -> Option<Entity> {
+        Some(self.0).filter(|&entity| entity != Entity::PLACEHOLDER)
     }
 }
 
