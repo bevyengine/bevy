@@ -79,7 +79,6 @@ The default feature set enables most of the expected features of a game engine, 
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |ico|ICO image format support|
-|ios_simulator|Enable support for the ios_simulator by downgrading some rendering capabilities|
 |jpeg|JPEG image format support|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|

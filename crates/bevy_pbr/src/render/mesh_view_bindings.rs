@@ -216,7 +216,7 @@ fn layout_entries(
             (
                 2,
                 #[cfg(all(
-                    not(feature = "ios_simulator"),
+                    not(target_abi = "sim"),
                     any(
                         not(feature = "webgl"),
                         not(target_arch = "wasm32"),
@@ -225,7 +225,7 @@ fn layout_entries(
                 ))]
                 texture_cube_array(TextureSampleType::Depth),
                 #[cfg(any(
-                    feature = "ios_simulator",
+                    target_abi = "sim",
                     all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                 ))]
                 texture_cube(TextureSampleType::Depth),
