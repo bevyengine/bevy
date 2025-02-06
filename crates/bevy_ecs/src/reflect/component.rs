@@ -61,7 +61,7 @@ use super::from_reflect_with_fallback;
 use crate::{
     change_detection::Mut,
     component::{ComponentId, ComponentMutability},
-    entity::Entity,
+    entity::{Entity, EntityMapper},
     prelude::Component,
     world::{
         unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityWorldMut, FilteredEntityMut,
@@ -104,8 +104,9 @@ pub struct ReflectComponentFns {
     pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectComponent::apply()`].
     pub apply: fn(EntityMut, &dyn PartialReflect),
-    /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectComponent::apply_or_insert_mapped()`].
+    pub apply_or_insert_mapped:
+        fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry, &mut dyn EntityMapper),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
@@ -114,6 +115,10 @@ pub struct ReflectComponentFns {
     pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
+    /// Function pointer implementing [`ReflectComponent::visit_entities()`].
+    pub visit_entities: fn(&dyn Reflect, &mut dyn FnMut(Entity)),
+    /// Function pointer implementing [`ReflectComponent::visit_entities_mut()`].
+    pub visit_entities_mut: fn(&mut dyn Reflect, &mut dyn FnMut(&mut Entity)),
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
@@ -163,13 +168,14 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if [`Component`] is immutable.
-    pub fn apply_or_insert(
+    pub fn apply_or_insert_mapped(
         &self,
         entity: &mut EntityWorldMut,
         component: &dyn PartialReflect,
         registry: &TypeRegistry,
+        map: &mut dyn EntityMapper,
     ) {
-        (self.0.apply_or_insert)(entity, component, registry);
+        (self.0.apply_or_insert_mapped)(entity, component, registry, map);
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
@@ -277,6 +283,20 @@ impl ReflectComponent {
     pub fn fn_pointers(&self) -> &ReflectComponentFns {
         &self.0
     }
+
+    /// Calls a dynamic version of [`Component::visit_entities`].
+    pub fn visit_entities(&self, component: &dyn Reflect, func: &mut dyn FnMut(Entity)) {
+        (self.0.visit_entities)(component, func);
+    }
+
+    /// Calls a dynamic version of [`Component::visit_entities_mut`].
+    pub fn visit_entities_mut(
+        &self,
+        component: &mut dyn Reflect,
+        func: &mut dyn FnMut(&mut Entity),
+    ) {
+        (self.0.visit_entities_mut)(component, func);
+    }
 }
 
 impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
@@ -300,21 +320,28 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 let mut component = unsafe { entity.get_mut_assume_mutable::<C>() }.unwrap();
                 component.apply(reflected_component);
             },
-            apply_or_insert: |entity, reflected_component, registry| {
+            apply_or_insert_mapped: |entity, reflected_component, registry, mapper| {
+                // TODO: if we can externalize this impl to cut down on monomorphization that would be great
+                let map_fn = move |entity: &mut Entity| {
+                    *entity = mapper.get_mapped(*entity);
+                };
                 if C::Mutability::MUTABLE {
                     // SAFETY: guard ensures `C` is a mutable component
                     if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
                         component.apply(reflected_component.as_partial_reflect());
+                        C::visit_entities_mut(&mut component, map_fn);
                     } else {
-                        let component = entity.world_scope(|world| {
+                        let mut component = entity.world_scope(|world| {
                             from_reflect_with_fallback::<C>(reflected_component, world, registry)
                         });
+                        C::visit_entities_mut(&mut component, map_fn);
                         entity.insert(component);
                     }
                 } else {
-                    let component = entity.world_scope(|world| {
+                    let mut component = entity.world_scope(|world| {
                         from_reflect_with_fallback::<C>(reflected_component, world, registry)
                     });
+                    C::visit_entities_mut(&mut component, map_fn);
                     entity.insert(component);
                 }
             },
@@ -358,6 +385,14 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             register_component: |world: &mut World| -> ComponentId {
                 world.register_component::<C>()
+            },
+            visit_entities: |reflect: &dyn Reflect, func: &mut dyn FnMut(Entity)| {
+                let component = reflect.downcast_ref::<C>().unwrap();
+                Component::visit_entities(component, func);
+            },
+            visit_entities_mut: |reflect: &mut dyn Reflect, func: &mut dyn FnMut(&mut Entity)| {
+                let component = reflect.downcast_mut::<C>().unwrap();
+                Component::visit_entities_mut(component, func);
             },
         })
     }

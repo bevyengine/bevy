@@ -3,7 +3,7 @@
 mod entity_observer;
 mod runner;
 
-pub use entity_observer::{CloneEntityWithObserversExt, ObservedBy};
+pub use entity_observer::ObservedBy;
 pub use runner::*;
 
 use crate::{

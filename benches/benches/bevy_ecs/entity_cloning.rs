@@ -2,7 +2,8 @@ use core::hint::black_box;
 
 use benches::bench;
 use bevy_ecs::bundle::Bundle;
-use bevy_ecs::component::ComponentCloneHandler;
+use bevy_ecs::component::ComponentCloneBehavior;
+use bevy_ecs::entity::EntityCloner;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, world::World};
@@ -52,7 +53,10 @@ type ComplexBundle = (C1, C2, C3, C4, C5, C6, C7, C8, C9, C10);
 
 /// Sets the [`ComponentCloneHandler`] for all explicit and required components in a bundle `B` to
 /// use the [`Reflect`] trait instead of [`Clone`].
-fn set_reflect_clone_handler<B: Bundle + GetTypeRegistration>(world: &mut World) {
+fn reflection_cloner<B: Bundle + GetTypeRegistration>(
+    world: &mut World,
+    recursive: bool,
+) -> EntityCloner {
     // Get mutable access to the type registry, creating it if it does not exist yet.
     let registry = world.get_resource_or_init::<AppTypeRegistry>();
 
@@ -67,12 +71,15 @@ fn set_reflect_clone_handler<B: Bundle + GetTypeRegistration>(world: &mut World)
     // this bundle are saved.
     let component_ids: Vec<_> = world.register_bundle::<B>().contributed_components().into();
 
-    let clone_handlers = world.get_component_clone_handlers_mut();
+    let mut builder = EntityCloner::build(world);
 
     // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
     for component in component_ids {
-        clone_handlers.set_component_handler(component, ComponentCloneHandler::reflect_handler());
+        builder.override_clone_behavior_with_id(component, ComponentCloneBehavior::reflect());
     }
+    builder.recursive(recursive);
+
+    builder.finish()
 }
 
 /// A helper function that benchmarks running the [`EntityCommands::clone_and_spawn()`] command on a
@@ -91,18 +98,18 @@ fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
 ) {
     let mut world = World::default();
 
-    if clone_via_reflect {
-        set_reflect_clone_handler::<B>(&mut world);
-    }
+    let mut cloner = if clone_via_reflect {
+        reflection_cloner::<B>(&mut world, false)
+    } else {
+        EntityCloner::default()
+    };
 
     // Spawn the first entity, which will be cloned in the benchmark routine.
     let id = world.spawn(B::default()).id();
 
     b.iter(|| {
-        // Queue the command to clone the entity.
-        world.commands().entity(black_box(id)).clone_and_spawn();
-
-        // Run the command.
+        // clones the given entity
+        cloner.spawn_clone(&mut world, black_box(id));
         world.flush();
     });
 }
@@ -125,9 +132,15 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
 ) {
     let mut world = World::default();
 
-    if clone_via_reflect {
-        set_reflect_clone_handler::<B>(&mut world);
-    }
+    let mut cloner = if clone_via_reflect {
+        reflection_cloner::<B>(&mut world, true)
+    } else {
+        let mut builder = EntityCloner::build(&mut world);
+        builder.recursive(true);
+        builder.finish()
+    };
+
+    // Make the clone command recursive, so children are cloned as well.
 
     // Spawn the first entity, which will be cloned in the benchmark routine.
     let id = world.spawn(B::default()).id();
@@ -148,18 +161,8 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
         }
     }
 
-    // Flush all `set_parent()` commands.
-    world.flush();
-
     b.iter(|| {
-        world
-            .commands()
-            .entity(black_box(id))
-            .clone_and_spawn_with(|builder| {
-                // Make the clone command recursive, so children are cloned as well.
-                builder.recursive(true);
-            });
-
+        cloner.spawn_clone(&mut world, black_box(id));
         world.flush();
     });
 }

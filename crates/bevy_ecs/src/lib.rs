@@ -79,7 +79,7 @@ pub mod prelude {
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
-        observer::{CloneEntityWithObserversExt, Observer, Trigger},
+        observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
         resource::Resource,
@@ -2661,6 +2661,102 @@ mod tests {
         struct A;
 
         World::new().register_component::<A>();
+    }
+
+    #[test]
+    fn visit_struct_entities() {
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        struct Foo(usize, #[entities] Entity);
+
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        struct Bar {
+            #[entities]
+            a: Entity,
+            b: usize,
+            #[entities]
+            c: Vec<Entity>,
+        }
+
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        let e3 = world.spawn_empty().id();
+
+        let mut foo = Foo(1, e1);
+        let mut entities = Vec::new();
+        Component::visit_entities(&foo, |e| entities.push(e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut bar = Bar {
+            a: e1,
+            b: 1,
+            c: vec![e2, e3],
+        };
+        let mut entities = Vec::new();
+        Component::visit_entities(&bar, |e| entities.push(e));
+        assert_eq!(&entities, &[e1, e2, e3]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut bar, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1, e2, e3]);
+    }
+
+    #[test]
+    fn visit_enum_entities() {
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        enum Foo {
+            Bar(usize, #[entities] Entity),
+            Baz {
+                #[entities]
+                a: Entity,
+                b: usize,
+                #[entities]
+                c: Vec<Entity>,
+            },
+        }
+
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        let e3 = world.spawn_empty().id();
+
+        let mut foo = Foo::Bar(1, e1);
+        let mut entities = Vec::new();
+        Component::visit_entities(&foo, |e| entities.push(e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut foo = Foo::Baz {
+            a: e1,
+            b: 1,
+            c: vec![e2, e3],
+        };
+        let mut entities = Vec::new();
+        Component::visit_entities(&foo, |e| entities.push(e));
+        assert_eq!(&entities, &[e1, e2, e3]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1, e2, e3]);
     }
 
     #[expect(
