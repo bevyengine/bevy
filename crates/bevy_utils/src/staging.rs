@@ -322,7 +322,7 @@ pub trait StagableWritesCore: StagableWritesTypes {
         &mut <Self::Staging as StagedChanges>::Cold,
     );
 
-    /// Same as [`raw_write_cold`](StagableWritesCore::raw_write_cold), but never locks.
+    /// Gets the cold data mutably without locking.
     #[inline]
     fn raw_write_cold_mut(&mut self) -> &mut <Self::Staging as StagedChanges>::Cold {
         self.raw_write_both_mut().1
@@ -448,7 +448,7 @@ pub trait StagableWrites {
     /// Gets the inner core.
     fn get_core(&self) -> &Self::Core;
 
-    /// Exactly the same as [`StagableWritesCore::stage_lock_usafe`]
+    /// Exactly the same as [`StagableWritesCore::stage_lock_unsafe`]
     #[inline]
     fn stage_lock(&mut self) -> StagerLocked<'_, Self::Core> {
         // Safety: Because we have exclusive, mutable access, this is safe.
@@ -542,7 +542,6 @@ pub struct StageOnWrite<T: StagedChanges> {
 /// A version of [`StageOnWrite`] designed for atomic use.
 /// It functions fully without needing `&mut self`.
 /// See [`StageOnWrite`] for details.
-#[cfg(feature = "alloc")]
 #[derive(Default, Debug)]
 pub struct AtomicStageOnWrite<T: StagedChanges> {
     /// Cold data is read optimized.
@@ -559,7 +558,7 @@ pub struct AtomicStageOnWrite<T: StagedChanges> {
 ///
 /// This type includes a baked in [`Arc`], so it can be shared across threads.
 ///
-/// Remember to use [`apply_staged_non_blocking`](Self::apply_staged_non_blocking) or similar methods periodically as a best practice.
+/// Remember to use [`apply_staged_non_blocking`](AtomicStageOnWrite::apply_staged_non_blocking) or similar methods periodically as a best practice.
 #[cfg(feature = "alloc")]
 #[derive(Clone)]
 pub struct ArcStageOnWrite<T: StagedChanges>(pub Arc<AtomicStageOnWrite<T>>);
@@ -722,7 +721,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
 }
 
 impl<T: StagedChanges> AtomicStageOnWrite<T> {
-    /// Constructs a new [`AtomicStageOnWriteInner`] with the given value and no staged changes.
+    /// Constructs a new [`AtomicStageOnWrite`] with the given value and no staged changes.
     pub fn new(value: T::Cold) -> Self {
         Self {
             cold: RwLock::new(value),
