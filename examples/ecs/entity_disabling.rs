@@ -43,6 +43,8 @@ fn disable_entities_on_click(
     }
 
     // Just add the `Disabled` component to the entity to disable it.
+    // Note that the `Disabled` component is *only* added to the entity,
+    // its children are not affected.
     commands.entity(clicked_entity).insert(Disabled);
 }
 
