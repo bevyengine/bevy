@@ -23,11 +23,6 @@ critical-section = [
   "bevy_platform_support/critical-section",
   "edge-executor?/critical-section",
 ]
-portable-atomic = [
-  "bevy_platform_support/portable-atomic",
-  "edge-executor?/portable-atomic",
-  "async-task/portable-atomic",
-]
 
 [dependencies]
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
@@ -53,6 +48,14 @@ concurrent-queue = { version = "2.0.0", optional = true }
 wasm-bindgen-futures = "0.4"
 pin-project = "1"
 futures-channel = "0.3"
+
+[target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
+async-task = { version = "4.4.0", default-features = false, features = [
+  "portable-atomic",
+] }
+edge-executor = { version = "0.4.1", default-features = false, optional = true, features = [
+  "portable-atomic",
+] }
 
 [dev-dependencies]
 web-time = { version = "1.1" }
