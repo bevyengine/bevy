@@ -1,4 +1,4 @@
-//! Provides an abstracted system for staging modifications attomically.
+//! Provides an abstracted system for staging modifications to data structures that rarely change. See [`StageOnWrite`] as a starting point.
 
 use core::ops::Deref;
 
