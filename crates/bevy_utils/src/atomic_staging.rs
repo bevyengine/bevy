@@ -66,7 +66,7 @@ pub struct StageOnWrite<T: StagedChanges> {
 }
 
 #[derive(Default)]
-struct AttomicStageOnWriteInner<T: StagedChanges> {
+struct AtomicStageOnWriteInner<T: StagedChanges> {
     /// Cold data is read optimized. This lives behind a [`RwLock`], but it is only written to for applying changes in
     /// a non-blocking way. In other worlds this locks, but almost never blocks. (It can technically block if a thread
     /// tries to read from it while it is having changes applied, but that is extremely rare.)
@@ -77,7 +77,7 @@ struct AttomicStageOnWriteInner<T: StagedChanges> {
 
 /// A struct that allows read-optimized operations while still allowing mutation.
 #[derive(Clone)]
-pub struct AttomicStageOnWrite<T: StagedChanges>(Arc<AttomicStageOnWriteInner<T>>);
+pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
 
 impl<T: StagedChanges> StageOnWrite<T> {
     /// Gets the inner cold data if it is safe. If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.

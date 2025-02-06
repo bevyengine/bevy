@@ -22,7 +22,7 @@ pub mod prelude {
     pub use crate::default;
 }
 
-pub mod attomic_staging;
+pub mod atomic_staging;
 pub mod synccell;
 pub mod syncunsafecell;
 
