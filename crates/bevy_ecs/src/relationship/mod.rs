@@ -148,7 +148,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// For example, this is set to `true` for Bevy's built-in parent-child relation, defined by [`ChildOf`](crate::prelude::ChildOf) and [`Children`](crate::prelude::Children).
     /// This means that when a parent is despawned, any children targeting that parent are also despawned (and the same applies to cloning).
     ///
-    /// To get around this behavior, you can first break the relationship between entities, and *then* despawn or clone. 
+    /// To get around this behavior, you can first break the relationship between entities, and *then* despawn or clone.
     /// This defaults to false when derived.
     const LINKED_SPAWN: bool;
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
