@@ -19,7 +19,7 @@ pub trait StagedChanges: Default {
 /// A trait that signifies that it holds an immutable reference to a cold type (ie. [`StagedChanges::Cold`]).
 pub trait ColdStorage<T: StagedChanges>: Deref<Target = T::Cold> {}
 
-/// A struct that allows staging changes while reading from cold storage.
+/// A struct that allows staging changes while reading from cold storage. Generally, staging changes should be implemented on this type.
 pub struct Stager<'a, T: StagedChanges> {
     /// The storage that is read optimized.
     pub cold: &'a T::Cold,
@@ -27,7 +27,7 @@ pub struct Stager<'a, T: StagedChanges> {
     pub staged: &'a mut T,
 }
 
-/// A struct that allows accessing changes while reading from cold storage.
+/// A struct that allows accessing changes while reading from cold storage. Generally, reading data should be implemented on this type.
 #[derive(Copy)]
 pub struct StagedRef<'a, T: StagedChanges> {
     /// The storage that is read optimized.
@@ -36,13 +36,13 @@ pub struct StagedRef<'a, T: StagedChanges> {
     pub staged: &'a T,
 }
 
-/// A locked version of [`Stager`]
+/// A locked version of [`Stager`]. Use this to hold a lock guard while using [`StagerLocked::as_stager`] or similar.
 pub struct StagerLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
     cold: C,
     staged: RwLockWriteGuard<'a, T>,
 }
 
-/// A locked version of [`StagedRef`]
+/// A locked version of [`StagedRef`] Use this to hold a lock guard while using [`StagerLocked::as_staged_ref`].
 pub struct StagedRefLocked<'a, T: StagedChanges, C: ColdStorage<T>> {
     cold: C,
     staged: RwLockReadGuard<'a, T>,
