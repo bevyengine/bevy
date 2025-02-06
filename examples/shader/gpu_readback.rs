@@ -81,18 +81,9 @@ fn setup(
     let buffer = buffers.add(buffer);
 
     // Create a storage texture with some data
-    let size = Extent3d {
-        width: BUFFER_LEN as u32,
-        height: 1,
-        ..default()
-    };
-    let mut image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0, 0, 0, 0],
-        TextureFormat::R32Uint,
-        RenderAssetUsages::RENDER_WORLD,
-    );
+    let mut image = Image::new_target_texture(BUFFER_LEN as u32, 1, false);
+    image.asset_usage = RenderAssetUsages::RENDER_WORLD;
+    image.texture_descriptor.format = TextureFormat::R32Uint;
     // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
     // compute shader
     image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
