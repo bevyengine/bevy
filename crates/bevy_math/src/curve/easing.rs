@@ -360,7 +360,7 @@ pub enum EaseFunction {
     Elastic(f32),
 }
 
-mod easing_functions {
+pub mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
     use crate::{ops, FloatPow};
