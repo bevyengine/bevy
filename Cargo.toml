@@ -2085,6 +2085,17 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "prefabs"
+path = "examples/ecs/prefabs.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.prefabs]
+name = "Prefabs"
+description = "Demonstrates how to load, store and clone template entity collections"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "relationships"
 path = "examples/ecs/relationships.rs"
 doc-scrape-examples = true
