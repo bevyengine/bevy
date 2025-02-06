@@ -360,6 +360,8 @@ pub enum EaseFunction {
     Elastic(f32),
 }
 
+/// Easing functions for the sample value `t`
+///
 pub mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
