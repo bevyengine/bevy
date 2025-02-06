@@ -144,6 +144,7 @@ pub type SourceIter<'w, R> =
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// If this is true, when despawning or cloning (when [recursion is enabled](crate::entity::EntityClonerBuilder::recursive)), the related entities targeting this entity will also be despawned or cloned.
+    /// This defaults to false when derived.
     const LINKED_SPAWN: bool;
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
     type Relationship: Relationship<RelationshipTarget = Self>;

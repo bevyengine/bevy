@@ -67,6 +67,9 @@ impl<T: VisitEntitiesMut> MapEntities for T {
 ///
 /// More generally, this can be used to map [`Entity`] references between any two [`Worlds`](World).
 ///
+/// This can be used in tandem with [`Component::visit_entities`](crate::component::Component::visit_entities)
+/// and [`Component::visit_entities_mut`](crate::component::Component::visit_entities_mut) to map a component's entities.
+///
 /// ## Example
 ///
 /// ```
@@ -92,6 +95,7 @@ impl<T: VisitEntitiesMut> MapEntities for T {
 pub trait EntityMapper {
     /// Returns the "target" entity that maps to the given `source`.
     fn get_mapped(&mut self, source: Entity) -> Entity;
+
     /// Maps the `target` entity to the given `source`. For some implementations this might not actually determine the result
     /// of [`EntityMapper::get_mapped`].
     fn set_mapped(&mut self, source: Entity, target: Entity);

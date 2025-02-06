@@ -30,7 +30,7 @@ pub struct ComponentCloneCtx<'a, 'b> {
     source_component_ptr: Ptr<'a>,
     target_component_written: bool,
     bundle_scratch: &'a mut BundleScratch<'b>,
-    bump: &'b Bump,
+    bundle_scratch_allocator: &'b Bump,
     source: Entity,
     target: Entity,
     components: &'a Components,
@@ -56,7 +56,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         source: Entity,
         target: Entity,
         source_component_ptr: Ptr<'a>,
-        bump: &'b Bump,
+        bundle_scratch_allocator: &'b Bump,
         bundle_scratch: &'a mut BundleScratch<'b>,
         components: &'a Components,
         entity_cloner: &'a mut EntityCloner,
@@ -71,7 +71,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             source_component_ptr,
             bundle_scratch,
             target_component_written: false,
-            bump,
+            bundle_scratch_allocator,
             components,
             mapper,
             component_info: components.get_info_unchecked(component_id),
@@ -105,7 +105,9 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         self.component_info
     }
 
-    /// Returns true if the [`EntityCloner`] is configured to recursively clone entities.
+    /// Returns true if the [`EntityCloner`] is configured to recursively clone entities. When this is enabled,
+    /// entities stored in a cloned entity's [`RelationshipTarget`](crate::relationship::RelationshipTarget) component with
+    /// [`RelationshipTarget::LINKED_SPAWN`](crate::relationship::RelationshipTarget::LINKED_SPAWN) will also be cloned.
     #[inline]
     pub fn is_recursive(&self) -> bool {
         self.entity_cloner.is_recursive
@@ -179,7 +181,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         // SAFETY: the TypeId of self.component_id has been checked to ensure it matches `C`
         unsafe {
             self.bundle_scratch
-                .push(self.bump, self.component_id, component);
+                .push(self.bundle_scratch_allocator, self.component_id, component);
         };
         self.target_component_written = true;
     }
@@ -204,7 +206,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             panic!("Trying to write component multiple times")
         }
         let layout = self.component_info.layout();
-        let target_component_data_ptr = self.bump.alloc_layout(layout);
+        let target_component_data_ptr = self.bundle_scratch_allocator.alloc_layout(layout);
 
         if clone_fn(self.source_component_ptr, target_component_data_ptr) {
             self.bundle_scratch
@@ -238,7 +240,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
         let component_layout = self.component_info.layout();
 
         let component_data_ptr = Box::into_raw(component).cast::<u8>();
-        let target_component_data_ptr = self.bump.alloc_layout(component_layout);
+        let target_component_data_ptr =
+            self.bundle_scratch_allocator.alloc_layout(component_layout);
         // SAFETY:
         // - target_component_data_ptr and component_data have the same data type.
         // - component_data_ptr has layout of component_layout
@@ -394,11 +397,11 @@ impl<'a> BundleScratch<'a> {
     /// be written to.
     pub(crate) unsafe fn push<C: Component>(
         &mut self,
-        bump: &'a Bump,
+        allocator: &'a Bump,
         id: ComponentId,
         component: C,
     ) {
-        let component_ref = bump.alloc(component);
+        let component_ref = allocator.alloc(component);
         self.component_ids.push(id);
         self.component_ptrs.push(PtrMut::from(component_ref));
     }
@@ -445,7 +448,7 @@ impl EntityCloner {
     ) -> Entity {
         let target = mapper.get_mapped(source);
         // PERF: reusing allocated space across clones would be more efficient. Consider an allocation model similar to `Commands`.
-        let bump = Bump::new();
+        let bundle_scratch_allocator = Bump::new();
         let mut bundle_scratch: BundleScratch;
         {
             let world = world.as_unsafe_world_cell();
@@ -498,7 +501,7 @@ impl EntityCloner {
                         source,
                         target,
                         source_component_ptr,
-                        &bump,
+                        &bundle_scratch_allocator,
                         &mut bundle_scratch,
                         world.components(),
                         self,
