@@ -56,7 +56,11 @@ pub enum MaybeStaged<C, S> {
     Staged(S),
 }
 
-/// A struct that allows read-optimized operations while still allowing mutation.
+/// A struct that allows read-optimized operations while still allowing mutation. When mutattions are made,
+/// they are staged. Then, at user-defined times, they are applied to the read-optimized storage. This allows muttations
+/// through [`RwLock`]s without needing to constantly lock old or cold data.
+///
+/// This is not designed for atomic use (ie. in an [`Arc`]). See [`AtomicStageOnWrite`] for that.
 #[derive(Default)]
 pub struct StageOnWrite<T: StagedChanges> {
     /// Cold data is read optimized.
@@ -75,7 +79,12 @@ struct AtomicStageOnWriteInner<T: StagedChanges> {
     staged: RwLock<T>,
 }
 
-/// A struct that allows read-optimized operations while still allowing mutation.
+/// A version of [`StageOnWrite`] designed for atomic use. See [`StageOnWrite`] for details.
+///
+/// This type includes a baked in [`Arc`], so it can be shared similarly. Many of it's methods take `&mut self` even though
+/// it doesn't technically need the mutation. This is done to signify that the methods involve a state change of the data and to prevent deadlocks.
+/// Because everything that involves a write lock requires `&mut self`, it is impossible to deadlock because doing so would require another lock guard
+/// with the same lifetime, which rust will complaine about. If you do not want this behavior, see [`AtomicStageOnWriteInner`].
 #[derive(Clone)]
 pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
 
@@ -102,6 +111,7 @@ impl<T: StagedChanges> StageOnWrite<T> {
     }
 
     /// Returns true if and only if there are staged changes that could be applied.
+    /// If you only have a immutable reference, consider using [`read_scope_locked`] with [`StagedChanges::any_staged`].
     #[inline]
     pub fn any_staged(&mut self) -> bool {
         self.staged.get_mut().unwrap().any_staged()
@@ -174,6 +184,8 @@ impl<T: StagedChanges> StageOnWrite<T> {
 
 impl<T: StagedChanges> AtomicStageOnWrite<T> {
     /// Gets the inner cold data if it is safe. If [`any_staged`](Self::any_staged) is known to be false, this can be safely unwrapped.
+    ///
+    /// Note that this **Blocks**, so generally prefer [`full_non_blocking`](Self::full_non_blocking).
     #[inline]
     pub fn full_locked(&mut self) -> Option<RwLockWriteGuard<'_, T::Cold>> {
         if self.0.staged.read().unwrap().any_staged() {
@@ -185,6 +197,8 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
 
     /// Applies any staged changes before returning the full value with all changes applied.
     /// Immediately after this, [`any_staged`](Self::any_staged) will be false.
+    ///
+    /// Note that this **Blocks**, so generally prefer [`apply_staged_for_full_non_blocking`](Self::apply_staged_for_full_non_blocking).
     #[inline]
     pub fn apply_staged_for_full_locked(&mut self) -> RwLockWriteGuard<'_, T::Cold> {
         let mut staged = self.0.staged.write().unwrap();
@@ -269,8 +283,8 @@ impl<T: StagedChanges> AtomicStageOnWrite<T> {
         }
     }
 
-    /// Runs different logic depending on if additional changes are already staged and if using cold would block.
-    /// This *can* be faster than greedily applying staged changes if there are already staged changes.
+    /// Runs different logic depending on if additional changes are already staged and if using cold directly would block.
+    /// This *can* be faster than greedily applying staged changes if there are no staged changes and no reads from cold.
     pub fn maybe_stage<C, S>(
         &mut self,
         for_full: impl FnOnce(&mut T::Cold) -> C,
