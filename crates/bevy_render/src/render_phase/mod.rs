@@ -1591,7 +1591,7 @@ impl<'a> Iterator for ReverseFixedBitSetZeroesIterator<'a> {
             let block_index = self.bit_index / (Block::BITS as isize);
             let bit_pos = self.bit_index % (Block::BITS as isize);
 
-            // Grab the block. Mask off all bits before the one we're scanning
+            // Grab the block. Mask off all bits above the one we're scanning
             // from by setting them all to 1.
             let mut block = self.bitset.as_slice()[block_index as usize];
             if bit_pos + 1 < (Block::BITS as isize) {
