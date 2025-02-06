@@ -46,6 +46,7 @@ pub trait StagableWrites: StagableWritesTypes {
 
 /// A struct that allows staging changes while reading from cold storage.
 /// Generally, staging changes should be implemented on this type.
+#[derive(Debug)]
 pub struct Stager<'a, T: StagedChanges> {
     /// The storage that is read optimized.
     pub cold: &'a T::Cold,
@@ -55,7 +56,7 @@ pub struct Stager<'a, T: StagedChanges> {
 
 /// A struct that allows accessing changes while reading from cold storage.
 /// Generally, reading data should be implemented on this type.
-#[derive(Copy)]
+#[derive(Copy, Debug)]
 pub struct StagedRef<'a, T: StagedChanges> {
     /// The storage that is read optimized.
     pub cold: &'a T::Cold,
@@ -65,6 +66,7 @@ pub struct StagedRef<'a, T: StagedChanges> {
 
 /// A locked version of [`Stager`].
 /// Use this to hold a lock guard while using [`StagerLocked::as_stager`] or similar.
+#[derive(Debug)]
 pub struct StagerLocked<'a, T: StagableWrites> {
     inner: &'a T,
     pub cold: T::ColdStorage<'a>,
@@ -73,6 +75,7 @@ pub struct StagerLocked<'a, T: StagableWrites> {
 
 /// A locked version of [`StagedRef`].
 /// Use this to hold a lock guard while using [`StagerLocked::as_staged_ref`].
+#[derive(Debug)]
 pub struct StagedRefLocked<'a, T: StagableWrites> {
     inner: &'a T,
     pub cold: T::ColdStorage<'a>,
@@ -80,6 +83,7 @@ pub struct StagedRefLocked<'a, T: StagableWrites> {
 }
 
 /// A general purpose enum for representing data that may or may not need to be staged.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MaybeStaged<C, S> {
     /// There is no staging necessary.
     Cold(C),
@@ -94,7 +98,7 @@ pub enum MaybeStaged<C, S> {
 ///
 /// This is not designed for atomic use (ie. in an `Arc`).
 #[cfg_attr(feature = "alloc", doc = "See [`AtomicStageOnWrite`] for that.")]
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct StageOnWrite<T: StagedChanges> {
     /// Cold data is read optimized.
     cold: T::Cold,
@@ -103,7 +107,7 @@ pub struct StageOnWrite<T: StagedChanges> {
 }
 
 #[cfg(feature = "alloc")]
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct AtomicStageOnWriteInner<T: StagedChanges> {
     /// Cold data is read optimized.
     /// This lives behind a [`RwLock`], but it is only written to for applying changes in a non-blocking way.
@@ -649,13 +653,14 @@ mod example {
     use crate as bevy_utils;
     use bevy_platform_support::collections::HashMap;
     use bevy_platform_support::prelude::String;
-    use bevy_utils::staging::{MaybeStaged, StagedChanges, StagedRef};
-
-    use super::{ColdStorage, StagableWrites, StageOnWrite, StagedRefLocked, Stager};
+    use bevy_utils::staging::{
+        MaybeStaged, StagableWrites, StageOnWrite, StagedChanges, StagedRef, StagedRefLocked,
+        Stager, StagerLocked,
+    };
 
     /// Stores some arbitrary player data.
     #[derive(Debug, Clone)]
-    struct PlayerData {
+    pub struct PlayerData {
         name: String,
         secs_in_game: u32,
         id: PlayerId,
@@ -663,15 +668,15 @@ mod example {
 
     /// A unique id per player
     #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
-    struct PlayerId(u32);
+    pub struct PlayerId(u32);
 
     /// The standard collection of players
     #[derive(Default, Debug)]
-    struct Players(HashMap<PlayerId, PlayerData>);
+    pub struct Players(HashMap<PlayerId, PlayerData>);
 
     /// When a change is made to a player
     #[derive(Default, Debug)]
-    struct StagedPlayerChanges {
+    pub struct StagedPlayerChanges {
         replacements: HashMap<PlayerId, PlayerData>,
         additional_time_played: HashMap<PlayerId, u32>,
     }
@@ -833,29 +838,7 @@ mod example {
         }
     }
 
-    impl<T: StagableWrites<Staging = StagedPlayerChanges>> PlayerAccess for StagedRefLocked<'_, T> {
-        fn get_name(&self, id: PlayerId) -> Option<impl Deref<Target = str>> {
-            let this = self.clone();
-            if this.staged.replacements.contains_key(&id) {
-                Some(MaybeStaged::Staged(LockedNameStagedRef {
-                    staged: this.get_staged_guard(),
-                    id,
-                }))
-            } else if this.cold.0.contains_key(&id) {
-                Some(MaybeStaged::Cold(LockedNameColdRef::<T> {
-                    cold: this.get_cold_guard(),
-                    id,
-                }))
-            } else {
-                None
-            }
-        }
-
-        fn get_secs_in_game(&self, id: PlayerId) -> Option<u32> {
-            self.as_staged_ref().get_secs_in_game(id)
-        }
-    }
-
+    #[derive(Debug, Default)]
     pub struct PlayerRegistry {
         players: StageOnWrite<StagedPlayerChanges>,
     }
@@ -886,6 +869,21 @@ mod example {
                     None
                 }
             }
+        }
+
+        /// Cleans up internal data to make reading faster.
+        pub fn clean(&mut self) {
+            self.players.apply_staged_for_full();
+        }
+
+        /// Allows reading in bulk without extra locking.
+        pub fn bulk_read(&self) -> StagedRefLocked<'_, StageOnWrite<StagedPlayerChanges>> {
+            self.players.read_lock()
+        }
+
+        /// Allows writing in bulk without extra locking.
+        pub fn bulk_write(&self) -> StagerLocked<'_, StageOnWrite<StagedPlayerChanges>> {
+            self.players.stage_lock()
         }
     }
 }
