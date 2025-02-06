@@ -2,8 +2,8 @@
 
 use core::ops::Deref;
 
-use alloc::sync::Arc;
-use bevy_platform_support::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
+use crate::alloc::sync::Arc;
+use crate::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
 pub trait StagedChanges: Default {
@@ -417,7 +417,7 @@ impl<T: StagedChanges> ColdStorage<T> for &'_ T::Cold {}
 
 #[cfg(test)]
 mod tests {
-    use bevy_platform_support::{collections::HashMap, prelude::Vec};
+    use crate::{collections::HashMap, prelude::Vec};
 
     use super::*;
 
