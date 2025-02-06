@@ -2,7 +2,8 @@
 
 use core::ops::Deref;
 
-use bevy_platform_support::sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use alloc::sync::Arc;
+use bevy_platform_support::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
 pub trait StagedChanges: Default {
