@@ -95,8 +95,19 @@ struct AtomicStageOnWriteInner<T: StagedChanges> {
 /// See [`StageOnWrite`] for details.
 ///
 /// This type includes a baked in [`Arc`], so it can be shared across threads.
+///
 /// Many of it's methods take `&mut self` to ensure access is exclusive, preventing possible deadlocks.
-/// If you do not want this behavior, see [`AtomicStageOnWriteInner`].
+/// This doesn not guarantee there are no deadlocks when working with multiple clones of this on the same thread.
+/// Here's an example:
+///
+/// ```compile_fail
+/// use ...
+/// let mut stage_on_write = AtomicStageOnWrite::<MyStagingType>::default();
+/// let reading = stage_on_write.read_lock();
+/// stage_on_write.apply_staged_non_blocking();
+/// ```
+///
+/// Remember to use [`apply_staged_non_blocking`](Self::apply_staged_non_blocking) or similar methods periodically as a best practice.
 #[cfg(feature = "alloc")]
 #[derive(Clone)]
 pub struct AtomicStageOnWrite<T: StagedChanges>(Arc<AtomicStageOnWriteInner<T>>);
@@ -460,19 +471,11 @@ mod tests {
         }
     }
 
-    // This is commented out, as it intentionally does not compile. This demonstrates how `AtomicStageOnWrite` prevents deadlock using the borrow checker.
-    // #[test]
-    // fn test_no_compile_for_deadlock() {
-    //     let mut stage_on_write = AtomicStageOnWrite::<StagedNumVec>::default();
-    //     let reading = stage_on_write.read_lock();
-    //     stage_on_write.apply_staged_non_blocking();
-    // }
-
     #[test]
     fn test_simple_stage() {
         let mut data = StageOnWrite::<StagedNumVec>::default();
         data.stage_scope_locked(|stager| stager.staged.added.push(5));
         let full = data.apply_staged_for_full();
-        assert_eq!(full[..], &[5]);
+        assert_eq!(&full[..], &[5]);
     }
 }
