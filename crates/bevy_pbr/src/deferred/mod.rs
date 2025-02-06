@@ -432,28 +432,26 @@ pub fn prepare_deferred_lighting_pipelines(
     pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<DeferredLightingLayout>>,
     deferred_lighting_layout: Res<DeferredLightingLayout>,
-    views: Query<
+    views: Query<(
+        Entity,
+        &ExtractedView,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ShadowFilteringMethod>,
         (
-            Entity,
-            &ExtractedView,
-            Option<&Tonemapping>,
-            Option<&DebandDither>,
-            Option<&ShadowFilteringMethod>,
-            (
-                Has<ScreenSpaceAmbientOcclusion>,
-                Has<ScreenSpaceReflectionsUniform>,
-                Has<DistanceFog>,
-            ),
-            (
-                Has<NormalPrepass>,
-                Has<DepthPrepass>,
-                Has<MotionVectorPrepass>,
-            ),
-            Has<RenderViewLightProbes<EnvironmentMapLight>>,
-            Has<RenderViewLightProbes<IrradianceVolume>>,
+            Has<ScreenSpaceAmbientOcclusion>,
+            Has<ScreenSpaceReflectionsUniform>,
+            Has<DistanceFog>,
         ),
-        With<DeferredPrepass>,
-    >,
+        (
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+        ),
+        Has<RenderViewLightProbes<EnvironmentMapLight>>,
+        Has<RenderViewLightProbes<IrradianceVolume>>,
+        Has<DeferredPrepass>,
+    )>,
 ) {
     for (
         entity,
@@ -465,8 +463,17 @@ pub fn prepare_deferred_lighting_pipelines(
         (normal_prepass, depth_prepass, motion_vector_prepass),
         has_environment_maps,
         has_irradiance_volumes,
+        has_deferred_prepass,
     ) in &views
     {
+        // If there is no deferred prepass, remove the old pipeline if there was
+        // one. This handles the case in which a view using deferred stops using
+        // it.
+        if !has_deferred_prepass {
+            commands.entity(entity).remove::<DeferredLightingPipeline>();
+            return;
+        }
+
         let mut view_key = MeshPipelineKey::from_hdr(view.hdr);
 
         if normal_prepass {
