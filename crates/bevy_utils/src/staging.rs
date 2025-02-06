@@ -1,11 +1,11 @@
 //! Provides an abstracted system for staging modifications to data structures that rarely change.
 //! See [`StageOnWrite`] as a starting point.
 
-use crate::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use bevy_platform_support::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use core::ops::Deref;
 
 #[cfg(feature = "alloc")]
-use crate::sync::Arc;
+use bevy_platform_support::sync::Arc;
 
 /// Signifies that this type represents staged changes to [`Cold`](Self::Cold).
 pub trait StagedChanges: Default {
@@ -488,7 +488,7 @@ impl<T: StagedChanges> ColdStorage<T> for &'_ T::Cold {}
 
 #[cfg(test)]
 mod tests {
-    use crate::{collections::HashMap, prelude::Vec};
+    use bevy_platform_support::{collections::HashMap, prelude::Vec};
 
     use super::*;
 
