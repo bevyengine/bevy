@@ -5,7 +5,83 @@
 //! Provides an abstracted system for staging modifications to data structures that rarely change.
 //! See [`StageOnWrite`] as a starting point.
 //!
+//! # Rational
 //!
+//! Lets say you want to have a collection of items that is read from often but rarely written to.
+//! This comes up a lot in registries, like components, bundles, reflection, assets, etc.
+//! Lets say you also want to share this collection between threads freely.
+//! There are lots of ways to do this, so what does this module do differently?
+//!
+//! The standard solution is to use a [`RwLock`] with the collection inside.
+//! Then you can pass around the lock between threads freely, even putting it in an `Arc` if desired.
+//! However, writing to the collection blocks all reads from it.
+//! In performance critical code, this can shut down processes that are reading data from the collection.
+//! Worse, if the lifetime of the data being read is long, it can block the writing thread for a significant time.
+//! In some cases, this is even prone to dead locking.
+//! If any of these are concerns, [`RwLock`] is not enough.
+//!
+//! There are plenty of third part crates that offer relevant functionality.
+//! For example, [left_right](https://docs.rs/left-right/latest/left_right/) is similar to this crate, but it only supports one writer at a time, allows readers to desync from the writer, and lacks `no_std` support.
+//! Other crates exist but come with similar downsides, taking double memory, not having `no_std` support, etc.
+//!
+//! So this module is its own solution to the problem.
+//! Use this if and only if:
+//! - The collection you are storing has very few writes.
+//! - The collection has many concurrent reads.
+//! - The collection needs to be able to be written to from anywhere.
+//! - The collection needs to be updated everywhere immediately when written to.
+//! - The collection needs to be minimally blocking but tolerates locking.
+//!
+//! # How it works
+//!
+//! The general approach here is called "Stage on Write", similar to "Copy on Write" from std.
+//!
+//! Data that has not been changed in a while lives in a compact, read-optimized data structure.
+//! We call this read-optimized, old (not changed recently) data "cold" data.
+//! When a change is made, instead of locking the cold data and applying it directly, we lock a temporary storage data structure and queue the change.
+//! These queued changes we call "staged" data, and its type implements [`StagedChanges`].
+//! Then, at user defined points, we drain these staged changes into the cold data.
+//! This requires locking both data structures, but since these points can be much less frequent than the already rare writes, this doesn't matter.
+//! In principal, the staged data never needs to be drained into the cold data, but the staged data will never benefit from the faster read access of cold data.
+//! The traits [`StagableWrites`] and company represent types that corrdinat this behavior.
+//!
+//! A few other types help with this.
+//! If a lock is held or there is mutably access to the underlying stage on write type, [`Stager`] and [`StagedRef`] can be obtained.
+//! Use [`StagedRef`] when you need to access data with standard references.
+//! Since the there might be a lock involved, this should be used only when needed.
+//! Use [`Stager`] when you need to write data, since this gives read access to cold data, and write access to staged data.
+//! However, these types are typically obtained by locking, and returning a reference from them requires all of its locks be kept.
+//! As a result, there are better types to use for reading.
+//!
+//! [`StagedRefLocked`] fills the same role as [`StagedRef`], but gives underlying access to the locks.
+//! So, if the requested data lives in cold data, you can return the lock guard for cold, and drop the lock guard for staged, freeing it up for writes.
+//! The [`MaybeStaged`] enum helps with this, and this will be even easier once [RwLockGuard mapping](https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html) is stabilized.
+//! [`StagerLocked`] offers effectively the same powers as [`Stager`], but also gives access to the underlying locks.
+//! So, if you want to return a mutable reference to something in staged data, you can use this to do that while allowing the cold lock to be dropped.
+//! This is less useful, but still has its place.
+//!
+//! In general:
+//! - Implement general purpose reads on [`StagedRef`],
+//! - High performance reads on [`StagedRefLocked`],
+//! - Writes on [`Stager`],
+//! - and niche/advanced uses on [`StagerLocked`].
+//!
+//! In addition, this module offers two implementations of the stage on write concept: [`StageOnWrite`] and [`AtomicStageOnWrite`].
+//! [`StageOnWrite`] is the simpler implementation, storing cold data directly and staged data in an [`RwLock`] to synchronize writes.
+//! Because it stores cold data directly, the only way to clean the data (drain staged data in cold) is to have mutable access to it.
+//! This means it can't be put in an `Arc` or similar and still be able to be cleaned.
+//! [`AtomicStagedOnWrite`] comes to the resque here. It stores cold data in another [`RwLock`], allowing the data to be cleaned with immutable access.
+//! Although blocking methods for this exist, [`AtomicStagedOnWrite`] also offers non-blocking methods for cleaning.
+//! Hence, in normal use, [`AtomicStagedOnWrite`] will almost never block to read from cold data.
+//! Additionally, because it can see when cold is being read or not, it can apply staged changes as needed without needing specific calls from the user.
+//!
+//! Finally, [`StagableWrites`] offers some utilities to prevent deadlocking.
+//! It is implemented by [`RefStageOnWrite`] and `ArcStageOnWrite` for utility.
+//! The idea behind this type is that the most common way to accidentally deadlock is to maintain an immutable borrow while making a muttable borrow via synchronization.
+//! This trait makes muttable borrows requie mutable access to self, preventing this kind of deadlock.
+//! Because these types only wrap cloneable references to to the [`StagableWritesCore`] type, this can still be shared between thread safely.
+//! It also means that this does not fully prevent deadlock, especially if the same thread is maintaining a lock guard on one copy of the stage on write structure while another copy is being used.
+//! Still this protection is better than none.
 //!
 //! # Example
 //!
