@@ -61,11 +61,8 @@ pushd crates
 for crate in "${crates[@]}"
 do
   echo "Publishing ${crate}"
-  cp ../LICENSE-MIT "$crate"
-  cp ../LICENSE-APACHE "$crate"
   pushd "$crate"
-  git add LICENSE-MIT LICENSE-APACHE
-  cargo publish --no-verify --allow-dirty
+  cargo publish --no-verify
   popd
   sleep 20
 done
@@ -73,7 +70,4 @@ done
 popd
 
 echo "Publishing root crate"
-cargo publish --allow-dirty
-
-echo "Cleaning local state"
-git reset HEAD --hard
+cargo publish
