@@ -625,5 +625,20 @@ fn directional_light(
     color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    return color * (*light).color.rgb;
+    color *= (*light).color.rgb;
+
+#ifdef ATMOSPHERE_TRANSMITTANCE
+    // Calculate atmospheric transmittance
+    let P = (*input).P;
+    let P_as = atmosphere_transforms.atmosphere_from_world * vec4(P, 1.0);
+    let r = length(P - (*bindings.atmosphere).planet_center);
+    let up = normalize(P - (*bindings.atmosphere).planet_center);
+    let mu = dot(L, up);
+    
+    // Apply transmittance after light color but before shadows
+    // This ensures the light is attenuated by the atmosphere before any other effects
+    color *= sample_transmittance_lut(bindings, r, mu);
+#endif
+
+    return color;
 }

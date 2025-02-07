@@ -33,6 +33,7 @@ use core::{array, num::NonZero};
 use environment_map::EnvironmentMapLight;
 
 use crate::{
+    atmosphere::resources::GpuAtmosphereData,
     decal::{
         self,
         clustered::{
@@ -398,6 +399,18 @@ fn layout_entries(
         }
     }
 
+    // Atmosphere
+    entries = entries.extend_with_indices((
+        // transmittance LUT
+        (
+            37,
+            texture_2d(TextureSampleType::Float { filterable: true }),
+        ),
+        (38, sampler(SamplerBindingType::Filtering)),
+        // Combined atmosphere data
+        (39, storage_buffer_read_only::<GpuAtmosphereData>(false)),
+    ));
+
     entries.to_vec()
 }
 
@@ -534,6 +547,7 @@ pub fn prepare_mesh_view_bind_groups(
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
+    // TODO: Add atmosphere buffer
     (decals_buffer, render_decals): (Res<DecalsBuffer>, Res<RenderClusteredDecals>),
 ) {
     if let (
@@ -756,6 +770,8 @@ pub fn prepare_mesh_view_bind_groups(
                     ));
                 }
             }
+
+            // TODO: Add atmosphere buffer bindings
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
