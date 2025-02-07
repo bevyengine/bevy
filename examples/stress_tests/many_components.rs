@@ -36,7 +36,7 @@ use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 // some non-trivial load.
 fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<FilteredEntityMut>) {
     #[cfg(feature = "trace")]
-    let _span = bevy::utils::tracing::info_span!("base_system", components = ?access_components.0, count = query.iter().len()).entered();
+    let _span = tracing::info_span!("base_system", components = ?access_components.0, count = query.iter().len()).entered();
 
     for mut filtered_entity in &mut query {
         // We calculate Faulhaber's formula mod 256 with n = value and p = exponent.
