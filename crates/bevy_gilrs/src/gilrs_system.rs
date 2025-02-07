@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, ops::Deref};
+use std::ops::Deref;
 
 use crate::{
     converter::{convert_axis, convert_button},
@@ -15,11 +15,11 @@ use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
     mut commands: Commands,
-    gilrs: Res<'static, Gilrs>,
+    gilrs: Res<Gilrs>,
     mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<GamepadConnectionEvent>,
 ) {
-    gilrs.into_inner().0.with(|g_ref| {
+    gilrs.0.with(|g_ref| {
         if let Some(g) = g_ref.borrow().deref() {
             for (id, gamepad) in g.gamepads() {
                 // Create entity and add to mapping
