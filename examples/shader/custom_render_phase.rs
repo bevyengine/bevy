@@ -33,7 +33,6 @@ use bevy::{
             GetBatchData, GetFullBatchData,
         },
         camera::ExtractedCamera,
-        diagnostic::RecordDiagnostics,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
         render_asset::RenderAssets,
@@ -43,13 +42,13 @@ use bevy::{
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
             DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
-            TrackedRenderPass, ViewSortedRenderPhases,
+            ViewSortedRenderPhases,
         },
         render_resource::{
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, CommandEncoderDescriptor, Face,
-            FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-            RenderPassDescriptor, RenderPipelineDescriptor, SpecializedMeshPipeline,
-            SpecializedMeshPipelineError, SpecializedMeshPipelines, TextureFormat, VertexState,
+            CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
+            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, RenderPassDescriptor,
+            RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+            SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         renderer::RenderContext,
         sync_world::MainEntity,
@@ -589,14 +588,11 @@ impl ViewNode for CustomDrawNode {
         (camera, view, target): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
-        // First, we need to get ou phases resource
+        // First, we need to get our phases resource
         let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<StencilPhase>>()
         else {
             return Ok(());
         };
-        // Initialize diagnostic recording.
-        // not required but makes profiling easier
-        let diagnostics = render_context.diagnostic_recorder();
 
         // Get the view entity from the graph
         let view_entity = graph.view_entity();
@@ -606,49 +602,28 @@ impl ViewNode for CustomDrawNode {
             return Ok(());
         };
 
-        // This will generate a task to generate the command buffer in parallel
-        // This is not required but is generally recommended
-        render_context.add_command_buffer_generation_task(move |render_device| {
-            #[cfg(feature = "trace")]
-            let _ = info_span!("custom_stencil_pass").entered();
-
-            // Command encoder setup
-            let mut command_encoder =
-                render_device.create_command_encoder(&CommandEncoderDescriptor {
-                    label: Some("custom stencil pass encoder"),
-                });
-
-            // Render pass setup
-            let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("stencil pass"),
-                // For the purpose of the example, we will write directly to the view target. A real
-                // stencil pass would write to a custom texture and that texture would be used in later
-                // passes to render custom effects using it.
-                color_attachments: &[Some(target.get_color_attachment())],
-                // We don't bind any depth buffer for this pass
-                depth_stencil_attachment: None,
-                timestamp_writes: None,
-                occlusion_query_set: None,
-            });
-            let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
-            let pass_span = diagnostics.pass_span(&mut render_pass, "custom_pass");
-
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
-            }
-
-            // Render the phase
-            if !stencil_phase.items.is_empty() {
-                // This will execute each draw functions of each phase items queued in this phase
-                if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
-                    error!("Error encountered while rendering the stencil phase {err:?}");
-                }
-            }
-
-            pass_span.end(&mut render_pass);
-            drop(render_pass);
-            command_encoder.finish()
+        // Render pass setup
+        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
+            label: Some("stencil pass"),
+            // For the purpose of the example, we will write directly to the view target. A real
+            // stencil pass would write to a custom texture and that texture would be used in later
+            // passes to render custom effects using it.
+            color_attachments: &[Some(target.get_color_attachment())],
+            // We don't bind any depth buffer for this pass
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
         });
+
+        if let Some(viewport) = camera.viewport.as_ref() {
+            render_pass.set_camera_viewport(viewport);
+        }
+
+        // Render the phase
+        // This will execute each draw functions of each phase items queued in this phase
+        if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
+            error!("Error encountered while rendering the stencil phase {err:?}");
+        }
 
         Ok(())
     }
