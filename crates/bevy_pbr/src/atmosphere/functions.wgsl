@@ -121,9 +121,9 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
 //should be in bruneton_functions, but wouldn't work in that module bc imports. What to do wrt licensing?
 fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
     let r_t = get_local_r(r, mu, t);
-    let mu_t = clamp(-1.0, 1.0, (r * mu + t) / r_t);
+    let mu_t = clamp((r * mu + t) / r_t, -1.0, 1.0);
 
-    if !ray_intersects_ground(r, mu) {
+    if ray_intersects_ground(r, mu) {
         return min(
             sample_transmittance_lut(r_t, -mu_t) / sample_transmittance_lut(r, -mu),
             vec3(1.0)
