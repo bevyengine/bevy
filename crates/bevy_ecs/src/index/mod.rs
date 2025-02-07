@@ -403,7 +403,7 @@ impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> Default
     fn default() -> Self {
         Self {
             marker_storage: StorageType::SparseSet,
-            address_space: size_of::<C>() as u8,
+            address_space: size_of::<C>().saturating_mul(8) as u8,
             index_storage: HashMap::with_hasher(FixedHasher),
             _phantom: PhantomData,
         }
