@@ -766,12 +766,12 @@ pub fn pointer_events(
                 }
             }
             PointerAction::Scroll { x, y, unit } => {
-                // If it's a press, emit a Pressed event and mark the hovered entities as pressed
                 for (hovered_entity, hit) in hover_map
                     .get(&pointer_id)
                     .iter()
                     .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
                 {
+                    // Emit Scroll events to the entities we are hovering
                     let scroll_event = Pointer::new(
                         pointer_id,
                         location.clone(),
