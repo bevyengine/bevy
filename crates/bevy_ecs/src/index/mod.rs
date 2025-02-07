@@ -138,7 +138,9 @@ pub use storage::*;
 
 use crate::{
     self as bevy_ecs,
-    component::{Component, ComponentDescriptor, ComponentId, Immutable, StorageType},
+    component::{
+        Component, ComponentCloneBehavior, ComponentDescriptor, ComponentId, Immutable, StorageType,
+    },
     entity::Entity,
     prelude::Trigger,
     system::{Commands, Query, ResMut},
@@ -338,6 +340,7 @@ impl<C: Component<Mutability = Immutable>> Index<C> {
                 Layout::new::<()>(),
                 None,
                 false,
+                ComponentCloneBehavior::default(),
             )
         };
 
