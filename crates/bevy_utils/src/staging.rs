@@ -1060,6 +1060,15 @@ impl<C: DerefMut, S: DerefMut<Target = C::Target>> DerefMut for MaybeStaged<C, S
     }
 }
 
+impl<T: StagedChanges> Default for ArcStageOnWrite<T>
+where
+    T::Cold: Default,
+{
+    fn default() -> Self {
+        Self::new(T::Cold::default())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_platform_support::{collections::HashMap, prelude::Vec};
