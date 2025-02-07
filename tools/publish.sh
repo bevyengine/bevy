@@ -9,7 +9,7 @@ for crate in `cargo package --workspace 2>&1 | grep Packaging | sed 's_.*crates/
 do
   echo "Publishing ${crate}"
   pushd "$crate"
-  cargo publish --no-verify
+  cargo publish
   popd
   sleep 20
 done
