@@ -14,6 +14,8 @@ pub fn dyn_param(criterion: &mut Criterion) {
     #[derive(Resource)]
     struct R;
 
+    world.insert_resource(R);
+
     let mut schedule = Schedule::default();
     let system = (
         DynParamBuilder::new::<Res<R>>(ParamBuilder),

@@ -20,7 +20,7 @@
 //! - The [`PointerHits`] events produced by a backend do **not** need to be sorted or filtered, all
 //!   that is needed is an unordered list of entities and their [`HitData`].
 //!
-//! - Backends do not need to consider the [`PickingBehavior`](crate::PickingBehavior) component, though they may
+//! - Backends do not need to consider the [`Pickable`](crate::Pickable) component, though they may
 //!   use it for optimization purposes. For example, a backend that traverses a spatial hierarchy
 //!   may want to exit early if it intersects an entity that blocks lower entities from being
 //!   picked.
@@ -42,7 +42,7 @@ pub mod prelude {
     pub use super::{ray::RayMap, HitData, PointerHits};
     pub use crate::{
         pointer::{PointerId, PointerLocation},
-        PickSet, PickingBehavior,
+        PickSet, Pickable,
     };
 }
 
@@ -129,10 +129,10 @@ pub mod ray {
     use crate::backend::prelude::{PointerId, PointerLocation};
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
+    use bevy_platform_support::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
     use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
-    use bevy_utils::{hashbrown::hash_map::Iter, HashMap};
     use bevy_window::PrimaryWindow;
 
     /// Identifies a ray constructed from some (pointer, camera) combination. A pointer can be over

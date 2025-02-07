@@ -1,12 +1,17 @@
 #[cfg(feature = "alloc")]
-use alloc::{collections::BTreeMap, vec::Vec};
+use {
+    super::{Measured2d, Triangle2d},
+    alloc::{collections::BTreeMap, vec::Vec},
+};
 
 use core::cmp::Ordering;
 
 use crate::Vec2;
 
-use super::{Measured2d, Triangle2d};
-
+#[cfg_attr(
+    not(feature = "alloc"),
+    expect(dead_code, reason = "this type is only used with the alloc feature")
+)]
 #[derive(Debug, Clone, Copy)]
 enum Endpoint {
     Left,
@@ -20,12 +25,20 @@ enum Endpoint {
 ///
 /// This is the order expected by the [`SweepLine`].
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(
+    not(feature = "alloc"),
+    allow(dead_code, reason = "this type is only used with the alloc feature")
+)]
 struct SweepLineEvent {
     segment: Segment,
     /// Type of the vertex (left or right)
     endpoint: Endpoint,
 }
 impl SweepLineEvent {
+    #[cfg_attr(
+        not(feature = "alloc"),
+        allow(dead_code, reason = "this type is only used with the alloc feature")
+    )]
     fn position(&self) -> Vec2 {
         match self.endpoint {
             Endpoint::Left => self.segment.left,
@@ -51,11 +64,12 @@ impl Ord for SweepLineEvent {
 }
 
 /// Orders 2D points according to the order expected by the sweep line and event queue from -X to +X and then -Y to Y.
+#[cfg_attr(
+    not(feature = "alloc"),
+    allow(dead_code, reason = "this type is only used with the alloc feature")
+)]
 fn xy_order(a: Vec2, b: Vec2) -> Ordering {
-    match a.x.total_cmp(&b.x) {
-        Ordering::Equal => a.y.total_cmp(&b.y),
-        ord => ord,
-    }
+    a.x.total_cmp(&b.x).then_with(|| a.y.total_cmp(&b.y))
 }
 
 /// The event queue holds an ordered list of all events the [`SweepLine`] will encounter when checking the current polygon.
@@ -121,6 +135,7 @@ impl PartialEq for Segment {
     }
 }
 impl Eq for Segment {}
+
 impl PartialOrd for Segment {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
@@ -128,14 +143,18 @@ impl PartialOrd for Segment {
 }
 impl Ord for Segment {
     fn cmp(&self, other: &Self) -> Ordering {
-        match self.left.y.total_cmp(&other.left.y) {
-            Ordering::Equal => self.right.y.total_cmp(&other.right.y),
-            ord => ord,
-        }
+        self.left
+            .y
+            .total_cmp(&other.left.y)
+            .then_with(|| self.right.y.total_cmp(&other.right.y))
     }
 }
 
 /// Holds information about which segment is above and which is below a given [`Segment`]
+#[cfg_attr(
+    not(feature = "alloc"),
+    expect(dead_code, reason = "this type is only used with the alloc feature")
+)]
 #[derive(Debug, Clone, Copy)]
 struct SegmentOrder {
     above: Option<usize>,
@@ -243,6 +262,13 @@ impl<'a> SweepLine<'a> {
 /// Test what side of the line through `p1` and `p2` `q` is.
 ///
 /// The result will be `0` if the `q` is on the segment, negative for one side and positive for the other.
+#[cfg_attr(
+    not(feature = "alloc"),
+    expect(
+        dead_code,
+        reason = "this function is only used with the alloc feature"
+    )
+)]
 #[inline(always)]
 fn point_side(p1: Vec2, p2: Vec2, q: Vec2) -> f32 {
     (p2.x - p1.x) * (q.y - p1.y) - (q.x - p1.x) * (p2.y - p1.y)

@@ -107,6 +107,7 @@ fn spawn_sprites(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextFont {
         font: font.clone(),
@@ -120,7 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_sprites(
         &mut commands,
         handle_1,
-        Vec3::new(-600.0, 200.0, 0.0),
+        Vec3::new(-600.0, 150.0, 0.0),
         200.0,
         style.clone(),
         40.,
@@ -129,7 +130,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_sprites(
         &mut commands,
         handle_2,
-        Vec3::new(-600.0, -200.0, 0.0),
+        Vec3::new(-600.0, -150.0, 0.0),
         80.0,
         style,
         40.,

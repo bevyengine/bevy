@@ -1,7 +1,14 @@
-// FIXME(11590): remove this once the lint is fixed
-#![allow(unsafe_op_in_unsafe_fn)]
-// TODO: remove once Edition 2024 is released
-#![allow(dependency_on_unit_never_type_fallback)]
+#![expect(
+    unsafe_op_in_unsafe_fn,
+    reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
+)]
+#![cfg_attr(
+    test,
+    expect(
+        dependency_on_unit_never_type_fallback,
+        reason = "See #17340. To be removed once Edition 2024 is released"
+    )
+)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
@@ -11,12 +18,15 @@
     )
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
-#![allow(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
-#![cfg_attr(not(feature = "std"), no_std)]
+#![no_std]
+
+#[cfg(feature = "std")]
+extern crate std;
 
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
@@ -29,7 +39,9 @@ pub mod bundle;
 pub mod change_detection;
 pub mod component;
 pub mod entity;
+pub mod entity_disabling;
 pub mod event;
+pub mod hierarchy;
 pub mod identifier;
 pub mod intern;
 pub mod label;
@@ -38,7 +50,9 @@ pub mod observer;
 pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod relationship;
 pub mod removal_detection;
+pub mod resource;
 pub mod result;
 pub mod schedule;
 pub mod storage;
@@ -52,31 +66,36 @@ pub use bevy_ptr as ptr;
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
-    #[expect(deprecated)]
+    #[expect(
+        deprecated,
+        reason = "`crate::schedule::apply_deferred` is considered deprecated; however, it may still be used by crates which consume `bevy_ecs`, so its removal here may cause confusion. It is intended to be removed in the Bevy 0.17 cycle."
+    )]
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         component::{require, Component},
-        entity::{Entity, EntityMapper},
+        entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
+        hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
         name::{Name, NameOrEntity},
-        observer::{CloneEntityWithObserversExt, Observer, Trigger},
+        observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         removal_detection::RemovedComponents,
+        resource::Resource,
         result::{Error, Result},
         schedule::{
             apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
             IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
         system::{
-            Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef, IntoSystem, Local,
-            NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem, Res, ResMut, Resource,
-            Single, System, SystemIn, SystemInput, SystemParamBuilder, SystemParamFunction,
-            WithParamWarnPolicy,
+            Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
+            IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
+            Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
+            SystemParamFunction, WithParamWarnPolicy,
         },
         world::{
-            Command, EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
+            EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
             FromWorld, OnAdd, OnInsert, OnRemove, OnReplace, World,
         },
     };
@@ -115,15 +134,21 @@ mod tests {
         change_detection::Ref,
         component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
         entity::Entity,
+        entity_disabling::DefaultQueryFilters,
         prelude::Or,
         query::{Added, Changed, FilteredAccess, QueryFilter, With, Without},
-        system::Resource,
+        resource::Resource,
         world::{EntityMut, EntityRef, Mut, World},
     };
-    use alloc::{sync::Arc, vec};
+    use alloc::{
+        string::{String, ToString},
+        sync::Arc,
+        vec,
+        vec::Vec,
+    };
     use bevy_ecs_macros::{VisitEntities, VisitEntitiesMut};
+    use bevy_platform_support::collections::HashSet;
     use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use bevy_utils::HashSet;
     use core::{
         any::TypeId,
         marker::PhantomData,
@@ -139,9 +164,8 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
-    #[allow(dead_code)]
     #[derive(Default)]
-    struct NonSendA(usize, PhantomData<*mut ()>);
+    struct NonSendA(PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);
@@ -158,8 +182,10 @@ mod tests {
         }
     }
 
-    // TODO: The compiler says the Debug and Clone are removed during dead code analysis. Investigate.
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used to test how `Drop` behavior works in regards to SparseSet storage, and as such is solely a wrapper around `DropCk` to make it use the SparseSet storage. Because of this, the inner field is intentionally never read."
+    )]
     #[derive(Component, Clone, Debug)]
     #[component(storage = "SparseSet")]
     struct DropCkSparse(DropCk);
@@ -203,13 +229,9 @@ mod tests {
             y: SparseStored,
         }
         let mut ids = Vec::new();
-        <FooBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <FooBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -257,13 +279,9 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <NestedBundle as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <NestedBundle as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(
             ids,
@@ -313,13 +331,9 @@ mod tests {
         }
 
         let mut ids = Vec::new();
-        <BundleWithIgnored as Bundle>::component_ids(
-            &mut world.components,
-            &mut world.storages,
-            &mut |id| {
-                ids.push(id);
-            },
-        );
+        <BundleWithIgnored as Bundle>::component_ids(&mut world.components, &mut |id| {
+            ids.push(id);
+        });
 
         assert_eq!(ids, &[world.register_component::<C>(),]);
 
@@ -1200,7 +1214,7 @@ mod tests {
 
     #[test]
     fn resource() {
-        use crate::system::Resource;
+        use crate::resource::Resource;
 
         #[derive(Resource, PartialEq, Debug)]
         struct Num(i32);
@@ -1505,6 +1519,8 @@ mod tests {
     #[test]
     fn filtered_query_access() {
         let mut world = World::new();
+        // We remove entity disabling so it doesn't affect our query filters
+        world.remove_resource::<DefaultQueryFilters>();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
         let mut expected = FilteredAccess::<ComponentId>::default();
@@ -1853,7 +1869,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch(values);
+        let error = world.try_insert_batch(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -1875,7 +1893,9 @@ mod tests {
 
         let values = vec![(e0, (A(1), B(0))), (e1, (A(0), B(1)))];
 
-        world.try_insert_batch_if_new(values);
+        let error = world.try_insert_batch_if_new(values).unwrap_err();
+
+        assert_eq!(e1, error.entities[0]);
 
         assert_eq!(
             world.get::<A>(e0),
@@ -2001,8 +2021,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn(X).contains::<Y>());
@@ -2031,8 +2051,8 @@ mod tests {
         world.insert_resource(I(0));
         world
             .register_component_hooks::<Y>()
-            .on_add(|mut world, _, _| world.resource_mut::<A>().0 += 1)
-            .on_insert(|mut world, _, _| world.resource_mut::<I>().0 += 1);
+            .on_add(|mut world, _| world.resource_mut::<A>().0 += 1)
+            .on_insert(|mut world, _| world.resource_mut::<I>().0 += 1);
 
         // Spawn entity and ensure Y was added
         assert!(world.spawn_empty().insert(X).contains::<Y>());
@@ -2633,42 +2653,155 @@ mod tests {
         World::new().register_component::<A>();
     }
 
-    // These structs are primarily compilation tests to test the derive macros. Because they are
-    // never constructed, we have to manually silence the `dead_code` lint.
-    #[allow(dead_code)]
+    #[test]
+    #[should_panic = "Recursive required components detected: A → A\nhelp: Remove require(A)."]
+    fn required_components_self_errors() {
+        #[derive(Component, Default)]
+        #[require(A)]
+        struct A;
+
+        World::new().register_component::<A>();
+    }
+
+    #[test]
+    fn visit_struct_entities() {
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        struct Foo(usize, #[entities] Entity);
+
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        struct Bar {
+            #[entities]
+            a: Entity,
+            b: usize,
+            #[entities]
+            c: Vec<Entity>,
+        }
+
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        let e3 = world.spawn_empty().id();
+
+        let mut foo = Foo(1, e1);
+        let mut entities = Vec::new();
+        Component::visit_entities(&foo, |e| entities.push(e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut bar = Bar {
+            a: e1,
+            b: 1,
+            c: vec![e2, e3],
+        };
+        let mut entities = Vec::new();
+        Component::visit_entities(&bar, |e| entities.push(e));
+        assert_eq!(&entities, &[e1, e2, e3]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut bar, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1, e2, e3]);
+    }
+
+    #[test]
+    fn visit_enum_entities() {
+        #[derive(Component)]
+        #[expect(
+            unused,
+            reason = "extra fields are used to ensure the derive works properly"
+        )]
+        enum Foo {
+            Bar(usize, #[entities] Entity),
+            Baz {
+                #[entities]
+                a: Entity,
+                b: usize,
+                #[entities]
+                c: Vec<Entity>,
+            },
+        }
+
+        let mut world = World::new();
+        let e1 = world.spawn_empty().id();
+        let e2 = world.spawn_empty().id();
+        let e3 = world.spawn_empty().id();
+
+        let mut foo = Foo::Bar(1, e1);
+        let mut entities = Vec::new();
+        Component::visit_entities(&foo, |e| entities.push(e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1]);
+
+        let mut foo = Foo::Baz {
+            a: e1,
+            b: 1,
+            c: vec![e2, e3],
+        };
+        let mut entities = Vec::new();
+        Component::visit_entities(&foo, |e| entities.push(e));
+        assert_eq!(&entities, &[e1, e2, e3]);
+
+        let mut entities = Vec::new();
+        Component::visit_entities_mut(&mut foo, |e| entities.push(*e));
+        assert_eq!(&entities, &[e1, e2, e3]);
+    }
+
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentA(u32);
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct ComponentB(u32);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
-    #[allow(dead_code)]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
-    #[allow(dead_code)]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntities {
         entities: Vec<Entity>,
         another_one: Entity,
         maybe_entity: Option<Entity>,
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[visit_entities(ignore)]
         something_else: String,
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component, VisitEntities, VisitEntitiesMut)]
     struct MyEntitiesTuple(Vec<Entity>, Entity, #[visit_entities(ignore)] usize);
 }

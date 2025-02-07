@@ -1,7 +1,11 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
-use bevy_render::{mesh::morph::MAX_MORPH_WEIGHTS, render_resource::*, renderer::RenderDevice};
+use bevy_render::{
+    mesh::morph::MAX_MORPH_WEIGHTS,
+    render_resource::*,
+    renderer::{RenderAdapter, RenderDevice},
+};
 
 use crate::{binding_arrays_are_usable, render::skin::MAX_JOINTS, LightmapSlab};
 
@@ -194,10 +198,10 @@ impl MeshLayouts {
     /// Prepare the layouts used by the default bevy [`Mesh`].
     ///
     /// [`Mesh`]: bevy_render::prelude::Mesh
-    pub fn new(render_device: &RenderDevice) -> Self {
+    pub fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
         MeshLayouts {
             model_only: Self::model_only_layout(render_device),
-            lightmapped: Self::lightmapped_layout(render_device),
+            lightmapped: Self::lightmapped_layout(render_device, render_adapter),
             skinned: Self::skinned_layout(render_device),
             skinned_motion: Self::skinned_motion_layout(render_device),
             morphed: Self::morphed_layout(render_device),
@@ -329,8 +333,11 @@ impl MeshLayouts {
         )
     }
 
-    fn lightmapped_layout(render_device: &RenderDevice) -> BindGroupLayout {
-        if binding_arrays_are_usable(render_device) {
+    fn lightmapped_layout(
+        render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
+    ) -> BindGroupLayout {
+        if binding_arrays_are_usable(render_device, render_adapter) {
             render_device.create_bind_group_layout(
                 "lightmapped_mesh_layout",
                 &BindGroupLayoutEntries::with_indices(
@@ -488,7 +495,6 @@ impl MeshLayouts {
     }
 
     /// Creates the bind group for meshes with skins and morph targets.
-    #[allow(clippy::too_many_arguments)]
     pub fn morphed_skinned(
         &self,
         render_device: &RenderDevice,
@@ -516,7 +522,6 @@ impl MeshLayouts {
     /// [`MeshLayouts::morphed_motion`] above for more information about the
     /// `current_skin`, `prev_skin`, `current_weights`, and `prev_weights`
     /// buffers.
-    #[allow(clippy::too_many_arguments)]
     pub fn morphed_skinned_motion(
         &self,
         render_device: &RenderDevice,

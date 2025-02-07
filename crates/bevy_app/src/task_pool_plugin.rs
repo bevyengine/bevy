@@ -2,23 +2,20 @@
     feature = "portable-atomic",
     expect(
         clippy::redundant_closure,
-        reason = "portable_atomic_util::Arc has subtly different implicit behavior"
+        reason = "bevy_platform_support::sync::Arc has subtly different implicit behavior"
     )
 )]
 
-use crate::{App, Last, Plugin};
+use crate::{App, Plugin};
 
 use alloc::string::ToString;
-use bevy_ecs::prelude::*;
+use bevy_platform_support::sync::Arc;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use core::{fmt::Debug, marker::PhantomData};
 use log::trace;
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
+#[cfg(not(target_arch = "wasm32"))]
+use {crate::Last, bevy_ecs::prelude::NonSend};
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
@@ -187,6 +184,7 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             IoTaskPool::get_or_init(|| {
+                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string());
@@ -215,6 +213,7 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             AsyncComputeTaskPool::get_or_init(|| {
+                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string());
@@ -243,6 +242,7 @@ impl TaskPoolOptions {
             trace!("Compute Threads: {}", compute_threads);
 
             ComputeTaskPool::get_or_init(|| {
+                #[cfg_attr(target_arch = "wasm32", expect(unused_mut))]
                 let mut builder = TaskPoolBuilder::default()
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string());

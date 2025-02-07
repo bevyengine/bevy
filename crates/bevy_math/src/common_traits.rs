@@ -5,6 +5,7 @@ use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},
 };
+use variadics_please::all_tuples_enumerated;
 
 /// A type that supports the mathematical operations of a real vector space, irrespective of dimension.
 /// In particular, this means that the implementing type supports:
@@ -393,31 +394,9 @@ impl StableInterpolate for Dir3A {
     }
 }
 
-// If you're confused about how #[doc(fake_variadic)] works,
-// then the `all_tuples` macro is nicely documented (it can be found in the `bevy_utils` crate).
-// tl;dr: `#[doc(fake_variadic)]` goes on the impl of tuple length one.
-// the others have to be hidden using `#[doc(hidden)]`.
 macro_rules! impl_stable_interpolate_tuple {
-    (($T:ident, $n:tt)) => {
-        impl_stable_interpolate_tuple! {
-            @impl
-            #[cfg_attr(any(docsrs, docsrs_dep), doc(fake_variadic))]
-            #[cfg_attr(
-                any(docsrs, docsrs_dep),
-                doc = "This trait is implemented for tuples up to 11 items long."
-            )]
-            ($T, $n)
-        }
-    };
-    ($(($T:ident, $n:tt)),*) => {
-        impl_stable_interpolate_tuple! {
-            @impl
-            #[cfg_attr(any(docsrs, docsrs_dep), doc(hidden))]
-            $(($T, $n)),*
-        }
-    };
-    (@impl $(#[$($meta:meta)*])* $(($T:ident, $n:tt)),*) => {
-        $(#[$($meta)*])*
+    ($(#[$meta:meta])* $(($n:tt, $T:ident)),*) => {
+        $(#[$meta])*
         impl<$($T: StableInterpolate),*> StableInterpolate for ($($T,)*) {
             fn interpolate_stable(&self, other: &Self, t: f32) -> Self {
                 (
@@ -430,68 +409,12 @@ macro_rules! impl_stable_interpolate_tuple {
     };
 }
 
-// (See `macro_metavar_expr`, which might make this better.)
-// This currently implements `StableInterpolate` for tuples of up to 11 elements.
-impl_stable_interpolate_tuple!((T, 0));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4));
-impl_stable_interpolate_tuple!((T0, 0), (T1, 1), (T2, 2), (T3, 3), (T4, 4), (T5, 5));
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7),
-    (T8, 8)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7),
-    (T8, 8),
-    (T9, 9)
-);
-impl_stable_interpolate_tuple!(
-    (T0, 0),
-    (T1, 1),
-    (T2, 2),
-    (T3, 3),
-    (T4, 4),
-    (T5, 5),
-    (T6, 6),
-    (T7, 7),
-    (T8, 8),
-    (T9, 9),
-    (T10, 10)
+all_tuples_enumerated!(
+    #[doc(fake_variadic)]
+    impl_stable_interpolate_tuple,
+    1,
+    11,
+    T
 );
 
 /// A type that has tangents.

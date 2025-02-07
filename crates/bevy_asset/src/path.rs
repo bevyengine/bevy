@@ -1,4 +1,8 @@
 use crate::io::AssetSourceId;
+use alloc::{
+    borrow::ToOwned,
+    string::{String, ToString},
+};
 use atomicow::CowArc;
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use core::{
@@ -316,7 +320,7 @@ impl<'a> AssetPath<'a> {
     /// If internally a value is a static reference, the static reference will be used unchanged.
     /// If internally a value is an "owned [`Arc`]", it will remain unchanged.
     ///
-    /// [`Arc`]: std::sync::Arc
+    /// [`Arc`]: alloc::sync::Arc
     pub fn into_owned(self) -> AssetPath<'static> {
         AssetPath {
             source: self.source.into_owned(),
@@ -329,7 +333,7 @@ impl<'a> AssetPath<'a> {
     /// If internally a value is a static reference, the static reference will be used unchanged.
     /// If internally a value is an "owned [`Arc`]", the [`Arc`] will be cloned.
     ///
-    /// [`Arc`]: std::sync::Arc
+    /// [`Arc`]: alloc::sync::Arc
     #[inline]
     pub fn clone_owned(&self) -> AssetPath<'static> {
         self.clone().into_owned()
@@ -454,7 +458,7 @@ impl<'a> AssetPath<'a> {
     pub fn get_full_extension(&self) -> Option<String> {
         let file_name = self.path().file_name()?.to_str()?;
         let index = file_name.find('.')?;
-        let mut extension = file_name[index + 1..].to_lowercase();
+        let mut extension = file_name[index + 1..].to_owned();
 
         // Strip off any query parameters
         let query = extension.find('?');
@@ -629,6 +633,7 @@ pub(crate) fn normalize_path(path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use crate::AssetPath;
+    use alloc::string::ToString;
     use std::path::Path;
 
     #[test]
@@ -972,5 +977,8 @@ mod tests {
 
         let result = AssetPath::from("http://a.tar.bz2?foo=bar#Baz");
         assert_eq!(result.get_full_extension(), Some("tar.bz2".to_string()));
+
+        let result = AssetPath::from("asset.Custom");
+        assert_eq!(result.get_full_extension(), Some("Custom".to_string()));
     }
 }

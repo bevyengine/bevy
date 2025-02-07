@@ -1,9 +1,9 @@
 use crate::{
-    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, TargetCamera, UiStack,
+    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, UiStack, UiTargetCamera,
 };
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::Entity,
+    entity::{Entity, EntityBorrow},
     prelude::{Component, With},
     query::QueryData,
     reflect::ReflectComponent,
@@ -11,10 +11,10 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
+use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -28,9 +28,9 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// Updated in [`ui_focus_system`].
 ///
-/// If a UI node has both [`Interaction`] and [`ViewVisibility`] components,
+/// If a UI node has both [`Interaction`] and [`InheritedVisibility`] components,
 /// [`Interaction`] will always be [`Interaction::None`]
-/// when [`ViewVisibility::get()`] is false.
+/// when [`InheritedVisibility::get()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
 ///
@@ -94,8 +94,7 @@ impl RelativeCursorPosition {
     /// A helper function to check if the mouse is over the node
     pub fn mouse_over(&self) -> bool {
         self.normalized
-            .map(|position| self.normalized_visible_node_rect.contains(position))
-            .unwrap_or(false)
+            .is_some_and(|position| self.normalized_visible_node_rect.contains(position))
     }
 }
 
@@ -141,14 +140,13 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
-    view_visibility: Option<&'static ViewVisibility>,
-    target_camera: Option<&'static TargetCamera>,
+    inherited_visibility: Option<&'static InheritedVisibility>,
+    target_camera: Option<&'static UiTargetCamera>,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
-/// Entities with a hidden [`ViewVisibility`] are always treated as released.
-#[allow(clippy::too_many_arguments)]
+/// Entities with a hidden [`InheritedVisibility`] are always treated as released.
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,
@@ -214,6 +212,8 @@ pub fn ui_focus_system(
         })
         .collect();
 
+    let default_camera_entity = default_ui_camera.get();
+
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
@@ -227,9 +227,9 @@ pub fn ui_focus_system(
                 return None;
             };
 
-            let view_visibility = node.view_visibility?;
+            let inherited_visibility = node.inherited_visibility?;
             // Nodes that are not rendered should not be interactable
-            if !view_visibility.get() {
+            if !inherited_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
                 if let Some(mut interaction) = node.interaction {
                     // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
@@ -239,8 +239,8 @@ pub fn ui_focus_system(
             }
             let camera_entity = node
                 .target_camera
-                .map(TargetCamera::entity)
-                .or(default_ui_camera.get())?;
+                .map(UiTargetCamera::entity)
+                .or(default_camera_entity)?;
 
             let node_rect = Rect::from_center_size(
                 node.global_transform.translation().truncate(),
@@ -274,15 +274,13 @@ pub fn ui_focus_system(
             };
 
             let contains_cursor = relative_cursor_position_component.mouse_over()
-                && cursor_position
-                    .map(|point| {
-                        pick_rounded_rect(
-                            *point - node_rect.center(),
-                            node_rect.size(),
-                            node.node.border_radius,
-                        )
-                    })
-                    .unwrap_or(false);
+                && cursor_position.is_some_and(|point| {
+                    pick_rounded_rect(
+                        *point - node_rect.center(),
+                        node_rect.size(),
+                        node.node.border_radius,
+                    )
+                });
 
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position

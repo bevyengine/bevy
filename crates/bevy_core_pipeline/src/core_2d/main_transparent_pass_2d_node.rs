@@ -7,11 +7,11 @@ use bevy_render::{
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
-use bevy_utils::tracing::error;
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 #[derive(Default)]
 pub struct MainTransparentPass2dNode {}
@@ -19,6 +19,7 @@ pub struct MainTransparentPass2dNode {}
 impl ViewNode for MainTransparentPass2dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
     );
@@ -27,7 +28,7 @@ impl ViewNode for MainTransparentPass2dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, target, depth): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): bevy_ecs::query::QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(transparent_phases) =
@@ -37,7 +38,7 @@ impl ViewNode for MainTransparentPass2dNode {
         };
 
         let view_entity = graph.view_entity();
-        let Some(transparent_phase) = transparent_phases.get(&view_entity) else {
+        let Some(transparent_phase) = transparent_phases.get(&view.retained_view_entity) else {
             return Ok(());
         };
 

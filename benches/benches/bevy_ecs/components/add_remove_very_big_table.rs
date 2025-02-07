@@ -1,4 +1,7 @@
-#![allow(dead_code)]
+#![expect(
+    dead_code,
+    reason = "The `Mat4`s in the structs are used to bloat the size of the structs for benchmarking purposes."
+)]
 
 use bevy_ecs::prelude::*;
 use glam::*;

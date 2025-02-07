@@ -6,6 +6,7 @@ use async_fs::{read_dir, File};
 use futures_io::AsyncSeek;
 use futures_lite::StreamExt;
 
+use alloc::{borrow::ToOwned, boxed::Box};
 use core::{pin::Pin, task, task::Poll};
 use std::path::Path;
 

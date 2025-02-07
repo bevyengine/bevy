@@ -8,8 +8,12 @@ use crate::io::{
     memory::{Dir, MemoryAssetReader, Value},
     AssetSource, AssetSourceBuilders,
 };
-use bevy_ecs::system::Resource;
+use alloc::boxed::Box;
+use bevy_ecs::resource::Resource;
 use std::path::{Path, PathBuf};
+
+#[cfg(feature = "embedded_watcher")]
+use alloc::borrow::ToOwned;
 
 pub const EMBEDDED: &str = "embedded";
 
@@ -22,14 +26,16 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: alloc::sync::Arc<parking_lot::RwLock<bevy_utils::HashMap<Box<Path>, PathBuf>>>,
+    root_paths: alloc::sync::Arc<
+        parking_lot::RwLock<bevy_platform_support::collections::HashMap<Box<Path>, PathBuf>>,
+    >,
 }
 
 impl EmbeddedAssetRegistry {
     /// Inserts a new asset. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
-    /// or a [`Vec<u8>`].
+    /// or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(
@@ -48,7 +54,7 @@ impl EmbeddedAssetRegistry {
     /// Inserts new asset metadata. `full_path` is the full path (as [`file`] would return for that file, if it was capable of
     /// running in a non-rust file). `asset_path` is the path that will be used to identify the asset in the `embedded`
     /// [`AssetSource`]. `value` is the bytes that will be returned for the asset. This can be _either_ a `&'static [u8]`
-    /// or a [`Vec<u8>`].
+    /// or a [`Vec<u8>`](alloc::vec::Vec).
     #[cfg_attr(
         not(feature = "embedded_watcher"),
         expect(

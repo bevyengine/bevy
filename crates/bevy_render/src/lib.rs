@@ -1,5 +1,5 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![expect(unsafe_code)]
+#![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -23,6 +23,7 @@ pub mod alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
+pub mod experimental;
 pub mod extract_component;
 pub mod extract_instances;
 mod extract_param;
@@ -40,7 +41,6 @@ pub mod render_phase;
 pub mod render_resource;
 pub mod renderer;
 pub mod settings;
-mod spatial_bundle;
 pub mod storage;
 pub mod sync_component;
 pub mod sync_world;
@@ -50,7 +50,6 @@ pub mod view;
 /// The render prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
-#[expect(deprecated)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -64,9 +63,8 @@ pub mod prelude {
             Mesh3d,
         },
         render_resource::Shader,
-        spatial_bundle::SpatialBundle,
         texture::ImagePlugin,
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility, VisibilityBundle},
+        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
         ExtractSchedule,
     };
 }
@@ -75,12 +73,12 @@ use bevy_ecs::schedule::ScheduleBuildSettings;
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_hierarchy::ValidParentCheckPlugin;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use experimental::occlusion_culling::OcclusionCullingPlugin;
 use extract_resource::ExtractResourcePlugin;
 use globals::GlobalsPlugin;
 use render_asset::RenderAssetBytesPerFrame;
-use renderer::{RenderDevice, RenderQueue};
+use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
     despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
@@ -99,11 +97,11 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bevy_utils::tracing::debug;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
+use tracing::debug;
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -119,6 +117,12 @@ pub struct RenderPlugin {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
+    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
+    /// that they can be read back to CPU.
+    ///
+    /// This is a debugging feature that may reduce performance. It primarily
+    /// exists for the `occlusion_culling` example.
+    pub allow_copies_from_indirect_parameters: bool,
 }
 
 /// The systems sets of the default [`App`] rendering schedule.
@@ -130,6 +134,8 @@ pub enum RenderSet {
     ExtractCommands,
     /// Prepare assets that have been created/modified/removed this frame.
     PrepareAssets,
+    /// Prepares extracted meshes.
+    PrepareMeshes,
     /// Create any additional views such as those used for shadow mapping.
     ManageViews,
     /// Queue drawable entities as phase items in render phases ready for
@@ -178,6 +184,7 @@ impl Render {
         schedule.configure_sets(
             (
                 ExtractCommands,
+                PrepareMeshes,
                 ManageViews,
                 Queue,
                 PhaseSort,
@@ -189,7 +196,7 @@ impl Render {
                 .chain(),
         );
 
-        schedule.configure_sets((ExtractCommands, PrepareAssets, Prepare).chain());
+        schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
             QueueMeshes
                 .in_set(Queue)
@@ -252,10 +259,11 @@ struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 pub struct RenderApp;
 
 pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(10313207077636615845);
-pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
+    weak_handle!("475c76aa-4afd-4a6b-9878-1fc1e2f41216");
+pub const MATHS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
 pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(1844674407370955161);
+    weak_handle!("33a80b2f-aaf7-4c86-b828-e7ae83b72f1a");
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -352,17 +360,19 @@ impl Plugin for RenderPlugin {
         };
 
         app.add_plugins((
-            ValidParentCheckPlugin::<view::InheritedVisibility>::default(),
             WindowRenderPlugin,
             CameraPlugin,
             ViewPlugin,
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
-            BatchingPlugin,
+            BatchingPlugin {
+                allow_copies_from_indirect_parameters: self.allow_copies_from_indirect_parameters,
+            },
             SyncWorldPlugin,
             StoragePlugin,
             GpuReadbackPlugin::default(),
+            OcclusionCullingPlugin,
         ));
 
         app.init_resource::<RenderAssetBytesPerFrame>()
@@ -477,10 +487,8 @@ unsafe fn initialize_render_app(app: &mut App) {
                 // This set applies the commands from the extract schedule while the render schedule
                 // is running in parallel with the main app.
                 apply_extract_commands.in_set(RenderSet::ExtractCommands),
-                (
-                    PipelineCache::process_pipeline_queue_system.before(render_system),
-                    render_system,
-                )
+                (PipelineCache::process_pipeline_queue_system, render_system)
+                    .chain()
                     .in_set(RenderSet::Render),
                 despawn_temporary_render_entities.in_set(RenderSet::PostCleanup),
             ),
@@ -489,7 +497,7 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app.set_extract(|main_world, render_world| {
         {
             #[cfg(feature = "trace")]
-            let _stage_span = bevy_utils::tracing::info_span!("entity_sync").entered();
+            let _stage_span = tracing::info_span!("entity_sync").entered();
             entity_sync_system(main_world, render_world);
         }
 
@@ -513,4 +521,24 @@ fn apply_extract_commands(render_world: &mut World) {
             .unwrap()
             .apply_deferred(render_world);
     });
+}
+
+/// If the [`RenderAdapter`] is a Qualcomm Adreno, returns its model number.
+///
+/// This lets us work around hardware bugs.
+pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
+    if !cfg!(target_os = "android") {
+        return None;
+    }
+
+    let adapter_name = adapter.get_info().name;
+    let adreno_model = adapter_name.strip_prefix("Adreno (TM) ")?;
+
+    // Take suffixes into account (like Adreno 642L).
+    Some(
+        adreno_model
+            .chars()
+            .map_while(|c| c.to_digit(10))
+            .fold(0, |acc, digit| acc * 10 + digit),
+    )
 }

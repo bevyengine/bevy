@@ -44,7 +44,7 @@
  * Here you'll find instructions to get the shader up and running as fast as
  * possible.
  *
- * IMPORTANTE NOTICE: when updating, remember to update both this file and the
+ * IMPORTANT NOTICE: when updating, remember to update both this file and the
  * precomputed textures! They may change from version to version.
  *
  * The shader has three passes, chained together as follows:
@@ -429,7 +429,7 @@ const SMAA_CORNER_ROUNDING: u32 = 25u;
 // "SMAA Presets".)
 
 /**
- * If there is an neighbor edge that has SMAA_LOCAL_CONTRAST_FACTOR times
+ * If there is a neighbor edge that has SMAA_LOCAL_CONTRAST_FACTOR times
  * bigger contrast than current edge, current edge will be discarded.
  *
  * This allows to eliminate spurious crossing edges, and is based on the fact
