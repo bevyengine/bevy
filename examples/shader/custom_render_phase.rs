@@ -569,6 +569,7 @@ impl ViewNode for CustomDrawNode {
         };
 
         // This will generate a task to generate the command buffer in parallel
+        // This is not required but is generally recommended
         render_context.add_command_buffer_generation_task(move |render_device| {
             #[cfg(feature = "trace")]
             let _ = info_span!("custom_stencil_pass").entered();
@@ -582,7 +583,10 @@ impl ViewNode for CustomDrawNode {
             // Render pass setup
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("stencil pass"),
-                color_attachments: &color_attachments,
+                // For the purpose of the example, we will write directly to the view target. A real
+                // stencil pass would write to a custom texture and that texture would be used in later
+                // passes to render custom effects using it.
+                color_attachments: &[Some(target.get_color_attachment())],
                 // We don't bind any depth buffer for this pass
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
@@ -597,8 +601,9 @@ impl ViewNode for CustomDrawNode {
 
             // Render the phase
             if !stencil_phase.items.is_empty() {
+                // This will execute each draw functions of each phase items queued in this phase
                 if let Err(err) = stencil_phase.render(&mut render_pass, world, view_entity) {
-                    error!("Error encountered while rendering the custom phase {err:?}");
+                    error!("Error encountered while rendering the stencil phase {err:?}");
                 }
             }
 
