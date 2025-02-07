@@ -1,7 +1,9 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{color::palettes::basic::*, prelude::*, winit::WinitSettings};
+use bevy::{
+    color::palettes::basic::*, picking::hover::PickingInteraction, prelude::*, winit::WinitSettings,
+};
 
 fn main() {
     App::new()
@@ -19,7 +21,6 @@ const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 #[derive(Component, Default)]
 struct ButtonState {
-    hovered: bool,
     pressed: bool,
 }
 
@@ -27,17 +28,21 @@ fn button_system(
     mut button_query: Query<
         (
             &ButtonState,
+            &PickingInteraction,
             &mut BackgroundColor,
             &mut BorderColor,
             &Children,
         ),
-        Changed<ButtonState>,
+        Or<(Changed<ButtonState>, Changed<PickingInteraction>)>,
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (button, mut color, mut border_color, children) in &mut button_query {
+    for (button, picking_interaction, mut color, mut border_color, children) in &mut button_query {
         let mut text = text_query.get_mut(children[0]).unwrap();
-        match (button.hovered, button.pressed) {
+        match (
+            *picking_interaction != PickingInteraction::None,
+            button.pressed,
+        ) {
             (_, true) => {
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
@@ -86,16 +91,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 ))
-                .observe(
-                    |trigger: Trigger<Pointer<Over>>, mut button_query: Query<&mut ButtonState>| {
-                        button_query.get_mut(trigger.target()).unwrap().hovered = true;
-                    },
-                )
-                .observe(
-                    |trigger: Trigger<Pointer<Out>>, mut button_query: Query<&mut ButtonState>| {
-                        button_query.get_mut(trigger.target()).unwrap().hovered = false;
-                    },
-                )
                 .observe(
                     |trigger: Trigger<Pointer<Pressed>>,
                      mut button_query: Query<&mut ButtonState>| {
