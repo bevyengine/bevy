@@ -1,10 +1,11 @@
 use crate::{
     component::{
-        Component, ComponentCloneHandler, ComponentHook, HookContext, Mutable, StorageType,
+        Component, ComponentCloneBehavior, ComponentHook, HookContext, Mutable, StorageType,
     },
-    entity::{ComponentCloneCtx, Entity, EntityCloneBuilder},
+    entity::{ComponentCloneCtx, Entity, EntityClonerBuilder},
     observer::ObserverState,
-    world::{DeferredWorld, World},
+    system::Commands,
+    world::World,
 };
 use alloc::vec::Vec;
 
@@ -45,34 +46,29 @@ impl Component for ObservedBy {
         })
     }
 
-    fn get_component_clone_handler() -> ComponentCloneHandler {
-        ComponentCloneHandler::ignore()
+    fn clone_behavior() -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Ignore
     }
 }
 
-/// Trait that holds functions for configuring interaction with observers during entity cloning.
-pub trait CloneEntityWithObserversExt {
+impl EntityClonerBuilder<'_> {
     /// Sets the option to automatically add cloned entities to the observers targeting source entity.
-    fn add_observers(&mut self, add_observers: bool) -> &mut Self;
-}
-
-impl CloneEntityWithObserversExt for EntityCloneBuilder<'_> {
-    fn add_observers(&mut self, add_observers: bool) -> &mut Self {
+    pub fn add_observers(&mut self, add_observers: bool) -> &mut Self {
         if add_observers {
-            self.override_component_clone_handler::<ObservedBy>(
-                ComponentCloneHandler::custom_handler(component_clone_observed_by),
-            )
+            self.override_clone_behavior::<ObservedBy>(ComponentCloneBehavior::Custom(
+                component_clone_observed_by,
+            ))
         } else {
-            self.remove_component_clone_handler_override::<ObservedBy>()
+            self.remove_clone_behavior_override::<ObservedBy>()
         }
     }
 }
 
-fn component_clone_observed_by(world: &mut DeferredWorld, ctx: &mut ComponentCloneCtx) {
+fn component_clone_observed_by(commands: &mut Commands, ctx: &mut ComponentCloneCtx) {
     let target = ctx.target();
     let source = ctx.source();
 
-    world.commands().queue(move |world: &mut World| {
+    commands.queue(move |world: &mut World| {
         let observed_by = world
             .get::<ObservedBy>(source)
             .map(|observed_by| observed_by.0.clone())
@@ -114,13 +110,8 @@ fn component_clone_observed_by(world: &mut DeferredWorld, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
-        entity::EntityCloneBuilder,
-        event::Event,
-        observer::{CloneEntityWithObserversExt, Trigger},
-        resource::Resource,
-        system::ResMut,
-        world::World,
+        self as bevy_ecs, entity::EntityCloner, event::Event, observer::Trigger,
+        resource::Resource, system::ResMut, world::World,
     };
 
     #[derive(Resource, Default)]
@@ -143,9 +134,9 @@ mod tests {
         world.trigger_targets(E, e);
 
         let e_clone = world.spawn_empty().id();
-        let mut builder = EntityCloneBuilder::new(&mut world);
-        builder.add_observers(true);
-        builder.clone_entity(e, e_clone);
+        EntityCloner::build(&mut world)
+            .add_observers(true)
+            .clone_entity(e, e_clone);
 
         world.trigger_targets(E, [e, e_clone]);
 
