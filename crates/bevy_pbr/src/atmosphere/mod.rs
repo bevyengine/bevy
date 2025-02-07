@@ -59,8 +59,8 @@ use bevy_render::{
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
-    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
-    RenderSkyBindGroupLayouts,
+    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereBuffer,
+    AtmosphereTransforms, GpuAtmosphereData, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
@@ -194,6 +194,7 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .init_resource::<AtmosphereBuffer>()
             .add_systems(
                 Render,
                 (

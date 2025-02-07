@@ -43,3 +43,9 @@ struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
     atmosphere_from_world: mat4x4<f32>,
 }
+
+struct GpuAtmosphereData {
+    atmosphere: Atmosphere,
+    settings: AtmosphereSettings,
+    transforms: AtmosphereTransforms,
+}
