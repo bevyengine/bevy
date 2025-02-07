@@ -15,7 +15,6 @@ use std::ops::Range;
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
-        entity::EntityHashSet,
         query::QueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
@@ -25,11 +24,12 @@ use bevy::{
         MeshPipelineKey, MeshPipelineViewLayoutKey, MeshUniform, RenderMeshInstances,
         SetMeshBindGroup, SetMeshViewBindGroup,
     },
+    platform_support::collections::HashSet,
     prelude::*,
     render::{
         batching::{
-            gpu_preprocessing::{batch_and_prepare_sorted_render_phase, IndirectParametersBuffer},
-            GetBatchData, GetFullBatchData,
+            gpu_preprocessing::batch_and_prepare_sorted_render_phase, GetBatchData,
+            GetFullBatchData,
         },
         camera::ExtractedCamera,
         diagnostic::RecordDiagnostics,
@@ -51,10 +51,13 @@ use bevy::{
             SpecializedMeshPipelineError, SpecializedMeshPipelines, TextureFormat, VertexState,
         },
         renderer::RenderContext,
-        sync_world::{MainEntity, RenderEntity},
+        sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
+};
+use bevy_render::{
+    batching::gpu_preprocessing::IndirectParametersMetadata, view::RetainedViewEntity,
 };
 use nonmax::NonMaxU32;
 
@@ -169,6 +172,7 @@ impl FromWorld for StencilPipeline {
         }
     }
 }
+
 // For more information on how SpecializedMeshPipeline work, please look at the
 // specialized_mesh_pipeline example
 impl SpecializedMeshPipeline for StencilPipeline {
@@ -258,6 +262,9 @@ struct StencilPhase {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 // For more information about writing a phase item, please look at the custom_phase_item example
@@ -313,6 +320,11 @@ impl SortedPhaseItem for StencilPhase {
         // Since it is not re-exported by bevy, we just use the std sort for the purpose of the example
         items.sort_by_key(SortedPhaseItem::sort_key);
     }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for StencilPhase {
@@ -367,7 +379,7 @@ impl GetFullBatchData for StencilPipeline {
 
     fn get_index_and_compare_data(
         (mesh_instances, _, _): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        main_entity: MainEntity,
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
         // This should only be called during GPU building.
         let RenderMeshInstances::GpuBuilding(ref mesh_instances) = **mesh_instances else {
@@ -388,7 +400,7 @@ impl GetFullBatchData for StencilPipeline {
 
     fn get_binned_batch_data(
         (mesh_instances, _render_assets, mesh_allocator): &SystemParamItem<Self::Param>,
-        (_entity, main_entity): (Entity, MainEntity),
+        main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let RenderMeshInstances::CpuBuilding(ref mesh_instances) = **mesh_instances else {
             error!(
@@ -413,48 +425,72 @@ impl GetFullBatchData for StencilPipeline {
         ))
     }
 
-    // TODO
+    fn write_batch_indirect_parameters_metadata(
+        mesh_index: u32,
+        indexed: bool,
+        base_output_index: u32,
+        batch_set_index: Option<NonMaxU32>,
+        indirect_parameters_buffers: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffers,
+        indirect_parameters_offset: u32,
+    ) {
+        // Note that `IndirectParameters` covers both of these structures, even
+        // though they actually have distinct layouts. See the comment above that
+        // type for more information.
+        let indirect_parameters = IndirectParametersMetadata {
+            mesh_index,
+            base_output_index,
+            batch_set_index: match batch_set_index {
+                None => !0,
+                Some(batch_set_index) => u32::from(batch_set_index),
+            },
+            early_instance_count: 0,
+            late_instance_count: 0,
+        };
 
-    fn get_binned_index(
-        (_, _, _): &SystemParamItem<Self::Param>,
-        (_entity, _main_entity): (Entity, MainEntity),
-    ) -> Option<NonMaxU32> {
-        None
+        if indexed {
+            indirect_parameters_buffers
+                .set_indexed(indirect_parameters_offset, indirect_parameters);
+        } else {
+            indirect_parameters_buffers
+                .set_non_indexed(indirect_parameters_offset, indirect_parameters);
+        }
     }
 
-    fn get_batch_indirect_parameters_index(
-        (_, _, _): &SystemParamItem<Self::Param>,
-        _indirect_parameters_buffer: &mut IndirectParametersBuffer,
-        _entity: (Entity, MainEntity),
-        _instance_index: u32,
+    fn get_binned_index(
+        _param: &SystemParamItem<Self::Param>,
+        _query_item: MainEntity,
     ) -> Option<NonMaxU32> {
         None
     }
 }
-// When defining a custom phase, we need to extract it from the main world and add it to a resource
+
+// When defining a phase, we need to extract it from the main world and add it to a resource
 // that will be used by the render world. We need to give that resource all views that will use
 // that phase
 fn extract_camera_phases(
-    mut custom_phases: ResMut<ViewSortedRenderPhases<StencilPhase>>,
-    cameras: Extract<Query<(RenderEntity, &Camera), With<Camera3d>>>,
-    mut live_entities: Local<EntityHashSet>,
+    mut stencil_phases: ResMut<ViewSortedRenderPhases<StencilPhase>>,
+    cameras: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
-    for (entity, camera) in &cameras {
+    for (main_entity, camera) in &cameras {
         if !camera.is_active {
             continue;
         }
-        custom_phases.insert_or_clear(entity);
-        live_entities.insert(entity);
+        // This is the main camera, so we use the first subview index (0)
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+
+        stencil_phases.insert_or_clear(retained_view_entity);
+        live_entities.insert(retained_view_entity);
     }
+
     // Clear out all dead views.
-    custom_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
+    stencil_phases.retain(|camera_entity, _| live_entities.contains(camera_entity));
 }
 
 // This is a very important step when writing a custom phase.
 //
 // This system determines which meshes will be added to the phase.
-#[allow(clippy::too_many_arguments)]
 fn queue_custom_meshes(
     custom_draw_functions: Res<DrawFunctions<StencilPhase>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<StencilPipeline>>,
@@ -463,11 +499,11 @@ fn queue_custom_meshes(
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
     mut custom_render_phases: ResMut<ViewSortedRenderPhases<StencilPhase>>,
-    mut views: Query<(Entity, &ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
-    for (view_entity, view, visible_entities, msaa) in &mut views {
-        let Some(custom_phase) = custom_render_phases.get_mut(&view_entity) else {
+    for (view, visible_entities, msaa) in &mut views {
+        let Some(custom_phase) = custom_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
         let draw_custom = custom_draw_functions.read().id::<DrawMesh3dStencil>();
@@ -523,6 +559,7 @@ fn queue_custom_meshes(
                 // Sorted phase items aren't batched
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: mesh.indexed(),
             });
         }
     }
@@ -535,13 +572,17 @@ struct CustomDrawPassLabel;
 #[derive(Default)]
 struct CustomDrawNode;
 impl ViewNode for CustomDrawNode {
-    type ViewQuery = (&'static ExtractedCamera, &'static ViewTarget);
+    type ViewQuery = (
+        &'static ExtractedCamera,
+        &'static ExtractedView,
+        &'static ViewTarget,
+    );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, target): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target): QueryItem<'w, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // First, we need to get ou phases resource
@@ -553,18 +594,11 @@ impl ViewNode for CustomDrawNode {
         // not required but makes profiling easier
         let diagnostics = render_context.diagnostic_recorder();
 
-        // For the purpose of the example, we will write directly to the view target. A real
-        // stencil pass would write to a custom texture and that texture would be used in later
-        // passes to render custom effects using it.
-        // Check out the prepass (ex: DepthPrepass) implementations in Bevy for additional
-        // context when using custom textures.
-        let color_attachments = [Some(target.get_color_attachment())];
-
         // Get the view entity from the graph
         let view_entity = graph.view_entity();
 
         // Get the phase for the current view running our node
-        let Some(stencil_phase) = stencil_phases.get(&view_entity) else {
+        let Some(stencil_phase) = stencil_phases.get(&view.retained_view_entity) else {
             return Ok(());
         };
 
