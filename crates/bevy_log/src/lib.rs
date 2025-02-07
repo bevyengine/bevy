@@ -56,6 +56,7 @@ use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 use tracing_subscriber::{
     filter::{FromEnvError, ParseError},
+    layer::Layered,
     prelude::*,
     registry::Registry,
     EnvFilter, Layer,
@@ -237,10 +238,34 @@ pub struct LogPlugin {
     ///
     /// Please see the `examples/log_layers.rs` for a complete example.
     pub custom_layer: fn(app: &mut App) -> Option<BoxedLayer>,
+
+    /// Override the default [`tracing_subscriber::fmt::Layer`] with a custom one.
+    ///
+    /// This allows you to customize the format of the default log output.
+    ///
+    /// For example, you can use [`tracing_subscriber::fmt::Layer::without_time`] to remove the
+    /// timestamp from the log output.
+    ///
+    /// Please see the `examples/log_layers.rs` for a complete example.
+    pub fmt_layer: fn(app: &mut App) -> Option<BoxedFmtLayer>,
 }
 
-/// A boxed [`Layer`] that can be used with [`LogPlugin`].
+/// A boxed [`Layer`] that can be used with [`LogPlugin::custom_layer`].
 pub type BoxedLayer = Box<dyn Layer<Registry> + Send + Sync + 'static>;
+
+#[cfg(feature = "trace")]
+type BaseSubscriber =
+    Layered<EnvFilter, Layered<Option<Box<dyn Layer<Registry> + Send + Sync>>, Registry>>;
+
+#[cfg(feature = "trace")]
+type PreFmtSubscriber = Layered<tracing_error::ErrorLayer<BaseSubscriber>, BaseSubscriber>;
+
+#[cfg(not(feature = "trace"))]
+type PreFmtSubscriber =
+    Layered<EnvFilter, Layered<Option<Box<dyn Layer<Registry> + Send + Sync>>, Registry>>;
+
+/// A boxed [`Layer`] that can be used with [`LogPlugin::fmt_layer`].
+pub type BoxedFmtLayer = Box<dyn Layer<PreFmtSubscriber> + Send + Sync + 'static>;
 
 /// The default [`LogPlugin`] [`EnvFilter`].
 pub const DEFAULT_FILTER: &str = "wgpu=error,naga=warn";
@@ -251,6 +276,7 @@ impl Default for LogPlugin {
             filter: DEFAULT_FILTER.to_string(),
             level: Level::INFO,
             custom_layer: |_| None,
+            fmt_layer: |_| None,
         }
     }
 }
@@ -324,10 +350,12 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let tracy_layer = tracing_tracy::TracyLayer::default();
 
-            // note: the implementation of `Default` reads from the env var NO_COLOR
-            // to decide whether to use ANSI color codes, which is common convention
-            // https://no-color.org/
-            let fmt_layer = tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr);
+            let fmt_layer = (self.fmt_layer)(app).unwrap_or_else(|| {
+                // note: the implementation of `Default` reads from the env var NO_COLOR
+                // to decide whether to use ANSI color codes, which is common convention
+                // https://no-color.org/
+                Box::new(tracing_subscriber::fmt::Layer::default().with_writer(std::io::stderr))
+            });
 
             // bevy_render::renderer logs a `tracy.frame_mark` event every frame
             // at Level::INFO. Formatted logs should omit it.
