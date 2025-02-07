@@ -71,9 +71,9 @@
 //! [`StageOnWrite`] is the simpler implementation, storing cold data directly and staged data in an [`RwLock`] to synchronize writes.
 //! Because it stores cold data directly, the only way to clean the data (drain staged data into cold) is to have mutable access to it.
 //! This means it can't be put in an `Arc` or similar and still be able to be cleaned.
-//! [`AtomicStagedOnWrite`] comes to the resque here. It stores cold data in another [`RwLock`], allowing the data to be cleaned with immutable access.
-//! Although blocking methods for this exist, [`AtomicStagedOnWrite`] also offers non-blocking methods for cleaning.
-//! Hence, in normal use, [`AtomicStagedOnWrite`] will almost never block to read from cold data.
+//! [`AtomicStageOnWrite`] comes to the resque here. It stores cold data in another [`RwLock`], allowing the data to be cleaned with immutable access.
+//! Although blocking methods for this exist, [`AtomicStageOnWrite`] also offers non-blocking methods for cleaning.
+//! Hence, in normal use, [`AtomicStageOnWrite`] will almost never block to read from cold data.
 //! Additionally, because it can see when cold is being read or not, it can apply staged changes as needed without needing specific calls from the user.
 //!
 //! Finally, [`StagableWrites`] offers some utilities to prevent deadlocking.
