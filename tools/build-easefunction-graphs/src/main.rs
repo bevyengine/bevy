@@ -1,4 +1,6 @@
 //! Generates graphs for the `EaseFunction` docs.
+use std::path::PathBuf;
+
 use bevy_math::curve::{CurveExt, EaseFunction, EasingCurve};
 use svg::{
     node::element::{self, path::Data},
@@ -6,12 +8,14 @@ use svg::{
 };
 
 fn main() {
-    let directory = "../../crates/bevy_math/images/easefunction";
-    if !std::fs::exists(directory).unwrap() {
-        eprintln!("{directory} does not exist");
-        eprintln!("Make sure to run this from the tools/build-easefunction-graphs folder");
-        std::process::exit(1);
-    }
+    let root_dir = PathBuf::from(
+        std::env::var("CARGO_MANIFEST_DIR")
+            .expect("Please run via cargo or set CARGO_MANIFEST_DIR"),
+    );
+    let directory = root_dir
+        .join("../../crates/bevy_math/images/easefunction")
+        .canonicalize()
+        .unwrap();
 
     for function in [
         EaseFunction::SineIn,
@@ -119,7 +123,10 @@ fn main() {
             .add(guides)
             .add(graph);
 
-        let path = format!("{directory}/{}.svg", name.split('(').next().unwrap());
-        svg::save(path, &document).unwrap();
+        let file_path = directory
+            .join(name.split('(').next().unwrap())
+            .with_extension("svg");
+        println!("saving {file_path:?}");
+        svg::save(file_path, &document).unwrap();
     }
 }
