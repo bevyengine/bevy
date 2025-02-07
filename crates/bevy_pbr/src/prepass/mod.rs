@@ -1,14 +1,6 @@
 mod prepass_bindings;
 
-use crate::{
-    alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
-    material_bind_groups::MaterialBindGroupAllocator, queue_material_meshes,
-    setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material,
-    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances,
-    RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup,
-    SetMeshBindGroup, ShadowView, StandardMaterial,
-};
+use crate::{alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout, collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator, queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial};
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
     alpha::AlphaMode,
@@ -207,9 +199,10 @@ where
                 (
                     check_prepass_views_need_specialization.in_set(PrepareAssets),
                     specialize_prepass_material_meshes::<M>
-                        .in_set(PrepareResources)
+                        .in_set(RenderSet::PrepareMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
-                        .after(prepare_assets::<RenderMesh>),
+                        .after(prepare_assets::<RenderMesh>)
+                        .after(collect_meshes_for_gpu_building),
                     queue_prepass_material_meshes::<M>
                         .in_set(RenderSet::QueueMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
