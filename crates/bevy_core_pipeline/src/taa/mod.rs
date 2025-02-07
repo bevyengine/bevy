@@ -5,13 +5,14 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Query, Res, ResMut, Resource},
+    system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -39,7 +40,7 @@ use bevy_render::{
 };
 use tracing::warn;
 
-const TAA_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(656865235226276);
+const TAA_SHADER_HANDLE: Handle<Shader> = weak_handle!("fea20d50-86b6-4069-aa32-374346aec00c");
 
 /// Plugin for temporal anti-aliasing.
 ///

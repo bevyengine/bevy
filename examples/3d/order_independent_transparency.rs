@@ -104,7 +104,7 @@ fn cycle_scenes(
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // despawn current scene
         for e in &q {
-            commands.entity(e).despawn_recursive();
+            commands.entity(e).despawn();
         }
         // increment scene_id
         *scene_id = (*scene_id + 1) % 2;

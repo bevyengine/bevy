@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
@@ -127,7 +127,7 @@ pub struct ViewFogUniformOffset {
 }
 
 /// Handle for the fog WGSL Shader internal asset
-pub const FOG_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4913569193382610166);
+pub const FOG_SHADER_HANDLE: Handle<Shader> = weak_handle!("e943f446-2856-471c-af5e-68dd276eec42");
 
 /// A plugin that consolidates fog extraction, preparation and related resources/assets
 pub struct FogPlugin;

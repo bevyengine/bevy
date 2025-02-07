@@ -122,7 +122,10 @@ impl SystemSchedule {
     since = "0.16.0",
     note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
 )]
-#[expect(non_upper_case_globals)]
+#[expect(
+    non_upper_case_globals,
+    reason = "This item is deprecated; as such, its previous name needs to stay."
+)]
 pub const apply_deferred: ApplyDeferred = ApplyDeferred;
 
 /// A special [`System`] that instructs the executor to call
@@ -348,7 +351,7 @@ mod tests {
                 (|mut commands: Commands| {
                     commands.insert_resource(R2);
                 })
-                .param_warn_once(),
+                .warn_param_missing(),
             )
                 .chain(),
         );
@@ -371,20 +374,20 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).param_warn_once()));
+        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).warn_param_missing()));
         schedule.add_systems((
             // System gets skipped if system set run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R1);
             })
-            .param_warn_once()
+            .warn_param_missing()
             .in_set(S1),
             // System gets skipped if run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R2);
             })
-            .param_warn_once()
-            .run_if((|_: Res<R2>| true).param_warn_once()),
+            .warn_param_missing()
+            .run_if((|_: Res<R2>| true).warn_param_missing()),
         ));
         schedule.run(&mut world);
         assert!(world.get_resource::<R1>().is_none());

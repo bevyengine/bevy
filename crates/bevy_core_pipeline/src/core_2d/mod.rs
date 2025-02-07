@@ -33,15 +33,19 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-use bevy_render::batching::gpu_preprocessing::GpuPreprocessingMode;
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_render::{
+    batching::gpu_preprocessing::GpuPreprocessingMode,
+    render_phase::PhaseItemBatchSetKey,
+    view::{ExtractedView, RetainedViewEntity},
+};
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 use bevy_app::{App, Plugin};
-use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
@@ -57,7 +61,7 @@ use bevy_render::{
         TextureFormat, TextureUsages,
     },
     renderer::RenderDevice,
-    sync_world::{MainEntity, RenderEntity},
+    sync_world::MainEntity,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
@@ -129,7 +133,7 @@ pub struct Opaque2d {
     ///
     /// Objects in a single batch set can potentially be multi-drawn together,
     /// if it's enabled and the current platform supports it.
-    pub batch_set_key: (),
+    pub batch_set_key: BatchSetKey2d,
     /// The key, which determines which can be batched.
     pub bin_key: Opaque2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
@@ -195,7 +199,7 @@ impl PhaseItem for Opaque2d {
 impl BinnedPhaseItem for Opaque2d {
     // Since 2D meshes presently can't be multidrawn, the batch set key is
     // irrelevant.
-    type BatchSetKey = ();
+    type BatchSetKey = BatchSetKey2d;
 
     type BinKey = Opaque2dBinKey;
 
@@ -216,6 +220,20 @@ impl BinnedPhaseItem for Opaque2d {
     }
 }
 
+/// 2D meshes aren't currently multi-drawn together, so this batch set key only
+/// stores whether the mesh is indexed.
+#[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Hash)]
+pub struct BatchSetKey2d {
+    /// True if the mesh is indexed.
+    pub indexed: bool,
+}
+
+impl PhaseItemBatchSetKey for BatchSetKey2d {
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
+}
+
 impl CachedRenderPipelinePhaseItem for Opaque2d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
@@ -229,7 +247,7 @@ pub struct AlphaMask2d {
     ///
     /// Objects in a single batch set can potentially be multi-drawn together,
     /// if it's enabled and the current platform supports it.
-    pub batch_set_key: (),
+    pub batch_set_key: BatchSetKey2d,
     /// The key, which determines which can be batched.
     pub bin_key: AlphaMask2dBinKey,
     /// An entity from which data will be fetched, including the mesh if
@@ -296,7 +314,7 @@ impl PhaseItem for AlphaMask2d {
 impl BinnedPhaseItem for AlphaMask2d {
     // Since 2D meshes presently can't be multidrawn, the batch set key is
     // irrelevant.
-    type BatchSetKey = ();
+    type BatchSetKey = BatchSetKey2d;
 
     type BinKey = AlphaMask2dBinKey;
 
@@ -332,6 +350,9 @@ pub struct Transparent2d {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    /// Whether the mesh in question is indexed (uses an index buffer in
+    /// addition to its vertex buffer).
+    pub indexed: bool,
 }
 
 impl PhaseItem for Transparent2d {
@@ -384,6 +405,10 @@ impl SortedPhaseItem for Transparent2d {
         // radsort is a stable radix sort that performed better than `slice::sort_by_key` or `slice::sort_unstable_by_key`.
         radsort::sort_by_key(items, |item| item.sort_key().0);
     }
+
+    fn indexed(&self) -> bool {
+        self.indexed
+    }
 }
 
 impl CachedRenderPipelinePhaseItem for Transparent2d {
@@ -397,20 +422,24 @@ pub fn extract_core_2d_camera_phases(
     mut transparent_2d_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     mut opaque_2d_phases: ResMut<ViewBinnedRenderPhases<Opaque2d>>,
     mut alpha_mask_2d_phases: ResMut<ViewBinnedRenderPhases<AlphaMask2d>>,
-    cameras_2d: Extract<Query<(RenderEntity, &Camera), With<Camera2d>>>,
-    mut live_entities: Local<EntityHashSet>,
+    cameras_2d: Extract<Query<(Entity, &Camera), With<Camera2d>>>,
+    mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
 
-    for (entity, camera) in &cameras_2d {
+    for (main_entity, camera) in &cameras_2d {
         if !camera.is_active {
             continue;
         }
-        transparent_2d_phases.insert_or_clear(entity);
-        opaque_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
-        alpha_mask_2d_phases.insert_or_clear(entity, GpuPreprocessingMode::None);
 
-        live_entities.insert(entity);
+        // This is the main 2D camera, so we use the first subview index (0).
+        let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
+
+        transparent_2d_phases.insert_or_clear(retained_view_entity);
+        opaque_2d_phases.insert_or_clear(retained_view_entity, GpuPreprocessingMode::None);
+        alpha_mask_2d_phases.insert_or_clear(retained_view_entity, GpuPreprocessingMode::None);
+
+        live_entities.insert(retained_view_entity);
     }
 
     // Clear out all dead views.
@@ -425,11 +454,13 @@ pub fn prepare_core_2d_depth_textures(
     render_device: Res<RenderDevice>,
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
-    views_2d: Query<(Entity, &ExtractedCamera, &Msaa), (With<Camera2d>,)>,
+    views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
 ) {
     let mut textures = <HashMap<_, _>>::default();
-    for (view, camera, msaa) in &views_2d {
-        if !opaque_2d_phases.contains_key(&view) || !transparent_2d_phases.contains_key(&view) {
+    for (view, camera, extracted_view, msaa) in &views_2d {
+        if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
+            || !transparent_2d_phases.contains_key(&extracted_view.retained_view_entity)
+        {
             continue;
         };
 

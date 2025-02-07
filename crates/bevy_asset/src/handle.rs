@@ -143,6 +143,7 @@ impl<T: Asset> Clone for Handle<T> {
 
 impl<A: Asset> Handle<A> {
     /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
+    #[deprecated = "use the `weak_handle!` macro with a UUID string instead"]
     pub const fn weak_from_u128(value: u128) -> Self {
         Handle::Weak(AssetId::Uuid {
             uuid: Uuid::from_u128(value),
@@ -501,6 +502,24 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
     }
 }
 
+/// Creates a weak [`Handle`] from a string literal containing a UUID.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_asset::{Handle, weak_handle};
+/// # type Shader = ();
+/// const SHADER: Handle<Shader> = weak_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
+/// ```
+#[macro_export]
+macro_rules! weak_handle {
+    ($uuid:expr) => {{
+        $crate::Handle::Weak($crate::AssetId::Uuid {
+            uuid: $crate::uuid::uuid!($uuid),
+        })
+    }};
+}
+
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
 #[derive(Error, Debug, PartialEq, Clone)]
 #[non_exhaustive]
@@ -514,8 +533,9 @@ pub enum UntypedAssetConversionError {
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
+    use bevy_platform_support::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
-    use bevy_utils::FixedHasher;
     use core::hash::BuildHasher;
 
     use super::*;
@@ -551,8 +571,11 @@ mod tests {
     }
 
     /// Typed and Untyped `Handles` should be orderable amongst each other and themselves
-    #[allow(clippy::cmp_owned)]
     #[test]
+    #[expect(
+        clippy::cmp_owned,
+        reason = "This lints on the assertion that a typed handle converted to an untyped handle maintains its ordering compared to an untyped handle. While the conversion would normally be useless, we need to ensure that converted handles maintain their ordering, making the conversion necessary here."
+    )]
     fn ordering() {
         assert!(UUID_1 < UUID_2);
 

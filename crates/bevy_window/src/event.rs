@@ -194,7 +194,7 @@ pub struct CursorLeft {
     pub window: Entity,
 }
 
-/// A Input Method Editor event.
+/// An Input Method Editor event.
 ///
 /// This event is the translated version of the `WindowEvent::Ime` from the `winit` crate.
 ///

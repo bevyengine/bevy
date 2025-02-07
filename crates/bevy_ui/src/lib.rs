@@ -153,7 +153,7 @@ impl Plugin for UiPlugin {
             .register_type::<Node>()
             .register_type::<RelativeCursorPosition>()
             .register_type::<ScrollPosition>()
-            .register_type::<TargetCamera>()
+            .register_type::<UiTargetCamera>()
             .register_type::<ImageNode>()
             .register_type::<ImageNodeSize>()
             .register_type::<UiRect>()
@@ -167,6 +167,7 @@ impl Plugin for UiPlugin {
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
+            .register_type::<TextShadow>()
             .configure_sets(
                 PostUpdate,
                 (

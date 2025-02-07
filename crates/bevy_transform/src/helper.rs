@@ -1,11 +1,11 @@
 //! System parameter for computing up-to-date [`GlobalTransform`]s.
 
 use bevy_ecs::{
+    hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
     system::{Query, SystemParam},
 };
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use thiserror::Error;
 
 use crate::components::{GlobalTransform, Transform};
@@ -18,7 +18,7 @@ use crate::components::{GlobalTransform, Transform};
 /// the last time the transform propagation systems ran.
 #[derive(SystemParam)]
 pub struct TransformHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
     transform_query: Query<'w, 's, &'static Transform>,
 }
 
@@ -84,8 +84,7 @@ mod tests {
     use core::f32::consts::TAU;
 
     use bevy_app::App;
-    use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
+    use bevy_ecs::{hierarchy::ChildOf, system::SystemState};
     use bevy_math::{Quat, Vec3};
 
     use crate::{
@@ -125,7 +124,7 @@ mod tests {
             let mut e = app.world_mut().spawn(transform);
 
             if let Some(entity) = entity {
-                e.set_parent(entity);
+                e.insert(ChildOf(entity));
             }
 
             entity = Some(e.id());

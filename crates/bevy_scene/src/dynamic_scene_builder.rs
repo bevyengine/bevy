@@ -1,10 +1,13 @@
+use core::any::TypeId;
+
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::{
     component::{Component, ComponentId},
+    entity_disabling::DefaultQueryFilters,
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
-    system::Resource,
+    resource::Resource,
     world::World,
 };
 use bevy_reflect::{PartialReflect, ReflectFromReflect};
@@ -348,9 +351,17 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`deny_resource`]: Self::deny_resource
     #[must_use]
     pub fn extract_resources(mut self) -> Self {
+        let original_world_dqf_id = self
+            .original_world
+            .components()
+            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
         for (component_id, _) in self.original_world.storages().resources.iter() {
+            if Some(component_id) == original_world_dqf_id {
+                continue;
+            }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world

@@ -1,9 +1,4 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![cfg_attr(
     any(docsrs, docsrs_dep),
     expect(
@@ -734,7 +729,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_utils::HashMap;
+    use bevy_platform_support::collections::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},

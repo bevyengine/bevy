@@ -63,7 +63,7 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
+            top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },

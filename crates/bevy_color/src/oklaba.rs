@@ -224,8 +224,8 @@ impl From<LinearRgba> for Oklaba {
             blue,
             alpha,
         } = value;
-        // From https://github.com/DougLau/pix
-        // Floats literals are truncated from the source code above, to avoid excessive precision.
+        // From https://bottosson.github.io/posts/oklab/#converting-from-linear-srgb-to-oklab
+        // Float literals are truncated to avoid excessive precision.
         let l = 0.41222146 * red + 0.53633255 * green + 0.051445995 * blue;
         let m = 0.2119035 * red + 0.6806995 * green + 0.10739696 * blue;
         let s = 0.08830246 * red + 0.28171885 * green + 0.6299787 * blue;
@@ -248,8 +248,8 @@ impl From<Oklaba> for LinearRgba {
             alpha,
         } = value;
 
-        // From https://github.com/Ogeon/palette/blob/e75eab2fb21af579353f51f6229a510d0d50a311/palette/src/oklab.rs#L312-L332
-        // Floats literals are truncated from the source code above, to avoid excessive precision.
+        // From https://bottosson.github.io/posts/oklab/#converting-from-linear-srgb-to-oklab
+        // Float literals are truncated to avoid excessive precision.
         let l_ = lightness + 0.39633778 * a + 0.21580376 * b;
         let m_ = lightness - 0.105561346 * a - 0.06385417 * b;
         let s_ = lightness - 0.08948418 * a - 1.2914855 * b;

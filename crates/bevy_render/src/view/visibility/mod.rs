@@ -3,8 +3,8 @@ mod render_layers;
 
 use core::any::TypeId;
 
-use bevy_ecs::component::ComponentId;
-use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::component::HookContext;
+use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -12,19 +12,18 @@ pub use render_layers::*;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
-use bevy_ecs::prelude::*;
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::{components::GlobalTransform, TransformSystem};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 
 use super::NoCpuCulling;
-use crate::{camera::Projection, sync_world::MainEntity};
 use crate::{
-    camera::{Camera, CameraProjection},
+    camera::{Camera, CameraProjection, Projection},
     mesh::{Mesh, Mesh3d, MeshAabb},
     primitives::{Aabb, Frustum, Sphere},
+    sync_world::MainEntity,
 };
 
 /// User indication of whether an entity is visible. Propagates down the entity hierarchy.
@@ -38,7 +37,7 @@ use crate::{
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
-    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
+    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
     ///
     /// A root-level entity that is set to `Inherited` will be visible.
     #[default]
@@ -48,7 +47,7 @@ pub enum Visibility {
     /// An entity with `Visibility::Visible` will be unconditionally visible.
     ///
     /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
-    /// [`Parent`] entity is hidden.
+    /// [`ChildOf`] target entity is hidden.
     Visible,
 }
 
@@ -111,6 +110,7 @@ impl PartialEq<&Visibility> for Visibility {
 /// [`VisibilityPropagate`]: VisibilitySystems::VisibilityPropagate
 #[derive(Component, Deref, Debug, Default, Clone, Copy, Reflect, PartialEq, Eq)]
 #[reflect(Component, Default, Debug, PartialEq)]
+#[component(on_insert = validate_parent_has_component::<Self>)]
 pub struct InheritedVisibility(bool);
 
 impl InheritedVisibility {
@@ -316,7 +316,7 @@ pub enum VisibilitySystems {
     /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
     UpdateFrusta,
     /// Label for the system propagating the [`InheritedVisibility`] in a
-    /// [`hierarchy`](bevy_hierarchy).
+    /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.\
@@ -387,10 +387,10 @@ pub fn update_frusta(
 
 fn visibility_propagate_system(
     changed: Query<
-        (Entity, &Visibility, Option<&Parent>, Option<&Children>),
+        (Entity, &Visibility, Option<&ChildOf>, Option<&Children>),
         (
             With<InheritedVisibility>,
-            Or<(Changed<Visibility>, Changed<Parent>)>,
+            Or<(Changed<Visibility>, Changed<ChildOf>)>,
         ),
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
@@ -632,8 +632,10 @@ pub fn check_visibility(
 ///     ...
 /// }
 /// ```
-pub fn add_visibility_class<C>(mut world: DeferredWorld<'_>, entity: Entity, _: ComponentId)
-where
+pub fn add_visibility_class<C>(
+    mut world: DeferredWorld<'_>,
+    HookContext { entity, .. }: HookContext,
+) where
     C: 'static,
 {
     if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
@@ -645,7 +647,6 @@ where
 mod test {
     use super::*;
     use bevy_app::prelude::*;
-    use bevy_hierarchy::BuildChildren;
 
     #[test]
     fn visibility_propagation() {
@@ -762,7 +763,7 @@ mod test {
             .entity_mut(parent2)
             .insert(Visibility::Visible);
         // Simulate a change in the parent component
-        app.world_mut().entity_mut(child2).set_parent(parent2); // example of changing parent
+        app.world_mut().entity_mut(child2).insert(ChildOf(parent2)); // example of changing parent
 
         // Run the system again to propagate changes
         app.update();

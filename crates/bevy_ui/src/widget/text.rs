@@ -1,30 +1,29 @@
 use crate::{
     ComputedNode, ContentSize, DefaultUiCamera, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure, TargetCamera, UiScale,
+    NodeMeasure, UiScale, UiTargetCamera,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::{require, Component},
     query::With,
     reflect::ReflectComponent,
     system::{Local, Query, Res, ResMut},
     world::{Mut, Ref},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
+use bevy_platform_support::collections::hash_map::Entry;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::camera::Camera;
-use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
     TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter, YAxisOrientation,
 };
-use bevy_utils::Entry;
 use taffy::style::AvailableSpace;
 use tracing::error;
 
@@ -64,7 +63,7 @@ impl Default for TextNodeFlags {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor};
+/// # use bevy_text::{Font, JustifyText, TextLayout, TextFont, TextColor, TextSpan};
 /// # use bevy_ui::prelude::Text;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
@@ -89,9 +88,15 @@ impl Default for TextNodeFlags {
 ///     Text::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
 /// ```
-#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 #[require(Node, TextLayout, TextFont, TextColor, TextNodeFlags, ContentSize)]
 pub struct Text(pub String);
 
@@ -189,7 +194,6 @@ impl Measure for TextMeasure {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
@@ -243,12 +247,11 @@ fn create_text_measure<'a>(
 ///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///     method should be called when only changing the `Text`'s colors.
-#[allow(clippy::too_many_arguments)]
 pub fn measure_text_system(
     mut scale_factors_buffer: Local<EntityHashMap<f32>>,
     mut last_scale_factors: Local<EntityHashMap<f32>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<&Camera>,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
     mut text_query: Query<
@@ -258,7 +261,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Option<&TargetCamera>,
+            Option<&UiTargetCamera>,
         ),
         With<Node>,
     >,
@@ -272,22 +275,24 @@ pub fn measure_text_system(
 
     for (entity, block, content_size, text_flags, computed, maybe_camera) in &mut text_query {
         let Some(camera_entity) = maybe_camera
-            .map(TargetCamera::entity)
+            .map(UiTargetCamera::entity)
             .or(default_camera_entity)
         else {
             continue;
         };
+
         let scale_factor = match scale_factors_buffer.entry(camera_entity) {
             Entry::Occupied(entry) => *entry.get(),
             Entry::Vacant(entry) => *entry.insert(
                 camera_query
                     .get(camera_entity)
                     .ok()
-                    .and_then(|(_, c)| c.target_scaling_factor())
+                    .and_then(Camera::target_scaling_factor)
                     .unwrap_or(1.0)
                     * ui_scale.0,
             ),
         };
+
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         if last_scale_factors.get(&camera_entity) != Some(&scale_factor)
             || computed.needs_rerender()
@@ -311,7 +316,6 @@ pub fn measure_text_system(
     core::mem::swap(&mut *last_scale_factors, &mut *scale_factors_buffer);
 }
 
-#[allow(clippy::too_many_arguments)]
 #[inline]
 fn queue_text(
     entity: Entity,
@@ -383,7 +387,6 @@ fn queue_text(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
-#[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,

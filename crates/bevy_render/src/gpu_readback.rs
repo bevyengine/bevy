@@ -21,9 +21,9 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render_macros::ExtractComponent;
-use bevy_utils::HashMap;
 use encase::internal::ReadFrom;
 use encase::private::Reader;
 use encase::ShaderType;
@@ -240,16 +240,11 @@ fn prepare_buffers(
         match readback {
             Readback::Texture(image) => {
                 if let Some(gpu_image) = gpu_images.get(image) {
-                    let layout = layout_data(
-                        gpu_image.size.width,
-                        gpu_image.size.height,
-                        gpu_image.texture_format,
-                    );
+                    let layout = layout_data(gpu_image.size, gpu_image.texture_format);
                     let buffer = buffer_pool.get(
                         &render_device,
                         get_aligned_size(
-                            gpu_image.size.width,
-                            gpu_image.size.height,
+                            gpu_image.size,
                             gpu_image.texture_format.pixel_size() as u32,
                         ) as u64,
                     );
@@ -355,20 +350,32 @@ pub(crate) const fn align_byte_size(value: u32) -> u32 {
 }
 
 /// Get the size of a image when the size of each row has been rounded up to [`wgpu::COPY_BYTES_PER_ROW_ALIGNMENT`].
-pub(crate) const fn get_aligned_size(width: u32, height: u32, pixel_size: u32) -> u32 {
-    height * align_byte_size(width * pixel_size)
+pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
+    extent.height * align_byte_size(extent.width * pixel_size) * extent.depth_or_array_layers
 }
 
 /// Get a [`ImageDataLayout`] aligned such that the image can be copied into a buffer.
-pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> ImageDataLayout {
+pub(crate) fn layout_data(extent: Extent3d, format: TextureFormat) -> ImageDataLayout {
     ImageDataLayout {
-        bytes_per_row: if height > 1 {
+        bytes_per_row: if extent.height > 1 || extent.depth_or_array_layers > 1 {
             // 1 = 1 row
-            Some(get_aligned_size(width, 1, format.pixel_size() as u32))
+            Some(get_aligned_size(
+                Extent3d {
+                    width: extent.width,
+                    height: 1,
+                    depth_or_array_layers: 1,
+                },
+                format.pixel_size() as u32,
+            ))
         } else {
             None
         },
-        rows_per_image: None,
-        ..Default::default()
+        rows_per_image: if extent.depth_or_array_layers > 1 {
+            let (_, block_dimension_y) = format.block_dimensions();
+            Some(extent.height / block_dimension_y)
+        } else {
+            None
+        },
+        offset: 0,
     }
 }

@@ -1,7 +1,8 @@
-use bevy_asset::Handle;
+use bevy_asset::{weak_handle, Handle};
 use bevy_render::{prelude::Shader, render_resource::VertexState};
 
-pub const FULLSCREEN_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7837534426033940724);
+pub const FULLSCREEN_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("481fb759-d0b1-4175-8319-c439acde30a2");
 
 /// uses the [`FULLSCREEN_SHADER_HANDLE`] to output a
 /// ```wgsl

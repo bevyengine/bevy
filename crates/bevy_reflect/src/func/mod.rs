@@ -25,9 +25,9 @@
 //! let mut func: DynamicFunction = add.into_function();
 //! let args: ArgList = ArgList::default()
 //!   // Pushing a known type with owned ownership
-//!   .push_owned(25_i32)
+//!   .with_owned(25_i32)
 //!   // Pushing a reflected type with owned ownership
-//!   .push_boxed(Box::new(75_i32) as Box<dyn PartialReflect>);
+//!   .with_boxed(Box::new(75_i32) as Box<dyn PartialReflect>);
 //! let result: FunctionResult = func.call(args);
 //! let value: Return = result.unwrap();
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&100));
@@ -141,11 +141,11 @@
 //!
 //! // You can then retrieve and call these functions by name:
 //! let reflect_add = registry.get(core::any::type_name_of_val(&add)).unwrap();
-//! let value = reflect_add.call(ArgList::default().push_owned(10_i32).push_owned(5_i32)).unwrap();
+//! let value = reflect_add.call(ArgList::default().with_owned(10_i32).with_owned(5_i32)).unwrap();
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&15));
 //!
 //! let reflect_mul = registry.get("mul").unwrap();
-//! let value = reflect_mul.call(ArgList::default().push_owned(10_i32).push_owned(5_i32)).unwrap();
+//! let value = reflect_mul.call(ArgList::default().with_owned(10_i32).with_owned(5_i32)).unwrap();
 //! assert_eq!(value.unwrap_owned().try_downcast_ref::<i32>(), Some(&50));
 //! ```
 //!
@@ -219,7 +219,7 @@ mod tests {
         fn foo() {}
 
         let func = foo.into_function();
-        let args = ArgList::new().push_owned(123_i32);
+        let args = ArgList::new().with_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
@@ -235,7 +235,7 @@ mod tests {
         fn foo(_: i32) {}
 
         let func = foo.into_function();
-        let args = ArgList::new().push_owned(123_u32);
+        let args = ArgList::new().with_owned(123_u32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
@@ -252,7 +252,7 @@ mod tests {
         fn foo(_: &i32) {}
 
         let func = foo.into_function();
-        let args = ArgList::new().push_owned(123_i32);
+        let args = ArgList::new().with_owned(123_i32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),

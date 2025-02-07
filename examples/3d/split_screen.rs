@@ -84,7 +84,7 @@ fn setup(
         // Set up UI
         commands
             .spawn((
-                TargetCamera(camera),
+                UiTargetCamera(camera),
                 Node {
                     width: Val::Percent(100.),
                     height: Val::Percent(100.),
@@ -105,7 +105,7 @@ fn setup(
             });
     }
 
-    fn buttons_panel(parent: &mut ChildBuilder) {
+    fn buttons_panel(parent: &mut ChildSpawnerCommands) {
         parent
             .spawn(Node {
                 position_type: PositionType::Absolute,
@@ -124,7 +124,7 @@ fn setup(
             });
     }
 
-    fn rotate_button(parent: &mut ChildBuilder, caption: &str, direction: Direction) {
+    fn rotate_button(parent: &mut ChildSpawnerCommands, caption: &str, direction: Direction) {
         parent
             .spawn((
                 RotateCamera(direction),
@@ -181,10 +181,9 @@ fn set_camera_viewports(
     }
 }
 
-#[allow(clippy::type_complexity)]
 fn button_system(
     interaction_query: Query<
-        (&Interaction, &TargetCamera, &RotateCamera),
+        (&Interaction, &UiTargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,

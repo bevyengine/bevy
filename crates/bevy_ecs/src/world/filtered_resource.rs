@@ -2,7 +2,7 @@ use crate::{
     change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
     component::{ComponentId, Tick},
     query::Access,
-    system::Resource,
+    resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::Ptr;
