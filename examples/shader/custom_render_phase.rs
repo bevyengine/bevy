@@ -148,7 +148,7 @@ impl Plugin for MeshStencilPhasePlugin {
             return;
         };
         // The pipeline needs the RenderDevice to be created and it's only available once plugins
-        // are intialized
+        // are initialized
         render_app.init_resource::<StencilPipeline>();
     }
 }
