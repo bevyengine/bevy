@@ -360,12 +360,13 @@ pub struct IndexOptions<
 > {
     /// Marker components will be added to indexed entities to allow for efficient lookups.
     /// This controls the [`StorageType`] that will be used with these markers.
-    /// It is recommended to use [`Table`](StorageType::Table) for more efficient querying, but a
-    /// [`SpareSet`](StorageType::SparseSet) may be more appropriate where iteration performance is
-    /// of lesser importance and the number of simultaneous unique values of `C` is large.
+    ///
+    /// - [`Table`](StorageType::Table) is faster for querying
+    /// - [`SpareSet`](StorageType::SparseSet) is more memory efficient
+    ///
     /// Ensure you benchmark both options appropriately if you are experiencing performance issues.
     ///
-    /// This defaults to [`Table`](StorageType::Table).
+    /// This defaults to [`SparseSet`](StorageType::SparseSet).
     pub marker_storage: StorageType,
     /// Marker components are combined into a unique address for each distinct value of the indexed
     /// component.
@@ -396,7 +397,7 @@ impl<C: Component<Mutability = Immutable> + Eq + Hash + Clone> Default
 {
     fn default() -> Self {
         Self {
-            marker_storage: StorageType::Table,
+            marker_storage: StorageType::SparseSet,
             address_space: size_of::<C>() as u8,
             index_storage: HashMap::with_hasher(FixedHasher),
             _phantom: PhantomData,
