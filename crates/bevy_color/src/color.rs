@@ -85,6 +85,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn srgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::Srgba(Srgba {
             red,
@@ -95,6 +102,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
     pub const fn srgb(red: f32, green: f32, blue: f32) -> Self {
         Self::Srgba(Srgba {
             red,
@@ -105,6 +118,9 @@ impl Color {
     }
 
     /// Reads an array of floats to creates a new [`Color`] object storing a [`Srgba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    /// * `array` - Red, Green and Blue channels. Each channel is in the range [0.0, 1.0]
     pub const fn srgb_from_array(array: [f32; 3]) -> Self {
         Self::Srgba(Srgba {
             red: array[0],
@@ -116,7 +132,12 @@ impl Color {
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values.
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
+    /// * `alpha` - Alpha channel. [0, 255]
     pub const fn srgba_u8(red: u8, green: u8, blue: u8, alpha: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
@@ -128,7 +149,11 @@ impl Color {
 
     /// Creates a new [`Color`] object storing a [`Srgba`] color from [`u8`] values with an alpha of 1.0.
     ///
-    /// A value of 0 is interpreted as 0.0, and a value of 255 is interpreted as 1.0.
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0, 255]
+    /// * `green` - Green channel. [0, 255]
+    /// * `blue` - Blue channel. [0, 255]
     pub const fn srgb_u8(red: u8, green: u8, blue: u8) -> Self {
         Self::Srgba(Srgba {
             red: red as f32 / 255.0,
@@ -139,6 +164,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn linear_rgba(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self::LinearRgba(LinearRgba {
             red,
@@ -149,6 +181,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`LinearRgba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `red` - Red channel. [0.0, 1.0]
+    /// * `green` - Green channel. [0.0, 1.0]
+    /// * `blue` - Blue channel. [0.0, 1.0]
     pub const fn linear_rgb(red: f32, green: f32, blue: f32) -> Self {
         Self::LinearRgba(LinearRgba {
             red,
@@ -159,6 +197,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsla`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Self {
         Self::Hsla(Hsla {
             hue,
@@ -169,6 +214,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsla`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Self {
         Self::Hsla(Hsla {
             hue,
@@ -179,6 +230,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsva`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hsva(hue: f32, saturation: f32, value: f32, alpha: f32) -> Self {
         Self::Hsva(Hsva {
             hue,
@@ -189,6 +247,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hsva`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `value` - Value channel. [0.0, 1.0]
     pub const fn hsv(hue: f32, saturation: f32, value: f32) -> Self {
         Self::Hsva(Hsva {
             hue,
@@ -199,6 +263,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hwba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `whiteness` - Whiteness channel. [0.0, 1.0]
+    /// * `blackness` - Blackness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn hwba(hue: f32, whiteness: f32, blackness: f32, alpha: f32) -> Self {
         Self::Hwba(Hwba {
             hue,
@@ -209,6 +280,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Hwba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `whiteness` - Whiteness channel. [0.0, 1.0]
+    /// * `blackness` - Blackness channel. [0.0, 1.0]
     pub const fn hwb(hue: f32, whiteness: f32, blackness: f32) -> Self {
         Self::Hwba(Hwba {
             hue,
@@ -219,6 +296,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Laba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `a` - a axis. [-1.5, 1.5]
+    /// * `b` - b axis. [-1.5, 1.5]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn laba(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
         Self::Laba(Laba {
             lightness,
@@ -229,6 +313,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Laba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `a` - a axis. [-1.5, 1.5]
+    /// * `b` - b axis. [-1.5, 1.5]
     pub const fn lab(lightness: f32, a: f32, b: f32) -> Self {
         Self::Laba(Laba {
             lightness,
@@ -239,6 +329,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Lcha`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn lcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
         Self::Lcha(Lcha {
             lightness,
@@ -249,6 +346,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Lcha`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.5]
+    /// * `chroma` - Chroma channel. [0.0, 1.5]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     pub const fn lch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self::Lcha(Lcha {
             lightness,
@@ -259,6 +362,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `a` - Green-red channel. [-1.0, 1.0]
+    /// * `b` - Blue-yellow channel. [-1.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn oklaba(lightness: f32, a: f32, b: f32, alpha: f32) -> Self {
         Self::Oklaba(Oklaba {
             lightness,
@@ -269,6 +379,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklaba`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `a` - Green-red channel. [-1.0, 1.0]
+    /// * `b` - Blue-yellow channel. [-1.0, 1.0]
     pub const fn oklab(lightness: f32, a: f32, b: f32) -> Self {
         Self::Oklaba(Oklaba {
             lightness,
@@ -279,6 +395,13 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklcha`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `chroma` - Chroma channel. [0.0, 1.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn oklcha(lightness: f32, chroma: f32, hue: f32, alpha: f32) -> Self {
         Self::Oklcha(Oklcha {
             lightness,
@@ -289,6 +412,12 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Oklcha`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `chroma` - Chroma channel. [0.0, 1.0]
+    /// * `hue` - Hue channel. [0.0, 360.0]
     pub const fn oklch(lightness: f32, chroma: f32, hue: f32) -> Self {
         Self::Oklcha(Oklcha {
             lightness,
@@ -299,11 +428,24 @@ impl Color {
     }
 
     /// Creates a new [`Color`] object storing a [`Xyza`] color.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - x-axis. [0.0, 1.0]
+    /// * `y` - y-axis. [0.0, 1.0]
+    /// * `z` - z-axis. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
     pub const fn xyza(x: f32, y: f32, z: f32, alpha: f32) -> Self {
         Self::Xyza(Xyza { x, y, z, alpha })
     }
 
     /// Creates a new [`Color`] object storing a [`Xyza`] color with an alpha of 1.0.
+    ///
+    /// # Arguments
+    ///
+    /// * `x` - x-axis. [0.0, 1.0]
+    /// * `y` - y-axis. [0.0, 1.0]
+    /// * `z` - z-axis. [0.0, 1.0]
     pub const fn xyz(x: f32, y: f32, z: f32) -> Self {
         Self::Xyza(Xyza {
             x,

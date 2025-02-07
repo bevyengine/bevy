@@ -312,6 +312,8 @@ impl PhaseItem for AlphaMask2d {
 }
 
 impl BinnedPhaseItem for AlphaMask2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
     type BatchSetKey = BatchSetKey2d;
 
     type BinKey = AlphaMask2dBinKey;

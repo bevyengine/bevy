@@ -1,8 +1,12 @@
+use core::any::TypeId;
+
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
+    component::ComponentCloneBehavior,
     entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
-    reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
+    entity_disabling::DefaultQueryFilters,
+    reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath};
@@ -59,8 +63,16 @@ impl Scene {
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
 
+        let self_dqf_id = self
+            .world
+            .components()
+            .get_resource_id(TypeId::of::<DefaultQueryFilters>());
+
         // Resources archetype
         for (component_id, resource_data) in self.world.storages().resources.iter() {
+            if Some(component_id) == self_dqf_id {
+                continue;
+            }
             if !resource_data.is_present() {
                 continue;
             }
@@ -112,6 +124,12 @@ impl Scene {
                         .get_info(component_id)
                         .expect("component_ids in archetypes should have ComponentInfo");
 
+                    match component_info.clone_behavior() {
+                        ComponentCloneBehavior::Ignore
+                        | ComponentCloneBehavior::RelationshipTarget(_) => continue,
+                        _ => {}
+                    }
+
                     let registration = type_registry
                         .get(component_info.type_id().unwrap())
                         .ok_or_else(|| SceneSpawnError::UnregisteredType {
@@ -124,7 +142,7 @@ impl Scene {
                             }
                         })?;
 
-                    let Some(mut component) = reflect_component
+                    let Some(component) = reflect_component
                         .reflect(self.world.entity(scene_entity.id()))
                         .map(PartialReflect::clone_value)
                     else {
@@ -133,16 +151,14 @@ impl Scene {
 
                     // If this component references entities in the scene,
                     // update them to the entities in the world.
-                    if let Some(map_entities) = registration.data::<ReflectMapEntities>() {
-                        SceneEntityMapper::world_scope(entity_map, world, |_, mapper| {
-                            map_entities.map_entities(component.as_partial_reflect_mut(), mapper);
-                        });
-                    }
-                    reflect_component.apply_or_insert(
-                        &mut world.entity_mut(entity),
-                        component.as_partial_reflect(),
-                        &type_registry,
-                    );
+                    SceneEntityMapper::world_scope(entity_map, world, |world, mapper| {
+                        reflect_component.apply_or_insert_mapped(
+                            &mut world.entity_mut(entity),
+                            component.as_partial_reflect(),
+                            &type_registry,
+                            mapper,
+                        );
+                    });
                 }
             }
         }

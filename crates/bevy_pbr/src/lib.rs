@@ -52,6 +52,7 @@ use bevy_color::{Color, LinearRgba};
 pub use atmosphere::*;
 pub use cluster::*;
 pub use components::*;
+pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
 pub use light::*;
@@ -97,17 +98,19 @@ pub mod graph {
         /// Label for the volumetric lighting pass.
         VolumetricFog,
         /// Label for the compute shader instance data building pass.
-        GpuPreprocess,
+        EarlyGpuPreprocess,
+        LateGpuPreprocess,
         /// Label for the screen space reflections pass.
         ScreenSpaceReflections,
-        /// Label for the indirect parameters building pass.
-        BuildIndirectParameters,
+        EarlyPrepassBuildIndirectParameters,
+        LatePrepassBuildIndirectParameters,
+        MainBuildIndirectParameters,
     }
 }
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
@@ -127,33 +130,45 @@ use bevy_render::{
 
 use bevy_transform::TransformSystem;
 
-pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1708015359337029744);
-pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5635987986427308186);
-pub const UTILS_HANDLE: Handle<Shader> = Handle::weak_from_u128(1900548483293416725);
-pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> = Handle::weak_from_u128(166852093121196815);
-pub const PBR_LIGHTING_HANDLE: Handle<Shader> = Handle::weak_from_u128(14170772752254856967);
-pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> = Handle::weak_from_u128(77319684653223658032);
-pub const SHADOWS_HANDLE: Handle<Shader> = Handle::weak_from_u128(11350275143789590502);
-pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(3145627513789590502);
-pub const PBR_FRAGMENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2295049283805286543);
-pub const PBR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4805239651767701046);
-pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9407115064344201137);
-pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16550102964439850292);
-pub const PBR_AMBIENT_HANDLE: Handle<Shader> = Handle::weak_from_u128(2441520459096337034);
+pub const PBR_TYPES_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("b0330585-2335-4268-9032-a6c4c2d932f6");
+pub const PBR_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("13834c18-c7ec-4c4b-bbbd-432c3ba4cace");
+pub const UTILS_HANDLE: Handle<Shader> = weak_handle!("0a32978f-2744-4608-98b6-4c3000a0638d");
+pub const CLUSTERED_FORWARD_HANDLE: Handle<Shader> =
+    weak_handle!("f8e3b4c6-60b7-4b23-8b2e-a6b27bb4ddce");
+pub const PBR_LIGHTING_HANDLE: Handle<Shader> =
+    weak_handle!("de0cf697-2876-49a0-aa0f-f015216f70c2");
+pub const PBR_TRANSMISSION_HANDLE: Handle<Shader> =
+    weak_handle!("22482185-36bb-4c16-9b93-a20e6d4a2725");
+pub const SHADOWS_HANDLE: Handle<Shader> = weak_handle!("ff758c5a-3927-4a15-94c3-3fbdfc362590");
+pub const SHADOW_SAMPLING_HANDLE: Handle<Shader> =
+    weak_handle!("f6bf5843-54bc-4e39-bd9d-56bfcd77b033");
+pub const PBR_FRAGMENT_HANDLE: Handle<Shader> =
+    weak_handle!("1bd3c10d-851b-400c-934a-db489d99cc50");
+pub const PBR_SHADER_HANDLE: Handle<Shader> = weak_handle!("0eba65ed-3e5b-4752-93ed-e8097e7b0c84");
+pub const PBR_PREPASS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("9afeaeab-7c45-43ce-b322-4b97799eaeb9");
+pub const PBR_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("815b8618-f557-4a96-91a5-a2fb7e249fb0");
+pub const PBR_AMBIENT_HANDLE: Handle<Shader> = weak_handle!("4a90b95b-112a-4a10-9145-7590d6f14260");
 pub const PARALLAX_MAPPING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(17035894873630133905);
+    weak_handle!("6cf57d9f-222a-429a-bba4-55ba9586e1d4");
 pub const VIEW_TRANSFORMATIONS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2098345702398750291);
+    weak_handle!("ec047703-cde3-4876-94df-fed121544abb");
 pub const PBR_PREPASS_FUNCTIONS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(73204817249182637);
-pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(3221241127431430599);
-pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(72019026415438599);
-pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(2659010996143919192);
+    weak_handle!("77b1bd3a-877c-4b2c-981b-b9c68d1b774a");
+pub const PBR_DEFERRED_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("43060da7-a717-4240-80a8-dbddd92bd25d");
+pub const PBR_DEFERRED_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("9dc46746-c51d-45e3-a321-6a50c3963420");
+pub const RGB9E5_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("90c19aa3-6a11-4252-8586-d9299352e94f");
 const MESHLET_VISIBILITY_BUFFER_RESOLVE_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2325134235233421);
+    weak_handle!("69187376-3dea-4d0f-b3f5-185bde63d6a2");
 
-pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 23;
-pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 24;
+pub const TONEMAPPING_LUT_TEXTURE_BINDING_INDEX: u32 = 26;
+pub const TONEMAPPING_LUT_SAMPLER_BINDING_INDEX: u32 = 27;
 
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
@@ -336,6 +351,7 @@ impl Plugin for PbrPlugin {
                 },
                 VolumetricFogPlugin,
                 ScreenSpaceReflectionsPlugin,
+                ClusteredDecalPlugin,
             ))
             .add_plugins((
                 decal::ForwardDecalPlugin,

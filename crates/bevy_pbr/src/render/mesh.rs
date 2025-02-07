@@ -1,5 +1,3 @@
-use core::mem::size_of;
-
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
@@ -46,10 +44,14 @@ use bevy_render::{
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel};
+use core::mem::size_of;
 use material_bind_groups::MaterialBindingId;
 use render::skin::{self, SkinIndex};
 use tracing::{error, warn};
 
+use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
+use crate::environment_map::EnvironmentMapLight;
+use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
         morph::{
@@ -60,13 +62,21 @@ use crate::{
     },
     *,
 };
+use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
+use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
+use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
+use bevy_ecs::component::Tick;
+use bevy_ecs::system::SystemChangeTick;
+use bevy_render::camera::TemporalJitter;
+use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::view::ExtractedView;
+use bevy_render::RenderSet::PrepareAssets;
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
 use static_assertions::const_assert_eq;
-
-use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
 
 /// Provides support for rendering 3D meshes.
 #[derive(Default)]
@@ -78,15 +88,21 @@ pub struct MeshRenderPlugin {
     pub use_gpu_instance_buffer_builder: bool,
 }
 
-pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
-pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874327833745635);
-pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
-pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
-pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
+pub const FORWARD_IO_HANDLE: Handle<Shader> = weak_handle!("38111de1-6e35-4dbb-877b-7b6f9334baf6");
+pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("979493db-4ae1-4003-b5c6-fcbb88b152a2");
+pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("c6fe674b-4c21-4d4b-867a-352848da5337");
+pub const MESH_TYPES_HANDLE: Handle<Shader> = weak_handle!("a4a3fc2e-a57e-4083-a8ab-2840176927f2");
+pub const MESH_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("84e7f9e6-e566-4a61-914e-c568f5dabf49");
+pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("c46aa0f0-6c0c-4b3a-80bf-d8213c771f12");
+pub const MESH_SHADER_HANDLE: Handle<Shader> = weak_handle!("1a7bbae8-4b4f-48a7-b53b-e6822e56f321");
+pub const SKINNING_HANDLE: Handle<Shader> = weak_handle!("7474e812-2506-4cbf-9de3-fe07e5c6ff24");
+pub const MORPH_HANDLE: Handle<Shader> = weak_handle!("da30aac7-34cc-431d-a07f-15b1a783008c");
+pub const OCCLUSION_CULLING_HANDLE: Handle<Shader> =
+    weak_handle!("eaea07d9-7516-482c-aa42-6f8e9927e1f0");
 
 /// How many textures are allowed in the view bind group layout (`@group(0)`) before
 /// broader compatibility with WebGL and WebGPU is at risk, due to the minimum guaranteed
@@ -134,6 +150,12 @@ impl Plugin for MeshRenderPlugin {
         load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
         load_internal_asset!(app, MORPH_HANDLE, "morph.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            OCCLUSION_CULLING_HANDLE,
+            "occlusion_culling.wgsl",
+            Shader::from_wgsl
+        );
 
         if app.get_sub_app(RenderApp).is_none() {
             return;
@@ -197,8 +219,14 @@ impl Plugin for MeshRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<ViewKeyCache>()
+                .init_resource::<ViewSpecializationTicks>()
                 .init_resource::<GpuPreprocessingSupport>()
-                .init_resource::<SkinUniforms>();
+                .init_resource::<SkinUniforms>()
+                .add_systems(
+                    Render,
+                    check_views_need_specialization.in_set(PrepareAssets),
+                );
 
             let gpu_preprocessing_support =
                 render_app.world().resource::<GpuPreprocessingSupport>();
@@ -273,6 +301,143 @@ impl Plugin for MeshRenderPlugin {
             Shader::from_wgsl_with_defs,
             mesh_bindings_shader_defs
         );
+    }
+}
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewKeyCache(MainEntityHashMap<MeshPipelineKey>);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
+
+pub fn check_views_need_specialization(
+    mut view_key_cache: ResMut<ViewKeyCache>,
+    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    mut views: Query<(
+        &MainEntity,
+        &ExtractedView,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+        Option<&ShadowFilteringMethod>,
+        Has<ScreenSpaceAmbientOcclusion>,
+        (
+            Has<NormalPrepass>,
+            Has<DepthPrepass>,
+            Has<MotionVectorPrepass>,
+            Has<DeferredPrepass>,
+        ),
+        Option<&Camera3d>,
+        Has<TemporalJitter>,
+        Option<&Projection>,
+        Has<DistanceFog>,
+        (
+            Has<RenderViewLightProbes<EnvironmentMapLight>>,
+            Has<RenderViewLightProbes<IrradianceVolume>>,
+        ),
+        Has<OrderIndependentTransparencySettings>,
+    )>,
+    ticks: SystemChangeTick,
+) {
+    for (
+        view_entity,
+        view,
+        msaa,
+        tonemapping,
+        dither,
+        shadow_filter_method,
+        ssao,
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
+        camera_3d,
+        temporal_jitter,
+        projection,
+        distance_fog,
+        (has_environment_maps, has_irradiance_volumes),
+        has_oit,
+    ) in views.iter_mut()
+    {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
+            | MeshPipelineKey::from_hdr(view.hdr);
+
+        if normal_prepass {
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
+        }
+
+        if depth_prepass {
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
+        }
+
+        if motion_vector_prepass {
+            view_key |= MeshPipelineKey::MOTION_VECTOR_PREPASS;
+        }
+
+        if deferred_prepass {
+            view_key |= MeshPipelineKey::DEFERRED_PREPASS;
+        }
+
+        if temporal_jitter {
+            view_key |= MeshPipelineKey::TEMPORAL_JITTER;
+        }
+
+        if has_environment_maps {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+        }
+
+        if has_irradiance_volumes {
+            view_key |= MeshPipelineKey::IRRADIANCE_VOLUME;
+        }
+
+        if has_oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
+        }
+
+        if let Some(projection) = projection {
+            view_key |= match projection {
+                Projection::Perspective(_) => MeshPipelineKey::VIEW_PROJECTION_PERSPECTIVE,
+                Projection::Orthographic(_) => MeshPipelineKey::VIEW_PROJECTION_ORTHOGRAPHIC,
+                Projection::Custom(_) => MeshPipelineKey::VIEW_PROJECTION_NONSTANDARD,
+            };
+        }
+
+        match shadow_filter_method.unwrap_or(&ShadowFilteringMethod::default()) {
+            ShadowFilteringMethod::Hardware2x2 => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_HARDWARE_2X2;
+            }
+            ShadowFilteringMethod::Gaussian => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_GAUSSIAN;
+            }
+            ShadowFilteringMethod::Temporal => {
+                view_key |= MeshPipelineKey::SHADOW_FILTER_METHOD_TEMPORAL;
+            }
+        }
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= MeshPipelineKey::DEBAND_DITHER;
+            }
+        }
+        if ssao {
+            view_key |= MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION;
+        }
+        if distance_fog {
+            view_key |= MeshPipelineKey::DISTANCE_FOG;
+        }
+        if let Some(camera_3d) = camera_3d {
+            view_key |= screen_space_specular_transmission_pipeline_key(
+                camera_3d.screen_space_specular_transmission_quality,
+            );
+        }
+        if !view_key_cache
+            .get_mut(view_entity)
+            .is_some_and(|current_key| *current_key == view_key)
+        {
+            view_key_cache.insert(*view_entity, view_key);
+            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+        }
     }
 }
 
@@ -561,6 +726,9 @@ pub struct RenderMeshInstanceShared {
     pub material_bindings_index: MaterialBindingId,
     /// Various flags.
     pub flags: RenderMeshInstanceFlags,
+    /// Index of the slab that the lightmap resides in, if a lightmap is
+    /// present.
+    pub lightmap_slab_index: Option<LightmapSlabIndex>,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -659,6 +827,7 @@ impl RenderMeshInstanceShared {
             flags: mesh_instance_flags,
             // This gets filled in later, during `RenderMeshGpuBuilder::update`.
             material_bindings_index: default(),
+            lightmap_slab_index: None,
         }
     }
 
@@ -967,6 +1136,11 @@ impl RenderMeshInstanceGpuBuilder {
             Some(render_lightmap) => u16::from(*render_lightmap.slot_index),
             None => u16::MAX,
         };
+        let lightmap_slab_index = render_lightmaps
+            .render_lightmaps
+            .get(&entity)
+            .map(|lightmap| lightmap.slab_index);
+        self.shared.lightmap_slab_index = lightmap_slab_index;
 
         // Create the mesh input uniform.
         let mut mesh_input_uniform = MeshInputUniform {
@@ -1254,9 +1428,10 @@ pub fn extract_meshes_for_gpu_building(
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
-    cameras_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
+    gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
 ) {
-    let any_gpu_culling = !cameras_query.is_empty();
+    let any_gpu_culling = !gpu_culling_query.is_empty();
+
     for render_mesh_instance_queue in render_mesh_instance_queues.iter_mut() {
         render_mesh_instance_queue.init(any_gpu_culling);
     }
@@ -1520,6 +1695,9 @@ pub struct MeshPipeline {
     /// This affects whether reflection probes can be used.
     pub binding_arrays_are_usable: bool,
 
+    /// Whether clustered decals are usable on the current render device.
+    pub clustered_decals_are_usable: bool,
+
     /// Whether skins will use uniform buffers on account of storage buffers
     /// being unavailable on this platform.
     pub skins_use_uniform_buffers: bool,
@@ -1581,6 +1759,10 @@ impl FromWorld for MeshPipeline {
             mesh_layouts: MeshLayouts::new(&render_device, &render_adapter),
             per_object_buffer_batch_size: GpuArrayBuffer::<MeshUniform>::batch_size(&render_device),
             binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
+            clustered_decals_are_usable: decal::clustered::clustered_decals_are_usable(
+                &render_device,
+                &render_adapter,
+            ),
             skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
         }
     }
@@ -1761,7 +1943,8 @@ impl GetFullBatchData for MeshPipeline {
                 Some(batch_set_index) => u32::from(batch_set_index),
                 None => !0,
             },
-            instance_count: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {
@@ -2054,6 +2237,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if cfg!(feature = "pbr_anisotropy_texture") {
             shader_defs.push("PBR_ANISOTROPY_TEXTURE_SUPPORTED".into());
         }
+        if cfg!(feature = "pbr_specular_textures") {
+            shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
+        }
 
         let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
 
@@ -2281,6 +2467,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if IRRADIANCE_VOLUMES_ARE_USABLE {
             shader_defs.push("IRRADIANCE_VOLUMES_ARE_USABLE".into());
+        }
+
+        if self.clustered_decals_are_usable {
+            shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {

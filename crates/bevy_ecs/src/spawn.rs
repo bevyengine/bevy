@@ -176,10 +176,9 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 {
     fn component_ids(
         components: &mut crate::component::Components,
-        storages: &mut crate::storage::Storages,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, storages, ids);
+        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
@@ -191,12 +190,10 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 
     fn register_required_components(
         components: &mut crate::component::Components,
-        storages: &mut crate::storage::Storages,
         required_components: &mut crate::component::RequiredComponents,
     ) {
         <R::RelationshipTarget as Bundle>::register_required_components(
             components,
-            storages,
             required_components,
         );
     }
@@ -248,10 +245,9 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     fn component_ids(
         components: &mut crate::component::Components,
-        storages: &mut crate::storage::Storages,
         ids: &mut impl FnMut(crate::component::ComponentId),
     ) {
-        <R::RelationshipTarget as Bundle>::component_ids(components, storages, ids);
+        <R::RelationshipTarget as Bundle>::component_ids(components, ids);
     }
 
     fn get_component_ids(
@@ -263,12 +259,10 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
 
     fn register_required_components(
         components: &mut crate::component::Components,
-        storages: &mut crate::storage::Storages,
         required_components: &mut crate::component::RequiredComponents,
     ) {
         <R::RelationshipTarget as Bundle>::register_required_components(
             components,
-            storages,
             required_components,
         );
     }

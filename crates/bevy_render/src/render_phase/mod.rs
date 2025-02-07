@@ -189,9 +189,16 @@ pub enum BinnedRenderPhaseBatchSets<BK> {
     MultidrawIndirect(Vec<BinnedRenderPhaseBatchSet<BK>>),
 }
 
+/// A group of entities that will be batched together into a single multi-draw
+/// call.
 pub struct BinnedRenderPhaseBatchSet<BK> {
-    pub(crate) batches: Vec<BinnedRenderPhaseBatch>,
+    /// The first batch in this batch set.
+    pub(crate) first_batch: BinnedRenderPhaseBatch,
+    /// The key of the bin that the first batch corresponds to.
     pub(crate) bin_key: BK,
+    /// The number of batches.
+    pub(crate) batch_count: u32,
+    /// The index of the batch set in the GPU buffer.
     pub(crate) index: u32,
 }
 
@@ -527,9 +534,7 @@ where
                     )
                     .zip(batch_sets.iter())
                 {
-                    let Some(batch) = batch_set.batches.first() else {
-                        continue;
-                    };
+                    let batch = &batch_set.first_batch;
 
                     let batch_set_index = if multi_draw_indirect_count_supported {
                         NonMaxU32::new(batch_set.index)
@@ -549,8 +554,7 @@ where
                             }
                             PhaseItemExtraIndex::IndirectParametersIndex { ref range, .. } => {
                                 PhaseItemExtraIndex::IndirectParametersIndex {
-                                    range: range.start
-                                        ..(range.start + batch_set.batches.len() as u32),
+                                    range: range.start..(range.start + batch_set.batch_count),
                                     batch_set_index,
                                 }
                             }

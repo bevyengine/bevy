@@ -3,7 +3,6 @@ use crate::{
     GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
-use alloc::collections::VecDeque;
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -42,6 +41,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use fixedbitset::FixedBitSet;
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -50,7 +50,13 @@ use gltf::{
     texture::{Info, MagFilter, MinFilter, TextureTransform, WrappingMode},
     Document, Material, Node, Primitive, Semantic,
 };
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+#[cfg(any(
+    feature = "pbr_specular_textures",
+    feature = "pbr_multi_layer_material_textures"
+))]
+use serde_json::Map;
 use serde_json::{value, Value};
 use std::{
     io::Error,
@@ -788,12 +794,35 @@ async fn load_gltf<'a, 'b, 'c>(
     let mut named_nodes = <HashMap<_, _>>::default();
     let mut skins = vec![];
     let mut named_skins = <HashMap<_, _>>::default();
-    for node in GltfTreeIterator::try_new(&gltf)? {
+
+    // First, create the node handles.
+    for node in gltf.nodes() {
+        let label = GltfAssetLabel::Node(node.index());
+        let label_handle = load_context.get_label_handle(label.to_string());
+        nodes.insert(node.index(), label_handle);
+    }
+
+    // Then check for cycles.
+    check_gltf_for_cycles(&gltf)?;
+
+    // Now populate the nodes.
+    for node in gltf.nodes() {
         let skin = node.skin().map(|skin| {
-            let joints = skin
+            let joints: Vec<_> = skin
                 .joints()
                 .map(|joint| nodes.get(&joint.index()).unwrap().clone())
                 .collect();
+
+            if joints.len() > MAX_JOINTS {
+                warn!(
+                    "The glTF skin {} has {} joints, but the maximum supported is {}",
+                    skin.name()
+                        .map(ToString::to_string)
+                        .unwrap_or_else(|| skin.index().to_string()),
+                    joints.len(),
+                    MAX_JOINTS
+                );
+            }
 
             let gltf_skin = GltfSkin::new(
                 &skin,
@@ -1235,6 +1264,10 @@ fn load_material(
         let anisotropy =
             AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
 
+        // Parse the `KHR_materials_specular` extension data if necessary.
+        let specular =
+            SpecularExtension::parse(load_context, document, material).unwrap_or_default();
+
         // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
         let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
         let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
@@ -1303,6 +1336,21 @@ fn load_material(
             anisotropy_channel: anisotropy.anisotropy_channel,
             #[cfg(feature = "pbr_anisotropy_texture")]
             anisotropy_texture: anisotropy.anisotropy_texture,
+            // From the `KHR_materials_specular` spec:
+            // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+            reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: specular.specular_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: specular.specular_texture,
+            specular_tint: match specular.specular_color_factor {
+                Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
+                None => Color::WHITE,
+            },
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_channel: specular.specular_color_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_tint_texture: specular.specular_color_texture,
             ..Default::default()
         }
     })
@@ -1731,7 +1779,8 @@ fn texture_handle(load_context: &mut LoadContext, texture: &gltf::Texture) -> Ha
 /// for an extension, forcing us to parse its texture references manually.
 #[cfg(any(
     feature = "pbr_anisotropy_texture",
-    feature = "pbr_multi_layer_material_textures"
+    feature = "pbr_multi_layer_material_textures",
+    feature = "pbr_specular_textures"
 ))]
 fn texture_handle_from_info(
     load_context: &mut LoadContext,
@@ -1879,114 +1928,6 @@ async fn load_buffers(
     Ok(buffer_data)
 }
 
-/// Iterator for a Gltf tree.
-///
-/// It resolves a Gltf tree and allows for a safe Gltf nodes iteration,
-/// putting dependent nodes before dependencies.
-struct GltfTreeIterator<'a> {
-    nodes: Vec<Node<'a>>,
-}
-
-impl<'a> GltfTreeIterator<'a> {
-    #[expect(
-        clippy::result_large_err,
-        reason = "`GltfError` is only barely past the threshold for large errors."
-    )]
-    fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
-        let nodes = gltf.nodes().collect::<Vec<_>>();
-
-        let mut empty_children = VecDeque::new();
-        let mut parents = vec![None; nodes.len()];
-        let mut unprocessed_nodes = nodes
-            .into_iter()
-            .enumerate()
-            .map(|(i, node)| {
-                let children = node
-                    .children()
-                    .map(|child| child.index())
-                    .collect::<HashSet<_>>();
-                for &child in &children {
-                    let parent = parents.get_mut(child).unwrap();
-                    *parent = Some(i);
-                }
-                if children.is_empty() {
-                    empty_children.push_back(i);
-                }
-                (i, (node, children))
-            })
-            .collect::<HashMap<_, _>>();
-
-        let mut nodes = Vec::new();
-        let mut warned_about_max_joints = <HashSet<_>>::default();
-        while let Some(index) = empty_children.pop_front() {
-            if let Some(skin) = unprocessed_nodes.get(&index).unwrap().0.skin() {
-                if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())
-                {
-                    warn!(
-                        "The glTF skin {} has {} joints, but the maximum supported is {}",
-                        skin.name()
-                            .map(ToString::to_string)
-                            .unwrap_or_else(|| skin.index().to_string()),
-                        skin.joints().len(),
-                        MAX_JOINTS
-                    );
-                }
-
-                let skin_has_dependencies = skin
-                    .joints()
-                    .any(|joint| unprocessed_nodes.contains_key(&joint.index()));
-
-                if skin_has_dependencies && unprocessed_nodes.len() != 1 {
-                    empty_children.push_back(index);
-                    continue;
-                }
-            }
-
-            let (node, children) = unprocessed_nodes.remove(&index).unwrap();
-            assert!(children.is_empty());
-            nodes.push(node);
-
-            if let Some(parent_index) = parents[index] {
-                let (_, parent_children) = unprocessed_nodes.get_mut(&parent_index).unwrap();
-
-                assert!(parent_children.remove(&index));
-                if parent_children.is_empty() {
-                    empty_children.push_back(parent_index);
-                }
-            }
-        }
-
-        if !unprocessed_nodes.is_empty() {
-            return Err(GltfError::CircularChildren(format!(
-                "{:?}",
-                unprocessed_nodes
-                    .iter()
-                    .map(|(k, _v)| *k)
-                    .collect::<Vec<_>>(),
-            )));
-        }
-
-        nodes.reverse();
-        Ok(Self {
-            nodes: nodes.into_iter().collect(),
-        })
-    }
-}
-
-impl<'a> Iterator for GltfTreeIterator<'a> {
-    type Item = Node<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.nodes.pop()
-    }
-}
-
-impl<'a> ExactSizeIterator for GltfTreeIterator<'a> {
-    fn len(&self) -> usize {
-        self.nodes.len()
-    }
-}
-
 enum ImageOrPath {
     Image {
         image: Image,
@@ -2122,40 +2063,35 @@ impl ClearcoatExtension {
             .as_object()?;
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_channel, clearcoat_texture) = extension
-            .get("clearcoatTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_channel, clearcoat_texture) = parse_material_extension_texture(
+            load_context,
+            document,
+            material,
+            extension,
+            "clearcoatTexture",
+            "clearcoat",
+        );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_roughness_channel, clearcoat_roughness_texture) = extension
-            .get("clearcoatRoughnessTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat roughness", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_roughness_channel, clearcoat_roughness_texture) =
+            parse_material_extension_texture(
+                load_context,
+                document,
+                material,
+                extension,
+                "clearcoatRoughnessTexture",
+                "clearcoat roughness",
+            );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_normal_channel, clearcoat_normal_texture) = extension
-            .get("clearcoatNormalTexture")
-            .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
-            .map(|json_info| {
-                (
-                    get_uv_channel(material, "clearcoat normal", json_info.tex_coord),
-                    texture_handle_from_info(load_context, document, &json_info),
-                )
-            })
-            .unzip();
+        let (clearcoat_normal_channel, clearcoat_normal_texture) = parse_material_extension_texture(
+            load_context,
+            document,
+            material,
+            extension,
+            "clearcoatNormalTexture",
+            "clearcoat normal",
+        );
 
         Some(ClearcoatExtension {
             clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),
@@ -2163,15 +2099,15 @@ impl ClearcoatExtension {
                 .get("clearcoatRoughnessFactor")
                 .and_then(Value::as_f64),
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_channel: clearcoat_channel.unwrap_or_default(),
+            clearcoat_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_channel: clearcoat_roughness_channel.unwrap_or_default(),
+            clearcoat_roughness_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_roughness_texture,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_channel: clearcoat_normal_channel.unwrap_or_default(),
+            clearcoat_normal_channel,
             #[cfg(feature = "pbr_multi_layer_material_textures")]
             clearcoat_normal_texture,
         })
@@ -2234,6 +2170,121 @@ impl AnisotropyExtension {
     }
 }
 
+/// Parsed data from the `KHR_materials_specular` extension.
+///
+/// We currently don't parse `specularFactor` and `specularTexture`, since
+/// they're incompatible with Filament.
+///
+/// Note that the map is a *specular map*, not a *reflectance map*. In Bevy and
+/// Filament terms, the reflectance values in the specular map range from [0.0,
+/// 0.5], rather than [0.0, 1.0]. This is an unfortunate
+/// `KHR_materials_specular` specification requirement that stems from the fact
+/// that glTF is specified in terms of a specular strength model, not the
+/// reflectance model that Filament and Bevy use. A workaround, which is noted
+/// in the [`StandardMaterial`] documentation, is to set the reflectance value
+/// to 2.0, which spreads the specular map range from [0.0, 1.0] as normal.
+///
+/// See the specification:
+/// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>
+#[derive(Default)]
+struct SpecularExtension {
+    specular_factor: Option<f64>,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_channel: UvChannel,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_texture: Option<Handle<Image>>,
+    specular_color_factor: Option<[f64; 3]>,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_color_channel: UvChannel,
+    #[cfg(feature = "pbr_specular_textures")]
+    specular_color_texture: Option<Handle<Image>>,
+}
+
+impl SpecularExtension {
+    fn parse(
+        _load_context: &mut LoadContext,
+        _document: &Document,
+        material: &Material,
+    ) -> Option<Self> {
+        let extension = material
+            .extensions()?
+            .get("KHR_materials_specular")?
+            .as_object()?;
+
+        #[cfg(feature = "pbr_specular_textures")]
+        let (_specular_channel, _specular_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
+            material,
+            extension,
+            "specularTexture",
+            "specular",
+        );
+
+        #[cfg(feature = "pbr_specular_textures")]
+        let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
+            _load_context,
+            _document,
+            material,
+            extension,
+            "specularColorTexture",
+            "specular color",
+        );
+
+        Some(SpecularExtension {
+            specular_factor: extension.get("specularFactor").and_then(Value::as_f64),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_channel: _specular_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_texture: _specular_texture,
+            specular_color_factor: extension
+                .get("specularColorFactor")
+                .and_then(Value::as_array)
+                .and_then(|json_array| {
+                    if json_array.len() < 3 {
+                        None
+                    } else {
+                        Some([
+                            json_array[0].as_f64()?,
+                            json_array[1].as_f64()?,
+                            json_array[2].as_f64()?,
+                        ])
+                    }
+                }),
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_channel: _specular_color_channel,
+            #[cfg(feature = "pbr_specular_textures")]
+            specular_color_texture: _specular_color_texture,
+        })
+    }
+}
+
+/// Parses a texture that's part of a material extension block and returns its
+/// UV channel and image reference.
+#[cfg(any(
+    feature = "pbr_specular_textures",
+    feature = "pbr_multi_layer_material_textures"
+))]
+fn parse_material_extension_texture(
+    load_context: &mut LoadContext,
+    document: &Document,
+    material: &Material,
+    extension: &Map<String, Value>,
+    texture_name: &str,
+    texture_kind: &str,
+) -> (UvChannel, Option<Handle<Image>>) {
+    match extension
+        .get(texture_name)
+        .and_then(|value| value::from_value::<json::texture::Info>(value.clone()).ok())
+    {
+        Some(json_info) => (
+            get_uv_channel(material, texture_kind, json_info.tex_coord),
+            Some(texture_handle_from_info(load_context, document, &json_info)),
+        ),
+        None => (UvChannel::default(), None),
+    }
+}
+
 /// Returns the index (within the `textures` array) of the texture with the
 /// given field name in the data for the material extension with the given name,
 /// if there is one.
@@ -2278,6 +2329,51 @@ fn material_needs_tangents(material: &Material) -> bool {
     }
 
     false
+}
+
+/// Checks all glTF nodes for cycles, starting at the scene root.
+#[expect(
+    clippy::result_large_err,
+    reason = "need to be signature compatible with `load_gltf`"
+)]
+fn check_gltf_for_cycles(gltf: &gltf::Gltf) -> Result<(), GltfError> {
+    // Initialize with the scene roots.
+    let mut roots = FixedBitSet::with_capacity(gltf.nodes().len());
+    for root in gltf.scenes().flat_map(|scene| scene.nodes()) {
+        roots.insert(root.index());
+    }
+
+    // Check each one.
+    let mut visited = FixedBitSet::with_capacity(gltf.nodes().len());
+    for root in roots.ones() {
+        check(gltf.nodes().nth(root).unwrap(), &mut visited)?;
+    }
+    return Ok(());
+
+    // Depth first search.
+    #[expect(
+        clippy::result_large_err,
+        reason = "need to be signature compatible with `load_gltf`"
+    )]
+    fn check(node: Node, visited: &mut FixedBitSet) -> Result<(), GltfError> {
+        // Do we have a cycle?
+        if visited.contains(node.index()) {
+            return Err(GltfError::CircularChildren(format!(
+                "glTF nodes form a cycle: {} -> {}",
+                visited.ones().map(|bit| bit.to_string()).join(" -> "),
+                node.index()
+            )));
+        }
+
+        // Recurse.
+        visited.insert(node.index());
+        for kid in node.children() {
+            check(kid, visited)?;
+        }
+        visited.remove(node.index());
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

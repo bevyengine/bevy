@@ -89,6 +89,7 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
                     ..default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                TextShadow::default(),
             )]
         )],
     )
