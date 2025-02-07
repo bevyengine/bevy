@@ -314,7 +314,7 @@ where
                     Render,
                     (
                         specialize_material_meshes::<M>
-                            .in_set(RenderSet::PrepareAssets)
+                            .in_set(RenderSet::PrepareResources)
                             .after(prepare_assets::<PreparedMaterial<M>>)
                             .after(prepare_assets::<RenderMesh>),
                         queue_material_meshes::<M>
@@ -339,7 +339,7 @@ where
                         (
                             check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
                             specialize_shadows::<M>
-                                .in_set(RenderSet::PrepareAssets)
+                                .in_set(RenderSet::PrepareResources)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
                             queue_shadows::<M>
                                 .in_set(RenderSet::QueueMeshes)

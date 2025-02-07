@@ -61,7 +61,7 @@ use bevy_ecs::system::SystemChangeTick;
 use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::RenderVisibleEntities;
-use bevy_render::RenderSet::PrepareAssets;
+use bevy_render::RenderSet::{PrepareAssets, PrepareResources};
 use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> =
@@ -207,7 +207,7 @@ where
                 (
                     check_prepass_views_need_specialization.in_set(PrepareAssets),
                     specialize_prepass_material_meshes::<M>
-                        .in_set(PrepareAssets)
+                        .in_set(PrepareResources)
                         .after(prepare_assets::<PreparedMaterial<M>>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_prepass_material_meshes::<M>
