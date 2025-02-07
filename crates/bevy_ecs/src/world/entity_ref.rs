@@ -4,7 +4,8 @@ use crate::{
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{
-        Entities, Entity, EntityBorrow, EntityCloneBuilder, EntityLocation, TrustedEntityBorrow,
+        Entities, Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
+        TrustedEntityBorrow,
     },
     event::Event,
     observer::Observer,
@@ -2591,12 +2592,12 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
-    /// configured through [`EntityCloneBuilder`].
+    /// configured through [`EntityClonerBuilder`].
     ///
     /// By default, the other entity will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
-    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// Configure through [`EntityClonerBuilder`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component, Clone, PartialEq, Debug)]
@@ -2613,10 +2614,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # assert_eq!(world.get::<ComponentB>(target), None);
     /// ```
     ///
-    /// See the following for more options:
-    /// - [`EntityCloneBuilder`]
-    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
-    /// - `CloneEntityHierarchyExt`
+    /// See [`EntityClonerBuilder`] for more options.
     ///
     /// # Panics
     ///
@@ -2625,11 +2623,11 @@ impl<'w> EntityWorldMut<'w> {
     pub fn clone_with(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
     ) -> &mut Self {
         self.assert_not_despawned();
 
-        let mut builder = EntityCloneBuilder::new(self.world);
+        let mut builder = EntityCloner::build(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, target);
 
@@ -2654,12 +2652,12 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
-    /// using [`EntityCloneBuilder`], returning the [`Entity`] of the clone.
+    /// using [`EntityClonerBuilder`], returning the [`Entity`] of the clone.
     ///
     /// By default, the clone will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
-    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// Configure through [`EntityClonerBuilder`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Component, Clone, PartialEq, Debug)]
@@ -2675,24 +2673,21 @@ impl<'w> EntityWorldMut<'w> {
     /// # assert_eq!(world.get::<ComponentB>(entity_clone), None);
     /// ```
     ///
-    /// See the following for more options:
-    /// - [`EntityCloneBuilder`]
-    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
-    /// - `CloneEntityHierarchyExt`
+    /// See [`EntityClonerBuilder`] for more options.
     ///
     /// # Panics
     ///
     /// If this entity has been despawned while this `EntityWorldMut` is still alive.
     pub fn clone_and_spawn_with(
         &mut self,
-        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
     ) -> Entity {
         self.assert_not_despawned();
 
         let entity_clone = self.world.entities.reserve_entity();
         self.world.flush();
 
-        let mut builder = EntityCloneBuilder::new(self.world);
+        let mut builder = EntityCloner::build(self.world);
         config(&mut builder);
         builder.clone_entity(self.entity, entity_clone);
 
@@ -2713,9 +2708,10 @@ impl<'w> EntityWorldMut<'w> {
     pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
-        let mut builder = EntityCloneBuilder::new(self.world);
-        builder.deny_all().allow::<B>();
-        builder.clone_entity(self.entity, target);
+        EntityCloner::build(self.world)
+            .deny_all()
+            .allow::<B>()
+            .clone_entity(self.entity, target);
 
         self.world.flush();
         self.update_location();
@@ -2735,10 +2731,11 @@ impl<'w> EntityWorldMut<'w> {
     pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.assert_not_despawned();
 
-        let mut builder = EntityCloneBuilder::new(self.world);
-        builder.deny_all().allow::<B>();
-        builder.move_components(true);
-        builder.clone_entity(self.entity, target);
+        EntityCloner::build(self.world)
+            .deny_all()
+            .allow::<B>()
+            .move_components(true)
+            .clone_entity(self.entity, target);
 
         self.world.flush();
         self.update_location();
@@ -5679,10 +5676,11 @@ mod tests {
         let entity_b = world.spawn_empty().id();
 
         world.entity_mut(entity_a).clone_with(entity_b, |builder| {
-            builder.move_components(true);
-            builder.without_required_components(|builder| {
-                builder.deny::<A>();
-            });
+            builder
+                .move_components(true)
+                .without_required_components(|builder| {
+                    builder.deny::<A>();
+                });
         });
 
         assert_eq!(world.entity(entity_a).get::<A>(), Some(&A));
