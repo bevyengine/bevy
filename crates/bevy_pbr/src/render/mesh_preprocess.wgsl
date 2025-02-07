@@ -193,13 +193,15 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 #endif
 
     // Look up the previous model matrix.
+    let previous_input_frame_number = current_input[input_index].previous_input_frame_number;
     let previous_input_index = current_input[input_index].previous_input_index;
+    let previous_input_is_valid = previous_input_frame_number + 1 == view.frame_number;
     var previous_world_from_local_affine_transpose: mat3x4<f32>;
-    if (previous_input_index == 0xffffffff) {
-        previous_world_from_local_affine_transpose = world_from_local_affine_transpose;
-    } else {
+    if (previous_input_is_valid && previous_input_index != 0xffffffffu) {
         previous_world_from_local_affine_transpose =
             previous_input[previous_input_index].world_from_local;
+    } else {
+        previous_world_from_local_affine_transpose = world_from_local_affine_transpose;
     }
     let previous_world_from_local =
         maths::affine3_to_square(previous_world_from_local_affine_transpose);
@@ -342,7 +344,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].lightmap_uv_rect = current_input[input_index].lightmap_uv_rect;
     output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
     output[mesh_output_index].current_skin_index = current_input[input_index].current_skin_index;
-    output[mesh_output_index].previous_skin_index = current_input[input_index].previous_skin_index;
     output[mesh_output_index].material_and_lightmap_bind_group_slot =
         current_input[input_index].material_and_lightmap_bind_group_slot;
 }

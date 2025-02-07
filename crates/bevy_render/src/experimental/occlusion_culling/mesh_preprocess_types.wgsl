@@ -11,11 +11,11 @@ struct MeshInput {
     // Various flags.
     flags: u32,
     previous_input_index: u32,
+    previous_input_frame_number: u32,
     first_vertex_index: u32,
     first_index_index: u32,
     index_count: u32,
     current_skin_index: u32,
-    previous_skin_index: u32,
     // Low 16 bits: index of the material inside the bind group data.
     // High 16 bits: index of the lightmap in the binding array.
     material_and_lightmap_bind_group_slot: u32,
