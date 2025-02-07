@@ -1,3 +1,5 @@
+use std::{borrow::BorrowMut, ops::Deref};
+
 use crate::{
     converter::{convert_axis, convert_button},
     Gilrs, GilrsGamepads,
@@ -9,7 +11,7 @@ use bevy_input::gamepad::{
     GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
     RawGamepadButtonChangedEvent, RawGamepadEvent,
 };
-use gilrs::{ev::filter::axis_dpad_to_button, EventType};
+use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
     mut commands: Commands,
@@ -17,8 +19,8 @@ pub fn gilrs_event_startup_system(
     mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<GamepadConnectionEvent>,
 ) {
-    gilrs.into_inner().0.with(|g_lock| {
-        if let Some(g) = g_lock.get() {
+    gilrs.into_inner().0.with(|g_ref| {
+        if let Some(g) = g_ref.borrow().deref() {
             for (id, gamepad) in g.gamepads() {
                 // Create entity and add to mapping
                 let entity = commands.spawn_empty().id();
@@ -40,17 +42,16 @@ pub fn gilrs_event_startup_system(
 
 pub fn gilrs_event_system(
     mut commands: Commands,
-    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
-    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    gilrs: Res<'static, Gilrs>,
     mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<RawGamepadEvent>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
     mut axis_event: EventWriter<RawGamepadAxisChangedEvent>,
 ) {
-    gilrs.into_inner().0.with(|g_lock| {
-        if let Some(g) = g_lock.get() {
-            while let Some(gilrs_event) = g.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
+    gilrs.into_inner().0.with(|g_ref| {
+        if let Some(gilrs) = g_ref.borrow_mut().as_mut() {
+            while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
                 gilrs.update(&gilrs_event);
                 match gilrs_event.event {
                     EventType::Connected => {

@@ -14,7 +14,7 @@ mod converter;
 mod gilrs_system;
 mod rumble;
 
-use std::{sync::OnceLock, thread::LocalKey};
+use std::{cell::RefCell, thread::LocalKey};
 
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
 use bevy_ecs::entity::hash_map::EntityHashMap;
@@ -27,11 +27,11 @@ use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 use tracing::error;
 
 thread_local! {
-    static GILRS: OnceLock<gilrs::Gilrs> = OnceLock::new();
+    static GILRS: RefCell<Option<gilrs::Gilrs>> = RefCell::new(None);
 }
 
 #[derive(Resource)]
-pub(crate) struct Gilrs(pub LocalKey<OnceLock<gilrs::Gilrs>>);
+pub(crate) struct Gilrs(pub LocalKey<RefCell<Option<gilrs::Gilrs>>>);
 
 /// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
 #[derive(Debug, Default, Resource)]
@@ -71,7 +71,7 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 GILRS.with(move |g| { 
-                    g.get_or_init(|| gilrs);
+                    g.replace(Some(gilrs));
                 });
                 app.insert_resource(Gilrs(GILRS));
                 app.init_resource::<GilrsGamepads>();
