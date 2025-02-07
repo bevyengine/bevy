@@ -20,9 +20,8 @@ use bevy::{
     },
     math::FloatOrd,
     pbr::{
-        material_bind_groups::MaterialBindGroupSlot, DrawMesh, MeshInputUniform, MeshPipeline,
-        MeshPipelineKey, MeshPipelineViewLayoutKey, MeshUniform, RenderMeshInstances,
-        SetMeshBindGroup, SetMeshViewBindGroup,
+        DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
+        MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
     platform_support::collections::HashSet,
     prelude::*,
@@ -359,18 +358,24 @@ impl GetBatchData for StencilPipeline {
                 Some(mesh_vertex_slice) => mesh_vertex_slice.range.start,
                 None => 0,
             };
-        Some((
-            MeshUniform::new(
-                &mesh_instance.transforms,
+        let mesh_uniform = {
+            let mesh_transforms = &mesh_instance.transforms;
+            let (local_from_world_transpose_a, local_from_world_transpose_b) =
+                mesh_transforms.world_from_local.inverse_transpose_3x3();
+            MeshUniform {
+                world_from_local: mesh_transforms.world_from_local.to_transpose(),
+                previous_world_from_local: mesh_transforms.previous_world_from_local.to_transpose(),
+                lightmap_uv_rect: UVec2::ZERO,
+                local_from_world_transpose_a,
+                local_from_world_transpose_b,
+                flags: mesh_transforms.flags,
                 first_vertex_index,
-                // TODO don't hardcode this
-                MaterialBindGroupSlot(0),
-                None,
-                None,
-                None,
-            ),
-            None,
-        ))
+                current_skin_index: u32::MAX,
+                previous_skin_index: u32::MAX,
+                material_and_lightmap_bind_group_slot: 0,
+            }
+        };
+        Some((mesh_uniform, None))
     }
 }
 impl GetFullBatchData for StencilPipeline {
