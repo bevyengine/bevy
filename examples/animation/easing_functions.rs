@@ -73,7 +73,7 @@ fn setup(mut commands: Commands) {
                     text_font.clone(),
                     TextColor(color),
                     Transform::from_xyz(
-                        i as f32 * 113.0 - 1280.0 / 2.0 + 25.0,
+                        i as f32 * 95.0 - 1280.0 / 2.0 + 25.0,
                         -100.0 - ((j as f32 * 250.0) - 300.0),
                         0.0,
                     ),
@@ -103,7 +103,7 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-const SIZE_PER_FUNCTION: f32 = 95.0;
+const SIZE_PER_FUNCTION: f32 = 80.0;
 
 fn display_curves(
     mut gizmos: Gizmos,
