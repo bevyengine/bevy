@@ -9,12 +9,53 @@ fn main() {
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
+        .add_systems(Update, button_system)
         .run();
 }
 
 const NORMAL_BUTTON: Color = Color::srgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
+
+#[derive(Component, Default)]
+struct ButtonState {
+    hovered: bool,
+    pressed: bool,
+}
+
+fn button_system(
+    mut button_query: Query<
+        (
+            &ButtonState,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &Children,
+        ),
+        Changed<ButtonState>,
+    >,
+    mut text_query: Query<&mut Text>,
+) {
+    for (button, mut color, mut border_color, children) in &mut button_query {
+        let mut text = text_query.get_mut(children[0]).unwrap();
+        match (button.hovered, button.pressed) {
+            (_, true) => {
+                **text = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                border_color.0 = RED.into();
+            }
+            (true, false) => {
+                **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                border_color.0 = Color::WHITE;
+            }
+            _ => {
+                **text = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                border_color.0 = Color::BLACK;
+            }
+        }
+    }
+}
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
@@ -40,62 +81,37 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         align_items: AlignItems::Center,
                         ..default()
                     },
+                    ButtonState::default(),
                     BorderColor(Color::BLACK),
                     BorderRadius::MAX,
                     BackgroundColor(NORMAL_BUTTON),
                 ))
                 .observe(
-                    |trigger: Trigger<Pointer<Over>>,
-                     mut text_query: Query<&mut Text>,
-                     mut button_query: Query<(&mut BackgroundColor, &Children)>| {
-                        let (mut background_color, children) =
-                            button_query.get_mut(trigger.target()).unwrap();
-                        *background_color = HOVERED_BUTTON.into();
-                        let mut text = text_query.get_mut(children[0]).unwrap();
-                        **text = "Hover".to_string();
+                    |trigger: Trigger<Pointer<Over>>, mut button_query: Query<&mut ButtonState>| {
+                        button_query.get_mut(trigger.target()).unwrap().hovered = true;
+                    },
+                )
+                .observe(
+                    |trigger: Trigger<Pointer<Out>>, mut button_query: Query<&mut ButtonState>| {
+                        button_query.get_mut(trigger.target()).unwrap().hovered = false;
                     },
                 )
                 .observe(
                     |trigger: Trigger<Pointer<Pressed>>,
-                     mut text_query: Query<&mut Text>,
-                     mut button_query: Query<(&mut BackgroundColor, &Children)>| {
-                        let (mut background_color, children) =
-                            button_query.get_mut(trigger.target()).unwrap();
-                        *background_color = PRESSED_BUTTON.into();
-                        let mut text = text_query.get_mut(children[0]).unwrap();
-                        **text = "Press".to_string();
+                     mut button_query: Query<&mut ButtonState>| {
+                        button_query.get_mut(trigger.target()).unwrap().pressed = true;
+                    },
+                )
+                .observe(
+                    |trigger: Trigger<Pointer<Released>>,
+                     mut button_query: Query<&mut ButtonState>| {
+                        button_query.get_mut(trigger.target()).unwrap().pressed = false;
                     },
                 )
                 .observe(
                     |trigger: Trigger<Pointer<DragEnd>>,
-                     mut text_query: Query<&mut Text>,
-                     mut button_query: Query<(&mut BackgroundColor, &Children)>| {
-                        let (mut background_color, children) =
-                            button_query.get_mut(trigger.target()).unwrap();
-                        *background_color = PRESSED_BUTTON.into();
-                        let mut text = text_query.get_mut(children[0]).unwrap();
-                        **text = "Released".to_string();
-                    },
-                )
-                .observe(
-                    |trigger: Trigger<Pointer<Out>>,
-                     mut text_query: Query<&mut Text>,
-                     mut button_query: Query<(&mut BackgroundColor, &Children)>| {
-                        let (mut background_color, children) =
-                            button_query.get_mut(trigger.target()).unwrap();
-                        *background_color = NORMAL_BUTTON.into();
-                        let mut text = text_query.get_mut(children[0]).unwrap();
-                        **text = "Button".to_string();
-                    },
-                )
-                .observe(
-                    |trigger: Trigger<Pointer<Cancel>>| {
-                        // let (mut background_color, children) =
-                        //     button_query.get_mut(trigger.target()).unwrap();
-                        // *background_color = NORMAL_BUTTON.into();
-                        // let mut text = text_query.get_mut(children[0]).unwrap();
-                        // **text = "Button".to_string();
-                        println!("point cancelled");
+                     mut button_query: Query<&mut ButtonState>| {
+                        button_query.get_mut(trigger.target()).unwrap().pressed = false;
                     },
                 )
                 .with_child((
@@ -107,6 +123,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),
                     TextShadow::default(),
+                    Pickable::IGNORE,
                 ));
         });
 }
