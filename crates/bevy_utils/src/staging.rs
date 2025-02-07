@@ -17,11 +17,11 @@
 //! However, writing to the collection blocks all reads from it.
 //! In performance critical code, this can shut down processes that are reading data from the collection.
 //! Worse, if the lifetime of the data being read is long, it can block the writing thread for a significant time.
-//! In some cases, this is even prone to dead locking.
+//! In some cases, this is even prone to deadlocking.
 //! If any of these are concerns, [`RwLock`] is not enough.
 //!
-//! There are plenty of third part crates that offer relevant functionality.
-//! For example, [left_right](https://docs.rs/left-right/latest/left_right/) is similar to this crate, but it only supports one writer at a time, allows readers to desync from the writer, and lacks `no_std` support.
+//! There are plenty of third party crates that offer relevant functionality.
+//! For example, [left_right](https://docs.rs/left-right/latest/left_right/) is similar to this module, but it only supports one writer at a time, allows readers to desync from the writer, and lacks `no_std` support.
 //! Other crates exist but come with similar downsides, taking double memory, not having `no_std` support, etc.
 //!
 //! So this module is its own solution to the problem.
@@ -30,7 +30,7 @@
 //! - The collection has many concurrent reads.
 //! - The collection needs to be able to be written to from anywhere.
 //! - The collection needs to be updated everywhere immediately when written to.
-//! - The collection needs to be minimally blocking but tolerates locking.
+//! - The collection can't let writes interupt/block reading other data.
 //!
 //! # How it works
 //!
@@ -42,15 +42,16 @@
 //! These queued changes we call "staged" data, and its type implements [`StagedChanges`].
 //! Then, at user defined points, we drain these staged changes into the cold data.
 //! This requires locking both data structures, but since these points can be much less frequent than the already rare writes, this doesn't matter.
-//! In principal, the staged data never needs to be drained into the cold data, but the staged data will never benefit from the faster read access of cold data.
-//! The traits [`StagableWrites`] and company represent types that corrdinat this behavior.
+//! In principal, the staged data never needs to be drained into the cold data, but the data in staged data will not benefit from the faster read access of cold data.
+//! The traits [`StagableWrites`] and company represent types that coordinate this behavior.
 //!
 //! A few other types help with this.
-//! If a lock is held or there is mutably access to the underlying stage on write type, [`Stager`] and [`StagedRef`] can be obtained.
+//! If a lock is held or there is mutable access to the underlying stage on write type, [`Stager`] and [`StagedRef`] can be obtained.
 //! Use [`StagedRef`] when you need to access data with standard references.
 //! Since the there might be a lock involved, this should be used only when needed.
 //! Use [`Stager`] when you need to write data, since this gives read access to cold data, and write access to staged data.
 //! However, these types are typically obtained by locking, and returning a reference from them requires all of its locks be kept.
+//! (Both cold *and* staged are locked even if the reference only points to one of them).
 //! As a result, there are better types to use for reading.
 //!
 //! [`StagedRefLocked`] fills the same role as [`StagedRef`], but gives underlying access to the locks.
@@ -62,13 +63,13 @@
 //!
 //! In general:
 //! - Implement general purpose reads on [`StagedRef`],
-//! - High performance reads on [`StagedRefLocked`],
-//! - Writes on [`Stager`],
+//! - high performance reads on [`StagedRefLocked`],
+//! - writes on [`Stager`],
 //! - and niche/advanced uses on [`StagerLocked`].
 //!
 //! In addition, this module offers two implementations of the stage on write concept: [`StageOnWrite`] and [`AtomicStageOnWrite`].
 //! [`StageOnWrite`] is the simpler implementation, storing cold data directly and staged data in an [`RwLock`] to synchronize writes.
-//! Because it stores cold data directly, the only way to clean the data (drain staged data in cold) is to have mutable access to it.
+//! Because it stores cold data directly, the only way to clean the data (drain staged data into cold) is to have mutable access to it.
 //! This means it can't be put in an `Arc` or similar and still be able to be cleaned.
 //! [`AtomicStagedOnWrite`] comes to the resque here. It stores cold data in another [`RwLock`], allowing the data to be cleaned with immutable access.
 //! Although blocking methods for this exist, [`AtomicStagedOnWrite`] also offers non-blocking methods for cleaning.
@@ -78,7 +79,7 @@
 //! Finally, [`StagableWrites`] offers some utilities to prevent deadlocking.
 //! It is implemented by [`RefStageOnWrite`] and `ArcStageOnWrite` for utility.
 //! The idea behind this type is that the most common way to accidentally deadlock is to maintain an immutable borrow while making a muttable borrow via synchronization.
-//! This trait makes muttable borrows requie mutable access to self, preventing this kind of deadlock.
+//! This trait makes mutable borrows requie mutable access to self, preventing this kind of deadlock.
 //! Because these types only wrap cloneable references to to the [`StagableWritesCore`] type, this can still be shared between thread safely.
 //! It also means that this does not fully prevent deadlock, especially if the same thread is maintaining a lock guard on one copy of the stage on write structure while another copy is being used.
 //! Still this protection is better than none.
@@ -1060,6 +1061,7 @@ impl<C: DerefMut, S: DerefMut<Target = C::Target>> DerefMut for MaybeStaged<C, S
     }
 }
 
+#[cfg(feature = "alloc")]
 impl<T: StagedChanges> Default for ArcStageOnWrite<T>
 where
     T::Cold: Default,
