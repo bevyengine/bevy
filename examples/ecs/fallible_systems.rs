@@ -1,18 +1,29 @@
-//! Showcases how fallible systems can be make use of rust's powerful result handling syntax.
+//! Showcases how fallible systems and observers can make use of rust's powerful result handling
+//! syntax.
 
+use bevy::ecs::world::DeferredWorld;
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
 use rand::distributions::Distribution;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .run();
+        // Fallible systems and observers can pipe the result into another system.
+        .add_observer(fallible_observer.pipe(log));
+
+    #[cfg(feature = "bevy_mesh_picking_backend")]
+    app.add_plugins(MeshPickingPlugin);
+
+    app.run();
 }
 
-/// An example of a system that calls several fallible functions with the questionmark operator.
+/// An example of a system that calls several fallible functions with the question mark operator.
+///
+/// See: <https://doc.rust-lang.org/reference/expressions/operator-expr.html#the-question-mark-operator>
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -76,4 +87,36 @@ fn setup(
 
     // Indicate the system completed successfully:
     Ok(())
+}
+
+// Observer systems can also return a `Result`.
+fn fallible_observer(
+    trigger: Trigger<Pointer<Move>>,
+    mut world: DeferredWorld,
+    mut step: Local<f32>,
+) -> Result {
+    let mut transform = world
+        .get_mut::<Transform>(trigger.target)
+        .ok_or("No transform found.")?;
+
+    *step = if transform.translation.x > 3. {
+        -0.1
+    } else if transform.translation.x < -3. || *step == 0. {
+        0.1
+    } else {
+        *step
+    };
+
+    transform.translation.x += *step;
+
+    Ok(())
+}
+
+// Take the output of a fallible system as an input in this system, and log it.
+fn log(In(result): In<Result>) {
+    let Err(error) = result else {
+        return;
+    };
+
+    error!(error, "Observer failed.");
 }

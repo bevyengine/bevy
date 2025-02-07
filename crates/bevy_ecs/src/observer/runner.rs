@@ -386,7 +386,8 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     unsafe {
         (*system).update_archetype_component_access(world);
         if (*system).validate_param_unsafe(world) {
-            (*system).run_unsafe(trigger, world);
+            // TODO: implement an error-handling API instead of suppressing a possible failure.
+            let _ = (*system).run_unsafe(trigger, world);
             (*system).queue_deferred(world.into_deferred());
         }
     }
