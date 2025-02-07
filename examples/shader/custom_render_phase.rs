@@ -28,8 +28,10 @@ use bevy::{
     prelude::*,
     render::{
         batching::{
-            gpu_preprocessing::batch_and_prepare_sorted_render_phase, GetBatchData,
-            GetFullBatchData,
+            gpu_preprocessing::{
+                batch_and_prepare_sorted_render_phase, IndirectParametersMetadata,
+            },
+            GetBatchData, GetFullBatchData,
         },
         camera::ExtractedCamera,
         diagnostic::RecordDiagnostics,
@@ -52,12 +54,9 @@ use bevy::{
         },
         renderer::RenderContext,
         sync_world::MainEntity,
-        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
+        view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
         Extract, Render, RenderApp, RenderSet,
     },
-};
-use bevy_render::{
-    batching::gpu_preprocessing::IndirectParametersMetadata, view::RetainedViewEntity,
 };
 use nonmax::NonMaxU32;
 
