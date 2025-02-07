@@ -190,7 +190,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_data)
                 .add_systems(
                     Render,
-                    prepare_previous_view_uniforms.in_set(RenderSet::PrepareResources),
+                    prepare_previous_view_uniforms.in_set(PrepareResources),
                 );
         }
 
