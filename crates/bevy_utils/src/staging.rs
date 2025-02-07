@@ -5,20 +5,21 @@
 //! Provides an abstracted system for staging modifications to data structures that rarely change.
 //! See [`StageOnWrite`] as a starting point.
 //!
-//! Here's an example of this utility in action for registering players. This is a bit contrived, but it should communicate the idea.
+//!
+//!
+//! # Example
+//!
+//! Here's an example of this utility in action for registering players.
+//! This is a bit contrived, but it should communicate the idea.
 //!
 //! ```
 //! use core::mem::take;
 //! use std::sync::RwLockReadGuard;
 //! use core::ops::{Deref, DerefMut};
 //!
-//! use crate as bevy_utils;
 //! use bevy_platform_support::collections::HashMap;
 //! use bevy_platform_support::prelude::String;
-//! use bevy_utils::staging::{
-//!     MaybeStaged, StagableWrites, StageOnWrite, StagedChanges, StagedRef, StagedRefLocked,
-//!     Stager, StagerLocked,
-//! };
+//! use self::bevy_utils::staging::*;
 //!
 //! /// Stores some arbitrary player data.
 //! #[derive(Debug, Clone)]
@@ -173,8 +174,8 @@
 //!     id: PlayerId,
 //! }
 //!
-//! struct LockedNameColdRef<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> {
-//!     cold: T::ColdStorage<'a>,
+//! struct LockedNameColdRef<'a, T: StagableWritesCore<Staging = StagedPlayerChanges> + 'a> {
+//!     cold: T::ColdRef<'a>,
 //!     // must be valid
 //!     id: PlayerId,
 //! }
@@ -192,7 +193,7 @@
 //!     }
 //! }
 //!
-//! impl<'a, T: StagableWrites<Staging = StagedPlayerChanges> + 'a> Deref for LockedNameColdRef<'a, T> {
+//! impl<'a, T: StagableWritesCore<Staging = StagedPlayerChanges> + 'a> Deref for LockedNameColdRef<'a, T> {
 //!     type Target = str;
 //!
 //!     fn deref(&self) -> &Self::Target {
@@ -208,7 +209,7 @@
 //! impl PlayerRegistry {
 //!     /// Runs relatively rarely
 //!     pub fn player_joined(&self, name: String) -> PlayerId {
-//!         self.players.stage_scope_locked(|stager| stager.add(name))
+//!         self.bulk_write().as_stager().add(name)
 //!     }
 //!
 //!     /// Runs very often
@@ -245,10 +246,12 @@
 //!
 //!     /// Allows writing in bulk without extra locking.
 //!     pub fn bulk_write(&self) -> StagerLocked<'_, StageOnWrite<StagedPlayerChanges>> {
-//!         self.players.stage_lock()
+//!         // SAFETY: unsafe is used to take responsibility for deadlocks.
+//!         unsafe { self.players.stage_lock_unsafe() }
 //!     }
 //! }
 //! ```
+//!
 
 use bevy_platform_support::sync::{
     PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard, TryLockError,
