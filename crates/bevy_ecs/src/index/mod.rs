@@ -195,7 +195,9 @@ enum TrackEntityError {
 
 impl<C: Component<Mutability = Immutable>> Index<C> {
     fn new<S: IndexStorage<C>>(world: &mut World, options: IndexOptions<C, S>) -> Self {
-        let bits = options.address_space.min(size_of::<u32>().saturating_mul(8) as u8) as u16;
+        let bits = options
+            .address_space
+            .min(size_of::<u32>().saturating_mul(8) as u8) as u16;
 
         let markers = (0..bits)
             .map(|bit| Self::alloc_new_marker(world, bit, options.marker_storage))
