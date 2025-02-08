@@ -12,11 +12,11 @@ pub use relationship_source_collection::*;
 
 use crate::{
     component::{Component, HookContext, Mutable},
-    entity::Entity,
+    entity::{ComponentCloneCtx, Entity},
     system::{
         command::HandleError,
         entity_command::{self, CommandWithEntity},
-        error_handler,
+        error_handler, Commands,
     },
     world::{DeferredWorld, EntityWorldMut},
 };
@@ -47,7 +47,7 @@ use log::warn;
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
-/// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(despawn_descendants)]` attribute to
+/// When deriving [`RelationshipTarget`] you can specify the `#[relationship_target(linked_spawn)]` attribute to
 /// automatically despawn entities stored in an entity's [`RelationshipTarget`] when that entity is despawned:
 ///
 /// ```
@@ -58,7 +58,7 @@ use log::warn;
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = ChildOf, despawn_descendants)]
+/// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
@@ -83,6 +83,7 @@ pub trait Relationship: Component + Sized {
                 core::any::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
+            return;
         }
         if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
             if let Some(mut relationship_target) =
@@ -142,6 +143,14 @@ pub type SourceIter<'w, R> =
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
+    /// If this is true, when despawning or cloning (when [recursion is enabled](crate::entity::EntityClonerBuilder::recursive)), the related entities targeting this entity will also be despawned or cloned.
+    ///
+    /// For example, this is set to `true` for Bevy's built-in parent-child relation, defined by [`ChildOf`](crate::prelude::ChildOf) and [`Children`](crate::prelude::Children).
+    /// This means that when a parent is despawned, any children targeting that parent are also despawned (and the same applies to cloning).
+    ///
+    /// To get around this behavior, you can first break the relationship between entities, and *then* despawn or clone.
+    /// This defaults to false when derived.
+    const LINKED_SPAWN: bool;
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
@@ -253,6 +262,28 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     }
 }
 
+/// The "clone behavior" for [`RelationshipTarget`]. This actually creates an empty
+/// [`RelationshipTarget`] instance with space reserved for the number of targets in the
+/// original instance. The [`RelationshipTarget`] will then be populated with the proper components
+/// when the corresponding [`Relationship`] sources of truth are inserted. Cloning the actual entities
+/// in the original [`RelationshipTarget`] would result in duplicates, so we don't do that!
+///
+/// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
+/// to spawn recursively.
+pub fn clone_relationship_target<T: RelationshipTarget>(
+    _commands: &mut Commands,
+    context: &mut ComponentCloneCtx,
+) {
+    if let Some(component) = context.read_source_component::<T>() {
+        if context.is_recursive() && T::LINKED_SPAWN {
+            for entity in component.iter() {
+                context.queue_entity_clone(entity);
+            }
+        }
+        context.write_target_component(T::with_capacity(component.len()));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
@@ -275,5 +306,40 @@ mod tests {
         let b = world.spawn(Likes(a)).id();
         let c = world.spawn(Likes(a)).id();
         assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+    }
+
+    #[test]
+    fn self_relationship_fails() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.entity_mut(a).insert(Rel(a));
+        assert!(!world.entity(a).contains::<Rel>());
+        assert!(!world.entity(a).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn relationship_with_missing_target_fails() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        world.despawn(a);
+        let b = world.spawn(Rel(a)).id();
+        assert!(!world.entity(b).contains::<Rel>());
+        assert!(!world.entity(b).contains::<RelTarget>());
     }
 }
