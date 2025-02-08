@@ -935,16 +935,21 @@ impl FromWorld for GpuPreprocessingSupport {
             crate::get_adreno_model(adapter).is_some_and(|model| model != 720 && model <= 730)
         }
 
-        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0 ||
-            is_non_supported_android_device(adapter)
+        let feature_support = device.features().contains(
+            Features::INDIRECT_FIRST_INSTANCE
+                | Features::MULTI_DRAW_INDIRECT
+                | Features::PUSH_CONSTANTS,
+        );
+        let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12;
+        let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
+            DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
+        );
+
+        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
+            || is_non_supported_android_device(adapter)
         {
             GpuPreprocessingMode::None
-        } else if !device
-            .features()
-            .contains(Features::INDIRECT_FIRST_INSTANCE | Features::MULTI_DRAW_INDIRECT) ||
-            !adapter.get_downlevel_capabilities().flags.contains(
-        DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
-        {
+        } else if !(feature_support && limit_support && downlevel_support) {
             GpuPreprocessingMode::PreprocessingOnly
         } else {
             GpuPreprocessingMode::Culling
