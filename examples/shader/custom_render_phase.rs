@@ -119,17 +119,17 @@ impl Plugin for MeshStencilPhasePlugin {
         };
         render_app
             .init_resource::<SpecializedMeshPipelines<StencilPipeline>>()
-            .init_resource::<DrawFunctions<StencilPhase>>()
-            .add_render_command::<StencilPhase, DrawMesh3dStencil>()
-            .init_resource::<ViewSortedRenderPhases<StencilPhase>>()
+            .init_resource::<DrawFunctions<Stencil3d>>()
+            .add_render_command::<Stencil3d, DrawMesh3dStencil>()
+            .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
                 (
-                    sort_phase_system::<StencilPhase>.in_set(RenderSet::PhaseSort),
-                    batch_and_prepare_sorted_render_phase::<StencilPhase, StencilPipeline>
-                        .in_set(RenderSet::PrepareResources),
                     queue_custom_meshes.in_set(RenderSet::QueueMeshes),
+                    sort_phase_system::<Stencil3d>.in_set(RenderSet::PhaseSort),
+                    batch_and_prepare_sorted_render_phase::<Stencil3d, StencilPipeline>
+                        .in_set(RenderSet::PrepareResources),
                 ),
             );
 
@@ -245,14 +245,14 @@ type DrawMesh3dStencil = (
     DrawMesh,
 );
 
-// This is the data required when you define a custom phase in bevy. More specifically this is the
+// This is the data required per entity drawn in a custom phase in bevy. More specifically this is the
 // data required when using a ViewSortedRenderPhase. This would look differently if we wanted a
-// batched render phase. Sorted phases are a bit easier to implement, but a batched phased would
+// batched render phase. Sorted phases are a bit easier to implement, but a batched phase would
 // look similar.
 //
 // If you want to see how a batched phase implementation looks, you should look at the Opaque2d
 // phase.
-struct StencilPhase {
+struct Stencil3d {
     pub sort_key: FloatOrd,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
@@ -265,7 +265,7 @@ struct StencilPhase {
 }
 
 // For more information about writing a phase item, please look at the custom_phase_item example
-impl PhaseItem for StencilPhase {
+impl PhaseItem for Stencil3d {
     #[inline]
     fn entity(&self) -> Entity {
         self.entity.0
@@ -302,7 +302,7 @@ impl PhaseItem for StencilPhase {
     }
 }
 
-impl SortedPhaseItem for StencilPhase {
+impl SortedPhaseItem for Stencil3d {
     type SortKey = FloatOrd;
 
     #[inline]
@@ -324,7 +324,7 @@ impl SortedPhaseItem for StencilPhase {
     }
 }
 
-impl CachedRenderPipelinePhaseItem for StencilPhase {
+impl CachedRenderPipelinePhaseItem for Stencil3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
         self.pipeline
@@ -471,7 +471,7 @@ impl GetFullBatchData for StencilPipeline {
 // that will be used by the render world. We need to give that resource all views that will use
 // that phase
 fn extract_camera_phases(
-    mut stencil_phases: ResMut<ViewSortedRenderPhases<StencilPhase>>,
+    mut stencil_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
     cameras: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
@@ -495,13 +495,13 @@ fn extract_camera_phases(
 //
 // This system determines which meshes will be added to the phase.
 fn queue_custom_meshes(
-    custom_draw_functions: Res<DrawFunctions<StencilPhase>>,
+    custom_draw_functions: Res<DrawFunctions<Stencil3d>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<StencilPipeline>>,
     pipeline_cache: Res<PipelineCache>,
     custom_draw_pipeline: Res<StencilPipeline>,
     render_meshes: Res<RenderAssets<RenderMesh>>,
     render_mesh_instances: Res<RenderMeshInstances>,
-    mut custom_render_phases: ResMut<ViewSortedRenderPhases<StencilPhase>>,
+    mut custom_render_phases: ResMut<ViewSortedRenderPhases<Stencil3d>>,
     mut views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
     has_marker: Query<(), With<DrawStencil>>,
 ) {
@@ -553,7 +553,7 @@ fn queue_custom_meshes(
             let distance = rangefinder.distance_translation(&mesh_instance.translation);
             // At this point we have all the data we need to create a phase item and add it to our
             // phase
-            custom_phase.add(StencilPhase {
+            custom_phase.add(Stencil3d {
                 // Sort the data based on the distance to the view
                 sort_key: FloatOrd(distance),
                 entity: (*render_entity, *visible_entity),
@@ -589,8 +589,7 @@ impl ViewNode for CustomDrawNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // First, we need to get our phases resource
-        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<StencilPhase>>()
-        else {
+        let Some(stencil_phases) = world.get_resource::<ViewSortedRenderPhases<Stencil3d>>() else {
             return Ok(());
         };
 
