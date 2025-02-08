@@ -9,7 +9,7 @@
 use core::num::{NonZero, NonZeroU64};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     experimental::mip_generation::ViewDepthPyramid,
@@ -64,16 +64,16 @@ use super::ViewLightEntities;
 
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(16991728318640779533);
+    weak_handle!("c8579292-cf92-43b5-9c5a-ec5bd4e44d12");
 /// The handle to the `mesh_preprocess_types.wgsl` compute shader.
 pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2720440370122465935);
+    weak_handle!("06f797ef-a106-4098-9a2e-20a73aa182e2");
 /// The handle to the `reset_indirect_batch_sets.wgsl` compute shader.
 pub const RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2602194133710559644);
+    weak_handle!("045fb176-58e2-4e76-b241-7688d761bb23");
 /// The handle to the `build_indirect_params.wgsl` compute shader.
 pub const BUILD_INDIRECT_PARAMS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(3711077208359699672);
+    weak_handle!("133b01f0-3eaf-4590-9ee9-f0cf91a00b71");
 
 /// The GPU workgroup size.
 const WORKGROUP_SIZE: usize = 64;

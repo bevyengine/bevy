@@ -3,7 +3,7 @@ use crate::{
     oit::OrderIndependentTransparencySettings,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::Deref;
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
@@ -27,7 +27,8 @@ use tracing::warn;
 use super::OitBuffers;
 
 /// Shader handle for the shader that sorts the OIT layers, blends the colors based on depth and renders them to the screen.
-pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(7698420424769536);
+pub const OIT_RESOLVE_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("562d2917-eb06-444d-9ade-41de76b0f5ae");
 
 /// Contains the render node used to run the resolve pass.
 pub mod node;
