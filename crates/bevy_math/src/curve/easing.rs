@@ -194,6 +194,44 @@ where
     }
 }
 
+/// Configuration options for the [`EaseFunction::steps_with`] curves. This closely replicates the
+/// [CSS step function specification].
+///
+/// [CSS step function specification]: https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function/steps#description
+#[derive(Clone, Copy, Default)]
+pub enum StepConfig {
+    /// Indicates that the first step happens when the animation begins.
+    JumpStart,
+    /// Indicates that the last step happens when the animation ends.
+    #[default]
+    JumpEnd,
+    /// Indicates neither early nor late jumps happen.
+    JumpNone,
+    /// Indicates both early and late jumps happen.
+    JumpBoth,
+}
+
+impl StepConfig {
+    #[inline]
+    pub(crate) fn eval(self, num_steps: usize, t: f32) -> f32 {
+        use crate::ops;
+
+        match self {
+            StepConfig::JumpStart => {
+                (ops::floor(t * num_steps as f32) + 1.0) / num_steps.max(1) as f32
+            }
+            StepConfig::JumpEnd => ops::floor(t * num_steps as f32) / num_steps.max(1) as f32,
+            StepConfig::JumpNone => {
+                ops::floor(t * num_steps as f32) / (num_steps.max(1) - 1) as f32
+            }
+            StepConfig::JumpBoth => {
+                (ops::floor(t * num_steps as f32) + 1.0) / (num_steps.max(1) + 1) as f32
+            }
+        }
+        .clamp(0.0, 1.0)
+    }
+}
+
 /// Curve functions over the [unit interval], commonly used for easing transitions.
 ///
 /// [unit interval]: `Interval::UNIT`
@@ -444,6 +482,8 @@ mod easing_functions {
 
     use crate::{ops, FloatPow};
 
+    use super::StepConfig;
+
     #[inline]
     pub(crate) fn linear(t: f32) -> f32 {
         t
@@ -685,7 +725,12 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        ops::floor(t * num_steps as f32) / num_steps.max(1) as f32
+        steps_with(StepConfig::default(), num_steps, t)
+    }
+
+    #[inline]
+    pub(crate) fn steps_with(config: StepConfig, num_steps: usize, t: f32) -> f32 {
+        config.eval(num_steps, t)
     }
 
     #[inline]
@@ -742,6 +787,7 @@ impl EaseFunction {
 
 #[cfg(test)]
 mod tests {
+
     use crate::{Vec2, Vec3, Vec3A};
     use approx::assert_abs_diff_eq;
 
@@ -902,5 +948,72 @@ mod tests {
                 Isometry3d::new(Vec3A::ONE * t, Quat::from_axis_angle(Vec3::Z, angle * t))
             );
         });
+    }
+
+    #[test]
+    fn step_config_start() {
+        let config = StepConfig::JumpStart;
+        let num_steps = 4;
+
+        [
+            (0.0, 0.25),
+            (0.25, 0.5),
+            (0.5, 0.75),
+            (0.75, 1.0),
+            (1.0, 1.0),
+        ]
+        .into_iter()
+        .for_each(|(t, expected)| {
+            assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+        });
+    }
+
+    #[test]
+    fn step_config_end() {
+        let config = StepConfig::JumpEnd;
+        let num_steps = 4;
+
+        [
+            (0.0, 0.0),
+            (0.25, 0.25),
+            (0.5, 0.5),
+            (0.75, 0.75),
+            (1.0, 1.0),
+        ]
+        .into_iter()
+        .for_each(|(t, expected)| {
+            assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+        });
+    }
+
+    #[test]
+    fn step_config_none() {
+        let config = StepConfig::JumpNone;
+        let num_steps = 5;
+
+        [
+            (0.0, 0.0),
+            (0.2, 0.25),
+            (0.4, 0.5),
+            (0.6, 0.75),
+            (0.8, 1.0),
+            (1.0, 1.0),
+        ]
+        .into_iter()
+        .for_each(|(t, expected)| {
+            assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+        });
+    }
+
+    #[test]
+    fn step_config_both() {
+        let config = StepConfig::JumpBoth;
+        let num_steps = 4;
+
+        [(0.0, 0.2), (0.25, 0.4), (0.5, 0.6), (0.75, 0.8), (1.0, 1.0)]
+            .into_iter()
+            .for_each(|(t, expected)| {
+                assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+            });
     }
 }
