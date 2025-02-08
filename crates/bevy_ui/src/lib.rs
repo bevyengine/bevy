@@ -103,7 +103,7 @@ pub enum UiSystem {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
-    /// Update content requirements before layout
+    /// Update content requirements before layout.
     Content,
     /// After this label, the ui layout state has been updated.
     ///
