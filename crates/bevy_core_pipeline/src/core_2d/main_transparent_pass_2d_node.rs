@@ -106,9 +106,7 @@ impl ViewNode for MainTransparentPass2dNode {
                     occlusion_query_set: None,
                 };
 
-                render_context
-                    .command_encoder()
-                    .begin_render_pass(&pass_descriptor);
+                command_encoder.begin_render_pass(&pass_descriptor);
             }
 
             command_encoder.finish()
