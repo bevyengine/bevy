@@ -1,7 +1,7 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 pub use visibility::*;
 pub use window::*;
 
@@ -45,7 +45,7 @@ use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
 
 /// The matrix that converts from the RGB to the LMS color space.
 ///
@@ -185,6 +185,16 @@ impl Msaa {
     #[inline]
     pub fn samples(&self) -> u32 {
         *self as u32
+    }
+
+    pub fn from_samples(samples: u32) -> Self {
+        match samples {
+            1 => Msaa::Off,
+            2 => Msaa::Sample2,
+            4 => Msaa::Sample4,
+            8 => Msaa::Sample8,
+            _ => panic!("Unsupported MSAA sample count: {}", samples),
+        }
     }
 }
 
