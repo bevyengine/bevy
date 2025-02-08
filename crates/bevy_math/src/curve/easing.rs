@@ -685,7 +685,7 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        ops::round(t * num_steps as f32) / num_steps.max(1) as f32
+        ops::floor(t * num_steps as f32) / num_steps.max(1) as f32
     }
 
     #[inline]
