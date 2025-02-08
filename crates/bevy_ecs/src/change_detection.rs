@@ -3,7 +3,7 @@
 use crate::{
     component::{Tick, TickCells},
     ptr::PtrMut,
-    system::Resource,
+    resource::Resource,
 };
 use alloc::borrow::ToOwned;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
@@ -494,6 +494,20 @@ macro_rules! impl_methods {
                 })
             }
 
+            /// Optionally maps to an inner value by applying a function to the contained reference, returns an error on failure.
+            /// This is useful in a situation where you need to convert a `Mut<T>` to a `Mut<U>`, but only if `T` contains `U`.
+            ///
+            /// As with `map_unchanged`, you should never modify the argument passed to the closure.
+            pub fn try_map_unchanged<U: ?Sized, E>(self, f: impl FnOnce(&mut $target) -> Result<&mut U, E>) -> Result<Mut<'w, U>, E> {
+                let value = f(self.value);
+                value.map(|value| Mut {
+                    value,
+                    ticks: self.ticks,
+                    #[cfg(feature = "track_location")]
+                    changed_by: self.changed_by,
+                })
+            }
+
             /// Allows you access to the dereferenced value of this pointer without immediately
             /// triggering change detection.
             pub fn as_deref_mut(&mut self) -> Mut<'_, <$target as Deref>::Target>
@@ -675,7 +689,7 @@ impl_debug!(Res<'w, T>, Resource);
 /// If you need a shared borrow, use [`Res`] instead.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if resource doesn't exist.
-/// /// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<ResMut<T>>`] instead if the resource might not always exist.
 pub struct ResMut<'w, T: ?Sized + Resource> {
@@ -736,7 +750,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if non-send resource doesn't exist.
-/// /// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<NonSendMut<T>>`] instead if the resource might not always exist.
 pub struct NonSendMut<'w, T: ?Sized + 'static> {

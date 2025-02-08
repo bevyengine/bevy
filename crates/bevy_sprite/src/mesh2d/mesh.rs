@@ -1,7 +1,8 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 
-use crate::Material2dBindGroupId;
+use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
+use bevy_core_pipeline::tonemapping::DebandDither;
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
@@ -9,6 +10,8 @@ use bevy_core_pipeline::{
     },
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Tick;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -16,6 +19,8 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
+use bevy_render::prelude::Msaa;
+use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
     batching::{
         gpu_preprocessing::IndirectParametersMetadata,
@@ -50,13 +55,20 @@ use tracing::error;
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
-pub const MESH2D_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(7646632476603252194);
-pub const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(12677582416765805110);
-pub const MESH2D_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6901431444735842434);
-pub const MESH2D_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8994673400261890424);
-pub const MESH2D_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(8983617858458862856);
-pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(4976379308250389413);
-pub const MESH2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2971387252468633715);
+pub const MESH2D_VERTEX_OUTPUT: Handle<Shader> =
+    weak_handle!("71e279c7-85a0-46ac-9a76-1586cbf506d0");
+pub const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("01087b0d-91e9-46ac-8628-dfe19a7d4b83");
+pub const MESH2D_VIEW_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("fbdd8b80-503d-4688-bcec-db29ab4620b2");
+pub const MESH2D_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("199f2089-6e99-4348-9bb1-d82816640a7f");
+pub const MESH2D_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("a7bd44cc-0580-4427-9a00-721cf386b6e4");
+pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("0d08ff71-68c1-4017-83e2-bfc34d285c51");
+pub const MESH2D_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("91a7602b-df95-4ea3-9d97-076abcb69d91");
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -94,6 +106,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_systems(ExtractSchedule, extract_mesh2d)
@@ -137,7 +150,13 @@ impl Plugin for Mesh2dRenderPlugin {
 
             render_app
                 .insert_resource(batched_instance_buffer)
-                .init_resource::<Mesh2dPipeline>();
+                .init_resource::<Mesh2dPipeline>()
+                .init_resource::<ViewKeyCache>()
+                .init_resource::<ViewSpecializationTicks>()
+                .add_systems(
+                    Render,
+                    check_views_need_specialization.in_set(PrepareAssets),
+                );
         }
 
         // Load the mesh_bindings shader module here as it depends on runtime information about
@@ -149,6 +168,48 @@ impl Plugin for Mesh2dRenderPlugin {
             Shader::from_wgsl_with_defs,
             mesh_bindings_shader_defs
         );
+    }
+}
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
+
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
+
+pub fn check_views_need_specialization(
+    mut view_key_cache: ResMut<ViewKeyCache>,
+    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    views: Query<(
+        &MainEntity,
+        &ExtractedView,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+    )>,
+    ticks: SystemChangeTick,
+) {
+    for (view_entity, view, msaa, tonemapping, dither) in &views {
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
+            }
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+            }
+        }
+
+        if !view_key_cache
+            .get_mut(view_entity)
+            .is_some_and(|current_key| *current_key == view_key)
+        {
+            view_key_cache.insert(*view_entity, view_key);
+            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+        }
     }
 }
 
@@ -421,7 +482,8 @@ impl GetFullBatchData for Mesh2dPipeline {
                 None => !0,
                 Some(batch_set_index) => u32::from(batch_set_index),
             },
-            instance_count: 0,
+            early_instance_count: 0,
+            late_instance_count: 0,
         };
 
         if indexed {

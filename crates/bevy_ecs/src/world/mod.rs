@@ -18,6 +18,7 @@ pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
+pub use bevy_ecs_macros::FromWorld;
 pub use component_constants::*;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::WorldEntityFetch;
@@ -34,48 +35,43 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
-        RequiredComponentsError, Tick,
+        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
+        Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity_disabling::{DefaultQueryFilters, Disabled},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
+    resource::Resource,
     result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::{Commands, Resource},
+    system::Commands,
     world::{
         command_queue::RawCommandQueue,
-        error::{EntityFetchError, TryRunScheduleError},
+        error::{EntityFetchError, TryDespawnError, TryInsertBatchError, TryRunScheduleError},
     },
 };
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{any::TypeId, fmt};
 use log::warn;
-
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::{AtomicU32, Ordering};
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::{AtomicU32, Ordering};
+use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 #[cfg(feature = "track_location")]
 use bevy_ptr::UnsafeCellDeref;
 
+#[cfg(feature = "track_location")]
 use core::panic::Location;
-
-use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
 /// Stores and exposes operations on [entities](Entity), [components](Component), resources,
 /// and their associated metadata.
 ///
-/// Each [`Entity`] has a set of components. Each component can have up to one instance of each
-/// component type. Entity components can be created, updated, removed, and queried using a given
-/// [`World`].
+/// Each [`Entity`] has a set of unique components, based on their type.
+/// Entity components can be created, updated, removed, and queried using a given
 ///
 /// For complex access patterns involving [`SystemParam`](crate::system::SystemParam),
 /// consider using [`SystemState`](crate::system::SystemState).
@@ -162,6 +158,11 @@ impl World {
 
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
+
+        let disabled = self.register_component::<Disabled>();
+        let mut filters = DefaultQueryFilters::default();
+        filters.set_disabled(disabled);
+        self.insert_resource(filters);
     }
     /// Creates a new empty [`World`].
     ///
@@ -249,7 +250,7 @@ impl World {
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.components.register_component::<T>(&mut self.storages)
+        self.components.register_component::<T>()
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
@@ -526,7 +527,7 @@ impl World {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
-            .register_component_with_descriptor(&mut self.storages, descriptor)
+            .register_component_with_descriptor(descriptor)
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -654,10 +655,10 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -675,7 +676,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity<F: WorldEntityFetch>(&self, entities: F) -> F::Ref<'_> {
@@ -706,8 +707,8 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
     /// such as adding or removing components, or despawning the entity, only a
@@ -788,10 +789,10 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::hash_map::EntityHashMap)
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -811,7 +812,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     #[track_caller]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::Mut<'_> {
@@ -860,8 +861,8 @@ impl World {
     /// - Pass an [`Entity`] to receive a single [`EntityRef`].
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityRef>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityRef`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityRef>`](crate::entity::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityRef>`](crate::entity::hash_map::EntityHashMap).
     ///
     /// # Errors
     ///
@@ -872,7 +873,7 @@ impl World {
     ///
     /// For examples, see [`World::entity`].
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     pub fn get_entity<F: WorldEntityFetch>(&self, entities: F) -> Result<F::Ref<'_>, Entity> {
         let cell = self.as_unsafe_world_cell_readonly();
@@ -891,8 +892,8 @@ impl World {
     ///      such as adding or removing components, or despawning the entity.
     /// - Pass a slice of [`Entity`]s to receive a [`Vec<EntityMut>`].
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
-    /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
-    ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    /// - Pass a reference to a [`EntityHashSet`](crate::entity::hash_map::EntityHashMap) to receive an
+    ///   [`EntityHashMap<EntityMut>`](crate::entity::hash_map::EntityHashMap).
     ///
     /// In order to perform structural changes on the returned entity reference,
     /// such as adding or removing components, or despawning the entity, only a
@@ -910,7 +911,7 @@ impl World {
     ///
     /// For examples, see [`World::entity_mut`].
     ///
-    /// [`EntityHashSet`]: crate::entity::EntityHashSet
+    /// [`EntityHashSet`]: crate::entity::hash_set::EntityHashSet
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
@@ -1080,6 +1081,18 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+        self.spawn_with_caller(
+            bundle,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        )
+    }
+
+    pub(crate) fn spawn_with_caller<B: Bundle>(
+        &mut self,
+        bundle: B,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+    ) -> EntityWorldMut {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
@@ -1090,7 +1103,7 @@ impl World {
                 entity,
                 bundle,
                 #[cfg(feature = "track_location")]
-                Location::caller(),
+                caller,
             )
         };
 
@@ -1105,7 +1118,7 @@ impl World {
 
         #[cfg(feature = "track_location")]
         self.entities
-            .set_spawned_or_despawned_by(entity.index(), Location::caller());
+            .set_spawned_or_despawned_by(entity.index(), caller);
 
         // SAFETY: entity and location are valid, as they were just created above
         unsafe { EntityWorldMut::new(self, entity, entity_location) }
@@ -1270,9 +1283,11 @@ impl World {
         Ok(result)
     }
 
-    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
-    /// [`Component`]s. Returns `true` if the `entity` is successfully despawned and `false` if
-    /// the `entity` does not exist.
+    /// Despawns the given [`Entity`], if it exists. This will also remove all of the entity's
+    /// [`Components`](Component).
+    ///
+    /// Returns `true` if the entity is successfully despawned and `false` if
+    /// the entity does not exist.
     ///
     /// # Note
     ///
@@ -1297,36 +1312,55 @@ impl World {
     #[track_caller]
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        self.despawn_with_caller(entity, Location::caller(), true)
+        if let Err(error) = self.despawn_with_caller(
+            entity,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        ) {
+            warn!("{error}");
+            false
+        } else {
+            true
+        }
     }
 
-    /// Performs the same function as [`Self::despawn`] but does not emit a warning if
-    /// the entity does not exist.
+    /// Despawns the given `entity`, if it exists. This will also remove all of the entity's
+    /// [`Components`](Component).
+    ///
+    /// Returns a [`TryDespawnError`] if the entity does not exist.
+    ///
+    /// # Note
+    ///
+    /// This will also despawn the entities in any [`RelationshipTarget`](crate::relationship::RelationshipTarget) that is configured
+    /// to despawn descendants. For example, this will recursively despawn [`Children`](crate::hierarchy::Children).
     #[track_caller]
     #[inline]
-    pub fn try_despawn(&mut self, entity: Entity) -> bool {
-        self.despawn_with_caller(entity, Location::caller(), false)
+    pub fn try_despawn(&mut self, entity: Entity) -> Result<(), TryDespawnError> {
+        self.despawn_with_caller(
+            entity,
+            #[cfg(feature = "track_location")]
+            Location::caller(),
+        )
     }
 
     #[inline]
     pub(crate) fn despawn_with_caller(
         &mut self,
         entity: Entity,
-        caller: &'static Location,
-        log_warning: bool,
-    ) -> bool {
+        #[cfg(feature = "track_location")] caller: &'static Location,
+    ) -> Result<(), TryDespawnError> {
         self.flush();
         if let Ok(entity) = self.get_entity_mut(entity) {
             entity.despawn_with_caller(
                 #[cfg(feature = "track_location")]
                 caller,
             );
-            true
+            Ok(())
         } else {
-            if log_warning {
-                warn!("error[B0003]: {caller}: Could not despawn entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", self.entities.entity_does_not_exist_error_details(entity));
-            }
-            false
+            Err(TryDespawnError {
+                entity,
+                details: self.entities().entity_does_not_exist_error_details(entity),
+            })
         }
     }
 
@@ -2350,7 +2384,7 @@ impl World {
     ///
     /// This function will panic if any of the associated entities do not exist.
     ///
-    /// For the non-panicking version, see [`World::try_insert_batch`].
+    /// For the fallible version, see [`World::try_insert_batch`].
     #[track_caller]
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
@@ -2380,7 +2414,7 @@ impl World {
     ///
     /// This function will panic if any of the associated entities do not exist.
     ///
-    /// For the non-panicking version, see [`World::try_insert_batch_if_new`].
+    /// For the fallible version, see [`World::try_insert_batch_if_new`].
     #[track_caller]
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
@@ -2401,12 +2435,10 @@ impl World {
     /// This can be called by:
     /// - [`World::insert_batch`]
     /// - [`World::insert_batch_if_new`]
-    /// - [`Commands::insert_batch`]
-    /// - [`Commands::insert_batch_if_new`]
     #[inline]
     pub(crate) fn insert_batch_with_caller<I, B>(
         &mut self,
-        iter: I,
+        batch: I,
         insert_mode: InsertMode,
         #[cfg(feature = "track_location")] caller: &'static Location,
     ) where
@@ -2414,22 +2446,20 @@ impl World {
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.flush();
-
-        let change_tick = self.change_tick();
-
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
-
         struct InserterArchetypeCache<'w> {
             inserter: BundleInserter<'w>,
             archetype_id: ArchetypeId,
         }
 
-        let mut batch = iter.into_iter();
+        self.flush();
+        let change_tick = self.change_tick();
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
 
-        if let Some((first_entity, first_bundle)) = batch.next() {
+        let mut batch_iter = batch.into_iter();
+
+        if let Some((first_entity, first_bundle)) = batch_iter.next() {
             if let Some(first_location) = self.entities().get(first_entity) {
                 let mut cache = InserterArchetypeCache {
                     // SAFETY: we initialized this bundle_id in `register_info`
@@ -2455,7 +2485,7 @@ impl World {
                     )
                 };
 
-                for (entity, bundle) in batch {
+                for (entity, bundle) in batch_iter {
                     if let Some(location) = cache.inserter.entities().get(entity) {
                         if location.archetype_id != cache.archetype_id {
                             cache = InserterArchetypeCache {
@@ -2502,11 +2532,11 @@ impl World {
     /// This will overwrite any previous values of components shared by the `Bundle`.
     /// See [`World::try_insert_batch_if_new`] to keep the old values instead.
     ///
-    /// This function silently fails by ignoring any entities that do not exist.
+    /// Returns a [`TryInsertBatchError`] if any of the provided entities do not exist.
     ///
     /// For the panicking version, see [`World::insert_batch`].
     #[track_caller]
-    pub fn try_insert_batch<I, B>(&mut self, batch: I)
+    pub fn try_insert_batch<I, B>(&mut self, batch: I) -> Result<(), TryInsertBatchError>
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -2517,7 +2547,7 @@ impl World {
             InsertMode::Replace,
             #[cfg(feature = "track_location")]
             Location::caller(),
-        );
+        )
     }
     /// For a given batch of ([`Entity`], [`Bundle`]) pairs,
     /// adds the `Bundle` of components to each `Entity` without overwriting.
@@ -2529,11 +2559,11 @@ impl World {
     /// This is the same as [`World::try_insert_batch`], but in case of duplicate
     /// components it will leave the old values instead of replacing them with new ones.
     ///
-    /// This function silently fails by ignoring any entities that do not exist.
+    /// Returns a [`TryInsertBatchError`] if any of the provided entities do not exist.
     ///
     /// For the panicking version, see [`World::insert_batch_if_new`].
     #[track_caller]
-    pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
+    pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I) -> Result<(), TryInsertBatchError>
     where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
@@ -2544,7 +2574,7 @@ impl World {
             InsertMode::Keep,
             #[cfg(feature = "track_location")]
             Location::caller(),
-        );
+        )
     }
 
     /// Split into a new function so we can differentiate the calling location.
@@ -2552,90 +2582,115 @@ impl World {
     /// This can be called by:
     /// - [`World::try_insert_batch`]
     /// - [`World::try_insert_batch_if_new`]
+    /// - [`Commands::insert_batch`]
+    /// - [`Commands::insert_batch_if_new`]
     /// - [`Commands::try_insert_batch`]
     /// - [`Commands::try_insert_batch_if_new`]
     #[inline]
     pub(crate) fn try_insert_batch_with_caller<I, B>(
         &mut self,
-        iter: I,
+        batch: I,
         insert_mode: InsertMode,
         #[cfg(feature = "track_location")] caller: &'static Location,
-    ) where
+    ) -> Result<(), TryInsertBatchError>
+    where
         I: IntoIterator,
         I::IntoIter: Iterator<Item = (Entity, B)>,
         B: Bundle,
     {
-        self.flush();
-
-        let change_tick = self.change_tick();
-
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut self.components, &mut self.storages);
-
         struct InserterArchetypeCache<'w> {
             inserter: BundleInserter<'w>,
             archetype_id: ArchetypeId,
         }
 
-        let mut batch = iter.into_iter();
+        self.flush();
+        let change_tick = self.change_tick();
+        let bundle_id = self
+            .bundles
+            .register_info::<B>(&mut self.components, &mut self.storages);
 
-        if let Some((first_entity, first_bundle)) = batch.next() {
-            if let Some(first_location) = self.entities().get(first_entity) {
-                let mut cache = InserterArchetypeCache {
-                    // SAFETY: we initialized this bundle_id in `register_info`
-                    inserter: unsafe {
-                        BundleInserter::new_with_id(
-                            self,
-                            first_location.archetype_id,
-                            bundle_id,
-                            change_tick,
-                        )
-                    },
-                    archetype_id: first_location.archetype_id,
-                };
-                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                unsafe {
-                    cache.inserter.insert(
-                        first_entity,
-                        first_location,
-                        first_bundle,
-                        insert_mode,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    )
-                };
+        let mut invalid_entities = Vec::<Entity>::new();
+        let mut batch_iter = batch.into_iter();
 
-                for (entity, bundle) in batch {
-                    if let Some(location) = cache.inserter.entities().get(entity) {
-                        if location.archetype_id != cache.archetype_id {
-                            cache = InserterArchetypeCache {
-                                // SAFETY: we initialized this bundle_id in `register_info`
-                                inserter: unsafe {
-                                    BundleInserter::new_with_id(
-                                        self,
-                                        location.archetype_id,
-                                        bundle_id,
-                                        change_tick,
-                                    )
-                                },
-                                archetype_id: location.archetype_id,
-                            }
-                        }
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                        unsafe {
-                            cache.inserter.insert(
-                                entity,
-                                location,
-                                bundle,
-                                insert_mode,
-                                #[cfg(feature = "track_location")]
-                                caller,
+        // We need to find the first valid entity so we can initialize the bundle inserter.
+        // This differs from `insert_batch_with_caller` because that method can just panic
+        // if the first entity is invalid, whereas this method needs to keep going.
+        let cache = loop {
+            if let Some((first_entity, first_bundle)) = batch_iter.next() {
+                if let Some(first_location) = self.entities().get(first_entity) {
+                    let mut cache = InserterArchetypeCache {
+                        // SAFETY: we initialized this bundle_id in `register_info`
+                        inserter: unsafe {
+                            BundleInserter::new_with_id(
+                                self,
+                                first_location.archetype_id,
+                                bundle_id,
+                                change_tick,
                             )
-                        };
+                        },
+                        archetype_id: first_location.archetype_id,
+                    };
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    unsafe {
+                        cache.inserter.insert(
+                            first_entity,
+                            first_location,
+                            first_bundle,
+                            insert_mode,
+                            #[cfg(feature = "track_location")]
+                            caller,
+                        )
+                    };
+                    break Some(cache);
+                }
+                invalid_entities.push(first_entity);
+            } else {
+                // We reached the end of the entities the caller provided and none were valid.
+                break None;
+            }
+        };
+
+        if let Some(mut cache) = cache {
+            for (entity, bundle) in batch_iter {
+                if let Some(location) = cache.inserter.entities().get(entity) {
+                    if location.archetype_id != cache.archetype_id {
+                        cache = InserterArchetypeCache {
+                            // SAFETY: we initialized this bundle_id in `register_info`
+                            inserter: unsafe {
+                                BundleInserter::new_with_id(
+                                    self,
+                                    location.archetype_id,
+                                    bundle_id,
+                                    change_tick,
+                                )
+                            },
+                            archetype_id: location.archetype_id,
+                        }
                     }
+                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    unsafe {
+                        cache.inserter.insert(
+                            entity,
+                            location,
+                            bundle,
+                            insert_mode,
+                            #[cfg(feature = "track_location")]
+                            caller,
+                        )
+                    };
+                } else {
+                    invalid_entities.push(entity);
                 }
             }
+        }
+
+        if invalid_entities.is_empty() {
+            Ok(())
+        } else {
+            Err(TryInsertBatchError {
+                bundle_type: core::any::type_name::<B>(),
+                entities: invalid_entities,
+            })
         }
     }
 
@@ -3134,35 +3189,6 @@ impl World {
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
-
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
-    /// use bevy_ecs::entity::ComponentCloneCtx;
-    /// use bevy_ecs::world::DeferredWorld;
-    ///
-    /// fn custom_clone_handler(
-    ///     _world: &mut DeferredWorld,
-    ///     _ctx: &mut ComponentCloneCtx,
-    /// ) {
-    ///     // Custom cloning logic for component
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct ComponentA;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// let component_id = world.register_component::<ComponentA>();
-    ///
-    /// world.get_component_clone_handlers_mut()
-    ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
-    /// ```
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        self.components.get_component_clone_handlers_mut()
-    }
 }
 
 impl World {
@@ -3217,6 +3243,7 @@ impl World {
     /// # struct B(u32);
     /// #
     /// # let mut world = World::new();
+    /// # world.remove_resource::<bevy_ecs::entity_disabling::DefaultQueryFilters>();
     /// # world.insert_resource(A(1));
     /// # world.insert_resource(B(2));
     /// let mut total = 0;
@@ -3665,7 +3692,37 @@ unsafe impl Sync for World {}
 ///
 /// This can be helpful for complex initialization or context-aware defaults.
 ///
-/// [`FromWorld`] is automatically implemented for any type implementing [`Default`].
+/// [`FromWorld`] is automatically implemented for any type implementing [`Default`]
+/// and may also be derived for:
+/// - any struct whose fields all implement `FromWorld`
+/// - any enum where one variant has the attribute `#[from_world]`
+///
+/// ```rs
+///
+/// #[derive(Default)]
+/// struct A;
+///
+/// #[derive(Default)]
+/// struct B(Option<u32>)
+///
+/// struct C;
+///
+/// impl FromWorld for C {
+///     fn from_world(_world: &mut World) -> Self {
+///         Self
+///     }
+/// }
+///
+/// #[derive(FromWorld)]
+/// struct D(A, B, C);
+///
+/// #[derive(FromWorld)]
+/// enum E {
+///     #[from_world]
+///     F,
+///     G
+/// }
+/// ```
 pub trait FromWorld {
     /// Creates `Self` using data from the given [`World`].
     fn from_world(world: &mut World) -> Self;
@@ -3683,10 +3740,11 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
-        entity::EntityHashSet,
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        entity::hash_set::EntityHashSet,
+        entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
-        system::Resource,
+        resource::Resource,
         world::error::EntityFetchError,
     };
     use alloc::{
@@ -3697,7 +3755,7 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform_support::collections::{HashMap, HashSet};
     use core::{
         any::TypeId,
         panic,
@@ -3874,6 +3932,8 @@ mod tests {
     #[test]
     fn iter_resources() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3900,6 +3960,8 @@ mod tests {
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3982,6 +4044,7 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                ComponentCloneBehavior::Default,
             )
         };
 
@@ -4365,5 +4428,17 @@ mod tests {
             world.entities.entity_get_spawned_or_despawned_by(entity),
             None
         );
+    }
+
+    #[test]
+    fn new_world_has_disabling() {
+        let mut world = World::new();
+        world.spawn(Foo);
+        world.spawn((Foo, Disabled));
+        assert_eq!(1, world.query::<&Foo>().iter(&world).count());
+
+        // If we explicitly remove the resource, no entities should be filtered anymore
+        world.remove_resource::<DefaultQueryFilters>();
+        assert_eq!(2, world.query::<&Foo>().iter(&world).count());
     }
 }

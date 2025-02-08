@@ -9,6 +9,7 @@ use crate::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
         QueryState, ReadOnlyQueryData,
     },
+    resource::Resource,
     storage::ResourceData,
     system::{Query, Single, SystemMeta},
     world::{
@@ -17,7 +18,7 @@ use crate::{
     },
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
-pub use bevy_ecs_macros::{Resource, SystemParam};
+pub use bevy_ecs_macros::SystemParam;
 use bevy_ptr::UnsafeCellDeref;
 use bevy_utils::synccell::SyncCell;
 #[cfg(feature = "track_location")]
@@ -333,7 +334,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+        unsafe { state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick) }
     }
 }
 
@@ -403,10 +404,12 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        let single =
-            result.expect("The query was expected to contain exactly one matching entity.");
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+        };
+        let single = query
+            .get_single_inner()
+            .expect("The query was expected to contain exactly one matching entity.");
         Single {
             item: single,
             _filter: PhantomData,
@@ -422,14 +425,14 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
             )
         };
-        let is_valid = result.is_ok();
+        let is_valid = query.get_single_inner().is_ok();
         if !is_valid {
             system_meta.try_warn_param::<Self>();
         }
@@ -467,9 +470,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        match result {
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+        };
+        match query.get_single_inner() {
             Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
@@ -488,13 +492,14 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
             )
         };
+        let result = query.get_single_inner();
         let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
         if !is_valid {
             system_meta.try_warn_param::<Self>();
@@ -797,73 +802,6 @@ macro_rules! impl_param_set {
 
 all_tuples_enumerated!(impl_param_set, 1, 8, P, m, p);
 
-/// A type that can be inserted into a [`World`] as a singleton.
-///
-/// You can access resource data in systems using the [`Res`] and [`ResMut`] system parameters
-///
-/// Only one resource of each type can be stored in a [`World`] at any given time.
-///
-/// # Examples
-///
-/// ```
-/// # let mut world = World::default();
-/// # let mut schedule = Schedule::default();
-/// # use bevy_ecs::prelude::*;
-/// #[derive(Resource)]
-/// struct MyResource { value: u32 }
-///
-/// world.insert_resource(MyResource { value: 42 });
-///
-/// fn read_resource_system(resource: Res<MyResource>) {
-///     assert_eq!(resource.value, 42);
-/// }
-///
-/// fn write_resource_system(mut resource: ResMut<MyResource>) {
-///     assert_eq!(resource.value, 42);
-///     resource.value = 0;
-///     assert_eq!(resource.value, 0);
-/// }
-/// # schedule.add_systems((read_resource_system, write_resource_system).chain());
-/// # schedule.run(&mut world);
-/// ```
-///
-/// # `!Sync` Resources
-/// A `!Sync` type cannot implement `Resource`. However, it is possible to wrap a `Send` but not `Sync`
-/// type in [`SyncCell`] or the currently unstable [`Exclusive`] to make it `Sync`. This forces only
-/// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
-/// threads.
-///
-/// This will fail to compile since `RefCell` is `!Sync`.
-/// ```compile_fail
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-///
-/// #[derive(Resource)]
-/// struct NotSync {
-///    counter: RefCell<usize>,
-/// }
-/// ```
-///
-/// This will compile since the `RefCell` is wrapped with `SyncCell`.
-/// ```
-/// # use std::cell::RefCell;
-/// # use bevy_ecs::system::Resource;
-/// use bevy_utils::synccell::SyncCell;
-///
-/// #[derive(Resource)]
-/// struct ActuallySync {
-///    counter: SyncCell<RefCell<usize>>,
-/// }
-/// ```
-///
-/// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a `Resource`",
-    label = "invalid `Resource`",
-    note = "consider annotating `{Self}` with `#[derive(Resource)]`"
-)]
-pub trait Resource: Send + Sync + 'static {}
-
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
@@ -1138,9 +1076,16 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type Item<'world, 'state> = DeferredWorld<'world>;
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.component_access_set.read_all();
+        assert!(
+            !system_meta
+                .component_access_set
+                .combined_access()
+                .has_any_read(),
+            "DeferredWorld in system {} conflicts with a previous access.",
+            system_meta.name,
+        );
         system_meta.component_access_set.write_all();
-        system_meta.set_has_deferred();
+        system_meta.archetype_component_access.write_all();
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -1463,7 +1408,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
 /// over to another thread.
 ///
 /// This [`SystemParam`] fails validation if non-send resource doesn't exist.
-/// /// This will cause a panic, but can be configured to do nothing or warn once.
+/// This will cause a panic, but can be configured to do nothing or warn once.
 ///
 /// Use [`Option<NonSend<T>>`] instead if the resource might not always exist.
 pub struct NonSend<'w, T: 'static> {

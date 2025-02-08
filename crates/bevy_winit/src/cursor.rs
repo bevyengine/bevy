@@ -8,7 +8,7 @@ use crate::{
 use crate::{
     custom_cursor::{
         calculate_effective_rect, extract_and_transform_rgba_pixels, extract_rgba_pixels,
-        CustomCursorPlugin,
+        transform_hotspot, CustomCursorPlugin,
     },
     state::{CustomCursorCache, CustomCursorCacheKey},
     WinitCustomCursor,
@@ -30,14 +30,14 @@ use bevy_ecs::{
 };
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_utils::HashSet;
 use bevy_window::{SystemCursorIcon, Window};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
 
 #[cfg(feature = "custom_cursor")]
-pub use crate::custom_cursor::CustomCursor;
+pub use crate::custom_cursor::{CustomCursor, CustomCursorImage};
 
 pub(crate) struct CursorPlugin;
 
@@ -91,14 +91,16 @@ fn update_cursors(
 
         let cursor_source = match cursor.as_ref() {
             #[cfg(feature = "custom_cursor")]
-            CursorIcon::Custom(CustomCursor::Image {
-                handle,
-                texture_atlas,
-                flip_x,
-                flip_y,
-                rect,
-                hotspot,
-            }) => {
+            CursorIcon::Custom(CustomCursor::Image(c)) => {
+                let CustomCursorImage {
+                    handle,
+                    texture_atlas,
+                    flip_x,
+                    flip_y,
+                    rect,
+                    hotspot,
+                } = c;
+
                 let cache_key = CustomCursorCacheKey::Image {
                     id: handle.id(),
                     texture_atlas_layout_id: texture_atlas.as_ref().map(|a| a.layout.id()),
@@ -122,10 +124,13 @@ fn update_cursors(
                     let (rect, needs_sub_image) =
                         calculate_effective_rect(&texture_atlases, image, texture_atlas, rect);
 
-                    let maybe_rgba = if *flip_x || *flip_y || needs_sub_image {
-                        extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect)
+                    let (maybe_rgba, hotspot) = if *flip_x || *flip_y || needs_sub_image {
+                        (
+                            extract_and_transform_rgba_pixels(image, *flip_x, *flip_y, rect),
+                            transform_hotspot(*hotspot, *flip_x, *flip_y, rect),
+                        )
                     } else {
-                        extract_rgba_pixels(image)
+                        (extract_rgba_pixels(image), *hotspot)
                     };
 
                     let Some(rgba) = maybe_rgba else {
@@ -155,14 +160,15 @@ fn update_cursors(
                 target_family = "wasm",
                 target_os = "unknown"
             ))]
-            CursorIcon::Custom(CustomCursor::Url { url, hotspot }) => {
-                let cache_key = CustomCursorCacheKey::Url(url.clone());
+            CursorIcon::Custom(CustomCursor::Url(c)) => {
+                let cache_key = CustomCursorCacheKey::Url(c.url.clone());
 
                 if cursor_cache.0.contains_key(&cache_key) {
                     CursorSource::CustomCached(cache_key)
                 } else {
                     use crate::CustomCursorExtWebSys;
-                    let source = WinitCustomCursor::from_url(url.clone(), hotspot.0, hotspot.1);
+                    let source =
+                        WinitCustomCursor::from_url(c.url.clone(), c.hotspot.0, c.hotspot.1);
                     CursorSource::Custom((cache_key, source))
                 }
             }

@@ -30,6 +30,8 @@ fn main() {
                     },
                     // We can also change color of the overlay
                     text_color: OverlayColor::GREEN,
+                    // We can also set the refresh interval for the FPS counter
+                    refresh_interval: core::time::Duration::from_millis(100),
                     enabled: true,
                 },
             },

@@ -19,9 +19,9 @@ use bevy::{
         backend::HitData,
         pointer::{Location, PointerId},
     },
+    platform_support::collections::{HashMap, HashSet},
     prelude::*,
     render::camera::NormalizedRenderTarget,
-    utils::{HashMap, HashSet},
 };
 
 fn main() {

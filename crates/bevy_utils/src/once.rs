@@ -1,8 +1,4 @@
-#[cfg(feature = "portable-atomic")]
-use portable_atomic::{AtomicBool, Ordering};
-
-#[cfg(not(feature = "portable-atomic"))]
-use core::sync::atomic::{AtomicBool, Ordering};
+use bevy_platform_support::sync::atomic::{AtomicBool, Ordering};
 
 /// Wrapper around an [`AtomicBool`], abstracting the backing implementation and
 /// ordering considerations.

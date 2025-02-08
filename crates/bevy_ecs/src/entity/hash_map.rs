@@ -1,3 +1,7 @@
+//! Contains the [`EntityHashMap`] type, a [`HashMap`] pre-configured to use [`EntityHash`] hashing.
+//!
+//! This module is a lightweight wrapper around Bevy's [`HashMap`] that is more performant for [`Entity`] keys.
+
 use core::{
     fmt::{self, Debug, Formatter},
     iter::FusedIterator,
@@ -5,14 +9,15 @@ use core::{
     ops::{Deref, DerefMut, Index},
 };
 
+use bevy_platform_support::collections::hash_map::{self, HashMap};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::hashbrown::hash_map::{self, HashMap};
 
 use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 
 /// A [`HashMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityHashMap<V>(pub(crate) HashMap<Entity, V, EntityHash>);
 
@@ -22,7 +27,7 @@ impl<V> EntityHashMap<V> {
     /// Equivalent to [`HashMap::with_hasher(EntityHash)`].
     ///
     /// [`HashMap::with_hasher(EntityHash)`]: HashMap::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(HashMap::with_hasher(EntityHash))
     }
 
@@ -145,7 +150,7 @@ impl<V> IntoIterator for EntityHashMap<V> {
 /// An iterator over the keys of a [`EntityHashMap`] in arbitrary order.
 /// The iterator element type is `&'a Entity`.
 ///
-/// /// This struct is created by the [`keys`] method on [`EntityHashMap`]. See its documentation for more.
+/// This struct is created by the [`keys`] method on [`EntityHashMap`]. See its documentation for more.
 ///
 /// [`keys`]: EntityHashMap::keys
 pub struct Keys<'a, V, S = EntityHash>(hash_map::Keys<'a, Entity, V>, PhantomData<S>);
@@ -162,12 +167,6 @@ impl<'a, V> Deref for Keys<'a, V> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<V> DerefMut for Keys<'_, V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
@@ -226,12 +225,6 @@ impl<V> Deref for IntoKeys<V> {
 
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-impl<V> DerefMut for IntoKeys<V> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 

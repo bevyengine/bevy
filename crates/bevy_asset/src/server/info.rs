@@ -4,10 +4,16 @@ use crate::{
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
 };
-use alloc::sync::{Arc, Weak};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    sync::{Arc, Weak},
+    vec::Vec,
+};
 use bevy_ecs::world::World;
+use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::{Entry, HashMap, HashSet, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use either::Either;
