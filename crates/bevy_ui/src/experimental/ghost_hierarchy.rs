@@ -21,13 +21,7 @@ use smallvec::SmallVec;
 #[derive(Component, Debug, Copy, Clone, Reflect)]
 #[cfg_attr(feature = "ghost_nodes", derive(Default))]
 #[reflect(Component, Debug)]
-#[require(
-    Visibility,
-    Transform,
-    ComputedNodeTarge,
-    ComputedNodeTarge,
-    ComputedNodeTargetCamera
-)]
+#[require(Visibility, Transform, ComputedNodeTargetCamera)]
 pub struct GhostNode;
 
 #[cfg(feature = "ghost_nodes")]
