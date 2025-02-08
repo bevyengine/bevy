@@ -519,7 +519,7 @@ pub struct MeshInputUniform {
     ///
     /// The shader compared this field to the current frame number in order to
     /// determine whether [`Self::previous_input_index`] is valid.
-    pub previous_input_frame_number: u32,
+    pub previous_input_frame_count: u32,
     /// The index of this mesh's first vertex in the vertex buffer.
     ///
     /// Multiple meshes can be packed into a single vertex buffer (see
@@ -1146,7 +1146,7 @@ impl RenderMeshInstanceGpuBuilder {
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
             previous_input_index: u32::MAX,
-            previous_input_frame_number: u32::MAX,
+            previous_input_frame_count: u32::MAX,
             first_vertex_index,
             first_index_index,
             index_count: if mesh_is_indexed {

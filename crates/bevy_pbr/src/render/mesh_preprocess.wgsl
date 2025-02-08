@@ -193,9 +193,9 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 #endif
 
     // Look up the previous model matrix.
-    let previous_input_frame_number = current_input[input_index].previous_input_frame_number;
+    let previous_input_frame_count = current_input[input_index].previous_input_frame_count;
     let previous_input_index = current_input[input_index].previous_input_index;
-    let previous_input_is_valid = previous_input_frame_number + 1 == view.frame_number;
+    let previous_input_is_valid = previous_input_frame_count + 1 == view.frame_count;
     var previous_world_from_local_affine_transpose: mat3x4<f32>;
     if (previous_input_is_valid && previous_input_index != 0xffffffffu) {
         previous_world_from_local_affine_transpose =

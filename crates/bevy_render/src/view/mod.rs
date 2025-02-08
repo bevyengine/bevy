@@ -2,6 +2,7 @@ pub mod visibility;
 pub mod window;
 
 use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
@@ -120,7 +121,7 @@ impl Plugin for ViewPlugin {
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<FrameNumber>().add_systems(
+            render_app.add_systems(
                 Render,
                 (
                     // `TextureView`s need to be dropped before reconfiguring window surfaces.
@@ -137,7 +138,6 @@ impl Plugin for ViewPlugin {
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
                     prepare_view_uniforms.in_set(RenderSet::PrepareResources),
-                    advance_frame.in_set(RenderSet::Cleanup),
                 ),
             );
         }
@@ -569,7 +569,7 @@ pub struct ViewUniform {
     pub frustum: [Vec4; 6],
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
-    pub frame_number: u32,
+    pub frame_count: u32,
 }
 
 #[derive(Resource)]
@@ -878,12 +878,6 @@ impl ViewDepthTexture {
     }
 }
 
-/// A number that starts at 0 and increments by 1 every frame.
-///
-/// This is useful for determining which frame cached data belongs to.
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct FrameNumber(pub u32);
-
 pub fn prepare_view_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -897,7 +891,7 @@ pub fn prepare_view_uniforms(
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
-    frame_number: Res<FrameNumber>,
+    frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -951,7 +945,7 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
-                frame_number: **frame_number,
+                frame_count: frame_count.0,
             }),
         };
 
@@ -1116,9 +1110,4 @@ pub fn prepare_view_targets(
             out_texture: out_attachment.clone(),
         });
     }
-}
-
-/// Updates the [`FrameNumber`] at frame end.
-pub fn advance_frame(mut frame_number: ResMut<FrameNumber>) {
-    **frame_number += 1;
 }

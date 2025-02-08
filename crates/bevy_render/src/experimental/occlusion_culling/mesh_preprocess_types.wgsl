@@ -11,7 +11,7 @@ struct MeshInput {
     // Various flags.
     flags: u32,
     previous_input_index: u32,
-    previous_input_frame_number: u32,
+    previous_input_frame_count: u32,
     first_vertex_index: u32,
     first_index_index: u32,
     index_count: u32,
