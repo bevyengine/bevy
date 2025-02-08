@@ -940,12 +940,20 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some(pipeline_id) = specialized_material_pipeline_cache
+            let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
                 .get(&(*view_entity, *visible_entity))
-                .map(|(_, pipeline_id)| *pipeline_id)
+                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
             else {
                 continue;
             };
+
+            // Skip the entity if it's cached in a bin and up to date.
+            if opaque_phase.validate_cached_entity(*visible_entity, current_change_tick)
+                || alpha_mask_phase.validate_cached_entity(*visible_entity, current_change_tick)
+            {
+                continue;
+            }
+
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -997,6 +1005,7 @@ pub fn queue_material_meshes<M: Material>(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
                         ),
+                        current_change_tick,
                     );
                 }
                 // Alpha mask
@@ -1019,6 +1028,7 @@ pub fn queue_material_meshes<M: Material>(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
                         ),
+                        current_change_tick,
                     );
                 }
                 RenderPhaseType::Transparent => {
@@ -1036,6 +1046,10 @@ pub fn queue_material_meshes<M: Material>(
                 }
             }
         }
+
+        // Remove invalid entities from the bins.
+        opaque_phase.sweep_old_entities();
+        alpha_mask_phase.sweep_old_entities();
     }
 }
 
