@@ -940,6 +940,7 @@ impl FromWorld for GpuPreprocessingSupport {
                 | Features::MULTI_DRAW_INDIRECT
                 | Features::PUSH_CONSTANTS,
         );
+        // Depth downsampling for occlusion culling requires 12 textures
         let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12;
         let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
             DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
