@@ -188,12 +188,12 @@ fn button_system(
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,
 ) {
-    for (interaction, target_camera, RotateCamera(direction)) in &interaction_query {
+    for (interaction, computed_target, RotateCamera(direction)) in &interaction_query {
         if let Interaction::Pressed = *interaction {
             // Since TargetCamera propagates to the children, we can use it to find
             // which side of the screen the button is on.
-            if let Some(mut camera_transform) = target_camera
-                .get()
+            if let Some(mut camera_transform) = computed_target
+                .camera()
                 .and_then(|camera| camera_query.get_mut(camera).ok())
             {
                 let angle = match direction {
