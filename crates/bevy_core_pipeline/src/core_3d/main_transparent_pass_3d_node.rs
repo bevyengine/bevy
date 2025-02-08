@@ -5,7 +5,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
-    render_resource::{RenderPassDescriptor, StoreOp},
+    render_resource::RenderPassDescriptor,
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -55,13 +55,7 @@ impl ViewNode for MainTransparentPass3dNode {
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 color_attachments: &[Some(target.get_color_attachment())],
-                // NOTE: For the transparent pass we load the depth buffer. There should be no
-                // need to write to it, but store is set to `true` as a workaround for issue #3776,
-                // https://github.com/bevyengine/bevy/issues/3776
-                // so that wgpu does not clear the depth buffer.
-                // As the opaque and alpha mask passes run first, opaque meshes can occlude
-                // transparent ones.
-                depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
+                depth_stencil_attachment: Some(depth.get_read_only_attachment()),
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
