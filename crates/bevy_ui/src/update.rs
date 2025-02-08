@@ -2,8 +2,8 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, ComputedNodeScaleFactor, ComputedNodeTargetCamera, ComputedNodeTargetSize,
-    DefaultUiCamera, Display, Node, OverflowAxis, UiScale, UiTargetCamera,
+    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
+    UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -143,28 +143,24 @@ pub fn update_ui_context_system(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
-    mut context_query: Query<(
-        &mut ComputedNodeScaleFactor,
-        &mut ComputedNodeTargetSize,
-        &mut ComputedNodeTargetCamera,
-    )>,
+    mut computed_target_query: Query<&mut ComputedNodeTarget>,
     ui_children: UiChildren,
-    reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTargetCamera>)>,
+    reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTarget>)>,
     mut visited: Local<EntityHashSet>,
 ) {
     visited.clear();
     let default_camera_entity = default_ui_camera.get();
 
     for root_entity in ui_root_nodes.iter() {
-        let camera_entity = target_camera_query
+        let camera = target_camera_query
             .get(root_entity)
             .ok()
             .map(UiTargetCamera::entity)
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
-        let (new_scale_factor, new_target_size) = camera_query
-            .get(camera_entity)
+        let (scale_factor, physical_size) = camera_query
+            .get(camera)
             .ok()
             .map(|camera| {
                 (
@@ -176,28 +172,27 @@ pub fn update_ui_context_system(
 
         update_contexts_recursively(
             root_entity,
-            new_scale_factor,
-            new_target_size,
-            camera_entity,
+            ComputedNodeTarget {
+                camera,
+                scale_factor,
+                physical_size,
+            },
             &ui_children,
-            &mut context_query,
+            &mut computed_target_query,
             &mut visited,
         );
     }
 
     for (entity, child_of) in reparented_nodes.iter() {
-        let Ok((new_scale_factor, new_target_size, camera_entity)) = context_query.get(child_of.0)
-        else {
+        let Ok(computed_target) = computed_target_query.get(child_of.0) else {
             continue;
         };
 
         update_contexts_recursively(
             entity,
-            new_scale_factor.0,
-            new_target_size.0,
-            camera_entity.0,
+            *computed_target,
             &ui_children,
-            &mut context_query,
+            &mut computed_target_query,
             &mut visited,
         );
     }
@@ -205,15 +200,9 @@ pub fn update_ui_context_system(
 
 fn update_contexts_recursively(
     entity: Entity,
-    scale_factor: f32,
-    target_size: UVec2,
-    camera: Entity,
+    inherited_computed_target: ComputedNodeTarget,
     ui_children: &UiChildren,
-    query: &mut Query<(
-        &mut ComputedNodeScaleFactor,
-        &mut ComputedNodeTargetSize,
-        &mut ComputedNodeTargetCamera,
-    )>,
+    query: &mut Query<&mut ComputedNodeTarget>,
     visited: &mut EntityHashSet,
 ) {
     if !visited.insert(entity) {
@@ -221,21 +210,13 @@ fn update_contexts_recursively(
     }
     if query
         .get_mut(entity)
-        .map(
-            |(mut node_scale_factor, mut node_target_size, mut node_camera)| {
-                node_scale_factor.set_if_neq(ComputedNodeScaleFactor(scale_factor))
-                    | node_target_size.set_if_neq(ComputedNodeTargetSize(target_size))
-                    | node_camera.set_if_neq(ComputedNodeTargetCamera(camera))
-            },
-        )
+        .map(|mut computed_target| computed_target.set_if_neq(inherited_computed_target))
         .unwrap_or(false)
     {
         for child in ui_children.iter_ui_children(entity) {
             update_contexts_recursively(
                 child,
-                scale_factor,
-                target_size,
-                camera,
+                inherited_computed_target,
                 ui_children,
                 query,
                 visited,
@@ -268,9 +249,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::ComputedNodeScaleFactor;
-    use crate::ComputedNodeTargetCamera;
-    use crate::ComputedNodeTargetSize;
+    use crate::ComputedNodeTarget;
     use crate::IsDefaultUiCamera;
     use crate::Node;
     use crate::UiScale;
@@ -307,11 +286,11 @@ mod tests {
         let (mut world, mut schedule) = setup_test_world_and_schedule();
 
         let scale_factor = 10.;
-        let resolution = UVec2::new(1000, 500);
+        let physical_size = UVec2::new(1000, 500);
 
         world.spawn((
             Window {
-                resolution: WindowResolution::new(resolution.x as f32, resolution.y as f32)
+                resolution: WindowResolution::new(physical_size.x as f32, physical_size.y as f32)
                     .with_scale_factor_override(10.),
                 ..Default::default()
             },
@@ -325,22 +304,12 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
-            scale_factor
-        );
-
-        assert_eq!(
-            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
-            resolution
-        );
-
-        assert_eq!(
-            world
-                .get::<ComputedNodeTargetCamera>(uinode)
-                .unwrap()
-                .get()
-                .unwrap(),
-            camera
+            *world.get::<ComputedNodeTarget>(uinode).unwrap(),
+            ComputedNodeTarget {
+                camera,
+                physical_size,
+                scale_factor,
+            }
         );
     }
 
@@ -389,7 +358,7 @@ mod tests {
 
         schedule.run(&mut world);
 
-        for (uinode, camera, scale_factor, size) in [
+        for (uinode, camera, scale_factor, physical_size) in [
             (uinode1a, camera1, scale1, size1),
             (uinode1b, camera1, scale1, size1),
             (uinode2a, camera2, scale2, size2),
@@ -397,18 +366,12 @@ mod tests {
             (uinode2c, camera2, scale2, size2),
         ] {
             assert_eq!(
-                world.get::<ComputedNodeTargetCamera>(uinode).unwrap().get(),
-                Some(camera)
-            );
-
-            assert_eq!(
-                world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
-                scale_factor
-            );
-
-            assert_eq!(
-                world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
-                size
+                *world.get::<ComputedNodeTarget>(uinode).unwrap(),
+                ComputedNodeTarget {
+                    camera,
+                    scale_factor,
+                    physical_size,
+                }
             );
         }
     }
@@ -455,20 +418,26 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode)
+                .unwrap()
+                .scale_factor,
             scale1
         );
 
         assert_eq!(
-            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode)
+                .unwrap()
+                .physical_size,
             size1
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTargetCamera>(uinode)
+                .get::<ComputedNodeTarget>(uinode)
                 .unwrap()
-                .get()
+                .camera()
                 .unwrap(),
             camera1
         );
@@ -478,20 +447,26 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode)
+                .unwrap()
+                .scale_factor,
             scale2
         );
 
         assert_eq!(
-            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode)
+                .unwrap()
+                .physical_size,
             size2
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTargetCamera>(uinode)
+                .get::<ComputedNodeTarget>(uinode)
                 .unwrap()
-                .get()
+                .camera()
                 .unwrap(),
             camera2
         );
@@ -541,29 +516,35 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            world.get::<ComputedNodeScaleFactor>(uinode1).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode1)
+                .unwrap()
+                .scale_factor(),
             scale1
         );
 
         assert_eq!(
-            world.get::<ComputedNodeTargetSize>(uinode1).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode1)
+                .unwrap()
+                .physical_size(),
             size1
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTargetCamera>(uinode1)
+                .get::<ComputedNodeTarget>(uinode1)
                 .unwrap()
-                .get()
+                .camera()
                 .unwrap(),
             camera1
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTargetCamera>(uinode2)
+                .get::<ComputedNodeTarget>(uinode2)
                 .unwrap()
-                .get()
+                .camera()
                 .unwrap(),
             camera1
         );
@@ -574,29 +555,35 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            world.get::<ComputedNodeScaleFactor>(uinode1).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode1)
+                .unwrap()
+                .scale_factor(),
             scale2
         );
 
         assert_eq!(
-            world.get::<ComputedNodeTargetSize>(uinode1).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode1)
+                .unwrap()
+                .physical_size(),
             size2
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTargetCamera>(uinode1)
+                .get::<ComputedNodeTarget>(uinode1)
                 .unwrap()
-                .get()
+                .camera()
                 .unwrap(),
             camera2
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTargetCamera>(uinode2)
+                .get::<ComputedNodeTarget>(uinode2)
                 .unwrap()
-                .get()
+                .camera()
                 .unwrap(),
             camera1
         );
@@ -630,20 +617,26 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode)
+                .unwrap()
+                .scale_factor,
             scale
         );
 
         assert_eq!(
-            world.get::<ComputedNodeTargetSize>(uinode).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode)
+                .unwrap()
+                .physical_size,
             size
         );
 
         assert_eq!(
             world
-                .get::<ComputedNodeTargetCamera>(uinode)
+                .get::<ComputedNodeTarget>(uinode)
                 .unwrap()
-                .get()
+                .camera()
                 .unwrap(),
             camera
         );
@@ -653,7 +646,10 @@ mod tests {
         schedule.run(&mut world);
 
         assert_eq!(
-            world.get::<ComputedNodeScaleFactor>(uinode).unwrap().get(),
+            world
+                .get::<ComputedNodeTarget>(uinode)
+                .unwrap()
+                .scale_factor(),
             2.
         );
     }

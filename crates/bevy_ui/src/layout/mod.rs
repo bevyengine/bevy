@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    BorderRadius, ComputedNode, ComputedNodeScaleFactor, ComputedNodeTargetSize, ContentSize,
-    Display, LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition, Val,
+    BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
+    Outline, OverflowAxis, ScrollPosition, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -77,8 +77,7 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Ref<ComputedNodeTargetSize>,
-        Ref<ComputedNodeScaleFactor>,
+        Ref<ComputedNodeTarget>,
     )>,
     computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
@@ -105,15 +104,17 @@ pub fn ui_layout_system(
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
-        .for_each(|(entity, node, content_size, target_size, scale_factor)| {
-            if target_size.is_changed()
-                || scale_factor.is_changed()
+        .for_each(|(entity, node, content_size, computed_target)| {
+            if computed_target.is_changed()
                 || node.is_changed()
                 || content_size
                     .as_ref()
                     .is_some_and(|c| c.is_changed() || c.measure.is_some())
             {
-                let layout_context = LayoutContext::new(scale_factor.0, target_size.0.as_vec2());
+                let layout_context = LayoutContext::new(
+                    computed_target.scale_factor,
+                    computed_target.physical_size.as_vec2(),
+                );
                 let measure = content_size.and_then(|mut c| c.measure.take());
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
@@ -159,11 +160,11 @@ with UI components as a child of an entity without UI components, your UI layout
     });
 
     for ui_root_entity in ui_root_node_query.iter() {
-        let (_, _, _, target_size, target_scale_factor) = node_query.get(ui_root_entity).unwrap();
+        let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
         ui_surface.compute_layout(
             ui_root_entity,
-            target_size.0,
+            computed_target.physical_size,
             &mut buffer_query,
             &mut font_system,
         );
@@ -176,7 +177,7 @@ with UI components as a child of an entity without UI components, your UI layout
             None,
             &mut node_transform_query,
             &ui_children,
-            target_scale_factor.0.recip(),
+            computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
         );

@@ -1,7 +1,7 @@
 //! This module contains [`GhostNode`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
 
 #[cfg(feature = "ghost_nodes")]
-use crate::ui_node::{ComputedNodeScaleFactor, ComputedNodeTargetCamera, ComputedNodeTargetSize};
+use crate::ui_node::{ComputedNodeTarget, ComputedNodeTarget, ComputedNodeTarget};
 use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
 #[cfg(feature = "ghost_nodes")]
@@ -24,8 +24,8 @@ use smallvec::SmallVec;
 #[require(
     Visibility,
     Transform,
-    ComputedNodeScaleFactor,
-    ComputedNodeTargetSize,
+    ComputedNodeTarge,
+    ComputedNodeTarge,
     ComputedNodeTargetCamera
 )]
 pub struct GhostNode;

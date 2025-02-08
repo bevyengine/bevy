@@ -323,9 +323,7 @@ impl From<Vec2> for ScrollPosition {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
-    ComputedNodeTargetSize,
-    ComputedNodeScaleFactor,
-    ComputedNodeTargetCamera,
+    ComputedNodeTarget,
     BackgroundColor,
     BorderColor,
     BorderRadius,
@@ -2768,54 +2766,40 @@ impl Default for BoxShadowSamples {
     }
 }
 
-/// Scale factor of the UI node's render target.
-#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
-#[reflect(Component, Default)]
-pub struct ComputedNodeScaleFactor(pub(crate) f32);
-
-impl Default for ComputedNodeScaleFactor {
-    fn default() -> Self {
-        Self(1.0)
-    }
-}
-
-impl ComputedNodeScaleFactor {
-    pub fn get(&self) -> f32 {
-        self.0
-    }
-}
-
-/// Size of the UI node's render target in physical pixels.
-#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
-#[reflect(Component, Default)]
-pub struct ComputedNodeTargetSize(pub(crate) UVec2);
-
-impl Default for ComputedNodeTargetSize {
-    fn default() -> Self {
-        Self(UVec2::ZERO)
-    }
-}
-
-impl ComputedNodeTargetSize {
-    pub fn get(&self) -> UVec2 {
-        self.0
-    }
-}
-
 /// ID of the UI node's camera target.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
-pub struct ComputedNodeTargetCamera(pub(crate) Entity);
+pub struct ComputedNodeTarget {
+    pub(crate) camera: Entity,
+    pub(crate) scale_factor: f32,
+    pub(crate) physical_size: UVec2,
+}
 
-impl Default for ComputedNodeTargetCamera {
+impl Default for ComputedNodeTarget {
     fn default() -> Self {
-        Self(Entity::PLACEHOLDER)
+        Self {
+            camera: Entity::PLACEHOLDER,
+            scale_factor: 1.,
+            physical_size: UVec2::ZERO,
+        }
     }
 }
 
-impl ComputedNodeTargetCamera {
-    pub fn get(&self) -> Option<Entity> {
-        Some(self.0).filter(|&entity| entity != Entity::PLACEHOLDER)
+impl ComputedNodeTarget {
+    pub fn camera(&self) -> Option<Entity> {
+        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
+    }
+
+    pub const fn scale_factor(&self) -> f32 {
+        self.scale_factor
+    }
+
+    pub const fn physical_size(&self) -> UVec2 {
+        self.physical_size
+    }
+
+    pub fn logical_size(&self) -> Vec2 {
+        self.physical_size.as_vec2() / self.scale_factor
     }
 }
 

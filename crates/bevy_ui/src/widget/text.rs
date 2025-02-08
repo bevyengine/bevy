@@ -1,5 +1,5 @@
 use crate::{
-    ComputedNode, ComputedNodeScaleFactor, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
+    ComputedNode, ComputedNodeTarget, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
     NodeMeasure,
 };
 use bevy_asset::Assets;
@@ -254,7 +254,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Ref<ComputedNodeScaleFactor>,
+            Ref<ComputedNodeTarget>,
         ),
         With<Node>,
     >,
@@ -262,9 +262,9 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, scale_factor) in &mut text_query {
+    for (entity, block, content_size, text_flags, computed, computed_target) in &mut text_query {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-        if scale_factor.is_changed()
+        if computed_target.is_changed()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
@@ -272,7 +272,7 @@ pub fn measure_text_system(
             create_text_measure(
                 entity,
                 &fonts,
-                scale_factor.0.into(),
+                computed_target.scale_factor.into(),
                 text_reader.iter(entity),
                 block,
                 &mut text_pipeline,
