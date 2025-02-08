@@ -8,7 +8,7 @@
 
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
-    ecs::system::StaticSystemParam,
+    ecs::{component::Tick, system::StaticSystemParam},
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
@@ -298,6 +298,7 @@ fn queue_custom_mesh_pipeline(
         >,
     >,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
+    mut change_tick: Local<Tick>,
 ) {
     let system_param_item = param.into_inner();
 
@@ -400,6 +401,10 @@ fn queue_custom_mesh_pipeline(
                 // can fail you need to handle the error here
                 .expect("Failed to specialize mesh pipeline");
 
+            // Bump the change tick so that Bevy is forced to rebuild the bin.
+            let next_change_tick = change_tick.get() + 1;
+            change_tick.set(next_change_tick);
+
             // Add the mesh with our specialized pipeline
             opaque_phase.add(
                 Opaque3dBatchSetKey {
@@ -420,6 +425,7 @@ fn queue_custom_mesh_pipeline(
                 // This example supports batching, but if your pipeline doesn't
                 // support it you can use `BinnedRenderPhaseType::UnbatchableMesh`
                 BinnedRenderPhaseType::BatchableMesh,
+                *change_tick,
             );
 
             // Create a *work item*. A work item tells the Bevy renderer to
