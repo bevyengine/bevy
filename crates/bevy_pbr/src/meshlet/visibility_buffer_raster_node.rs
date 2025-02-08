@@ -84,10 +84,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             downsample_depth_first_shadow_view_pipeline,
             downsample_depth_second_shadow_view_pipeline,
             visibility_buffer_software_raster_pipeline,
-            visibility_buffer_software_raster_depth_only_pipeline,
+            visibility_buffer_software_raster_shadow_view_pipeline,
             visibility_buffer_hardware_raster_pipeline,
-            visibility_buffer_hardware_raster_depth_only_pipeline,
-            visibility_buffer_hardware_raster_depth_only_unclipped_pipeline,
+            visibility_buffer_hardware_raster_shadow_view_pipeline,
+            visibility_buffer_hardware_raster_shadow_view_unclipped_pipeline,
             resolve_depth_pipeline,
             resolve_depth_shadow_view_pipeline,
             resolve_material_depth_pipeline,
@@ -107,6 +107,10 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster");
+        render_context.command_encoder().clear_texture(
+            &meshlet_view_resources.visibility_buffer.texture,
+            &ImageSubresourceRange::default(),
+        );
         render_context.command_encoder().clear_buffer(
             &meshlet_view_resources.second_pass_candidates_buffer,
             0,
@@ -189,7 +193,6 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         resolve_depth(
             render_context,
             view_depth.get_attachment(StoreOp::Store),
-            meshlet_view_resources,
             meshlet_view_bind_groups,
             resolve_depth_pipeline,
             camera,
@@ -226,15 +229,19 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
 
             let shadow_visibility_buffer_hardware_raster_pipeline =
                 if let LightEntity::Directional { .. } = light_type {
-                    visibility_buffer_hardware_raster_depth_only_unclipped_pipeline
+                    visibility_buffer_hardware_raster_shadow_view_unclipped_pipeline
                 } else {
-                    visibility_buffer_hardware_raster_depth_only_pipeline
+                    visibility_buffer_hardware_raster_shadow_view_pipeline
                 };
 
             render_context.command_encoder().push_debug_group(&format!(
                 "meshlet_visibility_buffer_raster: {}",
                 shadow_view.pass_name
             ));
+            render_context.command_encoder().clear_texture(
+                &meshlet_view_resources.visibility_buffer.texture,
+                &ImageSubresourceRange::default(),
+            );
             render_context.command_encoder().clear_buffer(
                 &meshlet_view_resources.second_pass_candidates_buffer,
                 0,
@@ -264,7 +271,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
-                visibility_buffer_software_raster_depth_only_pipeline,
+                visibility_buffer_software_raster_shadow_view_pipeline,
                 shadow_visibility_buffer_hardware_raster_pipeline,
                 None,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
@@ -301,7 +308,7 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 &meshlet_view_resources.dummy_render_target.default_view,
                 meshlet_view_bind_groups,
                 view_offset,
-                visibility_buffer_software_raster_depth_only_pipeline,
+                visibility_buffer_software_raster_shadow_view_pipeline,
                 shadow_visibility_buffer_hardware_raster_pipeline,
                 None,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
@@ -309,7 +316,6 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             resolve_depth(
                 render_context,
                 shadow_view.depth_attachment.get_attachment(StoreOp::Store),
-                meshlet_view_resources,
                 meshlet_view_bind_groups,
                 resolve_depth_shadow_view_pipeline,
                 camera,
@@ -478,7 +484,6 @@ fn raster_pass(
 fn resolve_depth(
     render_context: &mut RenderContext,
     depth_stencil_attachment: RenderPassDepthStencilAttachment,
-    meshlet_view_resources: &MeshletViewResources,
     meshlet_view_bind_groups: &MeshletViewBindGroups,
     resolve_depth_pipeline: &RenderPipeline,
     camera: &ExtractedCamera,
@@ -494,11 +499,6 @@ fn resolve_depth(
         resolve_pass.set_camera_viewport(viewport);
     }
     resolve_pass.set_render_pipeline(resolve_depth_pipeline);
-    resolve_pass.set_push_constants(
-        ShaderStages::FRAGMENT,
-        0,
-        &meshlet_view_resources.view_size.x.to_le_bytes(),
-    );
     resolve_pass.set_bind_group(0, &meshlet_view_bind_groups.resolve_depth, &[]);
     resolve_pass.draw(0..3, 0..1);
 }
@@ -532,11 +532,6 @@ fn resolve_material_depth(
             resolve_pass.set_camera_viewport(viewport);
         }
         resolve_pass.set_render_pipeline(resolve_material_depth_pipeline);
-        resolve_pass.set_push_constants(
-            ShaderStages::FRAGMENT,
-            0,
-            &meshlet_view_resources.view_size.x.to_le_bytes(),
-        );
         resolve_pass.set_bind_group(0, resolve_material_depth_bind_group, &[]);
         resolve_pass.draw(0..3, 0..1);
     }
