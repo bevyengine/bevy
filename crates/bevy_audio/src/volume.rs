@@ -123,12 +123,22 @@ impl PartialOrd for Volume {
     }
 }
 
+#[inline]
+fn decibels_to_linear(decibels: f32) -> f32 {
+    ops::powf(10.0f32, decibels / 20.0)
+}
+
+#[inline]
+fn linear_to_decibels(linear: f32) -> f32 {
+    20.0 * ops::log10(linear.abs())
+}
+
 impl Volume {
     /// Returns the volume in linear scale as a float.
     pub fn to_linear(&self) -> f32 {
         match self {
             Self::Linear(v) => v.abs(),
-            Self::Decibels(v) => ops::powf(10.0f32, v / 20.0),
+            Self::Decibels(v) => decibels_to_linear(*v),
         }
     }
 
@@ -138,7 +148,7 @@ impl Volume {
     /// is `0.0`, this method returns negative infinity.
     pub fn to_decibels(&self) -> f32 {
         match self {
-            Self::Linear(v) => 20.0 * ops::log10(v.abs()),
+            Self::Linear(v) => linear_to_decibels(*v),
             Self::Decibels(v) => *v,
         }
     }
@@ -158,8 +168,18 @@ impl core::ops::Add<Self> for Volume {
             (Decibels(a), Decibels(b)) => Decibels(
                 10.0 * ops::log10(ops::powf(10.0f32, a / 10.0) + ops::powf(10.0f32, b / 10.0)),
             ),
-            (a, b) => panic!("not implemented: {:?} + {:?}", a, b),
+            // {Linear, Decibels} favors the left hand side of the operation by
+            // first converting the right hand side to the same type as the left
+            // hand side and then performing the operation.
+            (Linear(..), Decibels(db)) => self + Linear(decibels_to_linear(db)),
+            (Decibels(..), Linear(l)) => self + Decibels(linear_to_decibels(l)),
         }
+    }
+}
+
+impl core::ops::AddAssign<Self> for Volume {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = *self + rhs;
     }
 }
 
@@ -174,14 +194,72 @@ impl core::ops::Sub<Self> for Volume {
             (Decibels(a), Decibels(b)) => Decibels(
                 10.0 * ops::log10(ops::powf(10.0f32, a / 10.0) - ops::powf(10.0f32, b / 10.0)),
             ),
-            (a, b) => panic!("not implemented: {:?} - {:?}", a, b),
+            // {Linear, Decibels} favors the left hand side of the operation by
+            // first converting the right hand side to the same type as the left
+            // hand side and then performing the operation.
+            (Linear(..), Decibels(db)) => self - Linear(decibels_to_linear(db)),
+            (Decibels(..), Linear(l)) => self - Decibels(linear_to_decibels(l)),
         }
+    }
+}
+
+impl core::ops::SubAssign<Self> for Volume {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
+impl core::ops::Mul<Self> for Volume {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self {
+        use Volume::{Decibels, Linear};
+
+        match (self, rhs) {
+            (Linear(a), Linear(b)) => Linear(a * b),
+            (Decibels(a), Decibels(b)) => Decibels(a + b),
+            // {Linear, Decibels} favors the left hand side of the operation by
+            // first converting the right hand side to the same type as the left
+            // hand side and then performing the operation.
+            (Linear(..), Decibels(db)) => self * Linear(decibels_to_linear(db)),
+            (Decibels(..), Linear(l)) => self * Decibels(linear_to_decibels(l)),
+        }
+    }
+}
+
+impl core::ops::MulAssign<Self> for Volume {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs;
+    }
+}
+
+impl core::ops::Div<Self> for Volume {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self {
+        use Volume::{Decibels, Linear};
+
+        match (self, rhs) {
+            (Linear(a), Linear(b)) => Linear(a / b),
+            (Decibels(a), Decibels(b)) => Decibels(a - b),
+            // {Linear, Decibels} favors the left hand side of the operation by
+            // first converting the right hand side to the same type as the left
+            // hand side and then performing the operation.
+            (Linear(..), Decibels(db)) => self / Linear(decibels_to_linear(db)),
+            (Decibels(..), Linear(l)) => self / Decibels(linear_to_decibels(l)),
+        }
+    }
+}
+
+impl core::ops::DivAssign<Self> for Volume {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = *self / rhs;
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Volume;
+    use super::Volume::{self, Decibels, Linear};
 
     /// Based on [Wikipedia's Decibel article].
     ///
@@ -218,8 +296,6 @@ mod tests {
 
     #[test]
     fn volume_conversion() {
-        use Volume::{Decibels, Linear};
-
         for (db, linear) in DECIBELS_LINEAR_TABLE {
             for volume in [Linear(linear), Decibels(db), Linear(-linear)] {
                 let db_test = volume.to_decibels();
@@ -248,8 +324,6 @@ mod tests {
 
     #[test]
     fn volume_conversion_special() {
-        use Volume::{Decibels, Linear};
-
         assert!(
             Decibels(f32::INFINITY).to_linear().is_infinite(),
             "Infinite decibels is equivalent to infinite linear scale"
@@ -287,29 +361,27 @@ mod tests {
         );
     }
 
-    #[test]
-    fn volume_ops() {
-        use Volume::{Decibels, Linear};
+    fn assert_approx_eq(a: Volume, b: Volume) {
+        const EPSILON: f32 = 0.0001;
 
-        fn assert_approx_eq(a: Volume, b: Volume) {
-            const EPSILON: f32 = 0.0001;
-
-            match (a, b) {
-                (Decibels(a), Decibels(b)) | (Linear(a), Linear(b)) => assert!(
-                    (a - b).abs() < EPSILON,
-                    "Expected {:?} to be approximately equal to {:?}",
-                    a,
-                    b
-                ),
-                (a, b) => assert!(
-                    (a.to_decibels() - b.to_decibels()).abs() < EPSILON,
-                    "Expected {:?} to be approximately equal to {:?}",
-                    a,
-                    b
-                ),
-            }
+        match (a, b) {
+            (Decibels(a), Decibels(b)) | (Linear(a), Linear(b)) => assert!(
+                (a - b).abs() < EPSILON,
+                "Expected {:?} to be approximately equal to {:?}",
+                a,
+                b
+            ),
+            (a, b) => assert!(
+                (a.to_decibels() - b.to_decibels()).abs() < EPSILON,
+                "Expected {:?} to be approximately equal to {:?}",
+                a,
+                b
+            ),
         }
+    }
 
+    #[test]
+    fn volume_ops_add() {
         // Linear to Linear.
         assert_approx_eq(Linear(0.5) + Linear(0.5), Linear(1.0));
         assert_approx_eq(Linear(0.5) + Linear(0.1), Linear(0.6));
@@ -327,6 +399,21 @@ mod tests {
             Decibels(101.07296),
         );
 
+        // {Linear, Decibels} favors the left hand side of the operation.
+        assert_approx_eq(Linear(0.5) + Decibels(0.0), Decibels(3.0103002));
+        assert_approx_eq(Decibels(0.0) + Linear(0.5), Decibels(3.0103002));
+    }
+
+    #[test]
+    fn volume_ops_add_assign() {
+        // Linear to Linear.
+        let mut volume = Linear(0.5);
+        volume += Linear(0.5);
+        assert_approx_eq(volume, Linear(1.0));
+    }
+
+    #[test]
+    fn volume_ops_sub() {
         // Linear to Linear.
         assert_approx_eq(Linear(0.5) - Linear(0.5), Linear(0.0));
         assert_approx_eq(Linear(0.5) - Linear(0.1), Linear(0.4));
@@ -336,5 +423,89 @@ mod tests {
         assert_eq!(Decibels(0.0) - Decibels(0.0), Decibels(f32::NEG_INFINITY));
         assert_approx_eq(Decibels(6.0) - Decibels(4.0), Decibels(1.6707666));
         assert_eq!(Decibels(-6.0) - Decibels(-6.0), Decibels(f32::NEG_INFINITY));
+    }
+
+    #[test]
+    fn volume_ops_sub_assign() {
+        // Linear to Linear.
+        let mut volume = Linear(0.5);
+        volume -= Linear(0.5);
+        assert_approx_eq(volume, Linear(0.0));
+    }
+
+    #[test]
+    fn volume_ops_mul() {
+        // Linear to Linear.
+        assert_approx_eq(Linear(0.5) * Linear(0.5), Linear(0.25));
+        assert_approx_eq(Linear(0.5) * Linear(0.1), Linear(0.05));
+        assert_approx_eq(Linear(0.5) * Linear(-0.5), Linear(-0.25));
+
+        // Decibels to Decibels.
+        assert_approx_eq(Decibels(0.0) * Decibels(0.0), Decibels(0.0));
+        assert_approx_eq(Decibels(6.0) * Decibels(6.0), Decibels(12.0));
+        assert_approx_eq(Decibels(-6.0) * Decibels(-6.0), Decibels(-12.0));
+
+        // {Linear, Decibels} favors the left hand side of the operation.
+        assert_approx_eq(Linear(0.5) * Decibels(0.0), Linear(0.5));
+        assert_approx_eq(Decibels(0.0) * Linear(0.501), Decibels(-6.003246));
+    }
+
+    #[test]
+    fn volume_ops_mul_assign() {
+        // Linear to Linear.
+        let mut volume = Linear(0.5);
+        volume *= Linear(0.5);
+        assert_approx_eq(volume, Linear(0.25));
+
+        // Decibels to Decibels.
+        let mut volume = Decibels(6.0);
+        volume *= Decibels(6.0);
+        assert_approx_eq(volume, Decibels(12.0));
+
+        // {Linear, Decibels} favors the left hand side of the operation.
+        let mut volume = Linear(0.5);
+        volume *= Decibels(0.0);
+        assert_approx_eq(volume, Linear(0.5));
+        let mut volume = Decibels(0.0);
+        volume *= Linear(0.501);
+        assert_approx_eq(volume, Decibels(-6.003246));
+    }
+
+    #[test]
+    fn volume_ops_div() {
+        // Linear to Linear.
+        assert_approx_eq(Linear(0.5) / Linear(0.5), Linear(1.0));
+        assert_approx_eq(Linear(0.5) / Linear(0.1), Linear(5.0));
+        assert_approx_eq(Linear(0.5) / Linear(-0.5), Linear(-1.0));
+
+        // Decibels to Decibels.
+        assert_approx_eq(Decibels(0.0) / Decibels(0.0), Decibels(0.0));
+        assert_approx_eq(Decibels(6.0) / Decibels(6.0), Decibels(0.0));
+        assert_approx_eq(Decibels(-6.0) / Decibels(-6.0), Decibels(0.0));
+
+        // {Linear, Decibels} favors the left hand side of the operation.
+        assert_approx_eq(Linear(0.5) / Decibels(0.0), Linear(0.5));
+        assert_approx_eq(Decibels(0.0) / Linear(0.501), Decibels(6.003246));
+    }
+
+    #[test]
+    fn volume_ops_div_assign() {
+        // Linear to Linear.
+        let mut volume = Linear(0.5);
+        volume /= Linear(0.5);
+        assert_approx_eq(volume, Linear(1.0));
+
+        // Decibels to Decibels.
+        let mut volume = Decibels(6.0);
+        volume /= Decibels(6.0);
+        assert_approx_eq(volume, Decibels(0.0));
+
+        // {Linear, Decibels} favors the left hand side of the operation.
+        let mut volume = Linear(0.5);
+        volume /= Decibels(0.0);
+        assert_approx_eq(volume, Linear(0.5));
+        let mut volume = Decibels(0.0);
+        volume /= Linear(0.501);
+        assert_approx_eq(volume, Decibels(6.003246));
     }
 }
