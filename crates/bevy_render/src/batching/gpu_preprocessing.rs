@@ -468,7 +468,7 @@ where
 }
 
 /// Initializes work item buffers for a phase in preparation for a new frame.
-fn init_work_item_buffers(
+pub fn init_work_item_buffers(
     work_item_buffers: &mut PreprocessWorkItemBuffers,
     late_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
         LatePreprocessWorkItemIndirectParameters,
