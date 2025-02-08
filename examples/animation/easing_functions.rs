@@ -14,7 +14,7 @@ fn main() {
         .run();
 }
 
-const COLS: usize = 13;
+const COLS: usize = 12;
 const EXTENT: Vec2 = Vec2::new(1172.0, 520.0);
 const PLOT_SIZE: Vec2 = Vec2::splat(80.0);
 
@@ -40,7 +40,6 @@ fn setup(mut commands: Commands) {
         EaseFunction::ElasticIn,
         EaseFunction::BackIn,
         EaseFunction::BounceIn,
-        EaseFunction::Linear,
         // "Out" row
         EaseFunction::SineOut,
         EaseFunction::QuadraticOut,
@@ -54,7 +53,6 @@ fn setup(mut commands: Commands) {
         EaseFunction::ElasticOut,
         EaseFunction::BackOut,
         EaseFunction::BounceOut,
-        EaseFunction::Steps(4),
         // "InOut" row
         EaseFunction::SineInOut,
         EaseFunction::QuadraticInOut,
@@ -68,6 +66,9 @@ fn setup(mut commands: Commands) {
         EaseFunction::ElasticInOut,
         EaseFunction::BackInOut,
         EaseFunction::BounceInOut,
+        // "Other" row
+        EaseFunction::Linear,
+        EaseFunction::Steps(4),
         EaseFunction::Elastic(50.0),
     ]
     .chunks(COLS);
