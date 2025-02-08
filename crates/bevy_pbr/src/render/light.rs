@@ -1830,6 +1830,8 @@ pub fn specialize_shadows<M: Material>(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
@@ -1900,12 +1902,20 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 }
 
+                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(*material_asset_id) else {
+                    continue;
+                };
+
                 let (vertex_slab, index_slab) =
                     mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
                 let batch_set_key = ShadowBatchSetKey {
                     pipeline: *pipeline_id,
                     draw_function: draw_shadow_mesh,
+                    material_bind_group_index: Some(material.binding.group.0),
                     vertex_slab: vertex_slab.unwrap_or_default(),
                     index_slab,
                 };
@@ -1951,6 +1961,11 @@ pub struct ShadowBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
+
+    /// The ID of a bind group specific to the material.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
 
     /// The ID of the slab of GPU memory that contains vertex data.
     ///
