@@ -1,6 +1,6 @@
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MaterialPlugin, MeshMaterial3d};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Asset, AssetApp, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -11,7 +11,8 @@ use bevy_render::{
     render_resource::*,
 };
 
-pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(192598014480025766);
+pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("2646a633-f8e3-4380-87ae-b44d881abbce");
 
 /// A [`Plugin`] that draws wireframes.
 ///

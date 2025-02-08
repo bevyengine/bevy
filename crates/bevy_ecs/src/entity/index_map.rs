@@ -14,6 +14,7 @@ use super::{Entity, EntityHash, EntitySetIterator, TrustedEntityBorrow};
 
 /// A [`IndexMap`] pre-configured to use [`EntityHash`] hashing.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone)]
 pub struct EntityIndexMap<V>(pub(crate) IndexMap<Entity, V, EntityHash>);
 
@@ -23,7 +24,7 @@ impl<V> EntityIndexMap<V> {
     /// Equivalent to [`IndexMap::with_hasher(EntityHash)`].
     ///
     /// [`IndexMap::with_hasher(EntityHash)`]: IndexMap::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(IndexMap::with_hasher(EntityHash))
     }
 

@@ -11,6 +11,7 @@ use indexmap::set::{self, IndexSet};
 use super::{Entity, EntityHash, EntitySetIterator};
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
+#[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default)]
 pub struct EntityIndexSet(pub(crate) IndexSet<Entity, EntityHash>);
 
@@ -20,7 +21,7 @@ impl EntityIndexSet {
     /// Equivalent to [`IndexSet::with_hasher(EntityHash)`].
     ///
     /// [`IndexSet::with_hasher(EntityHash)`]: IndexSet::with_hasher
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(IndexSet::with_hasher(EntityHash))
     }
 
