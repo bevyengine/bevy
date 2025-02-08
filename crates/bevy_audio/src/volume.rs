@@ -165,9 +165,9 @@ impl core::ops::Add<Self> for Volume {
 
         match (self, rhs) {
             (Linear(a), Linear(b)) => Linear(a + b),
-            (Decibels(a), Decibels(b)) => Decibels(
-                10.0 * ops::log10(ops::powf(10.0f32, a / 10.0) + ops::powf(10.0f32, b / 10.0)),
-            ),
+            (Decibels(a), Decibels(b)) => Decibels(linear_to_decibels(
+                decibels_to_linear(a) + decibels_to_linear(b),
+            )),
             // {Linear, Decibels} favors the left hand side of the operation by
             // first converting the right hand side to the same type as the left
             // hand side and then performing the operation.
@@ -191,9 +191,9 @@ impl core::ops::Sub<Self> for Volume {
 
         match (self, rhs) {
             (Linear(a), Linear(b)) => Linear(a - b),
-            (Decibels(a), Decibels(b)) => Decibels(
-                10.0 * ops::log10(ops::powf(10.0f32, a / 10.0) - ops::powf(10.0f32, b / 10.0)),
-            ),
+            (Decibels(a), Decibels(b)) => Decibels(linear_to_decibels(
+                decibels_to_linear(a) - decibels_to_linear(b),
+            )),
             // {Linear, Decibels} favors the left hand side of the operation by
             // first converting the right hand side to the same type as the left
             // hand side and then performing the operation.
@@ -388,20 +388,13 @@ mod tests {
         assert_approx_eq(Linear(0.5) + Linear(-0.5), Linear(0.0));
 
         // Decibels to Decibels.
-        assert_approx_eq(Decibels(0.0) + Decibels(0.0), Decibels(3.0103002));
-        assert_approx_eq(Decibels(6.0) + Decibels(6.0), Decibels(9.0103));
-        assert_approx_eq(Decibels(-6.0) + Decibels(-6.0), Decibels(-2.9897));
-        // https://math.stackexchange.com/a/2486440
-        assert_approx_eq(Decibels(90.0) + Decibels(90.0), Decibels(93.0103));
-        // https://au.noisemeters.com/apps/db-calculator/
-        assert_approx_eq(
-            Decibels(94.0) + Decibels(96.0) + Decibels(98.0),
-            Decibels(101.07296),
-        );
+        assert_approx_eq(Decibels(0.0) + Decibels(0.0), Decibels(6.0206003));
+        assert_approx_eq(Decibels(6.0) + Decibels(6.0), Decibels(12.020599));
+        assert_approx_eq(Decibels(-6.0) + Decibels(-6.0), Decibels(0.020599423));
 
         // {Linear, Decibels} favors the left hand side of the operation.
-        assert_approx_eq(Linear(0.5) + Decibels(0.0), Decibels(3.0103002));
-        assert_approx_eq(Decibels(0.0) + Linear(0.5), Decibels(3.0103002));
+        assert_approx_eq(Linear(0.5) + Decibels(0.0), Linear(1.5));
+        assert_approx_eq(Decibels(0.0) + Linear(0.5), Decibels(3.521825));
     }
 
     #[test]
@@ -421,7 +414,7 @@ mod tests {
 
         // Decibels to Decibels.
         assert_eq!(Decibels(0.0) - Decibels(0.0), Decibels(f32::NEG_INFINITY));
-        assert_approx_eq(Decibels(6.0) - Decibels(4.0), Decibels(1.6707666));
+        assert_approx_eq(Decibels(6.0) - Decibels(4.0), Decibels(-7.736506));
         assert_eq!(Decibels(-6.0) - Decibels(-6.0), Decibels(f32::NEG_INFINITY));
     }
 
