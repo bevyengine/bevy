@@ -148,6 +148,7 @@ default = [
   "x11",
 ]
 
+# Recommended defaults for no_std applications
 default_no_std = ["bevy_internal/default_no_std", "bevy_state"]
 
 # Provides an implementation for picking meshes
@@ -479,32 +480,30 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
 
-## Executor Backend (choose one)
-
-### Uses `async-executor` as a task execution backend.
-### This backend is incompatible with `no_std` targets.
+# Executor Backend (choose one)
+# Uses `async-executor` as a task execution backend.
 async_executor = ["std", "bevy_internal/async_executor"]
 
-### Uses `edge-executor` as a task execution backend.
-### Use this instead of `async-executor` if working on a `no_std` target.
+# Uses `edge-executor` as a task execution backend.
+# Use this instead of `async-executor` if working on a `no_std` target.
 edge_executor = ["bevy_internal/edge_executor"]
 
 # Platform Compatibility
 
-## Allows access to the `std` crate. Enabling this feature will prevent compilation
-## on `no_std` targets, but provides access to certain additional features on
-## supported platforms.
+# Allows access to the `std` crate. Enabling this feature will prevent compilation
+# on `no_std` targets, but provides access to certain additional features on
+# supported platforms.
 std = ["bevy_internal/std"]
 
-## `critical-section` provides the building blocks for synchronization primitives
-## on all platforms, including `no_std`.
+# `critical-section` provides the building blocks for synchronization primitives
+# on all platforms, including `no_std`.
 critical-section = ["bevy_internal/critical-section"]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
+# `portable-atomic` provides additional platform support for atomic types and
+# operations, even on targets without native support. 
 portable-atomic = ["bevy_internal/portable-atomic"]
 
-## Uses the `libm` maths library instead of the one provided in `std` and `core`.
+# Uses the `libm` maths library instead of the one provided in `std` and `core`.
 libm = ["bevy_internal/libm"]
 
 [dependencies]
