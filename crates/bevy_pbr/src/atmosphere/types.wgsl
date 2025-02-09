@@ -9,6 +9,8 @@ struct Atmosphere {
 
     ground_albedo: vec3<f32>,
 
+    _padone: f32,
+
     rayleigh_density_exp_scale: f32,
     rayleigh_scattering: vec3<f32>,
 
@@ -20,6 +22,8 @@ struct Atmosphere {
     ozone_layer_altitude: f32, // units: m
     ozone_layer_width: f32, // units: m
     ozone_absorption: vec3<f32>, // ozone absorption. units: m^-1
+
+    _padtwo: f32,
 }
 
 struct AtmosphereSettings {

@@ -555,11 +555,11 @@ pub fn prepare_mesh_view_bind_groups(
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
-    (atmosphere_buffer, atmosphere_samplers, decals_buffer, render_decals): (
-        Res<AtmosphereBuffer>,
-        Res<AtmosphereSamplers>,
+    (decals_buffer, render_decals, atmosphere_buffer, atmosphere_samplers): (
         Res<DecalsBuffer>,
         Res<RenderClusteredDecals>,
+        Res<AtmosphereBuffer>,
+        Res<AtmosphereSamplers>,
     ),
 ) {
     if let (

@@ -630,9 +630,11 @@ fn directional_light(
 #ifdef ATMOSPHERE_TRANSMITTANCE
     // Calculate atmospheric transmittance
     let P = (*input).P;
-    let P_as = atmosphere_transforms.atmosphere_from_world * vec4(P, 1.0);
-    let r = length(P - (*bindings.atmosphere).planet_center);
-    let up = normalize(P - (*bindings.atmosphere).planet_center);
+    // TODO: fix unknown identifier bindings
+    let P_as = (*bindings.atmosphere).transforms.atmosphere_from_world * vec4(P, 1.0);
+    let planet_center = vec3(0.0, (*bindings.atmosphere).atmosphere.bottom_radius, 0.0);
+    let r = length(P - planet_center);
+    let up = normalize(P - planet_center);
     let mu = dot(L, up);
     
     // Apply transmittance after light color but before shadows

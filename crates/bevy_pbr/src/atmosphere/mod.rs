@@ -258,7 +258,7 @@ impl Plugin for AtmospherePlugin {
 /// from the planet's surface, ozone only exists in a band centered at a fairly
 /// high altitude.
 #[derive(Clone, Component, Reflect, ShaderType, Pod, Zeroable, Copy)]
-#[repr(C)]
+#[repr(C, align(16))]
 #[require(AtmosphereSettings)]
 pub struct Atmosphere {
     /// Radius of the planet
@@ -278,6 +278,7 @@ pub struct Atmosphere {
     /// units: N/A
     pub ground_albedo: Vec3,
 
+    pub _padone: f32,
     /// The rate of falloff of rayleigh particulate with respect to altitude:
     /// optical density = exp(-rayleigh_density_exp_scale * altitude in meters).
     ///
@@ -334,6 +335,7 @@ pub struct Atmosphere {
     ///
     /// units: m^-1
     pub ozone_absorption: Vec3,
+    pub _padtwo: f32,
 }
 
 impl Atmosphere {
@@ -341,6 +343,7 @@ impl Atmosphere {
         bottom_radius: 6_360_000.0,
         top_radius: 6_460_000.0,
         ground_albedo: Vec3::splat(0.3),
+        _padone: 0.0,
         rayleigh_density_exp_scale: 1.0 / 8_000.0,
         rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
         mie_density_exp_scale: 1.0 / 1_200.0,
@@ -350,6 +353,7 @@ impl Atmosphere {
         ozone_layer_altitude: 25_000.0,
         ozone_layer_width: 30_000.0,
         ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
+        _padtwo: 0.0,
     };
 
     pub fn with_density_multiplier(mut self, mult: f32) -> Self {
@@ -398,7 +402,7 @@ impl ExtractComponent for Atmosphere {
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
 #[derive(Clone, Component, Reflect, ShaderType, Pod, Zeroable, Copy)]
-#[repr(C)]
+#[repr(C, align(16))]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,
