@@ -38,7 +38,7 @@ fn setup_scene(
 ) {
     // Circular floor to display our models on
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(4.0))),
+        Mesh3d(meshes.add(Circle::new(100.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
@@ -48,12 +48,12 @@ fn setup_scene(
             shadows_enabled: true,
             ..default()
         },
-        Transform::from_xyz(4.0, 8.0, 4.0),
+        Transform::from_xyz(100.0, 200.0, 200.0),
     ));
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
     ));
 
     // Load in our test scene that we're storing as a prefab
@@ -65,9 +65,9 @@ fn setup_scene(
 // allowing us to modify the scene as we please.
 fn respond_to_scene_loaded(trigger: Trigger<SceneInstanceReady>, mut commands: Commands) {
     let scene_root_entity = trigger.target();
+    // Scenes are typically composed of multiple entities, so we need to
+    // modify all entities in the scene to disable the scene.
     commands
         .entity(scene_root_entity)
-        // Scenes are generally composed of multiple entities,
-        // so we need to make any changes to the scene as a whole.
         .insert_recursive::<Children>(Disabled);
 }
