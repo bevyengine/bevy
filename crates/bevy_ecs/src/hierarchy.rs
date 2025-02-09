@@ -9,7 +9,6 @@
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
-    self as bevy_ecs,
     bundle::Bundle,
     component::{Component, HookContext},
     entity::Entity,
