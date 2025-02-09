@@ -104,9 +104,19 @@ impl Default for WgpuSettings {
             Dx12Compiler::from_env().unwrap_or(if cfg!(feature = "statically-linked-dxc") {
                 Dx12Compiler::StaticDxc
             } else {
-                Dx12Compiler::DynamicDxc {
-                    dxc_path: String::from("dxcompiler.dll"),
-                    dxil_path: String::from("dxil.dll"),
+                let dxc = "dxcompiler.dll";
+                let dxil = "dxil.dll";
+
+                if cfg!(target_os = "windows")
+                    && std::fs::metadata(dxc).is_ok()
+                    && std::fs::metadata(dxil).is_ok()
+                {
+                    Dx12Compiler::DynamicDxc {
+                        dxc_path: String::from(dxc),
+                        dxil_path: String::from(dxil),
+                    }
+                } else {
+                    Dx12Compiler::Fxc
                 }
             });
 
