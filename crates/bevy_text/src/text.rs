@@ -86,7 +86,7 @@ impl ComputedTextBlock {
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
-    /// Accesses the underling buffer which can be used for `cosmic-text` APIs such as accessing layout information
+    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
     /// or calculating a cursor position.
     ///
     /// Mutable access not offered because changes would be overwritten during the automated layout calculation.
