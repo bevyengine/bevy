@@ -1039,9 +1039,7 @@ impl Image {
     #[inline(always)]
     pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
         let len = self.texture_descriptor.format.pixel_size();
-        let Some(ref data) = self.data else {
-            return None;
-        };
+        let data = self.data.as_ref()?;
         self.pixel_data_offset(coords)
             .map(|start| &data[start..(start + len)])
     }
@@ -1051,9 +1049,7 @@ impl Image {
     pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
         let len = self.texture_descriptor.format.pixel_size();
         let offset = self.pixel_data_offset(coords);
-        let Some(ref mut data) = self.data else {
-            return None;
-        };
+        let data = self.data.as_mut()?;
         offset.map(|start| &mut data[start..(start + len)])
     }
 
