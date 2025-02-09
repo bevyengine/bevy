@@ -110,11 +110,7 @@ fn component_clone_observed_by(commands: &mut Commands, ctx: &mut ComponentClone
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloneBuilder,
-        event::Event,
-        observer::{CloneEntityWithObserversExt, Trigger},
-        resource::Resource,
-        system::ResMut,
+        entity::EntityCloner, event::Event, observer::Trigger, resource::Resource, system::ResMut,
         world::World,
     };
 
