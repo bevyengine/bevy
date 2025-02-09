@@ -45,10 +45,10 @@ use crate::{
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     resource::Resource,
-    result::Result,
+    result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
-    system::Commands,
+    system::{Commands, ScheduleSystem},
     world::{
         command_queue::RawCommandQueue,
         error::{EntityFetchError, TryDespawnError, TryInsertBatchError, TryRunScheduleError},
@@ -3665,6 +3665,18 @@ impl World {
         let mut schedules = self.remove_resource::<Schedules>().unwrap_or_default();
         schedules.allow_ambiguous_resource::<T>(self);
         self.insert_resource(schedules);
+    }
+
+    /// Set the error handler to use for systems that return a [`Result`](crate::result::Result) in
+    /// a specific schedule.
+    pub fn set_schedule_error_handler(
+        &mut self,
+        label: impl ScheduleLabel,
+        error_handler: fn(result::Error, &ScheduleSystem),
+    ) -> Result<(), TryRunScheduleError> {
+        self.try_schedule_scope(label, |_, schedule| {
+            schedule.set_error_handler(error_handler);
+        })
     }
 }
 

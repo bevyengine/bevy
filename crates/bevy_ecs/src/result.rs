@@ -7,3 +7,8 @@ pub type Error = Box<dyn core::error::Error + Send + Sync + 'static>;
 
 /// A result type for use in fallible systems.
 pub type Result<T = (), E = Error> = core::result::Result<T, E>;
+
+pub(crate) fn default_error_handler(error: Error, system: &crate::system::ScheduleSystem) {
+    let name = system.name();
+    panic!("Encountered an error in system `{name}`: {error:?}",);
+}

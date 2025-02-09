@@ -6,13 +6,33 @@ use bevy::prelude::*;
 use rand::distributions::Distribution;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .run();
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins)
+        .add_systems(Startup, (setup, failing_system))
+        .add_systems(PostStartup, failing_system)
+        // You can set a global error handler for fallible systems.
+        //
+        // By default, fallible systems that return an error will panic.
+        .set_systems_error_handler(|err, system| warn!("{:?} failed: {err}", system.name()))
+        // You can handle individual systems by piping the output result.
+        .add_systems(
+            PostStartup,
+            failing_system.pipe(|result: In<Result>| {
+                result.0.inspect_err(|err| info!("captured error: {err}"))
+            }),
+        );
+
+    // You can also set a custom error handler per `Schedule` (optionally at runtime through
+    // `World::try_schedule_scope`):
+    app.get_schedule_mut(PostStartup)
+        .unwrap()
+        .set_error_handler(|err, system| error!("{:?} failed: {err}", system.name()));
+
+    app.run();
 }
 
-/// An example of a system that calls several fallible functions with the questionmark operator.
+/// An example of a system that calls several fallible functions with the question mark operator.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -75,5 +95,16 @@ fn setup(
     }
 
     // Indicate the system completed successfully:
+    Ok(())
+}
+
+#[derive(Resource)]
+struct UninitializedResource;
+
+fn failing_system(world: &mut World) -> Result {
+    world
+        .get_resource::<UninitializedResource>()
+        .ok_or("Resource not initialized")?;
+
     Ok(())
 }

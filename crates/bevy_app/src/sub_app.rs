@@ -4,7 +4,7 @@ use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
-    system::{SystemId, SystemInput},
+    system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use core::fmt::Debug;
@@ -332,6 +332,21 @@ impl SubApp {
 
         schedules.ignore_ambiguity(schedule, a, b);
 
+        self
+    }
+
+    /// Set the global error handler to use for systems that return a
+    /// [`Result`](crate::result::Result).
+    pub fn set_systems_error_handler(
+        &mut self,
+        error_handler: fn(Error, &ScheduleSystem),
+    ) -> &mut Self {
+        let mut schedules = self
+            .world_mut()
+            .remove_resource::<Schedules>()
+            .unwrap_or_default();
+        schedules.error_handler = error_handler;
+        self.world_mut().insert_resource(schedules);
         self
     }
 

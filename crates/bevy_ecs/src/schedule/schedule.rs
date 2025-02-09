@@ -29,7 +29,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     resource::Resource,
-    result::Result,
+    result::{default_error_handler, Error},
     schedule::*,
     system::ScheduleSystem,
     world::World,
@@ -40,20 +40,30 @@ pub use stepping::Stepping;
 use Direction::{Incoming, Outgoing};
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
-#[derive(Default, Resource)]
+#[derive(Resource)]
 pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
     /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
+
+    /// Error handler to use for systems that return a [`Result`](crate::result::Result).
+    pub error_handler: fn(Error, &ScheduleSystem),
+}
+
+impl Default for Schedules {
+    fn default() -> Self {
+        Self {
+            inner: default(),
+            ignored_scheduling_ambiguities: default(),
+            error_handler: default_error_handler,
+        }
+    }
 }
 
 impl Schedules {
     /// Constructs an empty `Schedules` with zero initial capacity.
     pub fn new() -> Self {
-        Self {
-            inner: HashMap::default(),
-            ignored_scheduling_ambiguities: BTreeSet::new(),
-        }
+        Self::default()
     }
 
     /// Inserts a labeled schedule into the map.
@@ -300,6 +310,7 @@ pub struct Schedule {
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
+    error_handler: Option<fn(Error, &ScheduleSystem)>,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -324,6 +335,7 @@ impl Schedule {
             executable: SystemSchedule::new(),
             executor: make_executor(ExecutorKind::default()),
             executor_initialized: false,
+            error_handler: None,
         };
         // Call `set_build_settings` to add any default build passes
         this.set_build_settings(Default::default());
@@ -401,6 +413,11 @@ impl Schedule {
         self
     }
 
+    /// Set the error handler to use for systems that return a [`Result`](crate::result::Result).
+    pub fn set_error_handler(&mut self, error_handler: fn(Error, &ScheduleSystem)) {
+        self.error_handler = Some(error_handler);
+    }
+
     /// Returns the schedule's current `ScheduleBuildSettings`.
     pub fn get_build_settings(&self) -> ScheduleBuildSettings {
         self.graph.settings.clone()
@@ -438,8 +455,11 @@ impl Schedule {
         self.initialize(world)
             .unwrap_or_else(|e| panic!("Error when initializing schedule {:?}: {e}", self.label));
 
+        let error_handler = self.error_handler.expect("schedule initialized");
+
         #[cfg(not(feature = "bevy_debug_stepping"))]
-        self.executor.run(&mut self.executable, world, None);
+        self.executor
+            .run(&mut self.executable, world, None, error_handler);
 
         #[cfg(feature = "bevy_debug_stepping")]
         {
@@ -448,8 +468,12 @@ impl Schedule {
                 Some(mut stepping) => stepping.skipped_systems(self),
             };
 
-            self.executor
-                .run(&mut self.executable, world, skip_systems.as_ref());
+            self.executor.run(
+                &mut self.executable,
+                world,
+                skip_systems.as_ref(),
+                error_handler,
+            );
         }
     }
 
@@ -472,6 +496,10 @@ impl Schedule {
             )?;
             self.graph.changed = false;
             self.executor_initialized = false;
+        }
+
+        if self.error_handler.is_none() {
+            self.error_handler = Some(world.get_resource_or_init::<Schedules>().error_handler);
         }
 
         if !self.executor_initialized {
