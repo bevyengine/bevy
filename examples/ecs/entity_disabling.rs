@@ -75,10 +75,7 @@ fn list_all_named_entities(
     } else {
         commands.spawn((
             EntityNameText,
-            Text::new(
-                "Click an entity to disable it.
-				\nPress Space to re-enable all disabled entities.",
-            ),
+            Text::default(),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::Px(12.0),
