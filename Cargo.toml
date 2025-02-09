@@ -4063,7 +4063,15 @@ panic = "abort"
 # for details on why this is needed. Since dependencies don't expect to be built
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
 rustc-args = ["--cfg", "docsrs_dep"]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  # Embed tags to the top of documentation pages for common Bevy traits
+  # that are implemented by the current type, like `Component` or `Resource`.
+  # This makes it easier to see at a glance what types are used for.
+  "--html-after-content",
+  "docs-rs/trait-tags.html",
+]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 
