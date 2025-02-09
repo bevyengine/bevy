@@ -93,7 +93,7 @@ impl ComputedTextBlock {
     /// If you want to control the buffer contents manually or use the `cosmic-text`
     /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
     /// `TextLayoutInfo`.
-    pub fn get_buffer(&self) -> &CosmicBuffer {
+    pub fn buffer(&self) -> &CosmicBuffer {
         &self.buffer
     }
 }
