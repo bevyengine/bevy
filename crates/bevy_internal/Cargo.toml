@@ -59,6 +59,10 @@ webp = ["bevy_image/webp"]
 # Enable SPIR-V passthrough
 spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
 
+# Statically linked DXC shader compiler for DirectX 12
+# TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
+statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
+
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 
