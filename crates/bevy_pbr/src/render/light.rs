@@ -6,7 +6,6 @@ use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
-use bevy_ecs::entity::EntityHash;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
@@ -1607,16 +1606,16 @@ pub fn check_light_entities_needing_specialization<M: Material>(
 }
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct LightKeyCache(EntityHashMap<MeshPipelineKey>);
+pub struct LightKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct LightSpecializationTicks(EntityHashMap<Tick>);
+pub struct LightSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedShadowMaterialPipelineCache<M> {
     // (view_light_entity, visible_entity) -> (tick, pipeline_id)
     #[deref]
-    map: HashMap<(Entity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
+    map: HashMap<(RetainedViewEntity, MainEntity), (Tick, CachedRenderPipelineId)>,
     marker: PhantomData<M>,
 }
 
@@ -1630,14 +1629,14 @@ impl<M> Default for SpecializedShadowMaterialPipelineCache<M> {
 }
 
 pub fn check_views_lights_need_specialization(
-    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
+    view_lights: Query<&ViewLightEntities, With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut light_key_cache: ResMut<LightKeyCache>,
     mut light_specialization_ticks: ResMut<LightSpecializationTicks>,
     ticks: SystemChangeTick,
 ) {
-    for (entity, view_lights) in &view_lights {
+    for view_lights in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
                 view_light_entities.get(view_light_entity)
@@ -1651,14 +1650,18 @@ pub fn check_views_lights_need_specialization(
             let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
             let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
             light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
-            if let Some(current_key) = light_key_cache.get_mut(&entity) {
+            if let Some(current_key) =
+                light_key_cache.get_mut(&extracted_view_light.retained_view_entity)
+            {
                 if *current_key != light_key {
-                    light_key_cache.insert(view_light_entity, light_key);
-                    light_specialization_ticks.insert(view_light_entity, ticks.this_run());
+                    light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
+                    light_specialization_ticks
+                        .insert(extracted_view_light.retained_view_entity, ticks.this_run());
                 }
             } else {
-                light_key_cache.insert(view_light_entity, light_key);
-                light_specialization_ticks.insert(view_light_entity, ticks.this_run());
+                light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
+                light_specialization_ticks
+                    .insert(extracted_view_light.retained_view_entity, ticks.this_run());
             }
         }
     }
@@ -1709,7 +1712,8 @@ pub fn specialize_shadows<M: Material>(
             if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
                 continue;
             }
-            let Some(light_key) = light_key_cache.get(&view_light_entity) else {
+            let Some(light_key) = light_key_cache.get(&extracted_view_light.retained_view_entity)
+            else {
                 continue;
             };
 
@@ -1741,10 +1745,12 @@ pub fn specialize_shadows<M: Material>(
             // so no meshes will be queued
 
             for (_, visible_entity) in visible_entities.iter().copied() {
-                let view_tick = light_specialization_ticks.get(&view_light_entity).unwrap();
+                let view_tick = light_specialization_ticks
+                    .get(&extracted_view_light.retained_view_entity)
+                    .unwrap();
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
                 let last_specialized_tick = specialized_material_pipeline_cache
-                    .get(&(view_light_entity, visible_entity))
+                    .get(&(extracted_view_light.retained_view_entity, visible_entity))
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                     view_tick.is_newer_than(tick, ticks.this_run())
@@ -1753,6 +1759,7 @@ pub fn specialize_shadows<M: Material>(
                 if !needs_specialization {
                     continue;
                 }
+
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(visible_entity)
                 else {
@@ -1823,7 +1830,7 @@ pub fn specialize_shadows<M: Material>(
                 };
 
                 specialized_material_pipeline_cache.insert(
-                    (view_light_entity, visible_entity),
+                    (extracted_view_light.retained_view_entity, visible_entity),
                     (ticks.this_run(), pipeline_id),
                 );
             }
@@ -1893,8 +1900,8 @@ pub fn queue_shadows<M: Material>(
             };
 
             for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some((current_change_tick, pipeline_id)) =
-                    specialized_material_pipeline_cache.get(&(view_light_entity, main_entity))
+                let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
+                    .get(&(extracted_view_light.retained_view_entity, main_entity))
                 else {
                     continue;
                 };

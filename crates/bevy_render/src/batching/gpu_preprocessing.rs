@@ -412,18 +412,12 @@ pub fn get_or_create_work_item_buffer<'a, I>(
     work_item_buffers: &'a mut HashMap<RetainedViewEntity, TypeIdMap<PreprocessWorkItemBuffers>>,
     view: RetainedViewEntity,
     no_indirect_drawing: bool,
-    gpu_occlusion_culling: bool,
-    late_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
-        LatePreprocessWorkItemIndirectParameters,
-    >,
-    late_non_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
-        LatePreprocessWorkItemIndirectParameters,
-    >,
+    enable_gpu_occlusion_culling: bool,
 ) -> &'a mut PreprocessWorkItemBuffers
 where
     I: 'static,
 {
-    match work_item_buffers
+    let preprocess_work_item_buffers = match work_item_buffers
         .entry(view)
         .or_default()
         .entry(TypeId::of::<I>())
@@ -438,27 +432,70 @@ where
                 vacant_entry.insert(PreprocessWorkItemBuffers::Indirect {
                     indexed: BufferVec::new(BufferUsages::STORAGE),
                     non_indexed: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_occlusion_culling: if gpu_occlusion_culling {
-                        let late_indirect_parameters_indexed_offset =
-                            late_indexed_indirect_parameters_buffer
-                                .push(LatePreprocessWorkItemIndirectParameters::default());
-                        let late_indirect_parameters_non_indexed_offset =
-                            late_non_indexed_indirect_parameters_buffer
-                                .push(LatePreprocessWorkItemIndirectParameters::default());
-                        Some(GpuOcclusionCullingWorkItemBuffers {
-                            late_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
-                            late_non_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
-                            late_indirect_parameters_indexed_offset:
-                                late_indirect_parameters_indexed_offset as u32,
-                            late_indirect_parameters_non_indexed_offset:
-                                late_indirect_parameters_non_indexed_offset as u32,
-                        })
-                    } else {
-                        None
-                    },
+                    // We fill this in below if `enable_gpu_occlusion_culling`
+                    // is set.
+                    gpu_occlusion_culling: None,
                 })
             }
         }
+    };
+
+    // Initialize the GPU occlusion culling buffers if necessary.
+    if let PreprocessWorkItemBuffers::Indirect {
+        ref mut gpu_occlusion_culling,
+        ..
+    } = *preprocess_work_item_buffers
+    {
+        match (
+            enable_gpu_occlusion_culling,
+            gpu_occlusion_culling.is_some(),
+        ) {
+            (false, false) | (true, true) => {}
+            (false, true) => {
+                *gpu_occlusion_culling = None;
+            }
+            (true, false) => {
+                *gpu_occlusion_culling = Some(GpuOcclusionCullingWorkItemBuffers {
+                    late_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
+                    late_non_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
+                    late_indirect_parameters_indexed_offset: 0,
+                    late_indirect_parameters_non_indexed_offset: 0,
+                });
+            }
+        }
+    }
+
+    preprocess_work_item_buffers
+}
+
+/// Initializes work item buffers for a phase in preparation for a new frame.
+pub fn init_work_item_buffers(
+    work_item_buffers: &mut PreprocessWorkItemBuffers,
+    late_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
+        LatePreprocessWorkItemIndirectParameters,
+    >,
+    late_non_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
+        LatePreprocessWorkItemIndirectParameters,
+    >,
+) {
+    // Add the offsets for indirect parameters that the late phase of mesh
+    // preprocessing writes to.
+    if let PreprocessWorkItemBuffers::Indirect {
+        gpu_occlusion_culling:
+            Some(GpuOcclusionCullingWorkItemBuffers {
+                ref mut late_indirect_parameters_indexed_offset,
+                ref mut late_indirect_parameters_non_indexed_offset,
+                ..
+            }),
+        ..
+    } = *work_item_buffers
+    {
+        *late_indirect_parameters_indexed_offset = late_indexed_indirect_parameters_buffer
+            .push(LatePreprocessWorkItemIndirectParameters::default())
+            as u32;
+        *late_indirect_parameters_non_indexed_offset = late_non_indexed_indirect_parameters_buffer
+            .push(LatePreprocessWorkItemIndirectParameters::default())
+            as u32;
     }
 }
 
@@ -511,6 +548,8 @@ impl PreprocessWorkItemBuffers {
                 if let Some(ref mut gpu_occlusion_culling) = *gpu_occlusion_culling {
                     gpu_occlusion_culling.late_indexed.clear();
                     gpu_occlusion_culling.late_non_indexed.clear();
+                    gpu_occlusion_culling.late_indirect_parameters_indexed_offset = 0;
+                    gpu_occlusion_culling.late_indirect_parameters_non_indexed_offset = 0;
                 }
             }
         }
@@ -1159,6 +1198,11 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             extracted_view.retained_view_entity,
             no_indirect_drawing,
             gpu_occlusion_culling,
+        );
+
+        // Initialize those work item buffers in preparation for this new frame.
+        init_work_item_buffers(
+            work_item_buffer,
             late_indexed_indirect_parameters_buffer,
             late_non_indexed_indirect_parameters_buffer,
         );
@@ -1319,6 +1363,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             extracted_view.retained_view_entity,
             no_indirect_drawing,
             gpu_occlusion_culling,
+        );
+
+        // Initialize those work item buffers in preparation for this new frame.
+        init_work_item_buffers(
+            work_item_buffer,
             late_indexed_indirect_parameters_buffer,
             late_non_indexed_indirect_parameters_buffer,
         );
