@@ -108,7 +108,7 @@ impl SystemExecutor for SimpleExecutor {
 
             let f = AssertUnwindSafe(|| {
                 if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                    error_handler(err, &system);
+                    error_handler(err, system);
                 }
             });
 

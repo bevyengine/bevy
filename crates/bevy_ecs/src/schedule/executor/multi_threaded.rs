@@ -614,7 +614,7 @@ impl ExecutorState {
                         system,
                         context.environment.world_cell,
                     ) {
-                        (context.error_handler)(err, &system);
+                        (context.error_handler)(err, system);
                     }
                 };
             }));
@@ -660,7 +660,7 @@ impl ExecutorState {
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
                     if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                        (context.error_handler)(err, &system);
+                        (context.error_handler)(err, system);
                     }
                 }));
                 context.system_completed(system_index, res, system);

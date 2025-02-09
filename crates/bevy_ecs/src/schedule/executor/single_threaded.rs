@@ -116,7 +116,7 @@ impl SystemExecutor for SingleThreadedExecutor {
             let f = AssertUnwindSafe(|| {
                 if system.is_exclusive() {
                     if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                        error_handler(err, &system);
+                        error_handler(err, system);
                     }
                 } else {
                     // Use run_unsafe to avoid immediately applying deferred buffers
@@ -126,7 +126,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                     // update_archetype_component_access is being called immediately before this.
                     unsafe {
                         if let Err(err) = __rust_begin_short_backtrace::run_unsafe(system, world) {
-                            error_handler(err, &system);
+                            error_handler(err, system);
                         }
                     };
                 }
