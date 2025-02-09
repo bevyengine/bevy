@@ -388,7 +388,6 @@ fn remove_reflect_with_registry_ref(
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},

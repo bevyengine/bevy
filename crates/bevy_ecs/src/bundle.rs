@@ -1795,7 +1795,6 @@ fn sorted_remove<T: Eq + Ord + Copy>(source: &mut Vec<T>, remove: &[T]) {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{component::HookContext, prelude::*, world::DeferredWorld};
     use alloc::vec;
 

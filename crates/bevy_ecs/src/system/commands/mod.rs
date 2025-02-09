@@ -2203,7 +2203,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         component::{require, Component},
         resource::Resource,
         system::Commands,

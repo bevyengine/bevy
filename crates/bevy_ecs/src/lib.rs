@@ -33,6 +33,9 @@ compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_ecs;
+
 pub mod archetype;
 pub mod batching;
 pub mod bundle;
@@ -133,7 +136,6 @@ pub mod __macro_exports {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
