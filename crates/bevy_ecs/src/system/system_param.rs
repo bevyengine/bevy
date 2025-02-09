@@ -1136,7 +1136,7 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// # let world = &mut World::default();
 /// fn counter_from_10(mut count: Local<Option<usize>>) -> usize {
 ///     let count = count.get_or_insert(10);
-///     *count += 1
+///     *count += 1;
 ///     *count
 /// }
 /// let mut counter_system = IntoSystem::into_system(counter_from_10);
