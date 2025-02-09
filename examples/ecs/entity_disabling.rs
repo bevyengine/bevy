@@ -31,16 +31,19 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct DisableOnClick;
+
 fn disable_entities_on_click(
     trigger: Trigger<Pointer<Click>>,
-    ignored_query: Query<(), Or<(With<Window>, With<Text>)>>,
+    valid_query: Query<&DisableOnClick>,
     mut commands: Commands,
 ) {
     let clicked_entity = trigger.target();
     // Windows and text are entities and can be clicked!
     // We definitely don't want to disable the window itself,
     // because that would cause the app to close!
-    if ignored_query.contains(clicked_entity) {
+    if !valid_query.contains(clicked_entity) {
         return;
     }
 
@@ -123,6 +126,7 @@ fn setup_scene(
 
         commands.spawn((
             name,
+            DisableOnClick,
             Mesh2d(shape),
             MeshMaterial2d(materials.add(color)),
             Transform::from_xyz(
