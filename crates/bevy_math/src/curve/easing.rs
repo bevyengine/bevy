@@ -194,41 +194,73 @@ where
     }
 }
 
+/// The configuration for [`EaseFunction::Steps`]. Allows to create different kinds of stepping
+/// curves. Configurable parameters are:
+///
+/// - number of steps
+/// - jumping behavior
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub struct StepConfig {
+    /// the number of steps
+    num_steps: usize,
+    /// the jumping behavior
+    jump_at: JumpAt,
+}
+
+impl StepConfig {
+    /// creates a new config for [`EaseFunction::Steps`]. The function argument configures the
+    /// amount of steps. The jumping behavior defaults to "jumps at the end". See [`JumpAt`] for
+    /// more details.
+    pub fn new(num_steps: usize) -> Self {
+        Self {
+            num_steps,
+            jump_at: Default::default(),
+        }
+    }
+
+    /// configures a custom jumping behavior. See [`JumpAt`] for more details.
+    pub fn with_jump_at(self, jump_at: JumpAt) -> Self {
+        Self { jump_at, ..self }
+    }
+}
+
 /// Configuration options for the [`EaseFunction::steps_with`] curves. This closely replicates the
 /// [CSS step function specification].
 ///
 /// [CSS step function specification]: https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function/steps#description
-#[derive(Clone, Copy, Default)]
-pub enum StepConfig {
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub enum JumpAt {
     /// Indicates that the first step happens when the animation begins.
-    JumpStart,
+    Start,
     /// Indicates that the last step happens when the animation ends.
     #[default]
-    JumpEnd,
+    End,
     /// Indicates neither early nor late jumps happen.
-    JumpNone,
+    None,
     /// Indicates both early and late jumps happen.
-    JumpBoth,
+    Both,
 }
 
-impl StepConfig {
+impl JumpAt {
     #[inline]
     pub(crate) fn eval(self, num_steps: usize, t: f32) -> f32 {
         use crate::ops;
 
-        match self {
-            StepConfig::JumpStart => {
-                (ops::floor(t * num_steps as f32) + 1.0) / num_steps.max(1) as f32
-            }
-            StepConfig::JumpEnd => ops::floor(t * num_steps as f32) / num_steps.max(1) as f32,
-            StepConfig::JumpNone => {
-                ops::floor(t * num_steps as f32) / (num_steps.max(1) - 1) as f32
-            }
-            StepConfig::JumpBoth => {
-                (ops::floor(t * num_steps as f32) + 1.0) / (num_steps.max(1) + 1) as f32
-            }
-        }
-        .clamp(0.0, 1.0)
+        let (a, b) = match self {
+            JumpAt::Start => (1.0, 0),
+            JumpAt::End => (0.0, 0),
+            JumpAt::None => (0.0, -1),
+            JumpAt::Both => (1.0, 1),
+        };
+
+        let current_step = ops::floor(t * num_steps as f32) + a;
+        let step_size = (num_steps as isize + b).max(1) as f32;
+
+        (current_step / step_size).clamp(0.0, 1.0)
     }
 }
 
@@ -466,10 +498,11 @@ pub enum EaseFunction {
     #[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
     BounceInOut,
 
-    /// `n` steps connecting the start and the end
+    /// `n` steps connecting the start and the end. Jumping behavior is customizable via
+    /// [`StepConfig::jump_at`]. See [`JumpAt`] for all the options.
     ///
     #[doc = include_str!("../../images/easefunction/Steps.svg")]
-    Steps(usize),
+    Steps(StepConfig),
 
     /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
     ///
@@ -724,13 +757,8 @@ mod easing_functions {
     }
 
     #[inline]
-    pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        steps_with(StepConfig::default(), num_steps, t)
-    }
-
-    #[inline]
-    pub(crate) fn steps_with(config: StepConfig, num_steps: usize, t: f32) -> f32 {
-        config.eval(num_steps, t)
+    pub(crate) fn steps(config: StepConfig, t: f32) -> f32 {
+        config.jump_at.eval(config.num_steps, t)
     }
 
     #[inline]
@@ -779,7 +807,7 @@ impl EaseFunction {
             EaseFunction::BounceIn => easing_functions::bounce_in(t),
             EaseFunction::BounceOut => easing_functions::bounce_out(t),
             EaseFunction::BounceInOut => easing_functions::bounce_in_out(t),
-            EaseFunction::Steps(num_steps) => easing_functions::steps(*num_steps, t),
+            EaseFunction::Steps(config) => easing_functions::steps(*config, t),
             EaseFunction::Elastic(omega) => easing_functions::elastic(*omega, t),
         }
     }
@@ -952,7 +980,7 @@ mod tests {
 
     #[test]
     fn step_config_start() {
-        let config = StepConfig::JumpStart;
+        let config = JumpAt::Start;
         let num_steps = 4;
 
         [
@@ -970,7 +998,7 @@ mod tests {
 
     #[test]
     fn step_config_end() {
-        let config = StepConfig::JumpEnd;
+        let config = JumpAt::End;
         let num_steps = 4;
 
         [
@@ -988,7 +1016,7 @@ mod tests {
 
     #[test]
     fn step_config_none() {
-        let config = StepConfig::JumpNone;
+        let config = JumpAt::None;
         let num_steps = 5;
 
         [
@@ -1007,7 +1035,7 @@ mod tests {
 
     #[test]
     fn step_config_both() {
-        let config = StepConfig::JumpBoth;
+        let config = JumpAt::Both;
         let num_steps = 4;
 
         [(0.0, 0.2), (0.25, 0.4), (0.5, 0.6), (0.75, 0.8), (1.0, 1.0)]
