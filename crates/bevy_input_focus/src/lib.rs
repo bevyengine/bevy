@@ -31,7 +31,12 @@ mod autofocus;
 pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
-use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
+use bevy_ecs::{
+    prelude::*,
+    query::{QueryData, ReleaseStateQueryData},
+    system::SystemParam,
+    traversal::Traversal,
+};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
@@ -155,8 +160,17 @@ pub struct WindowTraversal {
     window: Option<&'static Window>,
 }
 
+impl ReleaseStateQueryData for WindowTraversal {
+    fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+        WindowTraversalItem {
+            parent: item.parent,
+            window: item.window,
+        }
+    }
+}
+
 impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
-    fn traverse(item: Self::Item<'_>, event: &FocusedInput<E>) -> Option<Entity> {
+    fn traverse(item: Self::Item<'_, '_>, event: &FocusedInput<E>) -> Option<Entity> {
         let WindowTraversalItem { parent, window } = item;
 
         // Send event to parent, if it has one.
