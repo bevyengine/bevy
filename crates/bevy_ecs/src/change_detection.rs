@@ -1168,7 +1168,7 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
 /// A value that contains a `T` if the `track_location` feature is enabled,
 /// and is a ZST if it is not.
 ///
-/// The overall API is similar to `Option`, but whether the value is `Some` or `None` is set at compile
+/// The overall API is similar to [`Option`], but whether the value is `Some` or `None` is set at compile
 /// time and is the same for all values.
 ///
 /// If the `track_location` feature is disabled, then all functions on this type that return
@@ -1263,7 +1263,7 @@ impl<T> MaybeLocation<T> {
         self.into_option().unwrap_or_default()
     }
 
-    /// Converts an `MaybeLocation` to an `Option` to allow run-time branching.
+    /// Converts an `MaybeLocation` to an [`Option`] to allow run-time branching.
     /// If the `track_location` feature is enabled, this always returns `Some`.
     /// If it is disabled, this always returns `None`.
     #[inline]
@@ -1295,7 +1295,7 @@ impl<T> MaybeLocation<Option<T>> {
         }
     }
 
-    /// Transposes a `MaybeLocation` of an `Option` into an `Option` of a `MaybeLocation`.
+    /// Transposes a `MaybeLocation` of an [`Option`] into an [`Option`] of a `MaybeLocation`.
     ///
     /// This can be useful if you want to use the `?` operator to exit early
     /// if the `track_location` feature is enabled but the value is not found.
@@ -1347,7 +1347,7 @@ impl<T> MaybeLocation<Option<T>> {
 }
 
 impl<T> MaybeLocation<&T> {
-    /// Maps an `MaybeLocation<&T> ` to an `MaybeLocation<T>` by copying the contents.
+    /// Maps an `MaybeLocation<&T>` to an `MaybeLocation<T>` by copying the contents.
     #[inline]
     pub const fn copied(&self) -> MaybeLocation<T>
     where
@@ -1362,7 +1362,7 @@ impl<T> MaybeLocation<&T> {
 }
 
 impl<T> MaybeLocation<&mut T> {
-    /// Maps an `MaybeLocation<&mut T> ` to an `MaybeLocation<T>` by copying the contents.
+    /// Maps an `MaybeLocation<&mut T>` to an `MaybeLocation<T>` by copying the contents.
     #[inline]
     pub const fn copied(&self) -> MaybeLocation<T>
     where
