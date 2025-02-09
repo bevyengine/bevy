@@ -45,8 +45,13 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 /// A marker component for disabled entities. See [the module docs] for more info.
 ///
 /// [the module docs]: crate::entity_disabling
-#[derive(Component)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
+#[derive(Component, Clone, Debug)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component),
+    reflect(Debug)
+)]
 pub struct Disabled;
 
 /// The default filters for all queries, these are used to globally exclude entities from queries.
