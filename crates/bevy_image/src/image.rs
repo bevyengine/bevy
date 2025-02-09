@@ -714,16 +714,16 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
         debug_assert_eq!(
             size.volume() * format.pixel_size(),
             data.len(),
             "Pixel data, size and format have to match",
         );
+        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
         image.data = Some(data);
         image
     }
-    
+
     /// Exactly the same as [`Image::new`], but doesn't initialize the image
     pub fn new_uninit(
         size: Extent3d,
@@ -731,12 +731,22 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let mut image = Image::default_uninit();
-        image.texture_descriptor.dimension = dimension;
-        image.texture_descriptor.size = size;
-        image.texture_descriptor.format = format;
-        image.asset_usage = asset_usage;
-        image
+        Image {
+            data: None,
+            texture_descriptor: TextureDescriptor {
+                size,
+                format,
+                dimension,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage,
+        }
     }
 
     /// A transparent white 1x1x1 image.
@@ -749,50 +759,30 @@ impl Image {
         let format = TextureFormat::bevy_default();
         debug_assert!(format.pixel_size() == 4);
         let data = vec![255, 255, 255, 0];
-        Image {
-            data: Some(data),
-            texture_descriptor: TextureDescriptor {
-                size: Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                format,
-                dimension: TextureDimension::D2,
-                label: None,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-                view_formats: &[],
+        Image::new(
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
             },
-            sampler: ImageSampler::Default,
-            texture_view_descriptor: None,
-            asset_usage: RenderAssetUsages::default(),
-        }
+            TextureDimension::D2,
+            data,
+            format,
+            RenderAssetUsages::default(),
+        )
     }
     /// Creates a new uninitialized 1x1x1 image
     pub fn default_uninit() -> Image {
-        let format = TextureFormat::bevy_default();
-        Image {
-            data: None,
-            texture_descriptor: TextureDescriptor {
-                size: Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                format,
-                dimension: TextureDimension::D2,
-                label: None,
-                mip_level_count: 1,
-                sample_count: 1,
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
-                view_formats: &[],
+        Image::new_uninit(
+            Extent3d {
+                width: 1,
+                height: 1,
+                depth_or_array_layers: 1,
             },
-            sampler: ImageSampler::Default,
-            texture_view_descriptor: None,
-            asset_usage: RenderAssetUsages::default(),
-        }
+            TextureDimension::D2,
+            TextureFormat::bevy_default(),
+            RenderAssetUsages::default(),
+        )
     }
 
     /// Creates a new image from raw binary data and the corresponding metadata, by filling
@@ -804,16 +794,9 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let mut image = Image::default_uninit();
-        image.texture_descriptor.format = format;
-        image.texture_descriptor.dimension = dimension;
-        image.texture_descriptor.size = size;
-        image.asset_usage = asset_usage;
-
         let byte_len = format.pixel_size() * size.volume();
-        image.data = Some(pixel.iter().copied().cycle().take(byte_len).collect());
-
-        image
+        let data = pixel.iter().copied().cycle().take(byte_len).collect();
+        Image::new(size, dimension, data, format, asset_usage)
     }
 
     /// Returns the width of a 2D image.
