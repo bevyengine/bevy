@@ -1,14 +1,26 @@
-//! Types for entity disabling.
-//!
 //! Disabled entities do not show up in queries unless the query explicitly mentions them.
 //!
-//! If for example we have `Disabled` as an entity disabling component, when you add `Disabled`
-//! to an entity, the entity will only be visible to queries with a filter like
-//! [`With`]`<Disabled>` or query data like [`Has`]`<Disabled>`.
+//! While Bevy ships with a built-in [`Disabled`] component, you can also create your own
+//! disabling components, which will operate in the same way but can have distinct semantics.
 //!
-//! ### Note
+//! ## Defining your own disabling components
 //!
-//! Currently only queries for which the cache is built after enabling a filter will have entities
+//! ## Default query filters
+//!
+//! In Bevy, entity disabling is implemented through the construction of a global "default query filter".
+//! Queries which do not explicitly mention the disabled component will not include entities with that component.
+//! If an entity has multiple disabling components, it will only be included in queries that mention all of them.
+//!
+//! For example, `Query<&Position>` will not include entities with the [`Disabled`] component,
+//! even if they have a `Position` component,
+//! but `Query<&Position, With<Disabled>>` or `Query<(&Position, Has<Disabled>)>` will see them.
+//!
+//! Entities with disabling components are still present in the [`World`] and can be accessed directly,
+//! using methods on [`World`] or [`Commands`](crate::prelude::Commands).
+//!
+//! ### Warning
+//!
+//! Currently, only queries for which the cache is built after enabling a default query filter will have entities
 //! with those components filtered. As a result, they should generally only be modified before the
 //! app starts.
 //!
