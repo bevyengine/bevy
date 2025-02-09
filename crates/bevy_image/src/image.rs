@@ -806,6 +806,7 @@ impl Image {
         let mut image = Image::default_uninit();
         image.texture_descriptor.format = format;
         image.texture_descriptor.dimension = dimension;
+        image.texture_descriptor.size = size;
         image.asset_usage = asset_usage;
 
         let byte_len = format.pixel_size() * size.volume();
