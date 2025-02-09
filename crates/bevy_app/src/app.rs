@@ -1264,7 +1264,7 @@ impl App {
     }
 
     /// Set the global system error handler to use for systems that return a
-    /// [`Result`](crate::result::Result).
+    /// [`Result`](bevy_ecs::result::Result).
     pub fn set_systems_error_handler(
         &mut self,
         error_handler: fn(Error, &ScheduleSystem),
