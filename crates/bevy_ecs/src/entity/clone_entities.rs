@@ -816,12 +816,11 @@ impl<'w> EntityClonerBuilder<'w> {
 mod tests {
     use super::ComponentCloneCtx;
     use crate::{
-        self as bevy_ecs,
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
         entity::{hash_map::EntityHashMap, Entity, EntityCloner},
-        hierarchy::{ChildOf, Children},
-        reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
-        resource::Resource,
+        prelude::{ChildOf, Children, Resource},
+        reflect::AppTypeRegistry,
+        reflect::{ReflectComponent, ReflectFromWorld},
         system::Commands,
         world::{FromWorld, World},
     };
@@ -835,6 +834,7 @@ mod tests {
     mod reflect {
         use super::*;
         use crate::{
+            component::{Component, ComponentCloneBehavior},
             entity::EntityCloner,
             reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
             system::Commands,

@@ -7,11 +7,7 @@ crates/**/target
 benches/**/target
 tools/**/target
 **/*.rs.bk
-rustc-ice-*
-
-# DX12 wgpu backend
-dxcompiler.dll
-dxil.dll
+rustc-ice-*.txt
 
 # DX12 wgpu backend
 dxcompiler.dll

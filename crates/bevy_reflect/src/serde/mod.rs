@@ -10,8 +10,8 @@ pub use type_data::*;
 mod tests {
     use super::*;
     use crate::{
-        self as bevy_reflect, type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct,
-        FromReflect, PartialReflect, Reflect, Struct,
+        type_registry::TypeRegistry, DynamicStruct, DynamicTupleStruct, FromReflect,
+        PartialReflect, Reflect, Struct,
     };
     use serde::de::DeserializeSeed;
 
