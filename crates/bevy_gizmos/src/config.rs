@@ -1,6 +1,5 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use crate::{self as bevy_gizmos};
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 #[cfg(all(
