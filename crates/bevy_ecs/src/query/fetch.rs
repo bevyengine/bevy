@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{Ticks, TicksMut, MaybeLocation},
+    change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},

@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{MaybeLocation},
+    change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,

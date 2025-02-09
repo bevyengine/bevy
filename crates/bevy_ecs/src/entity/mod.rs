@@ -72,7 +72,7 @@ pub use unique_slice::*;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    change_detection::{MaybeLocation},
+    change_detection::MaybeLocation,
     identifier::{
         error::IdentifierError,
         kinds::IdKind,
