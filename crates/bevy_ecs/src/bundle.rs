@@ -209,9 +209,9 @@ pub trait DynamicBundle {
 /// An operation on an [`Entity`] that occurs _after_ inserting the [`Bundle`] that defined this bundle effect.
 /// The order of operations is:
 ///
-/// 1. The Bundle is inserted on the entity
+/// 1. The [`Bundle`] is inserted on the entity
 /// 2. Relevant Hooks are run for the insert, then Observers
-/// 3. The BundleEffect is run.
+/// 3. The [`BundleEffect`] is run.
 ///
 /// See [`DynamicBundle::Effect`].
 pub trait BundleEffect {
