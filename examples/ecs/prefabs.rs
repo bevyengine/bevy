@@ -36,9 +36,9 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Circular floor to display our models on
+    // Large floor plane to display our models on
     commands.spawn((
-        Mesh3d(meshes.add(Circle::new(100.0))),
+        Mesh3d(meshes.add(Rectangle::new(500.0, 500.0))),
         MeshMaterial3d(materials.add(Color::WHITE)),
         Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
     ));
@@ -53,7 +53,7 @@ fn setup_scene(
     // Camera
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+        Transform::from_xyz(100.0, 400.0, 100.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
     // Load in our test scene that we're storing as a prefab
