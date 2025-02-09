@@ -339,7 +339,7 @@ impl ImageFormat {
 )]
 pub struct Image {
     /// Raw pixel data.
-    /// If the image is being used as a storage texture which doesn't need to be initialzied by the
+    /// If the image is being used as a storage texture which doesn't need to be initialized by the
     /// CPU, then this should be `None`
     /// Otherwise, it should always be `Some`
     pub data: Option<Vec<u8>>,

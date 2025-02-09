@@ -81,7 +81,7 @@ pub fn dds_buffer_to_image(
             ..Default::default()
         });
     }
-    image.data = dds.data;
+    image.data = Some(dds.data);
     Ok(image)
 }
 
