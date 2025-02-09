@@ -285,15 +285,8 @@ mod render_entities_world_query_impls {
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for RenderEntity {
-        type Item<'w, 's> = Entity;
         type Fetch<'w, 's> = <&'static RenderEntity as WorldQuery>::Fetch<'w, 's>;
         type State = <&'static RenderEntity as WorldQuery>::State;
-
-        fn shrink<'wlong: 'wshort, 'wshort, 's>(
-            item: Self::Item<'wlong, 's>,
-        ) -> Self::Item<'wshort, 's> {
-            item
-        }
 
         fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
             fetch: Self::Fetch<'wlong, 's>,
@@ -339,18 +332,6 @@ mod render_entities_world_query_impls {
             unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        #[inline(always)]
-        unsafe fn fetch<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
-            entity: Entity,
-            table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
-            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
-            let component =
-                unsafe { <&RenderEntity as WorldQuery>::fetch(fetch, entity, table_row) };
-            component.id()
-        }
-
         fn update_component_access(
             &component_id: &ComponentId,
             access: &mut FilteredAccess<ComponentId>,
@@ -378,6 +359,25 @@ mod render_entities_world_query_impls {
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for RenderEntity {
         type ReadOnly = RenderEntity;
+        type Item<'w, 's> = Entity;
+
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+            item
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            entity: Entity,
+            table_row: TableRow,
+        ) -> Self::Item<'w, 's> {
+            // SAFETY: defers to the `&T` implementation, with T set to `RenderEntity`.
+            let component =
+                unsafe { <&RenderEntity as QueryData>::fetch(fetch, entity, table_row) };
+            component.id()
+        }
     }
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
@@ -386,15 +386,8 @@ mod render_entities_world_query_impls {
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
-        type Item<'w, 's> = Entity;
         type Fetch<'w, 's> = <&'static MainEntity as WorldQuery>::Fetch<'w, 's>;
         type State = <&'static MainEntity as WorldQuery>::State;
-
-        fn shrink<'wlong: 'wshort, 'wshort, 's>(
-            item: Self::Item<'wlong, 's>,
-        ) -> Self::Item<'wshort, 's> {
-            item
-        }
 
         fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
             fetch: Self::Fetch<'wlong, 's>,
@@ -440,17 +433,6 @@ mod render_entities_world_query_impls {
             unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        #[inline(always)]
-        unsafe fn fetch<'w, 's>(
-            fetch: &mut Self::Fetch<'w, 's>,
-            entity: Entity,
-            table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
-            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
-            let component = unsafe { <&MainEntity as WorldQuery>::fetch(fetch, entity, table_row) };
-            component.id()
-        }
-
         fn update_component_access(
             &component_id: &ComponentId,
             access: &mut FilteredAccess<ComponentId>,
@@ -478,6 +460,24 @@ mod render_entities_world_query_impls {
     // Self::ReadOnly matches exactly the same archetypes/tables as Self.
     unsafe impl QueryData for MainEntity {
         type ReadOnly = MainEntity;
+        type Item<'w, 's> = Entity;
+
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+            item
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w, 's>(
+            fetch: &mut Self::Fetch<'w, 's>,
+            entity: Entity,
+            table_row: TableRow,
+        ) -> Self::Item<'w, 's> {
+            // SAFETY: defers to the `&T` implementation, with T set to `MainEntity`.
+            let component = unsafe { <&MainEntity as QueryData>::fetch(fetch, entity, table_row) };
+            component.id()
+        }
     }
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.

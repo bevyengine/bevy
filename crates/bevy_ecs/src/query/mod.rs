@@ -809,14 +809,8 @@ mod tests {
     /// `update_component_access` adds resource read access for `R`.
     /// `update_archetype_component_access` does nothing, as this accesses no components.
     unsafe impl WorldQuery for ReadsRData {
-        type Item<'w, 's> = ();
         type Fetch<'w, 's> = ();
         type State = ComponentId;
-
-        fn shrink<'wlong: 'wshort, 'wshort, 's>(
-            _item: Self::Item<'wlong, 's>,
-        ) -> Self::Item<'wshort, 's> {
-        }
 
         fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
             _: Self::Fetch<'wlong, 's>,
@@ -850,14 +844,6 @@ mod tests {
         ) {
         }
 
-        #[inline(always)]
-        unsafe fn fetch<'w, 's>(
-            _fetch: &mut Self::Fetch<'w, 's>,
-            _entity: Entity,
-            _table_row: TableRow,
-        ) -> Self::Item<'w, 's> {
-        }
-
         fn update_component_access(
             &component_id: &Self::State,
             access: &mut FilteredAccess<ComponentId>,
@@ -888,6 +874,20 @@ mod tests {
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
         type ReadOnly = Self;
+        type Item<'w, 's> = ();
+
+        fn shrink<'wlong: 'wshort, 'wshort, 's>(
+            _item: Self::Item<'wlong, 's>,
+        ) -> Self::Item<'wshort, 's> {
+        }
+
+        #[inline(always)]
+        unsafe fn fetch<'w, 's>(
+            _fetch: &mut Self::Fetch<'w, 's>,
+            _entity: Entity,
+            _table_row: TableRow,
+        ) -> Self::Item<'w, 's> {
+        }
     }
 
     /// SAFETY: access is read only
