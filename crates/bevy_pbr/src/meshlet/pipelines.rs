@@ -405,7 +405,7 @@ impl FromWorld for MeshletPipelines {
                 depth_stencil: Some(DepthStencilState {
                     format: CORE_3D_DEPTH_FORMAT,
                     depth_write_enabled: true,
-                    depth_compare: CompareFunction::GreaterEqual,
+                    depth_compare: CompareFunction::Always,
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
@@ -429,7 +429,7 @@ impl FromWorld for MeshletPipelines {
                     depth_stencil: Some(DepthStencilState {
                         format: CORE_3D_DEPTH_FORMAT,
                         depth_write_enabled: true,
-                        depth_compare: CompareFunction::GreaterEqual,
+                        depth_compare: CompareFunction::Always,
                         stencil: StencilState::default(),
                         bias: DepthBiasState::default(),
                     }),
