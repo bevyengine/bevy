@@ -111,7 +111,8 @@ unused_qualifications = "warn"
 [features]
 default = [
   "std",
-  "bevy_internal/default",
+  "async_executor",
+  "bevy_log",
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
@@ -149,7 +150,7 @@ default = [
 ]
 
 # Recommended defaults for no_std applications
-default_no_std = ["bevy_internal/default_no_std", "bevy_state"]
+default_no_std = ["edge_executor", "libm", "critical-section", "bevy_state"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
@@ -257,6 +258,9 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable integration with `tracing` and `log`
+bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -480,27 +484,19 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
 
-# Executor Backend (choose one)
 # Uses `async-executor` as a task execution backend.
 async_executor = ["std", "bevy_internal/async_executor"]
 
 # Uses `edge-executor` as a task execution backend.
-# Use this instead of `async-executor` if working on a `no_std` target.
 edge_executor = ["bevy_internal/edge_executor"]
 
-# Platform Compatibility
-
-# Allows access to the `std` crate. Enabling this feature will prevent compilation
-# on `no_std` targets, but provides access to certain additional features on
-# supported platforms.
+# Allows access to the `std` crate.
 std = ["bevy_internal/std"]
 
-# `critical-section` provides the building blocks for synchronization primitives
-# on all platforms, including `no_std`.
+# `critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.
 critical-section = ["bevy_internal/critical-section"]
 
-# `portable-atomic` provides additional platform support for atomic types and
-# operations, even on targets without native support. 
+# `portable-atomic` provides additional platform support for atomic types and operations, even on targets without native support. 
 portable-atomic = ["bevy_internal/portable-atomic"]
 
 # Uses the `libm` maths library instead of the one provided in `std` and `core`.

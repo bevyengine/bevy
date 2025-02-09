@@ -10,9 +10,6 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 categories = ["game-engines", "graphics", "gui", "rendering"]
 
 [features]
-default = ["std", "async_executor", "bevy_log"]
-default_no_std = ["edge_executor", "libm", "critical-section"]
-
 # Optional Crates
 
 ## Enable animation support, and glTF animation loading
