@@ -18,24 +18,21 @@
 //! the components and assets that they use will still be loaded into memory (although asset data is shared between instances).
 //! Loading and unloading assets dynamically (e.g. per level) is an important strategy to manage memory usage.
 
-use bevy::prelude::*;
-
-#[derive(States, Debug, PartialEq, Eq, Clone, Copy, Hash)]
-enum AssetLoadingState {
-    Loading,
-    Loaded,
-}
+use bevy::{ecs::entity_disabling::Disabled, prelude::*, scene::SceneInstanceReady};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_scene)
-        .add_systems(OnEnter(AssetLoadingState::Loading), load_models)
         .run();
 }
 
+// An example asset that contains a mesh composed of multiple entities.
+const GLTF_PATH: &str = "models/animated/Fox.glb";
+
 fn setup_scene(
     mut commands: Commands,
+    asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
@@ -58,6 +55,19 @@ fn setup_scene(
         Camera3d::default(),
         Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
+
+    // Load in our test scene that we're storing as a prefab
+    let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
+    commands.spawn(mesh_scene).observe(respond_to_scene_loaded);
 }
 
-fn load_models() {}
+// This observer will be triggered when the scene is loaded,
+// allowing us to modify the scene as we please.
+fn respond_to_scene_loaded(trigger: Trigger<SceneInstanceReady>, mut commands: Commands) {
+    let scene_root_entity = trigger.target();
+    commands
+        .entity(scene_root_entity)
+        // Scenes are generally composed of multiple entities,
+        // so we need to make any changes to the scene as a whole.
+        .insert_recursive::<Children>(Disabled);
+}

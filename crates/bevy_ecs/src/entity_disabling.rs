@@ -34,7 +34,7 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 /// A marker component for disabled entities. See [the module docs] for more info.
 ///
 /// [the module docs]: crate::entity_disabling
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct Disabled;
 
