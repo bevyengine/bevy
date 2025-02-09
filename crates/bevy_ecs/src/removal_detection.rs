@@ -7,7 +7,7 @@ use crate::{
     event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
     prelude::Local,
     storage::SparseSet,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam},
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam, WorldAccessLevel},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
@@ -265,5 +265,9 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
         _change_tick: Tick,
     ) -> Self::Item<'w, 's> {
         world.removed_components()
+    }
+
+    fn world_access_level() -> WorldAccessLevel {
+        WorldAccessLevel::Shared
     }
 }

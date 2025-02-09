@@ -29,7 +29,7 @@ use crate::{
     schedule::ScheduleLabel,
     system::{
         command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
-        IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId,
+        IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, WorldAccessLevel,
     },
     world::{
         command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
@@ -201,6 +201,10 @@ const _: () = {
                 queue: InternalQueue::CommandQueue(f0),
                 entities: f1,
             }
+        }
+
+        fn world_access_level() -> WorldAccessLevel {
+            <(Deferred<CommandQueue>, &Entities) as bevy_ecs::system::SystemParam>::world_access_level()
         }
     }
     // SAFETY: Only reads Entities
