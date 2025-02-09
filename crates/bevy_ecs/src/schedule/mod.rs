@@ -1,17 +1,27 @@
 //! Contains APIs for ordering systems and executing them on a [`World`](crate::world::World)
 
+mod auto_insert_apply_deferred;
 mod condition;
 mod config;
 mod executor;
-mod graph;
+mod pass;
 mod schedule;
 mod set;
 mod stepping;
 
 use self::graph::*;
 pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
+pub use pass::ScheduleBuildPass;
 
 pub use self::graph::NodeId;
+
+/// An implementation of a graph data structure.
+pub mod graph;
+
+/// Included optional schedule build passes.
+pub mod passes {
+    pub use crate::schedule::auto_insert_apply_deferred::*;
+}
 
 #[cfg(test)]
 mod tests {
@@ -1082,7 +1092,7 @@ mod tests {
 
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
-                world.components(),
+                &mut world,
                 TestSchedule.intern(),
                 &BTreeSet::new(),
             );
@@ -1131,7 +1141,7 @@ mod tests {
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
             let _ = schedule.graph_mut().build_schedule(
-                world.components(),
+                &mut world,
                 TestSchedule.intern(),
                 &BTreeSet::new(),
             );

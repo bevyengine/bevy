@@ -32,8 +32,11 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 
 # other
 crossbeam-channel = { version = "0.5", optional = true }
-uuid = { version = "1.1", features = ["v4"] }
+uuid = { version = "1.13.1", features = ["v4"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [lints]
 workspace = true

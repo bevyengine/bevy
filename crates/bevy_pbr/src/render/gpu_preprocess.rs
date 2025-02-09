@@ -9,7 +9,7 @@
 use core::num::{NonZero, NonZeroU64};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     experimental::mip_generation::ViewDepthPyramid,
@@ -48,7 +48,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    view::{NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSet,
 };
 use bevy_utils::TypeIdMap;
@@ -64,16 +64,16 @@ use super::ViewLightEntities;
 
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(16991728318640779533);
+    weak_handle!("c8579292-cf92-43b5-9c5a-ec5bd4e44d12");
 /// The handle to the `mesh_preprocess_types.wgsl` compute shader.
 pub const MESH_PREPROCESS_TYPES_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2720440370122465935);
+    weak_handle!("06f797ef-a106-4098-9a2e-20a73aa182e2");
 /// The handle to the `reset_indirect_batch_sets.wgsl` compute shader.
 pub const RESET_INDIRECT_BATCH_SETS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2602194133710559644);
+    weak_handle!("045fb176-58e2-4e76-b241-7688d761bb23");
 /// The handle to the `build_indirect_params.wgsl` compute shader.
 pub const BUILD_INDIRECT_PARAMS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(3711077208359699672);
+    weak_handle!("133b01f0-3eaf-4590-9ee9-f0cf91a00b71");
 
 /// The GPU workgroup size.
 const WORKGROUP_SIZE: usize = 64;
@@ -100,7 +100,7 @@ pub struct GpuMeshPreprocessPlugin {
 pub struct EarlyGpuPreprocessNode {
     view_query: QueryState<
         (
-            Entity,
+            Read<ExtractedView>,
             Option<Read<PreprocessBindGroups>>,
             Option<Read<ViewUniformOffset>>,
             Has<NoIndirectDrawing>,
@@ -120,7 +120,11 @@ pub struct EarlyGpuPreprocessNode {
 /// metadata for the subsequent [`LatePrepassBuildIndirectParametersNode`].
 pub struct LateGpuPreprocessNode {
     view_query: QueryState<
-        (Entity, Read<PreprocessBindGroups>, Read<ViewUniformOffset>),
+        (
+            Read<ExtractedView>,
+            Read<PreprocessBindGroups>,
+            Read<ViewUniformOffset>,
+        ),
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
@@ -580,7 +584,8 @@ impl Node for EarlyGpuPreprocessNode {
             };
 
             // Grab the work item buffers for this view.
-            let Some(phase_work_item_buffers) = index_buffers.get(&view) else {
+            let Some(phase_work_item_buffers) = index_buffers.get(&view.retained_view_entity)
+            else {
                 warn!("The preprocessing index buffer wasn't present");
                 continue;
             };
@@ -791,7 +796,8 @@ impl Node for LateGpuPreprocessNode {
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
             // Grab the work item buffers for this view.
-            let Some(phase_work_item_buffers) = work_item_buffers.get(&view) else {
+            let Some(phase_work_item_buffers) = work_item_buffers.get(&view.retained_view_entity)
+            else {
                 warn!("The preprocessing index buffer wasn't present");
                 continue;
             };
@@ -1619,6 +1625,7 @@ impl BuildIndirectParametersPipeline {
 )]
 pub fn prepare_preprocess_bind_groups(
     mut commands: Commands,
+    views: Query<(Entity, &ExtractedView)>,
     view_depth_pyramids: Query<(&ViewDepthPyramid, &PreviousViewUniformOffset)>,
     render_device: Res<RenderDevice>,
     batched_instance_buffers: Res<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
@@ -1651,14 +1658,19 @@ pub fn prepare_preprocess_bind_groups(
     let mut any_indirect = false;
 
     // Loop over each view.
-    for (view, phase_work_item_buffers) in work_item_buffers {
+    for (view_entity, view) in &views {
+        let Some(phase_work_item_buffers) = work_item_buffers.get(&view.retained_view_entity)
+        else {
+            continue;
+        };
+
         let mut bind_groups = TypeIdMap::default();
 
         // Loop over each phase.
         for (&phase_id, work_item_buffers) in phase_work_item_buffers {
             // Create the `PreprocessBindGroupBuilder`.
             let preprocess_bind_group_builder = PreprocessBindGroupBuilder {
-                view: *view,
+                view: view_entity,
                 late_indexed_indirect_parameters_buffer,
                 late_non_indexed_indirect_parameters_buffer,
                 render_device: &render_device,
@@ -1719,7 +1731,7 @@ pub fn prepare_preprocess_bind_groups(
 
         // Save the bind groups.
         commands
-            .entity(*view)
+            .entity(view_entity)
             .insert(PreprocessBindGroups(bind_groups));
     }
 

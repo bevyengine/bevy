@@ -2,9 +2,10 @@
 //!
 //! You can switch scene by pressing the spacebar
 
-#[cfg(feature = "bevy_ci_testing")]
-use bevy::dev_tools::ci_testing::CiTestingCustomEvent;
+mod helpers;
+
 use bevy::prelude::*;
+use helpers::Next;
 
 fn main() {
     let mut app = App::new();
@@ -15,6 +16,10 @@ fn main() {
         .add_systems(OnEnter(Scene::Text), text::setup)
         .add_systems(OnEnter(Scene::Sprite), sprite::setup)
         .add_systems(Update, switch_scene);
+
+    #[cfg(feature = "bevy_ci_testing")]
+    app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
+
     app.run();
 }
 
@@ -28,28 +33,25 @@ enum Scene {
     Sprite,
 }
 
-fn switch_scene(
-    keyboard: Res<ButtonInput<KeyCode>>,
-    #[cfg(feature = "bevy_ci_testing")] mut ci_events: EventReader<CiTestingCustomEvent>,
-    scene: Res<State<Scene>>,
-    mut next_scene: ResMut<NextState<Scene>>,
-) {
-    let mut should_switch = false;
-    should_switch |= keyboard.just_pressed(KeyCode::Space);
-    #[cfg(feature = "bevy_ci_testing")]
-    {
-        should_switch |= ci_events.read().any(|event| match event {
-            CiTestingCustomEvent(event) => event == "switch_scene",
-        });
-    }
-    if should_switch {
-        info!("Switching scene");
-        next_scene.set(match scene.get() {
+impl Next for Scene {
+    fn next(&self) -> Self {
+        match self {
             Scene::Shapes => Scene::Bloom,
             Scene::Bloom => Scene::Text,
             Scene::Text => Scene::Sprite,
             Scene::Sprite => Scene::Shapes,
-        });
+        }
+    }
+}
+
+fn switch_scene(
+    keyboard: Res<ButtonInput<KeyCode>>,
+    scene: Res<State<Scene>>,
+    mut next_scene: ResMut<NextState<Scene>>,
+) {
+    if keyboard.just_pressed(KeyCode::Space) {
+        info!("Switching scene");
+        next_scene.set(scene.get().next());
     }
 }
 
