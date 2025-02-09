@@ -373,7 +373,7 @@ mod test {
         let r = dds_buffer_to_image("".into(), &buffer, CompressedImageFormats::BC, true);
         assert!(r.is_ok());
         if let Ok(r) = r {
-            fake_wgpu_create_texture_with_data(&r.texture_descriptor, &r.data);
+            fake_wgpu_create_texture_with_data(&r.texture_descriptor, r.data.as_ref().unwrap());
         }
     }
 }
