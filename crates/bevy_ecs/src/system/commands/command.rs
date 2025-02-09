@@ -8,7 +8,7 @@
 use core::panic::Location;
 
 use crate::{
-    bundle::{Bundle, InsertMode},
+    bundle::{Bundle, InsertMode, NoBundleEffect},
     entity::Entity,
     event::{Event, Events},
     observer::TriggerTargets,
@@ -111,7 +111,7 @@ impl<C: Command> HandleError for C {
 pub fn spawn_batch<I>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator + Send + Sync + 'static,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     #[cfg(feature = "track_location")]
     let caller = Location::caller();
@@ -135,7 +135,7 @@ where
 pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command<Result>
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-    B: Bundle,
+    B: Bundle<Effect: NoBundleEffect>,
 {
     #[cfg(feature = "track_location")]
     let caller = Location::caller();
