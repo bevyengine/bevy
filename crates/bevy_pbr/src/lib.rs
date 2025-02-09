@@ -182,6 +182,12 @@ pub struct PbrPlugin {
     /// This requires compute shader support and so will be forcibly disabled if
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
+    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
+    /// that they can be read back to CPU.
+    ///
+    /// This is a debugging feature that may reduce performance. It primarily
+    /// exists for the `occlusion_culling` example.
+    pub allow_copies_from_indirect_parameters: bool,
 }
 
 impl Default for PbrPlugin {
@@ -190,6 +196,7 @@ impl Default for PbrPlugin {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
+            allow_copies_from_indirect_parameters: false,
         }
     }
 }
@@ -333,9 +340,13 @@ impl Plugin for PbrPlugin {
             .add_plugins((
                 MeshRenderPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                    allow_copies_from_indirect_parameters: self
+                        .allow_copies_from_indirect_parameters,
                 },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
+                    allow_copies_from_indirect_parameters: self
+                        .allow_copies_from_indirect_parameters,
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,

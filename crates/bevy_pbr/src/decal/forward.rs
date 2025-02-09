@@ -48,6 +48,7 @@ impl Plugin for ForwardDecalPlugin {
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
             prepass_enabled: false,
             shadows_enabled: false,
+            allow_copies_from_indirect_parameters: false,
             ..Default::default()
         });
     }

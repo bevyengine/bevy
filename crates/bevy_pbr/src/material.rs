@@ -252,6 +252,12 @@ pub struct MaterialPlugin<M: Material> {
     pub prepass_enabled: bool,
     /// Controls if shadows are enabled for the Material.
     pub shadows_enabled: bool,
+    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
+    /// that they can be read back to CPU.
+    ///
+    /// This is a debugging feature that may reduce performance. It primarily
+    /// exists for the `occlusion_culling` example.
+    pub allow_copies_from_indirect_parameters: bool,
     pub _marker: PhantomData<M>,
 }
 
@@ -260,6 +266,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
         Self {
             prepass_enabled: true,
             shadows_enabled: true,
+            allow_copies_from_indirect_parameters: false,
             _marker: Default::default(),
         }
     }
@@ -374,7 +381,9 @@ where
         }
 
         if self.prepass_enabled {
-            app.add_plugins(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::new(
+                self.allow_copies_from_indirect_parameters,
+            ));
         }
     }
 

@@ -146,11 +146,22 @@ where
 /// Sets up the prepasses for a [`Material`].
 ///
 /// This depends on the [`PrepassPipelinePlugin`].
-pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+pub struct PrepassPlugin<M: Material> {
+    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
+    /// that they can be read back to CPU.
+    ///
+    /// This is a debugging feature that may reduce performance. It primarily
+    /// exists for the `occlusion_culling` example.
+    pub allow_copies_from_indirect_parameters: bool,
+    pub phantom: PhantomData<M>,
+}
 
-impl<M: Material> Default for PrepassPlugin<M> {
-    fn default() -> Self {
-        Self(Default::default())
+impl<M: Material> PrepassPlugin<M> {
+    pub fn new(allow_copies_from_indirect_parameters: bool) -> Self {
+        PrepassPlugin {
+            allow_copies_from_indirect_parameters,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -176,8 +187,12 @@ where
                     ),
                 )
                 .add_plugins((
-                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
-                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::new(
+                        self.allow_copies_from_indirect_parameters,
+                    ),
+                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::new(
+                        self.allow_copies_from_indirect_parameters,
+                    ),
                 ));
         }
 
