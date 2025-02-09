@@ -598,7 +598,7 @@ impl<'w> From<TicksMut<'w>> for Ticks<'w> {
 pub struct Res<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
-    pub(crate) changed_by: TrackLocationOption<&'w &'static Location<'static>>,
+    pub(crate) changed_by: MaybeLocation<&'w &'static Location<'static>>,
 }
 
 impl<'w, T: Resource> Res<'w, T> {
@@ -675,7 +675,7 @@ impl_debug!(Res<'w, T>, Resource);
 pub struct ResMut<'w, T: ?Sized + Resource> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
-    pub(crate) changed_by: TrackLocationOption<&'w mut &'static Location<'static>>,
+    pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
 }
 
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
@@ -734,7 +734,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Mut<'w, T> {
 pub struct NonSendMut<'w, T: ?Sized + 'static> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
-    pub(crate) changed_by: TrackLocationOption<&'w mut &'static Location<'static>>,
+    pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
 }
 
 change_detection_impl!(NonSendMut<'w, T>, T,);
@@ -781,7 +781,7 @@ impl<'w, T: 'static> From<NonSendMut<'w, T>> for Mut<'w, T> {
 pub struct Ref<'w, T: ?Sized> {
     pub(crate) value: &'w T,
     pub(crate) ticks: Ticks<'w>,
-    pub(crate) changed_by: TrackLocationOption<&'w &'static Location<'static>>,
+    pub(crate) changed_by: MaybeLocation<&'w &'static Location<'static>>,
 }
 
 impl<'w, T: ?Sized> Ref<'w, T> {
@@ -819,7 +819,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
         changed: &'w Tick,
         last_run: Tick,
         this_run: Tick,
-        caller: TrackLocationOption<&'w &'static Location<'static>>,
+        caller: MaybeLocation<&'w &'static Location<'static>>,
     ) -> Ref<'w, T> {
         Ref {
             value,
@@ -911,7 +911,7 @@ impl_debug!(Ref<'w, T>,);
 pub struct Mut<'w, T: ?Sized> {
     pub(crate) value: &'w mut T,
     pub(crate) ticks: TicksMut<'w>,
-    pub(crate) changed_by: TrackLocationOption<&'w mut &'static Location<'static>>,
+    pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
 }
 
 impl<'w, T: ?Sized> Mut<'w, T> {
@@ -936,7 +936,7 @@ impl<'w, T: ?Sized> Mut<'w, T> {
         last_changed: &'w mut Tick,
         last_run: Tick,
         this_run: Tick,
-        caller: TrackLocationOption<&'w mut &'static Location<'static>>,
+        caller: MaybeLocation<&'w mut &'static Location<'static>>,
     ) -> Self {
         Self {
             value,
@@ -1002,7 +1002,7 @@ impl_debug!(Mut<'w, T>,);
 pub struct MutUntyped<'w> {
     pub(crate) value: PtrMut<'w>,
     pub(crate) ticks: TicksMut<'w>,
-    pub(crate) changed_by: TrackLocationOption<&'w mut &'static Location<'static>>,
+    pub(crate) changed_by: MaybeLocation<&'w mut &'static Location<'static>>,
 }
 
 impl<'w> MutUntyped<'w> {
@@ -1172,20 +1172,20 @@ impl<'w, T> From<Mut<'w, T>> for MutUntyped<'w> {
 /// time and is the same for all values.
 ///
 /// If the `track_location` feature is disabled, then all functions on this type that return
-/// an `TrackLocationOption` will have an empty body and should be removed by the optimizer.
+/// an `MaybeLocation` will have an empty body and should be removed by the optimizer.
 ///
 /// This allows code to be written that will be checked by the compiler even when the feature is disabled,
 /// but that will be entirely removed during compilation.
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct TrackLocationOption<T: ?Sized> {
+pub struct MaybeLocation<T: ?Sized = &'static Location<'static>> {
     #[cfg_attr(feature = "bevy_reflect", reflect(ignore))]
     marker: PhantomData<T>,
     #[cfg(feature = "track_location")]
     value: T,
 }
 
-impl<T: core::fmt::Display> core::fmt::Display for TrackLocationOption<T> {
+impl<T: core::fmt::Display> core::fmt::Display for MaybeLocation<T> {
     fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         #[cfg(feature = "track_location")]
         {
@@ -1195,8 +1195,8 @@ impl<T: core::fmt::Display> core::fmt::Display for TrackLocationOption<T> {
     }
 }
 
-impl<T> TrackLocationOption<T> {
-    /// Constructs a new `TrackLocationOption` that wraps the given value.
+impl<T> MaybeLocation<T> {
+    /// Constructs a new `MaybeLocation` that wraps the given value.
     ///
     /// This may only accept `Copy` types,
     /// since it needs to drop the value if the `track_location` feature is disabled,
@@ -1205,7 +1205,7 @@ impl<T> TrackLocationOption<T> {
     ///
     /// # See also
     /// - [`new_with`][Self::new_with] to initialize using a closure.
-    /// - [`new_with_flattened`][Self::new_with_flattened] to initialize using a closure that returns an `Option<TrackLocationOption<T>>`.
+    /// - [`new_with_flattened`][Self::new_with_flattened] to initialize using a closure that returns an `Option<MaybeLocation<T>>`.
     #[inline]
     pub const fn new(_value: T) -> Self
     where
@@ -1218,11 +1218,11 @@ impl<T> TrackLocationOption<T> {
         }
     }
 
-    /// Constructs a new `TrackLocationOption` that wraps the result of the given closure.
+    /// Constructs a new `MaybeLocation` that wraps the result of the given closure.
     ///
     /// # See also
     /// - [`new`][Self::new] to initialize using a value.
-    /// - [`new_with_flattened`][Self::new_with_flattened] to initialize using a closure that returns an `Option<TrackLocationOption<T>>`.
+    /// - [`new_with_flattened`][Self::new_with_flattened] to initialize using a closure that returns an `Option<MaybeLocation<T>>`.
     #[inline]
     pub fn new_with(_f: impl FnOnce() -> T) -> Self {
         Self {
@@ -1232,20 +1232,20 @@ impl<T> TrackLocationOption<T> {
         }
     }
 
-    /// Maps an `TrackLocationOption<T> `to `TrackLocationOption<U>` by applying a function to a contained value.
+    /// Maps an `MaybeLocation<T> `to `MaybeLocation<U>` by applying a function to a contained value.
     #[inline]
-    pub fn map<U>(self, _f: impl FnOnce(T) -> U) -> TrackLocationOption<U> {
-        TrackLocationOption {
+    pub fn map<U>(self, _f: impl FnOnce(T) -> U) -> MaybeLocation<U> {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: _f(self.value),
             marker: PhantomData,
         }
     }
 
-    /// Converts a pair of `TrackLocationOption` values to an `TrackLocationOption` of a tuple.
+    /// Converts a pair of `MaybeLocation` values to an `MaybeLocation` of a tuple.
     #[inline]
-    pub fn zip<U>(self, _other: TrackLocationOption<U>) -> TrackLocationOption<(T, U)> {
-        TrackLocationOption {
+    pub fn zip<U>(self, _other: MaybeLocation<U>) -> MaybeLocation<(T, U)> {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: (self.value, _other.value),
             marker: PhantomData,
@@ -1263,7 +1263,7 @@ impl<T> TrackLocationOption<T> {
         self.into_option().unwrap_or_default()
     }
 
-    /// Converts an `TrackLocationOption` to an `Option` to allow run-time branching.
+    /// Converts an `MaybeLocation` to an `Option` to allow run-time branching.
     /// If the `track_location` feature is enabled, this always returns `Some`.
     /// If it is disabled, this always returns `None`.
     #[inline]
@@ -1279,15 +1279,15 @@ impl<T> TrackLocationOption<T> {
     }
 }
 
-impl<T> TrackLocationOption<Option<T>> {
-    /// Constructs a new `TrackLocationOption` that wraps the result of the given closure.
+impl<T> MaybeLocation<Option<T>> {
+    /// Constructs a new `MaybeLocation` that wraps the result of the given closure.
     /// If the closure returns `Some`, it unwraps the inner value.
     ///
     /// # See also
     /// - [`new`][Self::new] to initialize using a value.
     /// - [`new_with`][Self::new_with] to initialize using a closure.
     #[inline]
-    pub fn new_with_flattened(_f: impl FnOnce() -> Option<TrackLocationOption<T>>) -> Self {
+    pub fn new_with_flattened(_f: impl FnOnce() -> Option<MaybeLocation<T>>) -> Self {
         Self {
             #[cfg(feature = "track_location")]
             value: _f().map(|value| value.value),
@@ -1295,7 +1295,7 @@ impl<T> TrackLocationOption<Option<T>> {
         }
     }
 
-    /// Transposes a `TrackLocationOption` of an `Option` into an `Option` of a `TrackLocationOption`.
+    /// Transposes a `MaybeLocation` of an `Option` into an `Option` of a `MaybeLocation`.
     ///
     /// This can be useful if you want to use the `?` operator to exit early
     /// if the `track_location` feature is enabled but the value is not found.
@@ -1309,15 +1309,15 @@ impl<T> TrackLocationOption<Option<T>> {
     /// # Example
     ///
     /// ```
-    /// # use bevy_ecs::{change_detection::TrackLocationOption, world::World};
+    /// # use bevy_ecs::{change_detection::MaybeLocation, world::World};
     /// # use core::panic::Location;
     /// #
     /// # fn test() -> Option<()> {
     /// let mut world = World::new();
     /// let entity = world.spawn(()).id();
-    /// let location: TrackLocationOption<Option<&'static Location<'static>>> =
+    /// let location: MaybeLocation<Option<&'static Location<'static>>> =
     ///     world.entities().entity_get_spawned_or_despawned_by(entity);
-    /// let location: TrackLocationOption<&'static Location<'static>> = location.transpose()?;
+    /// let location: MaybeLocation<&'static Location<'static>> = location.transpose()?;
     /// # Some(())
     /// # }
     /// # test();
@@ -1329,31 +1329,31 @@ impl<T> TrackLocationOption<Option<T>> {
     ///   When used with [`Option::flatten`], this will have a similar effect,
     ///   but will return `None` when the `track_location` feature is disabled.
     #[inline]
-    pub fn transpose(self) -> Option<TrackLocationOption<T>> {
+    pub fn transpose(self) -> Option<MaybeLocation<T>> {
         #[cfg(feature = "track_location")]
         {
-            self.value.map(|value| TrackLocationOption {
+            self.value.map(|value| MaybeLocation {
                 value,
                 marker: PhantomData,
             })
         }
         #[cfg(not(feature = "track_location"))]
         {
-            Some(TrackLocationOption {
+            Some(MaybeLocation {
                 marker: PhantomData,
             })
         }
     }
 }
 
-impl<T> TrackLocationOption<&T> {
-    /// Maps an `TrackLocationOption<&T> ` to an `TrackLocationOption<T>` by copying the contents.
+impl<T> MaybeLocation<&T> {
+    /// Maps an `MaybeLocation<&T> ` to an `MaybeLocation<T>` by copying the contents.
     #[inline]
-    pub const fn copied(&self) -> TrackLocationOption<T>
+    pub const fn copied(&self) -> MaybeLocation<T>
     where
         T: Copy,
     {
-        TrackLocationOption {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: *self.value,
             marker: PhantomData,
@@ -1361,23 +1361,23 @@ impl<T> TrackLocationOption<&T> {
     }
 }
 
-impl<T> TrackLocationOption<&mut T> {
-    /// Maps an `TrackLocationOption<&mut T> ` to an `TrackLocationOption<T>` by copying the contents.
+impl<T> MaybeLocation<&mut T> {
+    /// Maps an `MaybeLocation<&mut T> ` to an `MaybeLocation<T>` by copying the contents.
     #[inline]
-    pub const fn copied(&self) -> TrackLocationOption<T>
+    pub const fn copied(&self) -> MaybeLocation<T>
     where
         T: Copy,
     {
-        TrackLocationOption {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: *self.value,
             marker: PhantomData,
         }
     }
 
-    /// Assigns the contents of an `TrackLocationOption<T>` to an `TrackLocationOption<&mut T>`.
+    /// Assigns the contents of an `MaybeLocation<T>` to an `MaybeLocation<&mut T>`.
     #[inline]
-    pub fn assign(&mut self, _value: TrackLocationOption<T>) {
+    pub fn assign(&mut self, _value: MaybeLocation<T>) {
         #[cfg(feature = "track_location")]
         {
             *self.value = _value.value;
@@ -1385,57 +1385,53 @@ impl<T> TrackLocationOption<&mut T> {
     }
 }
 
-impl<T: ?Sized> TrackLocationOption<T> {
-    /// Converts from `&TrackLocationOption<T>` to `TrackLocationOption<&T>`.
+impl<T: ?Sized> MaybeLocation<T> {
+    /// Converts from `&MaybeLocation<T>` to `MaybeLocation<&T>`.
     #[inline]
-    pub const fn as_ref(&self) -> TrackLocationOption<&T> {
-        TrackLocationOption {
+    pub const fn as_ref(&self) -> MaybeLocation<&T> {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: &self.value,
             marker: PhantomData,
         }
     }
 
-    /// Converts from `&mut TrackLocationOption<T>` to `TrackLocationOption<&mut T>`.
+    /// Converts from `&mut MaybeLocation<T>` to `MaybeLocation<&mut T>`.
     #[inline]
-    pub const fn as_mut(&mut self) -> TrackLocationOption<&mut T> {
-        TrackLocationOption {
+    pub const fn as_mut(&mut self) -> MaybeLocation<&mut T> {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: &mut self.value,
             marker: PhantomData,
         }
     }
 
-    /// Converts from `&TrackLocationOption<T>` to `TrackLocationOption<&T::Target>`.
+    /// Converts from `&MaybeLocation<T>` to `MaybeLocation<&T::Target>`.
     #[inline]
-    pub fn as_deref(&self) -> TrackLocationOption<&T::Target>
+    pub fn as_deref(&self) -> MaybeLocation<&T::Target>
     where
         T: Deref,
     {
-        TrackLocationOption {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: &*self.value,
             marker: PhantomData,
         }
     }
 
-    /// Converts from `&mut TrackLocationOption<T>` to `TrackLocationOption<&mut T::Target>`.
+    /// Converts from `&mut MaybeLocation<T>` to `MaybeLocation<&mut T::Target>`.
     #[inline]
-    pub fn as_deref_mut(&mut self) -> TrackLocationOption<&mut T::Target>
+    pub fn as_deref_mut(&mut self) -> MaybeLocation<&mut T::Target>
     where
         T: DerefMut,
     {
-        TrackLocationOption {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: &mut *self.value,
             marker: PhantomData,
         }
     }
 }
-
-/// A value that contains a source code location if the `track_location` feature is enabled,
-/// and is a ZST if it is not.
-pub type MaybeLocation = TrackLocationOption<&'static Location<'static>>;
 
 impl MaybeLocation {
     /// Returns the source location of the caller of this function. If that function's caller is
@@ -1445,7 +1441,7 @@ impl MaybeLocation {
     #[track_caller]
     pub fn caller() -> Self {
         // Note that this cannot use `new_with`, since `FnOnce` invocations cannot be annotated with `#[track_caller]`.
-        TrackLocationOption {
+        MaybeLocation {
             #[cfg(feature = "track_location")]
             value: Location::caller(),
             marker: PhantomData,

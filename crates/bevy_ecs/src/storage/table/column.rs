@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    change_detection::{MaybeLocation, TrackLocationOption},
+    change_detection::MaybeLocation,
     component::TickCells,
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
@@ -19,8 +19,7 @@ pub struct ThinColumn {
     pub(super) data: BlobArray,
     pub(super) added_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
     pub(super) changed_ticks: ThinArrayPtr<UnsafeCell<Tick>>,
-    pub(super) changed_by:
-        TrackLocationOption<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
+    pub(super) changed_by: MaybeLocation<ThinArrayPtr<UnsafeCell<&'static Location<'static>>>>,
 }
 
 impl ThinColumn {
@@ -33,7 +32,7 @@ impl ThinColumn {
             },
             added_ticks: ThinArrayPtr::with_capacity(capacity),
             changed_ticks: ThinArrayPtr::with_capacity(capacity),
-            changed_by: TrackLocationOption::new_with(|| ThinArrayPtr::with_capacity(capacity)),
+            changed_by: MaybeLocation::new_with(|| ThinArrayPtr::with_capacity(capacity)),
         }
     }
 
@@ -328,7 +327,7 @@ impl ThinColumn {
     pub unsafe fn get_changed_by_slice(
         &self,
         len: usize,
-    ) -> TrackLocationOption<&[UnsafeCell<&'static Location<'static>>]> {
+    ) -> MaybeLocation<&[UnsafeCell<&'static Location<'static>>]> {
         self.changed_by
             .as_ref()
             .map(|changed_by| changed_by.as_slice(len))
@@ -350,7 +349,7 @@ pub struct Column {
     pub(super) data: BlobVec,
     pub(super) added_ticks: Vec<UnsafeCell<Tick>>,
     pub(super) changed_ticks: Vec<UnsafeCell<Tick>>,
-    changed_by: TrackLocationOption<Vec<UnsafeCell<&'static Location<'static>>>>,
+    changed_by: MaybeLocation<Vec<UnsafeCell<&'static Location<'static>>>>,
 }
 
 impl Column {
@@ -362,7 +361,7 @@ impl Column {
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
             added_ticks: Vec::with_capacity(capacity),
             changed_ticks: Vec::with_capacity(capacity),
-            changed_by: TrackLocationOption::new_with(|| Vec::with_capacity(capacity)),
+            changed_by: MaybeLocation::new_with(|| Vec::with_capacity(capacity)),
         }
     }
 
@@ -676,7 +675,7 @@ impl Column {
     pub fn get_changed_by(
         &self,
         row: TableRow,
-    ) -> TrackLocationOption<Option<&UnsafeCell<&'static Location<'static>>>> {
+    ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
         self.changed_by
             .as_ref()
             .map(|changed_by| changed_by.get(row.as_usize()))
@@ -692,7 +691,7 @@ impl Column {
     pub unsafe fn get_changed_by_unchecked(
         &self,
         row: TableRow,
-    ) -> TrackLocationOption<&UnsafeCell<&'static Location<'static>>> {
+    ) -> MaybeLocation<&UnsafeCell<&'static Location<'static>>> {
         self.changed_by.as_ref().map(|changed_by| {
             debug_assert!(row.as_usize() < changed_by.len());
             changed_by.get_unchecked(row.as_usize())

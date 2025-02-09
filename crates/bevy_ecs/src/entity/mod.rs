@@ -72,7 +72,7 @@ pub use unique_slice::*;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    change_detection::{MaybeLocation, TrackLocationOption},
+    change_detection::{MaybeLocation},
     identifier::{
         error::IdentifierError,
         kinds::IdKind,
@@ -989,7 +989,7 @@ impl Entities {
                 .meta
                 .get_mut(index as usize)
                 .expect("Entity index invalid");
-            meta.spawned_or_despawned_by = TrackLocationOption::new(Some(caller));
+            meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
         });
     }
 
@@ -999,8 +999,8 @@ impl Entities {
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
-    ) -> TrackLocationOption<Option<&'static Location<'static>>> {
-        TrackLocationOption::new_with_flattened(|| {
+    ) -> MaybeLocation<Option<&'static Location<'static>>> {
+        MaybeLocation::new_with_flattened(|| {
             self.meta
                 .get(entity.index() as usize)
                 .filter(|meta|
@@ -1028,7 +1028,7 @@ impl Entities {
 /// regarding an entity that did not exist.
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct EntityDoesNotExistDetails {
-    location: TrackLocationOption<Option<&'static Location<'static>>>,
+    location: MaybeLocation<Option<&'static Location<'static>>>,
 }
 
 impl fmt::Display for EntityDoesNotExistDetails {
@@ -1054,7 +1054,7 @@ struct EntityMeta {
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    spawned_or_despawned_by: TrackLocationOption<Option<&'static Location<'static>>>,
+    spawned_or_despawned_by: MaybeLocation<Option<&'static Location<'static>>>,
 }
 
 impl EntityMeta {
@@ -1062,7 +1062,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
-        spawned_or_despawned_by: TrackLocationOption::new(None),
+        spawned_or_despawned_by: MaybeLocation::new(None),
     };
 }
 

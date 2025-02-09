@@ -4,7 +4,7 @@ use super::{Mut, Ref, World, WorldId};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut, TrackLocationOption},
+    change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{Entities, Entity, EntityBorrow, EntityLocation},
     observer::Observers,
@@ -607,7 +607,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<(
         Ptr<'w>,
         TickCells<'w>,
-        TrackLocationOption<&'w UnsafeCell<&'static Location<'static>>>,
+        MaybeLocation<&'w UnsafeCell<&'static Location<'static>>>,
     )> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
@@ -634,7 +634,7 @@ impl<'w> UnsafeWorldCell<'w> {
     ) -> Option<(
         Ptr<'w>,
         TickCells<'w>,
-        TrackLocationOption<&'w UnsafeCell<&'static Location<'static>>>,
+        MaybeLocation<&'w UnsafeCell<&'static Location<'static>>>,
     )> {
         // SAFETY:
         // - caller ensures there is no `&mut World`
@@ -1159,7 +1159,7 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(
     Ptr<'_>,
     TickCells<'_>,
-    TrackLocationOption<&UnsafeCell<&'static Location<'static>>>,
+    MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
 )> {
     match storage_type {
         StorageType::Table => {

@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{MaybeLocation, TrackLocationOption},
+    change_detection::{MaybeLocation},
     component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -392,8 +392,8 @@ impl Table {
     pub fn get_changed_by_slice_for(
         &self,
         component_id: ComponentId,
-    ) -> TrackLocationOption<Option<&[UnsafeCell<&'static Location<'static>>]>> {
-        TrackLocationOption::new_with_flattened(|| {
+    ) -> MaybeLocation<Option<&[UnsafeCell<&'static Location<'static>>]>> {
+        MaybeLocation::new_with_flattened(|| {
             self.get_column(component_id)
                 // SAFETY: `self.len()` is guaranteed to be the len of the locations array
                 .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
@@ -437,8 +437,8 @@ impl Table {
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> TrackLocationOption<Option<&UnsafeCell<&'static Location<'static>>>> {
-        TrackLocationOption::new_with_flattened(|| {
+    ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
+        MaybeLocation::new_with_flattened(|| {
             (row.as_usize() < self.entity_count()).then_some(
                 // SAFETY: `row.as_usize()` < `len`
                 unsafe {

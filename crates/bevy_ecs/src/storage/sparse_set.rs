@@ -1,5 +1,5 @@
 use crate::{
-    change_detection::{MaybeLocation, TrackLocationOption},
+    change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
     storage::{Column, TableRow},
@@ -229,7 +229,7 @@ impl ComponentSparseSet {
     ) -> Option<(
         Ptr<'_>,
         TickCells<'_>,
-        TrackLocationOption<&UnsafeCell<&'static Location<'static>>>,
+        MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
     )> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
@@ -290,8 +290,8 @@ impl ComponentSparseSet {
     pub fn get_changed_by(
         &self,
         entity: Entity,
-    ) -> TrackLocationOption<Option<&UnsafeCell<&'static Location<'static>>>> {
-        TrackLocationOption::new_with_flattened(|| {
+    ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
+        MaybeLocation::new_with_flattened(|| {
             let dense_index = *self.sparse.get(entity.index())?;
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);

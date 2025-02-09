@@ -2,7 +2,7 @@ pub use crate::change_detection::{NonSendMut, Res, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::{MaybeLocation, Ticks, TicksMut, TrackLocationOption},
+    change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick},
     entity::Entities,
     query::{
@@ -1411,7 +1411,7 @@ pub struct NonSend<'w, T: 'static> {
     ticks: ComponentTicks,
     last_run: Tick,
     this_run: Tick,
-    changed_by: TrackLocationOption<&'w &'static Location<'static>>,
+    changed_by: MaybeLocation<&'w &'static Location<'static>>,
 }
 
 // SAFETY: Only reads a single World non-send resource

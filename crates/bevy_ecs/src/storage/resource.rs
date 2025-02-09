@@ -1,6 +1,6 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    change_detection::{MaybeLocation, MutUntyped, TicksMut, TrackLocationOption},
+    change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
 };
@@ -28,7 +28,7 @@ pub struct ResourceData<const SEND: bool> {
     id: ArchetypeComponentId,
     #[cfg(feature = "std")]
     origin_thread_id: Option<ThreadId>,
-    changed_by: TrackLocationOption<UnsafeCell<&'static Location<'static>>>,
+    changed_by: MaybeLocation<UnsafeCell<&'static Location<'static>>>,
 }
 
 impl<const SEND: bool> Drop for ResourceData<SEND> {
@@ -136,7 +136,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     ) -> Option<(
         Ptr<'_>,
         TickCells<'_>,
-        TrackLocationOption<&UnsafeCell<&'static Location<'static>>>,
+        MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
     )> {
         self.is_present().then(|| {
             self.validate_access();

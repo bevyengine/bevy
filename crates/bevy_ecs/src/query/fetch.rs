@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{Ticks, TicksMut, TrackLocationOption},
+    change_detection::{Ticks, TicksMut, MaybeLocation},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
@@ -1251,7 +1251,7 @@ pub struct RefFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            TrackLocationOption<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
@@ -1445,7 +1445,7 @@ pub struct WriteFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            TrackLocationOption<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
+            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted

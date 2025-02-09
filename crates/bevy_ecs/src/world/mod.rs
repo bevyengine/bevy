@@ -3591,7 +3591,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use super::{FromWorld, World};
     use crate::{
-        change_detection::{DetectChangesMut, MaybeLocation, TrackLocationOption},
+        change_detection::{DetectChangesMut, MaybeLocation},
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::hash_set::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
@@ -4251,23 +4251,23 @@ mod tests {
         let entity = world.spawn_empty().id();
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
-            TrackLocationOption::new(Some(Location::caller()))
+            MaybeLocation::new(Some(Location::caller()))
         );
         world.despawn(entity);
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
-            TrackLocationOption::new(Some(Location::caller()))
+            MaybeLocation::new(Some(Location::caller()))
         );
         let new = world.spawn_empty().id();
         assert_eq!(entity.index(), new.index());
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
-            TrackLocationOption::new(None)
+            MaybeLocation::new(None)
         );
         world.despawn(new);
         assert_eq!(
             world.entities.entity_get_spawned_or_despawned_by(entity),
-            TrackLocationOption::new(None)
+            MaybeLocation::new(None)
         );
     }
 
