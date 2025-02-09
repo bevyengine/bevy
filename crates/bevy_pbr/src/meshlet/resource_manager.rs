@@ -50,6 +50,8 @@ pub struct ResourceManager {
 
     // Bind group layouts
     pub fill_cluster_buffers_bind_group_layout: BindGroupLayout,
+    pub clear_visibility_buffer_bind_group_layout: BindGroupLayout,
+    pub clear_visibility_buffer_shadow_view_bind_group_layout: BindGroupLayout,
     pub culling_bind_group_layout: BindGroupLayout,
     pub visibility_buffer_raster_bind_group_layout: BindGroupLayout,
     pub visibility_buffer_raster_shadow_view_bind_group_layout: BindGroupLayout,
@@ -111,6 +113,21 @@ impl ResourceManager {
                     ),
                 ),
             ),
+            clear_visibility_buffer_bind_group_layout: render_device.create_bind_group_layout(
+                "meshlet_clear_visibility_buffer_bind_group_layout",
+                &BindGroupLayoutEntries::single(
+                    ShaderStages::COMPUTE,
+                    texture_storage_2d(TextureFormat::R64Uint, StorageTextureAccess::WriteOnly),
+                ),
+            ),
+            clear_visibility_buffer_shadow_view_bind_group_layout: render_device
+                .create_bind_group_layout(
+                    "meshlet_clear_visibility_buffer_shadow_view_bind_group_layout",
+                    &BindGroupLayoutEntries::single(
+                        ShaderStages::COMPUTE,
+                        texture_storage_2d(TextureFormat::R32Uint, StorageTextureAccess::WriteOnly),
+                    ),
+                ),
             culling_bind_group_layout: render_device.create_bind_group_layout(
                 "meshlet_culling_bind_group_layout",
                 &BindGroupLayoutEntries::sequential(
@@ -310,6 +327,7 @@ pub struct MeshletViewResources {
 pub struct MeshletViewBindGroups {
     pub first_node: Arc<AtomicBool>,
     pub fill_cluster_buffers: BindGroup,
+    pub clear_visibility_buffer: BindGroup,
     pub culling_first: BindGroup,
     pub culling_second: BindGroup,
     pub downsample_depth: BindGroup,
@@ -647,6 +665,16 @@ pub fn prepare_meshlet_view_bind_groups(
             &entries,
         );
 
+        let clear_visibility_buffer = render_device.create_bind_group(
+            "meshlet_clear_visibility_buffer_bind_group",
+            if view_resources.not_shadow_view {
+                &resource_manager.clear_visibility_buffer_bind_group_layout
+            } else {
+                &resource_manager.clear_visibility_buffer_shadow_view_bind_group_layout
+            },
+            &BindGroupEntries::single(&view_resources.visibility_buffer.default_view),
+        );
+
         let entries = BindGroupEntries::sequential((
             cluster_meshlet_ids.as_entire_binding(),
             meshlet_mesh_manager.meshlet_bounding_spheres.binding(),
@@ -820,6 +848,7 @@ pub fn prepare_meshlet_view_bind_groups(
         commands.entity(view_entity).insert(MeshletViewBindGroups {
             first_node: Arc::clone(&first_node),
             fill_cluster_buffers,
+            clear_visibility_buffer,
             culling_first,
             culling_second,
             downsample_depth,

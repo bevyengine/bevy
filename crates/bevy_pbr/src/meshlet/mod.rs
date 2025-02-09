@@ -154,6 +154,12 @@ impl Plugin for MeshletPlugin {
 
         load_internal_asset!(
             app,
+            MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+            "clear_visibility_buffer.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             MESHLET_BINDINGS_SHADER_HANDLE,
             "meshlet_bindings.wgsl",
             Shader::from_wgsl

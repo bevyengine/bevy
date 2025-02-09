@@ -10,6 +10,8 @@ use bevy_ecs::{
 };
 use bevy_render::render_resource::*;
 
+pub const MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("a4bf48e4-5605-4d1c-987e-29c7b1ec95dc");
 pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("80ccea4a-8234-4ee0-af74-77b3cad503cf");
 pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> =
@@ -26,6 +28,8 @@ pub const MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE: Handle<Shader> =
 #[derive(Resource)]
 pub struct MeshletPipelines {
     fill_cluster_buffers: CachedComputePipelineId,
+    clear_visibility_buffer: CachedComputePipelineId,
+    clear_visibility_buffer_shadow_view: CachedComputePipelineId,
     cull_first: CachedComputePipelineId,
     cull_second: CachedComputePipelineId,
     downsample_depth_first: CachedComputePipelineId,
@@ -48,6 +52,12 @@ impl FromWorld for MeshletPipelines {
         let resource_manager = world.resource::<ResourceManager>();
         let fill_cluster_buffers_bind_group_layout = resource_manager
             .fill_cluster_buffers_bind_group_layout
+            .clone();
+        let clear_visibility_buffer_bind_group_layout = resource_manager
+            .clear_visibility_buffer_bind_group_layout
+            .clone();
+        let clear_visibility_buffer_shadow_view_bind_group_layout = resource_manager
+            .clear_visibility_buffer_shadow_view_bind_group_layout
             .clone();
         let cull_layout = resource_manager.culling_bind_group_layout.clone();
         let downsample_depth_layout = resource_manager.downsample_depth_bind_group_layout.clone();
@@ -84,6 +94,36 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_FILL_CLUSTER_BUFFERS_PASS".into()],
                     entry_point: "fill_cluster_buffers".into(),
+                    zero_initialize_workgroup_memory: false,
+                },
+            ),
+
+            clear_visibility_buffer: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_clear_visibility_buffer_pipeline".into()),
+                    layout: vec![clear_visibility_buffer_bind_group_layout],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..8,
+                    }],
+                    shader: MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
+                    entry_point: "clear_visibility_buffer".into(),
+                    zero_initialize_workgroup_memory: false,
+                },
+            ),
+
+            clear_visibility_buffer_shadow_view: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_clear_visibility_buffer_shadow_view_pipeline".into()),
+                    layout: vec![clear_visibility_buffer_shadow_view_bind_group_layout],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..8,
+                    }],
+                    shader: MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+                    shader_defs: vec![],
+                    entry_point: "clear_visibility_buffer".into(),
                     zero_initialize_workgroup_memory: false,
                 },
             ),
@@ -460,6 +500,8 @@ impl MeshletPipelines {
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
+        &ComputePipeline,
+        &ComputePipeline,
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
@@ -472,6 +514,8 @@ impl MeshletPipelines {
         let pipeline = world.get_resource::<Self>()?;
         Some((
             pipeline_cache.get_compute_pipeline(pipeline.fill_cluster_buffers)?,
+            pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer)?,
+            pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer_shadow_view)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_first)?,

@@ -9,7 +9,7 @@ use bevy_ecs::{
     query::QueryState,
     world::{FromWorld, World},
 };
-use bevy_math::ops;
+use bevy_math::{ops, UVec2};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext},
@@ -77,6 +77,8 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
 
         let Some((
             fill_cluster_buffers_pipeline,
+            clear_visibility_buffer_pipeline,
+            clear_visibility_buffer_shadow_view_pipeline,
             culling_first_pipeline,
             culling_second_pipeline,
             downsample_depth_first_pipeline,
@@ -107,15 +109,6 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
         render_context
             .command_encoder()
             .push_debug_group("meshlet_visibility_buffer_raster");
-        render_context.command_encoder().clear_texture(
-            &meshlet_view_resources.visibility_buffer.texture,
-            &ImageSubresourceRange::default(),
-        );
-        render_context.command_encoder().clear_buffer(
-            &meshlet_view_resources.second_pass_candidates_buffer,
-            0,
-            None,
-        );
         if first_node {
             fill_cluster_buffers_pass(
                 render_context,
@@ -124,6 +117,17 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 meshlet_view_resources.scene_instance_count,
             );
         }
+        clear_visibility_buffer_pass(
+            render_context,
+            &meshlet_view_bind_groups.clear_visibility_buffer,
+            clear_visibility_buffer_pipeline,
+            meshlet_view_resources.view_size,
+        );
+        render_context.command_encoder().clear_buffer(
+            &meshlet_view_resources.second_pass_candidates_buffer,
+            0,
+            None,
+        );
         cull_pass(
             "culling_first",
             render_context,
@@ -238,9 +242,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 "meshlet_visibility_buffer_raster: {}",
                 shadow_view.pass_name
             ));
-            render_context.command_encoder().clear_texture(
-                &meshlet_view_resources.visibility_buffer.texture,
-                &ImageSubresourceRange::default(),
+            clear_visibility_buffer_pass(
+                render_context,
+                &meshlet_view_bind_groups.clear_visibility_buffer,
+                clear_visibility_buffer_shadow_view_pipeline,
+                meshlet_view_resources.view_size,
             );
             render_context.command_encoder().clear_buffer(
                 &meshlet_view_resources.second_pass_candidates_buffer,
@@ -364,6 +370,28 @@ fn fill_cluster_buffers_pass(
     fill_pass.dispatch_workgroups(
         fill_cluster_buffers_pass_workgroups_x,
         fill_cluster_buffers_pass_workgroups_y,
+        1,
+    );
+}
+
+fn clear_visibility_buffer_pass(
+    render_context: &mut RenderContext,
+    clear_visibility_buffer_bind_group: &BindGroup,
+    clear_visibility_buffer_pipeline: &ComputePipeline,
+    view_size: UVec2,
+) {
+    let command_encoder = render_context.command_encoder();
+    let mut clear_visibility_buffer_pass =
+        command_encoder.begin_compute_pass(&ComputePassDescriptor {
+            label: Some("clear_visibility_buffer"),
+            timestamp_writes: None,
+        });
+    clear_visibility_buffer_pass.set_pipeline(clear_visibility_buffer_pipeline);
+    clear_visibility_buffer_pass.set_push_constants(0, bytemuck::bytes_of(&view_size));
+    clear_visibility_buffer_pass.set_bind_group(0, clear_visibility_buffer_bind_group, &[]);
+    clear_visibility_buffer_pass.dispatch_workgroups(
+        view_size.x.div_ceil(8),
+        view_size.y.div_ceil(8),
         1,
     );
 }
