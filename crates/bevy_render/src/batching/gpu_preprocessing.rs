@@ -4,6 +4,7 @@ use core::any::TypeId;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    prelude::Entity,
     query::{Has, With},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
@@ -1326,8 +1327,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 let first_output_index = data_buffer.len() as u32;
                 let mut batch: Option<BinnedRenderPhaseBatch> = None;
 
-                for &(entity, main_entity) in &bin.entities {
-                    let Some(input_index) = GFBD::get_binned_index(&system_param_item, main_entity)
+                for main_entity in bin.entities() {
+                    let Some(input_index) =
+                        GFBD::get_binned_index(&system_param_item, *main_entity)
                     else {
                         continue;
                     };
@@ -1378,7 +1380,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                                 },
                             );
                             batch = Some(BinnedRenderPhaseBatch {
-                                representative_entity: (entity, main_entity),
+                                representative_entity: (Entity::PLACEHOLDER, *main_entity),
                                 instance_range: output_index..output_index + 1,
                                 extra_index: PhaseItemExtraIndex::maybe_indirect_parameters_index(
                                     NonMaxU32::new(indirect_parameters_index),
@@ -1424,8 +1426,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             let first_output_index = data_buffer.len() as u32;
 
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
-            for &(entity, main_entity) in &phase.batchable_mesh_values[key].entities {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, main_entity)
+            for main_entity in phase.batchable_mesh_values[key].entities() {
+                let Some(input_index) = GFBD::get_binned_index(&system_param_item, *main_entity)
                 else {
                     continue;
                 };
@@ -1487,7 +1489,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             },
                         );
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: (entity, main_entity),
+                            representative_entity: (Entity::PLACEHOLDER, *main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::IndirectParametersIndex {
                                 range: indirect_parameters_index..(indirect_parameters_index + 1),
@@ -1507,7 +1509,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             },
                         );
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: (entity, main_entity),
+                            representative_entity: (Entity::PLACEHOLDER, *main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::None,
                         });
@@ -1559,8 +1561,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 )
             };
 
-            for &(_, main_entity) in &unbatchables.entities {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, main_entity)
+            for main_entity in unbatchables.entities.keys() {
+                let Some(input_index) = GFBD::get_binned_index(&system_param_item, *main_entity)
                 else {
                     continue;
                 };

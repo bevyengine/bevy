@@ -1299,7 +1299,7 @@ pub fn prepare_lights(
                 if first {
                     // Subsequent views with the same light entity will reuse the same shadow map
                     shadow_render_phases
-                        .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                        .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                     live_shadow_mapping_lights.insert(retained_view_entity);
                 }
             }
@@ -1396,7 +1396,8 @@ pub fn prepare_lights(
 
             if first {
                 // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                shadow_render_phases
+                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(retained_view_entity);
             }
         }
@@ -1539,7 +1540,8 @@ pub fn prepare_lights(
                 // Subsequent views with the same light entity will **NOT** reuse the same shadow map
                 // (Because the cascades are unique to each view)
                 // TODO: Implement GPU culling for shadow passes.
-                shadow_render_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                shadow_render_phases
+                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(retained_view_entity);
             }
         }
@@ -1830,6 +1832,8 @@ pub fn specialize_shadows<M: Material>(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
@@ -1884,11 +1888,17 @@ pub fn queue_shadows<M: Material>(
             };
 
             for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some((_, pipeline_id)) =
+                let Some((current_change_tick, pipeline_id)) =
                     specialized_material_pipeline_cache.get(&(view_light_entity, main_entity))
                 else {
                     continue;
                 };
+
+                // Skip the entity if it's cached in a bin and up to date.
+                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
+                    continue;
+                }
+
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
                     continue;
@@ -1900,12 +1910,20 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 }
 
+                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(*material_asset_id) else {
+                    continue;
+                };
+
                 let (vertex_slab, index_slab) =
                     mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
                 let batch_set_key = ShadowBatchSetKey {
                     pipeline: *pipeline_id,
                     draw_function: draw_shadow_mesh,
+                    material_bind_group_index: Some(material.binding.group.0),
                     vertex_slab: vertex_slab.unwrap_or_default(),
                     index_slab,
                 };
@@ -1920,8 +1938,12 @@ pub fn queue_shadows<M: Material>(
                         mesh_instance.should_batch(),
                         &gpu_preprocessing_support,
                     ),
+                    *current_change_tick,
                 );
             }
+
+            // Remove invalid entities from the bins.
+            shadow_phase.sweep_old_entities();
         }
     }
 }
@@ -1951,6 +1973,11 @@ pub struct ShadowBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
+
+    /// The ID of a bind group specific to the material.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
 
     /// The ID of the slab of GPU memory that contains vertex data.
     ///
