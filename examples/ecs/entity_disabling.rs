@@ -43,14 +43,12 @@ fn disable_entities_on_click(
     // Windows and text are entities and can be clicked!
     // We definitely don't want to disable the window itself,
     // because that would cause the app to close!
-    if !valid_query.contains(clicked_entity) {
-        return;
+    if valid_query.contains(clicked_entity) {
+        // Just add the `Disabled` component to the entity to disable it.
+        // Note that the `Disabled` component is *only* added to the entity,
+        // its children are not affected.
+        commands.entity(clicked_entity).insert(Disabled);
     }
-
-    // Just add the `Disabled` component to the entity to disable it.
-    // Note that the `Disabled` component is *only* added to the entity,
-    // its children are not affected.
-    commands.entity(clicked_entity).insert(Disabled);
 }
 
 #[derive(Component)]
