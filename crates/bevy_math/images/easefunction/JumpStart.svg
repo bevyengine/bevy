@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="500">
+  <style>
+    text{font:12px sans-serif}.caption{font-size:16px}
+  </style>
+  <path fill="#fff" d="M0 0h480v500H0z"/>
+  <marker id="dot" markerHeight="5" markerWidth="5" viewBox="-2.5 -2.5 5 5">
+    <circle r="2" fill="#00f"/>
+  </marker>
+  <marker id="dot-hollow" markerHeight="5" markerWidth="5" viewBox="-2.5 -2.5 5 5">
+    <circle r="1.5" fill="#fff" stroke="#00f"/>
+  </marker>
+  <marker id="tick" stroke-linecap="square" markerHeight="10" markerWidth="1" orient="auto" viewBox="-0.5 -0.5 1 10">
+    <path stroke="#000" d="M0 0v9"/>
+  </marker>
+  <defs>
+    <g id="axes">
+      <path stroke="#000" stroke-dasharray="5" d="M160-160H0M160-160V0"/>
+      <path stroke="#000" marker-mid="url(#tick)" marker-start="url(#tick)" d="M0-160v80V0"/>
+      <path stroke="#000" marker-end="url(#tick)" marker-mid="url(#tick)" d="M0 0h80 80"/>
+      <text x="-15" y="-160" dominant-baseline="mathematical" text-anchor="end">1</text>
+      <text x="-15" y="-80" dominant-baseline="mathematical" text-anchor="end">0.5</text>
+      <text x="-10" y="15" text-anchor="end">0</text>
+      <text x="80" y="25" text-anchor="middle">0.5</text>
+      <text x="160" y="25" text-anchor="middle">1</text>
+      <text x="-45" y="-80" text-anchor="middle" writing-mode="vertical-rl">Output progress</text>
+      <text x="80" y="40" text-anchor="middle">Input progress</text>
+    </g>
+  </defs>
+  <g transform="scale(2.0)">
+  <g id="jump-start" transform="translate(60 200)">
+    <use href="#axes"/>
+    <path stroke="#00f" stroke-dasharray="5" stroke-width="3" d="M0-80V0m80-160v80"/>
+    <path stroke-width="3" marker-end="url(#dot-hollow)" d="M0 0h0"/>
+    <path stroke="#00f" stroke-width="3" marker-end="url(#dot-hollow)" marker-start="url(#dot)" d="M0-80h80"/>
+    <path stroke="#00f" stroke-width="3" marker-end="url(#dot)" marker-start="url(#dot)" d="M80-160h80"/>
+    <text x="80" y="-175" class="caption" text-anchor="middle">steps(2, JumpAt::Start)</text>
+  </g>
+  </g>
+</svg>
+

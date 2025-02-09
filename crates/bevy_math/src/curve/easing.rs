@@ -235,13 +235,21 @@ impl StepConfig {
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub enum JumpAt {
     /// Indicates that the first step happens when the animation begins.
+    ///
+    #[doc = include_str!("../../images/easefunction/JumpStart.svg")]
     Start,
     /// Indicates that the last step happens when the animation ends.
+    ///
+    #[doc = include_str!("../../images/easefunction/JumpEnd.svg")]
     #[default]
     End,
     /// Indicates neither early nor late jumps happen.
+    ///
+    #[doc = include_str!("../../images/easefunction/JumpNone.svg")]
     None,
     /// Indicates both early and late jumps happen.
+    ///
+    #[doc = include_str!("../../images/easefunction/JumpBoth.svg")]
     Both,
 }
 
