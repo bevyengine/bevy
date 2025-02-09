@@ -198,7 +198,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_ui_context_system.in_set(UiSystem::Content),
+                update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
