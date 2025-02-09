@@ -18,6 +18,8 @@
 //! the components and assets that they use will still be loaded into memory (although asset data is shared between instances).
 //! Loading and unloading assets dynamically (e.g. per level) is an important strategy to manage memory usage.
 
+use std::f32::consts::PI;
+
 use bevy::platform_support::collections::HashMap;
 use bevy::{ecs::entity_disabling::Disabled, prelude::*, scene::SceneInstanceReady};
 
@@ -110,7 +112,13 @@ fn spawn_prefab_on_mouse_click(
         .entity(fresh_clone)
         .remove_recursive::<Children, Disabled>();
     // Overwrite the position of the prefab entity with the new value we want to spawn it at
-    commands
-        .entity(fresh_clone)
-        .insert(Transform::from_translation(*click_position));
+    // and give it a random rotation.
+    let random_angle = PI * 2.0 * rand::random::<f32>();
+
+    commands.entity(fresh_clone).insert(
+        Transform::from_translation(*click_position)
+            .with_rotation(Quat::from_rotation_y(random_angle)),
+    );
+
+    println!("Spawned a prefab at {:?}", click_position);
 }
