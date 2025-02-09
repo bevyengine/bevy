@@ -336,7 +336,7 @@ impl SubApp {
     }
 
     /// Set the global error handler to use for systems that return a
-    /// [`Result`](bevy_ecs::result::Result).
+    /// [`Result`].
     pub fn set_systems_error_handler(
         &mut self,
         error_handler: fn(Error, &ScheduleSystem),
