@@ -18,6 +18,12 @@ pub enum TextureAtlasBuilderError {
     NotEnoughSpace,
     #[error("added a texture with the wrong format in an atlas")]
     WrongFormat,
+    /// Attempted to add a texture to an uninitialzied atlas
+    #[error("cannot add texture to uninitialized atlas texture")]
+    UninitializedAtlas,
+    /// Attempted to add an uninitialized texture to an atlas
+    #[error("cannot add uninitialized texture to atlas")]
+    UninitializedSourceTexture,
 }
 
 #[derive(Debug)]
@@ -105,7 +111,7 @@ impl<'a> TextureAtlasBuilder<'a> {
         texture: &Image,
         packed_location: &PackedLocation,
         padding: UVec2,
-    ) {
+    ) -> TextureAtlasBuilderResult<()> {
         let rect_width = (packed_location.width() - padding.x) as usize;
         let rect_height = (packed_location.height() - padding.y) as usize;
         let rect_x = packed_location.x() as usize;
@@ -113,21 +119,22 @@ impl<'a> TextureAtlasBuilder<'a> {
         let atlas_width = atlas_texture.width() as usize;
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
+        let Some(ref mut atlas_data) = atlas_texture.data else {
+            error!("Atlas texture has no texture data");
+            return Err(TextureAtlasBuilderError::UninitializedAtlas);
+        };
+        let Some(ref data) = texture.data else {
+            error!("Source texture provided has no texture data");
+            return Err(TextureAtlasBuilderError::UninitializedSourceTexture);
+        };
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
             let begin = (bound_y * atlas_width + rect_x) * format_size;
             let end = begin + rect_width * format_size;
             let texture_begin = texture_y * rect_width * format_size;
             let texture_end = texture_begin + rect_width * format_size;
-            let Some(ref mut atlas_data) = atlas_texture.data else {
-                error!("Atlas texture has no texture data");
-                return;
-            };
-            let Some(ref data) = texture.data else {
-                error!("Source texture provided has no texture data");
-                return;
-            };
             atlas_data[begin..end].copy_from_slice(&data[texture_begin..texture_end]);
         }
+        Ok(())
     }
 
     fn copy_converted_texture(
@@ -135,9 +142,9 @@ impl<'a> TextureAtlasBuilder<'a> {
         atlas_texture: &mut Image,
         texture: &Image,
         packed_location: &PackedLocation,
-    ) {
+    ) -> TextureAtlasBuilderResult<()> {
         if self.format == texture.texture_descriptor.format {
-            Self::copy_texture_to_atlas(atlas_texture, texture, packed_location, self.padding);
+            Self::copy_texture_to_atlas(atlas_texture, texture, packed_location, self.padding)?;
         } else if let Some(converted_texture) = texture.convert(self.format) {
             debug!(
                 "Converting texture from '{:?}' to '{:?}'",
@@ -148,13 +155,14 @@ impl<'a> TextureAtlasBuilder<'a> {
                 &converted_texture,
                 packed_location,
                 self.padding,
-            );
+            )?;
         } else {
             error!(
                 "Error converting texture from '{:?}' to '{:?}', ignoring",
                 texture.texture_descriptor.format, self.format
             );
         }
+        Ok(())
     }
 
     /// Consumes the builder, and returns the newly created texture atlas and
@@ -281,7 +289,7 @@ impl<'a> TextureAtlasBuilder<'a> {
                 );
                 return Err(TextureAtlasBuilderError::WrongFormat);
             }
-            self.copy_converted_texture(&mut atlas_texture, texture, packed_location);
+            self.copy_converted_texture(&mut atlas_texture, texture, packed_location)?;
         }
 
         Ok((

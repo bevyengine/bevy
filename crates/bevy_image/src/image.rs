@@ -10,6 +10,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
+use tracing::warn;
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -840,6 +841,8 @@ impl Image {
                 size.volume() * self.texture_descriptor.format.pixel_size(),
                 0,
             );
+        } else {
+            warn!("Resized an uninitialized image. Directly modify image.texture_descriptor.size instead");
         }
     }
 
