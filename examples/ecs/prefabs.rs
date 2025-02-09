@@ -8,7 +8,7 @@
 //!
 //! 1. Load asssets from disk.
 //! 2. Create prefab entities from those assets.
-//! 3. Make sure that these prefab entities aren't accidentally modified using default query filters.
+//! 3. Make sure that these prefab entities aren't accidentally modified by adding a component that cause them to be ignored by default.
 //! 4. Clone these entities (and their children) out from the prefab when you need to spawn an instance of them.
 //!
 //! This solution can be easily adapted to meet the needs of your own asset loading workflows,
@@ -23,10 +23,10 @@ use bevy::{ecs::entity_disabling::Disabled, prelude::*, scene::SceneInstanceRead
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .init_resource::<Prefabs>()
         .add_systems(Startup, setup_scene)
-        .add_systems(Update, spawn_prefab)
+        .add_observer(spawn_prefab_on_mouse_click)
         .run();
 }
 
@@ -52,8 +52,9 @@ fn setup_scene(
     ));
     // Light
     commands.spawn((
-        PointLight {
+        DirectionalLight {
             shadows_enabled: true,
+            illuminance: 32000.0,
             ..default()
         },
         Transform::from_xyz(100.0, 200.0, 200.0),
@@ -84,14 +85,23 @@ fn respond_to_scene_loaded(
         // TODO: use a custom DQF component to convey semantics
         .insert_recursive::<Children>(Disabled);
 
-    // Store the scene root entity in our prefab resource
+    // Store the scene root entity in our prefab resource,
+    // along with a key that we can use to look it up later.
     prefabs.0.insert("fox".to_string(), scene_root_entity);
 }
 
-// TODO: make this more interactive and controllable
-fn spawn_prefab(prefabs: Res<Prefabs>, mut commands: Commands) {
+fn spawn_prefab_on_mouse_click(
+    trigger: Trigger<Pointer<Click>>,
+    prefabs: Res<Prefabs>,
+    mut commands: Commands,
+) {
     // Check that the prefab we're looking for is ready
     let Some(prefab_entity) = prefabs.0.get("fox") else {
+        return;
+    };
+
+    let maybe_click_position = &trigger.event().event.hit.position;
+    let Some(click_position) = maybe_click_position else {
         return;
     };
 
@@ -99,4 +109,8 @@ fn spawn_prefab(prefabs: Res<Prefabs>, mut commands: Commands) {
     commands
         .entity(fresh_clone)
         .remove_recursive::<Children, Disabled>();
+    // Overwrite the position of the prefab entity with the new value we want to spawn it at
+    commands
+        .entity(fresh_clone)
+        .insert(Transform::from_translation(*click_position));
 }
