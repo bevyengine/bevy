@@ -10,6 +10,7 @@ use bevy_core_pipeline::{
         TonemappingLuts,
     },
 };
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -19,7 +20,7 @@ use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFo
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
 use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
-use bevy_render::view::RenderVisibleEntities;
+use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{
@@ -483,7 +484,10 @@ pub struct SpriteViewBindGroup {
     pub value: BindGroup,
 }
 
-#[derive(Component, PartialEq, Eq, Clone)]
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct SpriteBatches(HashMap<(RetainedViewEntity, Entity), SpriteBatch>);
+
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct SpriteBatch {
     image_handle_id: AssetId<Image>,
     range: Range<u32>,
@@ -573,7 +577,7 @@ pub fn queue_sprites(
                 pipeline,
                 entity: (*entity, *main_entity),
                 sort_key,
-                // batch_range and dynamic_offset will be calculated in prepare_sprites
+                // `batch_range` is calculated in `prepare_sprite_image_bind_groups`
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
                 indexed: true,
@@ -616,8 +620,6 @@ pub fn prepare_sprite_view_bind_groups(
 }
 
 pub fn prepare_sprite_image_bind_groups(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
@@ -627,6 +629,7 @@ pub fn prepare_sprite_image_bind_groups(
     extracted_sprites: Res<ExtractedSprites>,
     mut phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
     events: Res<SpriteAssetEvents>,
+    mut batches: ResMut<SpriteBatches>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
     for event in &events.images {
@@ -640,7 +643,7 @@ pub fn prepare_sprite_image_bind_groups(
         };
     }
 
-    let mut batches: Vec<(Entity, SpriteBatch)> = Vec::with_capacity(*previous_len);
+    batches.clear();
 
     // Clear the sprite instances
     sprite_meta.sprite_instance_buffer.clear();
@@ -650,7 +653,8 @@ pub fn prepare_sprite_image_bind_groups(
 
     let image_bind_groups = &mut *image_bind_groups;
 
-    for transparent_phase in phases.values_mut() {
+    for (retained_view, transparent_phase) in phases.iter_mut() {
+        let mut current_batch = None;
         let mut batch_item_index = 0;
         let mut batch_image_size = Vec2::ZERO;
         let mut batch_image_handle = AssetId::invalid();
@@ -690,8 +694,7 @@ pub fn prepare_sprite_image_bind_groups(
                     });
 
                 batch_item_index = item_index;
-                batches.push((
-                    item.entity(),
+                current_batch = Some(batches.entry((*retained_view, item.entity())).insert(
                     SpriteBatch {
                         image_handle_id: batch_image_handle,
                         range: index..index,
@@ -771,7 +774,7 @@ pub fn prepare_sprite_image_bind_groups(
             transparent_phase.items[batch_item_index]
                 .batch_range_mut()
                 .end += 1;
-            batches.last_mut().unwrap().1.range.end += 1;
+            current_batch.as_mut().unwrap().get_mut().range.end += 1;
             index += 1;
         }
     }
@@ -802,9 +805,6 @@ pub fn prepare_sprite_image_bind_groups(
             .sprite_index_buffer
             .write_buffer(&render_device, &render_queue);
     }
-
-    *previous_len = batches.len();
-    commands.insert_or_spawn_batch(batches);
 }
 
 /// [`RenderCommand`] for sprite rendering.
@@ -834,19 +834,19 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
 }
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
-    type Param = SRes<ImageBindGroups>;
-    type ViewQuery = ();
-    type ItemQuery = Read<SpriteBatch>;
+    type Param = (SRes<ImageBindGroups>, SRes<SpriteBatches>);
+    type ViewQuery = Read<ExtractedView>;
+    type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
-        _view: (),
-        batch: Option<&'_ SpriteBatch>,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
+        item: &P,
+        view: ROQueryItem<'w, Self::ViewQuery>,
+        _entity: Option<()>,
+        (image_bind_groups, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
-        let Some(batch) = batch else {
+        let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {
             return RenderCommandResult::Skip;
         };
 
@@ -864,19 +864,19 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
 
 pub struct DrawSpriteBatch;
 impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
-    type Param = SRes<SpriteMeta>;
-    type ViewQuery = ();
-    type ItemQuery = Read<SpriteBatch>;
+    type Param = (SRes<SpriteMeta>, SRes<SpriteBatches>);
+    type ViewQuery = Read<ExtractedView>;
+    type ItemQuery = ();
 
     fn render<'w>(
-        _item: &P,
-        _view: (),
-        batch: Option<&'_ SpriteBatch>,
-        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
+        item: &P,
+        view: ROQueryItem<'w, Self::ViewQuery>,
+        _entity: Option<()>,
+        (sprite_meta, batches): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
-        let Some(batch) = batch else {
+        let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {
             return RenderCommandResult::Skip;
         };
 

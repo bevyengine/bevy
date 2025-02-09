@@ -35,11 +35,11 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
-        RequiredComponentsError, Tick,
+        Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
+        Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    entity_disabling::{DefaultQueryFilters, Disabled},
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
@@ -158,6 +158,11 @@ impl World {
 
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
+
+        let disabled = self.register_component::<Disabled>();
+        let mut filters = DefaultQueryFilters::default();
+        filters.set_disabled(disabled);
+        self.insert_resource(filters);
     }
     /// Creates a new empty [`World`].
     ///
@@ -245,7 +250,7 @@ impl World {
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.components.register_component::<T>(&mut self.storages)
+        self.components.register_component::<T>()
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
@@ -522,7 +527,7 @@ impl World {
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.components
-            .register_component_with_descriptor(&mut self.storages, descriptor)
+            .register_component_with_descriptor(descriptor)
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -3184,35 +3189,6 @@ impl World {
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
-
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// use bevy_ecs::component::{ComponentId, ComponentCloneHandler};
-    /// use bevy_ecs::entity::ComponentCloneCtx;
-    /// use bevy_ecs::world::DeferredWorld;
-    ///
-    /// fn custom_clone_handler(
-    ///     _world: &mut DeferredWorld,
-    ///     _ctx: &mut ComponentCloneCtx,
-    /// ) {
-    ///     // Custom cloning logic for component
-    /// }
-    ///
-    /// #[derive(Component)]
-    /// struct ComponentA;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// let component_id = world.register_component::<ComponentA>();
-    ///
-    /// world.get_component_clone_handlers_mut()
-    ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
-    /// ```
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        self.components.get_component_clone_handlers_mut()
-    }
 }
 
 impl World {
@@ -3267,6 +3243,7 @@ impl World {
     /// # struct B(u32);
     /// #
     /// # let mut world = World::new();
+    /// # world.remove_resource::<bevy_ecs::entity_disabling::DefaultQueryFilters>();
     /// # world.insert_resource(A(1));
     /// # world.insert_resource(B(2));
     /// let mut total = 0;
@@ -3763,8 +3740,9 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
         entity::hash_set::EntityHashSet,
+        entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
         resource::Resource,
         world::error::EntityFetchError,
@@ -3951,6 +3929,8 @@ mod tests {
     #[test]
     fn iter_resources() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -3977,6 +3957,8 @@ mod tests {
     #[test]
     fn iter_resources_mut() {
         let mut world = World::new();
+        // Remove DefaultQueryFilters so it doesn't show up in the iterator
+        world.remove_resource::<DefaultQueryFilters>();
         world.insert_resource(TestResource(42));
         world.insert_resource(TestResource2("Hello, world!".to_string()));
         world.insert_resource(TestResource3);
@@ -4059,6 +4041,7 @@ mod tests {
                     DROP_COUNT.fetch_add(1, Ordering::SeqCst);
                 }),
                 true,
+                ComponentCloneBehavior::Default,
             )
         };
 
@@ -4442,5 +4425,17 @@ mod tests {
             world.entities.entity_get_spawned_or_despawned_by(entity),
             None
         );
+    }
+
+    #[test]
+    fn new_world_has_disabling() {
+        let mut world = World::new();
+        world.spawn(Foo);
+        world.spawn((Foo, Disabled));
+        assert_eq!(1, world.query::<&Foo>().iter(&world).count());
+
+        // If we explicitly remove the resource, no entities should be filtered anymore
+        world.remove_resource::<DefaultQueryFilters>();
+        assert_eq!(2, world.query::<&Foo>().iter(&world).count());
     }
 }

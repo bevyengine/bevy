@@ -9,7 +9,7 @@ use bevy_ecs::{
     archetype::Archetype,
     component::{ComponentId, Tick},
     prelude::{Entity, Resource, World},
-    query::{FilteredAccess, QueryFilter, QueryItem, ReadFetch, WorldQuery},
+    query::{FilteredAccess, QueryData, QueryFilter, ReadFetch, WorldQuery},
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -151,12 +151,9 @@ pub struct AssetChangedState<A: AsAssetId> {
 #[expect(unsafe_code, reason = "WorldQuery is an unsafe trait.")]
 /// SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
 unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
-    type Item<'w> = ();
     type Fetch<'w> = AssetChangedFetch<'w, A>;
 
     type State = AssetChangedState<A>;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(_: QueryItem<'wlong, Self>) -> QueryItem<'wshort, Self> {}
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -228,8 +225,6 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
         }
     }
 
-    unsafe fn fetch<'w>(_: &mut Self::Fetch<'w>, _: Entity, _: TableRow) -> Self::Item<'w> {}
-
     #[inline]
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
         <&A>::update_component_access(&state.asset_id, access);
@@ -293,7 +288,7 @@ mod tests {
     use std::println;
 
     use crate::{AssetApp, Assets};
-    use bevy_app::{App, AppExit, Last, Startup, TaskPoolPlugin, Update};
+    use bevy_app::{App, AppExit, PostUpdate, Startup, TaskPoolPlugin, Update};
     use bevy_ecs::schedule::IntoSystemConfigs;
     use bevy_ecs::{
         component::Component,
@@ -410,7 +405,7 @@ mod tests {
             .init_asset::<MyAsset>()
             .insert_resource(Counter(vec![0, 0, 0, 0]))
             .add_systems(Update, add_some)
-            .add_systems(Last, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEvents));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0
@@ -445,7 +440,7 @@ mod tests {
                 },
             )
             .add_systems(Update, update_some)
-            .add_systems(Last, count_update.after(AssetEvents));
+            .add_systems(PostUpdate, count_update.after(AssetEvents));
 
         // First run of the app, `add_systems(Startup…)` runs.
         app.update(); // run_count == 0

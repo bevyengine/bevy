@@ -100,7 +100,7 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{load_internal_asset, AssetApp, AssetServer, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
@@ -262,10 +262,11 @@ struct FutureRenderResources(Arc<Mutex<Option<RenderResources>>>);
 pub struct RenderApp;
 
 pub const INSTANCE_INDEX_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(10313207077636615845);
-pub const MATHS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10665356303104593376);
+    weak_handle!("475c76aa-4afd-4a6b-9878-1fc1e2f41216");
+pub const MATHS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
 pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(1844674407370955161);
+    weak_handle!("33a80b2f-aaf7-4c86-b828-e7ae83b72f1a");
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.

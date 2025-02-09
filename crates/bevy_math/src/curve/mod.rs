@@ -1064,14 +1064,12 @@ mod tests {
         let curve = EasingCurve::new(start, end, EaseFunction::Steps(4));
         [
             (0.0, start),
-            (0.124, start),
-            (0.125, Vec2::new(0.25, 0.5)),
-            (0.374, Vec2::new(0.25, 0.5)),
-            (0.375, Vec2::new(0.5, 1.0)),
-            (0.624, Vec2::new(0.5, 1.0)),
-            (0.625, Vec2::new(0.75, 1.5)),
-            (0.874, Vec2::new(0.75, 1.5)),
-            (0.875, end),
+            (0.249, start),
+            (0.250, Vec2::new(0.25, 0.5)),
+            (0.499, Vec2::new(0.25, 0.5)),
+            (0.500, Vec2::new(0.5, 1.0)),
+            (0.749, Vec2::new(0.5, 1.0)),
+            (0.750, Vec2::new(0.75, 1.5)),
             (1.0, end),
         ]
         .into_iter()
