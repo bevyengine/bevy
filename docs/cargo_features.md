@@ -23,6 +23,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
+|bevy_input_focus|Enable input focus subsystem|
 |bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
