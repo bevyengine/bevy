@@ -144,8 +144,7 @@ fn setup_scene(
 fn display_instructions(mut commands: Commands) {
     commands.spawn((
         Text::new(
-            "Click an entity to disable it.
-			\nPress Space to re-enable all disabled entities.",
+            "Click an entity to disable it.\n\nPress Space to re-enable all disabled entities.",
         ),
         Node {
             position_type: PositionType::Absolute,
