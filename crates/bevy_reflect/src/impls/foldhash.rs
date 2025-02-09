@@ -1,4 +1,4 @@
-use crate::{self as bevy_reflect, impl_type_path};
+use crate::impl_type_path;
 
 impl_type_path!(::foldhash::fast::FoldHasher);
 impl_type_path!(::foldhash::fast::FixedState);

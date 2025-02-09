@@ -13,9 +13,9 @@ use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::TextureViewDescriptor;
 use wgpu_types::{
-    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDimension,
+    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
+    TextureViewDimension,
 };
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};

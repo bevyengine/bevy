@@ -1733,7 +1733,7 @@ impl FromWorld for MeshPipeline {
             render_queue.write_texture(
                 texture.as_image_copy(),
                 image.data.as_ref().expect("Image was created without data"),
-                ImageDataLayout {
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,

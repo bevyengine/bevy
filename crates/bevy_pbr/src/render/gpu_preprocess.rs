@@ -1151,7 +1151,7 @@ impl SpecializedComputePipeline for PreprocessPipeline {
     type Key = PreprocessPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let mut shader_defs = vec![];
+        let mut shader_defs = vec!["WRITE_INDIRECT_PARAMETERS_METADATA".into()];
         if key.contains(PreprocessPipelineKey::FRUSTUM_CULLING) {
             shader_defs.push("INDIRECT".into());
             shader_defs.push("FRUSTUM_CULLING".into());

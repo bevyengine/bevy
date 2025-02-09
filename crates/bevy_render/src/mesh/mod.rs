@@ -196,7 +196,7 @@ impl RenderAsset for RenderMesh {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
-            vertex_size += vertex_format.get_size() as usize;
+            vertex_size += vertex_format.size() as usize;
         }
 
         let vertex_count = mesh.count_vertices();

@@ -178,7 +178,6 @@ pub(crate) use impl_custom_attribute_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{type_info::Typed, TypeInfo, VariantInfo};
     use alloc::{format, string::String};
     use core::ops::RangeInclusive;
