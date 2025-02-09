@@ -93,7 +93,7 @@ fn respond_to_scene_loaded(
 }
 
 fn spawn_prefab_on_mouse_click(
-    trigger: Trigger<Pointer<Click>>,
+    mut trigger: Trigger<Pointer<Click>>,
     prefabs: Res<Prefabs>,
     mut commands: Commands,
 ) {
@@ -120,5 +120,7 @@ fn spawn_prefab_on_mouse_click(
             .with_rotation(Quat::from_rotation_y(random_angle)),
     );
 
-    println!("Spawned a prefab at {:?}", click_position);
+    // We've already handled this event;
+    // so we don't want it to propagate any further.
+    trigger.propagate(false);
 }
