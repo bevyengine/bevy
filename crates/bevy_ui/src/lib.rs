@@ -167,6 +167,7 @@ impl Plugin for UiPlugin {
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
+            .register_type::<TextShadow>()
             .configure_sets(
                 PostUpdate,
                 (
@@ -273,6 +274,7 @@ fn build_text_interop(app: &mut App) {
             widget::text_system
                 .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
+                .before(bevy_asset::AssetEvents)
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 .ambiguous_with(bevy_text::update_text2d_layout)

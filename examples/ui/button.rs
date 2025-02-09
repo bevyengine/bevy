@@ -88,6 +88,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..default()
                     },
                     TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                    TextShadow::default(),
                 ));
         });
 }

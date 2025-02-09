@@ -58,6 +58,7 @@ bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "std",
+  "serialize",
 ] }
 
 # rendering
@@ -95,12 +96,17 @@ smallvec = { version = "1.11", features = ["const_new"] }
 offset-allocator = "0.2"
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+indexmap = { version = "2" }
+fixedbitset = { version = "0.5" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
 naga_oil = { version = "0.16", default-features = false, features = [
   "test_shader",
 ] }
+
+[dev-dependencies]
+proptest = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 naga_oil = "0.16"

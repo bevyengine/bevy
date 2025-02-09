@@ -12,6 +12,7 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
+use bevy_utils::once;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
 use thiserror::Error;
 use tracing::warn;
@@ -164,10 +165,10 @@ pub fn ui_layout_system(
             match camera_with_default(target_camera) {
                 Some(camera_entity) => {
                     let Ok((_, camera)) = cameras.get(camera_entity) else {
-                        warn!(
+                        once!(warn!(
                             "UiTargetCamera (of root UI node {entity}) is pointing to a camera {} which doesn't exist",
                             camera_entity
-                        );
+                        ));
                         return;
                     };
                     let layout_info = camera_layout_info
@@ -177,13 +178,13 @@ pub fn ui_layout_system(
                 }
                 None => {
                     if cameras.is_empty() {
-                        warn!("No camera found to render UI to. To fix this, add at least one camera to the scene.");
+                        once!(warn!("No camera found to render UI to. To fix this, add at least one camera to the scene."));
                     } else {
-                        warn!(
+                        once!(warn!(
                             "Multiple cameras found, causing UI target ambiguity. \
                             To fix this, add an explicit `UiTargetCamera` component to the root UI node {}",
                             entity
-                        );
+                        ));
                     }
                 }
             }
@@ -471,12 +472,13 @@ mod tests {
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_platform_support::collections::HashMap;
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
         systems::{propagate_transforms, sync_simple_transforms},
     };
-    use bevy_utils::{prelude::default, HashMap};
+    use bevy_utils::prelude::default;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
         WindowScaleFactorChanged,
@@ -669,7 +671,7 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
 
         // `ui_node` is removed, attempting to retrieve a style for `ui_node` panics
-        let _ = ui_surface.taffy.style(ui_node);
+        let _ = ui_surface.taffy.style(ui_node.id);
     }
 
     #[test]
@@ -685,7 +687,7 @@ mod tests {
         let ui_parent_node = ui_surface.entity_to_taffy[&ui_parent_entity];
 
         // `ui_parent_node` shouldn't have any children yet
-        assert_eq!(ui_surface.taffy.child_count(ui_parent_node), 0);
+        assert_eq!(ui_surface.taffy.child_count(ui_parent_node.id), 0);
 
         let mut ui_child_entities = (0..10)
             .map(|_| {
@@ -704,7 +706,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node),
+            ui_surface.taffy.child_count(ui_parent_node.id),
             ui_child_entities.len()
         );
 
@@ -716,7 +718,7 @@ mod tests {
 
         // the children should have a corresponding ui node and that ui node's parent should be `ui_parent_node`
         for node in child_node_map.values() {
-            assert_eq!(ui_surface.taffy.parent(*node), Some(ui_parent_node));
+            assert_eq!(ui_surface.taffy.parent(node.id), Some(ui_parent_node.id));
         }
 
         // delete every second child
@@ -735,7 +737,7 @@ mod tests {
             1 + ui_child_entities.len()
         );
         assert_eq!(
-            ui_surface.taffy.child_count(ui_parent_node),
+            ui_surface.taffy.child_count(ui_parent_node.id),
             ui_child_entities.len()
         );
 
@@ -743,12 +745,15 @@ mod tests {
         for child_entity in &ui_child_entities {
             let child_node = child_node_map[child_entity];
             assert_eq!(ui_surface.entity_to_taffy[child_entity], child_node);
-            assert_eq!(ui_surface.taffy.parent(child_node), Some(ui_parent_node));
+            assert_eq!(
+                ui_surface.taffy.parent(child_node.id),
+                Some(ui_parent_node.id)
+            );
             assert!(ui_surface
                 .taffy
-                .children(ui_parent_node)
+                .children(ui_parent_node.id)
                 .unwrap()
-                .contains(&child_node));
+                .contains(&child_node.id));
         }
 
         // the nodes of the deleted children should have been removed from the layout tree
@@ -759,9 +764,9 @@ mod tests {
             let deleted_child_node = child_node_map[deleted_child_entity];
             assert!(!ui_surface
                 .taffy
-                .children(ui_parent_node)
+                .children(ui_parent_node.id)
                 .unwrap()
-                .contains(&deleted_child_node));
+                .contains(&deleted_child_node.id));
         }
 
         // despawn the parent entity and its descendants
@@ -1067,7 +1072,7 @@ mod tests {
         let ui_node = ui_surface.entity_to_taffy[&ui_entity];
 
         // a node with a content size should have taffy context
-        assert!(ui_surface.taffy.get_node_context(ui_node).is_some());
+        assert!(ui_surface.taffy.get_node_context(ui_node.id).is_some());
         let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
         assert_eq!(layout.size.width, content_size.x);
         assert_eq!(layout.size.height, content_size.y);
@@ -1078,7 +1083,7 @@ mod tests {
 
         let mut ui_surface = world.resource_mut::<UiSurface>();
         // a node without a content size should not have taffy context
-        assert!(ui_surface.taffy.get_node_context(ui_node).is_none());
+        assert!(ui_surface.taffy.get_node_context(ui_node.id).is_none());
 
         // Without a content size, the node has no width or height constraints so the length of both dimensions is 0.
         let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
@@ -1242,6 +1247,70 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
 
         let taffy_node = ui_surface.entity_to_taffy.get(&root_node_entity).unwrap();
-        assert!(ui_surface.taffy.layout(*taffy_node).is_ok());
+        assert!(ui_surface.taffy.layout(taffy_node.id).is_ok());
+    }
+
+    #[test]
+    fn no_viewport_node_leak_on_root_despawned() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_root_entity = world.spawn(Node::default()).id();
+
+        // The UI schedule synchronizes Bevy UI's internal `TaffyTree` with the
+        // main world's tree of `Node` entities.
+        ui_schedule.run(&mut world);
+
+        // Two taffy nodes are added to the internal `TaffyTree` for each root UI entity.
+        // An implicit taffy node representing the viewport and a taffy node corresponding to the
+        // root UI entity which is parented to the viewport taffy node.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            2
+        );
+
+        world.despawn(ui_root_entity);
+
+        // The UI schedule removes both the taffy node corresponding to `ui_root_entity` and its
+        // parent viewport node.
+        ui_schedule.run(&mut world);
+
+        // Both taffy nodes should now be removed from the internal `TaffyTree`
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            0
+        );
+    }
+
+    #[test]
+    fn no_viewport_node_leak_on_parented_root() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let ui_root_entity_1 = world.spawn(Node::default()).id();
+        let ui_root_entity_2 = world.spawn(Node::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        // There are two UI root entities. Each root taffy node is given it's own viewport node parent,
+        // so a total of four taffy nodes are added to the `TaffyTree` by the UI schedule.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            4
+        );
+
+        // Parent `ui_root_entity_2` onto `ui_root_entity_1` so now only `ui_root_entity_1` is a
+        // UI root entity.
+        world
+            .entity_mut(ui_root_entity_1)
+            .add_child(ui_root_entity_2);
+
+        // Now there is only one root node so the second viewport node is removed by
+        // the UI schedule.
+        ui_schedule.run(&mut world);
+
+        // There is only one viewport node now, so the `TaffyTree` contains 3 nodes in total.
+        assert_eq!(
+            world.resource_mut::<UiSurface>().taffy.total_node_count(),
+            3
+        );
     }
 }

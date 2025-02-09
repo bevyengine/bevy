@@ -182,8 +182,22 @@ where
     BPI: BinnedPhaseItem,
 {
     for phase in phases.values_mut() {
+        phase.multidrawable_mesh_keys.clear();
+        phase
+            .multidrawable_mesh_keys
+            .extend(phase.multidrawable_mesh_values.keys().cloned());
         phase.multidrawable_mesh_keys.sort_unstable();
+
+        phase.batchable_mesh_keys.clear();
+        phase
+            .batchable_mesh_keys
+            .extend(phase.batchable_mesh_values.keys().cloned());
         phase.batchable_mesh_keys.sort_unstable();
+
+        phase.unbatchable_mesh_keys.clear();
+        phase
+            .unbatchable_mesh_keys
+            .extend(phase.unbatchable_mesh_values.keys().cloned());
         phase.unbatchable_mesh_keys.sort_unstable();
     }
 }

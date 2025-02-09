@@ -1,9 +1,9 @@
 use crate::{Material2d, Material2dKey, Material2dPlugin, Mesh2d};
 use bevy_app::{Plugin, Startup, Update};
-use bevy_asset::{load_internal_asset, Asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_resource::ExtractResource, mesh::MeshVertexBufferLayoutRef, prelude::*,
     render_resource::*,
@@ -11,7 +11,8 @@ use bevy_render::{
 
 use super::MeshMaterial2d;
 
-pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(6920362697190520314);
+pub const WIREFRAME_2D_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("3d8a3853-2927-4de2-9dc7-3971e7e40970");
 
 /// A [`Plugin`] that draws wireframes for 2D meshes.
 ///
@@ -39,6 +40,7 @@ impl Plugin for Wireframe2dPlugin {
             .register_type::<Wireframe2dColor>()
             .init_resource::<Wireframe2dConfig>()
             .add_plugins(Material2dPlugin::<Wireframe2dMaterial>::default())
+            .register_asset_reflect::<Wireframe2dMaterial>()
             .add_systems(Startup, setup_global_wireframe_material)
             .add_systems(
                 Update,
@@ -217,7 +219,7 @@ fn apply_global_wireframe_material(
     }
 }
 
-#[derive(Default, AsBindGroup, TypePath, Debug, Clone, Asset)]
+#[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]
 pub struct Wireframe2dMaterial {
     #[uniform(0)]
     pub color: LinearRgba,

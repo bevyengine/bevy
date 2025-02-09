@@ -33,12 +33,12 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingMode,
     render_phase::PhaseItemBatchSetKey,
     view::{ExtractedView, RetainedViewEntity},
 };
-use bevy_utils::{HashMap, HashSet};
 pub use camera_2d::*;
 pub use main_opaque_pass_2d_node::*;
 pub use main_transparent_pass_2d_node::*;
@@ -312,6 +312,8 @@ impl PhaseItem for AlphaMask2d {
 }
 
 impl BinnedPhaseItem for AlphaMask2d {
+    // Since 2D meshes presently can't be multidrawn, the batch set key is
+    // irrelevant.
     type BatchSetKey = BatchSetKey2d;
 
     type BinKey = AlphaMask2dBinKey;
@@ -434,8 +436,9 @@ pub fn extract_core_2d_camera_phases(
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
         transparent_2d_phases.insert_or_clear(retained_view_entity);
-        opaque_2d_phases.insert_or_clear(retained_view_entity, GpuPreprocessingMode::None);
-        alpha_mask_2d_phases.insert_or_clear(retained_view_entity, GpuPreprocessingMode::None);
+        opaque_2d_phases.prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
+        alpha_mask_2d_phases
+            .prepare_for_new_frame(retained_view_entity, GpuPreprocessingMode::None);
 
         live_entities.insert(retained_view_entity);
     }

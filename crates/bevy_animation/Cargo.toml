@@ -25,6 +25,10 @@ bevy_time = { path = "../bevy_time", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
+] }
 
 # other
 petgraph = { version = "0.6", features = ["serde-1"] }
@@ -36,9 +40,12 @@ thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 either = "1.13"
 thread_local = "1"
-uuid = { version = "1.7", features = ["v4"] }
+uuid = { version = "1.13.1", features = ["v4"] }
 smallvec = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [lints]
 workspace = true

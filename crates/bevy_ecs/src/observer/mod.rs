@@ -3,7 +3,7 @@
 mod entity_observer;
 mod runner;
 
-pub use entity_observer::{CloneEntityWithObserversExt, ObservedBy};
+pub use entity_observer::ObservedBy;
 pub use runner::*;
 
 use crate::{
@@ -15,8 +15,8 @@ use crate::{
     world::{DeferredWorld, *},
 };
 use alloc::vec::Vec;
+use bevy_platform_support::collections::HashMap;
 use bevy_ptr::Ptr;
-use bevy_utils::HashMap;
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -306,6 +306,21 @@ impl ObserverDescriptor {
         self.components
             .extend(descriptor.components.iter().copied());
         self.entities.extend(descriptor.entities.iter().copied());
+    }
+
+    /// Returns the `events` that the observer is watching.
+    pub fn events(&self) -> &[ComponentId] {
+        &self.events
+    }
+
+    /// Returns the `components` that the observer is watching.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
+    }
+
+    /// Returns the `entities` that the observer is watching.
+    pub fn entities(&self) -> &[Entity] {
+        &self.entities
     }
 }
 
@@ -846,8 +861,8 @@ mod tests {
     #[cfg(feature = "track_location")]
     use core::panic::Location;
 
+    use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
-    use bevy_utils::HashMap;
 
     use crate as bevy_ecs;
     use crate::component::ComponentId;

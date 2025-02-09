@@ -34,10 +34,10 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -942,7 +942,7 @@ pub fn camera_system(
                 || camera.computed.old_sub_camera_view != camera.sub_camera_view
             {
                 let new_computed_target_info = normalized_target.get_render_target_info(
-                    &windows,
+                    windows,
                     &images,
                     &manual_texture_views,
                 );
@@ -1134,6 +1134,7 @@ pub fn extract_cameras(
                     })
                     .collect(),
             };
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {

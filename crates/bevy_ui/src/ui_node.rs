@@ -1064,6 +1064,30 @@ impl Overflow {
         }
     }
 
+    /// Hide overflowing items on both axes by influencing layout and then clipping
+    pub const fn hidden() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Hidden,
+        }
+    }
+
+    /// Hide overflowing items on the x axis by influencing layout and then clipping
+    pub const fn hidden_x() -> Self {
+        Self {
+            x: OverflowAxis::Hidden,
+            y: OverflowAxis::Visible,
+        }
+    }
+
+    /// Hide overflowing items on the y axis by influencing layout and then clipping
+    pub const fn hidden_y() -> Self {
+        Self {
+            x: OverflowAxis::Visible,
+            y: OverflowAxis::Hidden,
+        }
+    }
+
     /// Overflow is visible on both axes
     pub const fn is_visible(&self) -> bool {
         self.x.is_visible() && self.y.is_visible()
@@ -2736,5 +2760,25 @@ pub struct BoxShadowSamples(pub u32);
 impl Default for BoxShadowSamples {
     fn default() -> Self {
         Self(4)
+    }
+}
+
+/// Adds a shadow behind text
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextShadow {
+    /// Shadow displacement in logical pixels
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for TextShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::splat(4.),
+            color: Color::linear_rgba(0., 0., 0., 0.75),
+        }
     }
 }

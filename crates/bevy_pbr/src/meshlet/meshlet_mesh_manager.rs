@@ -11,11 +11,11 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 use bevy_render::{
     render_resource::BufferAddress,
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_utils::HashMap;
 use core::ops::Range;
 
 /// Manages uploading [`MeshletMesh`] asset data to the GPU.

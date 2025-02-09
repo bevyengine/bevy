@@ -2,12 +2,14 @@
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, HookContext, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, HookContext, StorageType,
+        },
         world::DeferredWorld,
     },
+    platform_support::collections::HashMap,
     prelude::*,
     ptr::OwningPtr,
-    utils::HashMap,
 };
 use core::alloc::Layout;
 
@@ -152,6 +154,7 @@ fn demo_3(world: &mut World) {
                     Layout::array::<u8>(size).unwrap(),
                     None,
                     false,
+                    ComponentCloneBehavior::Default,
                 )
             };
 
