@@ -6,25 +6,27 @@ pub use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoSystemConfigs, ResMut, Resource},
-    schedule::SystemConfigs,
+    schedule::{SystemConfigs, SystemSet},
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render_macros::ExtractResource;
-use bevy_utils::{
-    tracing::{debug, error},
-    HashMap, HashSet,
-};
 use core::marker::PhantomData;
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
+use tracing::{debug, error};
 
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
-    #[display("Failed to prepare asset")]
+    #[error("Failed to prepare asset")]
     RetryNextUpdate(E),
-    #[display("Failed to build bind group: {_0}")]
+    #[error("Failed to build bind group: {0}")]
     AsBindGroupError(AsBindGroupError),
 }
+
+/// The system set during which we extract modified assets to the render world.
+#[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
+pub struct ExtractAssetsSet;
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
@@ -51,7 +53,10 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// Size of the data the asset will upload to the gpu. Specifying a return value
     /// will allow the asset to be throttled via [`RenderAssetBytesPerFrame`].
     #[inline]
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     fn byte_len(source_asset: &Self::SourceAsset) -> Option<usize> {
         None
     }
@@ -61,8 +66,21 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// ECS data may be accessed via `param`.
     fn prepare_asset(
         source_asset: Self::SourceAsset,
+        asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
+
+    /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
+    ///
+    /// You can implement this method if you need to access ECS data (via
+    /// `_param`) in order to perform cleanup tasks when the asset is removed.
+    ///
+    /// The default implementation does nothing.
+    fn unload_asset(
+        _source_asset: AssetId<Self::SourceAsset>,
+        _param: &mut SystemParamItem<Self::Param>,
+    ) {
+    }
 }
 
 /// This plugin extracts the changed assets from the "app world" into the "render world"
@@ -99,7 +117,10 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_systems(ExtractSchedule, extract_render_asset::<A>);
+                .add_systems(
+                    ExtractSchedule,
+                    extract_render_asset::<A>.in_set(ExtractAssetsSet),
+                );
             AFTER::register_system(
                 render_app,
                 prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
@@ -213,11 +234,14 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
         |world, mut cached_state: Mut<CachedExtractRenderAssetSystemState<A>>| {
             let (mut events, mut assets) = cached_state.state.get_mut(world);
 
-            let mut changed_assets = HashSet::default();
-            let mut removed = HashSet::default();
+            let mut changed_assets = <HashSet<_>>::default();
+            let mut removed = <HashSet<_>>::default();
 
             for event in events.read() {
-                #[allow(clippy::match_same_arms)]
+                #[expect(
+                    clippy::match_same_arms,
+                    reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
+                )]
                 match event {
                     AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                         changed_assets.insert(*id);
@@ -234,7 +258,7 @@ pub(crate) fn extract_render_asset<A: RenderAsset>(
             }
 
             let mut extracted_assets = Vec::new();
-            let mut added = HashSet::new();
+            let mut added = <HashSet<_>>::default();
             for id in changed_assets.drain() {
                 if let Some(asset) = assets.get(id) {
                     let asset_usage = A::asset_usage(asset);
@@ -310,7 +334,7 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, &mut param) {
+        match A::prepare_asset(extracted_asset, id, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);
@@ -330,6 +354,7 @@ pub fn prepare_assets<A: RenderAsset>(
 
     for removed in extracted_assets.removed.drain() {
         render_assets.remove(removed);
+        A::unload_asset(removed, &mut param);
     }
 
     for (id, extracted_asset) in extracted_assets.extracted.drain(..) {
@@ -348,7 +373,7 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, &mut param) {
+        match A::prepare_asset(extracted_asset, id, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);

@@ -6,7 +6,10 @@ use crate::{
     DynamicTuple, TupleInfo, TupleStructInfo, TupleVariantInfo, TypeRegistration, TypeRegistry,
     UnnamedField,
 };
+use alloc::string::ToString;
 use serde::de::{Error, SeqAccess};
+
+use super::ReflectDeserializerProcessor;
 
 pub(super) trait TupleLikeInfo {
     fn field_at<E: Error>(&self, index: usize) -> Result<&UnnamedField, E>;
@@ -64,15 +67,17 @@ impl TupleLikeInfo for TupleVariantInfo {
 /// Deserializes a [tuple-like] type from a sequence of elements, returning a [`DynamicTuple`].
 ///
 /// [tuple-like]: TupleLikeInfo
-pub(super) fn visit_tuple<'de, T, V>(
+pub(super) fn visit_tuple<'de, T, V, P>(
     seq: &mut V,
     info: &T,
     registration: &TypeRegistration,
     registry: &TypeRegistry,
+    mut processor: Option<&mut P>,
 ) -> Result<DynamicTuple, V::Error>
 where
     T: TupleLikeInfo,
     V: SeqAccess<'de>,
+    P: ReflectDeserializerProcessor,
 {
     let mut tuple = DynamicTuple::default();
 
@@ -95,6 +100,7 @@ where
             .next_element_seed(TypedReflectDeserializer::new_internal(
                 try_get_registration(*info.field_at(index)?.ty(), registry)?,
                 registry,
+                processor.as_deref_mut(),
             ))?
             .ok_or_else(|| Error::invalid_length(index, &len.to_string().as_str()))?;
         tuple.insert_boxed(value);

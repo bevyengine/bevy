@@ -1,16 +1,17 @@
 //! Contains [`Bounded3d`] implementations for [geometric primitives](crate::primitives).
 
-use glam::Vec3A;
-
 use crate::{
-    bounding::{Bounded2d, BoundingCircle},
+    bounding::{Bounded2d, BoundingCircle, BoundingVolume},
     ops,
     primitives::{
-        BoxedPolyline3d, Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d,
-        Line3d, Polyline3d, Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
+        Capsule3d, Cone, ConicalFrustum, Cuboid, Cylinder, InfinitePlane3d, Line3d, Polyline3d,
+        Segment3d, Sphere, Torus, Triangle2d, Triangle3d,
     },
-    Isometry2d, Isometry3d, Mat3, Vec2, Vec3,
+    Isometry2d, Isometry3d, Mat3, Vec2, Vec3, Vec3A,
 };
+
+#[cfg(feature = "alloc")]
+use crate::primitives::BoxedPolyline3d;
 
 use super::{Aabb3d, Bounded3d, BoundingSphere};
 
@@ -75,18 +76,13 @@ impl Bounded3d for Line3d {
 
 impl Bounded3d for Segment3d {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
-        let isometry = isometry.into();
-
-        // Rotate the segment by `rotation`
-        let direction = isometry.rotation * *self.direction;
-        let half_size = (self.half_length * direction).abs();
-
-        Aabb3d::new(isometry.translation, half_size)
+        Aabb3d::from_point_cloud(isometry, [self.point1(), self.point2()].iter().copied())
     }
 
     fn bounding_sphere(&self, isometry: impl Into<Isometry3d>) -> BoundingSphere {
         let isometry = isometry.into();
-        BoundingSphere::new(isometry.translation, self.half_length)
+        let local_sphere = BoundingSphere::new(self.center(), self.length() / 2.);
+        local_sphere.transformed_by(isometry.translation, isometry.rotation)
     }
 }
 
@@ -100,6 +96,7 @@ impl<const N: usize> Bounded3d for Polyline3d<N> {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl Bounded3d for BoxedPolyline3d {
     fn aabb_3d(&self, isometry: impl Into<Isometry3d>) -> Aabb3d {
         Aabb3d::from_point_cloud(isometry, self.vertices.iter().copied())
@@ -144,7 +141,7 @@ impl Bounded3d for Cylinder {
         let bottom = -top;
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_size = self.radius * Vec3A::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let half_size = self.radius * Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation + (top - half_size).min(bottom - half_size),
@@ -195,7 +192,7 @@ impl Bounded3d for Cone {
         let bottom = -top;
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_extents = Vec3A::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let half_extents = Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation + top.min(bottom - self.radius * half_extents),
@@ -236,7 +233,7 @@ impl Bounded3d for ConicalFrustum {
         let bottom = -top;
 
         let e = (Vec3A::ONE - segment_dir * segment_dir).max(Vec3A::ZERO);
-        let half_extents = Vec3A::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let half_extents = Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         Aabb3d {
             min: isometry.translation
@@ -319,7 +316,8 @@ impl Bounded3d for Torus {
         // Reference: http://iquilezles.org/articles/diskbbox/
         let normal = isometry.rotation * Vec3A::Y;
         let e = (Vec3A::ONE - normal * normal).max(Vec3A::ZERO);
-        let disc_half_size = self.major_radius * Vec3A::new(e.x.sqrt(), e.y.sqrt(), e.z.sqrt());
+        let disc_half_size =
+            self.major_radius * Vec3A::new(ops::sqrt(e.x), ops::sqrt(e.y), ops::sqrt(e.z));
 
         // Expand the disc by the minor radius to get the torus half-size
         let half_size = disc_half_size + Vec3A::splat(self.minor_radius);
@@ -461,8 +459,7 @@ mod tests {
     fn segment() {
         let translation = Vec3::new(2.0, 1.0, 0.0);
 
-        let segment =
-            Segment3d::from_points(Vec3::new(-1.0, -0.5, 0.0), Vec3::new(1.0, 0.5, 0.0)).0;
+        let segment = Segment3d::new(Vec3::new(-1.0, -0.5, 0.0), Vec3::new(1.0, 0.5, 0.0));
 
         let aabb = segment.aabb_3d(translation);
         assert_eq!(aabb.min, Vec3A::new(1.0, 0.5, 0.0));

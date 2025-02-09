@@ -1,20 +1,22 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances,
+    PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
+    RenderMeshMaterialIds,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
-    entity::{Entities, Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entities, Entity},
     event::EventReader,
     query::Has,
-    system::{Local, Query, Res, ResMut, Resource, SystemState},
+    resource::Resource,
+    system::{Local, Query, Res, ResMut, SystemState},
 };
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{HashMap, HashSet};
 use core::ops::{DerefMut, Range};
 
 /// Manages data for each entity with a [`MeshletMesh`].
@@ -76,12 +78,11 @@ impl InstanceManager {
             view_instance_visibility: EntityHashMap::default(),
 
             next_material_id: 0,
-            material_id_lookup: HashMap::new(),
-            material_ids_present_in_scene: HashSet::new(),
+            material_id_lookup: HashMap::default(),
+            material_ids_present_in_scene: HashSet::default(),
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub fn add_instance(
         &mut self,
         instance: MainEntity,
@@ -89,6 +90,8 @@ impl InstanceManager {
         transform: &GlobalTransform,
         previous_transform: Option<&PreviousGlobalTransform>,
         render_layers: Option<&RenderLayers>,
+        mesh_material_ids: &RenderMeshMaterialIds,
+        render_material_bindings: &RenderMaterialBindings,
         not_shadow_receiver: bool,
         not_shadow_caster: bool,
     ) {
@@ -108,7 +111,21 @@ impl InstanceManager {
             previous_world_from_local: (&previous_transform).into(),
             flags: flags.bits(),
         };
-        let mesh_uniform = MeshUniform::new(&transforms, 0, None);
+
+        let mesh_material = mesh_material_ids.mesh_material(instance);
+        let mesh_material_binding_id = render_material_bindings
+            .get(&mesh_material)
+            .cloned()
+            .unwrap_or_default();
+
+        let mesh_uniform = MeshUniform::new(
+            &transforms,
+            0,
+            mesh_material_binding_id.slot,
+            None,
+            None,
+            None,
+        );
 
         // Append instance data
         self.instances.push((
@@ -170,6 +187,8 @@ pub fn extract_meshlet_mesh_entities(
     mut instance_manager: ResMut<InstanceManager>,
     // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
     mut main_world: ResMut<MainWorld>,
+    mesh_material_ids: Res<RenderMeshMaterialIds>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     mut system_state: Local<
         Option<
             SystemState<(
@@ -238,6 +257,8 @@ pub fn extract_meshlet_mesh_entities(
             transform,
             previous_transform,
             render_layers,
+            &mesh_material_ids,
+            &render_material_bindings,
             not_shadow_receiver,
             not_shadow_caster,
         );

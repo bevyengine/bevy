@@ -4,17 +4,16 @@ use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 #[cfg(target_arch = "wasm32")]
 use bevy_ecs::system::NonSendMut;
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
+use bevy_platform_support::collections::HashMap;
 use bevy_time::{Real, Time};
-use bevy_utils::{
-    synccell::SyncCell,
-    tracing::{debug, warn},
-    Duration, HashMap,
-};
-use derive_more::derive::{Display, Error, From};
+use bevy_utils::synccell::SyncCell;
+use core::time::Duration;
 use gilrs::{
     ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId,
 };
+use thiserror::Error;
+use tracing::{debug, warn};
 
 /// A rumble effect that is currently in effect.
 struct RunningRumble {
@@ -23,16 +22,19 @@ struct RunningRumble {
     /// A ref-counted handle to the specific force-feedback effect
     ///
     /// Dropping it will cause the effect to stop
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "We don't need to read this field, as its purpose is to keep the rumble effect going until the field is dropped."
+    )]
     effect: SyncCell<ff::Effect>,
 }
 
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 enum RumbleError {
-    #[display("gamepad not found")]
+    #[error("gamepad not found")]
     GamepadNotFound,
-    #[display("gilrs error while rumbling gamepad: {_0}")]
-    GilrsError(ff::Error),
+    #[error("gilrs error while rumbling gamepad: {0}")]
+    GilrsError(#[from] ff::Error),
 }
 
 /// Contains the gilrs rumble effects that are currently running for each gamepad

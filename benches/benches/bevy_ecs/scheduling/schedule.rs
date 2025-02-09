@@ -74,7 +74,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
     // Add system to the schedule with full constraints. Hopefully this should be maximally
     // difficult for bevy to figure out.
-    let labels: Vec<_> = (0..1000).map(|i| NumSet(i)).collect();
+    let labels: Vec<_> = (0..1000).map(NumSet).collect();
 
     // Benchmark graphs of different sizes.
     for graph_size in [100, 500, 1000] {
@@ -120,7 +120,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
 }
 
 pub fn empty_schedule_run(criterion: &mut Criterion) {
-    let mut app = bevy_app::App::default();
+    let mut app = App::default();
 
     let mut group = criterion.benchmark_group("run_empty_schedule");
 

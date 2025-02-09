@@ -4,14 +4,21 @@ use crate::{
     Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
     UntypedAssetId, UntypedHandle,
 };
-use alloc::sync::{Arc, Weak};
+use alloc::{
+    borrow::ToOwned,
+    boxed::Box,
+    sync::{Arc, Weak},
+    vec::Vec,
+};
 use bevy_ecs::world::World;
+use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::{tracing::warn, Entry, HashMap, HashSet, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
-use derive_more::derive::{Display, Error, From};
 use either::Either;
+use thiserror::Error;
+use tracing::warn;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
@@ -112,10 +119,6 @@ impl AssetInfos {
         .unwrap()
     }
 
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "Arguments needed so that both `create_loading_handle_untyped()` and `get_or_create_path_handle_internal()` may share code."
-    )]
     fn create_handle_internal(
         infos: &mut HashMap<UntypedAssetId, AssetInfo>,
         handle_providers: &TypeIdMap<AssetHandleProvider>,
@@ -395,10 +398,10 @@ impl AssetInfos {
 
         loaded_asset.value.insert(loaded_asset_id, world);
         let mut loading_deps = loaded_asset.dependencies;
-        let mut failed_deps = HashSet::new();
+        let mut failed_deps = <HashSet<_>>::default();
         let mut dep_error = None;
         let mut loading_rec_deps = loading_deps.clone();
-        let mut failed_rec_deps = HashSet::new();
+        let mut failed_rec_deps = <HashSet<_>>::default();
         let mut rec_dep_error = None;
         loading_deps.retain(|dep_id| {
             if let Some(dep_info) = self.get_mut(*dep_id) {
@@ -443,7 +446,7 @@ impl AssetInfos {
             } else {
                 // the dependency id does not exist, which implies it was manually removed or never existed in the first place
                 warn!(
-                    "Dependency {:?} from asset {:?} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
+                    "Dependency {} from asset {} is unknown. This asset's dependency load status will not switch to 'Loaded' until the unknown dependency is loaded.",
                     dep_id, loaded_asset_id
                 );
                 true
@@ -757,16 +760,16 @@ pub(crate) enum HandleLoadingMode {
     Force,
 }
 
-#[derive(Error, Display, Debug)]
-#[display("Cannot allocate a handle because no handle provider exists for asset type {_0:?}")]
-#[error(ignore)]
+#[derive(Error, Debug)]
+#[error("Cannot allocate a handle because no handle provider exists for asset type {0:?}")]
 pub struct MissingHandleProviderError(TypeId);
 
 /// An error encountered during [`AssetInfos::get_or_create_path_handle_internal`].
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub(crate) enum GetOrCreateHandleInternalError {
-    MissingHandleProviderError(MissingHandleProviderError),
-    #[display("Handle does not exist but TypeId was not specified.")]
+    #[error(transparent)]
+    MissingHandleProviderError(#[from] MissingHandleProviderError),
+    #[error("Handle does not exist but TypeId was not specified.")]
     HandleMissingButTypeIdNotSpecified,
 }
 

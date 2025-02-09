@@ -1,8 +1,12 @@
 //! This example shows how to create a node with a shadow
 
 use argh::FromArgs;
+use bevy::color::palettes::css::BLUE;
 use bevy::color::palettes::css::DEEP_SKY_BLUE;
+use bevy::color::palettes::css::GREEN;
 use bevy::color::palettes::css::LIGHT_SKY_BLUE;
+use bevy::color::palettes::css::RED;
+use bevy::color::palettes::css::YELLOW;
 use bevy::prelude::*;
 use bevy::winit::WinitSettings;
 
@@ -31,7 +35,7 @@ fn setup(mut commands: Commands) {
     let args = Args::from_args(&[], &[]).unwrap();
 
     // ui camera
-    commands.spawn((Camera2d, UiBoxShadowSamples(args.samples)));
+    commands.spawn((Camera2d, BoxShadowSamples(args.samples)));
 
     commands
         .spawn((
@@ -189,6 +193,49 @@ fn setup(mut commands: Commands) {
                     border_radius,
                 ));
             }
+
+            // Demonstrate multiple shadows on one node
+            commands.spawn((
+                Node {
+                    width: Val::Px(40.),
+                    height: Val::Px(40.),
+                    border: UiRect::all(Val::Px(4.)),
+                    ..default()
+                },
+                BorderColor(LIGHT_SKY_BLUE.into()),
+                BorderRadius::all(Val::Px(20.)),
+                BackgroundColor(DEEP_SKY_BLUE.into()),
+                BoxShadow(vec![
+                    ShadowStyle {
+                        color: RED.with_alpha(0.7).into(),
+                        x_offset: Val::Px(-20.),
+                        y_offset: Val::Px(-5.),
+                        spread_radius: Val::Percent(10.),
+                        blur_radius: Val::Px(3.),
+                    },
+                    ShadowStyle {
+                        color: BLUE.with_alpha(0.7).into(),
+                        x_offset: Val::Px(-5.),
+                        y_offset: Val::Px(-20.),
+                        spread_radius: Val::Percent(10.),
+                        blur_radius: Val::Px(3.),
+                    },
+                    ShadowStyle {
+                        color: YELLOW.with_alpha(0.7).into(),
+                        x_offset: Val::Px(20.),
+                        y_offset: Val::Px(5.),
+                        spread_radius: Val::Percent(10.),
+                        blur_radius: Val::Px(3.),
+                    },
+                    ShadowStyle {
+                        color: GREEN.with_alpha(0.7).into(),
+                        x_offset: Val::Px(5.),
+                        y_offset: Val::Px(20.),
+                        spread_radius: Val::Percent(10.),
+                        blur_radius: Val::Px(3.),
+                    },
+                ]),
+            ));
         });
 }
 
@@ -209,12 +256,12 @@ fn box_shadow_node_bundle(
         BorderColor(LIGHT_SKY_BLUE.into()),
         border_radius,
         BackgroundColor(DEEP_SKY_BLUE.into()),
-        BoxShadow {
-            color: Color::BLACK.with_alpha(0.8),
-            x_offset: Val::Percent(offset.x),
-            y_offset: Val::Percent(offset.y),
-            spread_radius: Val::Percent(spread),
-            blur_radius: Val::Px(blur),
-        },
+        BoxShadow::new(
+            Color::BLACK.with_alpha(0.8),
+            Val::Percent(offset.x),
+            Val::Percent(offset.y),
+            Val::Percent(spread),
+            Val::Px(blur),
+        ),
     )
 }

@@ -3,19 +3,26 @@
 use super::interval::*;
 use super::Curve;
 
+use crate::ops;
 use crate::VectorSpace;
 use core::any::type_name;
 use core::fmt::{self, Debug};
 use core::marker::PhantomData;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath};
+use {
+    alloc::format,
+    bevy_reflect::{utility::GenericTypePathCell, FromReflect, Reflect, TypePath},
+};
 
 #[cfg(feature = "bevy_reflect")]
 mod paths {
     pub(super) const THIS_MODULE: &str = "bevy_math::curve::adaptors";
     pub(super) const THIS_CRATE: &str = "bevy_math";
 }
+
+#[expect(unused, reason = "imported just for doc links")]
+use super::CurveExt;
 
 // NOTE ON REFLECTION:
 //
@@ -172,7 +179,7 @@ where
 }
 
 /// A curve whose samples are defined by mapping samples from another curve through a
-/// given function. Curves of this type are produced by [`Curve::map`].
+/// given function. Curves of this type are produced by [`CurveExt::map`].
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -268,7 +275,7 @@ where
 }
 
 /// A curve whose sample space is mapped onto that of some base curve's before sampling.
-/// Curves of this type are produced by [`Curve::reparametrize`].
+/// Curves of this type are produced by [`CurveExt::reparametrize`].
 #[derive(Clone)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -363,7 +370,7 @@ where
 }
 
 /// A curve that has had its domain changed by a linear reparameterization (stretching and scaling).
-/// Curves of this type are produced by [`Curve::reparametrize_linear`].
+/// Curves of this type are produced by [`CurveExt::reparametrize_linear`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -398,7 +405,7 @@ where
 }
 
 /// A curve that has been reparametrized by another curve, using that curve to transform the
-/// sample times before sampling. Curves of this type are produced by [`Curve::reparametrize_by_curve`].
+/// sample times before sampling. Curves of this type are produced by [`CurveExt::reparametrize_by_curve`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -431,7 +438,7 @@ where
 }
 
 /// A curve that is the graph of another curve over its parameter space. Curves of this type are
-/// produced by [`Curve::graph`].
+/// produced by [`CurveExt::graph`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -461,7 +468,7 @@ where
 }
 
 /// A curve that combines the output data from two constituent curves into a tuple output. Curves
-/// of this type are produced by [`Curve::zip`].
+/// of this type are produced by [`CurveExt::zip`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -502,7 +509,7 @@ where
 /// For this to be well-formed, the first curve's domain must be right-finite and the second's
 /// must be left-finite.
 ///
-/// Curves of this type are produced by [`Curve::chain`].
+/// Curves of this type are produced by [`CurveExt::chain`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -548,7 +555,7 @@ where
 
 /// The curve that results from reversing another.
 ///
-/// Curves of this type are produced by [`Curve::reverse`].
+/// Curves of this type are produced by [`CurveExt::reverse`].
 ///
 /// # Domain
 ///
@@ -589,7 +596,7 @@ where
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
-/// Curves of this type are produced by [`Curve::repeat`].
+/// Curves of this type are produced by [`CurveExt::repeat`].
 ///
 /// # Domain
 ///
@@ -619,15 +626,25 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> RepeatCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()).rem_euclid(d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 
@@ -638,7 +655,7 @@ where
 /// - the value at the transitioning points (`domain.end() * n` for `n >= 1`) in the results is the
 ///   value at `domain.end()` in the original curve
 ///
-/// Curves of this type are produced by [`Curve::forever`].
+/// Curves of this type are produced by [`CurveExt::forever`].
 ///
 /// # Domain
 ///
@@ -667,22 +684,32 @@ where
 
     #[inline]
     fn sample_unchecked(&self, t: f32) -> T {
+        let t = self.base_curve_sample_time(t);
+        self.curve.sample_unchecked(t)
+    }
+}
+
+impl<T, C> ForeverCurve<T, C>
+where
+    C: Curve<T>,
+{
+    #[inline]
+    pub(crate) fn base_curve_sample_time(&self, t: f32) -> f32 {
         // the domain is bounded by construction
         let d = self.curve.domain();
-        let cyclic_t = (t - d.start()).rem_euclid(d.length());
-        let t = if t != d.start() && cyclic_t == 0.0 {
+        let cyclic_t = ops::rem_euclid(t - d.start(), d.length());
+        if t != d.start() && cyclic_t == 0.0 {
             d.end()
         } else {
             d.start() + cyclic_t
-        };
-        self.curve.sample_unchecked(t)
+        }
     }
 }
 
 /// The curve that results from chaining a curve with its reversed version. The transition point
 /// is guaranteed to make no jump.
 ///
-/// Curves of this type are produced by [`Curve::ping_pong`].
+/// Curves of this type are produced by [`CurveExt::ping_pong`].
 ///
 /// # Domain
 ///
@@ -735,7 +762,7 @@ where
 /// realized by translating the second curve so that its start sample point coincides with the
 /// first curves' end sample point.
 ///
-/// Curves of this type are produced by [`Curve::chain_continue`].
+/// Curves of this type are produced by [`CurveExt::chain_continue`].
 ///
 /// # Domain
 ///

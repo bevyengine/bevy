@@ -94,7 +94,7 @@ extern crate alloc;
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 mod loader;
 mod vertex_attributes;
@@ -284,7 +284,7 @@ pub struct GltfSkin {
     pub name: String,
     /// All the nodes that form this skin.
     pub joints: Vec<Handle<GltfNode>>,
-    /// Inverse-bind matricy of this skin.
+    /// Inverse-bind matrices of this skin.
     pub inverse_bind_matrices: Handle<SkinnedMeshInverseBindposes>,
     /// Additional data.
     pub extras: Option<GltfExtras>,

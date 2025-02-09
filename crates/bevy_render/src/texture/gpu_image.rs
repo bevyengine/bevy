@@ -3,10 +3,11 @@ use crate::{
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
+use bevy_asset::AssetId;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
-use bevy_math::UVec2;
-use wgpu::{TextureFormat, TextureViewDescriptor};
+use bevy_math::{AspectRatio, UVec2};
+use wgpu::{Extent3d, TextureFormat, TextureViewDescriptor};
 
 /// The GPU-representation of an [`Image`].
 /// Consists of the [`Texture`], its [`TextureView`] and the corresponding [`Sampler`], and the texture's size.
@@ -16,7 +17,7 @@ pub struct GpuImage {
     pub texture_view: TextureView,
     pub texture_format: TextureFormat,
     pub sampler: Sampler,
-    pub size: UVec2,
+    pub size: Extent3d,
     pub mip_level_count: u32,
 }
 
@@ -41,6 +42,7 @@ impl RenderAsset for GpuImage {
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(
@@ -51,7 +53,6 @@ impl RenderAsset for GpuImage {
             &image.data,
         );
 
-        let size = image.size();
         let texture_view = texture.create_view(
             image
                 .texture_view_descriptor
@@ -71,8 +72,24 @@ impl RenderAsset for GpuImage {
             texture_view,
             texture_format: image.texture_descriptor.format,
             sampler,
-            size,
+            size: image.texture_descriptor.size,
             mip_level_count: image.texture_descriptor.mip_level_count,
         })
+    }
+}
+
+impl GpuImage {
+    /// Returns the aspect ratio (width / height) of a 2D image.
+    #[inline]
+    pub fn aspect_ratio(&self) -> AspectRatio {
+        AspectRatio::try_from_pixels(self.size.width, self.size.height).expect(
+            "Failed to calculate aspect ratio: Image dimensions must be positive, non-zero values",
+        )
+    }
+
+    /// Returns the size of a 2D image.
+    #[inline]
+    pub fn size_2d(&self) -> UVec2 {
+        UVec2::new(self.size.width, self.size.height)
     }
 }

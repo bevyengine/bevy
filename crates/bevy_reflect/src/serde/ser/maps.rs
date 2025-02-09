@@ -1,19 +1,16 @@
 use crate::{serde::TypedReflectSerializer, Map, TypeRegistry};
 use serde::{ser::SerializeMap, Serialize};
 
+use super::ReflectSerializerProcessor;
+
 /// A serializer for [`Map`] values.
-pub(super) struct MapSerializer<'a> {
-    map: &'a dyn Map,
-    registry: &'a TypeRegistry,
+pub(super) struct MapSerializer<'a, P> {
+    pub map: &'a dyn Map,
+    pub registry: &'a TypeRegistry,
+    pub processor: Option<&'a P>,
 }
 
-impl<'a> MapSerializer<'a> {
-    pub fn new(map: &'a dyn Map, registry: &'a TypeRegistry) -> Self {
-        Self { map, registry }
-    }
-}
-
-impl<'a> Serialize for MapSerializer<'a> {
+impl<P: ReflectSerializerProcessor> Serialize for MapSerializer<'_, P> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -21,8 +18,8 @@ impl<'a> Serialize for MapSerializer<'a> {
         let mut state = serializer.serialize_map(Some(self.map.len()))?;
         for (key, value) in self.map.iter() {
             state.serialize_entry(
-                &TypedReflectSerializer::new_internal(key, self.registry),
-                &TypedReflectSerializer::new_internal(value, self.registry),
+                &TypedReflectSerializer::new_internal(key, self.registry, self.processor),
+                &TypedReflectSerializer::new_internal(value, self.registry, self.processor),
             )?;
         }
         state.end()

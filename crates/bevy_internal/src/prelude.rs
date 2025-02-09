@@ -1,10 +1,13 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
-    log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
-    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, HeadlessPlugins,
-    MinimalPlugins,
+    app::prelude::*, ecs::prelude::*, input::prelude::*, log::prelude::*, math::prelude::*,
+    reflect::prelude::*, time::prelude::*, transform::prelude::*, utils::prelude::*,
+    DefaultPlugins, MinimalPlugins,
 };
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_window")]
+pub use crate::window::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_image")]

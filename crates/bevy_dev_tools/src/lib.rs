@@ -15,8 +15,7 @@ pub mod ci_testing;
 
 pub mod fps_overlay;
 
-#[cfg(feature = "bevy_ui_debug")]
-pub mod ui_debug_overlay;
+pub mod picking_debug;
 
 pub mod states;
 

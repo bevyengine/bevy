@@ -1,6 +1,8 @@
 //! Demonstrates the use of [`UiMaterials`](UiMaterial) and how to change material values
 
-use bevy::{prelude::*, reflect::TypePath, render::render_resource::*};
+use bevy::{
+    color::palettes::css::DARK_BLUE, prelude::*, reflect::TypePath, render::render_resource::*,
+};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
@@ -33,18 +35,25 @@ fn setup(
         .with_children(|parent| {
             let banner_scale_factor = 0.5;
             parent.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(905.0 * banner_scale_factor),
+                    height: Val::Px(363.0 * banner_scale_factor),
+                    border: UiRect::all(Val::Px(20.)),
+                    ..default()
+                },
                 MaterialNode(ui_materials.add(CustomUiMaterial {
                     color: LinearRgba::WHITE.to_f32_array().into(),
                     slider: 0.5,
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
                 })),
-                Node {
-                    position_type: PositionType::Absolute,
-                    width: Val::Px(905.0 * banner_scale_factor),
-                    height: Val::Px(363.0 * banner_scale_factor),
-                    border: UiRect::all(Val::Px(10.)),
-                    ..default()
+                BorderRadius::all(Val::Px(20.)),
+                // UI material nodes can have outlines and shadows like any other UI node
+                Outline {
+                    width: Val::Px(2.),
+                    offset: Val::Px(100.),
+                    color: DARK_BLUE.into(),
                 },
             ));
         });

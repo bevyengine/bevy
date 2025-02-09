@@ -69,6 +69,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
+    #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
         self.events.send(event)
     }
@@ -78,6 +79,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     /// This method returns the [IDs](`EventId`) of the sent `events`.
     ///
     /// See [`Events`] for details.
+    #[track_caller]
     pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) -> SendBatchIds<E> {
         self.events.send_batch(events)
     }
@@ -86,6 +88,7 @@ impl<'w, E: Event> EventWriter<'w, E> {
     /// This method returns the [ID](`EventId`) of the sent `event`.
     ///
     /// See [`Events`] for details.
+    #[track_caller]
     pub fn send_default(&mut self) -> EventId<E>
     where
         E: Default,

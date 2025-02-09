@@ -2,6 +2,7 @@
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
+    ecs::{component::Mutable, hierarchy::ChildSpawnerCommands},
     prelude::*,
     winit::WinitSettings,
 };
@@ -42,7 +43,7 @@ impl<T> Target<T> {
 }
 
 trait TargetUpdate {
-    type TargetComponent: Component;
+    type TargetComponent: Component<Mutability = Mutable>;
     const NAME: &'static str;
     fn update_target(&self, target: &mut Self::TargetComponent) -> String;
 }
@@ -165,7 +166,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Entity> {
+fn spawn_left_panel(builder: &mut ChildSpawnerCommands, palette: &[Color; 4]) -> Vec<Entity> {
     let mut target_ids = vec![];
     builder
         .spawn((
@@ -260,12 +261,12 @@ fn spawn_left_panel(builder: &mut ChildBuilder, palette: &[Color; 4]) -> Vec<Ent
 }
 
 fn spawn_right_panel(
-    parent: &mut ChildBuilder,
+    parent: &mut ChildSpawnerCommands,
     text_font: TextFont,
     palette: &[Color; 4],
     mut target_ids: Vec<Entity>,
 ) {
-    let spawn_buttons = |parent: &mut ChildBuilder, target_id| {
+    let spawn_buttons = |parent: &mut ChildSpawnerCommands, target_id| {
         spawn_button::<Display>(parent, text_font.clone(), target_id);
         spawn_button::<Visibility>(parent, text_font.clone(), target_id);
     };
@@ -375,7 +376,7 @@ fn spawn_right_panel(
         });
 }
 
-fn spawn_button<T>(parent: &mut ChildBuilder, text_font: TextFont, target: Entity)
+fn spawn_button<T>(parent: &mut ChildSpawnerCommands, text_font: TextFont, target: Entity)
 where
     T: Default + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,

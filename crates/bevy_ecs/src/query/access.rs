@@ -1,8 +1,10 @@
 use crate::component::ComponentId;
 use crate::storage::SparseSetIndex;
 use crate::world::World;
+use alloc::{format, string::String, vec, vec::Vec};
 use core::{fmt, fmt::Debug, marker::PhantomData};
 use derive_more::derive::From;
+use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -307,6 +309,16 @@ impl<T: SparseSetIndex> Access<T> {
         self.writes_all_resources || !self.resource_writes.is_clear()
     }
 
+    /// Returns `true` if this accesses any resources or components.
+    pub fn has_any_read(&self) -> bool {
+        self.has_any_component_read() || self.has_any_resource_read()
+    }
+
+    /// Returns `true` if this accesses any resources or components mutably.
+    pub fn has_any_write(&self) -> bool {
+        self.has_any_component_write() || self.has_any_resource_write()
+    }
+
     /// Returns true if this has an archetypal (indirect) access to the component given by `index`.
     ///
     /// This is a component whose value is not accessed (and thus will never cause conflicts),
@@ -336,13 +348,13 @@ impl<T: SparseSetIndex> Access<T> {
 
     /// Sets this as having access to all resources (i.e. `&World`).
     #[inline]
-    pub fn read_all_resources(&mut self) {
+    pub const fn read_all_resources(&mut self) {
         self.reads_all_resources = true;
     }
 
     /// Sets this as having mutable access to all resources (i.e. `&mut World`).
     #[inline]
-    pub fn write_all_resources(&mut self) {
+    pub const fn write_all_resources(&mut self) {
         self.reads_all_resources = true;
         self.writes_all_resources = true;
     }
@@ -772,7 +784,7 @@ impl<T: SparseSetIndex> Access<T> {
     /// `Access`, it's not recommended. Prefer to manage your own lists of
     /// accessible components if your application needs to do that.
     #[doc(hidden)]
-    #[deprecated]
+    // TODO: this should be deprecated and removed, see https://github.com/bevyengine/bevy/issues/16339
     pub fn component_reads_and_writes(&self) -> (impl Iterator<Item = T> + '_, bool) {
         (
             self.component_read_and_writes
@@ -888,18 +900,22 @@ impl AccessConflicts {
     pub(crate) fn format_conflict_list(&self, world: &World) -> String {
         match self {
             AccessConflicts::All => String::new(),
-            AccessConflicts::Individual(indices) => format!(
-                " {}",
-                indices
-                    .ones()
-                    .map(|index| world
-                        .components
-                        .get_info(ComponentId::get_sparse_set_index(index))
-                        .unwrap()
-                        .name())
-                    .collect::<Vec<&str>>()
-                    .join(", ")
-            ),
+            AccessConflicts::Individual(indices) => indices
+                .ones()
+                .map(|index| {
+                    format!(
+                        "{}",
+                        ShortName(
+                            world
+                                .components
+                                .get_info(ComponentId::get_sparse_set_index(index))
+                                .unwrap()
+                                .name()
+                        )
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
         }
     }
 
@@ -1012,7 +1028,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Returns `true` if this and `other` can be active at the same time.
     pub fn is_compatible(&self, other: &FilteredAccess<T>) -> bool {
-        if self.access.is_compatible(&other.access) {
+        // Resources are read from the world rather than the filtered archetypes,
+        // so they must be compatible even if the filters are disjoint.
+        if !self.access.is_resources_compatible(&other.access) {
+            return false;
+        }
+
+        if self.access.is_components_compatible(&other.access) {
             return true;
         }
 
@@ -1110,6 +1132,16 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
         self.filter_sets
             .iter()
             .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
+    }
+
+    /// Returns true if the index is used by this `FilteredAccess` in any way
+    pub fn contains(&self, index: T) -> bool {
+        self.access().has_component_read(index.clone())
+            || self.access().has_archetypal(index.clone())
+            || self.filter_sets.iter().any(|f| {
+                f.with.contains(index.sparse_set_index())
+                    || f.without.contains(index.sparse_set_index())
+            })
     }
 }
 
@@ -1260,28 +1292,28 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     }
 
     /// Adds a read access to a resource to the set.
-    pub(crate) fn add_unfiltered_resource_read(&mut self, index: T) {
+    pub fn add_unfiltered_resource_read(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_read(index);
         self.add(filter);
     }
 
     /// Adds a write access to a resource to the set.
-    pub(crate) fn add_unfiltered_resource_write(&mut self, index: T) {
+    pub fn add_unfiltered_resource_write(&mut self, index: T) {
         let mut filter = FilteredAccess::default();
         filter.add_resource_write(index);
         self.add(filter);
     }
 
     /// Adds read access to all resources to the set.
-    pub(crate) fn add_unfiltered_read_all_resources(&mut self) {
+    pub fn add_unfiltered_read_all_resources(&mut self) {
         let mut filter = FilteredAccess::default();
         filter.access.read_all_resources();
         self.add(filter);
     }
 
     /// Adds write access to all resources to the set.
-    pub(crate) fn add_unfiltered_write_all_resources(&mut self) {
+    pub fn add_unfiltered_write_all_resources(&mut self) {
         let mut filter = FilteredAccess::default();
         filter.access.write_all_resources();
         self.add(filter);
@@ -1297,12 +1329,16 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
 
     /// Marks the set as reading all possible indices of type T.
     pub fn read_all(&mut self) {
-        self.combined_access.read_all();
+        let mut filter = FilteredAccess::matches_everything();
+        filter.read_all();
+        self.add(filter);
     }
 
     /// Marks the set as writing all T.
     pub fn write_all(&mut self) {
-        self.combined_access.write_all();
+        let mut filter = FilteredAccess::matches_everything();
+        filter.write_all();
+        self.add(filter);
     }
 
     /// Removes all accesses stored in this set.
@@ -1326,6 +1362,7 @@ mod tests {
     use crate::query::{
         access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
     };
+    use alloc::vec;
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 

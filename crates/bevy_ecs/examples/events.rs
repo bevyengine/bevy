@@ -57,7 +57,7 @@ fn sending_system(mut event_writer: EventWriter<MyEvent>) {
 fn receiving_system(mut event_reader: EventReader<MyEvent>) {
     for my_event in event_reader.read() {
         println!(
-            "    Received message {:?}, with random value of {}",
+            "    Received message {}, with random value of {}",
             my_event.message, my_event.random_value
         );
     }

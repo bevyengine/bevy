@@ -13,16 +13,19 @@ use bevy_ecs::{
     query::{QueryItem, QueryState, ReadOnlyQueryData},
     world::{FromWorld, World},
 };
-use bevy_utils::all_tuples_with_size;
 use core::fmt::Debug;
-use derive_more::derive::{Display, Error, From};
 use downcast_rs::{impl_downcast, Downcast};
+use thiserror::Error;
+use variadics_please::all_tuples_with_size;
 
 pub use bevy_render_macros::RenderLabel;
 
 use super::{InternedRenderSubGraph, RenderSubGraph};
 
 define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(RenderLabel)]`"
+    )]
     /// A strongly-typed class of labels used to identify a [`Node`] in a render graph.
     RenderLabel,
     RENDER_LABEL_INTERNER
@@ -98,16 +101,16 @@ pub trait Node: Downcast + Send + Sync + 'static {
 
 impl_downcast!(Node);
 
-#[derive(Error, Display, Debug, Eq, PartialEq, From)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum NodeRunError {
-    #[display("encountered an input slot error")]
-    InputSlotError(InputSlotError),
-    #[display("encountered an output slot error")]
-    OutputSlotError(OutputSlotError),
-    #[display("encountered an error when running a sub-graph")]
-    RunSubGraphError(RunSubGraphError),
-    #[display("encountered an error when executing draw command")]
-    DrawError(DrawError),
+    #[error("encountered an input slot error")]
+    InputSlotError(#[from] InputSlotError),
+    #[error("encountered an output slot error")]
+    OutputSlotError(#[from] OutputSlotError),
+    #[error("encountered an error when running a sub-graph")]
+    RunSubGraphError(#[from] RunSubGraphError),
+    #[error("encountered an error when executing draw command")]
+    DrawError(#[from] DrawError),
 }
 
 /// A collection of input and output [`Edges`](Edge) for a [`Node`].
@@ -238,7 +241,7 @@ pub struct NodeState {
 
 impl Debug for NodeState {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        writeln!(f, "{:?} ({:?})", self.label, self.type_name)
+        writeln!(f, "{:?} ({})", self.label, self.type_name)
     }
 }
 

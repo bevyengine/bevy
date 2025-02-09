@@ -12,6 +12,7 @@
 }
 #import bevy_render::maths::{affine3_to_square, mat2x4_f32_to_mat3x3_unpack}
 
+#ifndef MESHLET_MESH_MATERIAL_PASS
 
 fn get_world_from_local(instance_index: u32) -> mat4x4<f32> {
     return affine3_to_square(mesh[instance_index].world_from_local);
@@ -20,6 +21,8 @@ fn get_world_from_local(instance_index: u32) -> mat4x4<f32> {
 fn get_previous_world_from_local(instance_index: u32) -> mat4x4<f32> {
     return affine3_to_square(mesh[instance_index].previous_world_from_local);
 }
+
+#endif  // MESHLET_MESH_MATERIAL_PASS
 
 fn mesh_position_local_to_world(world_from_local: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return world_from_local * vertex_position;
@@ -32,6 +35,8 @@ fn mesh_position_local_to_clip(world_from_local: mat4x4<f32>, vertex_position: v
     let world_position = mesh_position_local_to_world(world_from_local, vertex_position);
     return position_world_to_clip(world_position.xyz);
 }
+
+#ifndef MESHLET_MESH_MATERIAL_PASS
 
 fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping requires that the world normal is
@@ -53,6 +58,8 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>, instance_index: u32) -> 
     }
 }
 
+#endif  // MESHLET_MESH_MATERIAL_PASS
+
 // Calculates the sign of the determinant of the 3x3 model matrix based on a
 // mesh flag
 fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
@@ -61,6 +68,8 @@ fn sign_determinant_model_3x3m(mesh_flags: u32) -> f32 {
     // * 2.0 - 1.0 remaps 0.0 or 1.0 to -1.0 or 1.0 respectively
     return f32(bool(mesh_flags & MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
 }
+
+#ifndef MESHLET_MESH_MATERIAL_PASS
 
 fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: vec4<f32>, instance_index: u32) -> vec4<f32> {
     // NOTE: The mikktspace method of normal mapping requires that the world tangent is
@@ -87,6 +96,8 @@ fn mesh_tangent_local_to_world(world_from_local: mat4x4<f32>, vertex_tangent: ve
         return vertex_tangent;
     }
 }
+
+#endif  // MESHLET_MESH_MATERIAL_PASS
 
 // Returns an appropriate dither level for the current mesh instance.
 //

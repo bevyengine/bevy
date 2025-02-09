@@ -4,8 +4,8 @@ use core::{
     cmp::{max_by, min_by},
     ops::RangeInclusive,
 };
-use derive_more::derive::{Display, Error};
 use itertools::Either;
+use thiserror::Error;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -29,26 +29,26 @@ pub struct Interval {
 }
 
 /// An error that indicates that an operation would have returned an invalid [`Interval`].
-#[derive(Debug, Error, Display)]
-#[display("The resulting interval would be invalid (empty or with a NaN endpoint)")]
+#[derive(Debug, Error)]
+#[error("The resulting interval would be invalid (empty or with a NaN endpoint)")]
 pub struct InvalidIntervalError;
 
 /// An error indicating that spaced points could not be extracted from an unbounded interval.
-#[derive(Debug, Error, Display)]
-#[display("Cannot extract spaced points from an unbounded interval")]
+#[derive(Debug, Error)]
+#[error("Cannot extract spaced points from an unbounded interval")]
 pub struct SpacedPointsError;
 
 /// An error indicating that a linear map between intervals could not be constructed because of
 /// unboundedness.
-#[derive(Debug, Error, Display)]
-#[display("Could not construct linear function to map between intervals")]
+#[derive(Debug, Error)]
+#[error("Could not construct linear function to map between intervals")]
 pub(super) enum LinearMapError {
     /// The source interval being mapped out of was unbounded.
-    #[display("The source interval is unbounded")]
+    #[error("The source interval is unbounded")]
     SourceUnbounded,
 
     /// The target interval being mapped into was unbounded.
-    #[display("The target interval is unbounded")]
+    #[error("The target interval is unbounded")]
     TargetUnbounded,
 }
 
@@ -198,7 +198,10 @@ pub fn interval(start: f32, end: f32) -> Result<Interval, InvalidIntervalError> 
 
 #[cfg(test)]
 mod tests {
+    use crate::ops;
+
     use super::*;
+    use alloc::vec::Vec;
     use approx::{assert_abs_diff_eq, AbsDiffEq};
 
     #[test]
@@ -237,10 +240,10 @@ mod tests {
     #[test]
     fn lengths() {
         let ivl = interval(-5.0, 10.0).unwrap();
-        assert!((ivl.length() - 15.0).abs() <= f32::EPSILON);
+        assert!(ops::abs(ivl.length() - 15.0) <= f32::EPSILON);
 
         let ivl = interval(5.0, 100.0).unwrap();
-        assert!((ivl.length() - 95.0).abs() <= f32::EPSILON);
+        assert!(ops::abs(ivl.length() - 95.0) <= f32::EPSILON);
 
         let ivl = interval(0.0, f32::INFINITY).unwrap();
         assert_eq!(ivl.length(), f32::INFINITY);

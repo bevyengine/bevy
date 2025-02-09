@@ -13,21 +13,20 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_input::{
     prelude::*,
     touch::{TouchInput, TouchPhase},
     ButtonState,
 };
 use bevy_math::Vec2;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
-use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
+use tracing::debug;
 
 use crate::pointer::{
     Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
-    PressDirection,
 };
 
 use crate::PickSet;
@@ -128,7 +127,7 @@ pub fn mouse_pick_events(
                 pointer_events.send(PointerInput::new(
                     PointerId::Mouse,
                     location,
-                    PointerAction::Moved {
+                    PointerAction::Move {
                         delta: event.position - *cursor_last,
                     },
                 ));
@@ -151,15 +150,11 @@ pub fn mouse_pick_events(
                     MouseButton::Middle => PointerButton::Middle,
                     MouseButton::Other(_) | MouseButton::Back | MouseButton::Forward => continue,
                 };
-                let direction = match input.state {
-                    ButtonState::Pressed => PressDirection::Down,
-                    ButtonState::Released => PressDirection::Up,
+                let action = match input.state {
+                    ButtonState::Pressed => PointerAction::Press(button),
+                    ButtonState::Released => PointerAction::Release(button),
                 };
-                pointer_events.send(PointerInput::new(
-                    PointerId::Mouse,
-                    location,
-                    PointerAction::Pressed { direction, button },
-                ));
+                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
             }
             _ => {}
         }
@@ -197,10 +192,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Pressed {
-                            direction: PressDirection::Down,
-                            button: PointerButton::Primary,
-                        },
+                        PointerAction::Press(PointerButton::Primary),
                     ));
 
                     touch_cache.insert(touch.id, *touch);
@@ -214,7 +206,7 @@ pub fn touch_pick_events(
                         pointer_events.send(PointerInput::new(
                             pointer,
                             location,
-                            PointerAction::Moved {
+                            PointerAction::Move {
                                 delta: touch.position - last_touch.position,
                             },
                         ));
@@ -225,10 +217,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Pressed {
-                            direction: PressDirection::Up,
-                            button: PointerButton::Primary,
-                        },
+                        PointerAction::Release(PointerButton::Primary),
                     ));
                     touch_cache.remove(&touch.id);
                 }
@@ -236,7 +225,7 @@ pub fn touch_pick_events(
                     pointer_events.send(PointerInput::new(
                         pointer,
                         location,
-                        PointerAction::Canceled,
+                        PointerAction::Cancel,
                     ));
                     touch_cache.remove(&touch.id);
                 }
@@ -267,6 +256,6 @@ pub fn deactivate_touch_pointers(
     // A hash set is used to prevent despawning the same entity twice.
     for (entity, pointer) in despawn_list.drain() {
         debug!("Despawning pointer {:?}", pointer);
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }

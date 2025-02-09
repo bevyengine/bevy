@@ -7,8 +7,8 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
+use variadics_please::all_tuples;
 
 /// Types that filter the results of a [`Query`].
 ///
@@ -86,6 +86,8 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
+    ///
+    /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
@@ -94,11 +96,13 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
     ///
+    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// or call [`WorldQuery::fetch`] to access the raw data needed to make the final decision on filter inclusion.
+    ///
     /// # Safety
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
-    #[allow(unused_variables)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_, '_>,
         entity: Entity,
@@ -368,7 +372,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Node>)>>) {
 ///     for entity in &query {
-///         println!("Entity {:?} got a new style or color", entity);
+///         println!("Entity {} got a new style or color", entity);
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
@@ -393,9 +397,22 @@ impl<T: WorldQuery> Clone for OrFetch<'_, '_, T> {
 macro_rules! impl_or_query_filter {
     ($(#[$meta:meta])* $(($filter: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         /// SAFETY:
         /// `fetch` accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
@@ -426,7 +443,7 @@ macro_rules! impl_or_query_filter {
             unsafe fn init_fetch<'w, 's>(world: UnsafeWorldCell<'w>, state: &'s Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w, 's> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
-                    // SAFETY: The invariants are uphold by the caller.
+                    // SAFETY: The invariants are upheld by the caller.
                     fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
                     matches: false,
                 },)*)
@@ -439,7 +456,7 @@ macro_rules! impl_or_query_filter {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
-                        // SAFETY: The invariants are uphold by the caller.
+                        // SAFETY: The invariants are upheld by the caller.
                         unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
                     }
                 )*
@@ -457,7 +474,7 @@ macro_rules! impl_or_query_filter {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
-                        // SAFETY: The invariants are uphold by the caller.
+                        // SAFETY: The invariants are upheld by the caller.
                        unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
                     }
                 )*
@@ -466,34 +483,34 @@ macro_rules! impl_or_query_filter {
             #[inline(always)]
             unsafe fn fetch<'w, 's>(
                 fetch: &mut Self::Fetch<'w, 's>,
-                _entity: Entity,
-                _table_row: TableRow
+                entity: Entity,
+                table_row: TableRow
             ) -> Self::Item<'w, 's> {
                 let ($($filter,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
-                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row) }))*
+                // SAFETY: The invariants are upheld by the caller.
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
             }
 
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = FilteredAccess::matches_nothing();
+                let mut new_access = FilteredAccess::matches_nothing();
 
                 $(
                     // Create an intermediate because `access`'s value needs to be preserved
                     // for the next filter, and `_new_access` has to be modified only by `append_or` to it.
                     let mut intermediate = access.clone();
                     $filter::update_component_access($filter, &mut intermediate);
-                    _new_access.append_or(&intermediate);
+                    new_access.append_or(&intermediate);
                     // Also extend the accesses required to compute the filter. This is required because
                     // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
-                    _new_access.extend_access(&intermediate);
+                    new_access.extend_access(&intermediate);
                 )*
 
                 // The required components remain the same as the original `access`.
-                _new_access.required = core::mem::take(&mut access.required);
+                new_access.required = core::mem::take(&mut access.required);
 
-                *access = _new_access;
+                *access = new_access;
             }
 
             fn init_state(world: &mut World) -> Self::State {
@@ -504,15 +521,15 @@ macro_rules! impl_or_query_filter {
                 Some(($($filter::get_state(components)?,)*))
             }
 
-            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-                let ($($filter,)*) = _state;
-                false $(|| $filter::matches_component_set($filter, _set_contains_id))*
+            fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+                let ($($filter,)*) = state;
+                false $(|| $filter::matches_component_set($filter, set_contains_id))*
             }
         }
 
-            $(#[$meta])*
-            // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-            unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
+        $(#[$meta])*
+        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -521,7 +538,7 @@ macro_rules! impl_or_query_filter {
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
-                // SAFETY: The invariants are uphold by the caller.
+                // SAFETY: The invariants are upheld by the caller.
                 unsafe { Self::fetch(fetch, entity, table_row) }
             }
         }
@@ -530,9 +547,18 @@ macro_rules! impl_or_query_filter {
 
 macro_rules! impl_tuple_query_filter {
     ($(#[$meta:meta])* $($name: ident),*) => {
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
@@ -541,12 +567,12 @@ macro_rules! impl_tuple_query_filter {
             #[inline(always)]
             unsafe fn filter_fetch(
                 fetch: &mut Self::Fetch<'_, '_>,
-                _entity: Entity,
-                _table_row: TableRow
+                entity: Entity,
+                table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
-                true $(&& unsafe { $name::filter_fetch($name, _entity, _table_row) })*
+                // SAFETY: The invariants are upheld by the caller.
+                true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }
         }
 
@@ -800,7 +826,7 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         unsafe { Self::fetch(fetch, entity, table_row) }
     }
 }
@@ -1038,7 +1064,7 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         unsafe { Self::fetch(fetch, entity, table_row) }
     }
 }

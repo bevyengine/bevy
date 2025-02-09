@@ -1,13 +1,13 @@
 use crate::blit::{BlitPipeline, BlitPipelineKey};
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_platform_support::collections::HashSet;
 use bevy_render::{
     camera::{CameraOutputMode, ExtractedCamera},
     render_resource::*,
     view::ViewTarget,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::HashSet;
 
 mod node;
 
@@ -43,7 +43,7 @@ fn prepare_view_upscaling_pipelines(
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
 ) {
-    let mut output_textures = HashSet::new();
+    let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
         let out_texture_id = view_target.out_texture().id();
         let blend_state = if let Some(extracted_camera) = camera {
@@ -55,7 +55,7 @@ fn prepare_view_upscaling_pipelines(
 
                     match blend_state {
                         None => {
-                            // If we've already seen this output for a camera and it doesn't have a output blend
+                            // If we've already seen this output for a camera and it doesn't have an output blend
                             // mode configured, default to alpha blend so that we don't accidentally overwrite
                             // the output texture
                             if already_seen {

@@ -20,7 +20,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
     // spawn the container with default z-index.
-    // the default z-index value is `ZIndex::Local(0)`.
+    // the default z-index value is `ZIndex(0)`.
     // because this is a root UI node, using local or global values will do the same thing.
     commands
         .spawn(Node {

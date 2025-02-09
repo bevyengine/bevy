@@ -2,7 +2,7 @@ use crate::{ron, DynamicSceneBuilder, Scene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap, SceneEntityMapper},
+    entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities},
     world::World,
 };
@@ -200,13 +200,14 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::{
-            Entity, EntityHashMap, EntityMapper, MapEntities, VisitEntities, VisitEntitiesMut,
+            hash_map::EntityHashMap, Entity, EntityMapper, MapEntities, VisitEntities,
+            VisitEntitiesMut,
         },
+        hierarchy::ChildOf,
         reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},
-        system::Resource,
-        world::{Command, World},
+        resource::Resource,
+        world::World,
     };
-    use bevy_hierarchy::{AddChild, Parent};
     use bevy_reflect::Reflect;
 
     use crate::dynamic_scene::DynamicScene;
@@ -268,14 +269,12 @@ mod tests {
         world
             .resource_mut::<AppTypeRegistry>()
             .write()
-            .register::<Parent>();
+            .register::<ChildOf>();
         let original_parent_entity = world.spawn_empty().id();
         let original_child_entity = world.spawn_empty().id();
-        AddChild {
-            parent: original_parent_entity,
-            child: original_child_entity,
-        }
-        .apply(&mut world);
+        world
+            .entity_mut(original_parent_entity)
+            .add_child(original_child_entity);
 
         // We then write this relationship to a new scene, and then write that scene back to the
         // world to create another parent and child relationship
@@ -292,15 +291,13 @@ mod tests {
         // We then add the parent from the scene as a child of the original child
         // Hierarchy should look like:
         // Original Parent <- Original Child <- Scene Parent <- Scene Child
-        AddChild {
-            parent: original_child_entity,
-            child: from_scene_parent_entity,
-        }
-        .apply(&mut world);
+        world
+            .entity_mut(original_child_entity)
+            .add_child(from_scene_parent_entity);
 
         // We then reload the scene to make sure that from_scene_parent_entity's parent component
         // isn't updated with the entity map, since this component isn't defined in the scene.
-        // With bevy_hierarchy, this can cause serious errors and malformed hierarchies.
+        // With [`bevy_ecs::hierarchy`], this can cause serious errors and malformed hierarchies.
         scene.write_to_world(&mut world, &mut entity_map).unwrap();
 
         assert_eq!(
@@ -308,7 +305,7 @@ mod tests {
             world
                 .get_entity(original_child_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .unwrap()
                 .get(),
             "something about reloading the scene is touching entities with the same scene Ids"
@@ -318,7 +315,7 @@ mod tests {
             world
                 .get_entity(from_scene_parent_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .unwrap()
                 .get(),
             "something about reloading the scene is touching components not defined in the scene but on entities defined in the scene"
@@ -328,10 +325,10 @@ mod tests {
             world
                 .get_entity(from_scene_child_entity)
                 .unwrap()
-                .get::<Parent>()
+                .get::<ChildOf>()
                 .expect("something is wrong with this test, and the scene components don't have a parent/child relationship")
                 .get(),
-            "something is wrong with the this test or the code reloading scenes since the relationship between scene entities is broken"
+            "something is wrong with this test or the code reloading scenes since the relationship between scene entities is broken"
         );
     }
 
@@ -368,7 +365,7 @@ mod tests {
         let mut dst_world = World::new();
         dst_world
             .register_component_hooks::<A>()
-            .on_add(|mut world, _, _| {
+            .on_add(|mut world, _| {
                 world.commands().spawn_empty();
             });
         dst_world.insert_resource(reg.clone());

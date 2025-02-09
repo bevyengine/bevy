@@ -1,9 +1,10 @@
-#import bevy_render::view::View
+#import bevy_render::{view::View, maths::affine3_to_square}
 
 @group(0) @binding(0) var<uniform> view: View;
 
 
 struct LineGizmoUniform {
+    world_from_local: mat3x4<f32>,
     line_width: f32,
     depth_bias: f32,
     resolution: u32,
@@ -39,9 +40,11 @@ fn vertex_bevel(vertex: VertexInput) -> VertexOutput {
     );
     var position = positions[vertex.index];
 
-    var clip_a = view.clip_from_world * vec4(vertex.position_a, 1.);
-    var clip_b = view.clip_from_world * vec4(vertex.position_b, 1.);
-    var clip_c = view.clip_from_world * vec4(vertex.position_c, 1.);
+    let world_from_local = affine3_to_square(joints_gizmo.world_from_local);
+
+    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
+    var clip_c = view.clip_from_world * world_from_local * vec4(vertex.position_c, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_c);
@@ -98,9 +101,11 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
     );
     var position = positions[vertex.index];
 
-    var clip_a = view.clip_from_world * vec4(vertex.position_a, 1.);
-    var clip_b = view.clip_from_world * vec4(vertex.position_b, 1.);
-    var clip_c = view.clip_from_world * vec4(vertex.position_c, 1.);
+    let world_from_local = affine3_to_square(joints_gizmo.world_from_local);
+
+    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
+    var clip_c = view.clip_from_world * world_from_local * vec4(vertex.position_c, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_c);
@@ -148,9 +153,11 @@ fn vertex_miter(vertex: VertexInput) -> VertexOutput {
 
 @vertex
 fn vertex_round(vertex: VertexInput) -> VertexOutput {
-    var clip_a = view.clip_from_world * vec4(vertex.position_a, 1.);
-    var clip_b = view.clip_from_world * vec4(vertex.position_b, 1.);
-    var clip_c = view.clip_from_world * vec4(vertex.position_c, 1.);
+    let world_from_local = affine3_to_square(joints_gizmo.world_from_local);
+
+    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
+    var clip_c = view.clip_from_world * world_from_local * vec4(vertex.position_c, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_c);

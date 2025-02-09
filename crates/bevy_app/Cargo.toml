@@ -1,6 +1,6 @@
 [package]
 name = "bevy_app"
-version = "0.15.0-dev"
+version = "0.16.0-dev"
 edition = "2021"
 description = "Provides core App functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -9,39 +9,94 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-trace = []
-bevy_debug_stepping = []
-default = ["bevy_reflect"]
+default = ["std", "bevy_reflect", "bevy_tasks", "bevy_ecs/default"]
+
+# Functionality
+
+## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect", "bevy_ecs/bevy_reflect"]
+
+## Extends reflection support to functions.
 reflect_functions = [
   "bevy_reflect",
   "bevy_reflect/functions",
   "bevy_ecs/reflect_functions",
 ]
 
+## Adds support for running async background tasks
+bevy_tasks = ["dep:bevy_tasks"]
+
+# Debugging Features
+
+## Enables `tracing` integration, allowing spans and other metrics to be reported
+## through that framework.
+trace = ["dep:tracing"]
+
+## Provides system stepping support, allowing them to be paused, stepped, and
+## other debug operations which can help with diagnosing certain behaviors.
+bevy_debug_stepping = []
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "bevy_reflect?/std",
+  "bevy_ecs/std",
+  "dep:ctrlc",
+  "downcast-rs/std",
+  "bevy_utils/std",
+  "bevy_tasks?/std",
+  "bevy_platform_support/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_tasks?/critical-section",
+  "bevy_ecs/critical-section",
+  "bevy_platform_support/critical-section",
+  "bevy_reflect?/critical-section",
+]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
+portable-atomic = [
+  "bevy_tasks?/portable-atomic",
+  "bevy_ecs/portable-atomic",
+  "bevy_platform_support/portable-atomic",
+  "bevy_reflect?/portable-atomic",
+]
+
 [dependencies]
 # bevy
-bevy_derive = { path = "../bevy_derive", version = "0.15.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.0-dev", default-features = false }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.0-dev", optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.15.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.15.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
+  "alloc",
+] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
-downcast-rs = "1.2.0"
-derive_more = { version = "1", default-features = false, features = [
-  "error",
-  "from",
-  "display",
-] }
+downcast-rs = { version = "2", default-features = false }
+thiserror = { version = "2", default-features = false }
+variadics_please = "1.1"
+tracing = { version = "0.1", default-features = false, optional = true }
+log = { version = "0.4", default-features = false }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-ctrlc = "3.4.4"
+[target.'cfg(any(unix, windows))'.dependencies]
+ctrlc = { version = "3.4.4", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 console_error_panic_hook = "0.1.6"
+
+[dev-dependencies]
+crossbeam-channel = "0.5.0"
 
 [lints]
 workspace = true
