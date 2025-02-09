@@ -488,7 +488,6 @@ macro_rules! impl_methods {
                 value.map(|value| Mut {
                     value,
                     ticks: self.ticks,
-                    #[cfg(feature = "track_location")]
                     changed_by: self.changed_by,
                 })
             }
