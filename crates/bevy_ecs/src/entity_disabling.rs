@@ -63,8 +63,9 @@ pub struct DefaultQueryFilters {
 }
 
 impl DefaultQueryFilters {
-    /// Set the [`ComponentId`] for the entity disabling marker
-    pub(crate) fn set_disabled(&mut self, component_id: ComponentId) -> Option<()> {
+    /// Adds this [`ComponentId`] to the set of [`DefaultQueryFilters`],
+    /// causing entities with this component to be excluded from queries.
+    pub(crate) fn register_disabling_component(&mut self, component_id: ComponentId) -> Option<()> {
         if self.disabled.is_some() {
             return None;
         }
@@ -73,12 +74,12 @@ impl DefaultQueryFilters {
     }
 
     /// Get an iterator over all currently enabled filter components
-    pub fn ids(&self) -> impl Iterator<Item = ComponentId> {
+    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> {
         [self.disabled].into_iter().flatten()
     }
 
     pub(super) fn apply(&self, component_access: &mut FilteredAccess<ComponentId>) {
-        for component_id in self.ids() {
+        for component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
             }
@@ -86,7 +87,7 @@ impl DefaultQueryFilters {
     }
 
     pub(super) fn is_dense(&self, components: &Components) -> bool {
-        self.ids().all(|component_id| {
+        self.disabling_ids().all(|component_id| {
             components
                 .get_info(component_id)
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
@@ -103,19 +104,23 @@ mod tests {
     #[test]
     fn test_set_filters() {
         let mut filters = DefaultQueryFilters::default();
-        assert_eq!(0, filters.ids().count());
+        assert_eq!(0, filters.disabling_ids().count());
 
-        assert!(filters.set_disabled(ComponentId::new(1)).is_some());
-        assert!(filters.set_disabled(ComponentId::new(3)).is_none());
+        assert!(filters
+            .register_disabling_component(ComponentId::new(1))
+            .is_some());
+        assert!(filters
+            .register_disabling_component(ComponentId::new(3))
+            .is_none());
 
-        assert_eq!(1, filters.ids().count());
-        assert_eq!(Some(ComponentId::new(1)), filters.ids().next());
+        assert_eq!(1, filters.disabling_ids().count());
+        assert_eq!(Some(ComponentId::new(1)), filters.disabling_ids().next());
     }
 
     #[test]
     fn test_apply_filters() {
         let mut filters = DefaultQueryFilters::default();
-        filters.set_disabled(ComponentId::new(1));
+        filters.register_disabling_component(ComponentId::new(1));
 
         // A component access with an unrelated component
         let mut component_access = FilteredAccess::<ComponentId>::default();

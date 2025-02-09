@@ -161,7 +161,7 @@ impl World {
 
         let disabled = self.register_component::<Disabled>();
         let mut filters = DefaultQueryFilters::default();
-        filters.set_disabled(disabled);
+        filters.register_disabling_component(disabled);
         self.insert_resource(filters);
     }
     /// Creates a new empty [`World`].
