@@ -826,9 +826,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    fn sort_impl<L: ReadOnlyQueryData + 'w>(
+    fn sort_impl<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'w, 'static>, NeutralOrd<Entity>)>),
     ) -> QuerySortedIter<
         'w,
         's,
@@ -1335,7 +1335,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'l> L::Item<'w, 'l>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
@@ -1393,7 +1393,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'l> L::Item<'w, 'l>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
@@ -1450,7 +1450,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1481,7 +1481,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1575,7 +1575,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1607,7 +1607,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1641,7 +1641,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1670,7 +1670,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'w, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1854,7 +1854,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator>
 impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator> Iterator
     for QueryManyUniqueIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1908,7 +1908,7 @@ pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1947,7 +1947,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
     /// It is always safe for shared access.
     /// `entity` must stem from `self.entity_iter`, and not have been passed before.
     #[inline(always)]
-    unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> D::Item<'w> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> D::Item<'w, 's> {
         let (location, archetype, table);
         // SAFETY:
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
@@ -1981,7 +1981,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
 
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         let entity = self.entity_iter.next()?;
 
         // SAFETY:
@@ -2000,7 +2000,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>
 {
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>> {
         let entity = self.entity_iter.next_back()?;
 
         // SAFETY:
@@ -2017,7 +2017,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item = Entity>> Iterator
     for QuerySortedManyIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {

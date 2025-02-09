@@ -1233,7 +1233,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_mut`](Self::get_mut) to get the item using a mutable borrow of the [`Query`].
     #[inline]
-    pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+    pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w, 's>, QueryEntityError<'w>> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
@@ -1273,7 +1273,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_inner<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError<'w>> {
         // SAFETY: scheduler ensures safe Query world access
         unsafe {
             self.state
@@ -1516,7 +1516,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_single`](Self::get_single) to get the read-only query item.
     /// - [`get_single_mut`](Self::get_single_mut) to get the mutable query item.
     #[inline]
-    pub fn get_single_inner(self) -> Result<D::Item<'w>, QuerySingleError> {
+    pub fn get_single_inner(self) -> Result<D::Item<'w, 's>, QuerySingleError> {
         // SAFETY:
         // the query ensures mutable access to the components it accesses, and the query
         // is uniquely borrowed
@@ -2025,7 +2025,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> IntoIterator for Query<'w, 's, D, F> {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
     type IntoIter = QueryIter<'w, 's, D, F>;
 
     fn into_iter(self) -> Self::IntoIter {

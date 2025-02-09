@@ -163,6 +163,7 @@ impl ViewNode for DownsampleDepthNode {
         render_context: &mut RenderContext<'w>,
         (view_depth_pyramid, view_downsample_depth_bind_group, view_depth_texture): QueryItem<
             'w,
+            '_,
             Self::ViewQuery,
         >,
         world: &'w World,

@@ -43,7 +43,7 @@ impl<D> Traversal<D> for () {
 ///
 /// [event propagation]: crate::observer::Trigger::propagate
 impl<R: Relationship, D> Traversal<D> for &R {
-    fn traverse(item: Self::Item<'_>, _data: &D) -> Option<Entity> {
+    fn traverse(item: Self::Item<'_, '_>, _data: &D) -> Option<Entity> {
         Some(item.get())
     }
 }

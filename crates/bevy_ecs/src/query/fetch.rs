@@ -1737,7 +1737,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
     type ReadOnly = &'__w T;
 }
 
-impl<T: Component> ReleaseStateQueryData for &mut T {
+impl<T: Component<Mutability = Mutable>> ReleaseStateQueryData for &mut T {
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
         item
     }
