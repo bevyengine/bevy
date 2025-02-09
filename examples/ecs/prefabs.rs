@@ -18,17 +18,25 @@
 //! the components and assets that they use will still be loaded into memory (although asset data is shared between instances).
 //! Loading and unloading assets dynamically (e.g. per level) is an important strategy to manage memory usage.
 
+use bevy::platform_support::collections::HashMap;
 use bevy::{ecs::entity_disabling::Disabled, prelude::*, scene::SceneInstanceReady};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .init_resource::<Prefabs>()
         .add_systems(Startup, setup_scene)
+        .add_systems(Update, spawn_prefab)
         .run();
 }
 
 // An example asset that contains a mesh composed of multiple entities.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
+
+/// We're keeping track of our disabled prefab entities in a resource,
+/// allowing us to quickly look up and clone them when we need to spawn them.
+#[derive(Resource, Default)]
+struct Prefabs(HashMap<String, Entity>);
 
 fn setup_scene(
     mut commands: Commands,
@@ -63,11 +71,32 @@ fn setup_scene(
 
 // This observer will be triggered when the scene is loaded,
 // allowing us to modify the scene as we please.
-fn respond_to_scene_loaded(trigger: Trigger<SceneInstanceReady>, mut commands: Commands) {
+fn respond_to_scene_loaded(
+    trigger: Trigger<SceneInstanceReady>,
+    mut prefabs: ResMut<Prefabs>,
+    mut commands: Commands,
+) {
     let scene_root_entity = trigger.target();
     // Scenes are typically composed of multiple entities, so we need to
     // modify all entities in the scene to disable the scene.
     commands
         .entity(scene_root_entity)
+        // TODO: use a custom DQF component to convey semantics
         .insert_recursive::<Children>(Disabled);
+
+    // Store the scene root entity in our prefab resource
+    prefabs.0.insert("fox".to_string(), scene_root_entity);
+}
+
+// TODO: make this more interactive and controllable
+fn spawn_prefab(prefabs: Res<Prefabs>, mut commands: Commands) {
+    // Check that the prefab we're looking for is ready
+    let Some(prefab_entity) = prefabs.0.get("fox") else {
+        return;
+    };
+
+    let fresh_clone = commands.entity(*prefab_entity).clone_and_spawn().id();
+    commands
+        .entity(fresh_clone)
+        .remove_recursive::<Children, Disabled>();
 }
