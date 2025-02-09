@@ -106,7 +106,7 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     let named_shapes = [
         (Name::new("Annulus"), meshes.add(Annulus::new(25.0, 50.0))),
