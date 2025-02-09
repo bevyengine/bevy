@@ -1,10 +1,10 @@
 use crate::{
-    archetype::{Archetype, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeId},
     bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{
-        Entities, Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
+        Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
         TrustedEntityBorrow,
     },
     event::Event,
@@ -1757,10 +1757,8 @@ impl<'w> EntityWorldMut<'w> {
             );
         }
 
-        let archetypes = &mut world.archetypes;
         let storages = &mut world.storages;
         let components = &mut world.components;
-        let entities = &mut world.entities;
         let removed_components = &mut world.removed_components;
 
         let entity = self.entity;
@@ -1786,46 +1784,38 @@ impl<'w> EntityWorldMut<'w> {
             })
         };
 
-        #[expect(
-            clippy::undocumented_unsafe_blocks,
-            reason = "Needs to be documented; see #17345."
-        )]
+        // SAFETY: `new_archetype_id` has a subset of the components in the entity's current archetype
+        // because it was created by removing a bundle from that archetype.
         unsafe {
-            Self::move_entity_from_remove::<false>(
-                entity,
-                &mut self.location,
-                old_location.archetype_id,
-                old_location,
-                entities,
-                archetypes,
-                storages,
-                new_archetype_id,
-            );
+            self.move_entity_from_remove::<false>(new_archetype_id);
         }
         self.world.flush();
         self.update_location();
         Some(result)
     }
 
+    /// Moves the entity to a new archetype, where the new archetype
+    /// was a result of removing components from the entity's current archetype.
+    ///
+    /// When `DROP` is `true`, removed components will be dropped.
+    ///
+    /// When `DROP` is `false`, removed components will be forgotten, making someone else
+    /// responsible for dropping them.
+    ///
     /// # Safety
     ///
     /// `new_archetype_id` must have the same or a subset of the components
-    /// in `old_archetype_id`. Probably more safety stuff too, audit a call to
-    /// this fn as if the code here was written inline
+    /// in the entity's current archetype.
     ///
-    /// when DROP is true removed components will be dropped otherwise they will be forgotten
     // We use a const generic here so that we are less reliant on
-    // inlining for rustc to optimize out the `match DROP`
-    unsafe fn move_entity_from_remove<const DROP: bool>(
-        entity: Entity,
-        self_location: &mut EntityLocation,
-        old_archetype_id: ArchetypeId,
-        old_location: EntityLocation,
-        entities: &mut Entities,
-        archetypes: &mut Archetypes,
-        storages: &mut Storages,
-        new_archetype_id: ArchetypeId,
-    ) {
+    // inlining for rustc to optimize out the `if DROP`
+    unsafe fn move_entity_from_remove<const DROP: bool>(&mut self, new_archetype_id: ArchetypeId) {
+        let old_archetype_id = self.location.archetype_id;
+        let old_location = self.location;
+        let entities = &mut self.world.entities;
+        let archetypes = &mut self.world.archetypes;
+        let storages = &mut self.world.storages;
+
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
@@ -1847,7 +1837,7 @@ impl<'w> EntityWorldMut<'w> {
         let new_archetype = &mut archetypes[new_archetype_id];
 
         let new_location = if old_table_id == new_archetype.table_id() {
-            new_archetype.allocate(entity, old_table_row)
+            new_archetype.allocate(self.entity, old_table_row)
         } else {
             let (old_table, new_table) = storages
                 .tables
@@ -1862,7 +1852,7 @@ impl<'w> EntityWorldMut<'w> {
             };
 
             // SAFETY: move_result.new_row is a valid position in new_archetype's table
-            let new_location = unsafe { new_archetype.allocate(entity, move_result.new_row) };
+            let new_location = unsafe { new_archetype.allocate(self.entity, move_result.new_row) };
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
@@ -1884,10 +1874,10 @@ impl<'w> EntityWorldMut<'w> {
             new_location
         };
 
-        *self_location = new_location;
+        self.location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
         unsafe {
-            entities.set(entity.index(), new_location);
+            entities.set(self.entity.index(), new_location);
         }
     }
 
@@ -1899,29 +1889,31 @@ impl<'w> EntityWorldMut<'w> {
         &mut self,
         bundle: BundleId,
         #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> EntityLocation {
+    ) {
         let entity = self.entity;
         let world = &mut self.world;
         let location = self.location;
         // SAFETY: the caller guarantees that the BundleInfo for this id has been initialized.
-        let bundle_info = world.bundles.get_unchecked(bundle);
+        let bundle_info = unsafe { world.bundles.get_unchecked(bundle) };
 
         // SAFETY: `archetype_id` exists because it is referenced in `location` which is valid
         // and components in `bundle_info` must exist due to this function's safety invariants.
-        let new_archetype_id = bundle_info
-            .remove_bundle_from_archetype(
-                &mut world.archetypes,
-                &mut world.storages,
-                &world.components,
-                &world.observers,
-                location.archetype_id,
-                // components from the bundle that are not present on the entity are ignored
-                true,
-            )
-            .expect("intersections should always return a result");
+        let new_archetype_id = unsafe {
+            bundle_info
+                .remove_bundle_from_archetype(
+                    &mut world.archetypes,
+                    &mut world.storages,
+                    &world.components,
+                    &world.observers,
+                    location.archetype_id,
+                    // components from the bundle that are not present on the entity are ignored
+                    true,
+                )
+                .expect("intersections should always return a result")
+        };
 
         if new_archetype_id == location.archetype_id {
-            return location;
+            return;
         }
 
         // SAFETY: Archetypes and Bundles cannot be mutably aliased through DeferredWorld
@@ -1966,21 +1958,11 @@ impl<'w> EntityWorldMut<'w> {
             }
         }
 
-        // SAFETY: `new_archetype_id` is a subset of the components in `old_location.archetype_id`
-        // because it is created by removing a bundle from these components.
-        let mut new_location = location;
-        Self::move_entity_from_remove::<true>(
-            entity,
-            &mut new_location,
-            location.archetype_id,
-            location,
-            &mut world.entities,
-            &mut world.archetypes,
-            &mut world.storages,
-            new_archetype_id,
-        );
-
-        new_location
+        // SAFETY: `new_archetype_id` has a subset of the components in the entity's current archetype
+        // because it was created by removing a bundle from that archetype.
+        unsafe {
+            self.move_entity_from_remove::<true>(new_archetype_id);
+        }
     }
 
     /// Removes any components in the [`Bundle`] from the entity.
@@ -2007,16 +1989,16 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let storages = &mut self.world.storages;
         let components = &mut self.world.components;
-        let bundle_info = self.world.bundles.register_info::<T>(components, storages);
+        let bundle_id = self.world.bundles.register_info::<T>(components, storages);
 
-        // SAFETY: the `BundleInfo` is initialized above
-        self.location = unsafe {
+        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
+        unsafe {
             self.remove_bundle(
-                bundle_info,
+                bundle_id,
                 #[cfg(feature = "track_location")]
                 caller,
-            )
-        };
+            );
+        }
         self.world.flush();
         self.update_location();
         self
@@ -2046,14 +2028,14 @@ impl<'w> EntityWorldMut<'w> {
 
         let bundle_id = bundles.register_contributed_bundle_info::<T>(components, storages);
 
-        // SAFETY: the dynamic `BundleInfo` is initialized above
-        self.location = unsafe {
+        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
+        unsafe {
             self.remove_bundle(
                 bundle_id,
                 #[cfg(feature = "track_location")]
                 caller,
-            )
-        };
+            );
+        }
         self.world.flush();
         self.update_location();
         self
@@ -2100,14 +2082,14 @@ impl<'w> EntityWorldMut<'w> {
                 .bundles
                 .init_dynamic_info(&mut self.world.storages, components, to_remove);
 
-        // SAFETY: the `BundleInfo` for the components to remove is initialized above
-        self.location = unsafe {
+        // SAFETY: the `BundleInfo` for `remove_bundle` is initialized above
+        unsafe {
             self.remove_bundle(
                 remove_bundle,
                 #[cfg(feature = "track_location")]
                 caller,
-            )
-        };
+            );
+        }
         self.world.flush();
         self.update_location();
         self
@@ -2145,14 +2127,14 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
 
-        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe {
+        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
+        unsafe {
             self.remove_bundle(
                 bundle_id,
                 #[cfg(feature = "track_location")]
                 caller,
-            )
-        };
+            );
+        }
         self.world.flush();
         self.update_location();
         self
@@ -2183,9 +2165,8 @@ impl<'w> EntityWorldMut<'w> {
                 bundle_id,
                 #[cfg(feature = "track_location")]
                 Location::caller(),
-            )
-        };
-
+            );
+        }
         self.world.flush();
         self.update_location();
         self
@@ -2219,14 +2200,14 @@ impl<'w> EntityWorldMut<'w> {
             component_ids.as_slice(),
         );
 
-        // SAFETY: the `BundleInfo` for this `component_id` is initialized above
-        self.location = unsafe {
+        // SAFETY: the `BundleInfo` for this `bundle_id` is initialized above
+        unsafe {
             self.remove_bundle(
                 bundle_id,
                 #[cfg(feature = "track_location")]
                 caller,
-            )
-        };
+            );
+        }
         self.world.flush();
         self.update_location();
         self
