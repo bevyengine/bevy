@@ -63,10 +63,7 @@ fn list_all_named_entities(
     let mut text_string = String::from("Named entities found:\n");
     // Query iteration order is not guaranteed, so we sort the names
     // to ensure the output is consistent.
-    let mut names: Vec<Name> = query.iter().cloned().collect();
-    names.sort_by_key(|name| name.clone());
-
-    for name in names.iter() {
+    for name in query.iter().sort::<&Name>() {
         text_string.push_str(&format!("{:?}\n", name));
     }
 
