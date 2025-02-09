@@ -112,7 +112,6 @@ unused_qualifications = "warn"
 default = [
   "std",
   "async_executor",
-  "bevy_log",
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
@@ -123,6 +122,8 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_input_focus",
+  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -261,6 +262,9 @@ bevy_remote = ["bevy_internal/bevy_remote"]
 
 # Enable integration with `tracing` and `log`
 bevy_log = ["bevy_internal/bevy_log"]
+
+# Enable input focus subsystem
+bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
