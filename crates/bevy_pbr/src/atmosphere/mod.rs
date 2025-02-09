@@ -60,9 +60,10 @@ use bevy_render::{
 };
 
 use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
+use bytemuck::{Pod, Zeroable};
 use resources::{
-    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereBuffer,
-    AtmosphereTransforms, GpuAtmosphereData, RenderSkyBindGroupLayouts,
+    prepare_atmosphere_buffer, prepare_atmosphere_transforms, queue_render_sky_pipelines,
+    AtmosphereBuffer, AtmosphereTransforms, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
@@ -196,6 +197,9 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_textures.in_set(RenderSet::PrepareResources),
                     prepare_atmosphere_transforms.in_set(RenderSet::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_atmosphere_buffer
+                        .in_set(RenderSet::PrepareResources)
+                        .before(RenderSet::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
@@ -246,7 +250,8 @@ impl Plugin for AtmospherePlugin {
 /// participating in Rayleigh and Mie scattering falls off roughly exponentially
 /// from the planet's surface, ozone only exists in a band centered at a fairly
 /// high altitude.
-#[derive(Clone, Component, Reflect, ShaderType)]
+#[derive(Clone, Component, Reflect, ShaderType, Pod, Zeroable, Copy)]
+#[repr(C)]
 #[require(AtmosphereSettings)]
 #[reflect(Clone, Default)]
 pub struct Atmosphere {

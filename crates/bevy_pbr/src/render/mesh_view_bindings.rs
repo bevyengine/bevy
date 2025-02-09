@@ -45,9 +45,11 @@ use crate::{
         self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
         IRRADIANCE_VOLUMES_ARE_USABLE,
     },
-    prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
-    GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,
-    MeshPipeline, MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
+    prepass,
+    resources::{AtmosphereBuffer, AtmosphereSamplers, AtmosphereTextures},
+    EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta, GpuClusterableObjects,
+    GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform, MeshPipeline,
+    MeshPipelineKey, RenderViewLightProbes, ScreenSpaceAmbientOcclusionResources,
     ScreenSpaceReflectionsBuffer, ScreenSpaceReflectionsUniform, ShadowSamplers,
     ViewClusterBindings, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
 };
@@ -407,7 +409,7 @@ fn layout_entries(
             texture_2d(TextureSampleType::Float { filterable: true }),
         ),
         (38, sampler(SamplerBindingType::Filtering)),
-        // Combined atmosphere data
+        // atmosphere data buffer
         (39, storage_buffer_read_only::<GpuAtmosphereData>(false)),
     ));
 
@@ -534,6 +536,7 @@ pub fn prepare_mesh_view_bind_groups(
         Option<&RenderViewLightProbes<EnvironmentMapLight>>,
         Option<&RenderViewLightProbes<IrradianceVolume>>,
         Has<OrderIndependentTransparencySettings>,
+        Option<&AtmosphereTextures>,
     )>,
     (images, mut fallback_images, fallback_image, fallback_image_zero): (
         Res<RenderAssets<GpuImage>>,
@@ -547,8 +550,12 @@ pub fn prepare_mesh_view_bind_groups(
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
-    // TODO: Add atmosphere buffer
-    (decals_buffer, render_decals): (Res<DecalsBuffer>, Res<RenderClusteredDecals>),
+    (atmosphere_buffer, atmosphere_samplers, decals_buffer, render_decals): (
+        Res<AtmosphereBuffer>,
+        Res<AtmosphereSamplers>,
+        Res<DecalsBuffer>,
+        Res<RenderClusteredDecals>,
+    ),
 ) {
     if let (
         Some(view_binding),
@@ -583,6 +590,7 @@ pub fn prepare_mesh_view_bind_groups(
             render_view_environment_maps,
             render_view_irradiance_volumes,
             has_oit,
+            atmosphere_textures,
         ) in &views
         {
             let fallback_ssao = fallback_images
@@ -771,7 +779,13 @@ pub fn prepare_mesh_view_bind_groups(
                 }
             }
 
-            // TODO: Add atmosphere buffer bindings
+            if let Some(atmosphere_textures) = atmosphere_textures {
+                entries = entries.extend_with_indices((
+                    (37, &atmosphere_textures.transmittance_lut.default_view),
+                    (38, &atmosphere_samplers.transmittance_lut),
+                    (39, atmosphere_buffer.buffer.as_entire_binding()),
+                ));
+            }
 
             commands.entity(entity).insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
