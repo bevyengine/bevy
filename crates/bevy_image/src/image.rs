@@ -723,6 +723,7 @@ impl Image {
         image.data = Some(data);
         image
     }
+    
     /// Exactly the same as [`Image::new`], but doesn't initialize the image
     pub fn new_uninit(
         size: Extent3d,
