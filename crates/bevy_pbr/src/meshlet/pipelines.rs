@@ -76,7 +76,7 @@ impl FromWorld for MeshletPipelines {
             fill_cluster_buffers: pipeline_cache.queue_compute_pipeline(
                 ComputePipelineDescriptor {
                     label: Some("meshlet_fill_cluster_buffers_pipeline".into()),
-                    layout: vec![fill_cluster_buffers_bind_group_layout.clone()],
+                    layout: vec![fill_cluster_buffers_bind_group_layout],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
@@ -358,7 +358,7 @@ impl FromWorld for MeshletPipelines {
 
             resolve_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("meshlet_resolve_depth_pipeline".into()),
-                layout: vec![resolve_depth_layout.clone()],
+                layout: vec![resolve_depth_layout],
                 push_constant_ranges: vec![],
                 vertex: fullscreen_shader_vertex_state(),
                 primitive: PrimitiveState::default(),
