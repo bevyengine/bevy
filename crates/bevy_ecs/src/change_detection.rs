@@ -1294,6 +1294,56 @@ impl<T> TrackLocationOption<Option<T>> {
             marker: PhantomData,
         }
     }
+
+    /// Transposes a `TrackLocationOption` of an `Option` into an `Option` of a `TrackLocationOption`.
+    ///
+    /// This can be useful if you want to use the `?` operator to exit early
+    /// if the `track_location` feature is enabled but the value is not found.
+    ///
+    /// If the `track_location` feature is enabled,
+    /// this returns `Some` if the inner value is `Some`
+    /// and `None` if the inner value is `None`.
+    ///
+    /// If it is disabled, this always returns `Some`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::{change_detection::TrackLocationOption, world::World};
+    /// # use core::panic::Location;
+    /// #
+    /// # fn test() -> Option<()> {
+    /// let mut world = World::new();
+    /// let entity = world.spawn(()).id();
+    /// let location: TrackLocationOption<Option<&'static Location<'static>>> =
+    ///     world.entities().entity_get_spawned_or_despawned_by(entity);
+    /// let location: TrackLocationOption<&'static Location<'static>> = location.transpose()?;
+    /// # Some(())
+    /// # }
+    /// # test();
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// - [`into_option`][Self::into_option] to convert to an `Option<Option<T>>`.
+    ///   When used with [`Option::flatten`], this will have a similar effect,
+    ///   but will return `None` when the `track_location` feature is disabled.
+    #[inline]
+    pub fn transpose(self) -> Option<TrackLocationOption<T>> {
+        #[cfg(feature = "track_location")]
+        {
+            self.value.map(|value| TrackLocationOption {
+                value,
+                marker: PhantomData,
+            })
+        }
+        #[cfg(not(feature = "track_location"))]
+        {
+            Some(TrackLocationOption {
+                marker: PhantomData,
+            })
+        }
+    }
 }
 
 impl<T> TrackLocationOption<&T> {
