@@ -5,7 +5,6 @@ use core::{
     ops::{Deref, DerefMut},
 };
 
-use crate as bevy_ecs;
 use crate::{resource::Resource, world::World};
 use bevy_reflect::{
     std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath,

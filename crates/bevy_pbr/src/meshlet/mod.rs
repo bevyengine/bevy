@@ -56,8 +56,7 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::graph::NodePbr;
-use crate::PreviousGlobalTransform;
+use crate::{graph::NodePbr, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{

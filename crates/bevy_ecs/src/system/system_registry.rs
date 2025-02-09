@@ -1,7 +1,6 @@
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::ReflectComponent;
 use crate::{
-    self as bevy_ecs,
     change_detection::Mut,
     entity::Entity,
     system::{input::SystemInput, BoxedSystem, IntoSystem, System},
@@ -498,7 +497,6 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
 
 mod tests {
     use crate::prelude::*;
-    use crate::{self as bevy_ecs};
 
     #[derive(Resource, Default, PartialEq, Debug)]
     struct Counter(u8);
