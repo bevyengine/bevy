@@ -325,7 +325,7 @@ fn queue_custom_mesh_pipeline(
             continue;
         };
 
-        // Create a *work item buffer* if necessary. Work item buffers store the
+        // Create *work item buffers* if necessary. Work item buffers store the
         // indices of meshes that are to be rendered when indirect drawing is
         // enabled.
         let work_item_buffer = gpu_preprocessing::get_or_create_work_item_buffer::<Opaque3d>(
@@ -333,6 +333,11 @@ fn queue_custom_mesh_pipeline(
             view.retained_view_entity,
             no_indirect_drawing,
             gpu_occlusion_culling,
+        );
+
+        // Initialize those work item buffers in preparation for this new frame.
+        gpu_preprocessing::init_work_item_buffers(
+            work_item_buffer,
             late_indexed_indirect_parameters_buffer,
             late_non_indexed_indirect_parameters_buffer,
         );
