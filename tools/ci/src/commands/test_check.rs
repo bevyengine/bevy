@@ -11,7 +11,7 @@ impl Prepare for TestCheckCommand {
     fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
         vec![PreparedCommand::new::<Self>(
             cmd!(sh, "cargo check --workspace --tests"),
-            "Please fix compiler examples for tests in output above.",
+            "Please fix compiler errors for tests in output above.",
         )]
     }
 }

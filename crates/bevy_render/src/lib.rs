@@ -19,6 +19,9 @@ compile_error!("bevy_render cannot compile for a 16-bit platform.");
 extern crate alloc;
 extern crate core;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_render;
+
 pub mod alpha;
 pub mod batching;
 pub mod camera;
@@ -295,11 +298,17 @@ impl Plugin for RenderPlugin {
                         .cloned();
                     let settings = render_creation.clone();
                     let async_renderer = async move {
-                        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+                        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
                             backends,
-                            dx12_shader_compiler: settings.dx12_shader_compiler.clone(),
                             flags: settings.instance_flags,
-                            gles_minor_version: settings.gles3_minor_version,
+                            backend_options: wgpu::BackendOptions {
+                                gl: wgpu::GlBackendOptions {
+                                    gles_minor_version: settings.gles3_minor_version,
+                                },
+                                dx12: wgpu::Dx12BackendOptions {
+                                    shader_compiler: settings.dx12_shader_compiler.clone(),
+                                },
+                            },
                         });
 
                         let surface = primary_window.and_then(|wrapper| {

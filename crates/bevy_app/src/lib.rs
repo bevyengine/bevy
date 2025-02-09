@@ -20,6 +20,9 @@ extern crate std;
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_app;
+
 mod app;
 mod main_schedule;
 mod panic_handler;
