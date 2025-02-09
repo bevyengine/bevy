@@ -2,6 +2,7 @@ use crate::{Image, TextureAtlasLayout, TextureFormatPixelInfo as _};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{URect, UVec2};
 use guillotiere::{size2, Allocation, AtlasAllocator};
+use tracing::error;
 
 /// Helper utility to update [`TextureAtlasLayout`] on the fly.
 ///
@@ -80,8 +81,15 @@ impl DynamicTextureAtlasBuilder {
             let end = begin + rect_width * format_size;
             let texture_begin = texture_y * rect_width * format_size;
             let texture_end = texture_begin + rect_width * format_size;
-            atlas_texture.data[begin..end]
-                .copy_from_slice(&texture.data[texture_begin..texture_end]);
+            let Some(ref mut atlas_data) = atlas_texture.data else {
+                error!("Atlas texture has no texture data");
+                return;
+            };
+            let Some(ref data) = texture.data else {
+                error!("Source texture provided has no texture data");
+                return;
+            };
+            atlas_data[begin..end].copy_from_slice(&data[texture_begin..texture_end]);
         }
     }
 }

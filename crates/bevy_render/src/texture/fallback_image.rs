@@ -114,7 +114,7 @@ fn fallback_image_new(
             render_queue,
             &image.texture_descriptor,
             TextureDataOrder::default(),
-            &image.data,
+            &image.data.unwrap(),
         )
     } else {
         render_device.create_texture(&image.texture_descriptor)

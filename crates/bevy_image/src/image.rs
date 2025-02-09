@@ -338,7 +338,11 @@ impl ImageFormat {
     reflect(opaque, Default, Debug)
 )]
 pub struct Image {
-    pub data: Vec<u8>,
+    /// Raw pixel data.
+    /// If the image is being used as a storage texture which doesn't need to be initialzied by the
+    /// CPU, then this should be `None`
+    /// Otherwise, it should always be `Some`
+    pub data: Option<Vec<u8>>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
@@ -691,10 +695,61 @@ impl<'a> From<SamplerDescriptor<'a>> for ImageSamplerDescriptor {
 impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
+        let mut image = Image::default_uninit();
+        image.data = Some(vec![255; image.texture_descriptor.format.pixel_size()]);
+        image
+    }
+}
+
+impl Image {
+    /// Creates a new image from raw binary data and the corresponding metadata.
+    ///
+    /// # Panics
+    /// Panics if the length of the `data`, volume of the `size` and the size of the `format`
+    /// do not match.
+    pub fn new(
+        size: Extent3d,
+        dimension: TextureDimension,
+        data: Vec<u8>,
+        format: TextureFormat,
+        asset_usage: RenderAssetUsages,
+    ) -> Self {
+        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
+        debug_assert_eq!(
+            size.volume() * format.pixel_size(),
+            data.len(),
+            "Pixel data, size and format have to match",
+        );
+        image.data = Some(data);
+        image
+    }
+    /// Exactly the same as [`Image::new`], but doesn't initialize the image
+    pub fn new_uninit(
+        size: Extent3d,
+        dimension: TextureDimension,
+        format: TextureFormat,
+        asset_usage: RenderAssetUsages,
+    ) -> Self {
+        let mut image = Image::default_uninit();
+        image.texture_descriptor.dimension = dimension;
+        image.texture_descriptor.size = size;
+        image.texture_descriptor.format = format;
+        image.asset_usage = asset_usage;
+        image
+    }
+
+    /// A transparent white 1x1x1 image.
+    ///
+    /// Contrast to [`Image::default`], which is opaque.
+    pub fn transparent() -> Image {
+        // We rely on the default texture format being RGBA8UnormSrgb
+        // when constructing a transparent color from bytes.
+        // If this changes, this function will need to be updated.
         let format = TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size()];
+        debug_assert!(format.pixel_size() == 4);
+        let data = vec![255, 255, 255, 0];
         Image {
-            data,
+            data: Some(data),
             texture_descriptor: TextureDescriptor {
                 size: Extent3d {
                     width: 1,
@@ -714,49 +769,11 @@ impl Default for Image {
             asset_usage: RenderAssetUsages::default(),
         }
     }
-}
-
-impl Image {
-    /// Creates a new image from raw binary data and the corresponding metadata.
-    ///
-    /// # Panics
-    /// Panics if the length of the `data`, volume of the `size` and the size of the `format`
-    /// do not match.
-    pub fn new(
-        size: Extent3d,
-        dimension: TextureDimension,
-        data: Vec<u8>,
-        format: TextureFormat,
-        asset_usage: RenderAssetUsages,
-    ) -> Self {
-        debug_assert_eq!(
-            size.volume() * format.pixel_size(),
-            data.len(),
-            "Pixel data, size and format have to match",
-        );
-        let mut image = Self {
-            data,
-            ..Default::default()
-        };
-        image.texture_descriptor.dimension = dimension;
-        image.texture_descriptor.size = size;
-        image.texture_descriptor.format = format;
-        image.asset_usage = asset_usage;
-        image
-    }
-
-    /// A transparent white 1x1x1 image.
-    ///
-    /// Contrast to [`Image::default`], which is opaque.
-    pub fn transparent() -> Image {
-        // We rely on the default texture format being RGBA8UnormSrgb
-        // when constructing a transparent color from bytes.
-        // If this changes, this function will need to be updated.
+    /// Creates a new uninitialized 1x1x1 image
+    pub fn default_uninit() -> Image {
         let format = TextureFormat::bevy_default();
-        debug_assert!(format.pixel_size() == 4);
-        let data = vec![255, 255, 255, 0];
         Image {
-            data,
+            data: None,
             texture_descriptor: TextureDescriptor {
                 size: Extent3d {
                     width: 1,
@@ -779,9 +796,6 @@ impl Image {
 
     /// Creates a new image from raw binary data and the corresponding metadata, by filling
     /// the image data with the `pixel` data repeated multiple times.
-    ///
-    /// # Panics
-    /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -789,28 +803,15 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let mut value = Image::default();
-        value.texture_descriptor.format = format;
-        value.texture_descriptor.dimension = dimension;
-        value.asset_usage = asset_usage;
-        value.resize(size);
+        let mut image = Image::default_uninit();
+        image.texture_descriptor.format = format;
+        image.texture_descriptor.dimension = dimension;
+        image.asset_usage = asset_usage;
 
-        debug_assert_eq!(
-            pixel.len() % format.pixel_size(),
-            0,
-            "Must not have incomplete pixel data (pixel size is {}B).",
-            format.pixel_size(),
-        );
-        debug_assert!(
-            pixel.len() <= value.data.len(),
-            "Fill data must fit within pixel buffer (expected {}B).",
-            value.data.len(),
-        );
+        let byte_len = format.pixel_size() * size.volume();
+        image.data = Some(pixel.iter().copied().cycle().take(byte_len).collect());
 
-        for current_pixel in value.data.chunks_exact_mut(pixel.len()) {
-            current_pixel.copy_from_slice(pixel);
-        }
-        value
+        image
     }
 
     /// Returns the width of a 2D image.
@@ -849,10 +850,12 @@ impl Image {
     /// Does not properly resize the contents of the image, but only its internal `data` buffer.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
-        self.data.resize(
-            size.volume() * self.texture_descriptor.format.pixel_size(),
-            0,
-        );
+        if let Some(ref mut data) = self.data {
+            data.resize(
+                size.volume() * self.texture_descriptor.format.pixel_size(),
+                0,
+            );
+        }
     }
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
@@ -1035,16 +1038,22 @@ impl Image {
     #[inline(always)]
     pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
         let len = self.texture_descriptor.format.pixel_size();
+        let Some(ref data) = self.data else {
+            return None;
+        };
         self.pixel_data_offset(coords)
-            .map(|start| &self.data[start..(start + len)])
+            .map(|start| &data[start..(start + len)])
     }
 
     /// Get a mutable reference to the data bytes where a specific pixel's value is stored
     #[inline(always)]
     pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
         let len = self.texture_descriptor.format.pixel_size();
-        self.pixel_data_offset(coords)
-            .map(|start| &mut self.data[start..(start + len)])
+        let offset = self.pixel_data_offset(coords);
+        let Some(ref mut data) = self.data else {
+            return None;
+        };
+        offset.map(|start| &mut data[start..(start + len)])
     }
 
     /// Read the color of a specific pixel (1D texture).
