@@ -355,6 +355,7 @@ impl Plugin for PbrPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
                 VolumetricFogPlugin,
+                AtmospherePlugin,
                 ScreenSpaceReflectionsPlugin,
                 ClusteredDecalPlugin,
             ))
@@ -365,7 +366,6 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<SpotLight>::default(),
                 ExtractComponentPlugin::<AmbientLight>::default(),
             ))
-            .add_plugins(AtmospherePlugin)
             .configure_sets(
                 PostUpdate,
                 (

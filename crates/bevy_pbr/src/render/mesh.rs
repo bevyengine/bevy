@@ -1,4 +1,7 @@
-use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
+use crate::{
+    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+    resources::prepare_atmosphere_buffer,
+};
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
 use bevy_core_pipeline::{
@@ -216,7 +219,8 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSet::PrepareBindGroups)
-                            .after(prepare_oit_buffers),
+                            .after(prepare_oit_buffers)
+                            .after(prepare_atmosphere_buffer),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
                             .in_set(RenderSet::Cleanup)
                             .after(RenderSet::Render),
