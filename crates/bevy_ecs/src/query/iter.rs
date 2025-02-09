@@ -1,4 +1,4 @@
-use super::{QueryData, QueryFilter, ReadOnlyQueryData, ReleaseStateQueryData};
+use super::{QueryData, QueryFilter, ReadOnlyQueryData};
 use crate::{
     archetype::{Archetype, ArchetypeEntity, Archetypes},
     bundle::Bundle,
@@ -487,7 +487,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData<Item<'w, 'static>: Ord> + ReleaseStateQueryData + 'w>(
+    pub fn sort<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -495,7 +495,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'l> L::Item<'w, 'l>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
 
@@ -541,9 +544,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<
-        L: ReadOnlyQueryData<Item<'w, 'static>: Ord> + ReleaseStateQueryData + 'w,
-    >(
+    pub fn sort_unstable<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -551,7 +552,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'l> L::Item<'w, 'l>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
 
@@ -604,9 +608,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w>(
+    pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w, 'static>, &L::Item<'w, 'static>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -636,9 +640,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_unstable_by<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w>(
+    pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w, 'static>, &L::Item<'w, 'static>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -728,9 +732,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_by_key<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w, K>(
+    pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w, 'static>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -761,9 +765,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w, K>(
+    pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w, 'static>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -796,9 +800,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    pub fn sort_by_cached_key<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w, K>(
+    pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w, 'static>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -826,9 +830,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # Panics
     ///
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
-    fn sort_impl<L: ReadOnlyQueryData + ReleaseStateQueryData + 'w>(
+    fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w, 'static>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'w, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedIter<
         'w,
         's,
@@ -853,10 +857,14 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         // The original query iter has not been iterated on, so no items are aliased from it.
         let query_lens = unsafe { query_lens_state.query_unchecked_manual(world) }.into_iter();
         let mut keyed_query: Vec<_> = query_lens
-            .map(|(key, entity)| (L::release_state(key), NeutralOrd(entity)))
+            .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
         f(&mut keyed_query);
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
+        let entity_iter = keyed_query
+            .into_iter()
+            .map(|(.., entity)| entity.0)
+            .collect::<Vec<_>>()
+            .into_iter();
         // SAFETY:
         // `self.world` has permission to access the required components.
         // Each lens query item is dropped before the respective actual query item is accessed.
