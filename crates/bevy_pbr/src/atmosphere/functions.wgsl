@@ -118,7 +118,11 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
     return textureSampleLevel(transmittance_lut, transmittance_lut_sampler, uv, 0.0).rgb;
 }
 
-//should be in bruneton_functions, but wouldn't work in that module bc imports. What to do wrt licensing?
+// NOTICE: This function is copyrighted by Eric Bruneton and INRIA, and falls
+// under the license reproduced in bruneton_functions.wgsl (variant of MIT license)
+//
+// FIXME: this function should be in bruneton_functions.wgsl, but because naga_oil doesn't 
+// support cyclic imports it's stuck here
 fn sample_transmittance_lut_segment(r: f32, mu: f32, t: f32) -> vec3<f32> {
     let r_t = get_local_r(r, mu, t);
     let mu_t = clamp((r * mu + t) / r_t, -1.0, 1.0);
