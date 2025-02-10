@@ -277,7 +277,7 @@ trace_tracy_memory = [
 ]
 
 # Tracing support
-trace = ["bevy_internal/trace"]
+trace = ["bevy_internal/trace", "dep:tracing"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
@@ -484,6 +484,7 @@ ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
+tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
