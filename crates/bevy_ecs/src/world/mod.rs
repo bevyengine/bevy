@@ -47,7 +47,7 @@ use crate::{
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
-    resource::Resource,
+    resource::{Resource, ResourceEntity},
     result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
@@ -1629,29 +1629,18 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     #[track_caller]
+    // FIXME: this should be plumbed to the spawn call,
+    // but no infrastructure exists for that yet.
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> ComponentId {
-        #[cfg(feature = "track_location")]
-        let caller = Location::caller();
         let component_id = self.components.register_resource::<R>();
-        if self
-            .storages
-            .resources
-            .get(component_id)
-            .is_none_or(|data| !data.is_present())
-        {
-            let value = R::from_world(self);
-            OwningPtr::make(value, |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R.
-                unsafe {
-                    self.insert_resource_by_id(
-                        component_id,
-                        ptr,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
-                }
-            });
-        }
+
+        let resource_data = R::from_world(self);
+        let entity = self
+            .spawn((resource_data, ResourceEntity::<R>::default()))
+            .id();
+        self.components
+            .cache_resource_entity::<R>(&mut self.storages, entity);
+
         component_id
     }
 
@@ -1676,20 +1665,13 @@ impl World {
     pub(crate) fn insert_resource_with_caller<R: Resource>(
         &mut self,
         value: R,
-        #[cfg(feature = "track_location")] caller: &'static Location,
+        // FIXME: this should be plumbed to the spawn call,
+        // but no infrastructure exists for that yet.
+        #[cfg(feature = "track_location")] _caller: &'static Location,
     ) {
-        let component_id = self.components.register_resource::<R>();
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R.
-            unsafe {
-                self.insert_resource_by_id(
-                    component_id,
-                    ptr,
-                    #[cfg(feature = "track_location")]
-                    caller,
-                );
-            }
-        });
+        let entity = self.spawn((value, ResourceEntity::<R>::default())).id();
+        self.components
+            .cache_resource_entity::<R>(&mut self.storages, entity);
     }
 
     /// Initializes a new non-send resource and returns the [`ComponentId`] created for it.
@@ -1762,10 +1744,14 @@ impl World {
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns `None`.
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        let (ptr, _, _) = self.storages.resources.get_mut(component_id)?.remove()?;
-        // SAFETY: `component_id` was gotten via looking up the `R` type
-        unsafe { Some(ptr.read::<R>()) }
+        let maybe_resource_entity = self.components.remove_resource_entity::<R>();
+        if let Some(resource_entity) = maybe_resource_entity {
+            let data = self.entity_mut(resource_entity).take::<R>();
+            self.despawn(resource_entity);
+            data
+        } else {
+            None
+        }
     }
 
     /// Removes a `!Send` resource from the world and returns it, if present.
@@ -1794,15 +1780,19 @@ impl World {
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource<R: Resource>(&self) -> bool {
-        self.components
-            .get_resource_id(TypeId::of::<R>())
-            .and_then(|component_id| self.storages.resources.get(component_id))
-            .is_some_and(ResourceData::is_present)
+        let maybe_resource_query = self.try_query::<&ResourceEntity<R>>();
+
+        if let Some(mut query) = maybe_resource_query {
+            query.iter(self).next().is_some()
+        } else {
+            false
+        }
     }
 
     /// Returns `true` if a resource with provided `component_id` exists. Otherwise returns `false`.
     #[inline]
     pub fn contains_resource_by_id(&self, component_id: ComponentId) -> bool {
+        // FIXME: migrate this method to use resource entities
         self.storages
             .resources
             .get(component_id)
@@ -1968,7 +1958,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
+    pub fn resource_mut<R: Resource + Component<Mutability = Mutable>>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
             None => panic!(
@@ -1984,28 +1974,41 @@ impl World {
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        // SAFETY:
-        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed mutably
-        unsafe { self.as_unsafe_world_cell_readonly().get_resource() }
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        self.get::<R>(resource_entity)
     }
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
     pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
-        // - `&self` ensures nothing in world is borrowed mutably
-        unsafe { self.as_unsafe_world_cell_readonly().get_resource_ref() }
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        self.entity(resource_entity).get_ref::<R>()
     }
 
     /// Gets a mutable reference to the resource of the given type if it exists
     #[inline]
-    pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` gives permission to access everything mutably
-        // - `&mut self` ensures nothing in world is borrowed
-        unsafe { self.as_unsafe_world_cell().get_resource_mut() }
+    pub fn get_resource_mut<R: Resource + Component<Mutability = Mutable>>(
+        &mut self,
+    ) -> Option<Mut<'_, R>> {
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        self.get_mut::<R>(resource_entity)
+    }
+
+    /// Gets mutable access to the resource of type `R`.
+    /// Returns `None` if the resource of type `R` does not exist.
+    ///
+    /// # Safety
+    ///
+    /// - `R` must be a mutable component
+    #[inline]
+    pub unsafe fn get_resource_mut_assume_mutable<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
+        let resource_entity = self.components.get_resource_entity::<R>()?;
+        let entity_world_mut = self.entity_mut(resource_entity);
+        // TODO: this conversion shouldn't be needed: `into_mut_assume_mutable` should exist on EntityWorldMut
+        let entity_mut = EntityMut::from(entity_world_mut);
+
+        // SAFETY: `R` is a mutable component, as asserted by the caller.
+        unsafe { entity_mut.into_mut_assume_mutable::<R>() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -2025,38 +2028,16 @@ impl World {
     /// ```
     #[inline]
     #[track_caller]
-    pub fn get_resource_or_insert_with<R: Resource>(
+    pub fn get_resource_or_insert_with<R: Resource + Component<Mutability = Mutable>>(
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
-        #[cfg(feature = "track_location")]
-        let caller = Location::caller();
-        let change_tick = self.change_tick();
-        let last_change_tick = self.last_change_tick();
-
-        let component_id = self.components.register_resource::<R>();
-        let data = self.initialize_resource_internal(component_id);
-        if !data.is_present() {
-            OwningPtr::make(func(), |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R.
-                unsafe {
-                    data.insert(
-                        ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
-                }
-            });
+        if !self.contains_resource::<R>() {
+            let res = func();
+            self.insert_resource(res);
         }
 
-        // SAFETY: The resource must be present, as we would have inserted it if it was empty.
-        let data = unsafe {
-            data.get_mut(last_change_tick, change_tick)
-                .debug_checked_unwrap()
-        };
-        // SAFETY: The underlying type of the resource is `R`.
-        unsafe { data.with_type::<R>() }
+        self.resource_mut::<R>()
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -2092,47 +2073,14 @@ impl World {
     /// assert_eq!(my_res.0, 30);
     /// ```
     #[track_caller]
-    pub fn get_resource_or_init<R: Resource + FromWorld>(&mut self) -> Mut<'_, R> {
-        #[cfg(feature = "track_location")]
-        let caller = Location::caller();
-        let change_tick = self.change_tick();
-        let last_change_tick = self.last_change_tick();
-
-        let component_id = self.components.register_resource::<R>();
-        if self
-            .storages
-            .resources
-            .get(component_id)
-            .is_none_or(|data| !data.is_present())
-        {
-            let value = R::from_world(self);
-            OwningPtr::make(value, |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R.
-                unsafe {
-                    self.insert_resource_by_id(
-                        component_id,
-                        ptr,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
-                }
-            });
+    pub fn get_resource_or_init<R: Resource + FromWorld + Component<Mutability = Mutable>>(
+        &mut self,
+    ) -> Mut<'_, R> {
+        if !self.contains_resource::<R>() {
+            self.init_resource::<R>();
         }
 
-        // SAFETY: The resource was just initialized if it was empty.
-        let data = unsafe {
-            self.storages
-                .resources
-                .get_mut(component_id)
-                .debug_checked_unwrap()
-        };
-        // SAFETY: The resource must be present, as we would have inserted it if it was empty.
-        let data = unsafe {
-            data.get_mut(last_change_tick, change_tick)
-                .debug_checked_unwrap()
-        };
-        // SAFETY: The underlying type of the resource is `R`.
-        unsafe { data.with_type::<R>() }
+        self.resource_mut::<R>()
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -2836,6 +2784,7 @@ impl World {
         value: OwningPtr<'_>,
         #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
+        // FIXME: migrate this function
         let change_tick = self.change_tick();
 
         let resource = self.initialize_resource_internal(component_id);
@@ -3776,7 +3725,7 @@ mod tests {
         Drop(ID),
     }
 
-    #[derive(Resource, Component)]
+    #[derive(Resource)]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,

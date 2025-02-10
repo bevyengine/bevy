@@ -2237,7 +2237,7 @@ mod tests {
         }
     }
 
-    #[derive(Component, Resource)]
+    #[derive(Resource)]
     struct W<T>(T);
 
     fn simple_command(world: &mut World) {
