@@ -20,7 +20,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
-smallvec = { version = "1", features = ["const_generics"] }
+smallvec = { version = "1" }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 

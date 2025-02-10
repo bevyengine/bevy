@@ -3,7 +3,6 @@ use core::ops::DerefMut;
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
 use bevy_ecs::prelude::*;
-use bevy_log::info_span;
 use bevy_tasks::TaskPool;
 use bevy_utils::Parallel;
 
@@ -41,12 +40,12 @@ pub fn sync_simple_transforms(
     }
 }
 
-/// Represent a subtree when propagating transforms.
+/// Represent a subtree in the hierarchy when propagating transforms.
 #[derive(Clone, Debug)]
-pub struct SubtreeParent {
+pub struct PropagationNode {
     is_changed: bool,
     entity: Entity,
-    transform: GlobalTransform,
+    global_transform: GlobalTransform,
 }
 
 /// Propagate transforms
@@ -55,9 +54,9 @@ pub fn propagate_transforms_par(
     // Orphans
     mut orphaned: RemovedComponents<ChildOf>,
     mut orphans: Local<Vec<Entity>>,
-    // Locals to reuse allocations
-    mut stack: Local<Parallel<Vec<SubtreeParent>>>,
-    mut working_stack: Local<Parallel<Vec<SubtreeParent>>>,
+    // Cached thread locals
+    mut stack: Local<Parallel<Vec<PropagationNode>>>,
+    mut next_stack: Local<Parallel<Vec<PropagationNode>>>,
     // Queries
     mut transform_queries: ParamSet<(
         Query<
@@ -69,35 +68,38 @@ pub fn propagate_transforms_par(
     )>,
     children: Query<&Children>,
 ) {
-    let span = info_span!("Orphans").entered();
+    // Orphans
     orphans.clear();
     orphans.extend(orphaned.read());
     orphans.sort_unstable();
-    drop(span);
 
-    let span = info_span!("Roots").entered();
+    // Roots
     transform_queries.p0().par_iter_mut().for_each_init(
         || stack.borrow_local_mut(),
         |locals, components| {
             compute_transform(locals, None, components, &orphans);
         },
     );
-    drop(span);
 
-    let span = info_span!("Stack").entered();
+    // Propagation stack
     loop {
         let stack_size = stack.iter_mut().fold(0, |acc, e| acc + e.len());
         if stack_size == 0 {
             break;
         }
 
+        // Important: this is very different from calling `Parallel::clear()`. Doing that will
+        // reallocate the thread local, losing any allocated queues. Instead, we want to `clear`
+        // each vector, which will retain allocations between system runs. This has a big impact on
+        // performance.
+        next_stack.iter_mut().for_each(Vec::clear);
+
         // In both single threaded and multi threaded, we avoid allocations by double buffering
         // between two `Parallel` thread locals. One acts as the current stack that can be consumed
         // from. and the other is the next iteration's stack that can be pushed to.
-        working_stack.iter_mut().for_each(Vec::clear);
         if stack_size < 1024 {
             // Single threaded when the stack is small
-            let mut locals = working_stack.borrow_local_mut();
+            let mut next_stack = next_stack.borrow_local_mut();
             let mut nodes = transform_queries.p1();
             for parent in stack.iter_mut().flatten() {
                 let children = children
@@ -105,7 +107,7 @@ pub fn propagate_transforms_par(
                     .expect("Only entities with children are pushed onto the stack.");
                 let mut nodes = nodes.iter_many_mut(children);
                 while let Some(components) = nodes.fetch_next() {
-                    compute_transform(&mut locals, Some(parent), components, &orphans);
+                    compute_transform(&mut next_stack, Some(parent), components, &orphans);
                 }
             }
         } else {
@@ -125,9 +127,9 @@ pub fn propagate_transforms_par(
                 .flat_map(|nodes| nodes.chunks(chunk_size / 4));
             let orphans = &orphans;
 
-            let f = |chunks: &[&[SubtreeParent]]| {
+            let compute = |chunks: &[&[PropagationNode]]| {
                 // let _span = info_span!("Par").entered();
-                let mut locals = working_stack.borrow_local_mut();
+                let mut next_stack = next_stack.borrow_local_mut();
                 for parent in chunks.iter().flat_map(|s| s.iter()) {
                     let children = children
                         .get(parent.entity)
@@ -142,7 +144,7 @@ pub fn propagate_transforms_par(
                     unsafe {
                         let mut nodes = nodes.iter_many_unsafe(children);
                         while let Some(components) = nodes.fetch_next() {
-                            compute_transform(&mut locals, Some(parent), components, orphans);
+                            compute_transform(&mut next_stack, Some(parent), components, orphans);
                         }
                     }
                 }
@@ -159,18 +161,20 @@ pub fn propagate_transforms_par(
                             break;
                         }
                     }
-                    scope.spawn(async move { f(composite_chunks.as_slice()) });
+                    scope.spawn(async move { compute(composite_chunks.as_slice()) });
                 }
             });
         }
-        core::mem::swap(&mut *stack, &mut *working_stack);
+
+        // Double buffering: swap the next stack and the current stack to reuse allocated memory.
+        core::mem::swap(&mut *stack, &mut *next_stack);
     }
-    drop(span);
 }
 
+#[inline]
 fn compute_transform(
-    local_queue: &mut impl DerefMut<Target = Vec<SubtreeParent>>,
-    parent: Option<&SubtreeParent>,
+    thread_local_queue: &mut impl DerefMut<Target = Vec<PropagationNode>>,
+    parent: Option<&PropagationNode>,
     (entity, transform, mut global_transform, has_children): (
         Entity,
         Ref<Transform>,
@@ -187,17 +191,17 @@ fn compute_transform(
 
     if is_changed {
         *global_transform = if let Some(parent) = parent {
-            parent.transform.mul_transform(*transform)
+            parent.global_transform.mul_transform(*transform)
         } else {
             GlobalTransform::from(*transform)
         }
     }
 
     if has_children {
-        local_queue.push(SubtreeParent {
+        thread_local_queue.push(PropagationNode {
             is_changed,
             entity,
-            transform: *global_transform,
+            global_transform: *(global_transform.as_ref()),
         });
     }
 }
