@@ -13,10 +13,14 @@
 fn resolve_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f32 {
     let visibility = textureLoad(meshlet_visibility_buffer, vec2<u32>(in.position.xy)).r;
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-    return bitcast<f32>(u32(visibility >> 32u));
+    let depth = u32(visibility >> 32u);
 #else
-    return bitcast<f32>(visibility);
+    let depth = visibility;
 #endif
+
+    if depth == 0u { discard; }
+
+    return bitcast<f32>(depth);
 }
 
 /// This pass writes out the material depth texture.
@@ -26,7 +30,7 @@ fn resolve_material_depth(in: FullscreenVertexOutput) -> @builtin(frag_depth) f3
     let visibility = textureLoad(meshlet_visibility_buffer, vec2<u32>(in.position.xy)).r;
 
     let depth = visibility >> 32u;
-    if depth == 0lu { return 0.0; }
+    if depth == 0lu { discard; }
 
     let cluster_id = u32(visibility) >> 7u;
     let instance_id = meshlet_cluster_instance_ids[cluster_id];
