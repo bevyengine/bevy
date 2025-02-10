@@ -108,7 +108,7 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 ///
 /// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::TEXTURE_INT64_ATOMIC`].
 ///
-/// This plugin currently works only on the Vulkan backend.
+/// This plugin currently works only on the Vulkan and Metal backends.
 ///
 /// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
 /// [`Msaa`] set to [`Msaa::Off`].
