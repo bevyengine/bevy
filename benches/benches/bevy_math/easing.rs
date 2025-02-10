@@ -23,7 +23,7 @@ fn smoothstep(c: &mut Criterion) {
 
     // Second baseline - non-inlined.
     group.bench_function("noinline", |b| {
-        b.iter(|| smoothstep_noinline(black_box(0.5)))
+        b.iter(|| smoothstep_noinline(black_box(0.5)));
     });
 
     // EaseFunction interface.
@@ -31,7 +31,7 @@ fn smoothstep(c: &mut Criterion) {
     // This should be a bit slower than `noinline` - the compiler doesn't like
     // to inline EaseFunction::eval so there's an extra branch.
     group.bench_function("function", |b| {
-        b.iter(|| EaseFunction::SmoothStep.sample_unchecked(black_box(0.5)))
+        b.iter(|| EaseFunction::SmoothStep.sample_unchecked(black_box(0.5)));
     });
 
     // EasingCurve interface with a constant unit range.
@@ -44,6 +44,6 @@ fn smoothstep(c: &mut Criterion) {
         b.iter(|| {
             EasingCurve::new(0.0f32, 1.0f32, EaseFunction::SmoothStep)
                 .sample_unchecked(black_box(0.5))
-        })
+        });
     });
 }
