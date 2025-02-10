@@ -9,7 +9,6 @@
 #[cfg(feature = "bevy_reflect")]
 use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
-    self as bevy_ecs,
     bundle::Bundle,
     component::{Component, HookContext},
     entity::Entity,
@@ -278,12 +277,49 @@ pub fn validate_parent_has_component<C: Component>(
     }
 }
 
+/// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
+/// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
+///
+/// Any additional arguments will be interpreted as bundles to be spawned.
+///
+/// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// # use bevy_ecs::children;
+/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
+/// let mut world = World::new();
+/// world.spawn((
+///     Name::new("Root"),
+///     children![
+///         Name::new("Child1"),
+///         (
+///             Name::new("Child2"),
+///             children![Name::new("Grandchild")]
+///         )
+///     ]
+/// ));
+/// ```
+///
+/// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+/// [`SpawnRelatedBundle`]: crate::spawn::SpawnRelatedBundle
+/// [`SpawnableList`]: crate::spawn::SpawnableList
+#[macro_export]
+macro_rules! children {
+    [$($child:expr),*$(,)?] => {
+       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         entity::Entity,
         hierarchy::{ChildOf, Children},
         relationship::RelationshipTarget,
+        spawn::{Spawn, SpawnRelated},
         world::World,
     };
     use alloc::{vec, vec::Vec};
@@ -435,5 +471,12 @@ mod tests {
             world.entity(id).get::<ChildOf>(),
             "ChildOf should still be there"
         );
+    }
+
+    #[test]
+    fn spawn_children() {
+        let mut world = World::new();
+        let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
     }
 }
