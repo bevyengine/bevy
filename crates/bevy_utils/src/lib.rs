@@ -38,7 +38,8 @@ mod parallel_queue;
 pub use once::OnceFlag;
 
 pub use default::default;
-pub use option_ext::{NoneError, OptionExt as _};
+#[cfg(feature = "alloc")]
+pub use option_ext::NoneError;
 
 #[cfg(feature = "std")]
 pub use parallel_queue::*;
