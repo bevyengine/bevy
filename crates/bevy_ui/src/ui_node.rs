@@ -2766,7 +2766,7 @@ impl Default for BoxShadowSamples {
     }
 }
 
-/// ID of the UI node's camera target.
+/// Derived information about the camera target for this UI node.
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default)]
 pub struct ComputedNodeTarget {
