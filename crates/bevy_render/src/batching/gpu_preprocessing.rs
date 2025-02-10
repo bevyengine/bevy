@@ -1374,11 +1374,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Prepare multidrawables.
 
-        for batch_set_key in &phase.multidrawable_mesh_keys {
+        for (batch_set_key, bins) in &phase.multidrawable_meshes {
             let mut batch_set = None;
             let indirect_parameters_base =
                 indirect_parameters_buffers.batch_count(batch_set_key.indexed()) as u32;
-            for (bin_key, bin) in &phase.multidrawable_mesh_values[batch_set_key] {
+            for (bin_key, bin) in bins {
                 let first_output_index = data_buffer.len() as u32;
                 let mut batch: Option<BinnedRenderPhaseBatch> = None;
 
@@ -1472,11 +1472,11 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
 
         // Prepare batchables.
 
-        for key in &phase.batchable_mesh_keys {
+        for (key, bin) in &phase.batchable_meshes {
             let first_output_index = data_buffer.len() as u32;
 
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
-            for (&main_entity, &input_index) in phase.batchable_mesh_values[key].entities() {
+            for (&main_entity, &input_index) in bin.entities() {
                 let output_index = data_buffer.add() as u32;
 
                 match batch {
@@ -1589,9 +1589,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         }
 
         // Prepare unbatchables.
-        for key in &phase.unbatchable_mesh_keys {
-            let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
-
+        for (key, unbatchables) in &mut phase.unbatchable_meshes {
             // Allocate the indirect parameters if necessary.
             let mut indirect_parameters_offset = if no_indirect_drawing {
                 None
