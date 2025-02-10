@@ -2744,6 +2744,122 @@ mod tests {
         assert_is_system(ignored_system);
     }
 
+    #[test]
+    fn derive_release_state() {
+        struct NonReleaseQueryData;
+
+        /// SAFETY:
+        /// `update_component_access` and `update_archetype_component_access` do nothing.
+        /// This is sound because `fetch` does not access components.
+        unsafe impl WorldQuery for NonReleaseQueryData {
+            type Fetch<'w, 's> = ();
+            type State = ();
+
+            fn shrink_fetch<'wlong: 'wshort, 'wshort, 's>(
+                _: Self::Fetch<'wlong, 's>,
+            ) -> Self::Fetch<'wshort, 's> {
+            }
+
+            unsafe fn init_fetch<'w, 's>(
+                _world: UnsafeWorldCell<'w>,
+                _state: &'s Self::State,
+                _last_run: Tick,
+                _this_run: Tick,
+            ) -> Self::Fetch<'w, 's> {
+            }
+
+            const IS_DENSE: bool = true;
+
+            #[inline]
+            unsafe fn set_archetype<'w, 's>(
+                _fetch: &mut Self::Fetch<'w, 's>,
+                _state: &'s Self::State,
+                _archetype: &'w Archetype,
+                _table: &Table,
+            ) {
+            }
+
+            #[inline]
+            unsafe fn set_table<'w, 's>(
+                _fetch: &mut Self::Fetch<'w, 's>,
+                _state: &'s Self::State,
+                _table: &'w Table,
+            ) {
+            }
+
+            fn update_component_access(
+                _state: &Self::State,
+                _access: &mut FilteredAccess<ComponentId>,
+            ) {
+            }
+
+            fn init_state(_world: &mut World) {}
+
+            fn get_state(_components: &Components) -> Option<()> {
+                Some(())
+            }
+
+            fn matches_component_set(
+                _state: &Self::State,
+                _set_contains_id: &impl Fn(ComponentId) -> bool,
+            ) -> bool {
+                true
+            }
+        }
+
+        /// SAFETY: `Self` is the same as `Self::ReadOnly`
+        unsafe impl QueryData for NonReleaseQueryData {
+            type ReadOnly = Self;
+
+            type Item<'w, 's> = ();
+
+            fn shrink<'wlong: 'wshort, 'wshort, 's>(
+                _item: Self::Item<'wlong, 's>,
+            ) -> Self::Item<'wshort, 's> {
+            }
+
+            #[inline(always)]
+            unsafe fn fetch<'w, 's>(
+                _fetch: &mut Self::Fetch<'w, 's>,
+                _entity: Entity,
+                _table_row: TableRow,
+            ) -> Self::Item<'w, 's> {
+            }
+        }
+
+        /// SAFETY: access is read only
+        unsafe impl ReadOnlyQueryData for NonReleaseQueryData {}
+
+        #[derive(QueryData)]
+        pub struct DerivedNonReleaseRead {
+            non_release: NonReleaseQueryData,
+            a: &'static A,
+        }
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        pub struct DerivedNonReleaseMutable {
+            non_release: NonReleaseQueryData,
+            a: &'static mut A,
+        }
+
+        #[derive(QueryData)]
+        pub struct DerivedReleaseRead {
+            a: &'static A,
+        }
+
+        #[derive(QueryData)]
+        #[query_data(mutable)]
+        pub struct DerivedReleaseMutable {
+            a: &'static mut A,
+        }
+
+        fn assert_is_release_state<Q: ReleaseStateQueryData>() {}
+
+        assert_is_release_state::<DerivedReleaseRead>();
+        assert_is_release_state::<DerivedReleaseMutable>();
+    }
+
     // Ensures that each field of a `WorldQuery` struct's read-only variant
     // has the same visibility as its corresponding mutable field.
     #[test]

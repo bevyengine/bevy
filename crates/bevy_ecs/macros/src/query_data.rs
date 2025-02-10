@@ -280,6 +280,18 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                         }
                     }
                 }
+
+                impl #user_impl_generics #path::query::ReleaseStateQueryData
+                for #read_only_struct_name #user_ty_generics #user_where_clauses
+                // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+                // See https://github.com/rust-lang/rust/issues/48214
+                where #(for<'__a> #field_types: #path::query::QueryData<ReadOnly: #path::query::ReleaseStateQueryData>,)* {
+                    fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
+                        Self::Item {
+                            #(#field_idents: <#read_only_field_types>::release_state(_item.#field_idents),)*
+                        }
+                    }
+                }
             }
         } else {
             quote! {}
@@ -311,6 +323,18 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 ) -> Self::Item<'__w, '__s> {
                     Self::Item {
                         #(#field_idents: <#field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                    }
+                }
+            }
+
+            impl #user_impl_generics #path::query::ReleaseStateQueryData
+            for #struct_name #user_ty_generics #user_where_clauses
+            // Make these HRTBs with an unused lifetime parameter to allow trivial constraints
+            // See https://github.com/rust-lang/rust/issues/48214
+            where #(for<'__a> #field_types: #path::query::ReleaseStateQueryData,)* {
+                fn release_state<'__w>(_item: Self::Item<'__w, '_>) -> Self::Item<'__w, 'static> {
+                    Self::Item {
+                        #(#field_idents: <#field_types>::release_state(_item.#field_idents),)*
                     }
                 }
             }

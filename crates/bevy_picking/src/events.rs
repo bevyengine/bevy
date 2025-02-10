@@ -39,12 +39,7 @@
 
 use core::{fmt::Debug, time::Duration};
 
-use bevy_ecs::{
-    prelude::*,
-    query::{QueryData, ReleaseStateQueryData},
-    system::SystemParam,
-    traversal::Traversal,
-};
+use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_math::Vec2;
 use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::time::Instant;
@@ -85,15 +80,6 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
 pub struct PointerTraversal {
     parent: Option<&'static ChildOf>,
     window: Option<&'static Window>,
-}
-
-impl ReleaseStateQueryData for PointerTraversal {
-    fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
-        PointerTraversalItem {
-            parent: item.parent,
-            window: item.window,
-        }
-    }
 }
 
 impl<E> Traversal<Pointer<E>> for PointerTraversal
