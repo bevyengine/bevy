@@ -830,7 +830,7 @@ impl Entities {
     }
 
     /// Returns the location of an [`Entity`].
-    /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
+    /// Note: for pending entities, returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if let Some(meta) = self.meta.get(entity.index() as usize) {
