@@ -432,7 +432,7 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/Steps.svg")]
     Steps(usize),
-    /// `n` steps connecting the start and the end. A jump is included at the start 
+    /// `n` steps connecting the start and the end. A jump is included at the start
     ///
     #[doc = include_str!("../../images/easefunction/Steps.svg")]
     StepsStart(usize),

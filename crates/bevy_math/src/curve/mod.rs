@@ -1105,8 +1105,8 @@ mod tests {
 
         let curve = EasingCurve::new(start, end, EaseFunction::StepsBoth(4));
         [
-            (0.0, Vec2::new(1.,1.)),
-            (0.249, Vec2::new(1.,1.)),
+            (0.0, Vec2::new(1., 1.)),
+            (0.249, Vec2::new(1., 1.)),
             (0.250, Vec2::new(2., 2.)),
             (0.499, Vec2::new(2., 2.)),
             (0.500, Vec2::new(3., 3.)),
