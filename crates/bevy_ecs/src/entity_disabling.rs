@@ -43,7 +43,11 @@ use bevy_platform_support::collections::HashSet;
 #[cfg(feature = "bevy_reflect")]
 use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 
-/// A marker component for disabled entities. See [the module docs] for more info.
+/// A marker component for disabled entities.
+///
+/// Every [`World`](crate::prelude::World) has a default query filter that excludes entities with this component,
+/// registered in the [`DefaultQueryFilters`] resource.
+/// See [the module docs] for more info.
 ///
 /// [the module docs]: crate::entity_disabling
 #[derive(Component, Clone, Debug)]
@@ -53,6 +57,7 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
     reflect(Component),
     reflect(Debug)
 )]
+// This component is registered as a disabling component during World::bootstrap
 pub struct Disabled;
 
 /// Default query filters work by excluding entities with certain components from most queries.
