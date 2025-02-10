@@ -4,15 +4,45 @@ use bevy_ecs::{
     observer::Trigger,
     system::{Commands, Query},
 };
-use bevy_picking::events::{Click, Pointer};
+use bevy_picking::events::{
+    Cancel, Click, Drag, DragDrop, DragEnd, DragEnter, DragLeave, DragOver, DragStart, Move, Out,
+    Over, Pointer, Pressed, Released,
+};
 use bevy_reflect::Reflect;
 use bevy_text::{cosmic_text::Cursor, ComputedTextBlock, TextLayoutInfo};
 
 use crate::{ComputedNode, RelativeCursorPosition};
 
 pub(crate) fn plugin(app: &mut App) {
-    app.add_event::<TextPointer<Click>>();
-    app.add_observer(get_and_emit_text_hits::<Click>);
+    app.add_event::<TextPointer<Cancel>>()
+        .add_event::<TextPointer<Click>>()
+        .add_event::<TextPointer<Pressed>>()
+        .add_event::<TextPointer<DragDrop>>()
+        .add_event::<TextPointer<DragEnd>>()
+        .add_event::<TextPointer<DragEnter>>()
+        .add_event::<TextPointer<Drag>>()
+        .add_event::<TextPointer<DragLeave>>()
+        .add_event::<TextPointer<DragOver>>()
+        .add_event::<TextPointer<DragStart>>()
+        .add_event::<TextPointer<Move>>()
+        .add_event::<TextPointer<Out>>()
+        .add_event::<TextPointer<Over>>()
+        .add_event::<TextPointer<Released>>();
+
+    app.add_observer(get_and_emit_text_hits::<Cancel>)
+        .add_observer(get_and_emit_text_hits::<Click>)
+        .add_observer(get_and_emit_text_hits::<Pressed>)
+        .add_observer(get_and_emit_text_hits::<DragDrop>)
+        .add_observer(get_and_emit_text_hits::<DragEnd>)
+        .add_observer(get_and_emit_text_hits::<DragEnter>)
+        .add_observer(get_and_emit_text_hits::<Drag>)
+        .add_observer(get_and_emit_text_hits::<DragLeave>)
+        .add_observer(get_and_emit_text_hits::<DragOver>)
+        .add_observer(get_and_emit_text_hits::<DragStart>)
+        .add_observer(get_and_emit_text_hits::<Move>)
+        .add_observer(get_and_emit_text_hits::<Out>)
+        .add_observer(get_and_emit_text_hits::<Over>)
+        .add_observer(get_and_emit_text_hits::<Released>);
 }
 
 #[derive(Event, Debug, Clone)]

@@ -33,6 +33,9 @@ fn setup(mut commands: Commands) {
             ))
             .observe(|t: Trigger<TextPointer<Click>>| {
                 info!("Span specific observer clicked! {:?}", t);
+            })
+            .observe(|t: Trigger<TextPointer<Released>>| {
+                info!("Span specific observer released! {:?}", t);
             });
         })
         .observe(|t: Trigger<TextPointer<Click>>| {
