@@ -3,8 +3,9 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
+    result::{DefaultSystemsErrorHandler, SystemErrorContext},
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
-    system::{ScheduleSystem, SystemId, SystemInput},
+    system::{SystemId, SystemInput},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use core::fmt::Debug;
@@ -341,14 +342,13 @@ impl SubApp {
     /// for more information.
     pub fn set_systems_error_handler(
         &mut self,
-        error_handler: fn(Error, &ScheduleSystem),
+        error_handler: fn(Error, SystemErrorContext),
     ) -> &mut Self {
-        let mut schedules = self
+        let mut default_handler = self
             .world_mut()
-            .remove_resource::<Schedules>()
-            .unwrap_or_default();
-        schedules.error_handler = error_handler;
-        self.world_mut().insert_resource(schedules);
+            .get_resource_or_init::<DefaultSystemsErrorHandler>();
+
+        default_handler.0 = error_handler;
         self
     }
 

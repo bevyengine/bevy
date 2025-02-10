@@ -29,12 +29,12 @@ fn main() {
     // In this instance we provide our own non-capturing closure that coerces to the expected error
     // handler function pointer:
     //
-    //     fn(bevy_ecs::result::Error, &bevy_ecs::system::ScheduleSystem)
+    //     fn(bevy_ecs::result::Error, bevy_ecs::result::SystemErrorContext)
     //
     app.add_systems(PostStartup, failing_system)
         .get_schedule_mut(PostStartup)
         .unwrap()
-        .set_error_handler(|err, system| error!("{} failed: {err}", system.name()));
+        .set_error_handler(|err, ctx| error!("{} failed: {err}", ctx.name));
 
     // Individual systems can also be handled by piping the output result:
     app.add_systems(

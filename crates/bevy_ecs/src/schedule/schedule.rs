@@ -29,7 +29,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     resource::Resource,
-    result::{default_error_handler, Error},
+    result::{default_error_handler, Error, SystemErrorContext},
     schedule::*,
     system::ScheduleSystem,
     world::World,
@@ -47,7 +47,7 @@ pub struct Schedules {
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
 
     /// Error handler to use for systems that return a [`Result`](crate::result::Result).
-    pub error_handler: fn(Error, &ScheduleSystem),
+    pub error_handler: fn(Error, SystemErrorContext),
 }
 
 impl Default for Schedules {
@@ -310,7 +310,7 @@ pub struct Schedule {
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
     executor_initialized: bool,
-    error_handler: Option<fn(Error, &ScheduleSystem)>,
+    error_handler: Option<fn(Error, SystemErrorContext)>,
 }
 
 #[derive(ScheduleLabel, Hash, PartialEq, Eq, Debug, Clone)]
@@ -416,7 +416,7 @@ impl Schedule {
     /// Set the error handler to use for systems that return a [`Result`](crate::result::Result).
     ///
     /// See the [`result` module-level documentation](crate::result) for more information.
-    pub fn set_error_handler(&mut self, error_handler: fn(Error, &ScheduleSystem)) {
+    pub fn set_error_handler(&mut self, error_handler: fn(Error, SystemErrorContext)) {
         self.error_handler = Some(error_handler);
     }
 

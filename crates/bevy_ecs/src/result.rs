@@ -29,11 +29,11 @@
 //! signature:
 //!
 //! ```rust,ignore
-//! fn(Error, &ScheduleSystem)
+//! fn(Error, SystemErrorContext)
 //! ```
 //!
-//! The reference to [`ScheduleSystem`] allows you to access any non-mutating methods from
-//! [`System`] – such as the system's [`name`] – in your error messages.
+//! The [`SystemErrorContext`] allows you to access additional details relevant to providing
+//! context surrounding the system error – such as the system's [`name`] – in your error messages.
 //!
 //! For example:
 //!
@@ -47,13 +47,13 @@
 //! # fn main() {
 //! let mut schedule = Schedule::new(MySchedule);
 //! schedule.add_systems(update);
-//! schedule.set_error_handler(|error, system| {
-//!     if system.name().ends_with("update") {
+//! schedule.set_error_handler(|error, ctx| {
+//!     if ctx.name.ends_with("update") {
 //!         trace!("Nothing to see here, move along.");
 //!         return;
 //!     }
 //!
-//!     bevy_ecs::result::error(error, system);
+//!     bevy_ecs::result::error(error, ctx);
 //! });
 //! # }
 //! ```
@@ -70,8 +70,8 @@
 //! [`App::set_systems_error_handler`]: ../../bevy_app/struct.App.html#method.set_systems_error_handler
 //! [`system piping feature`]: crate::system::In
 
-use crate::system::ScheduleSystem;
-use alloc::boxed::Box;
+use crate::{component::Tick, resource::Resource};
+use alloc::{borrow::Cow, boxed::Box};
 
 /// A dynamic error type for use in fallible systems.
 pub type Error = Box<dyn core::error::Error + Send + Sync + 'static>;
@@ -79,61 +79,81 @@ pub type Error = Box<dyn core::error::Error + Send + Sync + 'static>;
 /// A result type for use in fallible systems.
 pub type Result<T = (), E = Error> = core::result::Result<T, E>;
 
+/// Additional context for a failed system run.
+pub struct SystemErrorContext {
+    /// The name of the system that failed.
+    pub name: Cow<'static, str>,
+
+    /// The last tick that the system was run.
+    pub last_run: Tick,
+}
+
+/// The default systems error handler stored as a resource in the [`World`](crate::world::World).
+pub struct DefaultSystemsErrorHandler(pub fn(Error, SystemErrorContext));
+
+impl Resource for DefaultSystemsErrorHandler {}
+
+impl Default for DefaultSystemsErrorHandler {
+    fn default() -> Self {
+        Self(panic)
+    }
+}
+
 macro_rules! inner {
-    ($call:path, $e:ident, $s:ident) => {
-        $call!("Encountered an error in system `{}`: {:?}", $s.name(), $e);
+    ($call:path, $e:ident, $c:ident) => {
+        $call!("Encountered an error in system `{}`: {:?}", $c.name, $e);
     };
 }
 
 /// Error handler that panics with the system error.
 #[track_caller]
 #[inline]
-pub fn panic(error: Error, system: &ScheduleSystem) {
-    inner!(panic, error, system);
+pub fn panic(error: Error, ctx: SystemErrorContext) {
+    inner!(panic, error, ctx);
 }
 
 /// Error handler that logs the system error at the `error` level.
 #[track_caller]
 #[inline]
-pub fn error(error: Error, system: &ScheduleSystem) {
-    inner!(log::error, error, system);
+pub fn error(error: Error, ctx: SystemErrorContext) {
+    inner!(log::error, error, ctx);
 }
 
 /// Error handler that logs the system error at the `warn` level.
 #[track_caller]
 #[inline]
-pub fn warn(error: Error, system: &ScheduleSystem) {
-    inner!(log::warn, error, system);
+pub fn warn(error: Error, ctx: SystemErrorContext) {
+    inner!(log::warn, error, ctx);
 }
 
 /// Error handler that logs the system error at the `info` level.
 #[track_caller]
 #[inline]
-pub fn info(error: Error, system: &ScheduleSystem) {
-    inner!(log::info, error, system);
+pub fn info(error: Error, ctx: SystemErrorContext) {
+    inner!(log::info, error, ctx);
 }
 
 /// Error handler that logs the system error at the `debug` level.
 #[track_caller]
 #[inline]
-pub fn debug(error: Error, system: &ScheduleSystem) {
-    inner!(log::debug, error, system);
+pub fn debug(error: Error, ctx: SystemErrorContext) {
+    inner!(log::debug, error, ctx);
 }
 
 /// Error handler that logs the system error at the `trace` level.
 #[track_caller]
 #[inline]
-pub fn trace(error: Error, system: &ScheduleSystem) {
-    inner!(log::trace, error, system);
+pub fn trace(error: Error, ctx: SystemErrorContext) {
+    inner!(log::trace, error, ctx);
 }
 
 /// Error handler that ignores the system error.
 #[track_caller]
 #[inline]
-pub fn ignore(_: Error, _: &ScheduleSystem) {}
+pub fn ignore(_: Error, _: SystemErrorContext) {}
 
 #[track_caller]
 #[inline]
-pub(crate) fn default_error_handler(error: Error, system: &ScheduleSystem) {
+pub(crate) fn default_error_handler(error: Error, system: SystemErrorContext) {
     panic(error, system);
 }

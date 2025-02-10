@@ -13,9 +13,9 @@ use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    result::Error,
+    result::{Error, SystemErrorContext},
     schedule::{ScheduleBuildSettings, ScheduleLabel},
-    system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
+    system::{IntoObserverSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
@@ -1269,7 +1269,7 @@ impl App {
     /// for more information.
     pub fn set_systems_error_handler(
         &mut self,
-        error_handler: fn(Error, &ScheduleSystem),
+        error_handler: fn(Error, SystemErrorContext),
     ) -> &mut Self {
         self.main_mut().set_systems_error_handler(error_handler);
         self
