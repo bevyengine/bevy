@@ -23,6 +23,7 @@ use crate::{
     },
 };
 use alloc::vec::Vec;
+use bevy_ecs::component::Tick;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
 #[cfg(feature = "track_location")]
@@ -35,7 +36,6 @@ use core::{
     mem::MaybeUninit,
 };
 use thiserror::Error;
-use bevy_ecs::component::Tick;
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -152,7 +152,11 @@ impl<'w> EntityRef<'w> {
     /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
     /// but for some advanced users it can be useful to have more control over the change ticks.
     #[inline]
-    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'w, T>> {
+    pub fn get_ref_with_ticks<T: Component>(
+        &self,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Ref<'w, T>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.cell.get_ref_with_ticks::<T>(last_run, this_run) }
     }
@@ -593,7 +597,11 @@ impl<'w> EntityMut<'w> {
     /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
     /// but for some advanced users it can be useful to have more control over the change ticks.
     #[inline]
-    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'_, T>> {
+    pub fn get_ref_with_ticks<T: Component>(
+        &self,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Ref<'_, T>> {
         self.as_readonly().get_ref_with_ticks(last_run, this_run)
     }
 
@@ -1262,7 +1270,11 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[inline]
-    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'_, T>> {
+    pub fn get_ref_with_ticks<T: Component>(
+        &self,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Ref<'_, T>> {
         self.as_readonly().get_ref_with_ticks(last_run, this_run)
     }
 
@@ -3320,7 +3332,11 @@ impl<'w> FilteredEntityRef<'w> {
     /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
     /// but for some advanced users it can be useful to have more control over the change ticks.
     #[inline]
-    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'w, T>> {
+    pub fn get_ref_with_ticks<T: Component>(
+        &self,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Ref<'w, T>> {
         let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
         self.access
             .has_component_read(id)
@@ -3655,7 +3671,11 @@ impl<'w> FilteredEntityMut<'w> {
     /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
     /// but for some advanced users it can be useful to have more control over the change ticks.
     #[inline]
-    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'_, T>> {
+    pub fn get_ref_with_ticks<T: Component>(
+        &self,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Option<Ref<'_, T>> {
         self.as_readonly().get_ref_with_ticks(last_run, this_run)
     }
 
