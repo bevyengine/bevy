@@ -1,14 +1,12 @@
 use crate::{
-    change_detection::MaybeUnsafeCellLocation,
+    change_detection::MaybeLocation,
     component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
     storage::{Column, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-#[cfg(feature = "track_location")]
-use core::panic::Location;
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, panic::Location};
 use nonmax::NonMaxUsize;
 
 type EntityIndex = u32;
@@ -170,26 +168,16 @@ impl ComponentSparseSet {
         entity: Entity,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.as_usize()]);
-            self.dense.replace(
-                dense_index,
-                value,
-                change_tick,
-                #[cfg(feature = "track_location")]
-                caller,
-            );
+            self.dense.replace(dense_index, value, change_tick, caller);
         } else {
             let dense_index = self.dense.len();
-            self.dense.push(
-                value,
-                ComponentTicks::new(change_tick),
-                #[cfg(feature = "track_location")]
-                caller,
-            );
+            self.dense
+                .push(value, ComponentTicks::new(change_tick), caller);
             self.sparse
                 .insert(entity.index(), TableRow::from_usize(dense_index));
             #[cfg(debug_assertions)]
@@ -238,7 +226,11 @@ impl ComponentSparseSet {
     pub fn get_with_ticks(
         &self,
         entity: Entity,
-    ) -> Option<(Ptr<'_>, TickCells<'_>, MaybeUnsafeCellLocation<'_>)> {
+    ) -> Option<(
+        Ptr<'_>,
+        TickCells<'_>,
+        MaybeLocation<&UnsafeCell<&'static Location<'static>>>,
+    )> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index.as_usize()]);
@@ -250,10 +242,7 @@ impl ComponentSparseSet {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                 },
-                #[cfg(feature = "track_location")]
                 self.dense.get_changed_by_unchecked(dense_index),
-                #[cfg(not(feature = "track_location"))]
-                (),
             ))
         }
     }
@@ -298,16 +287,17 @@ impl ComponentSparseSet {
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    #[cfg(feature = "track_location")]
     pub fn get_changed_by(
         &self,
         entity: Entity,
-    ) -> Option<&UnsafeCell<&'static Location<'static>>> {
-        let dense_index = *self.sparse.get(entity.index())?;
-        #[cfg(debug_assertions)]
-        assert_eq!(entity, self.entities[dense_index.as_usize()]);
-        // SAFETY: if the sparse index points to something in the dense vec, it exists
-        unsafe { Some(self.dense.get_changed_by_unchecked(dense_index)) }
+    ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
+        MaybeLocation::new_with_flattened(|| {
+            let dense_index = *self.sparse.get(entity.index())?;
+            #[cfg(debug_assertions)]
+            assert_eq!(entity, self.entities[dense_index.as_usize()]);
+            // SAFETY: if the sparse index points to something in the dense vec, it exists
+            unsafe { Some(self.dense.get_changed_by_unchecked(dense_index)) }
+        })
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if
@@ -616,7 +606,7 @@ impl SparseSets {
         self.sets.iter().map(|(id, data)| (*id, data))
     }
 
-    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
         self.sets.get(component_id)
@@ -638,7 +628,7 @@ impl SparseSets {
         self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
     pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
     }
@@ -661,7 +651,6 @@ impl SparseSets {
 mod tests {
     use super::SparseSets;
     use crate::{
-        self as bevy_ecs,
         component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
         entity::Entity,
         storage::SparseSet,

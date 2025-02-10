@@ -10,6 +10,7 @@ use crate::{
         WorldQuery,
     },
     storage::{SparseSetIndex, TableId},
+    system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
@@ -154,9 +155,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     pub fn matched_archetypes(&self) -> impl Iterator<Item = ArchetypeId> + '_ {
         self.matched_archetypes.ones().map(ArchetypeId::new)
     }
-}
 
-impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Creates a new [`QueryState`] from a given [`World`] and inherits the result of `world.id()`.
     pub fn new(world: &mut World) -> Self {
         let mut state = Self::new_uninitialized(world);
@@ -317,6 +316,124 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         };
         state.update_archetypes(builder.world());
         state
+    }
+
+    /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
+    ///
+    /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
+    pub fn query<'w, 's>(&'s mut self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
+        self.update_archetypes(world);
+        self.query_manual(world)
+    }
+
+    /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
+    ///
+    /// This method is slightly more efficient than [`QueryState::query`] in some situations, since
+    /// it does not update this instance's internal cache. The resulting query may skip an entity that
+    /// belongs to an archetype that has not been cached.
+    ///
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
+    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
+    /// access to `self`.
+    ///
+    /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
+    pub fn query_manual<'w, 's>(&'s self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
+        // SAFETY: We have read access to the entire world, and we call `as_readonly()` so the query only performs read access.
+        unsafe {
+            self.as_readonly()
+                .query_unchecked_manual(world.as_unsafe_world_cell_readonly())
+        }
+    }
+
+    /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
+    pub fn query_mut<'w, 's>(&'s mut self, world: &'w mut World) -> Query<'w, 's, D, F> {
+        let last_run = world.last_change_tick();
+        let this_run = world.change_tick();
+        // SAFETY: We have exclusive access to the entire world.
+        unsafe { self.query_unchecked_with_ticks(world.as_unsafe_world_cell(), last_run, this_run) }
+    }
+
+    /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    pub unsafe fn query_unchecked<'w, 's>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+    ) -> Query<'w, 's, D, F> {
+        self.update_archetypes_unsafe_world_cell(world);
+        // SAFETY: Caller ensures we have the required access
+        unsafe { self.query_unchecked_manual(world) }
+    }
+
+    /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
+    ///
+    /// This method is slightly more efficient than [`QueryState::query_unchecked`] in some situations, since
+    /// it does not update this instance's internal cache. The resulting query may skip an entity that
+    /// belongs to an archetype that has not been cached.
+    ///
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
+    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
+    /// access to `self`.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    pub unsafe fn query_unchecked_manual<'w, 's>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+    ) -> Query<'w, 's, D, F> {
+        let last_run = world.last_change_tick();
+        let this_run = world.change_tick();
+        // SAFETY: The caller ensured we have the correct access to the world.
+        unsafe { self.query_unchecked_manual_with_ticks(world, last_run, this_run) }
+    }
+
+    /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    pub unsafe fn query_unchecked_with_ticks<'w, 's>(
+        &'s mut self,
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Query<'w, 's, D, F> {
+        self.update_archetypes_unsafe_world_cell(world);
+        // SAFETY: The caller ensured we have the correct access to the world.
+        unsafe { self.query_unchecked_manual_with_ticks(world, last_run, this_run) }
+    }
+
+    /// Creates a [`Query`] from the given [`QueryState`] and [`World`].
+    ///
+    /// This method is slightly more efficient than [`QueryState::query_unchecked_with_ticks`] in some situations, since
+    /// it does not update this instance's internal cache. The resulting query may skip an entity that
+    /// belongs to an archetype that has not been cached.
+    ///
+    /// To ensure that the cache is up to date, call [`QueryState::update_archetypes`] before this method.
+    /// The cache is also updated in [`QueryState::new`], [`QueryState::get`], or any method with mutable
+    /// access to `self`.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    pub unsafe fn query_unchecked_manual_with_ticks<'w, 's>(
+        &'s self,
+        world: UnsafeWorldCell<'w>,
+        last_run: Tick,
+        this_run: Tick,
+    ) -> Query<'w, 's, D, F> {
+        self.validate_world(world.id());
+        // SAFETY:
+        // - The caller ensured we have the correct access to the world.
+        // - `validate_world` did not panic, so the world matches.
+        unsafe { Query::new(world, self, last_run, this_run) }
     }
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
@@ -624,7 +741,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// You should not call [`update_archetypes`](Self::update_archetypes) on the returned [`QueryState`] as the result will be unpredictable.
     /// You might end up with a mix of archetypes that only matched the original query + archetypes that only match
     /// the new [`QueryState`]. Most of the safe methods on [`QueryState`] call [`QueryState::update_archetypes`] internally, so this
-    /// best used through a [`Query`](crate::system::Query).
+    /// best used through a [`Query`]
     pub fn transmute<'a, NewD: QueryData>(
         &self,
         world: impl Into<UnsafeWorldCell<'a>>,
@@ -1893,7 +2010,6 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         component::Component, entity_disabling::DefaultQueryFilters, prelude::*,
         query::QueryEntityError, world::FilteredEntityRef,

@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::event::EventParIter;
 use bevy_ecs::{

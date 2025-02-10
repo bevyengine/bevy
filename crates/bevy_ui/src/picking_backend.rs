@@ -53,7 +53,7 @@ pub struct NodeQuery {
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: Option<&'static UiTargetCamera>,
+    target_camera: &'static ComputedNodeTarget,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -63,7 +63,6 @@ pub struct NodeQuery {
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
-    default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
@@ -71,8 +70,6 @@ pub fn ui_picking(
 ) {
     // For each camera, the pointer and its position
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
-
-    let default_camera_entity = default_ui_camera.get();
 
     for (pointer_id, pointer_location) in
         pointers.iter().filter_map(|(pointer, pointer_location)| {
@@ -132,11 +129,7 @@ pub fn ui_picking(
         {
             continue;
         }
-        let Some(camera_entity) = node
-            .target_camera
-            .map(UiTargetCamera::entity)
-            .or(default_camera_entity)
-        else {
+        let Some(camera_entity) = node.target_camera.camera() else {
             continue;
         };
 
@@ -191,7 +184,7 @@ pub fn ui_picking(
             let node = node_query.get(*hovered_node).unwrap();
 
             let Some(camera_entity) = node
-                .target_camera
+                .target_camera.camera()
                 .map(UiTargetCamera::entity)
                 .or(default_camera_entity)
             else {

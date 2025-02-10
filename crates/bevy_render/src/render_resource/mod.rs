@@ -43,8 +43,7 @@ pub use wgpu::{
     ColorWrites, CommandEncoder, CommandEncoderDescriptor, CompareFunction, ComputePass,
     ComputePassDescriptor, ComputePipelineDescriptor as RawComputePipelineDescriptor,
     DepthBiasState, DepthStencilState, DownlevelFlags, Extent3d, Face, Features as WgpuFeatures,
-    FilterMode, FragmentState as RawFragmentState, FrontFace, ImageCopyBuffer, ImageCopyBufferBase,
-    ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout, ImageSubresourceRange, IndexFormat,
+    FilterMode, FragmentState as RawFragmentState, FrontFace, ImageSubresourceRange, IndexFormat,
     Limits as WgpuLimits, LoadOp, Maintain, MapMode, MultisampleState, Operations, Origin3d,
     PipelineCompilationOptions, PipelineLayout, PipelineLayoutDescriptor, PolygonMode,
     PrimitiveState, PrimitiveTopology, PushConstantRange, RenderPassColorAttachment,
@@ -52,10 +51,11 @@ pub use wgpu::{
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, Sampler as WgpuSampler,
     SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
     ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess, StoreOp,
-    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureView as WgpuTextureView, TextureViewDescriptor, TextureViewDimension,
-    VertexAttribute, VertexBufferLayout as RawVertexBufferLayout, VertexFormat,
-    VertexState as RawVertexState, VertexStepMode, COPY_BUFFER_ALIGNMENT,
+    TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+    TextureView as WgpuTextureView, TextureViewDescriptor, TextureViewDimension, VertexAttribute,
+    VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
+    VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 
 pub use crate::mesh::VertexBufferLayout;

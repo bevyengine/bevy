@@ -104,7 +104,6 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         archetype::Archetype,
         component::{Component, ComponentId, Components, Tick},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
@@ -809,11 +808,8 @@ mod tests {
     /// `update_component_access` adds resource read access for `R`.
     /// `update_archetype_component_access` does nothing, as this accesses no components.
     unsafe impl WorldQuery for ReadsRData {
-        type Item<'w> = ();
         type Fetch<'w> = ();
         type State = ComponentId;
-
-        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
         fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
@@ -842,14 +838,6 @@ mod tests {
             _state: &Self::State,
             _table: &'w Table,
         ) {
-        }
-
-        #[inline(always)]
-        unsafe fn fetch<'w>(
-            _fetch: &mut Self::Fetch<'w>,
-            _entity: Entity,
-            _table_row: TableRow,
-        ) -> Self::Item<'w> {
         }
 
         fn update_component_access(
@@ -882,6 +870,17 @@ mod tests {
     /// SAFETY: `Self` is the same as `Self::ReadOnly`
     unsafe impl QueryData for ReadsRData {
         type ReadOnly = Self;
+        type Item<'w> = ();
+
+        fn shrink<'wlong: 'wshort, 'wshort>(_item: Self::Item<'wlong>) -> Self::Item<'wshort> {}
+
+        #[inline(always)]
+        unsafe fn fetch<'w>(
+            _fetch: &mut Self::Fetch<'w>,
+            _entity: Entity,
+            _table_row: TableRow,
+        ) -> Self::Item<'w> {
+        }
     }
 
     /// SAFETY: access is read only
