@@ -712,7 +712,6 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
 
 #[cfg(test)]
 mod tests {
-    use bevy_reflect::{FromType, Reflect, ReflectRef};
     use crate::{
         entity::Entities,
         prelude::{Component, Query},
@@ -720,6 +719,7 @@ mod tests {
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
+    use bevy_reflect::{FromType, Reflect, ReflectRef};
 
     use super::*;
 
