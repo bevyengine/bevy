@@ -427,7 +427,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
     fn remove_uinodes_recursive(
         entity: Entity,
-        node_transform_query: &mut Query<(
+        node_query: &mut Query<(
             &mut ComputedNode,
             &mut Transform,
             &Node,
