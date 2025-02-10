@@ -1059,9 +1059,72 @@ mod tests {
     #[test]
     fn easing_curves_step() {
         let start = Vec2::ZERO;
-        let end = Vec2::new(1.0, 2.0);
+        let end = Vec2::new(3.0, 3.0);
 
         let curve = EasingCurve::new(start, end, EaseFunction::Steps(4));
+        [
+            (0.0, start),
+            (0.249, start),
+            (0.250, Vec2::new(1., 1.)),
+            (0.499, Vec2::new(1., 1.)),
+            (0.500, Vec2::new(2., 2.)),
+            (0.749, Vec2::new(2., 2.)),
+            (0.750, end),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+        });
+    }
+    #[test]
+    fn easing_curves_step_start() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        let curve = EasingCurve::new(start, end, EaseFunction::StepsStart(4));
+        [
+            (0.0, Vec2::new(0.25, 0.5)),
+            (0.249, Vec2::new(0.25, 0.5)),
+            (0.250, Vec2::new(0.5, 1.0)),
+            (0.499, Vec2::new(0.5, 1.0)),
+            (0.500, Vec2::new(0.75, 1.5)),
+            (0.749, Vec2::new(0.75, 1.5)),
+            (0.750, end),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+        });
+    }
+    #[test]
+    fn easing_curves_step_end() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(5., 5.);
+
+        let curve = EasingCurve::new(start, end, EaseFunction::StepsBoth(4));
+        [
+            (0.0, Vec2::new(1.,1.)),
+            (0.249, Vec2::new(1.,1.)),
+            (0.250, Vec2::new(2., 2.)),
+            (0.499, Vec2::new(2., 2.)),
+            (0.500, Vec2::new(3., 3.)),
+            (0.749, Vec2::new(3., 3.)),
+            (0.750, Vec2::new(4., 4.)),
+            (1.0, end),
+        ]
+        .into_iter()
+        .for_each(|(t, x)| {
+            assert!(curve.sample_unchecked(t).abs_diff_eq(x, f32::EPSILON));
+        });
+    }
+    #[test]
+    fn easing_curves_step_both() {
+        let start = Vec2::ZERO;
+        let end = Vec2::new(1.0, 2.0);
+
+        let curve = EasingCurve::new(start, end, EaseFunction::StepsEnd(4));
         [
             (0.0, start),
             (0.249, start),
