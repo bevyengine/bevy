@@ -2020,6 +2020,12 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
 /// SAFETY: [`OptionFetch`] is read only because `T` is read only
 unsafe impl<T: ReadOnlyQueryData> ReadOnlyQueryData for Option<T> {}
 
+impl<T: ReleaseStateQueryData> ReleaseStateQueryData for Option<T> {
+    fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+        item.map(T::release_state)
+    }
+}
+
 /// Returns a bool that describes if an entity has the component `T`.
 ///
 /// This can be used in a [`Query`](crate::system::Query) if you want to know whether or not entities

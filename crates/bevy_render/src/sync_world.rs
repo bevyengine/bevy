@@ -277,7 +277,7 @@ mod render_entities_world_query_impls {
         archetype::Archetype,
         component::{ComponentId, Components, Tick},
         entity::Entity,
-        query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
+        query::{FilteredAccess, QueryData, ReadOnlyQueryData, ReleaseStateQueryData, WorldQuery},
         storage::{Table, TableRow},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
@@ -383,6 +383,12 @@ mod render_entities_world_query_impls {
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for RenderEntity {}
 
+    impl ReleaseStateQueryData for RenderEntity {
+        fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+            item
+        }
+    }
+
     /// SAFETY: defers completely to `&RenderEntity` implementation,
     /// and then only modifies the output safely.
     unsafe impl WorldQuery for MainEntity {
@@ -482,6 +488,12 @@ mod render_entities_world_query_impls {
 
     // SAFETY: the underlying `Entity` is copied, and no mutable access is provided.
     unsafe impl ReadOnlyQueryData for MainEntity {}
+
+    impl ReleaseStateQueryData for MainEntity {
+        fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
+            item
+        }
+    }
 }
 
 #[cfg(test)]
