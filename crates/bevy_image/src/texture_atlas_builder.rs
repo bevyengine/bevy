@@ -120,11 +120,9 @@ impl<'a> TextureAtlasBuilder<'a> {
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
         let Some(ref mut atlas_data) = atlas_texture.data else {
-            error!("Atlas texture has no texture data");
             return Err(TextureAtlasBuilderError::UninitializedAtlas);
         };
         let Some(ref data) = texture.data else {
-            error!("Source texture provided has no texture data");
             return Err(TextureAtlasBuilderError::UninitializedSourceTexture);
         };
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {

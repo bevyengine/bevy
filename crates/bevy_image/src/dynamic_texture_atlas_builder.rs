@@ -90,11 +90,9 @@ impl DynamicTextureAtlasBuilder {
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
         let Some(ref mut atlas_data) = atlas_texture.data else {
-            error!("Atlas texture has no texture data");
             return Err(DynamicTextureAtlasBuilderError::UninitializedAtlas);
         };
         let Some(ref data) = texture.data else {
-            error!("Source texture provided has no texture data");
             return Err(DynamicTextureAtlasBuilderError::UninitializedSourceTexture);
         };
         for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
