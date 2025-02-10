@@ -23,28 +23,32 @@
 //! you can use the [`TabNavigation`] system parameter directly instead.
 //! This object can be injected into your systems, and provides a [`navigate`](`TabNavigation::navigate`) method which can be
 //! used to navigate between focusable entities.
+
+use alloc::vec::Vec;
 use bevy_app::{App, Plugin, Startup};
-#[cfg(feature = "bevy_reflect")]
-use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    hierarchy::{ChildOf, Children},
     observer::Trigger,
     query::{With, Without},
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
-use bevy_hierarchy::{Children, HierarchyQueryExt, Parent};
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
 };
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
 use bevy_window::PrimaryWindow;
+use log::warn;
 use thiserror::Error;
-use tracing::warn;
 
 use crate::{FocusedInput, InputFocus, InputFocusVisible};
+
+#[cfg(feature = "bevy_reflect")]
+use {
+    bevy_ecs::prelude::ReflectComponent,
+    bevy_reflect::{prelude::*, Reflect},
+};
 
 /// A component which indicates that an entity wants to participate in tab navigation.
 ///
@@ -157,7 +161,7 @@ pub struct TabNavigation<'w, 's> {
         Without<TabGroup>,
     >,
     // Query for parents.
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
 }
 
 impl TabNavigation<'_, '_> {
@@ -362,7 +366,6 @@ pub fn handle_tab_navigation(
 #[cfg(test)]
 mod tests {
     use bevy_ecs::system::SystemState;
-    use bevy_hierarchy::BuildChildren;
 
     use super::*;
 
@@ -371,10 +374,9 @@ mod tests {
         let mut app = App::new();
         let world = app.world_mut();
 
-        let tab_entity_1 = world.spawn(TabIndex(0)).id();
-        let tab_entity_2 = world.spawn(TabIndex(1)).id();
-        let mut tab_group_entity = world.spawn(TabGroup::new(0));
-        tab_group_entity.replace_children(&[tab_entity_1, tab_entity_2]);
+        let tab_group_entity = world.spawn(TabGroup::new(0)).id();
+        let tab_entity_1 = world.spawn((TabIndex(0), ChildOf(tab_group_entity))).id();
+        let tab_entity_2 = world.spawn((TabIndex(1), ChildOf(tab_group_entity))).id();
 
         let mut system_state: SystemState<TabNavigation> = SystemState::new(world);
         let tab_navigation = system_state.get(world);

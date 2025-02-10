@@ -14,6 +14,7 @@ pub mod core_2d;
 pub mod core_3d;
 pub mod deferred;
 pub mod dof;
+pub mod experimental;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod motion_blur;
@@ -28,17 +29,6 @@ pub mod tonemapping;
 pub mod upscaling;
 
 pub use skybox::Skybox;
-
-/// Experimental features that are not yet finished. Please report any issues you encounter!
-///
-/// Expect bugs, missing features, compatibility issues, low performance, and/or future breaking changes.
-pub mod experimental {
-    pub mod taa {
-        pub use crate::taa::{
-            TemporalAntiAliasNode, TemporalAntiAliasPlugin, TemporalAntiAliasing,
-        };
-    }
-}
 
 /// The core pipeline prelude.
 ///
@@ -56,6 +46,7 @@ use crate::{
     core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
     dof::DepthOfFieldPlugin,
+    experimental::mip_generation::MipGenerationPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     motion_blur::MotionBlurPlugin,
@@ -87,10 +78,8 @@ impl Plugin for CorePipelinePlugin {
             .register_type::<NormalPrepass>()
             .register_type::<MotionVectorPrepass>()
             .register_type::<DeferredPrepass>()
+            .add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
-                Core2dPlugin,
-                Core3dPlugin,
-                CopyDeferredLightingIdPlugin,
                 BlitPlugin,
                 MsaaWritebackPlugin,
                 TonemappingPlugin,
@@ -103,6 +92,7 @@ impl Plugin for CorePipelinePlugin {
                 SmaaPlugin,
                 PostProcessingPlugin,
                 OrderIndependentTransparencyPlugin,
+                MipGenerationPlugin,
             ));
     }
 }

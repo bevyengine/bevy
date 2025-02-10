@@ -16,7 +16,9 @@ pub mod graph {
     #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
     pub enum Node3d {
         MsaaWriteback,
-        Prepass,
+        EarlyPrepass,
+        EarlyDownsampleDepth,
+        LatePrepass,
         DeferredPrepass,
         CopyDeferredLightingId,
         EndPrepasses,
@@ -25,6 +27,7 @@ pub mod graph {
         MainTransmissivePass,
         MainTransparentPass,
         EndMainPass,
+        LateDownsampleDepth,
         Taa,
         MotionBlur,
         Bloom,
@@ -67,9 +70,10 @@ use core::ops::Range;
 
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
+    experimental::occlusion_culling::OcclusionCulling,
     mesh::allocator::SlabId,
     render_phase::PhaseItemBatchSetKey,
-    view::{NoIndirectDrawing, RetainedViewEntity},
+    view::{prepare_view_targets, NoIndirectDrawing, RetainedViewEntity},
 };
 pub use camera_3d::*;
 pub use main_opaque_pass_3d_node::*;
@@ -81,6 +85,7 @@ use bevy_color::LinearRgba;
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault;
 use bevy_math::FloatOrd;
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -101,7 +106,6 @@ use bevy_render::{
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy_utils::{HashMap, HashSet};
 use nonmax::NonMaxU32;
 use tracing::warn;
 
@@ -114,8 +118,9 @@ use crate::{
     },
     dof::DepthOfFieldNode,
     prepass::{
-        node::PrepassNode, AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass,
-        NormalPrepass, Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
+        node::{EarlyPrepassNode, LatePrepassNode},
+        AlphaMask3dPrepass, DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
+        Opaque3dPrepass, OpaqueNoLightmap3dBatchSetKey, OpaqueNoLightmap3dBinKey,
         ViewPrepassTextures, MOTION_VECTOR_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
     },
     skybox::SkyboxPlugin,
@@ -161,6 +166,9 @@ impl Plugin for Core3dPlugin {
                 (
                     sort_phase_system::<Transmissive3d>.in_set(RenderSet::PhaseSort),
                     sort_phase_system::<Transparent3d>.in_set(RenderSet::PhaseSort),
+                    configure_occlusion_culling_view_targets
+                        .after(prepare_view_targets)
+                        .in_set(RenderSet::ManageViews),
                     prepare_core_3d_depth_textures.in_set(RenderSet::PrepareResources),
                     prepare_core_3d_transmission_textures.in_set(RenderSet::PrepareResources),
                     prepare_prepass_textures.in_set(RenderSet::PrepareResources),
@@ -169,7 +177,8 @@ impl Plugin for Core3dPlugin {
 
         render_app
             .add_render_sub_graph(Core3d)
-            .add_render_graph_node::<ViewNodeRunner<PrepassNode>>(Core3d, Node3d::Prepass)
+            .add_render_graph_node::<ViewNodeRunner<EarlyPrepassNode>>(Core3d, Node3d::EarlyPrepass)
+            .add_render_graph_node::<ViewNodeRunner<LatePrepassNode>>(Core3d, Node3d::LatePrepass)
             .add_render_graph_node::<ViewNodeRunner<DeferredGBufferPrepassNode>>(
                 Core3d,
                 Node3d::DeferredPrepass,
@@ -200,7 +209,8 @@ impl Plugin for Core3dPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::Prepass,
+                    Node3d::EarlyPrepass,
+                    Node3d::LatePrepass,
                     Node3d::DeferredPrepass,
                     Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
@@ -619,8 +629,8 @@ pub fn extract_core_3d_camera_phases(
         // This is the main 3D camera, so use the first subview index (0).
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
-        opaque_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
-        alpha_mask_3d_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+        opaque_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
+        alpha_mask_3d_phases.prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         transmissive_3d_phases.insert_or_clear(retained_view_entity);
         transparent_3d_phases.insert_or_clear(retained_view_entity);
 
@@ -688,18 +698,20 @@ pub fn extract_camera_prepass_phase(
         let retained_view_entity = RetainedViewEntity::new(main_entity.into(), None, 0);
 
         if depth_prepass || normal_prepass || motion_vector_prepass {
-            opaque_3d_prepass_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+            opaque_3d_prepass_phases
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
             alpha_mask_3d_prepass_phases
-                .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         } else {
             opaque_3d_prepass_phases.remove(&retained_view_entity);
             alpha_mask_3d_prepass_phases.remove(&retained_view_entity);
         }
 
         if deferred_prepass {
-            opaque_3d_deferred_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+            opaque_3d_deferred_phases
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
             alpha_mask_3d_deferred_phases
-                .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
         } else {
             opaque_3d_deferred_phases.remove(&retained_view_entity);
             alpha_mask_3d_deferred_phases.remove(&retained_view_entity);
@@ -895,6 +907,28 @@ pub fn prepare_core_3d_transmission_textures(
             view: cached_texture.default_view,
             sampler,
         });
+    }
+}
+
+/// Sets the `TEXTURE_BINDING` flag on the depth texture if necessary for
+/// occlusion culling.
+///
+/// We need that flag to be set in order to read from the texture.
+fn configure_occlusion_culling_view_targets(
+    mut view_targets: Query<
+        &mut Camera3d,
+        (
+            With<OcclusionCulling>,
+            Without<NoIndirectDrawing>,
+            With<DepthPrepass>,
+            Without<DeferredPrepass>,
+        ),
+    >,
+) {
+    for mut camera_3d in &mut view_targets {
+        let mut depth_texture_usages = TextureUsages::from(camera_3d.depth_texture_usages);
+        depth_texture_usages |= TextureUsages::TEXTURE_BINDING;
+        camera_3d.depth_texture_usages = depth_texture_usages.into();
     }
 }
 

@@ -30,7 +30,11 @@ qoi = ["image/qoi"]
 tga = ["image/tga"]
 tiff = ["image/tiff"]
 webp = ["image/webp"]
-serialize = ["bevy_reflect"]
+serialize = [
+  "bevy_reflect",
+  "bevy_platform_support/serialize",
+  "bevy_utils/serde",
+]
 
 # For ktx2 supercompression
 zlib = ["flate2"]
@@ -49,6 +53,9 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "bevy",
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+] }
 
 # rendering
 image = { version = "0.25.2", default-features = false }
@@ -56,9 +63,7 @@ image = { version = "0.25.2", default-features = false }
 # misc
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "23", default-features = false }
-# TODO: remove dependency on wgpu once https://github.com/gfx-rs/wgpu/pull/6648, 6649 and 6650 have been released
-wgpu = { version = "23.0.1", default-features = false }
+wgpu-types = { version = "24", default-features = false }
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 futures-lite = "2.0.1"
@@ -72,6 +77,7 @@ ruzstd = { version = "0.7.0", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.3.0", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+half = { version = "2.4.1" }
 
 [dev-dependencies]
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }

@@ -94,7 +94,7 @@ extern crate alloc;
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 mod loader;
 mod vertex_attributes;

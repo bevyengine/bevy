@@ -4,8 +4,7 @@ use crate::render_resource::{
     RenderPipeline, Sampler, Texture,
 };
 use crate::WgpuWrapper;
-use alloc::sync::Arc;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
@@ -14,17 +13,17 @@ use wgpu::{
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: Arc<WgpuWrapper<wgpu::Device>>,
+    device: WgpuWrapper<wgpu::Device>,
 }
 
 impl From<wgpu::Device> for RenderDevice {
     fn from(device: wgpu::Device) -> Self {
-        Self::new(Arc::new(WgpuWrapper::new(device)))
+        Self::new(WgpuWrapper::new(device))
     }
 }
 
 impl RenderDevice {
-    pub fn new(device: Arc<WgpuWrapper<wgpu::Device>>) -> Self {
+    pub fn new(device: WgpuWrapper<wgpu::Device>) -> Self {
         Self { device }
     }
 

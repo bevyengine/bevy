@@ -56,10 +56,9 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::graph::NodePbr;
-use crate::PreviousGlobalTransform;
+use crate::{graph::NodePbr, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
@@ -86,9 +85,10 @@ use bevy_transform::components::Transform;
 use derive_more::From;
 use tracing::error;
 
-const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
+const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("d90ac78c-500f-48aa-b488-cc98eb3f6314");
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(3325134235233421);
+    weak_handle!("db8d9001-6ca7-4d00-968a-d5f5b96b89c3");
 
 /// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
 ///
@@ -177,12 +177,6 @@ impl Plugin for MeshletPlugin {
         );
         load_internal_asset!(
             app,
-            MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-            "downsample_depth.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
             MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
             "visibility_buffer_software_raster.wgsl",
             Shader::from_wgsl
@@ -255,7 +249,6 @@ impl Plugin for MeshletPlugin {
                     NodePbr::ShadowPass,
                     //
                     NodeMeshlet::Prepass,
-                    Node3d::Prepass,
                     //
                     NodeMeshlet::DeferredPrepass,
                     Node3d::DeferredPrepass,

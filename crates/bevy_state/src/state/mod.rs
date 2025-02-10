@@ -22,7 +22,6 @@ mod tests {
     use bevy_state_macros::{States, SubStates};
 
     use super::*;
-    use crate as bevy_state;
 
     #[derive(States, PartialEq, Eq, Debug, Default, Hash, Clone)]
     enum SimpleState {

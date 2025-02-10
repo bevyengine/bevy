@@ -1,9 +1,11 @@
 use crate::{
+    resource::Resource,
     schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
+    system::{IntoSystem, ResMut},
 };
 use alloc::vec::Vec;
-use bevy_utils::{HashMap, TypeIdMap};
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
 use log::{info, warn};
@@ -14,8 +16,6 @@ use log::error;
 
 #[cfg(test)]
 use log::debug;
-
-use crate as bevy_ecs;
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
@@ -828,8 +828,6 @@ mod tests {
     use crate::{prelude::*, schedule::ScheduleLabel};
     use alloc::{format, vec};
     use std::println;
-
-    pub use crate as bevy_ecs;
 
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestSchedule;

@@ -1,4 +1,4 @@
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use core::time::Duration;
 #[cfg(feature = "bevy_reflect")]
 use {
@@ -160,7 +160,7 @@ use {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
-/// # use bevy_utils::Instant;
+/// # use bevy_platform_support::time::Instant;
 /// #
 /// #[derive(Debug)]
 /// struct Custom {

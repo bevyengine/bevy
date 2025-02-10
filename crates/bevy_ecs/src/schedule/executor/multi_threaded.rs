@@ -1,4 +1,5 @@
 use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
 use concurrent_queue::ConcurrentQueue;
@@ -12,12 +13,6 @@ use std::{
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
 
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
-
 use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
@@ -26,8 +21,6 @@ use crate::{
     system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-
-use crate as bevy_ecs;
 
 use super::__rust_begin_short_backtrace;
 
@@ -801,7 +794,6 @@ impl MainThreadExecutor {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         prelude::Resource,
         schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
         system::Commands,

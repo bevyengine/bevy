@@ -1,7 +1,7 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -9,11 +9,13 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Local, Query, Res, ResMut, Resource},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
@@ -28,7 +30,6 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use bevy_utils::HashMap;
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
@@ -42,7 +43,8 @@ use crate::{
 
 use self::irradiance_volume::IrradianceVolume;
 
-pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8954249792581071582);
+pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("e80a2ae6-1c5a-4d9a-a852-d66ff0e6bf7f");
 
 pub mod environment_map;
 pub mod irradiance_volume;

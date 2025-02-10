@@ -1,15 +1,15 @@
 use crate::{DynamicScene, Scene};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     event::{Event, EventCursor, Events},
+    hierarchy::ChildOf,
     reflect::AppTypeRegistry,
-    system::Resource,
+    resource::Resource,
     world::{Mut, World},
 };
-use bevy_hierarchy::{BuildChildren, DespawnRecursiveExt, Parent};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::Reflect;
-use bevy_utils::{HashMap, HashSet};
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -201,9 +201,8 @@ impl SceneSpawner {
     pub fn despawn_instance_sync(&mut self, world: &mut World, instance_id: &InstanceId) {
         if let Some(instance) = self.spawned_instances.remove(instance_id) {
             for &entity in instance.entity_map.values() {
-                if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
-                    entity_mut.remove_parent();
-                    entity_mut.despawn_recursive();
+                if let Ok(entity_mut) = world.get_entity_mut(entity) {
+                    entity_mut.despawn();
                 };
             }
         }
@@ -378,7 +377,7 @@ impl SceneSpawner {
         for (instance_id, parent) in scenes_with_parent {
             if let Some(instance) = self.spawned_instances.get(&instance_id) {
                 for &entity in instance.entity_map.values() {
-                    // Add the `Parent` component to the scene root, and update the `Children` component of
+                    // Add the `ChildOf` component to the scene root, and update the `Children` component of
                     // the scene parent
                     if !world
                         .get_entity(entity)
@@ -387,7 +386,7 @@ impl SceneSpawner {
                         // scene have a parent
                         // Entities that wouldn't exist anymore are also skipped
                         // this case shouldn't happen anyway
-                        .is_none_or(|entity| entity.contains::<Parent>())
+                        .is_none_or(|entity| entity.contains::<ChildOf>())
                     {
                         world.entity_mut(parent).add_child(entity);
                     }
@@ -519,6 +518,7 @@ mod tests {
     use bevy_asset::{AssetPlugin, AssetServer, Handle};
     use bevy_ecs::{
         component::Component,
+        hierarchy::Children,
         observer::Trigger,
         prelude::ReflectComponent,
         query::With,
@@ -536,7 +536,6 @@ mod tests {
         entity::Entity,
         prelude::{AppTypeRegistry, World},
     };
-    use bevy_hierarchy::{Children, HierarchyPlugin};
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -550,7 +549,6 @@ mod tests {
         let mut app = App::new();
 
         app.add_plugins(ScheduleRunnerPlugin::default())
-            .add_plugins(HierarchyPlugin)
             .add_plugins(AssetPlugin::default())
             .add_plugins(ScenePlugin)
             .register_type::<ComponentA>();
@@ -854,7 +852,7 @@ mod tests {
             .run_system_once(
                 |mut commands: Commands, query: Query<Entity, With<ComponentF>>| {
                     for entity in query.iter() {
-                        commands.entity(entity).despawn_recursive();
+                        commands.entity(entity).despawn();
                     }
                 },
             )

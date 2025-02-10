@@ -6,11 +6,9 @@
 //!
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
-use std::any::TypeId;
-
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
-    ecs::system::StaticSystemParam,
+    ecs::{component::Tick, system::StaticSystemParam},
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
@@ -21,11 +19,11 @@ use bevy::{
         batching::GetFullBatchData,
         batching::{
             gpu_preprocessing::{
-                BatchedInstanceBuffers, IndirectParametersBuffers, PreprocessWorkItem,
-                PreprocessWorkItemBuffers,
+                self, BatchedInstanceBuffers, IndirectParametersBuffers, PreprocessWorkItem,
             },
             GetBatchData,
         },
+        experimental::occlusion_culling::OcclusionCulling,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology, RenderMesh},
         render_asset::{RenderAssetUsages, RenderAssets},
@@ -43,7 +41,6 @@ use bevy::{
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
         Render, RenderApp, RenderSet,
     },
-    utils::TypeIdMap,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
@@ -283,11 +280,11 @@ fn queue_custom_mesh_pipeline(
     ),
     mut specialized_mesh_pipelines: ResMut<SpecializedMeshPipelines<CustomMeshPipeline>>,
     views: Query<(
-        Entity,
         &RenderVisibleEntities,
         &ExtractedView,
         &Msaa,
         Has<NoIndirectDrawing>,
+        Has<OcclusionCulling>,
     )>,
     (render_meshes, render_mesh_instances): (
         Res<RenderAssets<RenderMesh>>,
@@ -301,12 +298,15 @@ fn queue_custom_mesh_pipeline(
         >,
     >,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
+    mut change_tick: Local<Tick>,
 ) {
     let system_param_item = param.into_inner();
 
     let BatchedInstanceBuffers {
         ref mut data_buffer,
         ref mut work_item_buffers,
+        ref mut late_indexed_indirect_parameters_buffer,
+        ref mut late_non_indexed_indirect_parameters_buffer,
         ..
     } = gpu_array_buffer.into_inner();
 
@@ -318,19 +318,29 @@ fn queue_custom_mesh_pipeline(
     // Render phases are per-view, so we need to iterate over all views so that
     // the entity appears in them. (In this example, we have only one view, but
     // it's good practice to loop over all views anyway.)
-    for (view_entity, view_visible_entities, view, msaa, no_indirect_drawing) in views.iter() {
+    for (view_visible_entities, view, msaa, no_indirect_drawing, gpu_occlusion_culling) in
+        views.iter()
+    {
         let Some(opaque_phase) = opaque_render_phases.get_mut(&view.retained_view_entity) else {
             continue;
         };
 
-        // Create a *work item buffer* if necessary. Work item buffers store the
+        // Create *work item buffers* if necessary. Work item buffers store the
         // indices of meshes that are to be rendered when indirect drawing is
         // enabled.
-        let work_item_buffer = work_item_buffers
-            .entry(view_entity)
-            .or_insert_with(TypeIdMap::default)
-            .entry(TypeId::of::<Opaque3d>())
-            .or_insert_with(|| PreprocessWorkItemBuffers::new(no_indirect_drawing));
+        let work_item_buffer = gpu_preprocessing::get_or_create_work_item_buffer::<Opaque3d>(
+            work_item_buffers,
+            view.retained_view_entity,
+            no_indirect_drawing,
+            gpu_occlusion_culling,
+        );
+
+        // Initialize those work item buffers in preparation for this new frame.
+        gpu_preprocessing::init_work_item_buffers(
+            work_item_buffer,
+            late_indexed_indirect_parameters_buffer,
+            late_non_indexed_indirect_parameters_buffer,
+        );
 
         // Create the key based on the view. In this case we only care about MSAA and HDR
         let view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
@@ -396,6 +406,10 @@ fn queue_custom_mesh_pipeline(
                 // can fail you need to handle the error here
                 .expect("Failed to specialize mesh pipeline");
 
+            // Bump the change tick so that Bevy is forced to rebuild the bin.
+            let next_change_tick = change_tick.get() + 1;
+            change_tick.set(next_change_tick);
+
             // Add the mesh with our specialized pipeline
             opaque_phase.add(
                 Opaque3dBatchSetKey {
@@ -416,6 +430,7 @@ fn queue_custom_mesh_pipeline(
                 // This example supports batching, but if your pipeline doesn't
                 // support it you can use `BinnedRenderPhaseType::UnbatchableMesh`
                 BinnedRenderPhaseType::BatchableMesh,
+                *change_tick,
             );
 
             // Create a *work item*. A work item tells the Bevy renderer to

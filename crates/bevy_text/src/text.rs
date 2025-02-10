@@ -8,7 +8,6 @@ use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_hierarchy::{Children, Parent};
 use bevy_reflect::prelude::*;
 use bevy_utils::once;
 use cosmic_text::{Buffer, Metrics};
@@ -159,7 +158,10 @@ impl TextLayout {
     }
 }
 
-/// A span of UI text in a tree of spans under an entity with [`TextLayout`] and `Text` or `Text2d`.
+/// A span of text in a tree of spans.
+///
+/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
+/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
@@ -169,12 +171,13 @@ impl TextLayout {
 /// # use bevy_color::palettes::basic::{RED, BLUE};
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
-/// # use bevy_hierarchy::BuildChildren;
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
 /// world.spawn((
+///     // `Text` or `Text2d` are needed, and will provide default instances
+///     // of the following components.
 ///     TextLayout::default(),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
@@ -184,6 +187,7 @@ impl TextLayout {
 ///     TextColor(BLUE.into()),
 /// ))
 /// .with_child((
+///     // Children must be `TextSpan`, not `Text` or `Text2d`.
 ///     TextSpan::new("Hello!"),
 ///     TextFont {
 ///         font: font_handle.into(),
@@ -370,8 +374,8 @@ impl Default for LineHeight {
 }
 
 /// The color of the text for this section.
-#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct TextColor(pub Color);
 
 impl Default for TextColor {
@@ -457,13 +461,13 @@ pub fn detect_text_needs_rerender<Root: Component>(
         ),
     >,
     changed_spans: Query<
-        (Entity, Option<&Parent>, Has<TextLayout>),
+        (Entity, Option<&ChildOf>, Has<TextLayout>),
         (
             Or<(
                 Changed<TextSpan>,
                 Changed<TextFont>,
                 Changed<Children>,
-                Changed<Parent>, // Included to detect broken text block hierarchies.
+                Changed<ChildOf>, // Included to detect broken text block hierarchies.
                 Added<TextLayout>,
             )>,
             With<TextSpan>,
@@ -471,7 +475,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
         ),
     >,
     mut computed: Query<(
-        Option<&Parent>,
+        Option<&ChildOf>,
         Option<&mut ComputedTextBlock>,
         Has<TextSpan>,
     )>,
@@ -510,14 +514,14 @@ pub fn detect_text_needs_rerender<Root: Component>(
             ));
             continue;
         };
-        let mut parent: Entity = **span_parent;
+        let mut parent: Entity = span_parent.0;
 
         // Search for the nearest ancestor with ComputedTextBlock.
         // Note: We assume the perf cost from duplicate visits in the case that multiple spans in a block are visited
         // is outweighed by the expense of tracking visited spans.
         loop {
             let Ok((maybe_parent, maybe_computed, has_span)) = computed.get_mut(parent) else {
-                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a Parent \
+                once!(warn!("found entity {} with a TextSpan that is part of a broken hierarchy with a ChildOf \
                     component that points at non-existent entity {}; this warning only prints once",
                     entity, parent));
                 break;
@@ -541,7 +545,7 @@ pub fn detect_text_needs_rerender<Root: Component>(
                 ));
                 break;
             };
-            parent = **next_parent;
+            parent = next_parent.0;
         }
     }
 }
