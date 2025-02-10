@@ -159,6 +159,7 @@ impl Default for TaskPoolOptions {
 impl TaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
     pub fn with_num_threads(thread_count: usize) -> Self {
+        assert!(thread_count > 2);
         TaskPoolOptions {
             min_total_threads: thread_count,
             max_total_threads: thread_count,
