@@ -9,6 +9,7 @@ use crate::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeId, Archetypes, BundleComponentStatus,
         ComponentStatus, SpawnBundleStatus,
     },
+    change_detection::MaybeLocation,
     component::{
         Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
         StorageType, Tick,
@@ -24,8 +25,6 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_ptr::{ConstNonNull, OwningPtr};
 use bevy_utils::TypeIdMap;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{any::TypeId, ptr::NonNull};
 use variadics_please::all_tuples;
 
@@ -623,7 +622,7 @@ impl BundleInfo {
         change_tick: Tick,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> T::Effect {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
@@ -638,20 +637,12 @@ impl BundleInfo {
                     // the target table contains the component.
                     let column = table.get_column_mut(component_id).debug_checked_unwrap();
                     match (status, insert_mode) {
-                        (ComponentStatus::Added, _) => column.initialize(
-                            table_row,
-                            component_ptr,
-                            change_tick,
-                            #[cfg(feature = "track_location")]
-                            caller,
-                        ),
-                        (ComponentStatus::Existing, InsertMode::Replace) => column.replace(
-                            table_row,
-                            component_ptr,
-                            change_tick,
-                            #[cfg(feature = "track_location")]
-                            caller,
-                        ),
+                        (ComponentStatus::Added, _) => {
+                            column.initialize(table_row, component_ptr, change_tick, caller);
+                        }
+                        (ComponentStatus::Existing, InsertMode::Replace) => {
+                            column.replace(table_row, component_ptr, change_tick, caller);
+                        }
                         (ComponentStatus::Existing, InsertMode::Keep) => {
                             if let Some(drop_fn) = table.get_drop_for(component_id) {
                                 drop_fn(component_ptr);
@@ -664,13 +655,7 @@ impl BundleInfo {
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(
-                        entity,
-                        component_ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
+                    sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
             }
             bundle_component += 1;
@@ -683,7 +668,6 @@ impl BundleInfo {
                 change_tick,
                 table_row,
                 entity,
-                #[cfg(feature = "track_location")]
                 caller,
             );
         }
@@ -712,7 +696,7 @@ impl BundleInfo {
         component_id: ComponentId,
         storage_type: StorageType,
         component_ptr: OwningPtr,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         {
             match storage_type {
@@ -721,26 +705,14 @@ impl BundleInfo {
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
-                    column.initialize(
-                        table_row,
-                        component_ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
+                    column.initialize(table_row, component_ptr, change_tick, caller);
                 }
                 StorageType::SparseSet => {
                     let sparse_set =
                         // SAFETY: If component_id is in required_components, BundleInfo::new requires that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    sparse_set.insert(
-                        entity,
-                        component_ptr,
-                        change_tick,
-                        #[cfg(feature = "track_location")]
-                        caller,
-                    );
+                    sparse_set.insert(entity, component_ptr, change_tick, caller);
                 }
             }
         }
@@ -1127,7 +1099,7 @@ impl<'w> BundleInserter<'w> {
         location: EntityLocation,
         bundle: T,
         insert_mode: InsertMode,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> (EntityLocation, T::Effect) {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
@@ -1145,7 +1117,6 @@ impl<'w> BundleInserter<'w> {
                         ON_REPLACE,
                         entity,
                         archetype_after_insert.iter_existing(),
-                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 }
@@ -1153,7 +1124,6 @@ impl<'w> BundleInserter<'w> {
                     archetype,
                     entity,
                     archetype_after_insert.iter_existing(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1183,7 +1153,6 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1225,7 +1194,6 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1308,7 +1276,6 @@ impl<'w> BundleInserter<'w> {
                     self.change_tick,
                     bundle,
                     insert_mode,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
 
@@ -1327,7 +1294,6 @@ impl<'w> BundleInserter<'w> {
                 new_archetype,
                 entity,
                 archetype_after_insert.iter_added(),
-                #[cfg(feature = "track_location")]
                 caller,
             );
             if new_archetype.has_add_observer() {
@@ -1335,7 +1301,6 @@ impl<'w> BundleInserter<'w> {
                     ON_ADD,
                     entity,
                     archetype_after_insert.iter_added(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1346,7 +1311,6 @@ impl<'w> BundleInserter<'w> {
                         new_archetype,
                         entity,
                         archetype_after_insert.iter_inserted(),
-                        #[cfg(feature = "track_location")]
                         caller,
                     );
                     if new_archetype.has_insert_observer() {
@@ -1354,7 +1318,6 @@ impl<'w> BundleInserter<'w> {
                             ON_INSERT,
                             entity,
                             archetype_after_insert.iter_inserted(),
-                            #[cfg(feature = "track_location")]
                             caller,
                         );
                     }
@@ -1366,7 +1329,6 @@ impl<'w> BundleInserter<'w> {
                         new_archetype,
                         entity,
                         archetype_after_insert.iter_added(),
-                        #[cfg(feature = "track_location")]
                         caller,
                     );
                     if new_archetype.has_insert_observer() {
@@ -1374,7 +1336,6 @@ impl<'w> BundleInserter<'w> {
                             ON_INSERT,
                             entity,
                             archetype_after_insert.iter_added(),
-                            #[cfg(feature = "track_location")]
                             caller,
                         );
                     }
@@ -1456,7 +1417,7 @@ impl<'w> BundleSpawner<'w> {
         &mut self,
         entity: Entity,
         bundle: T,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> (EntityLocation, T::Effect) {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
@@ -1481,7 +1442,6 @@ impl<'w> BundleSpawner<'w> {
                 self.change_tick,
                 bundle,
                 InsertMode::Replace,
-                #[cfg(feature = "track_location")]
                 caller,
             );
             entities.set(entity.index(), location);
@@ -1499,7 +1459,6 @@ impl<'w> BundleSpawner<'w> {
                 archetype,
                 entity,
                 bundle_info.iter_contributed_components(),
-                #[cfg(feature = "track_location")]
                 caller,
             );
             if archetype.has_add_observer() {
@@ -1507,7 +1466,6 @@ impl<'w> BundleSpawner<'w> {
                     ON_ADD,
                     entity,
                     bundle_info.iter_contributed_components(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1515,7 +1473,6 @@ impl<'w> BundleSpawner<'w> {
                 archetype,
                 entity,
                 bundle_info.iter_contributed_components(),
-                #[cfg(feature = "track_location")]
                 caller,
             );
             if archetype.has_insert_observer() {
@@ -1523,7 +1480,6 @@ impl<'w> BundleSpawner<'w> {
                     ON_INSERT,
                     entity,
                     bundle_info.iter_contributed_components(),
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             }
@@ -1538,18 +1494,11 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
         bundle: T,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) -> (Entity, T::Effect) {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let (_, after_effect) = unsafe {
-            self.spawn_non_existent(
-                entity,
-                bundle,
-                #[cfg(feature = "track_location")]
-                caller,
-            )
-        };
+        let (_, after_effect) = unsafe { self.spawn_non_existent(entity, bundle, caller) };
         (entity, after_effect)
     }
 

@@ -741,6 +741,7 @@ impl EaseFunction {
 }
 
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use crate::{Vec2, Vec3, Vec3A};
     use approx::assert_abs_diff_eq;
