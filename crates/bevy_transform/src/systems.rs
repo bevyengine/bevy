@@ -87,12 +87,16 @@ pub fn propagate_transforms_par(
         if stack_size == 0 {
             break;
         }
+        let local_stack_size = stack_size / task_pool.thread_num();
 
         // Important: this is very different from calling `Parallel::clear()`. Doing that will
         // reallocate the thread local, losing any allocated queues. Instead, we want to `clear`
         // each vector, which will retain allocations between system runs. This has a big impact on
         // performance.
-        next_stack.iter_mut().for_each(Vec::clear);
+        next_stack.iter_mut().for_each(|stack| {
+            stack.clear();
+            stack.reserve(local_stack_size);
+        });
 
         // In both single threaded and multi threaded, we avoid allocations by double buffering
         // between two `Parallel` thread locals. One acts as the current stack that can be consumed
@@ -100,6 +104,7 @@ pub fn propagate_transforms_par(
         if stack_size < 1024 {
             // Single threaded when the stack is small
             let mut next_stack = next_stack.borrow_local_mut();
+            next_stack.reserve(stack_size);
             let mut nodes = transform_queries.p1();
             for parent in stack.iter_mut().flatten() {
                 let children = children
@@ -119,12 +124,12 @@ pub fn propagate_transforms_par(
             // iteration. Because no entities at the same hierarchy level can depend on each other,
             // we can parallelize across all these entities without any bookkeeping.
             let nodes = transform_queries.p1();
-            let chunk_size = stack_size / task_pool.thread_num();
+
             let mut chunks = stack
                 .iter_mut()
                 // Break up the chunks to be smaller than the desired size, so that we are more
                 // likely to be able to distribute work evenly across all threads
-                .flat_map(|nodes| nodes.chunks(chunk_size / 4));
+                .flat_map(|nodes| nodes.chunks(local_stack_size / 4));
             let orphans = &orphans;
 
             let compute = |chunks: &[&[PropagationNode]]| {
@@ -154,11 +159,13 @@ pub fn propagate_transforms_par(
                 while let Some(chunk) = chunks.next() {
                     let mut composite_chunks = smallvec::SmallVec::<[_; 8]>::new();
                     composite_chunks.push(chunk);
-                    for chunk in chunks.by_ref() {
-                        composite_chunks.push(chunk);
-                        let total_len: usize = composite_chunks.iter().map(|c| c.len()).sum();
-                        if total_len > chunk_size {
-                            break;
+                    if chunk.len() < local_stack_size {
+                        for chunk in chunks.by_ref() {
+                            composite_chunks.push(chunk);
+                            let total_len: usize = composite_chunks.iter().map(|c| c.len()).sum();
+                            if total_len >= local_stack_size {
+                                break;
+                            }
                         }
                     }
                     scope.spawn(async move { compute(composite_chunks.as_slice()) });
