@@ -7,13 +7,16 @@ use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
 use self::gpu_preprocessing::IndirectParametersBuffers;
-use crate::{render_phase::PhaseItemExtraIndex, sync_world::MainEntity};
 use crate::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
         SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
+};
+use crate::{
+    render_phase::{InputUniformIndex, PhaseItemExtraIndex},
+    sync_world::MainEntity,
 };
 
 pub mod gpu_preprocessing;
@@ -167,7 +170,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// * `indirect_parameters_offset` is the index in that buffer at which to
     ///   write the metadata.
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: u32,
+        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,

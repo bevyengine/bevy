@@ -1946,6 +1946,7 @@ pub fn queue_shadows<M: Material>(
                         asset_id: mesh_instance.mesh_asset_id.into(),
                     },
                     (entity, main_entity),
+                    mesh_instance.current_uniform_index,
                     BinnedRenderPhaseType::mesh(
                         mesh_instance.should_batch(),
                         &gpu_preprocessing_support,
