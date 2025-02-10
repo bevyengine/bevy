@@ -712,7 +712,6 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         entity::Entities,
         prelude::{Component, Query},

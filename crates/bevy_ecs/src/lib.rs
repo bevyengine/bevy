@@ -33,6 +33,9 @@ compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_ecs;
+
 pub mod archetype;
 pub mod batching;
 pub mod bundle;
@@ -55,6 +58,7 @@ pub mod removal_detection;
 pub mod resource;
 pub mod result;
 pub mod schedule;
+pub mod spawn;
 pub mod storage;
 pub mod system;
 pub mod traversal;
@@ -74,6 +78,7 @@ pub mod prelude {
     pub use crate::{
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
+        children,
         component::{require, Component},
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
@@ -81,6 +86,8 @@ pub mod prelude {
         name::{Name, NameOrEntity},
         observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        related,
+        relationship::RelationshipTarget,
         removal_detection::RemovedComponents,
         resource::Resource,
         result::{Error, Result},
@@ -88,6 +95,7 @@ pub mod prelude {
             apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
             IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
         },
+        spawn::{Spawn, SpawnRelated},
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
@@ -128,7 +136,6 @@ pub mod __macro_exports {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         bundle::Bundle,
         change_detection::Ref,

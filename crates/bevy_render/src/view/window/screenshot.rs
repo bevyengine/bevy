@@ -593,7 +593,7 @@ fn render_screenshot(
         };
         encoder.copy_texture_to_buffer(
             prepared_state.texture.as_image_copy(),
-            wgpu::ImageCopyBuffer {
+            wgpu::TexelCopyBufferInfo {
                 buffer: &prepared_state.buffer,
                 layout: gpu_readback::layout_data(extent, texture_format),
             },

@@ -86,6 +86,16 @@ impl ComputedTextBlock {
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
+    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
+    /// or calculating a cursor position.
+    ///
+    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
+    /// If you want to control the buffer contents manually or use the `cosmic-text`
+    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
+    /// `TextLayoutInfo`.
+    pub fn buffer(&self) -> &CosmicBuffer {
+        &self.buffer
+    }
 }
 
 impl Default for ComputedTextBlock {

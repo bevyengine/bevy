@@ -6,7 +6,6 @@ use crate::{
     renderer::RenderDevice,
     texture::GpuImage,
 };
-use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
@@ -29,7 +28,7 @@ define_atomic_id!(BindGroupId);
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: Arc<WgpuWrapper<wgpu::BindGroup>>,
+    value: WgpuWrapper<wgpu::BindGroup>,
 }
 
 impl BindGroup {
@@ -58,7 +57,7 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -529,7 +528,6 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_render;
     use bevy_asset::Handle;
     use bevy_image::Image;
 
