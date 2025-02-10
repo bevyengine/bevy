@@ -87,17 +87,10 @@ fn update_clipping(
 
     // Calculate new clip rectangle for children nodes
     let children_clip = if node.overflow.is_visible() {
-        // When `Visible`, children might be visible even when they are outside
-        // the current node's boundaries. In this case they inherit the current
-        // node's parent clip. If an ancestor is set as `Hidden`, that clip will
-        // be used; otherwise this will be `None`.
+        // The current node doesn't clip, propagate the optional inherited clipping rect to any children
         maybe_inherited_clip
     } else {
-        // If `maybe_inherited_clip` is `Some`, use the intersection between
-        // current node's clip and the inherited clip. This handles the case
-        // of nested `Overflow::Hidden` nodes. If parent `clip` is not
-        // defined, use the current node's clip.
-
+        // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
         let mut clip_rect = Rect::from_center_size(
             global_transform.translation().truncate(),
             computed_node.size(),
