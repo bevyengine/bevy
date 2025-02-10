@@ -1187,7 +1187,7 @@ impl ReleaseStateQueryData for &Archetype {
     }
 }
 
-#[doc(hidden)]
+/// The [`WorldQuery::Fetch`] type for `& T`.
 pub struct ReadFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
@@ -1563,7 +1563,7 @@ impl<T: Component> ReleaseStateQueryData for Ref<'_, T> {
     }
 }
 
-#[doc(hidden)]
+/// The [`WorldQuery::Fetch`] type for `&mut T`.
 pub struct WriteFetch<'w, T: Component> {
     components: StorageSwitch<
         T,
@@ -2203,7 +2203,6 @@ pub struct AnyOf<T>(PhantomData<T>);
 
 macro_rules! impl_tuple_query_data {
     ($(#[$meta:meta])* $(($name: ident, $item: ident)),*) => {
-
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such the lints below may not always apply."
