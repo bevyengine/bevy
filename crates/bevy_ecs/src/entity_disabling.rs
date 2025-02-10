@@ -42,7 +42,7 @@
 //! Entities with disabling components are still present in the [`World`] and can be accessed directly,
 //! using methods on [`World`] or [`Commands`](crate::prelude::Commands).
 //!
-//! ### Warning
+//! ### Warnings
 //!
 //! Currently, only queries for which the cache is built after enabling a default query filter will have entities
 //! with those components filtered. As a result, they should generally only be modified before the
@@ -51,6 +51,11 @@
 //! Because filters are applied to all queries they can have performance implication for
 //! the enire [`World`], especially when they cause queries to mix sparse and table components.
 //! See [`Query` performance] for more info.
+//!
+//! Custom disabling components can cause significant interoperability issues within the ecosystem,
+//! as users must be aware of each disabling component in use.
+//! Libraries should think carefully about whether they need to use a new disabling component,
+//! and clearly communicate their presence to their users to avoid the new for library compatibility flags.
 //!
 //! [`With`]: crate::prelude::With
 //! [`Has`]: crate::prelude::Has
@@ -91,6 +96,18 @@ pub struct Disabled;
 /// and if it does not, adds a [`Without`](crate::prelude::Without) filter for that component to the query.
 ///
 /// See the [module docs](crate::entity_disabling) for more info.
+///
+///
+/// # Warning
+///
+/// Default query filters are a global setting that affects all queries in the [`World`],
+/// and incur a small performance cost for each query.
+///
+/// They can cause significant interoperability issues within the ecosystem,
+/// as users must be aware of each disabling component in use.
+///
+/// Think carefully about whether you need to use a new disabling component,
+/// and clearly communicate their presence in any libraries you publish.
 #[derive(Resource, Default, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters {
@@ -105,6 +122,9 @@ impl DefaultQueryFilters {
     ///
     /// This method should only be called before the app starts, as it will not affect queries
     /// initialized before it is called.
+    ///
+    /// As discussed in the [module docs](crate::entity_disabling), this can have performance implications,
+    /// as well as create interoperability issues, and should be used with caution.
     pub fn register_disabling_component(&mut self, component_id: ComponentId) {
         self.disabling.insert(component_id);
     }
