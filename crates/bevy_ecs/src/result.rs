@@ -151,9 +151,3 @@ pub fn trace(error: Error, ctx: SystemErrorContext) {
 #[track_caller]
 #[inline]
 pub fn ignore(_: Error, _: SystemErrorContext) {}
-
-#[track_caller]
-#[inline]
-pub(crate) fn default_error_handler(error: Error, system: SystemErrorContext) {
-    panic(error, system);
-}

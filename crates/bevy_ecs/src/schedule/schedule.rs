@@ -29,7 +29,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     resource::Resource,
-    result::{default_error_handler, Error, SystemErrorContext},
+    result::{DefaultSystemsErrorHandler, Error, SystemErrorContext},
     schedule::*,
     system::ScheduleSystem,
     world::World,
@@ -40,24 +40,11 @@ pub use stepping::Stepping;
 use Direction::{Incoming, Outgoing};
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
-#[derive(Resource)]
+#[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<InternedScheduleLabel, Schedule>,
     /// List of [`ComponentId`]s to ignore when reporting system order ambiguity conflicts
     pub ignored_scheduling_ambiguities: BTreeSet<ComponentId>,
-
-    /// Error handler to use for systems that return a [`Result`](crate::result::Result).
-    pub error_handler: fn(Error, SystemErrorContext),
-}
-
-impl Default for Schedules {
-    fn default() -> Self {
-        Self {
-            inner: default(),
-            ignored_scheduling_ambiguities: default(),
-            error_handler: default_error_handler,
-        }
-    }
 }
 
 impl Schedules {
@@ -501,7 +488,7 @@ impl Schedule {
         }
 
         if self.error_handler.is_none() {
-            self.error_handler = Some(world.get_resource_or_init::<Schedules>().error_handler);
+            self.error_handler = Some(world.get_resource_or_init::<DefaultSystemsErrorHandler>().0);
         }
 
         if !self.executor_initialized {
