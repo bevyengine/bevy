@@ -38,6 +38,7 @@ use crate::{
     query::FilteredAccess,
 };
 use bevy_ecs_macros::{Component, Resource};
+use bevy_platform_support::collections::HashSet;
 
 #[cfg(feature = "bevy_reflect")]
 use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
@@ -59,27 +60,23 @@ pub struct Disabled;
 #[derive(Resource, Default, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters {
-    disabled: Option<ComponentId>,
+    disabling: HashSet<ComponentId>,
 }
 
 impl DefaultQueryFilters {
     /// Adds this [`ComponentId`] to the set of [`DefaultQueryFilters`],
     /// causing entities with this component to be excluded from queries.
-    pub(crate) fn register_disabling_component(&mut self, component_id: ComponentId) -> Option<()> {
-        if self.disabled.is_some() {
-            return None;
-        }
-        self.disabled = Some(component_id);
-        Some(())
+    pub(crate) fn register_disabling_component(&mut self, component_id: ComponentId) {
+        self.disabling.insert(component_id);
     }
 
     /// Get an iterator over all currently enabled filter components
-    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> {
-        [self.disabled].into_iter().flatten()
+    pub fn disabling_ids(&self) -> impl Iterator<Item = &ComponentId> {
+        self.disabling.iter()
     }
 
     pub(super) fn apply(&self, component_access: &mut FilteredAccess<ComponentId>) {
-        for component_id in self.disabling_ids() {
+        for &component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
             }
@@ -89,7 +86,7 @@ impl DefaultQueryFilters {
     pub(super) fn is_dense(&self, components: &Components) -> bool {
         self.disabling_ids().all(|component_id| {
             components
-                .get_info(component_id)
+                .get_info(*component_id)
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
         })
     }
@@ -100,22 +97,6 @@ mod tests {
 
     use super::*;
     use alloc::{vec, vec::Vec};
-
-    #[test]
-    fn test_set_filters() {
-        let mut filters = DefaultQueryFilters::default();
-        assert_eq!(0, filters.disabling_ids().count());
-
-        assert!(filters
-            .register_disabling_component(ComponentId::new(1))
-            .is_some());
-        assert!(filters
-            .register_disabling_component(ComponentId::new(3))
-            .is_none());
-
-        assert_eq!(1, filters.disabling_ids().count());
-        assert_eq!(Some(ComponentId::new(1)), filters.disabling_ids().next());
-    }
 
     #[test]
     fn test_apply_filters() {
