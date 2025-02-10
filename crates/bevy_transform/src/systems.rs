@@ -1,6 +1,11 @@
+use core::ops::DerefMut;
+
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
 use bevy_ecs::prelude::*;
+use bevy_log::info_span;
+use bevy_tasks::TaskPool;
+use bevy_utils::Parallel;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
@@ -33,6 +38,158 @@ pub fn sync_simple_transforms(
         if !transform.is_changed() && !global_transform.is_added() {
             *global_transform = GlobalTransform::from(*transform);
         }
+    }
+}
+
+/// Represent a subtree when propagating transforms.
+#[derive(Clone, Debug)]
+pub struct SubtreeParent {
+    is_changed: bool,
+    entity: Entity,
+    transform: GlobalTransform,
+}
+
+/// Propagate transforms
+pub fn propagate_transforms_par(
+    task_pool: Local<TaskPool>,
+    // Orphans
+    mut orphaned: RemovedComponents<ChildOf>,
+    mut orphans: Local<Vec<Entity>>,
+    // Locals to reuse allocations
+    mut stack: Local<Parallel<Vec<SubtreeParent>>>,
+    mut working_stack: Local<Parallel<Vec<SubtreeParent>>>,
+    // Queries
+    mut transform_queries: ParamSet<(
+        Query<
+            (Entity, Ref<Transform>, &mut GlobalTransform, Has<Children>),
+            (Without<ChildOf>, With<Children>),
+        >,
+        Query<(Entity, Ref<Transform>, &mut GlobalTransform, Has<Children>), With<ChildOf>>,
+        Query<&mut GlobalTransform>,
+    )>,
+    children: Query<&Children>,
+) {
+    let span = info_span!("Orphans").entered();
+    orphans.clear();
+    orphans.extend(orphaned.read());
+    orphans.sort_unstable();
+    drop(span);
+
+    // In parallel, compute the transform of all root entities. If their transform is changed, it
+    // will be pushed to the change queue. If the entity has children, it will be pushed to the
+    // queue.
+    let span = info_span!("Roots").entered();
+    transform_queries.p0().par_iter_mut().for_each_init(
+        || stack.borrow_local_mut(),
+        |locals, components| {
+            compute_transform(locals, None, components, &orphans);
+        },
+    );
+    drop(span);
+
+    let span = info_span!("Stack").entered();
+    loop {
+        let stack_size = stack.iter_mut().fold(0, |acc, e| acc + e.len());
+        if stack_size == 0 {
+            break;
+        }
+        working_stack.iter_mut().for_each(Vec::clear);
+        if stack_size < 1024 {
+            // Single threaded when the stack is small
+            let mut locals = working_stack.borrow_local_mut();
+            let mut nodes = transform_queries.p1();
+            for parent in stack.iter_mut().flatten() {
+                let children = children
+                    .get(parent.entity)
+                    .expect("Only entities with children are pushed onto the stack.");
+                let mut nodes = nodes.iter_many_mut(children);
+                while let Some(components) = nodes.fetch_next() {
+                    compute_transform(&mut locals, Some(parent), components, &orphans);
+                }
+            }
+        } else {
+            // Multithreaded only when the stack is large
+            let nodes = transform_queries.p1();
+            let chunk_size = stack_size / task_pool.thread_num();
+            let mut chunks = stack
+                .iter_mut()
+                .flat_map(|nodes| nodes.chunks(chunk_size / 4));
+            let orphans = &orphans;
+
+            let f = |chunks: &[&[SubtreeParent]]| {
+                // let _span = info_span!("Par").entered();
+                let mut locals = working_stack.borrow_local_mut();
+                for parent in chunks.iter().flat_map(|s| s.iter()) {
+                    let tree_children = children
+                        .get(parent.entity)
+                        .expect("Only entities with children are pushed onto the stack.");
+                    // SAFETY:
+                    //
+                    // Each iteration of the outer loop visits entities on the same number
+                    // of steps from the root of the hierarchy in a breadth-first search.
+                    // The entity hierarchy forms a tree. Consequently, mutating all
+                    // children at the same level of the tree cannot alias.
+                    #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+                    unsafe {
+                        let mut nodes = nodes.iter_many_unsafe(tree_children);
+                        while let Some(components) = nodes.fetch_next() {
+                            compute_transform(&mut locals, Some(parent), components, orphans);
+                        }
+                    }
+                }
+            };
+
+            task_pool.scope(|scope| {
+                while let Some(chunk) = chunks.next() {
+                    let mut composite_chunks = smallvec::SmallVec::<[_; 8]>::new();
+                    composite_chunks.push(chunk);
+                    for chunk in chunks.by_ref() {
+                        composite_chunks.push(chunk);
+                        let total_len: usize = composite_chunks.iter().map(|c| c.len()).sum();
+                        if total_len > chunk_size {
+                            break;
+                        }
+                    }
+                    scope.spawn(async move { f(composite_chunks.as_slice()) });
+                }
+            });
+        }
+        core::mem::swap(&mut *stack, &mut *working_stack);
+    }
+    drop(span);
+}
+
+fn compute_transform(
+    local_queue: &mut impl DerefMut<Target = Vec<SubtreeParent>>,
+    parent: Option<&SubtreeParent>,
+    (entity, transform, mut global_transform, has_children): (
+        Entity,
+        Ref<Transform>,
+        Mut<GlobalTransform>,
+        bool,
+    ),
+    orphans: &[Entity],
+) {
+    let is_changed = parent.map(|s| s.is_changed).unwrap_or_default()
+        || transform.is_changed()
+        || global_transform.is_added()
+        // Only check if orphaned if it has no parent; avoids the search when not needed
+        || parent.is_none() && orphans.binary_search(&entity).is_ok();
+
+    if is_changed {
+        *global_transform = if let Some(parent) = parent {
+            parent.transform.mul_transform(*transform)
+        } else {
+            GlobalTransform::from(*transform)
+        }
+    }
+
+    if has_children {
+        local_queue.push(SubtreeParent {
+            is_changed,
+            entity,
+            transform: *global_transform,
+        });
     }
 }
 
