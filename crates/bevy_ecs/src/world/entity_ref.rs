@@ -1,6 +1,9 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleId, BundleInfo, BundleInserter, DynamicBundle, InsertMode},
+    bundle::{
+        Bundle, BundleEffect, BundleFromComponents, BundleId, BundleInfo, BundleInserter,
+        DynamicBundle, InsertMode,
+    },
     change_detection::MutUntyped,
     component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
     entity::{
@@ -1566,13 +1569,21 @@ impl<'w> EntityWorldMut<'w> {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
-        self.location =
-            // SAFETY: location matches current entity. `T` matches `bundle_info`
-            unsafe {
-                bundle_inserter.insert(self.entity, self.location, bundle, mode, #[cfg(feature = "track_location")] caller)
-            };
+        // SAFETY: location matches current entity. `T` matches `bundle_info`
+        let (location, after_effect) = unsafe {
+            bundle_inserter.insert(
+                self.entity,
+                self.location,
+                bundle,
+                mode,
+                #[cfg(feature = "track_location")]
+                caller,
+            )
+        };
+        self.location = location;
         self.world.flush();
         self.update_location();
+        after_effect.apply(self);
         self
     }
 
@@ -1707,7 +1718,7 @@ impl<'w> EntityWorldMut<'w> {
     // TODO: BundleRemover?
     #[must_use]
     #[track_caller]
-    pub fn take<T: Bundle>(&mut self) -> Option<T> {
+    pub fn take<T: Bundle + BundleFromComponents>(&mut self) -> Option<T> {
         self.assert_not_despawned();
         let world = &mut self.world;
         let storages = &mut world.storages;
@@ -4088,6 +4099,7 @@ unsafe fn insert_dynamic_bundle<
     impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
         for DynamicInsertBundle<'a, I>
     {
+        type Effect = ();
         fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
             self.components.for_each(|(t, ptr)| func(t, ptr));
         }
@@ -4099,14 +4111,16 @@ unsafe fn insert_dynamic_bundle<
 
     // SAFETY: location matches current entity.
     unsafe {
-        bundle_inserter.insert(
-            entity,
-            location,
-            bundle,
-            InsertMode::Replace,
-            #[cfg(feature = "track_location")]
-            caller,
-        )
+        bundle_inserter
+            .insert(
+                entity,
+                location,
+                bundle,
+                InsertMode::Replace,
+                #[cfg(feature = "track_location")]
+                caller,
+            )
+            .0
     }
 }
 
@@ -4417,7 +4431,6 @@ mod tests {
 
     use crate::component::HookContext;
     use crate::{
-        self as bevy_ecs,
         change_detection::MutUntyped,
         component::ComponentId,
         prelude::*,

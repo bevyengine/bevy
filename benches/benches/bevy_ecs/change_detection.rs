@@ -267,7 +267,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
     }
 }
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
-    if i & 1 << B != 0 {
+    if i & (1 << B) != 0 {
         entity.insert(Data::<B>(1.0));
     }
 }

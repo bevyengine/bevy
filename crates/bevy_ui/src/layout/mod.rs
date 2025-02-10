@@ -1119,7 +1119,6 @@ mod tests {
             .get::<Children>()
             .unwrap()
             .iter()
-            .copied()
             .collect::<Vec<Entity>>();
 
         for r in [2, 3, 5, 7, 11, 13, 17, 19, 21, 23, 29, 31].map(|n| (n as f32).recip()) {
