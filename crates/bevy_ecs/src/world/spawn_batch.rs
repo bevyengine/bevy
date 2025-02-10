@@ -1,5 +1,5 @@
 use crate::{
-    bundle::{Bundle, BundleSpawner},
+    bundle::{Bundle, BundleSpawner, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::{Entity, EntitySetIterator},
     world::World,
@@ -23,7 +23,7 @@ where
 impl<'w, I> SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     #[inline]
     #[track_caller]
@@ -73,7 +73,7 @@ where
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
         // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle, self.caller)) }
+        unsafe { Some(self.spawner.spawn(bundle, self.caller).0) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

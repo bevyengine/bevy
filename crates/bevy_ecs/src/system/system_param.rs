@@ -1124,6 +1124,25 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// assert_eq!(read_system.run((), world), 0);
 /// ```
 ///
+/// A simple way to set a different default value for a local is by wrapping the value with an Option.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn counter_from_10(mut count: Local<Option<usize>>) -> usize {
+///     let count = count.get_or_insert(10);
+///     *count += 1;
+///     *count
+/// }
+/// let mut counter_system = IntoSystem::into_system(counter_from_10);
+/// counter_system.initialize(world);
+///
+/// // Counter is initialized at 10, and increases to 11 on first run.
+/// assert_eq!(counter_system.run((), world), 11);
+/// // Counter is only increased by 1 on subsequent runs.
+/// assert_eq!(counter_system.run((), world), 12);
+/// ```
+///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
 /// To add configuration to a system, convert a capturing closure into the system instead:
 ///
@@ -2570,10 +2589,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::assert_is_system,
-    };
+    use crate::system::assert_is_system;
     use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.

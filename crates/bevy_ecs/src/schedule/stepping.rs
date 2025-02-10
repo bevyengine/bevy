@@ -17,8 +17,6 @@ use log::error;
 #[cfg(test)]
 use log::debug;
 
-use crate as bevy_ecs;
-
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
     /// Stepping is disabled; run all systems
@@ -830,8 +828,6 @@ mod tests {
     use crate::{prelude::*, schedule::ScheduleLabel};
     use alloc::{format, vec};
     use std::println;
-
-    pub use crate as bevy_ecs;
 
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestSchedule;

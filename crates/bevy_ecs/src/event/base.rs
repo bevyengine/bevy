@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use crate::change_detection::MaybeLocation;
 use crate::component::ComponentId;
 use crate::world::World;

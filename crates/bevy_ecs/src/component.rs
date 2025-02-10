@@ -1,7 +1,6 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    self as bevy_ecs,
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},

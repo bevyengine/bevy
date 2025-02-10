@@ -828,7 +828,6 @@ mod tests {
     use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
-    use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,

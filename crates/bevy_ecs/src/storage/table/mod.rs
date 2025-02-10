@@ -820,7 +820,6 @@ impl Drop for Table {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         change_detection::MaybeLocation,
         component::{Component, Components, Tick},

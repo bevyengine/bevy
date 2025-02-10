@@ -1457,7 +1457,6 @@ mod tests {
     use core::ops::{Deref, DerefMut};
 
     use crate::{
-        self as bevy_ecs,
         change_detection::{
             MaybeLocation, Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD,
             MAX_CHANGE_AGE,
