@@ -627,20 +627,61 @@ fn directional_light(
 
     color *= (*light).color.rgb;
 
-#ifdef ATMOSPHERE_TRANSMITTANCE
+// #ifdef ATMOSPHERE_TRANSMITTANCE
     // Calculate atmospheric transmittance
     let P = (*input).P;
     // TODO: fix unknown identifier bindings
-    let P_as = (*bindings.atmosphere).transforms.atmosphere_from_world * vec4(P, 1.0);
-    let planet_center = vec3(0.0, (*bindings.atmosphere).atmosphere.bottom_radius, 0.0);
+    let P_as = view_bindings::atmosphere_data.transforms.atmosphere_from_world * vec4(P, 1.0);
+    let planet_center = vec3(0.0, view_bindings::atmosphere_data.atmosphere.bottom_radius, 0.0);
     let r = length(P - planet_center);
     let up = normalize(P - planet_center);
-    let mu = dot(L, up);
+    let mu = dot(-L, up);
     
     // Apply transmittance after light color but before shadows
     // This ensures the light is attenuated by the atmosphere before any other effects
-    color *= sample_transmittance_lut(bindings, r, mu);
-#endif
+    color *= sample_transmittance_lut(r, mu);
+// #endif
 
     return color;
+}
+
+// TODO: remove these functions once the refactor is complete
+// these were copied from bevy_pbr/src/atmosphere/functions.wgsl
+fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
+    let uv = transmittance_lut_r_mu_to_uv(r, mu);
+    return textureSampleLevel(
+        view_bindings::atmosphere_transmittance_texture, 
+        view_bindings::atmosphere_transmittance_sampler, uv, 0.0).rgb;
+}
+
+fn transmittance_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
+    let top_radius = atmosphere.top_radius;
+    let bottom_radius = atmosphere.bottom_radius;
+    
+    // Distance along a horizontal ray from the ground to the top atmosphere boundary
+    let H = sqrt(top_radius * top_radius - bottom_radius * bottom_radius);
+
+    // Distance from a point at height r to the horizon
+    // ignore the case where r <= atmosphere.bottom_radius
+    let rho = sqrt(max(r * r - bottom_radius * bottom_radius, 0.0));
+
+    // Distance from a point at height r to the top atmosphere boundary at zenith angle mu
+    let d = distance_to_top_atmosphere_boundary(r, mu);
+
+    // Minimum and maximum distance to the top atmosphere boundary from a point at height r
+    let d_min = top_radius - r; // length of the ray straight up to the top atmosphere boundary
+    let d_max = rho + H; // length of the ray to the top atmosphere boundary and grazing the horizon
+
+    let u = (d - d_min) / (d_max - d_min);
+    let v = rho / H;
+    return vec2<f32>(u, v);
+}
+
+fn distance_to_top_atmosphere_boundary(r: f32, mu: f32) -> f32 {
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
+    // ignore the case where r > atmosphere.top_radius
+    let top_radius = atmosphere.top_radius;  // Dereference the pointer
+    let positive_discriminant = max(r * r * (mu * mu - 1.0) + top_radius * top_radius, 0.0);
+    return max(-r * mu + sqrt(positive_discriminant), 0.0);
 }
