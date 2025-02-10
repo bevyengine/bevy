@@ -223,8 +223,7 @@ impl Plugin for UiPlugin {
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
-        )
-        .add_observer(widget::on_add_viewport);
+        );
 
         build_text_interop(app);
 

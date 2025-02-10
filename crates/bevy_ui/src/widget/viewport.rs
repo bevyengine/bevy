@@ -1,15 +1,16 @@
-use bevy_asset::Assets;
+use bevy_asset::{Assets, Handle};
 use bevy_ecs::{
+    bundle::Bundle,
+    children,
     entity::Entity,
     event::EventReader,
-    observer::Trigger,
+    hierarchy::Children,
     prelude::Component,
     query::Changed,
     reflect::ReflectComponent,
+    spawn::SpawnRelated,
     system::{Commands, Local, Query, Res, ResMut},
-    world::OnAdd,
 };
-use bevy_hierarchy::{BuildChildren, Children};
 use bevy_image::Image;
 use bevy_math::Rect;
 #[cfg(feature = "bevy_ui_picking_backend")]
@@ -19,13 +20,14 @@ use bevy_picking::{
     pointer::{Location, PointerId, PointerInput},
     Pickable,
 };
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_render::{
     camera::{Camera, NormalizedRenderTarget},
     render_resource::Extent3d,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{default, HashSet};
+use bevy_utils::default;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
@@ -149,26 +151,14 @@ pub fn viewport_picking(
     }
 }
 
-/// Adds a [`PointerId`] and [`ImageNode`] child to entities that have a [`Viewport`] component
-/// added to them.
-pub fn on_add_viewport(
-    trigger: Trigger<OnAdd, Viewport>,
-    mut commands: Commands,
-    viewport_query: Query<&Viewport>,
-    camera_query: Query<&Camera>,
-) {
-    let node = trigger.target();
-
-    let viewport = viewport_query.get(node).unwrap();
-    let Ok(camera) = camera_query.get(viewport.camera) else {
-        return;
-    };
-    let Some(image_handle) = camera.target.as_image() else {
-        return;
-    };
-    commands
-        .spawn((
-            ImageNode::new(image_handle.clone()),
+/// Spawns a new viewport widget with the given `camera` and `target`.
+pub fn viewport(camera: Entity, target: Handle<Image>) -> impl Bundle {
+    (
+        Viewport::new(camera),
+        #[cfg(feature = "bevy_ui_picking_backend")]
+        PointerId::Custom(Uuid::new_v4()),
+        children![(
+            ImageNode::new(target),
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::ZERO,
@@ -179,13 +169,8 @@ pub fn on_add_viewport(
             },
             #[cfg(feature = "bevy_ui_picking_backend")]
             Pickable::IGNORE,
-        ))
-        .set_parent(node);
-
-    #[cfg(feature = "bevy_ui_picking_backend")]
-    commands
-        .entity(node)
-        .insert(PointerId::Custom(Uuid::new_v4()));
+        )],
+    )
 }
 
 /// Updates the size of the associated render target for viewports when the node size changes.
