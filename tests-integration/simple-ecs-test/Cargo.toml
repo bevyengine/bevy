@@ -1,0 +1,6 @@
+[package]
+name = "simple-ecs-test"
+edition = "2021"
+
+[dependencies]
+bevy = { path = "../../" }

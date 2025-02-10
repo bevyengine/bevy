@@ -2020,7 +2020,6 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         component::Component, entity_disabling::DefaultQueryFilters, prelude::*,
         query::QueryEntityError, world::FilteredEntityRef,

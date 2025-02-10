@@ -3,7 +3,7 @@
 mod entity_observer;
 mod runner;
 
-pub use entity_observer::{CloneEntityWithObserversExt, ObservedBy};
+pub use entity_observer::ObservedBy;
 pub use runner::*;
 
 use crate::{
@@ -864,7 +864,6 @@ mod tests {
     use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
-    use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::{
         observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},

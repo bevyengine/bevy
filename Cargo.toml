@@ -29,6 +29,10 @@ members = [
   # Bevy's error codes. This is a crate so we can automatically check all of the code blocks.
   "errors",
 ]
+exclude = [
+  # Integration tests are not part of the workspace
+  "tests-integration",
+]
 
 [workspace.lints.clippy]
 doc_markdown = "warn"
@@ -255,6 +259,9 @@ bevy_remote = ["bevy_internal/bevy_remote"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
+
+# Statically linked DXC shader compiler for DirectX 12
+statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -491,6 +498,13 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bytemuck = "1.7"
 bevy_render = { path = "crates/bevy_render", version = "0.16.0-dev", default-features = false }
+# The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.16.0-dev", default-features = false }
+bevy_asset = { path = "crates/bevy_asset", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.16.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.16.0-dev", default-features = false }
+bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.16.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.13"
@@ -917,6 +931,17 @@ doc-scrape-examples = true
 [package.metadata.example.blend_modes]
 name = "Blend Modes"
 description = "Showcases different blend modes"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "edit_material_on_gltf"
+path = "examples/3d/edit_material_on_gltf.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.edit_material_on_gltf]
+name = "Edit Gltf Material"
+description = "Showcases changing materials of a Gltf after Scene spawn"
 category = "3D Rendering"
 wasm = true
 
@@ -1995,6 +2020,17 @@ name = "Send and receive events"
 description = "Demonstrates how to send and receive events of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
+
+[[example]]
+name = "entity_disabling"
+path = "examples/ecs/entity_disabling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.entity_disabling]
+name = "Entity disabling"
+description = "Demonstrates how to hide entities from the ECS without deleting them"
+category = "ECS (Entity Component System)"
+wasm = true
 
 [[example]]
 name = "fixed_timestep"

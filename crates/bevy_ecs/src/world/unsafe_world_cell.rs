@@ -1225,7 +1225,6 @@ impl EntityBorrow for UnsafeEntityCell<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_ecs;
 
     #[test]
     #[should_panic = "is forbidden"]

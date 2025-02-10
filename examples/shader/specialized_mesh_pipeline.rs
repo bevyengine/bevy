@@ -8,7 +8,7 @@
 
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
-    ecs::system::StaticSystemParam,
+    ecs::{component::Tick, system::StaticSystemParam},
     math::{vec3, vec4},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
@@ -298,6 +298,7 @@ fn queue_custom_mesh_pipeline(
         >,
     >,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
+    mut change_tick: Local<Tick>,
 ) {
     let system_param_item = param.into_inner();
 
@@ -324,7 +325,7 @@ fn queue_custom_mesh_pipeline(
             continue;
         };
 
-        // Create a *work item buffer* if necessary. Work item buffers store the
+        // Create *work item buffers* if necessary. Work item buffers store the
         // indices of meshes that are to be rendered when indirect drawing is
         // enabled.
         let work_item_buffer = gpu_preprocessing::get_or_create_work_item_buffer::<Opaque3d>(
@@ -332,6 +333,11 @@ fn queue_custom_mesh_pipeline(
             view.retained_view_entity,
             no_indirect_drawing,
             gpu_occlusion_culling,
+        );
+
+        // Initialize those work item buffers in preparation for this new frame.
+        gpu_preprocessing::init_work_item_buffers(
+            work_item_buffer,
             late_indexed_indirect_parameters_buffer,
             late_non_indexed_indirect_parameters_buffer,
         );
@@ -400,6 +406,10 @@ fn queue_custom_mesh_pipeline(
                 // can fail you need to handle the error here
                 .expect("Failed to specialize mesh pipeline");
 
+            // Bump the change tick so that Bevy is forced to rebuild the bin.
+            let next_change_tick = change_tick.get() + 1;
+            change_tick.set(next_change_tick);
+
             // Add the mesh with our specialized pipeline
             opaque_phase.add(
                 Opaque3dBatchSetKey {
@@ -420,6 +430,7 @@ fn queue_custom_mesh_pipeline(
                 // This example supports batching, but if your pipeline doesn't
                 // support it you can use `BinnedRenderPhaseType::UnbatchableMesh`
                 BinnedRenderPhaseType::BatchableMesh,
+                *change_tick,
             );
 
             // Create a *work item*. A work item tells the Bevy renderer to

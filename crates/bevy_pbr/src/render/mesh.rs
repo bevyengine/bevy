@@ -88,16 +88,21 @@ pub struct MeshRenderPlugin {
     pub use_gpu_instance_buffer_builder: bool,
 }
 
-pub const FORWARD_IO_HANDLE: Handle<Shader> = Handle::weak_from_u128(2645551199423808407);
-pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8140454348013264787);
-pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(9076678235888822571);
-pub const MESH_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(2506024101911992377);
-pub const MESH_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(16831548636314682308);
-pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6300874327833745635);
-pub const MESH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(3252377289100772450);
-pub const SKINNING_HANDLE: Handle<Shader> = Handle::weak_from_u128(13215291596265391738);
-pub const MORPH_HANDLE: Handle<Shader> = Handle::weak_from_u128(970982813587607345);
-pub const OCCLUSION_CULLING_HANDLE: Handle<Shader> = Handle::weak_from_u128(285365001154292827);
+pub const FORWARD_IO_HANDLE: Handle<Shader> = weak_handle!("38111de1-6e35-4dbb-877b-7b6f9334baf6");
+pub const MESH_VIEW_TYPES_HANDLE: Handle<Shader> =
+    weak_handle!("979493db-4ae1-4003-b5c6-fcbb88b152a2");
+pub const MESH_VIEW_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("c6fe674b-4c21-4d4b-867a-352848da5337");
+pub const MESH_TYPES_HANDLE: Handle<Shader> = weak_handle!("a4a3fc2e-a57e-4083-a8ab-2840176927f2");
+pub const MESH_BINDINGS_HANDLE: Handle<Shader> =
+    weak_handle!("84e7f9e6-e566-4a61-914e-c568f5dabf49");
+pub const MESH_FUNCTIONS_HANDLE: Handle<Shader> =
+    weak_handle!("c46aa0f0-6c0c-4b3a-80bf-d8213c771f12");
+pub const MESH_SHADER_HANDLE: Handle<Shader> = weak_handle!("1a7bbae8-4b4f-48a7-b53b-e6822e56f321");
+pub const SKINNING_HANDLE: Handle<Shader> = weak_handle!("7474e812-2506-4cbf-9de3-fe07e5c6ff24");
+pub const MORPH_HANDLE: Handle<Shader> = weak_handle!("da30aac7-34cc-431d-a07f-15b1a783008c");
+pub const OCCLUSION_CULLING_HANDLE: Handle<Shader> =
+    weak_handle!("eaea07d9-7516-482c-aa42-6f8e9927e1f0");
 
 /// How many textures are allowed in the view bind group layout (`@group(0)`) before
 /// broader compatibility with WebGL and WebGPU is at risk, due to the minimum guaranteed
@@ -1728,7 +1733,7 @@ impl FromWorld for MeshPipeline {
             render_queue.write_texture(
                 texture.as_image_copy(),
                 &image.data,
-                ImageDataLayout {
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,

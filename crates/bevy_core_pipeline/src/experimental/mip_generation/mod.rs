@@ -8,7 +8,7 @@
 use core::array;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -51,7 +51,7 @@ use crate::{
 
 /// Identifies the `downsample_depth.wgsl` shader.
 pub const DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(3876351454330663524);
+    weak_handle!("a09a149e-5922-4fa4-9170-3c1a13065364");
 
 /// The maximum number of mip levels that we can produce.
 ///
@@ -485,6 +485,7 @@ pub fn create_depth_pyramid_dummy_texture(
             label: Some(texture_view_label),
             format: Some(TextureFormat::R32Float),
             dimension: Some(TextureViewDimension::D2),
+            usage: None,
             aspect: TextureAspect::All,
             base_mip_level: 0,
             mip_level_count: Some(1),
@@ -552,6 +553,7 @@ impl ViewDepthPyramid {
                     label: Some(texture_view_label),
                     format: Some(TextureFormat::R32Float),
                     dimension: Some(TextureViewDimension::D2),
+                    usage: None,
                     aspect: TextureAspect::All,
                     base_mip_level: i as u32,
                     mip_level_count: Some(1),
