@@ -3,7 +3,31 @@
 //! While Bevy ships with a built-in [`Disabled`] component, you can also create your own
 //! disabling components, which will operate in the same way but can have distinct semantics.
 //!
-//! ## Defining your own disabling components
+//! ```
+//! use bevy_ecs::prelude::*;
+//!
+//! // Our custom disabling component!
+//! #[derive(Component, Clone)]
+//! struct Prefab;
+//!
+//! #[derive(Component)]
+//! struct A;
+//!
+//! let mut world = World::new();
+//! world.register_disabling_component::<Prefab>();
+//! world.spawn((A, Prefab));
+//! world.spawn((A,));
+//! world.spawn((A,));
+//!
+//! let mut normal_query = world.query::<&A>();
+//! assert_eq!(2, normal_query.iter(&world).count());
+//!
+//! let mut prefab_query = world.query_filtered::<&A, With<Prefab>>();
+//! assert_eq!(1, prefab_query.iter(&world).count());
+//!
+//! let mut maybe_prefab_query = world.query::<(&A, Has<Prefab>)>();
+//! assert_eq!(3, maybe_prefab_query.iter(&world).count());
+//! ```
 //!
 //! ## Default query filters
 //!

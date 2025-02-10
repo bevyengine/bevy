@@ -253,6 +253,14 @@ impl World {
         self.components.register_component::<T>()
     }
 
+    /// Registers a component type as "disabling",
+    /// using [default query filters](DefaultQueryFilters) to exclude entities with the component from queries.
+    pub fn register_disabling_component<C: Component>(&mut self) {
+        let component_id = self.register_component::<C>();
+        let mut dqf = self.resource_mut::<DefaultQueryFilters>();
+        dqf.register_disabling_component(component_id);
+    }
+
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.
     ///
     /// Will panic if `T` exists in any archetypes.
