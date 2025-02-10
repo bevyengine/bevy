@@ -359,7 +359,7 @@ impl FromWorld for Mesh2dPipeline {
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 texture.as_image_copy(),
-                &image.data,
+                image.data.as_ref().expect("Image has no data"),
                 TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
