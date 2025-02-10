@@ -161,7 +161,7 @@ impl TaskPoolOptions {
     pub fn with_num_threads(thread_count: usize) -> Self {
         assert!(
             thread_count > 2,
-            "Default task pool policies require at least 3 threads"
+            "The default TaskPoolOptions thread assignment policies require a minimum of one thread each for the IO, Async, and Compute pools. Please specify a thread_count of at least 3."
         );
         TaskPoolOptions {
             min_total_threads: thread_count,
