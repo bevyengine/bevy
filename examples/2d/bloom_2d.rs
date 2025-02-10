@@ -16,12 +16,38 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
+struct Tonemapper {
+    tonemapper: Tonemapping,
+}
+
+impl Tonemapper {
+    fn next(&mut self) -> Tonemapping {
+        let next = match self.tonemapper {
+            Tonemapping::None => Tonemapping::AcesFitted,
+            Tonemapping::AcesFitted => Tonemapping::AgX,
+            Tonemapping::AgX => Tonemapping::BlenderFilmic,
+            Tonemapping::BlenderFilmic => Tonemapping::Reinhard,
+            Tonemapping::Reinhard => Tonemapping::ReinhardLuminance,
+            Tonemapping::ReinhardLuminance => Tonemapping::SomewhatBoringDisplayTransform,
+            Tonemapping::SomewhatBoringDisplayTransform => Tonemapping::TonyMcMapface,
+            Tonemapping::TonyMcMapface => Tonemapping::None,
+        };
+        self.tonemapper = next;
+        next
+    }
+}
+
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    commands.insert_resource(Tonemapper {
+        tonemapper: Tonemapping::TonyMcMapface,
+    });
+
     commands.spawn((
         Camera2d,
         Camera {
@@ -76,6 +102,7 @@ fn update_bloom_settings(
     camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
     mut text: Single<&mut Text>,
     mut commands: Commands,
+    mut tonemapper: ResMut<Tonemapper>,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
@@ -110,6 +137,7 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness
             ));
             text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
+            text.push_str(&format!("(O) Tonemapper: {:?}\n", tonemapper.tonemapper));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<Bloom>();
@@ -180,6 +208,10 @@ fn update_bloom_settings(
                 bloom.scale.x += dt * 2.0;
             }
             bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
+
+            if keycode.just_pressed(KeyCode::KeyO) {
+                commands.entity(entity).insert(tonemapper.next());
+            }
         }
 
         (entity, None) => {
