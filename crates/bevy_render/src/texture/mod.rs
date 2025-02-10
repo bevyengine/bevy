@@ -18,7 +18,7 @@ use crate::{
     render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetApp, Assets, Handle};
+use bevy_asset::{weak_handle, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
 /// A handle to a 1 x 1 transparent white image.
@@ -27,7 +27,7 @@ use bevy_ecs::prelude::*;
 /// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
 // Number randomly selected by fair WolframAlpha query. Totally arbitrary.
 pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
-    Handle::weak_from_u128(154728948001857810431816125397303024160);
+    weak_handle!("d18ad97e-a322-4981-9505-44c59a4b5e46");
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
