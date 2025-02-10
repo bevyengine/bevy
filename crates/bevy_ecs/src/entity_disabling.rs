@@ -136,6 +136,10 @@ impl DefaultQueryFilters {
 mod tests {
 
     use super::*;
+    use crate::{
+        prelude::World,
+        query::{Has, With},
+    };
     use alloc::{vec, vec::Vec};
 
     #[test]
@@ -196,5 +200,40 @@ mod tests {
             applied_access.with_filters().collect::<Vec<_>>()
         );
         assert_eq!(0, applied_access.without_filters().count());
+    }
+
+    #[derive(Component)]
+    struct CustomDisabled;
+
+    #[test]
+    fn multiple_disabling_components() {
+        let mut world = World::new();
+        world.register_disabling_component::<CustomDisabled>();
+
+        world.spawn_empty();
+        world.spawn(Disabled);
+        world.spawn(CustomDisabled);
+        world.spawn((Disabled, CustomDisabled));
+
+        let mut query = world.query::<()>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<(), With<Disabled>>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<Has<Disabled>>();
+        assert_eq!(2, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<(), With<CustomDisabled>>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<Has<CustomDisabled>>();
+        assert_eq!(2, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<(), (With<Disabled>, With<CustomDisabled>)>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<(Has<Disabled>, Has<CustomDisabled>)>();
+        assert_eq!(4, query.iter(&world).count());
     }
 }
