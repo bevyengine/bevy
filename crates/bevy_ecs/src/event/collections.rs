@@ -1,10 +1,9 @@
-use crate as bevy_ecs;
 use alloc::vec::Vec;
 use bevy_ecs::{
     event::{Event, EventCursor, EventId, EventInstance},
-    system::Resource,
+    resource::Resource,
 };
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{
     marker::PhantomData,
@@ -126,7 +125,7 @@ impl<E: Event> Events<E> {
     pub fn send(&mut self, event: E) -> EventId<E> {
         self.send_with_caller(
             event,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             Location::caller(),
         )
     }
@@ -134,11 +133,11 @@ impl<E: Event> Events<E> {
     pub(crate) fn send_with_caller(
         &mut self,
         event: E,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller,
             _marker: PhantomData,
         };
@@ -308,7 +307,7 @@ impl<E: Event> Extend<E> for Events<E> {
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
                 id: event_count,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller: Location::caller(),
                 _marker: PhantomData,
             };
@@ -379,7 +378,7 @@ impl<E: Event> Iterator for SendBatchIds<E> {
 
         let result = Some(EventId {
             id: self.last_count,
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             caller: Location::caller(),
             _marker: PhantomData,
         });
@@ -398,7 +397,7 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_ecs, event::Events};
+    use crate::event::Events;
     use bevy_ecs_macros::Event;
 
     #[test]

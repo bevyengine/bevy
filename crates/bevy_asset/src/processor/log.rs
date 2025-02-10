@@ -1,9 +1,15 @@
 use crate::AssetPath;
+use alloc::{
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 use async_fs::File;
-use bevy_utils::{tracing::error, HashSet};
+use bevy_platform_support::collections::HashSet;
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use std::path::PathBuf;
 use thiserror::Error;
+use tracing::error;
 
 /// An in-memory representation of a single [`ProcessorTransactionLog`] entry.
 #[derive(Debug)]

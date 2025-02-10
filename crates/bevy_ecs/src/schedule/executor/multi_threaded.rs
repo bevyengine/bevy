@@ -1,26 +1,26 @@
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use core::any::Any;
-use std::sync::{Mutex, MutexGuard};
-
+use alloc::{boxed::Box, vec::Vec};
+use bevy_platform_support::sync::Arc;
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use bevy_utils::{default, syncunsafecell::SyncUnsafeCell};
-use core::panic::AssertUnwindSafe;
+use concurrent_queue::ConcurrentQueue;
+use core::{any::Any, panic::AssertUnwindSafe};
+use fixedbitset::FixedBitSet;
+use std::{
+    eprintln,
+    sync::{Mutex, MutexGuard},
+};
+
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
-
-use concurrent_queue::ConcurrentQueue;
-use fixedbitset::FixedBitSet;
 
 use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
-    system::{ScheduleSystem, System},
+    system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-
-use crate as bevy_ecs;
 
 use super::__rust_begin_short_backtrace;
 
@@ -601,11 +601,17 @@ impl ExecutorState {
                 // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
                 unsafe {
-                    // TODO: implement an error-handling API instead of suppressing a possible failure.
-                    let _ = __rust_begin_short_backtrace::run_unsafe(
+                    // TODO: implement an error-handling API instead of panicking.
+                    if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
                         system,
                         context.environment.world_cell,
-                    );
+                    ) {
+                        panic!(
+                            "Encountered an error in system `{}`: {:?}",
+                            &*system.name(),
+                            err
+                        );
+                    };
                 };
             }));
             context.system_completed(system_index, res, system);
@@ -649,8 +655,14 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    // TODO: implement an error-handling API instead of suppressing a possible failure.
-                    let _ = __rust_begin_short_backtrace::run(system, world);
+                    // TODO: implement an error-handling API instead of panicking.
+                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                        panic!(
+                            "Encountered an error in system `{}`: {:?}",
+                            &*system.name(),
+                            err
+                        );
+                    };
                 }));
                 context.system_completed(system_index, res, system);
             };
@@ -739,8 +751,10 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [BoxedCondition],
     world: UnsafeWorldCell,
 ) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
         .map(|condition| {
@@ -780,7 +794,6 @@ impl MainThreadExecutor {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         prelude::Resource,
         schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
         system::Commands,

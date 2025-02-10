@@ -15,15 +15,7 @@ use bevy_a11y::{
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{
-    change_detection::DetectChanges,
-    entity::EntityHashMap,
-    prelude::{Entity, EventReader, EventWriter},
-    query::With,
-    schedule::IntoSystemConfigs,
-    system::{NonSendMut, Query, Res, ResMut, Resource},
-};
-use bevy_hierarchy::{Children, Parent};
+use bevy_ecs::{entity::hash_map::EntityHashMap, prelude::*};
 use bevy_window::{PrimaryWindow, Window, WindowClosed};
 
 /// Maps window entities to their `AccessKit` [`Adapter`]s.
@@ -181,13 +173,13 @@ fn should_update_accessibility_nodes(
 
 fn update_accessibility_nodes(
     mut adapters: NonSendMut<AccessKitAdapters>,
-    focus: Res<InputFocus>,
+    focus: Option<Res<InputFocus>>,
     primary_window: Query<(Entity, &Window), With<PrimaryWindow>>,
     nodes: Query<(
         Entity,
         &AccessibilityNode,
         Option<&Children>,
-        Option<&Parent>,
+        Option<&ChildOf>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
 ) {
@@ -197,7 +189,18 @@ fn update_accessibility_nodes(
     let Some(adapter) = adapters.get_mut(&primary_window_id) else {
         return;
     };
+    let Some(focus) = focus else {
+        return;
+    };
     if focus.is_changed() || !nodes.is_empty() {
+        // Don't panic if the focused entity does not currently exist
+        // It's probably waiting to be spawned
+        if let Some(focused_entity) = focus.0 {
+            if !node_entities.contains(focused_entity) {
+                return;
+            }
+        }
+
         adapter.update_if_active(|| {
             update_adapter(
                 nodes,
@@ -215,7 +218,7 @@ fn update_adapter(
         Entity,
         &AccessibilityNode,
         Option<&Children>,
-        Option<&Parent>,
+        Option<&ChildOf>,
     )>,
     node_entities: Query<Entity, With<AccessibilityNode>>,
     primary_window: &Window,
@@ -250,12 +253,12 @@ fn update_adapter(
 #[inline]
 fn queue_node_for_update(
     node_entity: Entity,
-    parent: Option<&Parent>,
+    child_of: Option<&ChildOf>,
     node_entities: &Query<Entity, With<AccessibilityNode>>,
     window_children: &mut Vec<NodeId>,
 ) {
-    let should_push = if let Some(parent) = parent {
-        !node_entities.contains(parent.get())
+    let should_push = if let Some(child_of) = child_of {
+        !node_entities.contains(child_of.get())
     } else {
         true
     };

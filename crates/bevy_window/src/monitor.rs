@@ -1,8 +1,11 @@
-use bevy_ecs::{component::Component, prelude::ReflectComponent};
+use alloc::{string::String, vec::Vec};
+use bevy_ecs::component::Component;
 use bevy_math::{IVec2, UVec2};
-use bevy_reflect::Reflect;
 
-#[cfg(feature = "serialize")]
+#[cfg(feature = "bevy_reflect")]
+use {bevy_ecs::prelude::ReflectComponent, bevy_reflect::Reflect};
+
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Represents an available monitor as reported by the user's operating system, which can be used
@@ -15,13 +18,13 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This component is synchronized with `winit` through `bevy_winit`, but is effectively
 /// read-only as `winit` does not support changing monitor properties.
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Component, Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Component, Debug)]
 pub struct Monitor {
     /// The name of the monitor
     pub name: Option<String>,
@@ -40,8 +43,8 @@ pub struct Monitor {
 }
 
 /// A marker component for the primary monitor
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component, Debug)]
+#[derive(Component, Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
 pub struct PrimaryMonitor;
 
 impl Monitor {
@@ -52,10 +55,11 @@ impl Monitor {
 }
 
 /// Represents a video mode that a monitor supports
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct VideoMode {

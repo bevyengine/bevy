@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 use nonmax::NonMaxUsize;
@@ -50,7 +50,7 @@ macro_rules! impl_sparse_array {
             #[inline]
             pub fn contains(&self, index: I) -> bool {
                 let index = index.sparse_set_index();
-                self.values.get(index).map(|v| v.is_some()).unwrap_or(false)
+                self.values.get(index).is_some_and(Option::is_some)
             }
 
             /// Returns a reference to the value at `index`.
@@ -59,7 +59,7 @@ macro_rules! impl_sparse_array {
             #[inline]
             pub fn get(&self, index: I) -> Option<&V> {
                 let index = index.sparse_set_index();
-                self.values.get(index).map(|v| v.as_ref()).unwrap_or(None)
+                self.values.get(index).and_then(Option::as_ref)
             }
         }
     };
@@ -87,10 +87,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
     pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
         let index = index.sparse_set_index();
-        self.values
-            .get_mut(index)
-            .map(|v| v.as_mut())
-            .unwrap_or(None)
+        self.values.get_mut(index).and_then(Option::as_mut)
     }
 
     /// Removes and returns the value stored at `index`.
@@ -173,7 +170,7 @@ impl ComponentSparseSet {
         entity: Entity,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location<'static>,
+        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
     ) {
         if let Some(&dense_index) = self.sparse.get(entity.index()) {
             #[cfg(debug_assertions)]
@@ -182,7 +179,7 @@ impl ComponentSparseSet {
                 dense_index,
                 value,
                 change_tick,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
         } else {
@@ -190,7 +187,7 @@ impl ComponentSparseSet {
             self.dense.push(
                 value,
                 ComponentTicks::new(change_tick),
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 caller,
             );
             self.sparse
@@ -253,9 +250,9 @@ impl ComponentSparseSet {
                     added: self.dense.get_added_tick_unchecked(dense_index),
                     changed: self.dense.get_changed_tick_unchecked(dense_index),
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 self.dense.get_changed_by_unchecked(dense_index),
-                #[cfg(not(feature = "track_change_detection"))]
+                #[cfg(not(feature = "track_location"))]
                 (),
             ))
         }
@@ -301,7 +298,7 @@ impl ComponentSparseSet {
     ///
     /// Returns `None` if `entity` does not have a component in the sparse set.
     #[inline]
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     pub fn get_changed_by(
         &self,
         entity: Entity,
@@ -619,7 +616,7 @@ impl SparseSets {
         self.sets.iter().map(|(id, data)| (*id, data))
     }
 
-    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    /// Gets a reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
         self.sets.get(component_id)
@@ -641,7 +638,7 @@ impl SparseSets {
         self.sets.get_mut(component_info.id()).unwrap()
     }
 
-    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`].
+    /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
     pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ComponentSparseSet> {
         self.sets.get_mut(component_id)
     }
@@ -664,11 +661,11 @@ impl SparseSets {
 mod tests {
     use super::SparseSets;
     use crate::{
-        self as bevy_ecs,
         component::{Component, ComponentDescriptor, ComponentId, ComponentInfo},
         entity::Entity,
         storage::SparseSet,
     };
+    use alloc::{vec, vec::Vec};
 
     #[derive(Debug, Eq, PartialEq)]
     struct Foo(usize);

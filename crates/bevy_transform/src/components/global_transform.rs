@@ -1,13 +1,18 @@
 use core::ops::Mul;
 
 use super::Transform;
-use bevy_math::{Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
-#[cfg(all(feature = "bevy-support", feature = "serialize"))]
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use bevy_math::{ops, Affine3A, Dir3, Isometry3d, Mat4, Quat, Vec3, Vec3A};
 use derive_more::derive::From;
+
+#[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 #[cfg(feature = "bevy-support")]
+use bevy_ecs::{component::Component, hierarchy::validate_parent_has_component};
+
+#[cfg(feature = "bevy_reflect")]
 use {
-    bevy_ecs::{component::Component, reflect::ReflectComponent},
+    bevy_ecs::reflect::ReflectComponent,
     bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
@@ -18,14 +23,12 @@ use {
 ///
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
-///   * ~You may use the [`TransformBundle`](crate::bundles::TransformBundle) to guarantee this.~
-///     [`TransformBundle`](crate::bundles::TransformBundle) is now deprecated.
 ///     [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] transforms an entity relative to its parent's reference frame, or relative to world space coordinates,
-/// if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is managed by Bevy; it is computed by successively applying the [`Transform`] of each ancestor
 /// entity which has a Transform. This is done automatically by Bevy-internal systems in the system set
@@ -44,24 +47,29 @@ use {
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy-support",
-    derive(Component, Reflect),
+    derive(Component),
+    component(on_insert = validate_parent_has_component::<GlobalTransform>)
+)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
     reflect(Component, Default, PartialEq, Debug)
 )]
 #[cfg_attr(
-    all(feature = "bevy-support", feature = "serialize"),
+    all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GlobalTransform(Affine3A);
 
 macro_rules! impl_local_axis {
     ($pos_name: ident, $neg_name: ident, $axis: ident) => {
-        #[doc=std::concat!("Return the local ", std::stringify!($pos_name), " vector (", std::stringify!($axis) ,").")]
+        #[doc=core::concat!("Return the local ", core::stringify!($pos_name), " vector (", core::stringify!($axis) ,").")]
         #[inline]
         pub fn $pos_name(&self) -> Dir3 {
             Dir3::new_unchecked((self.0.matrix3 * Vec3::$axis).normalize())
         }
 
-        #[doc=std::concat!("Return the local ", std::stringify!($neg_name), " vector (-", std::stringify!($axis) ,").")]
+        #[doc=core::concat!("Return the local ", core::stringify!($neg_name), " vector (-", core::stringify!($axis) ,").")]
         #[inline]
         pub fn $neg_name(&self) -> Dir3 {
             -self.$pos_name()
@@ -152,7 +160,6 @@ impl GlobalTransform {
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
     /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
-    /// # use bevy_hierarchy::{prelude::Parent, BuildChildren};
     /// #[derive(Component)]
     /// struct ToReparent {
     ///     new_parent: Entity,
@@ -235,7 +242,7 @@ impl GlobalTransform {
         //Formula based on glam's implementation https://github.com/bitshifter/glam-rs/blob/2e4443e70c709710dfb25958d866d29b11ed3e2b/src/f32/affine3a.rs#L290
         let det = self.0.matrix3.determinant();
         Vec3::new(
-            self.0.matrix3.x_axis.length() * det.signum(),
+            self.0.matrix3.x_axis.length() * ops::copysign(1., det),
             self.0.matrix3.y_axis.length(),
             self.0.matrix3.z_axis.length(),
         )

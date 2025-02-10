@@ -124,7 +124,7 @@ fn unload_current_level(
 ) {
     *loading_state = LoadingState::LevelLoading;
     for entity in entities.iter() {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -204,21 +204,11 @@ fn update_loading_data(
         // we reset the confirmation frame count.
         loading_data.confirmation_frames_count = 0;
 
-        // Go through each asset and verify their load states.
-        // Any assets that are loaded are then added to the pop list for later removal.
-        let mut pop_list: Vec<usize> = Vec::new();
-        for (index, asset) in loading_data.loading_assets.iter().enumerate() {
-            if let Some(state) = asset_server.get_load_states(asset) {
-                if state.2.is_loaded() {
-                    pop_list.push(index);
-                }
-            }
-        }
-
-        // Remove all loaded assets from the loading_assets list.
-        for i in pop_list.iter() {
-            loading_data.loading_assets.remove(*i);
-        }
+        loading_data.loading_assets.retain(|asset| {
+            asset_server
+                .get_recursive_dependency_load_state(asset)
+                .is_none_or(|state| !state.is_loaded())
+        });
 
         // If there are no more assets being monitored, and pipelines
         // are compiled, then start counting confirmation frames.

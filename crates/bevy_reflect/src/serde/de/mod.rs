@@ -24,16 +24,20 @@ mod tuples;
 
 #[cfg(test)]
 mod tests {
+    use alloc::{
+        boxed::Box,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
     use bincode::Options;
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
+    use serde::{de::DeserializeSeed, Deserialize};
     use serde::{de::IgnoredAny, Deserializer};
 
-    use serde::{de::DeserializeSeed, Deserialize};
-
-    use bevy_utils::{HashMap, HashSet};
+    use bevy_platform_support::collections::{HashMap, HashSet};
 
     use crate::{
-        self as bevy_reflect,
         serde::{
             ReflectDeserializer, ReflectDeserializerProcessor, ReflectSerializer,
             TypedReflectDeserializer,

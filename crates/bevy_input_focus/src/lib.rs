@@ -4,17 +4,25 @@
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
 )]
+#![no_std]
 
-//! Keyboard focus system for Bevy.
+//! A UI-centric focus system for Bevy.
 //!
 //! This crate provides a system for managing input focus in Bevy applications, including:
 //! * [`InputFocus`], a resource for tracking which entity has input focus.
 //! * Methods for getting and setting input focus via [`InputFocus`] and [`IsFocusedHelper`].
 //! * A generic [`FocusedInput`] event for input events which bubble up from the focused entity.
+//! * Various navigation frameworks for moving input focus between entities based on user input, such as [`tab_navigation`] and [`directional_navigation`].
 //!
 //! This crate does *not* provide any integration with UI widgets: this is the responsibility of the widget crate,
 //! which should depend on [`bevy_input_focus`](crate).
 
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
+pub mod directional_navigation;
 pub mod tab_navigation;
 
 // This module is too small / specific to be exported by the crate,
@@ -24,12 +32,14 @@ pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PreUpdate, Startup};
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
-use bevy_hierarchy::{HierarchyQueryExt, Parent};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
 
-/// Resource representing which entity has input focus, if any. Keyboard events will be
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
+
+/// Resource representing which entity has input focus, if any. Input events (other than pointer-like inputs) will be
 /// dispatched to the current focus entity, or to the primary window if no entity has focus.
 ///
 /// Changing the input focus is as easy as modifying this resource.
@@ -67,6 +77,11 @@ use core::fmt::Debug;
 /// }
 /// ```
 #[derive(Clone, Debug, Default, Resource)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Resource)
+)]
 pub struct InputFocus(pub Option<Entity>);
 
 impl InputFocus {
@@ -105,7 +120,10 @@ impl InputFocus {
 /// By contrast, a console-style UI intended to be navigated with a gamepad may always have the focus indicator visible.
 ///
 /// To easily access information about whether focus indicators should be shown for a given entity, use the [`IsFocused`] trait.
-#[derive(Clone, Debug, Resource)]
+///
+/// By default, this resource is set to `false`.
+#[derive(Clone, Debug, Resource, Default)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Resource))]
 pub struct InputFocusVisible(pub bool);
 
 /// A bubble-able user input event that starts at the currently focused entity.
@@ -116,6 +134,7 @@ pub struct InputFocusVisible(pub bool);
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSet::Dispatch`] system set during [`PreUpdate`].
 #[derive(Clone, Debug, Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct FocusedInput<E: Event + Clone> {
     /// The underlying input event.
     pub input: E,
@@ -132,7 +151,7 @@ impl<E: Event + Clone> Event for FocusedInput<E> {
 #[derive(QueryData)]
 /// These are for accessing components defined on the targeted entity
 pub struct WindowTraversal {
-    parent: Option<&'static Parent>,
+    parent: Option<&'static ChildOf>,
     window: Option<&'static Window>,
 }
 
@@ -163,8 +182,8 @@ pub struct InputDispatchPlugin;
 impl Plugin for InputDispatchPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, set_initial_focus)
-            .insert_resource(InputFocus(None))
-            .insert_resource(InputFocusVisible(false))
+            .init_resource::<InputFocus>()
+            .init_resource::<InputFocusVisible>()
             .add_systems(
                 PreUpdate,
                 (
@@ -174,6 +193,11 @@ impl Plugin for InputDispatchPlugin {
                 )
                     .in_set(InputFocusSet::Dispatch),
             );
+
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<AutoFocus>()
+            .register_type::<InputFocus>()
+            .register_type::<InputFocusVisible>();
     }
 }
 
@@ -262,7 +286,7 @@ pub trait IsFocused {
 /// When working with the entire [`World`], consider using the [`IsFocused`] instead.
 #[derive(SystemParam)]
 pub struct IsFocusedHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
     input_focus: Option<Res<'w, InputFocus>>,
     input_focus_visible: Option<Res<'w, InputFocusVisible>>,
 }
@@ -310,7 +334,7 @@ impl IsFocused for World {
             if e == entity {
                 return true;
             }
-            if let Some(parent) = self.entity(e).get::<Parent>().map(Parent::get) {
+            if let Some(parent) = self.entity(e).get::<ChildOf>().map(ChildOf::get) {
                 e = parent;
             } else {
                 return false;
@@ -335,10 +359,10 @@ impl IsFocused for World {
 mod tests {
     use super::*;
 
+    use alloc::string::String;
     use bevy_ecs::{
-        component::ComponentId, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
+        component::HookContext, observer::Trigger, system::RunSystemOnce, world::DeferredWorld,
     };
-    use bevy_hierarchy::BuildChildren;
     use bevy_input::{
         keyboard::{Key, KeyCode},
         ButtonState, InputPlugin,
@@ -350,7 +374,7 @@ mod tests {
     #[component(on_add = set_focus_on_add)]
     struct SetFocusOnAdd;
 
-    fn set_focus_on_add(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+    fn set_focus_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let mut input_focus = world.resource_mut::<InputFocus>();
         input_focus.set(entity);
     }

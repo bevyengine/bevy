@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use crate::{entity::Entity, world::unsafe_world_cell::UnsafeWorldCell};
+use crate::{
+    entity::{Entity, EntityDoesNotExistDetails},
+    world::unsafe_world_cell::UnsafeWorldCell,
+};
 
 /// An error that occurs when retrieving a specific [`Entity`]'s query result from [`Query`](crate::system::Query) or [`QueryState`](crate::query::QueryState).
 // TODO: return the type_name as part of this error
@@ -11,7 +14,7 @@ pub enum QueryEntityError<'w> {
     /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity, UnsafeWorldCell<'w>),
     /// The given [`Entity`] does not exist.
-    NoSuchEntity(Entity, UnsafeWorldCell<'w>),
+    NoSuchEntity(Entity, EntityDoesNotExistDetails),
     /// The [`Entity`] was requested mutably more than once.
     ///
     /// See [`QueryState::get_many_mut`](crate::query::QueryState::get_many_mut) for an example.
@@ -30,17 +33,14 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
                 )?;
                 format_archetype(f, world, entity)
             }
-            Self::NoSuchEntity(entity, world) => {
-                write!(
-                    f,
-                    "Entity {entity} {}",
-                    world
-                        .entities()
-                        .entity_does_not_exist_error_details_message(entity)
-                )
+            Self::NoSuchEntity(entity, details) => {
+                write!(f, "The entity with ID {entity} {details}")
             }
             Self::AliasedMutability(entity) => {
-                write!(f, "Entity {entity} was requested mutably more than once")
+                write!(
+                    f,
+                    "The entity with ID {entity} was requested mutably more than once"
+                )
             }
         }
     }
@@ -54,14 +54,8 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
                 format_archetype(f, world, entity)?;
                 write!(f, ")")
             }
-            Self::NoSuchEntity(entity, world) => {
-                write!(
-                    f,
-                    "NoSuchEntity({entity} {})",
-                    world
-                        .entities()
-                        .entity_does_not_exist_error_details_message(entity)
-                )
+            Self::NoSuchEntity(entity, details) => {
+                write!(f, "NoSuchEntity({entity} {details})")
             }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
         }
@@ -117,8 +111,8 @@ pub enum QuerySingleError {
 
 #[cfg(test)]
 mod test {
-    use crate as bevy_ecs;
     use crate::prelude::World;
+    use alloc::format;
     use bevy_ecs_macros::Component;
 
     #[test]

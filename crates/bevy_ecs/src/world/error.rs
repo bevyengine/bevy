@@ -1,10 +1,13 @@
 //! Contains error types returned by bevy's schedule.
 
+use alloc::vec::Vec;
 use thiserror::Error;
 
-use crate::{component::ComponentId, entity::Entity, schedule::InternedScheduleLabel};
-
-use super::unsafe_world_cell::UnsafeWorldCell;
+use crate::{
+    component::ComponentId,
+    entity::{Entity, EntityDoesNotExistDetails},
+    schedule::InternedScheduleLabel,
+};
 
 /// The error type returned by [`World::try_run_schedule`] if the provided schedule does not exist.
 ///
@@ -12,6 +15,32 @@ use super::unsafe_world_cell::UnsafeWorldCell;
 #[derive(Error, Debug)]
 #[error("The schedule with the label {0:?} was not found.")]
 pub struct TryRunScheduleError(pub InternedScheduleLabel);
+
+/// The error type returned by [`World::try_despawn`] if the provided entity does not exist.
+///
+/// [`World::try_despawn`]: crate::world::World::try_despawn
+#[derive(Error, Debug, Clone, Copy)]
+#[error("Could not despawn the entity with ID {entity} because it {details}")]
+pub struct TryDespawnError {
+    /// The entity's ID.
+    pub entity: Entity,
+    /// Details on why the entity does not exist, if available.
+    pub details: EntityDoesNotExistDetails,
+}
+
+/// The error type returned by [`World::try_insert_batch`] and [`World::try_insert_batch_if_new`]
+/// if any of the provided entities do not exist.
+///
+/// [`World::try_insert_batch`]: crate::world::World::try_insert_batch
+/// [`World::try_insert_batch_if_new`]: crate::world::World::try_insert_batch_if_new
+#[derive(Error, Debug, Clone)]
+#[error("Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}")]
+pub struct TryInsertBatchError {
+    /// The bundles' type name.
+    pub bundle_type: &'static str,
+    /// The IDs of the provided entities that do not exist.
+    pub entities: Vec<Entity>,
+}
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(Error, Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,53 +54,17 @@ pub enum EntityComponentError {
 }
 
 /// An error that occurs when fetching entities mutably from a world.
-#[derive(Clone, Copy)]
-pub enum EntityFetchError<'w> {
+#[derive(Error, Debug, Clone, Copy)]
+pub enum EntityFetchError {
     /// The entity with the given ID does not exist.
-    NoSuchEntity(Entity, UnsafeWorldCell<'w>),
+    #[error("The entity with ID {0} {1}")]
+    NoSuchEntity(Entity, EntityDoesNotExistDetails),
     /// The entity with the given ID was requested mutably more than once.
+    #[error("The entity with ID {0} was requested mutably more than once")]
     AliasedMutability(Entity),
 }
 
-impl<'w> core::error::Error for EntityFetchError<'w> {}
-
-impl<'w> core::fmt::Display for EntityFetchError<'w> {
-    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-        match *self {
-            Self::NoSuchEntity(entity, world) => {
-                write!(
-                    f,
-                    "Entity {entity} {}",
-                    world
-                        .entities()
-                        .entity_does_not_exist_error_details_message(entity)
-                )
-            }
-            Self::AliasedMutability(entity) => {
-                write!(f, "Entity {entity} was requested mutably more than once")
-            }
-        }
-    }
-}
-
-impl<'w> core::fmt::Debug for EntityFetchError<'w> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match *self {
-            Self::NoSuchEntity(entity, world) => {
-                write!(
-                    f,
-                    "NoSuchEntity({entity} {})",
-                    world
-                        .entities()
-                        .entity_does_not_exist_error_details_message(entity)
-                )
-            }
-            Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
-        }
-    }
-}
-
-impl<'w> PartialEq for EntityFetchError<'w> {
+impl PartialEq for EntityFetchError {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::NoSuchEntity(e1, _), Self::NoSuchEntity(e2, _)) if e1 == e2 => true,
@@ -81,4 +74,4 @@ impl<'w> PartialEq for EntityFetchError<'w> {
     }
 }
 
-impl<'w> Eq for EntityFetchError<'w> {}
+impl Eq for EntityFetchError {}

@@ -17,7 +17,7 @@ use bevy::{
         DiagnosticPath, DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
     },
     ecs::{
-        component::{ComponentDescriptor, ComponentId, StorageType},
+        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentId, StorageType},
         system::QueryParamBuilder,
         world::FilteredEntityMut,
     },
@@ -45,7 +45,10 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
             // find the value of the component
             let ptr = filtered_entity.get_by_id(*component_id).unwrap();
 
-            #[expect(unsafe_code)]
+            #[expect(
+                unsafe_code,
+                reason = "Used to calculate Faulhaber's formula, per the comment above"
+            )]
             // SAFETY: All components have a u8 layout
             let value: u8 = unsafe { *ptr.deref::<u8>() };
 
@@ -62,7 +65,10 @@ fn base_system(access_components: In<Vec<ComponentId>>, mut query: Query<Filtere
         // we assign this value to all the components we can write to
         for component_id in &access_components.0 {
             if let Some(ptr) = filtered_entity.get_mut_by_id(*component_id) {
-                #[expect(unsafe_code)]
+                #[expect(
+                    unsafe_code,
+                    reason = "Used to write a value to every component that we can write to."
+                )]
                 // SAFETY: All components have a u8 layout
                 unsafe {
                     let mut value = ptr.with_type::<u8>();
@@ -82,7 +88,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     let component_ids: Vec<ComponentId> = (1..=num_components)
         .map(|i| {
             world.register_component_with_descriptor(
-                #[allow(unsafe_code)]
+                #[expect(unsafe_code, reason = "Used to register a bunch of fake components")]
                 // SAFETY:
                 // we don't implement a drop function
                 // u8 is Sync and Send
@@ -93,6 +99,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                         Layout::new::<u8>(),
                         None,
                         true, // is mutable
+                        ComponentCloneBehavior::Default,
                     )
                 },
             )
@@ -130,7 +137,10 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         for &component_id in components {
             let value: u8 = rng.gen_range(0..255);
             OwningPtr::make(value, |ptr| {
-                #[allow(unsafe_code)]
+                #[expect(
+                    unsafe_code,
+                    reason = "Used to write to a fake component that we previously set up"
+                )]
                 // SAFETY:
                 // component_id is from the same world
                 // value is u8, so ptr is a valid reference for component_id
@@ -146,15 +156,14 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     app.add_plugins(MinimalPlugins)
         .add_plugins(DiagnosticsPlugin)
         .add_plugins(LogPlugin::default())
-        .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_plugins(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(LogDiagnosticsPlugin::filtered(vec![DiagnosticPath::new(
             "fps",
         )]));
     app.run();
 }
 
-#[expect(missing_docs)]
-pub fn main() {
+fn main() {
     const DEFAULT_NUM_ENTITIES: u32 = 50000;
     const DEFAULT_NUM_COMPONENTS: u32 = 1000;
     const DEFAULT_NUM_SYSTEMS: u32 = 800;

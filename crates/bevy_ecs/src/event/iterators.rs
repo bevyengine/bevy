@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::batching::BatchingStrategy;
 use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
@@ -145,6 +144,7 @@ pub struct EventParIter<'a, E: Event> {
     reader: &'a mut EventCursor<E>,
     slices: [&'a [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
+    #[cfg(not(target_arch = "wasm32"))]
     unread: usize,
 }
 
@@ -170,6 +170,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
             reader,
             slices: [a, b],
             batching_strategy: BatchingStrategy::default(),
+            #[cfg(not(target_arch = "wasm32"))]
             unread: unread_count,
         }
     }
@@ -206,6 +207,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[cfg_attr(
+        target_arch = "wasm32",
+        expect(unused_mut, reason = "not mutated on this target")
+    )]
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(mut self, func: FN) {
         #[cfg(target_arch = "wasm32")]
         {

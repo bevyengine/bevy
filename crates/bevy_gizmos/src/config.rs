@@ -1,6 +1,5 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
 
-use crate::{self as bevy_gizmos};
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
 #[cfg(all(
@@ -9,7 +8,7 @@ pub use bevy_gizmos_macros::GizmoConfigGroup;
 ))]
 use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
-use bevy_ecs::{reflect::ReflectResource, system::Resource};
+use bevy_ecs::{reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_utils::TypeIdMap;
 use core::{

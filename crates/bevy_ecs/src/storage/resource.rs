@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::string::String;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-#[cfg(feature = "track_change_detection")]
+#[cfg(feature = "track_location")]
 use core::panic::Location;
 use core::{cell::UnsafeCell, mem::ManuallyDrop};
 
@@ -30,7 +30,7 @@ pub struct ResourceData<const SEND: bool> {
     id: ArchetypeComponentId,
     #[cfg(feature = "std")]
     origin_thread_id: Option<ThreadId>,
-    #[cfg(feature = "track_change_detection")]
+    #[cfg(feature = "track_location")]
     changed_by: UnsafeCell<&'static Location<'static>>,
 }
 
@@ -146,9 +146,9 @@ impl<const SEND: bool> ResourceData<SEND> {
                     added: &self.added_ticks,
                     changed: &self.changed_ticks,
                 },
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 &self.changed_by,
-                #[cfg(not(feature = "track_change_detection"))]
+                #[cfg(not(feature = "track_location"))]
                 (),
             )
         })
@@ -166,7 +166,7 @@ impl<const SEND: bool> ResourceData<SEND> {
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
             ticks: unsafe { TicksMut::from_tick_cells(ticks, last_run, this_run) },
-            #[cfg(feature = "track_change_detection")]
+            #[cfg(feature = "track_location")]
             // SAFETY: We have exclusive access to the underlying storage.
             changed_by: unsafe { _caller.deref_mut() },
         })
@@ -186,7 +186,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_tick: Tick,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
         if self.is_present() {
             self.validate_access();
@@ -205,7 +205,7 @@ impl<const SEND: bool> ResourceData<SEND> {
             *self.added_ticks.deref_mut() = change_tick;
         }
         *self.changed_ticks.deref_mut() = change_tick;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             *self.changed_by.deref_mut() = caller;
         }
@@ -225,7 +225,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         &mut self,
         value: OwningPtr<'_>,
         change_ticks: ComponentTicks,
-        #[cfg(feature = "track_change_detection")] caller: &'static Location,
+        #[cfg(feature = "track_location")] caller: &'static Location,
     ) {
         if self.is_present() {
             self.validate_access();
@@ -244,7 +244,7 @@ impl<const SEND: bool> ResourceData<SEND> {
         }
         *self.added_ticks.deref_mut() = change_ticks.added;
         *self.changed_ticks.deref_mut() = change_ticks.changed;
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         {
             *self.changed_by.deref_mut() = caller;
         }
@@ -268,9 +268,9 @@ impl<const SEND: bool> ResourceData<SEND> {
         let res = unsafe { self.data.swap_remove_and_forget_unchecked(Self::ROW) };
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self
-        #[cfg(feature = "track_change_detection")]
+        #[cfg(feature = "track_location")]
         let caller = unsafe { *self.changed_by.deref_mut() };
-        #[cfg(not(feature = "track_change_detection"))]
+        #[cfg(not(feature = "track_location"))]
         let caller = ();
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
@@ -308,7 +308,7 @@ impl<const SEND: bool> ResourceData<SEND> {
 
 /// The backing store for all [`Resource`]s stored in the [`World`].
 ///
-/// [`Resource`]: crate::system::Resource
+/// [`Resource`]: crate::resource::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Resources<const SEND: bool> {
@@ -392,7 +392,7 @@ impl<const SEND: bool> Resources<SEND> {
                 id: f(),
                 #[cfg(feature = "std")]
                 origin_thread_id: None,
-                #[cfg(feature = "track_change_detection")]
+                #[cfg(feature = "track_location")]
                 changed_by: UnsafeCell::new(Location::caller())
             }
         })

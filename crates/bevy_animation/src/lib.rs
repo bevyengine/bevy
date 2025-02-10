@@ -32,24 +32,18 @@ use crate::{
 };
 
 use bevy_app::{Animation, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, Assets};
-use bevy_ecs::{
-    entity::{VisitEntities, VisitEntitiesMut},
-    prelude::*,
-    reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
-    world::EntityMutExcept,
-};
+use bevy_asset::{Asset, AssetApp, AssetEvents, Assets};
+use bevy_ecs::{prelude::*, world::EntityMutExcept};
 use bevy_math::FloatOrd;
+use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
-use bevy_utils::{
-    tracing::{trace, warn},
-    HashMap, NoOpHash, PreHashMap, PreHashMapExt, TypeIdMap,
-};
+use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
 use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
+use tracing::{trace, warn};
 use uuid::Uuid;
 
 /// The animation prelude.
@@ -208,16 +202,16 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect, VisitEntities, VisitEntitiesMut)]
-#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
+#[derive(Clone, Copy, Component, Reflect)]
+#[reflect(Component)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
     /// Typically, this is derived from the path.
-    #[visit_entities(ignore)]
     pub id: AnimationTargetId,
 
     /// The entity containing the [`AnimationPlayer`].
+    #[entities]
     pub player: Entity,
 }
 
@@ -466,7 +460,7 @@ pub enum AnimationEvaluationError {
 /// An animation that an [`AnimationPlayer`] is currently either playing or was
 /// playing, but is presently paused.
 ///
-/// An stopped animation is considered no longer active.
+/// A stopped animation is considered no longer active.
 #[derive(Debug, Clone, Copy, Reflect)]
 pub struct ActiveAnimation {
     /// The factor by which the weight from the [`AnimationGraph`] is multiplied.
@@ -756,10 +750,10 @@ impl AnimationCurveEvaluators {
                 .component_property_curve_evaluators
                 .get_or_insert_with(component_property, func),
             EvaluatorId::Type(type_id) => match self.type_id_curve_evaluators.entry(type_id) {
-                bevy_utils::hashbrown::hash_map::Entry::Occupied(occupied_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Occupied(occupied_entry) => {
                     &mut **occupied_entry.into_mut()
                 }
-                bevy_utils::hashbrown::hash_map::Entry::Vacant(vacant_entry) => {
+                bevy_platform_support::collections::hash_map::Entry::Vacant(vacant_entry) => {
                     &mut **vacant_entry.insert(func())
                 }
             },
@@ -938,13 +932,6 @@ impl AnimationPlayer {
     pub fn animation_mut(&mut self, animation: AnimationNodeIndex) -> Option<&mut ActiveAnimation> {
         self.active_animations.get_mut(&animation)
     }
-
-    #[deprecated = "Use `is_playing_animation` instead"]
-    /// Returns true if the animation is currently playing or paused, or false
-    /// if the animation is stopped.
-    pub fn animation_is_playing(&self, animation: AnimationNodeIndex) -> bool {
-        self.active_animations.contains_key(&animation)
-    }
 }
 
 /// A system that triggers untargeted animation events for the currently-playing animations.
@@ -1057,8 +1044,8 @@ pub fn animate_targets(
                     (player, graph_handle.id())
                 } else {
                     trace!(
-                        "Either an animation player {:?} or a graph was missing for the target \
-                         entity {:?} ({:?}); no animations will play this frame",
+                        "Either an animation player {} or a graph was missing for the target \
+                         entity {} ({:?}); no animations will play this frame",
                         player_id,
                         entity_mut.id(),
                         entity_mut.get::<Name>(),
@@ -1252,7 +1239,7 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    graph::thread_animation_graphs,
+                    graph::thread_animation_graphs.before(AssetEvents),
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
@@ -1262,7 +1249,7 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets
-                        .after(bevy_render::mesh::inherit_weights)
+                        .before(bevy_render::mesh::inherit_weights)
                         .ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,

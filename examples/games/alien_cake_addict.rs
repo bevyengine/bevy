@@ -257,7 +257,7 @@ fn move_player(
         if game.player.i == game.bonus.i && game.player.j == game.bonus.j {
             game.score += 2;
             game.cake_eaten += 1;
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
             game.bonus.entity = None;
         }
     }
@@ -321,7 +321,7 @@ fn spawn_bonus(
 
     if let Some(entity) = game.bonus.entity {
         game.score -= 3;
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
         game.bonus.entity = None;
         if game.score <= -5 {
             next_state.set(GameState::GameOver);
@@ -347,15 +347,15 @@ fn spawn_bonus(
                     game.bonus.j as f32,
                 ),
                 SceneRoot(game.bonus.handle.clone()),
-            ))
-            .with_child((
-                PointLight {
-                    color: Color::srgb(1.0, 1.0, 0.0),
-                    intensity: 500_000.0,
-                    range: 10.0,
-                    ..default()
-                },
-                Transform::from_xyz(0.0, 2.0, 0.0),
+                children![(
+                    PointLight {
+                        color: Color::srgb(1.0, 1.0, 0.0),
+                        intensity: 500_000.0,
+                        range: 10.0,
+                        ..default()
+                    },
+                    Transform::from_xyz(0.0, 2.0, 0.0),
+                )],
             ))
             .id(),
     );
@@ -389,22 +389,21 @@ fn gameover_keyboard(
 
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, game: Res<Game>) {
-    commands
-        .spawn((
-            StateScoped(GameState::GameOver),
-            Node {
-                width: Val::Percent(100.),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            },
-        ))
-        .with_child((
+    commands.spawn((
+        StateScoped(GameState::GameOver),
+        Node {
+            width: Val::Percent(100.),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        children![(
             Text::new(format!("Cake eaten: {}", game.cake_eaten)),
             TextFont {
                 font_size: 67.0,
                 ..default()
             },
             TextColor(Color::srgb(0.5, 0.5, 1.0)),
-        ));
+        )],
+    ));
 }

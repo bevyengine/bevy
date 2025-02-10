@@ -32,7 +32,7 @@
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -40,38 +40,42 @@ use bevy_ecs::{
     query::{Changed, Or},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::Image;
 use bevy_math::{uvec2, vec4, Rect, UVec2};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{Sampler, Shader, TextureView, WgpuSampler, WgpuTextureView},
+    renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
     view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};
-use bevy_utils::{default, tracing::error, HashSet};
+use bevy_utils::default;
 use fixedbitset::FixedBitSet;
 use nonmax::{NonMaxU16, NonMaxU32};
+use tracing::error;
 
 use crate::{binding_arrays_are_usable, ExtractMeshesSet};
 
 /// The ID of the lightmap shader.
 pub const LIGHTMAP_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(285484768317531991932943596447919767152);
+    weak_handle!("fc28203f-f258-47f3-973c-ce7d1dd70e59");
 
 /// The number of lightmaps that we store in a single slab, if bindless textures
 /// are in use.
 ///
 /// If bindless textures aren't in use, then only a single lightmap can be bound
 /// at a time.
-pub const LIGHTMAPS_PER_SLAB: usize = 16;
+pub const LIGHTMAPS_PER_SLAB: usize = 4;
 
 /// A plugin that provides an implementation of lightmaps.
 pub struct LightmapPlugin;
@@ -98,6 +102,13 @@ pub struct Lightmap {
     /// This field allows lightmaps for a variety of meshes to be packed into a
     /// single atlas.
     pub uv_rect: Rect,
+
+    /// Whether bicubic sampling should be used for sampling this lightmap.
+    ///
+    /// Bicubic sampling is higher quality, but slower, and may lead to light leaks.
+    ///
+    /// If true, the lightmap texture's sampler must be set to [`bevy_image::ImageSampler::linear`].
+    pub bicubic_sampling: bool,
 }
 
 /// Lightmap data stored in the render world.
@@ -124,6 +135,9 @@ pub(crate) struct RenderLightmap {
     ///
     /// If bindless lightmaps aren't in use, this will be 0.
     pub(crate) slot_index: LightmapSlotIndex,
+
+    // Whether or not bicubic sampling should be used for this lightmap.
+    pub(crate) bicubic_sampling: bool,
 }
 
 /// Stores data for all lightmaps in the render world.
@@ -235,6 +249,7 @@ fn extract_lightmaps(
                 lightmap.uv_rect,
                 slab_index,
                 slot_index,
+                lightmap.bicubic_sampling,
             ),
         );
 
@@ -294,12 +309,14 @@ impl RenderLightmap {
         uv_rect: Rect,
         slab_index: LightmapSlabIndex,
         slot_index: LightmapSlotIndex,
+        bicubic_sampling: bool,
     ) -> Self {
         Self {
             image,
             uv_rect,
             slab_index,
             slot_index,
+            bicubic_sampling,
         }
     }
 }
@@ -325,6 +342,7 @@ impl Default for Lightmap {
         Self {
             image: Default::default(),
             uv_rect: Rect::new(0.0, 0.0, 1.0, 1.0),
+            bicubic_sampling: false,
         }
     }
 }
@@ -332,7 +350,9 @@ impl Default for Lightmap {
 impl FromWorld for RenderLightmaps {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let bindless_supported = binding_arrays_are_usable(render_device);
+        let render_adapter = world.resource::<RenderAdapter>();
+
+        let bindless_supported = binding_arrays_are_usable(render_device, render_adapter);
 
         RenderLightmaps {
             render_lightmaps: default(),

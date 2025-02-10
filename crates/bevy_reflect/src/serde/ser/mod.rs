@@ -21,11 +21,16 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };
-    use bevy_utils::{HashMap, HashSet};
+    use alloc::{
+        boxed::Box,
+        string::{String, ToString},
+        vec,
+        vec::Vec,
+    };
+    use bevy_platform_support::collections::{HashMap, HashSet};
     use core::{any::TypeId, f32::consts::PI, ops::RangeInclusive};
     use ron::{extensions::Extensions, ser::PrettyConfig};
     use serde::{Serialize, Serializer};
@@ -647,6 +652,7 @@ mod tests {
     mod functions {
         use super::*;
         use crate::func::{DynamicFunction, IntoFunction};
+        use alloc::string::ToString;
 
         #[test]
         fn should_not_serialize_function() {

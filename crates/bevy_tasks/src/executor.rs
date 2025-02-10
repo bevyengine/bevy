@@ -8,14 +8,13 @@
 //! [`async-executor`]: https://crates.io/crates/async-executor
 //! [`edge-executor`]: https://crates.io/crates/edge-executor
 
-pub use async_task::Task;
 use core::{
     fmt,
     panic::{RefUnwindSafe, UnwindSafe},
 };
 use derive_more::{Deref, DerefMut};
 
-#[cfg(feature = "multi_threaded")]
+#[cfg(all(feature = "multi_threaded", not(target_arch = "wasm32")))]
 pub use async_task::FallibleTask;
 
 #[cfg(feature = "async_executor")]
@@ -51,6 +50,7 @@ pub struct LocalExecutor<'a>(LocalExecutorInner<'a>);
 
 impl Executor<'_> {
     /// Construct a new [`Executor`]
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
     pub const fn new() -> Self {
         Self(ExecutorInner::new())
@@ -59,6 +59,7 @@ impl Executor<'_> {
 
 impl LocalExecutor<'_> {
     /// Construct a new [`LocalExecutor`]
+    #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
     pub const fn new() -> Self {
         Self(LocalExecutorInner::new())

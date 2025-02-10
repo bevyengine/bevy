@@ -1,27 +1,27 @@
 use super::resource_manager::ResourceManager;
-use bevy_asset::Handle;
+use bevy_asset::{weak_handle, Handle};
 use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    core_3d::CORE_3D_DEPTH_FORMAT, experimental::mip_generation::DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_ecs::{
-    system::Resource,
+    resource::Resource,
     world::{FromWorld, World},
 };
 use bevy_render::render_resource::*;
 
 pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(4325134235233421);
-pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(5325134235233421);
-pub const MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(6325134235233421);
+    weak_handle!("80ccea4a-8234-4ee0-af74-77b3cad503cf");
+pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("d71c5879-97fa-49d1-943e-ed9162fe8adb");
 pub const MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(7325134235233421);
+    weak_handle!("68cc6826-8321-43d1-93d5-4f61f0456c13");
 pub const MESHLET_VISIBILITY_BUFFER_HARDWARE_RASTER_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(8325134235233421);
+    weak_handle!("4b4e3020-748f-4baf-b011-87d9d2a12796");
 pub const MESHLET_RESOLVE_RENDER_TARGETS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(9325134235233421);
+    weak_handle!("c218ce17-cf59-4268-8898-13ecf384f133");
 pub const MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(9425134235233421);
+    weak_handle!("f5b7edfc-2eac-4407-8f5c-1265d4d795c2");
 
 #[derive(Resource)]
 pub struct MeshletPipelines {
@@ -119,8 +119,11 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec![
+                        "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
+                        "MESHLET".into(),
+                    ],
                     entry_point: "downsample_depth_first".into(),
                     zero_initialize_workgroup_memory: false,
                 },
@@ -134,8 +137,11 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec![
+                        "MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into(),
+                        "MESHLET".into(),
+                    ],
                     entry_point: "downsample_depth_second".into(),
                     zero_initialize_workgroup_memory: false,
                 },
@@ -149,8 +155,8 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec![],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET".into()],
                     entry_point: "downsample_depth_first".into(),
                     zero_initialize_workgroup_memory: false,
                 },
@@ -164,8 +170,8 @@ impl FromWorld for MeshletPipelines {
                         stages: ShaderStages::COMPUTE,
                         range: 0..8,
                     }],
-                    shader: MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-                    shader_defs: vec![],
+                    shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET".into()],
                     entry_point: "downsample_depth_second".into(),
                     zero_initialize_workgroup_memory: false,
                 },

@@ -4,19 +4,19 @@ use super::basis::*;
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use bevy_asset::{Asset, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
-use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::Reflect;
 use core::hash::Hash;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use wgpu::{SamplerDescriptor, TextureViewDescriptor};
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
-    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    SamplerDescriptor, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
+    TextureViewDescriptor,
 };
 
 pub trait BevyDefault {
@@ -72,7 +72,7 @@ macro_rules! feature_gate {
     ($feature: tt, $value: ident) => {{
         #[cfg(not(feature = $feature))]
         {
-            bevy_utils::tracing::warn!("feature \"{}\" is not enabled", $feature);
+            tracing::warn!("feature \"{}\" is not enabled", $feature);
             return None;
         }
         #[cfg(feature = $feature)]
@@ -117,7 +117,14 @@ impl ImageFormat {
             #[cfg(feature = "webp")]
             ImageFormat::WebP => &["webp"],
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => &[],
         }
     }
@@ -165,13 +172,27 @@ impl ImageFormat {
             #[cfg(feature = "webp")]
             ImageFormat::WebP => &["image/webp"],
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => &[],
         }
     }
 
     pub fn from_mime_type(mime_type: &str) -> Option<Self> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match mime_type.to_ascii_lowercase().as_str() {
             // note: farbfeld does not have a MIME type
             "image/basis" | "image/x-basis" => feature_gate!("basis-universal", Basis),
@@ -197,7 +218,14 @@ impl ImageFormat {
     }
 
     pub fn from_extension(extension: &str) -> Option<Self> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match extension.to_ascii_lowercase().as_str() {
             "basis" => feature_gate!("basis-universal", Basis),
             "bmp" => feature_gate!("bmp", Bmp),
@@ -220,7 +248,14 @@ impl ImageFormat {
     }
 
     pub fn as_image_crate_format(&self) -> Option<image::ImageFormat> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match self {
             #[cfg(feature = "bmp")]
             ImageFormat::Bmp => image::ImageFormat::Bmp,
@@ -255,13 +290,27 @@ impl ImageFormat {
             #[cfg(feature = "ktx2")]
             ImageFormat::Ktx2 => return None,
             // FIXME: https://github.com/rust-lang/rust/issues/129031
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern will be unreachable if all formats are enabled; otherwise, it will be reachable"
+            )]
             _ => return None,
         })
     }
 
     pub fn from_image_crate_format(format: image::ImageFormat) -> Option<ImageFormat> {
-        #[allow(unreachable_code)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unreachable_code` may not always lint"
+        )]
+        #[allow(
+            unreachable_code,
+            reason = "If all features listed below are disabled, then all arms will have a `return None`, keeping the surrounding `Some()` from being constructed."
+        )]
         Some(match format {
             image::ImageFormat::Bmp => feature_gate!("bmp", Bmp),
             image::ImageFormat::Dds => feature_gate!("dds", Dds),
@@ -282,16 +331,19 @@ impl ImageFormat {
     }
 }
 
-#[derive(Asset, Reflect, Debug, Clone)]
-#[reflect(opaque)]
-#[reflect(Default, Debug)]
+#[derive(Asset, Debug, Clone)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(opaque, Default, Debug)
+)]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
-    pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
+    pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
 }
 
@@ -507,7 +559,7 @@ impl ImageSamplerDescriptor {
         }
     }
 
-    pub fn as_wgpu(&self) -> SamplerDescriptor {
+    pub fn as_wgpu(&self) -> SamplerDescriptor<Option<&str>> {
         SamplerDescriptor {
             label: self.label.as_deref(),
             address_mode_u: self.address_mode_u.into(),
@@ -617,8 +669,8 @@ impl From<SamplerBorderColor> for ImageSamplerBorderColor {
     }
 }
 
-impl<'a> From<SamplerDescriptor<'a>> for ImageSamplerDescriptor {
-    fn from(value: SamplerDescriptor) -> Self {
+impl From<SamplerDescriptor<Option<&str>>> for ImageSamplerDescriptor {
+    fn from(value: SamplerDescriptor<Option<&str>>) -> Self {
         ImageSamplerDescriptor {
             label: value.label.map(ToString::to_string),
             address_mode_u: value.address_mode_u.into(),
@@ -874,7 +926,15 @@ impl Image {
         #[cfg(all(debug_assertions, feature = "dds"))] name: String,
         buffer: &[u8],
         image_type: ImageType,
-        #[allow(unused_variables)] supported_compressed_formats: CompressedImageFormats,
+        #[expect(
+            clippy::allow_attributes,
+            reason = "`unused_variables` may not always lint"
+        )]
+        #[allow(
+            unused_variables,
+            reason = "`supported_compressed_formats` is needed where the image format is `Basis`, `Dds`, or `Ktx2`; if these are disabled, then `supported_compressed_formats` is unused."
+        )]
+        supported_compressed_formats: CompressedImageFormats,
         is_srgb: bool,
         image_sampler: ImageSampler,
         asset_usage: RenderAssetUsages,
@@ -904,7 +964,14 @@ impl Image {
             ImageFormat::Ktx2 => {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)?
             }
-            #[allow(unreachable_patterns)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "`unreachable_patterns` may not always lint"
+            )]
+            #[allow(
+                unreachable_patterns,
+                reason = "The wildcard pattern may be unreachable if only the specially-handled formats are enabled; however, the wildcard pattern is needed for any formats not specially handled"
+            )]
             _ => {
                 let image_crate_format = format
                     .as_image_crate_format()
@@ -938,7 +1005,7 @@ impl Image {
     ///
     /// Returns None if the provided coordinates are out of bounds.
     ///
-    /// For 2D textures, Z is ignored. For 1D textures, Y and Z are ignored.
+    /// For 2D textures, Z is the layer number. For 1D textures, Y and Z are ignored.
     #[inline(always)]
     pub fn pixel_data_offset(&self, coords: UVec3) -> Option<usize> {
         let width = self.texture_descriptor.size.width;
@@ -947,17 +1014,11 @@ impl Image {
 
         let pixel_size = self.texture_descriptor.format.pixel_size();
         let pixel_offset = match self.texture_descriptor.dimension {
-            TextureDimension::D3 => {
+            TextureDimension::D3 | TextureDimension::D2 => {
                 if coords.x >= width || coords.y >= height || coords.z >= depth {
                     return None;
                 }
                 coords.z * height * width + coords.y * width + coords.x
-            }
-            TextureDimension::D2 => {
-                if coords.x >= width || coords.y >= height {
-                    return None;
-                }
-                coords.y * width + coords.x
             }
             TextureDimension::D1 => {
                 if coords.x >= width {
@@ -1005,10 +1066,10 @@ impl Image {
     /// Supports many of the common [`TextureFormat`]s:
     ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
     ///  - 16-bit and 32-bit unsigned integer
-    ///  - 32-bit float
+    ///  - 16-bit and 32-bit float
     ///
     /// Be careful: as the data is converted to [`Color`] (which uses `f32` internally),
-    /// there may be issues with precision when using non-float [`TextureFormat`]s.
+    /// there may be issues with precision when using non-f32 [`TextureFormat`]s.
     /// If you read a value you previously wrote using `set_color_at`, it will not match.
     /// If you are working with a 32-bit integer [`TextureFormat`], the value will be
     /// inaccurate (as `f32` does not have enough bits to represent it exactly).
@@ -1019,7 +1080,6 @@ impl Image {
     /// Other [`TextureFormat`]s are unsupported, such as:
     ///  - block-compressed formats
     ///  - non-byte-aligned formats like 10-bit
-    ///  - 16-bit float formats
     ///  - signed integer formats
     #[inline(always)]
     pub fn get_color_at(&self, x: u32, y: u32) -> Result<Color, TextureAccessError> {
@@ -1029,15 +1089,20 @@ impl Image {
         self.get_color_at_internal(UVec3::new(x, y, 0))
     }
 
-    /// Read the color of a specific pixel (3D texture).
+    /// Read the color of a specific pixel (2D texture with layers or 3D texture).
     ///
     /// See [`get_color_at`](Self::get_color_at) for more details.
     #[inline(always)]
     pub fn get_color_at_3d(&self, x: u32, y: u32, z: u32) -> Result<Color, TextureAccessError> {
-        if self.texture_descriptor.dimension != TextureDimension::D3 {
-            return Err(TextureAccessError::WrongDimension);
+        match (
+            self.texture_descriptor.dimension,
+            self.texture_descriptor.size.depth_or_array_layers,
+        ) {
+            (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
+                self.get_color_at_internal(UVec3::new(x, y, z))
+            }
+            _ => Err(TextureAccessError::WrongDimension),
         }
-        self.get_color_at_internal(UVec3::new(x, y, z))
     }
 
     /// Change the color of a specific pixel (1D texture).
@@ -1060,9 +1125,9 @@ impl Image {
     /// Supports many of the common [`TextureFormat`]s:
     ///  - RGBA/BGRA 8-bit unsigned integer, both sRGB and Linear
     ///  - 16-bit and 32-bit unsigned integer (with possibly-limited precision, as [`Color`] uses `f32`)
-    ///  - 32-bit float
+    ///  - 16-bit and 32-bit float
     ///
-    /// Be careful: writing to non-float [`TextureFormat`]s is lossy! The data has to be converted,
+    /// Be careful: writing to non-f32 [`TextureFormat`]s is lossy! The data has to be converted,
     /// so if you read it back using `get_color_at`, the `Color` you get will not equal the value
     /// you used when writing it using this function.
     ///
@@ -1071,7 +1136,6 @@ impl Image {
     /// Other [`TextureFormat`]s are unsupported, such as:
     ///  - block-compressed formats
     ///  - non-byte-aligned formats like 10-bit
-    ///  - 16-bit float formats
     ///  - signed integer formats
     #[inline(always)]
     pub fn set_color_at(&mut self, x: u32, y: u32, color: Color) -> Result<(), TextureAccessError> {
@@ -1081,7 +1145,7 @@ impl Image {
         self.set_color_at_internal(UVec3::new(x, y, 0), color)
     }
 
-    /// Change the color of a specific pixel (3D texture).
+    /// Change the color of a specific pixel (2D texture with layers or 3D texture).
     ///
     /// See [`set_color_at`](Self::set_color_at) for more details.
     #[inline(always)]
@@ -1092,10 +1156,15 @@ impl Image {
         z: u32,
         color: Color,
     ) -> Result<(), TextureAccessError> {
-        if self.texture_descriptor.dimension != TextureDimension::D3 {
-            return Err(TextureAccessError::WrongDimension);
+        match (
+            self.texture_descriptor.dimension,
+            self.texture_descriptor.size.depth_or_array_layers,
+        ) {
+            (TextureDimension::D3, _) | (TextureDimension::D2, 2..) => {
+                self.set_color_at_internal(UVec3::new(x, y, z), color)
+            }
+            _ => Err(TextureAccessError::WrongDimension),
         }
-        self.set_color_at_internal(UVec3::new(x, y, z), color)
     }
 
     #[inline(always)]
@@ -1140,6 +1209,12 @@ impl Image {
                 f32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]),
                 f32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]),
                 f32::from_le_bytes([bytes[12], bytes[13], bytes[14], bytes[15]]),
+            )),
+            TextureFormat::Rgba16Float => Ok(Color::linear_rgba(
+                half::f16::from_le_bytes([bytes[0], bytes[1]]).to_f32(),
+                half::f16::from_le_bytes([bytes[2], bytes[3]]).to_f32(),
+                half::f16::from_le_bytes([bytes[4], bytes[5]]).to_f32(),
+                half::f16::from_le_bytes([bytes[6], bytes[7]]).to_f32(),
             )),
             TextureFormat::Rgba16Unorm | TextureFormat::Rgba16Uint => {
                 let (r, g, b, a) = (
@@ -1189,6 +1264,10 @@ impl Image {
                 let x = (x as f64 / u32::MAX as f64) as f32;
                 Ok(Color::linear_rgb(x, x, x))
             }
+            TextureFormat::R16Float => {
+                let x = half::f16::from_le_bytes([bytes[0], bytes[1]]).to_f32();
+                Ok(Color::linear_rgb(x, x, x))
+            }
             TextureFormat::R32Float => {
                 let x = f32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
                 Ok(Color::linear_rgb(x, x, x))
@@ -1212,6 +1291,11 @@ impl Image {
                 // going via f64 to avoid rounding errors with large numbers and division
                 let r = (r as f64 / u32::MAX as f64) as f32;
                 let g = (g as f64 / u32::MAX as f64) as f32;
+                Ok(Color::linear_rgb(r, g, 0.0))
+            }
+            TextureFormat::Rg16Float => {
+                let r = half::f16::from_le_bytes([bytes[0], bytes[1]]).to_f32();
+                let g = half::f16::from_le_bytes([bytes[2], bytes[3]]).to_f32();
                 Ok(Color::linear_rgb(r, g, 0.0))
             }
             TextureFormat::Rg32Float => {
@@ -1272,6 +1356,13 @@ impl Image {
                 bytes[2] = (r * u8::MAX as f32) as u8;
                 bytes[3] = (a * u8::MAX as f32) as u8;
             }
+            TextureFormat::Rgba16Float => {
+                let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
+                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(r)));
+                bytes[2..4].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(g)));
+                bytes[4..6].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(b)));
+                bytes[6..8].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(a)));
+            }
             TextureFormat::Rgba32Float => {
                 let [r, g, b, a] = LinearRgba::from(color).to_f32_array();
                 bytes[0..4].copy_from_slice(&f32::to_le_bytes(r));
@@ -1329,6 +1420,14 @@ impl Image {
                 let r = (r as f64 * u32::MAX as f64) as u32;
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
             }
+            TextureFormat::R16Float => {
+                // Convert to grayscale with minimal loss if color is already gray
+                let linear = LinearRgba::from(color);
+                let luminance = Xyza::from(linear).y;
+                let [r, _, _, _] = LinearRgba::gray(luminance).to_f32_array();
+                let x = half::f16::from_f32(r);
+                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(x));
+            }
             TextureFormat::R32Float => {
                 // Convert to grayscale with minimal loss if color is already gray
                 let linear = LinearRgba::from(color);
@@ -1355,6 +1454,11 @@ impl Image {
                 let g = (g as f64 * u32::MAX as f64) as u32;
                 bytes[0..4].copy_from_slice(&u32::to_le_bytes(r));
                 bytes[4..8].copy_from_slice(&u32::to_le_bytes(g));
+            }
+            TextureFormat::Rg16Float => {
+                let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
+                bytes[0..2].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(r)));
+                bytes[2..4].copy_from_slice(&half::f16::to_le_bytes(half::f16::from_f32(g)));
             }
             TextureFormat::Rg32Float => {
                 let [r, g, _, _] = LinearRgba::from(color).to_f32_array();
@@ -1591,5 +1695,26 @@ mod test {
             image.get_color_at(5, 10),
             Err(TextureAccessError::OutOfBounds { x: 5, y: 10, z: 0 })
         ));
+    }
+
+    #[test]
+    fn get_set_pixel_2d_with_layers() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 5,
+                height: 10,
+                depth_or_array_layers: 3,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+        image.set_color_at_3d(0, 0, 0, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(0, 0, 0), Ok(Color::WHITE)));
+        image.set_color_at_3d(2, 3, 1, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(2, 3, 1), Ok(Color::WHITE)));
+        image.set_color_at_3d(4, 9, 2, Color::WHITE).unwrap();
+        assert!(matches!(image.get_color_at_3d(4, 9, 2), Ok(Color::WHITE)));
     }
 }

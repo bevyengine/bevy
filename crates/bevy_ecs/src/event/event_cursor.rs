@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use bevy_ecs::event::{
     Event, EventIterator, EventIteratorWithId, EventMutIterator, EventMutIteratorWithId, Events,
 };
@@ -74,7 +73,6 @@ impl<E: Event> Clone for EventCursor<E> {
     }
 }
 
-#[allow(clippy::len_without_is_empty)] // Check fails since the is_empty implementation has a signature other than `(&self) -> bool`
 impl<E: Event> EventCursor<E> {
     /// See [`EventReader::read`](super::EventReader::read)
     pub fn read<'a>(&'a mut self, events: &'a Events<E>) -> EventIterator<'a, E> {

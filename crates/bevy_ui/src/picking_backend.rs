@@ -8,8 +8,8 @@
 //! ## Important Note
 //!
 //! This backend completely ignores [`FocusPolicy`](crate::FocusPolicy). The design of `bevy_ui`'s
-//! focus systems and the picking plugin are not compatible. Instead, use the optional [`PickingBehavior`] component
-//! to override how an entity responds to picking focus. Nodes without the [`PickingBehavior`] component
+//! focus systems and the picking plugin are not compatible. Instead, use the optional [`Pickable`] component
+//! to override how an entity responds to picking focus. Nodes without the [`Pickable`] component
 //! will still trigger events and block items below it from being hovered.
 //!
 //! ## Implementation Notes
@@ -19,17 +19,15 @@
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
 
-#![allow(clippy::type_complexity)]
-#![allow(clippy::too_many_arguments)]
 #![deny(missing_docs)]
 
 use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};
+use bevy_platform_support::collections::HashMap;
 use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
-use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -50,10 +48,10 @@ pub struct NodeQuery {
     entity: Entity,
     node: &'static ComputedNode,
     global_transform: &'static GlobalTransform,
-    picking_behavior: Option<&'static PickingBehavior>,
+    pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
-    view_visibility: Option<&'static ViewVisibility>,
-    target_camera: Option<&'static TargetCamera>,
+    inherited_visibility: Option<&'static InheritedVisibility>,
+    target_camera: &'static ComputedNodeTarget,
 }
 
 /// Computes the UI node entities under each pointer.
@@ -63,7 +61,6 @@ pub struct NodeQuery {
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
     camera_query: Query<(Entity, &Camera, Has<IsDefaultUiCamera>)>,
-    default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
@@ -124,17 +121,13 @@ pub fn ui_picking(
 
         // Nodes that are not rendered should not be interactable
         if node
-            .view_visibility
-            .map(|view_visibility| view_visibility.get())
+            .inherited_visibility
+            .map(|inherited_visibility| inherited_visibility.get())
             != Some(true)
         {
             continue;
         }
-        let Some(camera_entity) = node
-            .target_camera
-            .map(TargetCamera::entity)
-            .or(default_ui_camera.get())
-        else {
+        let Some(camera_entity) = node.target_camera.camera() else {
             continue;
         };
 
@@ -186,23 +179,19 @@ pub fn ui_picking(
         let mut depth = 0.0;
 
         for node in node_query.iter_many(hovered_nodes) {
-            let Some(camera_entity) = node
-                .target_camera
-                .map(TargetCamera::entity)
-                .or(default_ui_camera.get())
-            else {
+            let Some(camera_entity) = node.target_camera.camera() else {
                 continue;
             };
 
             picks.push((node.entity, HitData::new(camera_entity, depth, None, None)));
 
-            if let Some(picking_behavior) = node.picking_behavior {
-                // If an entity has a `PickingBehavior` component, we will use that as the source of truth.
-                if picking_behavior.should_block_lower {
+            if let Some(pickable) = node.pickable {
+                // If an entity has a `Pickable` component, we will use that as the source of truth.
+                if pickable.should_block_lower {
                     break;
                 }
             } else {
-                // If the PickingBehavior component doesn't exist, default behavior is to block.
+                // If the `Pickable` component doesn't exist, default behavior is to block.
                 break;
             }
 

@@ -140,13 +140,13 @@ use bevy_render::{
         binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
         TextureSampleType, TextureView,
     },
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
 };
 use bevy_utils::default;
 use core::{num::NonZero, ops::Deref};
 
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{weak_handle, AssetId, Handle};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
@@ -157,7 +157,7 @@ use crate::{
 use super::LightProbeComponent;
 
 pub const IRRADIANCE_VOLUME_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(160299515939076705258408299184317675488);
+    weak_handle!("7fc7dcd8-3f90-4124-b093-be0e53e08205");
 
 /// On WebGL and WebGPU, we must disable irradiance volumes, as otherwise we can
 /// overflow the number of texture bindings when deferred rendering is in use
@@ -242,8 +242,9 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
         render_device: &RenderDevice,
+        render_adapter: &RenderAdapter,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
-        if binding_arrays_are_usable(render_device) {
+        if binding_arrays_are_usable(render_device, render_adapter) {
             RenderViewIrradianceVolumeBindGroupEntries::get_multiple(
                 render_view_irradiance_volumes,
                 images,
@@ -328,10 +329,11 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
 /// respectively.
 pub(crate) fn get_bind_group_layout_entries(
     render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
 ) -> [BindGroupLayoutEntryBuilder; 2] {
     let mut texture_3d_binding =
         binding_types::texture_3d(TextureSampleType::Float { filterable: true });
-    if binding_arrays_are_usable(render_device) {
+    if binding_arrays_are_usable(render_device, render_adapter) {
         texture_3d_binding =
             texture_3d_binding.count(NonZero::<u32>::new(MAX_VIEW_LIGHT_PROBES as _).unwrap());
     }

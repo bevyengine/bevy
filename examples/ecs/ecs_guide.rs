@@ -27,8 +27,8 @@
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
     prelude::*,
-    utils::Duration,
 };
+use core::time::Duration;
 use rand::random;
 use std::fmt;
 

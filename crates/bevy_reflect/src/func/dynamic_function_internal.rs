@@ -1,8 +1,8 @@
 use crate::func::args::ArgCount;
 use crate::func::signature::{ArgListSignature, ArgumentSignature};
 use crate::func::{ArgList, FunctionError, FunctionInfo, FunctionOverloadError};
-use alloc::borrow::Cow;
-use bevy_utils::HashMap;
+use alloc::{borrow::Cow, vec, vec::Vec};
+use bevy_platform_support::collections::HashMap;
 use core::fmt::{Debug, Formatter};
 
 /// An internal structure for storing a function and its corresponding [function information].

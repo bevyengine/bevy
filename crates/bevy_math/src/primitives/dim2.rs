@@ -5,7 +5,7 @@ use thiserror::Error;
 use super::{Measured2d, Primitive2d, WindingOrder};
 use crate::{
     ops::{self, FloatPow},
-    Dir2, Vec2,
+    Dir2, Rot2, Vec2,
 };
 
 #[cfg(feature = "alloc")]
@@ -1221,21 +1221,17 @@ impl Primitive2d for Line2d {}
 )]
 #[doc(alias = "LineSegment2d")]
 pub struct Segment2d {
-    /// The direction of the line segment
-    pub direction: Dir2,
-    /// Half the length of the line segment. The segment extends by this amount in both
-    /// the given direction and its opposite direction
-    pub half_length: f32,
+    /// The endpoints of the line segment.
+    pub vertices: [Vec2; 2],
 }
 impl Primitive2d for Segment2d {}
 
 impl Segment2d {
-    /// Create a new `Segment2d` from a direction and full length of the segment
+    /// Create a new `Segment2d` from its endpoints
     #[inline(always)]
-    pub fn new(direction: Dir2, length: f32) -> Self {
+    pub const fn new(point1: Vec2, point2: Vec2) -> Self {
         Self {
-            direction,
-            half_length: length / 2.0,
+            vertices: [point1, point2],
         }
     }
 
@@ -1245,27 +1241,85 @@ impl Segment2d {
     ///
     /// Panics if `point1 == point2`
     #[inline(always)]
+    #[deprecated(since = "0.16.0", note = "Use the `new` constructor instead")]
     pub fn from_points(point1: Vec2, point2: Vec2) -> (Self, Vec2) {
-        let diff = point2 - point1;
-        let length = diff.length();
+        (Self::new(point1, point2), (point1 + point2) / 2.)
+    }
 
-        (
-            // We are dividing by the length here, so the vector is normalized.
-            Self::new(Dir2::new_unchecked(diff / length), length),
-            (point1 + point2) / 2.,
-        )
+    /// Create a new `Segment2d` at the origin from a `direction` and `length`
+    #[inline(always)]
+    pub fn from_direction_and_length(direction: Dir2, length: f32) -> Segment2d {
+        let half_length = length / 2.;
+        Self::new(direction * -half_length, direction * half_length)
     }
 
     /// Get the position of the first point on the line segment
     #[inline(always)]
     pub fn point1(&self) -> Vec2 {
-        *self.direction * -self.half_length
+        self.vertices[0]
     }
 
     /// Get the position of the second point on the line segment
     #[inline(always)]
     pub fn point2(&self) -> Vec2 {
-        *self.direction * self.half_length
+        self.vertices[1]
+    }
+
+    /// Get the segment's center
+    #[inline(always)]
+    #[doc(alias = "midpoint")]
+    pub fn center(&self) -> Vec2 {
+        (self.point1() + self.point2()) / 2.
+    }
+
+    /// Get the segment's length
+    #[inline(always)]
+    pub fn length(&self) -> f32 {
+        self.point1().distance(self.point2())
+    }
+
+    /// Get the segment translated by the given vector
+    #[inline(always)]
+    pub fn translated(&self, translation: Vec2) -> Segment2d {
+        Self::new(self.point1() + translation, self.point2() + translation)
+    }
+
+    /// Compute a new segment, based on the original segment rotated around the origin
+    #[inline(always)]
+    pub fn rotated(&self, rotation: Rot2) -> Segment2d {
+        Segment2d::new(rotation * self.point1(), rotation * self.point2())
+    }
+
+    /// Compute a new segment, based on the original segment rotated around a given point
+    #[inline(always)]
+    pub fn rotated_around(&self, rotation: Rot2, point: Vec2) -> Segment2d {
+        // We offset our segment so that our segment is rotated as if from the origin, then we can apply the offset back
+        let offset = self.translated(-point);
+        let rotated = offset.rotated(rotation);
+        rotated.translated(point)
+    }
+
+    /// Compute a new segment, based on the original segment rotated around its center
+    #[inline(always)]
+    pub fn rotated_around_center(&self, rotation: Rot2) -> Segment2d {
+        self.rotated_around(rotation, self.center())
+    }
+
+    /// Get the segment with its center at the origin
+    #[inline(always)]
+    pub fn centered(&self) -> Segment2d {
+        let center = self.center();
+        self.translated(-center)
+    }
+
+    /// Get the segment with a new length
+    #[inline(always)]
+    pub fn resized(&self, length: f32) -> Segment2d {
+        let offset_from_origin = self.center();
+        let centered = self.centered();
+        let ratio = length / self.length();
+        let segment = Segment2d::new(centered.point1() * ratio, centered.point2() * ratio);
+        segment.translated(offset_from_origin)
     }
 }
 
@@ -2242,9 +2296,9 @@ mod tests {
         let mut rotated_vertices = polygon.vertices(core::f32::consts::FRAC_PI_4).into_iter();
 
         // Distance from the origin to the middle of a side, derived using Pythagorean theorem
-        let side_sistance = FRAC_1_SQRT_2;
+        let side_distance = FRAC_1_SQRT_2;
         assert!(
-            (rotated_vertices.next().unwrap() - Vec2::new(-side_sistance, side_sistance)).length()
+            (rotated_vertices.next().unwrap() - Vec2::new(-side_distance, side_distance)).length()
                 < 1e-7,
         );
     }

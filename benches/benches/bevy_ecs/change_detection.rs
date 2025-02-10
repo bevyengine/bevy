@@ -1,3 +1,5 @@
+use core::hint::black_box;
+
 use bevy_ecs::{
     component::{Component, Mutable},
     entity::Entity,
@@ -5,7 +7,7 @@ use bevy_ecs::{
     query::QueryFilter,
     world::World,
 };
-use criterion::{black_box, criterion_group, Criterion};
+use criterion::{criterion_group, Criterion};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -265,7 +267,7 @@ fn none_changed_detection(criterion: &mut Criterion) {
     }
 }
 fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
-    if i & 1 << B != 0 {
+    if i & (1 << B) != 0 {
         entity.insert(Data::<B>(1.0));
     }
 }

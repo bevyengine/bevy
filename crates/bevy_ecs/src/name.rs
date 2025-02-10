@@ -1,21 +1,24 @@
 //! Provides the [`Name`] [`Component`], used for identifying an [`Entity`].
 
-use crate::{self as bevy_ecs, component::Component, entity::Entity, query::QueryData};
+use crate::{component::Component, entity::Entity, query::QueryData};
 
 use alloc::{
     borrow::{Cow, ToOwned},
     string::String,
 };
-use bevy_utils::FixedHasher;
+use bevy_platform_support::hash::FixedHasher;
 use core::{
     hash::{BuildHasher, Hash, Hasher},
     ops::Deref,
 };
 
 #[cfg(feature = "serialize")]
-use serde::{
-    de::{Error, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
+use {
+    alloc::string::ToString,
+    serde::{
+        de::{Error, Visitor},
+        Deserialize, Deserializer, Serialize, Serializer,
+    },
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -45,7 +48,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
     reflect(Deserialize, Serialize)
 )]
 pub struct Name {
-    hash: u64, // Won't be serialized (see: `bevy_core::serde` module)
+    hash: u64, // Won't be serialized
     name: Cow<'static, str>,
 }
 
@@ -261,6 +264,7 @@ impl<'de> Visitor<'de> for NameVisitor {
 mod tests {
     use super::*;
     use crate::world::World;
+    use alloc::string::ToString;
 
     #[test]
     fn test_display_of_debug_name() {
