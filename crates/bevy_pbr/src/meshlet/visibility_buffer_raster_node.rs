@@ -390,8 +390,8 @@ fn clear_visibility_buffer_pass(
     clear_visibility_buffer_pass.set_push_constants(0, bytemuck::bytes_of(&view_size));
     clear_visibility_buffer_pass.set_bind_group(0, clear_visibility_buffer_bind_group, &[]);
     clear_visibility_buffer_pass.dispatch_workgroups(
-        view_size.x.div_ceil(8),
-        view_size.y.div_ceil(8),
+        view_size.x.div_ceil(16),
+        view_size.y.div_ceil(16),
         1,
     );
 }

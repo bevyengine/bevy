@@ -6,7 +6,7 @@
 var<push_constant> view_size: vec2<u32>;
 
 @compute
-@workgroup_size(8, 8, 1)
+@workgroup_size(16, 16, 1)
 fn clear_visibility_buffer(@builtin(global_invocation_id) global_id: vec3<u32>) {
     if any(global_id.xy >= view_size) { return; }
 
