@@ -55,7 +55,12 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 )]
 pub struct Disabled;
 
-/// The default filters for all queries, these are used to globally exclude entities from queries.
+/// Default query filters work by excluding entities with certain components from most queries.
+///
+/// If a query does not explicitly mention a given disabling component, it will not include entities with that component.
+/// To be more precise, this checks if the query's [`FilteredAccess`] contains the component,
+/// and if it does not, adds a [`Without`](crate::prelude::Without) filter for that component to the query.
+///
 /// See the [module docs](crate::entity_disabling) for more info.
 #[derive(Resource, Default, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -66,15 +71,21 @@ pub struct DefaultQueryFilters {
 impl DefaultQueryFilters {
     /// Adds this [`ComponentId`] to the set of [`DefaultQueryFilters`],
     /// causing entities with this component to be excluded from queries.
-    pub(crate) fn register_disabling_component(&mut self, component_id: ComponentId) {
+    ///
+    /// # Warning
+    ///
+    /// This method should only be called before the app starts, as it will not affect queries
+    /// initialized before it is called.
+    pub fn register_disabling_component(&mut self, component_id: ComponentId) {
         self.disabling.insert(component_id);
     }
 
-    /// Get an iterator over all currently enabled filter components
+    /// Get an iterator over all currently enabled filter components.
     pub fn disabling_ids(&self) -> impl Iterator<Item = &ComponentId> {
         self.disabling.iter()
     }
 
+    /// Modifies the provided [`FilteredAccess`] to include the filters from this [`DefaultQueryFilters`].
     pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
         for &component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
