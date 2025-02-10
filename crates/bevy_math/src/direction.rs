@@ -198,9 +198,11 @@ impl Dir2 {
     /// let dir2 = Dir2::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result1, Dir2::from_xy(0.75_f32.sqrt(), 0.5).unwrap());
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir2::from_xy(0.5_f32.sqrt(), 0.5_f32.sqrt()).unwrap());
     /// ```
     #[inline]
@@ -457,6 +459,7 @@ impl Dir3 {
     /// let dir2 = Dir3::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
     ///     Dir3::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
@@ -464,6 +467,7 @@ impl Dir3 {
     /// );
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir3::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
@@ -716,6 +720,7 @@ impl Dir3A {
     /// let dir2 = Dir3A::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
     ///     Dir3A::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
@@ -723,6 +728,7 @@ impl Dir3A {
     /// );
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir3A::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
@@ -850,6 +856,7 @@ impl approx::UlpsEq for Dir3A {
 }
 
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use crate::ops;
 
