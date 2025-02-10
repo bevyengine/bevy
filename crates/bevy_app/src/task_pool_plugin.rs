@@ -158,6 +158,10 @@ impl Default for TaskPoolOptions {
 
 impl TaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
+    ///
+    /// # Panics
+    ///
+    /// Values below 3 are not supported by Bevy (IO, Async and Compute pools each need at least one thread), and will panic.
     pub fn with_num_threads(thread_count: usize) -> Self {
         assert!(
             thread_count > 2,
