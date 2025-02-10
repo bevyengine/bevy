@@ -792,8 +792,16 @@ impl<'w> UnsafeEntityCell<'w> {
     /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_ref<T: Component>(self) -> Option<Ref<'w, T>> {
-        let last_change_tick = self.world.last_change_tick();
-        let change_tick = self.world.change_tick();
+        // SAFETY: the safety requirements are the same as for this function
+        self.get_ref_with_ticks(self.world.last_change_tick(), self.world.change_tick())
+    }
+
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`UnsafeEntityCell`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub unsafe fn get_ref_with_ticks<T: Component>(self, last_run: Tick, this_run: Tick) -> Option<Ref<'w, T>> {
         let component_id = self.world.components().get_id(TypeId::of::<T>())?;
 
         // SAFETY:
@@ -808,15 +816,16 @@ impl<'w> UnsafeEntityCell<'w> {
                 self.entity,
                 self.location,
             )
-            .map(|(value, cells, _caller)| Ref {
-                // SAFETY: returned component is of type T
-                value: value.deref::<T>(),
-                ticks: Ticks::from_tick_cells(cells, last_change_tick, change_tick),
-                #[cfg(feature = "track_location")]
-                changed_by: _caller.deref(),
-            })
+                .map(|(value, cells, _caller)| Ref {
+                    // SAFETY: returned component is of type T
+                    value: value.deref::<T>(),
+                    ticks: Ticks::from_tick_cells(cells, last_run, this_run),
+                    #[cfg(feature = "track_location")]
+                    changed_by: _caller.deref(),
+                })
         }
     }
+
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.

@@ -35,6 +35,7 @@ use core::{
     mem::MaybeUninit,
 };
 use thiserror::Error;
+use bevy_ecs::component::Tick;
 
 /// A read-only reference to a particular [`Entity`] and all of its components.
 ///
@@ -141,6 +142,19 @@ impl<'w> EntityRef<'w> {
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'w, T>> {
         // SAFETY: We have read-only access to all components of this entity.
         unsafe { self.cell.get_ref::<T>() }
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
+    /// but for some advanced users it can be useful to have more control over the change ticks.
+    #[inline]
+    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'w, T>> {
+        // SAFETY: We have read-only access to all components of this entity.
+        unsafe { self.cell.get_ref_with_ticks::<T>(last_run, this_run) }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -569,6 +583,18 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
         self.as_readonly().get_ref()
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
+    /// but for some advanced users it can be useful to have more control over the change ticks.
+    #[inline]
+    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'_, T>> {
+        self.as_readonly().get_ref_with_ticks(last_run, this_run)
     }
 
     /// Consumes `self` and gets access to the component of type `T` with world
@@ -1222,6 +1248,22 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_ref<T: Component>(&self) -> Option<Ref<'_, T>> {
         self.as_readonly().get_ref()
+    }
+
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
+    /// but for some advanced users it can be useful to have more control over the change ticks.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[inline]
+    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'_, T>> {
+        self.as_readonly().get_ref_with_ticks(last_run, this_run)
     }
 
     /// Consumes `self` and gets access to the component of type `T`
@@ -3270,6 +3312,23 @@ impl<'w> FilteredEntityRef<'w> {
             .flatten()
     }
 
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
+    /// but for some advanced users it can be useful to have more control over the change ticks.
+    #[inline]
+    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'w, T>> {
+        let id = self.entity.world().components().get_id(TypeId::of::<T>())?;
+        self.access
+            .has_component_read(id)
+            // SAFETY: We have read access
+            .then(|| unsafe { self.entity.get_ref_with_ticks(last_run, this_run) })
+            .flatten()
+    }
+
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
@@ -3588,6 +3647,18 @@ impl<'w> FilteredEntityMut<'w> {
         self.as_readonly().get_ref()
     }
 
+    /// Gets access to the component of type `T` for the current entity,
+    /// including change detection information as a [`Ref`].
+    ///
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
+    /// Usually `get_ref` should be used because the correct change ticks will be set by the scheduler,
+    /// but for some advanced users it can be useful to have more control over the change ticks.
+    #[inline]
+    pub fn get_ref_with_ticks<T: Component>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'_, T>> {
+        self.as_readonly().get_ref_with_ticks(last_run, this_run)
+    }
+
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     #[inline]
@@ -3858,6 +3929,26 @@ where
         }
     }
 
+    /// Gets access to the component of type `C` for the current entity,
+    /// including change detection information. Returns `None` if the component
+    /// doesn't have a component of that type or if the type is one of the
+    /// excluded components.
+    #[inline]
+    pub fn get_ref_with_ticks<C>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'w, C>>
+    where
+        C: Component,
+    {
+        let components = self.entity.world().components();
+        let id = components.component_id::<C>()?;
+        if bundle_contains_component::<B>(components, id) {
+            None
+        } else {
+            // SAFETY: We have read access for all components that weren't
+            // covered by the `contains` check above.
+            unsafe { self.entity.get_ref_with_ticks(last_run, this_run) }
+        }
+    }
+
     /// Returns the source code location from which this entity has been spawned.
     #[cfg(feature = "track_location")]
     pub fn spawned_by(&self) -> &'static Location<'static> {
@@ -3995,6 +4086,18 @@ where
         C: Component,
     {
         self.as_readonly().get_ref()
+    }
+
+    /// Gets access to the component of type `C` for the current entity,
+    /// including change detection information. Returns `None` if the component
+    /// doesn't have a component of that type or if the type is one of the
+    /// excluded components.
+    #[inline]
+    pub fn get_ref_with_ticks<C>(&self, last_run: Tick, this_run: Tick) -> Option<Ref<'_, C>>
+    where
+        C: Component,
+    {
+        self.as_readonly().get_ref_with_ticks(last_run, this_run)
     }
 
     /// Gets mutable access to the component of type `C` for the current entity.
