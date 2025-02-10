@@ -16,12 +16,14 @@ fn main() {
         .run();
 }
 
+/// Resource to allow cycling through available Tonemapping algorithms
 #[derive(Resource)]
 struct Tonemapper {
     tonemapper: Tonemapping,
 }
 
 impl Tonemapper {
+    /// Modifies resources tonemapping algorithm for the next one and returns it
     fn next(&mut self) -> Tonemapping {
         let next = match self.tonemapper {
             Tonemapping::None => Tonemapping::AcesFitted,
