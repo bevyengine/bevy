@@ -518,6 +518,7 @@ http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
 accesskit = "0.17"
+nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
@@ -2727,6 +2728,18 @@ name = "Instancing"
 description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
 category = "Shaders"
 wasm = true
+
+[[example]]
+name = "custom_render_phase"
+path = "examples/shader/custom_render_phase.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_render_phase]
+name = "Custom Render Phase"
+description = "Shows how to make a complete render phase"
+category = "Shaders"
+wasm = true
+
 
 [[example]]
 name = "automatic_instancing"
