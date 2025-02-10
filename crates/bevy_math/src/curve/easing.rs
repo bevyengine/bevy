@@ -432,6 +432,18 @@ pub enum EaseFunction {
     ///
     #[doc = include_str!("../../images/easefunction/Steps.svg")]
     Steps(usize),
+    /// `n` steps connecting the start and the end. A jump is included at the start 
+    ///
+    #[doc = include_str!("../../images/easefunction/Steps.svg")]
+    StepsStart(usize),
+    /// `n` steps connecting the start and the end. A jump is included at the end
+    ///
+    #[doc = include_str!("../../images/easefunction/Steps.svg")]
+    StepsEnd(usize),
+    /// `n` steps connecting the start and the end. A jump is included at the beginning and end
+    ///
+    #[doc = include_str!("../../images/easefunction/Steps.svg")]
+    StepsBoth(usize),
 
     /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
     ///
@@ -685,7 +697,19 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
+        (ops::floor(t * num_steps as f32) / (num_steps - 1).max(1) as f32).min(1.)
+    }
+    #[inline]
+    pub(crate) fn steps_start(num_steps: usize, t: f32) -> f32 {
+        ((ops::floor(t * num_steps as f32) + 1.) / num_steps.max(1) as f32).min(1.)
+    }
+    #[inline]
+    pub(crate) fn steps_end(num_steps: usize, t: f32) -> f32 {
         ops::floor(t * num_steps as f32) / num_steps.max(1) as f32
+    }
+    #[inline]
+    pub(crate) fn steps_both(num_steps: usize, t: f32) -> f32 {
+        ((ops::floor(t * num_steps as f32) + 1.) / (num_steps + 1).max(1) as f32).min(1.)
     }
 
     #[inline]
@@ -735,6 +759,9 @@ impl EaseFunction {
             EaseFunction::BounceOut => easing_functions::bounce_out(t),
             EaseFunction::BounceInOut => easing_functions::bounce_in_out(t),
             EaseFunction::Steps(num_steps) => easing_functions::steps(*num_steps, t),
+            EaseFunction::StepsStart(num_steps) => easing_functions::steps_start(*num_steps, t),
+            EaseFunction::StepsEnd(num_steps) => easing_functions::steps_end(*num_steps, t),
+            EaseFunction::StepsBoth(num_steps) => easing_functions::steps_both(*num_steps, t),
             EaseFunction::Elastic(omega) => easing_functions::elastic(*omega, t),
         }
     }

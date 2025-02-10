@@ -69,6 +69,9 @@ fn setup(mut commands: Commands) {
         // "Other" row
         EaseFunction::Linear,
         EaseFunction::Steps(4),
+        EaseFunction::StepsStart(4),
+        EaseFunction::StepsEnd(4),
+        EaseFunction::StepsBoth(4),
         EaseFunction::Elastic(50.0),
     ]
     .chunks(COLS);
