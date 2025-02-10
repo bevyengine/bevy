@@ -6,7 +6,6 @@ use crate::{
     renderer::RenderDevice,
     texture::GpuImage,
 };
-use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
@@ -21,19 +20,36 @@ define_atomic_id!(BindGroupId);
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
 /// This makes them accessible in the pipeline (shaders) as uniforms.
 ///
-/// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
+/// This is a lightweight thread-safe wrapper around wgpu's own [`BindGroup`](wgpu::BindGroup),
+/// which can be cloned as needed to workaround lifetime management issues. It may be converted
+/// from and dereferences to wgpu's [`BindGroup`](wgpu::BindGroup).
+///
 /// Can be created via [`RenderDevice::create_bind_group`](RenderDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: Arc<WgpuWrapper<wgpu::BindGroup>>,
+    value: WgpuWrapper<wgpu::BindGroup>,
 }
 
 impl BindGroup {
-    /// Returns the [`BindGroupId`].
+    /// Returns the [`BindGroupId`] representing the unique ID of the bind group.
     #[inline]
     pub fn id(&self) -> BindGroupId {
         self.id
+    }
+}
+
+impl PartialEq for BindGroup {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for BindGroup {}
+
+impl core::hash::Hash for BindGroup {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.id.0.hash(state);
     }
 }
 
@@ -41,7 +57,7 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId::new(),
-            value: Arc::new(WgpuWrapper::new(value)),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -125,17 +141,19 @@ impl Deref for BindGroup {
 ///
 /// The following field-level attributes are supported:
 ///
-/// * `uniform(BINDING_INDEX)`
-///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
-///         [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
-///         [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
+/// ## `uniform(BINDING_INDEX)`
 ///
-/// * `texture(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
-///         GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///         (with a different binding index) if a binding of the sampler for the [`Image`](bevy_image::Image) is also required.
+///  * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
+///      [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
+///      [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
+///
+/// ## `texture(BINDING_INDEX, arguments)`
+///
+///  * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
+///      GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///      most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///      [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
+///      (with a different binding index) if a binding of the sampler for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
 /// |-----------------------|-------------------------------------------------------------------------|----------------------|
@@ -145,11 +163,12 @@ impl Deref for BindGroup {
 /// | `multisampled` = ...  | `true`, `false`                                                         | `false`              |
 /// | `visibility(...)`     | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
 ///
-/// * `storage_texture(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
-///         GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead.
+/// ## `storage_texture(BINDING_INDEX, arguments)`
+///
+/// * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
+///     GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///     [`None`], the [`crate::texture::FallbackImage`] resource will be used instead.
 ///
 /// | Arguments              | Values                                                                                     | Default       |
 /// |------------------------|--------------------------------------------------------------------------------------------|---------------|
@@ -158,22 +177,24 @@ impl Deref for BindGroup {
 /// | `access` = ...         | any member of [`StorageTextureAccess`](crate::render_resource::StorageTextureAccess)       | `ReadWrite`   |
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute`                    | `compute`     |
 ///
-/// * `sampler(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
-///         resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///         most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///         [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///         (with a different binding index) if a binding of the texture for the [`Image`](bevy_image::Image) is also required.
+/// ## `sampler(BINDING_INDEX, arguments)`
+///
+/// * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
+///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///     [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
+///     (with a different binding index) if a binding of the texture for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
 /// | `sampler_type` = "..." | `"filtering"`, `"non_filtering"`, `"comparison"`.                       |  `"filtering"`         |
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` |   `vertex`, `fragment` |
-/// * `storage(BINDING_INDEX, arguments)`
-///     * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which
-///       will be bound as a storage buffer in shaders. If the `storage` attribute is used, the field is expected a raw
-///       buffer, and the buffer will be bound as a storage buffer in shaders.
-///     * It supports an optional `read_only` parameter. Defaults to false if not present.
+///
+/// ## `storage(BINDING_INDEX, arguments)`
+///
+/// * The field's [`Handle<Storage>`](bevy_asset::Handle) will be used to look up the matching [`Buffer`] GPU resource, which
+///   will be bound as a storage buffer in shaders. If the `storage` attribute is used, the field is expected a raw
+///   buffer, and the buffer will be bound as a storage buffer in shaders.
 ///
 /// | Arguments              | Values                                                                  | Default              |
 /// |------------------------|-------------------------------------------------------------------------|----------------------|
@@ -236,41 +257,46 @@ impl Deref for BindGroup {
 /// ```
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
-/// * `uniform(BINDING_INDEX, ConvertedShaderType)`
-///     * This also creates a [`Buffer`] using [`ShaderType`] and binds it as a uniform, much
-///         like the field-level `uniform` attribute. The difference is that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
-///         which must implement [`ShaderType`], instead of a specific field implementing [`ShaderType`]. This is useful if more complicated conversion
-///         logic is required. The conversion is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait, which is automatically implemented
-///         if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<GpuImage>`] is
-///         required.
-/// * `bind_group_data(DataType)`
-///     * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
-///         as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
-///         the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
-///         is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
-/// * `bindless(COUNT)`
-///     * This switch enables *bindless resources*, which changes the way Bevy
-///       supplies resources (uniforms, textures, and samplers) to the shader.
-///       When bindless resources are enabled, and the current platform supports
-///       them, instead of presenting a single instance of a resource to your
-///       shader Bevy will instead present a *binding array* of `COUNT` elements.
-///       In your shader, the index of the element of each binding array
-///       corresponding to the mesh currently being drawn can be retrieved with
-///       `mesh[in.instance_index].material_and_lightmap_bind_group_slot &
-///       0xffffu`.
-///     * Bindless uniforms don't exist, so in bindless mode all uniforms and
-///       uniform buffers are automatically replaced with read-only storage
-///       buffers.
-///     * The purpose of bindless mode is to improve performance by reducing
-///       state changes. By grouping resources together into binding arrays, Bevy
-///       doesn't have to modify GPU state as often, decreasing API and driver
-///       overhead.
-///     * If bindless mode is enabled, the `BINDLESS` definition will be
-///       available. Because not all platforms support bindless resources, you
-///       should check for the presence of this definition via `#ifdef` and fall
-///       back to standard bindings if it isn't present.
-///     * See the `shaders/shader_material_bindless` example for an example of
-///       how to use bindless mode.
+/// ## `uniform(BINDING_INDEX, ConvertedShaderType)`
+///
+/// * This also creates a [`Buffer`] using [`ShaderType`] and binds it as a uniform, much
+///     like the field-level `uniform` attribute. The difference is that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
+///     which must implement [`ShaderType`], instead of a specific field implementing [`ShaderType`]. This is useful if more complicated conversion
+///     logic is required. The conversion is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait, which is automatically implemented
+///     if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<GpuImage>`] is
+///     required.
+///
+/// ## `bind_group_data(DataType)`
+///
+/// * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
+///     as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
+///     the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
+///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+///
+/// ## `bindless(COUNT)`
+///
+/// * This switch enables *bindless resources*, which changes the way Bevy
+///   supplies resources (uniforms, textures, and samplers) to the shader.
+///   When bindless resources are enabled, and the current platform supports
+///   them, instead of presenting a single instance of a resource to your
+///   shader Bevy will instead present a *binding array* of `COUNT` elements.
+///   In your shader, the index of the element of each binding array
+///   corresponding to the mesh currently being drawn can be retrieved with
+///   `mesh[in.instance_index].material_and_lightmap_bind_group_slot &
+///   0xffffu`.
+/// * Bindless uniforms don't exist, so in bindless mode all uniforms and
+///   uniform buffers are automatically replaced with read-only storage
+///   buffers.
+/// * The purpose of bindless mode is to improve performance by reducing
+///   state changes. By grouping resources together into binding arrays, Bevy
+///   doesn't have to modify GPU state as often, decreasing API and driver
+///   overhead.
+/// * If bindless mode is enabled, the `BINDLESS` definition will be
+///   available. Because not all platforms support bindless resources, you
+///   should check for the presence of this definition via `#ifdef` and fall
+///   back to standard bindings if it isn't present.
+/// * See the `shaders/shader_material_bindless` example for an example of
+///   how to use bindless mode.
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
@@ -502,7 +528,6 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate as bevy_render;
     use bevy_asset::Handle;
     use bevy_image::Image;
 

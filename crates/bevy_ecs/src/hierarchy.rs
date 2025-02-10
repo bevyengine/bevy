@@ -7,21 +7,16 @@
 //! [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 
 #[cfg(feature = "bevy_reflect")]
-use crate::reflect::{
-    ReflectComponent, ReflectFromWorld, ReflectMapEntities, ReflectVisitEntities,
-    ReflectVisitEntitiesMut,
-};
+use crate::reflect::{ReflectComponent, ReflectFromWorld};
 use crate::{
-    self as bevy_ecs,
     bundle::Bundle,
-    component::{Component, ComponentId},
-    entity::{Entity, VisitEntities},
+    component::{Component, HookContext},
+    entity::Entity,
     relationship::{RelatedSpawner, RelatedSpawnerCommands},
     system::EntityCommands,
     world::{DeferredWorld, EntityWorldMut, FromWorld, World},
 };
 use alloc::{format, string::String, vec::Vec};
-use bevy_ecs_macros::VisitEntitiesMut;
 use core::ops::Deref;
 use core::slice;
 use disqualified::ShortName;
@@ -90,19 +85,11 @@ use log::warn;
 /// assert_eq!(&**world.entity(root).get::<Children>().unwrap(), &[child1, child2]);
 /// assert_eq!(&**world.entity(child1).get::<Children>().unwrap(), &[grandchild]);
 /// ```
-#[derive(Component, Clone, VisitEntities, VisitEntitiesMut, PartialEq, Eq, Debug)]
+#[derive(Component, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(
     feature = "bevy_reflect",
-    reflect(
-        Component,
-        MapEntities,
-        VisitEntities,
-        VisitEntitiesMut,
-        PartialEq,
-        Debug,
-        FromWorld
-    )
+    reflect(Component, PartialEq, Debug, FromWorld)
 )]
 #[relationship(relationship_target = Children)]
 pub struct ChildOf(pub Entity);
@@ -139,13 +126,10 @@ impl FromWorld for ChildOf {
 ///
 /// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for all full
 /// description of this relationship and instructions on how to use it.
-#[derive(Component, Default, VisitEntitiesMut, Debug, PartialEq, Eq)]
-#[relationship_target(relationship = ChildOf, despawn_descendants)]
+#[derive(Component, Default, Debug, PartialEq, Eq)]
+#[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut, FromWorld)
-)]
+#[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
 pub struct Children(Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
@@ -268,8 +252,7 @@ impl<'a> EntityCommands<'a> {
 /// contains component `C`. This will print a warning if the parent does not contain `C`.
 pub fn validate_parent_has_component<C: Component>(
     world: DeferredWorld,
-    entity: Entity,
-    _: ComponentId,
+    HookContext { entity, caller, .. }: HookContext,
 ) {
     let entity_ref = world.entity(entity);
     let Some(child_of) = entity_ref.get::<ChildOf>() else {
@@ -282,8 +265,9 @@ pub fn validate_parent_has_component<C: Component>(
         // TODO: print name here once Name lives in bevy_ecs
         let name: Option<String> = None;
         warn!(
-            "warning[B0004]: {name} with the {ty_name} component has a parent without {ty_name}.\n\
+            "warning[B0004]: {}{name} with the {ty_name} component has a parent without {ty_name}.\n\
             This will cause inconsistent behaviors! See: https://bevyengine.org/learn/errors/b0004",
+            caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = ShortName::of::<C>(),
             name = name.map_or_else(
                 || format!("Entity {}", entity),
@@ -293,12 +277,49 @@ pub fn validate_parent_has_component<C: Component>(
     }
 }
 
+/// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
+/// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
+///
+/// Any additional arguments will be interpreted as bundles to be spawned.
+///
+/// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// # use bevy_ecs::children;
+/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
+/// let mut world = World::new();
+/// world.spawn((
+///     Name::new("Root"),
+///     children![
+///         Name::new("Child1"),
+///         (
+///             Name::new("Child2"),
+///             children![Name::new("Grandchild")]
+///         )
+///     ]
+/// ));
+/// ```
+///
+/// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+/// [`SpawnRelatedBundle`]: crate::spawn::SpawnRelatedBundle
+/// [`SpawnableList`]: crate::spawn::SpawnableList
+#[macro_export]
+macro_rules! children {
+    [$($child:expr),*$(,)?] => {
+       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         entity::Entity,
         hierarchy::{ChildOf, Children},
         relationship::RelationshipTarget,
+        spawn::{Spawn, SpawnRelated},
         world::World,
     };
     use alloc::{vec, vec::Vec};
@@ -450,5 +471,12 @@ mod tests {
             world.entity(id).get::<ChildOf>(),
             "ChildOf should still be there"
         );
+    }
+
+    #[test]
+    fn spawn_children() {
+        let mut world = World::new();
+        let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
     }
 }

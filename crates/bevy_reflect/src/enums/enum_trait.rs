@@ -5,8 +5,8 @@ use crate::{
     DynamicEnum, Generics, PartialReflect, Type, TypePath, VariantInfo, VariantType,
 };
 use alloc::{boxed::Box, format, string::String};
+use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::sync::Arc;
-use bevy_utils::HashMap;
 use core::slice::Iter;
 
 /// A trait used to power [enum-like] operations via [reflection].
@@ -317,7 +317,6 @@ impl<'a> VariantField<'a> {
 // Tests that need access to internal fields have to go here rather than in mod.rs
 #[cfg(test)]
 mod tests {
-    use crate as bevy_reflect;
     use crate::*;
 
     #[derive(Reflect, Debug, PartialEq)]

@@ -28,7 +28,13 @@ bevy_app = ["dep:bevy_app"]
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
-std = ["bevy_ecs/std", "bevy_utils/std", "bevy_reflect?/std", "bevy_app?/std"]
+std = [
+  "bevy_ecs/std",
+  "bevy_utils/std",
+  "bevy_reflect?/std",
+  "bevy_app?/std",
+  "bevy_platform_support/std",
+]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
@@ -37,6 +43,7 @@ critical-section = [
   "bevy_utils/critical-section",
   "bevy_app?/critical-section",
   "bevy_reflect?/critical-section",
+  "bevy_platform_support/critical-section",
 ]
 
 ## `portable-atomic` provides additional platform support for atomic types and
@@ -46,6 +53,7 @@ portable-atomic = [
   "bevy_utils/portable-atomic",
   "bevy_app?/portable-atomic",
   "bevy_reflect?/portable-atomic",
+  "bevy_platform_support/portable-atomic",
 ]
 
 [dependencies]
@@ -55,6 +63,7 @@ bevy_state_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 variadics_please = "1.1"
 
 # other

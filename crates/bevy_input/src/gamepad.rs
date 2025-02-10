@@ -17,11 +17,11 @@ use bevy_ecs::{
 };
 use bevy_math::ops;
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::HashMap;
 use derive_more::derive::From;
 use log::{info, warn};
 use thiserror::Error;

@@ -58,7 +58,6 @@ std = [
   "erased-serde/std",
   "downcast-rs/std",
   "serde/std",
-  "spin/std",
   "glam?/std",
   "smol_str?/std",
   "uuid?/std",
@@ -76,7 +75,6 @@ critical-section = [
 ## operations, even on targets without native support.
 portable-atomic = [
   "bevy_platform_support/portable-atomic",
-  "spin/portable_atomic",
   "bevy_utils/portable-atomic",
 ]
 
@@ -89,6 +87,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
+  "serialize",
 ] }
 
 # used by bevy-utils, but it also needs reflect impls
@@ -103,10 +102,6 @@ downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
-spin = { version = "0.9.8", default-features = false, features = [
-  "once",
-  "rwlock",
-] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1.11", default-features = false, optional = true }
 glam = { version = "0.29", default-features = false, features = [
@@ -116,12 +111,15 @@ petgraph = { version = "0.6", features = ["serde-1"], optional = true }
 smol_str = { version = "0.2.0", default-features = false, features = [
   "serde",
 ], optional = true }
-uuid = { version = "1.0", default-features = false, optional = true, features = [
+uuid = { version = "1.13.1", default-features = false, optional = true, features = [
   "v4",
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "23", features = ["serde"], optional = true }
+wgpu-types = { version = "24", features = ["serde"], optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [dev-dependencies]
 ron = "0.8.0"

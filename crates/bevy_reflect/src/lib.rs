@@ -564,6 +564,9 @@ extern crate std;
 
 extern crate alloc;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_reflect;
+
 mod array;
 mod fields;
 mod from_reflect;
@@ -729,7 +732,7 @@ mod tests {
         vec,
         vec::Vec,
     };
-    use bevy_utils::HashMap;
+    use bevy_platform_support::collections::HashMap;
     use core::{
         any::TypeId,
         fmt::{Debug, Formatter},
@@ -744,7 +747,6 @@ mod tests {
     use static_assertions::{assert_impl_all, assert_not_impl_all};
 
     use super::{prelude::*, *};
-    use crate as bevy_reflect;
     use crate::{
         serde::{ReflectDeserializer, ReflectSerializer},
         utility::GenericTypePathCell,

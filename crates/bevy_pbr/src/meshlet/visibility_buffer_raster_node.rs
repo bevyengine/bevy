@@ -149,10 +149,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             Some(camera),
             meshlet_view_resources.raster_cluster_rightmost_slot,
         );
-        downsample_depth(
+        meshlet_view_resources.depth_pyramid.downsample_depth(
+            "downsample_depth",
             render_context,
-            meshlet_view_resources,
-            meshlet_view_bind_groups,
+            meshlet_view_resources.view_size,
+            &meshlet_view_bind_groups.downsample_depth,
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
         );
@@ -200,10 +201,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
             resolve_material_depth_pipeline,
             camera,
         );
-        downsample_depth(
+        meshlet_view_resources.depth_pyramid.downsample_depth(
+            "downsample_depth",
             render_context,
-            meshlet_view_resources,
-            meshlet_view_bind_groups,
+            meshlet_view_resources.view_size,
+            &meshlet_view_bind_groups.downsample_depth,
             downsample_depth_first_pipeline,
             downsample_depth_second_pipeline,
         );
@@ -267,10 +269,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 None,
                 meshlet_view_resources.raster_cluster_rightmost_slot,
             );
-            downsample_depth(
+            meshlet_view_resources.depth_pyramid.downsample_depth(
+                "downsample_depth",
                 render_context,
-                meshlet_view_resources,
-                meshlet_view_bind_groups,
+                meshlet_view_resources.view_size,
+                &meshlet_view_bind_groups.downsample_depth,
                 downsample_depth_first_shadow_view_pipeline,
                 downsample_depth_second_shadow_view_pipeline,
             );
@@ -311,10 +314,11 @@ impl Node for MeshletVisibilityBufferRasterPassNode {
                 resolve_depth_shadow_view_pipeline,
                 camera,
             );
-            downsample_depth(
+            meshlet_view_resources.depth_pyramid.downsample_depth(
+                "downsample_depth",
                 render_context,
-                meshlet_view_resources,
-                meshlet_view_bind_groups,
+                meshlet_view_resources.view_size,
+                &meshlet_view_bind_groups.downsample_depth,
                 downsample_depth_first_shadow_view_pipeline,
                 downsample_depth_second_shadow_view_pipeline,
             );
@@ -469,39 +473,6 @@ fn raster_pass(
         &[view_offset.offset],
     );
     hardware_pass.draw_indirect(visibility_buffer_hardware_raster_indirect_args, 0);
-}
-
-fn downsample_depth(
-    render_context: &mut RenderContext,
-    meshlet_view_resources: &MeshletViewResources,
-    meshlet_view_bind_groups: &MeshletViewBindGroups,
-    downsample_depth_first_pipeline: &ComputePipeline,
-    downsample_depth_second_pipeline: &ComputePipeline,
-) {
-    let command_encoder = render_context.command_encoder();
-    let mut downsample_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-        label: Some("downsample_depth"),
-        timestamp_writes: None,
-    });
-    downsample_pass.set_pipeline(downsample_depth_first_pipeline);
-    downsample_pass.set_push_constants(
-        0,
-        bytemuck::cast_slice(&[
-            meshlet_view_resources.depth_pyramid_mip_count,
-            meshlet_view_resources.view_size.x,
-        ]),
-    );
-    downsample_pass.set_bind_group(0, &meshlet_view_bind_groups.downsample_depth, &[]);
-    downsample_pass.dispatch_workgroups(
-        meshlet_view_resources.view_size.x.div_ceil(64),
-        meshlet_view_resources.view_size.y.div_ceil(64),
-        1,
-    );
-
-    if meshlet_view_resources.depth_pyramid_mip_count >= 7 {
-        downsample_pass.set_pipeline(downsample_depth_second_pipeline);
-        downsample_pass.dispatch_workgroups(1, 1, 1);
-    }
 }
 
 fn resolve_depth(

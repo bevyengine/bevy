@@ -20,7 +20,12 @@ default = ["std", "bevy_reflect", "async_executor"]
 multi_threaded = ["bevy_tasks/multi_threaded", "dep:arrayvec"]
 
 ## Adds serialization support through `serde`.
-serialize = ["dep:serde", "bevy_utils/serde"]
+serialize = [
+  "dep:serde",
+  "bevy_utils/serde",
+  "bevy_platform_support/serialize",
+  "indexmap/serde",
+]
 
 ## Adds runtime reflection support using `bevy_reflect`.
 bevy_reflect = ["dep:bevy_reflect"]
@@ -93,7 +98,6 @@ portable-atomic = [
   "bevy_tasks?/portable-atomic",
   "bevy_platform_support/portable-atomic",
   "concurrent-queue/portable-atomic",
-  "spin/portable_atomic",
   "bevy_reflect?/portable-atomic",
 ]
 
@@ -115,6 +119,7 @@ disqualified = { version = "1.0", default-features = false }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",
+  "serde_derive",
 ], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = [
@@ -128,10 +133,6 @@ arrayvec = { version = "0.7.4", default-features = false, optional = true }
 smallvec = { version = "1", features = ["union", "const_generics"] }
 indexmap = { version = "2.5.0", default-features = false }
 variadics_please = { version = "1.1", default-features = false }
-spin = { version = "0.9.8", default-features = false, features = [
-  "spin_mutex",
-  "rwlock",
-] }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"

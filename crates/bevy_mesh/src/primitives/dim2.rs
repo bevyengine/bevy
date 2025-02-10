@@ -12,10 +12,12 @@ use bevy_math::{
     },
     FloatExt, Vec2,
 };
+use bevy_reflect::prelude::*;
 use wgpu_types::PrimitiveTopology;
 
 /// A builder used for creating a [`Mesh`] with a [`Circle`] shape.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct CircleMeshBuilder {
     /// The [`Circle`] shape.
     pub circle: Circle,
@@ -98,7 +100,8 @@ impl From<Circle> for Mesh {
 /// It's expected that more will be added in the future, such as a variant that causes the texture to be
 /// scaled to fit the bounding box of the shape, which would be good for packed textures only including the
 /// portion of the circle that is needed to display.
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, Debug)]
 #[non_exhaustive]
 pub enum CircularMeshUvMode {
     /// Treats the shape as a mask over a circle of equal size and radius,
@@ -119,7 +122,8 @@ impl Default for CircularMeshUvMode {
 ///
 /// The resulting mesh will have a UV-map such that the center of the circle is
 /// at the center of the texture.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct CircularSectorMeshBuilder {
     /// The sector shape.
     pub sector: CircularSector,
@@ -256,7 +260,8 @@ impl From<CircularSector> for Mesh {
 ///
 /// The resulting mesh will have a UV-map such that the center of the circle is
 /// at the center of the texture.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct CircularSegmentMeshBuilder {
     /// The segment shape.
     pub segment: CircularSegment,
@@ -402,6 +407,8 @@ impl From<CircularSegment> for Mesh {
 ///
 /// You must verify that the `vertices` are not concave when constructing this type. You can
 /// guarantee this by creating a [`ConvexPolygon`] first, then calling [`ConvexPolygon::mesh()`].
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Debug)]
 pub struct ConvexPolygonMeshBuilder<const N: usize> {
     pub vertices: [Vec2; N],
 }
@@ -451,9 +458,21 @@ impl<const N: usize> From<ConvexPolygon<N>> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`RegularPolygon`] shape.
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct RegularPolygonMeshBuilder {
     circumradius: f32,
     sides: u32,
+}
+
+impl Default for RegularPolygonMeshBuilder {
+    /// Returns the default [`RegularPolygonMeshBuilder`] with six sides (a hexagon) and a circumradius of `0.5`.
+    fn default() -> Self {
+        Self {
+            circumradius: 0.5,
+            sides: 6,
+        }
+    }
 }
 
 impl RegularPolygonMeshBuilder {
@@ -513,7 +532,8 @@ impl From<RegularPolygon> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with an [`Ellipse`] shape.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct EllipseMeshBuilder {
     /// The [`Ellipse`] shape.
     pub ellipse: Ellipse,
@@ -617,6 +637,8 @@ impl From<Ellipse> for Mesh {
 }
 
 /// A builder for creating a [`Mesh`] with an [`Annulus`] shape.
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct AnnulusMeshBuilder {
     /// The [`Annulus`] shape.
     pub annulus: Annulus,
@@ -747,8 +769,20 @@ impl From<Annulus> for Mesh {
     }
 }
 
+/// A builder for creating a [`Mesh`] with an [`Rhombus`] shape.
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct RhombusMeshBuilder {
     half_diagonals: Vec2,
+}
+
+impl Default for RhombusMeshBuilder {
+    /// Returns the default [`RhombusMeshBuilder`] with a half-horizontal and half-vertical diagonal of `0.5`.
+    fn default() -> Self {
+        Self {
+            half_diagonals: Vec2::splat(0.5),
+        }
+    }
 }
 
 impl RhombusMeshBuilder {
@@ -822,6 +856,8 @@ impl From<Rhombus> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`Triangle2d`] shape.
+#[derive(Clone, Copy, Debug, Default, Reflect)]
+#[reflect(Default, Debug)]
 pub struct Triangle2dMeshBuilder {
     triangle: Triangle2d,
 }
@@ -897,8 +933,19 @@ impl From<Triangle2d> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`Rectangle`] shape.
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct RectangleMeshBuilder {
     half_size: Vec2,
+}
+
+impl Default for RectangleMeshBuilder {
+    /// Returns the default [`RectangleMeshBuilder`] with a half-width and half-height of `0.5`.
+    fn default() -> Self {
+        Self {
+            half_size: Vec2::splat(0.5),
+        }
+    }
 }
 
 impl RectangleMeshBuilder {
@@ -966,7 +1013,8 @@ impl From<Rectangle> for Mesh {
 }
 
 /// A builder used for creating a [`Mesh`] with a [`Capsule2d`] shape.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Reflect)]
+#[reflect(Default, Debug)]
 pub struct Capsule2dMeshBuilder {
     /// The [`Capsule2d`] shape.
     pub capsule: Capsule2d,
@@ -1128,7 +1176,7 @@ impl From<Capsule2d> for Mesh {
 #[cfg(test)]
 mod tests {
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
 
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 

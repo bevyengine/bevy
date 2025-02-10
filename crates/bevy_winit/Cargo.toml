@@ -14,7 +14,12 @@ wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
 accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
 
-serialize = ["serde", "bevy_input/serialize", "bevy_window/serialize"]
+serialize = [
+  "serde",
+  "bevy_input/serialize",
+  "bevy_window/serialize",
+  "bevy_platform_support/serialize",
+]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
 
@@ -53,7 +58,7 @@ cfg-if = "1.0"
 raw-window-handle = "0.6"
 serde = { version = "1.0", features = ["derive"], optional = true }
 bytemuck = { version = "1.5", optional = true }
-wgpu-types = { version = "23", optional = true }
+wgpu-types = { version = "24", optional = true }
 accesskit = "0.17"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 

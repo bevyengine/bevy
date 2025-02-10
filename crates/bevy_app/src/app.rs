@@ -16,7 +16,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
 use thiserror::Error;
@@ -1532,7 +1532,6 @@ mod tests {
     #[test]
     fn test_derive_app_label() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
@@ -1664,7 +1663,6 @@ mod tests {
     #[test]
     fn test_extract_sees_changes() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
         struct MySubApp;

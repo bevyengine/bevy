@@ -9,26 +9,81 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-# Disables diagnostics that are unsupported when Bevy is dynamically linked
+default = ["std", "bevy_ecs/default"]
+
+# Functionality
+
+## Adds serialization support through `serde`.
+serialize = [
+  "dep:serde",
+  "bevy_ecs/serialize",
+  "bevy_time/serialize",
+  "bevy_utils/serde",
+  "bevy_platform_support/serialize",
+]
+
+## Disables diagnostics that are unsupported when Bevy is dynamically linked
 dynamic_linking = []
-sysinfo_plugin = ["sysinfo"]
-serialize = ["dep:serde"]
+
+## Adds integration with `sysinfo`.
+sysinfo_plugin = ["sysinfo", "dep:bevy_tasks"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "serde?/std",
+  "bevy_ecs/std",
+  "bevy_app/std",
+  "bevy_platform_support/std",
+  "bevy_time/std",
+  "bevy_utils/std",
+  "bevy_tasks?/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_ecs/critical-section",
+  "bevy_app/critical-section",
+  "bevy_platform_support/critical-section",
+  "bevy_time/critical-section",
+  "bevy_utils/critical-section",
+  "bevy_tasks?/critical-section",
+]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
+portable-atomic = [
+  "bevy_ecs/portable-atomic",
+  "bevy_app/portable-atomic",
+  "bevy_platform_support/portable-atomic",
+  "bevy_time/portable-atomic",
+  "bevy_utils/portable-atomic",
+  "bevy_tasks?/portable-atomic",
+]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.16.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = false }
+bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false, features = [
+  "alloc",
+] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
-  "std",
+  "alloc",
 ] }
 
 # other
 const-fnv1a-hash = "1.1.0"
-serde = { version = "1.0", optional = true }
-tracing = { version = "0.1", default-features = false, features = ["std"] }
+serde = { version = "1.0", default-features = false, features = [
+  "alloc",
+], optional = true }
+log = { version = "0.4", default-features = false }
 
 # macOS
 [target.'cfg(all(target_os="macos"))'.dependencies]

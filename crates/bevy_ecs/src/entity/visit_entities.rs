@@ -57,12 +57,11 @@ impl VisitEntitiesMut for Entity {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         entity::{hash_map::EntityHashMap, MapEntities, SceneEntityMapper},
         world::World,
     };
     use alloc::{string::String, vec, vec::Vec};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
 
     use super::*;
 

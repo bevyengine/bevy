@@ -59,24 +59,45 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let mesh_index = indirect_parameters_metadata[instance_index].mesh_index;
     let base_output_index = indirect_parameters_metadata[instance_index].base_output_index;
     let batch_set_index = indirect_parameters_metadata[instance_index].batch_set_index;
-    let instance_count = atomicLoad(&indirect_parameters_metadata[instance_index].instance_count);
 
     // If we aren't using `multi_draw_indirect_count`, we have a 1:1 fixed
     // assignment of batches to slots in the indirect parameters buffer, so we
     // can just use the instance index as the index of our indirect parameters.
+    let early_instance_count = indirect_parameters_metadata[instance_index].early_instance_count;
+    let late_instance_count = indirect_parameters_metadata[instance_index].late_instance_count;
+
+    // If in the early phase, we draw only the early meshes. If in the late
+    // phase, we draw only the late meshes. If in the main phase, draw all the
+    // meshes.
+#ifdef EARLY_PHASE
+    let instance_count = early_instance_count;
+#else   // EARLY_PHASE
+#ifdef LATE_PHASE
+    let instance_count = late_instance_count;
+#else   // LATE_PHASE
+    let instance_count = early_instance_count + late_instance_count;
+#endif  // LATE_PHASE
+#endif  // EARLY_PHASE
+
     var indirect_parameters_index = instance_index;
 
     // If the current hardware and driver support `multi_draw_indirect_count`,
     // dynamically reserve an index for the indirect parameters we're to
     // generate.
 #ifdef MULTI_DRAW_INDIRECT_COUNT_SUPPORTED
-    if (instance_count == 0u) {
-        return;
-    }
-
     // If this batch belongs to a batch set, then allocate space for the
     // indirect commands in that batch set.
     if (batch_set_index != 0xffffffffu) {
+        // Bail out now if there are no instances. Note that we can only bail if
+        // we're in a batch set. That's because only batch sets are drawn using
+        // `multi_draw_indirect_count`. If we aren't using
+        // `multi_draw_indirect_count`, then we need to continue in order to
+        // zero out the instance count; otherwise, it'll have garbage data in
+        // it.
+        if (instance_count == 0u) {
+            return;
+        }
+
         let indirect_parameters_base =
             indirect_batch_sets[batch_set_index].indirect_parameters_base;
         let indirect_parameters_offset =
@@ -90,7 +111,16 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // non-indexed meshes are slightly different.
 
     indirect_parameters[indirect_parameters_index].instance_count = instance_count;
+
+#ifdef LATE_PHASE
+    // The late mesh instances are stored after the early mesh instances, so we
+    // offset the output index by the number of early mesh instances.
+    indirect_parameters[indirect_parameters_index].first_instance =
+        base_output_index + early_instance_count;
+#else   // LATE_PHASE
     indirect_parameters[indirect_parameters_index].first_instance = base_output_index;
+#endif  // LATE_PHASE
+
     indirect_parameters[indirect_parameters_index].base_vertex =
         current_input[mesh_index].first_vertex_index;
 

@@ -4,7 +4,7 @@
 )]
 
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
+    impl_type_path, map_apply, map_partial_eq, map_try_apply,
     prelude::ReflectDefault,
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
@@ -126,7 +126,6 @@ impl_reflect_opaque!(::core::time::Duration(
     Deserialize,
     Default
 ));
-#[cfg(any(target_arch = "wasm32", feature = "std"))]
 impl_reflect_opaque!(::bevy_platform_support::time::Instant(
     Debug, Hash, PartialEq
 ));
@@ -865,10 +864,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
     >
 );
 
-impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
-impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
+impl_reflect_for_hashmap!(bevy_platform_support::collections::HashMap<K, V, S>);
+impl_type_path!(::bevy_platform_support::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashMap<K, V, S>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -1079,8 +1078,8 @@ macro_rules! impl_reflect_for_hashset {
     };
 }
 
-impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::FixedHasher);
+impl_type_path!(::bevy_platform_support::hash::NoOpHash);
+impl_type_path!(::bevy_platform_support::hash::FixedHasher);
 
 #[cfg(feature = "std")]
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
@@ -1094,10 +1093,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     >
 );
 
-impl_reflect_for_hashset!(::bevy_utils::hashbrown::HashSet<V,S>);
-impl_type_path!(::bevy_utils::hashbrown::HashSet<V, S>);
+impl_reflect_for_hashset!(::bevy_platform_support::collections::HashSet<V,S>);
+impl_type_path!(::bevy_platform_support::collections::HashSet<V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
@@ -2442,12 +2441,12 @@ crate::func::macros::impl_function_traits!(&'static Location<'static>);
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
-        TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
+        Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry,
+        Typed, VariantInfo, VariantType,
     };
     use alloc::{collections::BTreeMap, string::String, vec};
+    use bevy_platform_support::collections::HashMap;
     use bevy_platform_support::time::Instant;
-    use bevy_utils::HashMap;
     use core::{
         f32::consts::{PI, TAU},
         time::Duration,

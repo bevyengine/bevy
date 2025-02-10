@@ -2,6 +2,7 @@
 
 use crate::{DynamicEntity, DynamicScene};
 use bevy_ecs::entity::Entity;
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{
     serde::{
         ReflectDeserializer, TypeRegistrationDeserializer, TypedReflectDeserializer,
@@ -9,7 +10,6 @@ use bevy_reflect::{
     },
     PartialReflect, ReflectFromReflect, TypeRegistry,
 };
-use bevy_utils::HashSet;
 use core::fmt::Formatter;
 use serde::{
     de::{DeserializeSeed, Error, MapAccess, SeqAccess, Visitor},
@@ -515,10 +515,10 @@ mod tests {
         DynamicScene, DynamicSceneBuilder,
     };
     use bevy_ecs::{
-        entity::{hash_map::EntityHashMap, Entity, VisitEntities, VisitEntitiesMut},
+        entity::{hash_map::EntityHashMap, Entity},
         prelude::{Component, ReflectComponent, ReflectResource, Resource, World},
         query::{With, Without},
-        reflect::{AppTypeRegistry, ReflectMapEntities},
+        reflect::AppTypeRegistry,
         world::FromWorld,
     };
     use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
@@ -584,9 +584,9 @@ mod tests {
         foo: i32,
     }
 
-    #[derive(Clone, Component, Reflect, PartialEq, VisitEntities, VisitEntitiesMut)]
-    #[reflect(Component, MapEntities, PartialEq)]
-    struct MyEntityRef(Entity);
+    #[derive(Clone, Component, Reflect, PartialEq)]
+    #[reflect(Component, PartialEq)]
+    struct MyEntityRef(#[entities] Entity);
 
     impl FromWorld for MyEntityRef {
         fn from_world(_world: &mut World) -> Self {

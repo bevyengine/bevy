@@ -25,7 +25,7 @@ pub mod prelude {
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, MeshMaterial2d,
+        ColorMaterial, MeshMaterial2d, ScalingMode,
     };
 }
 
@@ -37,11 +37,12 @@ pub use sprite::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle};
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
+use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_render::{
+    batching::sort_binned_render_phase,
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
@@ -74,9 +75,10 @@ impl Default for SpritePlugin {
     }
 }
 
-pub const SPRITE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2763343953151597127);
+pub const SPRITE_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("ed996613-54c0-49bd-81be-1c2d1a0d03c2");
 pub const SPRITE_VIEW_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(8846920112458963210);
+    weak_handle!("43947210-8df6-459a-8f2a-12f350d174cc");
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -115,7 +117,7 @@ impl Plugin for SpritePlugin {
                 (
                     calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                     (
-                        compute_slices_on_asset_event,
+                        compute_slices_on_asset_event.before(AssetEvents),
                         compute_slices_on_sprite_change,
                     )
                         .in_set(SpriteSystem::ComputeSlices),
@@ -150,6 +152,8 @@ impl Plugin for SpritePlugin {
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
                         prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSet::PhaseSort),
+                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSet::PhaseSort),
                     ),
                 );
         };
@@ -157,7 +161,9 @@ impl Plugin for SpritePlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<SpritePipeline>();
+            render_app
+                .init_resource::<SpriteBatches>()
+                .init_resource::<SpritePipeline>();
         }
     }
 }

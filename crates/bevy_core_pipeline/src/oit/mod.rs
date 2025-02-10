@@ -1,9 +1,10 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{component::*, prelude::*};
 use bevy_math::UVec2;
+use bevy_platform_support::collections::HashSet;
 use bevy_platform_support::time::Instant;
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -17,7 +18,6 @@ use bevy_render::{
     view::Msaa,
     Render, RenderApp, RenderSet,
 };
-use bevy_utils::HashSet;
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
@@ -34,7 +34,8 @@ use crate::core_3d::{
 pub mod resolve;
 
 /// Shader handle for the shader that draws the transparent meshes to the OIT layers buffer.
-pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(4042527984320512);
+pub const OIT_DRAW_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("0cd3c764-39b8-437b-86b4-4e45635fc03d");
 
 /// Used to identify which camera will use OIT to render transparent meshes
 /// and to configure OIT.
@@ -69,14 +70,17 @@ impl Component for OrderIndependentTransparencySettings {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
 
-    fn register_component_hooks(hooks: &mut ComponentHooks) {
-        hooks.on_add(|world, entity, _| {
-            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(entity) {
+    fn on_add() -> Option<ComponentHook> {
+        Some(|world, context| {
+            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
                 if value.layer_count > 32 {
-                    warn!("OrderIndependentTransparencySettings layer_count set to {} might be too high.", value.layer_count);
+                    warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
+                        context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
+                        value.layer_count
+                    );
                 }
             }
-        });
+        })
     }
 }
 

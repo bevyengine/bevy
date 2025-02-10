@@ -17,15 +17,16 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::hash_map::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo};
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_tasks::AsyncComputeTaskPool;
-use bevy_utils::{default, HashSet};
+use bevy_utils::default;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::ops::Deref;
 use std::{
@@ -366,8 +367,7 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: gpu_readback::get_aligned_size(size.width, size.height, format.pixel_size() as u32)
-            as u64,
+        size: gpu_readback::get_aligned_size(size, format.pixel_size() as u32) as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -392,7 +392,8 @@ fn prepare_screenshot_state(
 
 pub struct ScreenshotPlugin;
 
-const SCREENSHOT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11918575842344596158);
+const SCREENSHOT_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("c31753d6-326a-47cb-a359-65c97a471fda");
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
@@ -585,17 +586,18 @@ fn render_screenshot(
     texture_view: &wgpu::TextureView,
 ) {
     if let Some(prepared_state) = &prepared.get(entity) {
+        let extent = Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        };
         encoder.copy_texture_to_buffer(
             prepared_state.texture.as_image_copy(),
-            wgpu::ImageCopyBuffer {
+            wgpu::TexelCopyBufferInfo {
                 buffer: &prepared_state.buffer,
-                layout: gpu_readback::layout_data(width, height, texture_format),
+                layout: gpu_readback::layout_data(extent, texture_format),
             },
-            Extent3d {
-                width,
-                height,
-                ..Default::default()
-            },
+            extent,
         );
 
         if let Some(pipeline) = pipelines.get_render_pipeline(prepared_state.pipeline_id) {

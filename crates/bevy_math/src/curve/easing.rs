@@ -5,7 +5,7 @@
 
 use crate::{
     curve::{Curve, CurveExt, FunctionCurve, Interval},
-    Dir2, Dir3, Dir3A, Quat, Rot2, VectorSpace,
+    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
 };
 
 use variadics_please::all_tuples_enumerated;
@@ -71,6 +71,42 @@ impl Ease for Dir3A {
         let difference_quat =
             Quat::from_rotation_arc(start.as_vec3a().into(), end.as_vec3a().into());
         Quat::interpolating_curve_unbounded(Quat::IDENTITY, difference_quat).map(move |q| q * start)
+    }
+}
+
+impl Ease for Isometry3d {
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| {
+            // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
+            // used are defined on the whole domain
+            Isometry3d {
+                rotation: Quat::interpolating_curve_unbounded(start.rotation, end.rotation)
+                    .sample_unchecked(t),
+                translation: crate::Vec3A::interpolating_curve_unbounded(
+                    start.translation,
+                    end.translation,
+                )
+                .sample_unchecked(t),
+            }
+        })
+    }
+}
+
+impl Ease for Isometry2d {
+    fn interpolating_curve_unbounded(start: Self, end: Self) -> impl Curve<Self> {
+        FunctionCurve::new(Interval::EVERYWHERE, move |t| {
+            // we can use sample_unchecked here, since both interpolating_curve_unbounded impls
+            // used are defined on the whole domain
+            Isometry2d {
+                rotation: Rot2::interpolating_curve_unbounded(start.rotation, end.rotation)
+                    .sample_unchecked(t),
+                translation: crate::Vec2::interpolating_curve_unbounded(
+                    start.translation,
+                    end.translation,
+                )
+                .sample_unchecked(t),
+            }
+        })
     }
 }
 
@@ -165,8 +201,11 @@ where
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+// Note: Graphs are auto-generated via `tools/build-easefunction-graphs`.
 pub enum EaseFunction {
     /// `f(t) = t`
+    ///
+    #[doc = include_str!("../../images/easefunction/Linear.svg")]
     Linear,
 
     /// `f(t) = t²`
@@ -175,6 +214,8 @@ pub enum EaseFunction {
     /// - f(0) = 0
     /// - f(1) = 1
     /// - f′(0) = 0
+    ///
+    #[doc = include_str!("../../images/easefunction/QuadraticIn.svg")]
     QuadraticIn,
     /// `f(t) = -(t * (t - 2.0))`
     ///
@@ -182,12 +223,16 @@ pub enum EaseFunction {
     /// - f(0) = 0
     /// - f(1) = 1
     /// - f′(1) = 0
+    ///
+    #[doc = include_str!("../../images/easefunction/QuadraticOut.svg")]
     QuadraticOut,
     /// Behaves as `EaseFunction::QuadraticIn` for t < 0.5 and as `EaseFunction::QuadraticOut` for t >= 0.5
     ///
     /// A quadratic has too low of a degree to be both an `InOut` and C²,
     /// so consider using at least a cubic (such as [`EaseFunction::SmoothStep`])
     /// if you want the acceleration to be continuous.
+    ///
+    #[doc = include_str!("../../images/easefunction/QuadraticInOut.svg")]
     QuadraticInOut,
 
     /// `f(t) = t³`
@@ -197,8 +242,12 @@ pub enum EaseFunction {
     /// - f(1) = 1
     /// - f′(0) = 0
     /// - f″(0) = 0
+    ///
+    #[doc = include_str!("../../images/easefunction/CubicIn.svg")]
     CubicIn,
     /// `f(t) = (t - 1.0)³ + 1.0`
+    ///
+    #[doc = include_str!("../../images/easefunction/CubicOut.svg")]
     CubicOut,
     /// Behaves as `EaseFunction::CubicIn` for t < 0.5 and as `EaseFunction::CubicOut` for t >= 0.5
     ///
@@ -208,18 +257,30 @@ pub enum EaseFunction {
     /// Consider using [`EaseFunction::SmoothStep`] instead, which is also cubic,
     /// or [`EaseFunction::SmootherStep`] if you picked this because you wanted
     /// the acceleration at the endpoints to also be zero.
+    ///
+    #[doc = include_str!("../../images/easefunction/CubicInOut.svg")]
     CubicInOut,
 
     /// `f(t) = t⁴`
+    ///
+    #[doc = include_str!("../../images/easefunction/QuarticIn.svg")]
     QuarticIn,
     /// `f(t) = (t - 1.0)³ * (1.0 - t) + 1.0`
+    ///
+    #[doc = include_str!("../../images/easefunction/QuarticOut.svg")]
     QuarticOut,
     /// Behaves as `EaseFunction::QuarticIn` for t < 0.5 and as `EaseFunction::QuarticOut` for t >= 0.5
+    ///
+    #[doc = include_str!("../../images/easefunction/QuarticInOut.svg")]
     QuarticInOut,
 
     /// `f(t) = t⁵`
+    ///
+    #[doc = include_str!("../../images/easefunction/QuinticIn.svg")]
     QuinticIn,
     /// `f(t) = (t - 1.0)⁵ + 1.0`
+    ///
+    #[doc = include_str!("../../images/easefunction/QuinticOut.svg")]
     QuinticOut,
     /// Behaves as `EaseFunction::QuinticIn` for t < 0.5 and as `EaseFunction::QuinticOut` for t >= 0.5
     ///
@@ -227,15 +288,21 @@ pub enum EaseFunction {
     /// the acceleration jumps from +40 to -40 at t = ½.
     ///
     /// Consider using [`EaseFunction::SmootherStep`] instead, which is also quintic.
+    ///
+    #[doc = include_str!("../../images/easefunction/QuinticInOut.svg")]
     QuinticInOut,
 
     /// Behaves as the first half of [`EaseFunction::SmoothStep`].
     ///
     /// This has f″(1) = 0, unlike [`EaseFunction::QuadraticIn`] which starts similarly.
+    ///
+    #[doc = include_str!("../../images/easefunction/SmoothStepIn.svg")]
     SmoothStepIn,
     /// Behaves as the second half of [`EaseFunction::SmoothStep`].
     ///
     /// This has f″(0) = 0, unlike [`EaseFunction::QuadraticOut`] which ends similarly.
+    ///
+    #[doc = include_str!("../../images/easefunction/SmoothStepOut.svg")]
     SmoothStepOut,
     /// `f(t) = 2t³ + 3t²`
     ///
@@ -248,15 +315,21 @@ pub enum EaseFunction {
     /// See also [`smoothstep` in GLSL][glss].
     ///
     /// [glss]: https://registry.khronos.org/OpenGL-Refpages/gl4/html/smoothstep.xhtml
+    ///
+    #[doc = include_str!("../../images/easefunction/SmoothStep.svg")]
     SmoothStep,
 
     /// Behaves as the first half of [`EaseFunction::SmootherStep`].
     ///
     /// This has f″(1) = 0, unlike [`EaseFunction::CubicIn`] which starts similarly.
+    ///
+    #[doc = include_str!("../../images/easefunction/SmootherStepIn.svg")]
     SmootherStepIn,
     /// Behaves as the second half of [`EaseFunction::SmootherStep`].
     ///
     /// This has f″(0) = 0, unlike [`EaseFunction::CubicOut`] which ends similarly.
+    ///
+    #[doc = include_str!("../../images/easefunction/SmootherStepOut.svg")]
     SmootherStepOut,
     /// `f(t) = 6t⁵ - 15t⁴ + 10t³`
     ///
@@ -267,60 +340,102 @@ pub enum EaseFunction {
     /// - f′(1) = 0
     /// - f″(0) = 0
     /// - f″(1) = 0
+    ///
+    #[doc = include_str!("../../images/easefunction/SmootherStep.svg")]
     SmootherStep,
 
     /// `f(t) = 1.0 - cos(t * π / 2.0)`
+    ///
+    #[doc = include_str!("../../images/easefunction/SineIn.svg")]
     SineIn,
     /// `f(t) = sin(t * π / 2.0)`
+    ///
+    #[doc = include_str!("../../images/easefunction/SineOut.svg")]
     SineOut,
     /// Behaves as `EaseFunction::SineIn` for t < 0.5 and as `EaseFunction::SineOut` for t >= 0.5
+    ///
+    #[doc = include_str!("../../images/easefunction/SineInOut.svg")]
     SineInOut,
 
     /// `f(t) = 1.0 - sqrt(1.0 - t²)`
+    ///
+    #[doc = include_str!("../../images/easefunction/CircularIn.svg")]
     CircularIn,
     /// `f(t) = sqrt((2.0 - t) * t)`
+    ///
+    #[doc = include_str!("../../images/easefunction/CircularOut.svg")]
     CircularOut,
     /// Behaves as `EaseFunction::CircularIn` for t < 0.5 and as `EaseFunction::CircularOut` for t >= 0.5
+    ///
+    #[doc = include_str!("../../images/easefunction/CircularInOut.svg")]
     CircularInOut,
 
     /// `f(t) ≈ 2.0^(10.0 * (t - 1.0))`
     ///
     /// The precise definition adjusts it slightly so it hits both `(0, 0)` and `(1, 1)`:
     /// `f(t) = 2.0^(10.0 * t - A) - B`, where A = log₂(2¹⁰-1) and B = 1/(2¹⁰-1).
+    ///
+    #[doc = include_str!("../../images/easefunction/ExponentialIn.svg")]
     ExponentialIn,
     /// `f(t) ≈ 1.0 - 2.0^(-10.0 * t)`
     ///
     /// As with `EaseFunction::ExponentialIn`, the precise definition adjusts it slightly
     // so it hits both `(0, 0)` and `(1, 1)`.
+    ///
+    #[doc = include_str!("../../images/easefunction/ExponentialOut.svg")]
     ExponentialOut,
     /// Behaves as `EaseFunction::ExponentialIn` for t < 0.5 and as `EaseFunction::ExponentialOut` for t >= 0.5
+    ///
+    #[doc = include_str!("../../images/easefunction/ExponentialInOut.svg")]
     ExponentialInOut,
 
     /// `f(t) = -2.0^(10.0 * t - 10.0) * sin((t * 10.0 - 10.75) * 2.0 * π / 3.0)`
+    ///
+    #[doc = include_str!("../../images/easefunction/ElasticIn.svg")]
     ElasticIn,
     /// `f(t) = 2.0^(-10.0 * t) * sin((t * 10.0 - 0.75) * 2.0 * π / 3.0) + 1.0`
+    ///
+    #[doc = include_str!("../../images/easefunction/ElasticOut.svg")]
     ElasticOut,
     /// Behaves as `EaseFunction::ElasticIn` for t < 0.5 and as `EaseFunction::ElasticOut` for t >= 0.5
+    ///
+    #[doc = include_str!("../../images/easefunction/ElasticInOut.svg")]
     ElasticInOut,
 
     /// `f(t) = 2.70158 * t³ - 1.70158 * t²`
+    ///
+    #[doc = include_str!("../../images/easefunction/BackIn.svg")]
     BackIn,
     /// `f(t) = 1.0 +  2.70158 * (t - 1.0)³ - 1.70158 * (t - 1.0)²`
+    ///
+    #[doc = include_str!("../../images/easefunction/BackOut.svg")]
     BackOut,
     /// Behaves as `EaseFunction::BackIn` for t < 0.5 and as `EaseFunction::BackOut` for t >= 0.5
+    ///
+    #[doc = include_str!("../../images/easefunction/BackInOut.svg")]
     BackInOut,
 
     /// bouncy at the start!
+    ///
+    #[doc = include_str!("../../images/easefunction/BounceIn.svg")]
     BounceIn,
     /// bouncy at the end!
+    ///
+    #[doc = include_str!("../../images/easefunction/BounceOut.svg")]
     BounceOut,
     /// Behaves as `EaseFunction::BounceIn` for t < 0.5 and as `EaseFunction::BounceOut` for t >= 0.5
+    ///
+    #[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
     BounceInOut,
 
     /// `n` steps connecting the start and the end
+    ///
+    #[doc = include_str!("../../images/easefunction/Steps.svg")]
     Steps(usize),
 
     /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
+    ///
+    #[doc = include_str!("../../images/easefunction/Elastic.svg")]
     Elastic(f32),
 }
 
@@ -570,7 +685,7 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        ops::round(t * num_steps as f32) / num_steps.max(1) as f32
+        ops::floor(t * num_steps as f32) / num_steps.max(1) as f32
     }
 
     #[inline]
@@ -627,6 +742,9 @@ impl EaseFunction {
 
 #[cfg(test)]
 mod tests {
+    use crate::{Vec2, Vec3, Vec3A};
+    use approx::assert_abs_diff_eq;
+
     use super::*;
     const MONOTONIC_IN_OUT_INOUT: &[[EaseFunction; 3]] = {
         use EaseFunction::*;
@@ -718,5 +836,71 @@ mod tests {
                 "EaseFunction.{ef_inout:?}(½) was {mid:?}",
             );
         }
+    }
+
+    #[test]
+    fn ease_quats() {
+        let quat_start = Quat::from_axis_angle(Vec3::Z, 0.0);
+        let quat_end = Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians());
+
+        let quat_curve = Quat::interpolating_curve_unbounded(quat_start, quat_end);
+
+        assert_abs_diff_eq!(
+            quat_curve.sample(0.0).unwrap(),
+            Quat::from_axis_angle(Vec3::Z, 0.0)
+        );
+        {
+            let (before_mid_axis, before_mid_angle) =
+                quat_curve.sample(0.25).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(before_mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(before_mid_angle, 22.5_f32.to_radians());
+        }
+        {
+            let (mid_axis, mid_angle) = quat_curve.sample(0.5).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(mid_angle, 45.0_f32.to_radians());
+        }
+        {
+            let (after_mid_axis, after_mid_angle) =
+                quat_curve.sample(0.75).unwrap().to_axis_angle();
+            assert_abs_diff_eq!(after_mid_axis, Vec3::Z);
+            assert_abs_diff_eq!(after_mid_angle, 67.5_f32.to_radians());
+        }
+        assert_abs_diff_eq!(
+            quat_curve.sample(1.0).unwrap(),
+            Quat::from_axis_angle(Vec3::Z, 90.0_f32.to_radians())
+        );
+    }
+
+    #[test]
+    fn ease_isometries_2d() {
+        let angle = 90.0;
+        let iso_2d_start = Isometry2d::new(Vec2::ZERO, Rot2::degrees(0.0));
+        let iso_2d_end = Isometry2d::new(Vec2::ONE, Rot2::degrees(angle));
+
+        let iso_2d_curve = Isometry2d::interpolating_curve_unbounded(iso_2d_start, iso_2d_end);
+
+        [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
+            assert_abs_diff_eq!(
+                iso_2d_curve.sample(t).unwrap(),
+                Isometry2d::new(Vec2::ONE * t, Rot2::degrees(angle * t))
+            );
+        });
+    }
+
+    #[test]
+    fn ease_isometries_3d() {
+        let angle = 90.0_f32.to_radians();
+        let iso_3d_start = Isometry3d::new(Vec3A::ZERO, Quat::from_axis_angle(Vec3::Z, 0.0));
+        let iso_3d_end = Isometry3d::new(Vec3A::ONE, Quat::from_axis_angle(Vec3::Z, angle));
+
+        let iso_3d_curve = Isometry3d::interpolating_curve_unbounded(iso_3d_start, iso_3d_end);
+
+        [-1.0, 0.0, 0.5, 1.0, 2.0].into_iter().for_each(|t| {
+            assert_abs_diff_eq!(
+                iso_3d_curve.sample(t).unwrap(),
+                Isometry3d::new(Vec3A::ONE * t, Quat::from_axis_angle(Vec3::Z, angle * t))
+            );
+        });
     }
 }

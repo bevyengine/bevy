@@ -15,6 +15,7 @@ pbr_multi_layer_material_textures = [
   "bevy_pbr/pbr_multi_layer_material_textures",
 ]
 pbr_anisotropy_texture = ["bevy_pbr/pbr_anisotropy_texture"]
+pbr_specular_textures = []
 
 [dependencies]
 # bevy
@@ -37,6 +38,10 @@ bevy_scene = { path = "../bevy_scene", version = "0.16.0-dev", features = [
 bevy_transform = { path = "../bevy_transform", version = "0.16.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
+] }
 
 # other
 gltf = { version = "1.4.0", default-features = false, features = [
@@ -54,6 +59,8 @@ gltf = { version = "1.4.0", default-features = false, features = [
 ] }
 thiserror = { version = "2", default-features = false }
 base64 = "0.22.0"
+fixedbitset = "0.5"
+itertools = "0.13"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1"

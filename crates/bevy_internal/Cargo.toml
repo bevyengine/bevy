@@ -59,6 +59,10 @@ webp = ["bevy_image/webp"]
 # Enable SPIR-V passthrough
 spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
 
+# Statically linked DXC shader compiler for DirectX 12
+# TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
+statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
+
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 
@@ -97,6 +101,7 @@ serialize = [
   "bevy_ui?/serialize",
   "bevy_window?/serialize",
   "bevy_winit?/serialize",
+  "bevy_platform_support/serialize",
 ]
 multi_threaded = [
   "bevy_asset?/multi_threaded",
@@ -134,6 +139,12 @@ pbr_anisotropy_texture = [
 
 # Percentage-closer soft shadows
 experimental_pbr_pcss = ["bevy_pbr?/experimental_pbr_pcss"]
+
+# Specular textures in `StandardMaterial`:
+pbr_specular_textures = [
+  "bevy_pbr?/pbr_specular_textures",
+  "bevy_gltf?/pbr_specular_textures",
+]
 
 # Optimise for WebGL2
 webgl = [

@@ -334,7 +334,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
-        unsafe { Query::new(world, state, system_meta.last_run, change_tick) }
+        unsafe { state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick) }
     }
 }
 
@@ -404,10 +404,12 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        let single =
-            result.expect("The query was expected to contain exactly one matching entity.");
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+        };
+        let single = query
+            .get_single_inner()
+            .expect("The query was expected to contain exactly one matching entity.");
         Single {
             item: single,
             _filter: PhantomData,
@@ -423,14 +425,14 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
             )
         };
-        let is_valid = result.is_ok();
+        let is_valid = query.get_single_inner().is_ok();
         if !is_valid {
             system_meta.try_warn_param::<Self>();
         }
@@ -468,9 +470,10 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible elsewhere.
-        let result =
-            unsafe { state.get_single_unchecked_manual(world, system_meta.last_run, change_tick) };
-        match result {
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
+        };
+        match query.get_single_inner() {
             Ok(single) => Some(Single {
                 item: single,
                 _filter: PhantomData,
@@ -489,13 +492,14 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
-        let result = unsafe {
-            state.as_readonly().get_single_unchecked_manual(
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
                 world,
                 system_meta.last_run,
                 world.change_tick(),
             )
         };
+        let result = query.get_single_inner();
         let is_valid = !matches!(result, Err(QuerySingleError::MultipleEntities(_)));
         if !is_valid {
             system_meta.try_warn_param::<Self>();
@@ -1072,9 +1076,16 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
     type Item<'world, 'state> = DeferredWorld<'world>;
 
     fn init_state(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        system_meta.component_access_set.read_all();
+        assert!(
+            !system_meta
+                .component_access_set
+                .combined_access()
+                .has_any_read(),
+            "DeferredWorld in system {} conflicts with a previous access.",
+            system_meta.name,
+        );
         system_meta.component_access_set.write_all();
-        system_meta.set_has_deferred();
+        system_meta.archetype_component_access.write_all();
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -1116,6 +1127,25 @@ unsafe impl<'w> SystemParam for DeferredWorld<'w> {
 /// write_system.run((), world);
 /// // Note how the read local is still 0 due to the locals not being shared.
 /// assert_eq!(read_system.run((), world), 0);
+/// ```
+///
+/// A simple way to set a different default value for a local is by wrapping the value with an Option.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let world = &mut World::default();
+/// fn counter_from_10(mut count: Local<Option<usize>>) -> usize {
+///     let count = count.get_or_insert(10);
+///     *count += 1;
+///     *count
+/// }
+/// let mut counter_system = IntoSystem::into_system(counter_from_10);
+/// counter_system.initialize(world);
+///
+/// // Counter is initialized at 10, and increases to 11 on first run.
+/// assert_eq!(counter_system.run((), world), 11);
+/// // Counter is only increased by 1 on subsequent runs.
+/// assert_eq!(counter_system.run((), world), 12);
 /// ```
 ///
 /// N.B. A [`Local`]s value cannot be read or written to outside of the containing system.
@@ -2571,10 +2601,7 @@ unsafe impl SystemParam for FilteredResourcesMut<'_, '_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        system::assert_is_system,
-    };
+    use crate::system::assert_is_system;
     use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.

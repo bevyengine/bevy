@@ -1,5 +1,4 @@
 use crate::{
-    self as bevy_reflect,
     __macro_exports::RegisterForReflection,
     func::{
         args::{ArgCount, ArgList},
@@ -55,7 +54,7 @@ type ArcFn<'env> = Arc<dyn for<'a> Fn(ArgList<'a>) -> FunctionResult<'a> + Send 
 /// let mut func: DynamicFunction = add.into_function();
 ///
 /// // Dynamically call it:
-/// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+/// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
 /// let value = func.call(args).unwrap().unwrap_owned();
 ///
 /// // Check the result:
@@ -161,12 +160,12 @@ impl<'env> DynamicFunction<'env> {
     /// func = func.with_overload(add::<f32>);
     ///
     /// // Test `i32`:
-    /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+    /// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     ///
     /// // Test `f32`:
-    /// let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+    /// let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     ///```
@@ -189,15 +188,15 @@ impl<'env> DynamicFunction<'env> {
     /// func = func.with_overload(add_3);
     ///
     /// // Test two arguments:
-    /// let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+    /// let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 100);
     ///
     /// // Test three arguments:
     /// let args = ArgList::default()
-    ///     .push_owned(25_i32)
-    ///     .push_owned(75_i32)
-    ///     .push_owned(100_i32);
+    ///     .with_owned(25_i32)
+    ///     .with_owned(75_i32)
+    ///     .with_owned(100_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 200);
     /// ```
@@ -266,7 +265,7 @@ impl<'env> DynamicFunction<'env> {
     /// };
     ///
     /// let mut func = add.into_function().with_name("add");
-    /// let args = ArgList::new().push_owned(25_i32).push_owned(75_i32);
+    /// let args = ArgList::new().with_owned(25_i32).with_owned(75_i32);
     /// let result = func.call(args).unwrap().unwrap_owned();
     /// assert_eq!(result.try_take::<i32>().unwrap(), 123);
     /// ```
@@ -485,7 +484,7 @@ mod tests {
     use crate::func::{FunctionError, IntoReturn, SignatureInfo};
     use crate::Type;
     use alloc::{format, string::String, vec, vec::Vec};
-    use bevy_utils::HashSet;
+    use bevy_platform_support::collections::HashSet;
     use core::ops::Add;
 
     #[test]
@@ -513,7 +512,7 @@ mod tests {
     fn should_return_error_on_arg_count_mismatch() {
         let func = (|a: i32, b: i32| a + b).into_function();
 
-        let args = ArgList::default().push_owned(25_i32);
+        let args = ArgList::default().with_owned(25_i32);
         let error = func.call(args).unwrap_err();
 
         assert_eq!(
@@ -532,10 +531,10 @@ mod tests {
             .with_overload(|a: i32, b: i32, c: i32| a + b + c);
 
         let args = ArgList::default()
-            .push_owned(1_i32)
-            .push_owned(2_i32)
-            .push_owned(3_i32)
-            .push_owned(4_i32);
+            .with_owned(1_i32)
+            .with_owned(2_i32)
+            .with_owned(3_i32)
+            .with_owned(4_i32);
 
         let error = func.call(args).unwrap_err();
 
@@ -564,7 +563,7 @@ mod tests {
         assert_eq!(clone.name().unwrap(), "greet");
 
         let clone_value = clone
-            .call(ArgList::default().push_ref(&String::from("world")))
+            .call(ArgList::default().with_ref(&String::from("world")))
             .unwrap()
             .unwrap_owned()
             .try_take::<String>()
@@ -578,7 +577,7 @@ mod tests {
         let mut func: Box<dyn Function> = Box::new((|a: i32, b: i32| a + b).into_function());
         func.apply(&((|a: i32, b: i32| a * b).into_function()));
 
-        let args = ArgList::new().push_owned(5_i32).push_owned(5_i32);
+        let args = ArgList::new().with_owned(5_i32).with_owned(5_i32);
         let result = func.reflect_call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 25);
     }
@@ -599,8 +598,8 @@ mod tests {
                     ReflectRef::Function(func) => {
                         let result = func.reflect_call(
                             ArgList::new()
-                                .push_ref(this.as_partial_reflect())
-                                .push_owned(curr - 1),
+                                .with_ref(this.as_partial_reflect())
+                                .with_owned(curr - 1),
                         );
                         let value = result.unwrap().unwrap_owned().try_take::<i32>().unwrap();
                         Ok((curr * value).into_return())
@@ -615,7 +614,7 @@ mod tests {
                 .with_arg::<()>("this"),
         );
 
-        let args = ArgList::new().push_ref(&factorial).push_owned(5_i32);
+        let args = ArgList::new().with_ref(&factorial).with_owned(5_i32);
         let value = factorial.call(args).unwrap().unwrap_owned();
         assert_eq!(value.try_take::<i32>().unwrap(), 120);
     }
@@ -653,11 +652,11 @@ mod tests {
         let func = func.with_name("add");
         assert_eq!(func.name().unwrap(), "add");
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
-        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     }
@@ -676,11 +675,11 @@ mod tests {
 
         let func = add::<i32>.into_function().with_overload(add::<f32>);
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
-        let args = ArgList::default().push_owned(25.0_f32).push_owned(75.0_f32);
+        let args = ArgList::default().with_owned(25.0_f32).with_owned(75.0_f32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<f32>().unwrap(), 100.0);
     }
@@ -697,14 +696,14 @@ mod tests {
 
         let func = add_2.into_function().with_overload(add_3);
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
         let args = ArgList::default()
-            .push_owned(25_i32)
-            .push_owned(75_i32)
-            .push_owned(100_i32);
+            .with_owned(25_i32)
+            .with_owned(75_i32)
+            .with_owned(100_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 200);
     }
@@ -740,11 +739,11 @@ mod tests {
 
         let func = manual.with_overload(|a: u32, b: u32| a + b);
 
-        let args = ArgList::default().push_owned(25_i32).push_owned(75_i32);
+        let args = ArgList::default().with_owned(25_i32).with_owned(75_i32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<i32>().unwrap(), 100);
 
-        let args = ArgList::default().push_owned(25_u32).push_owned(75_u32);
+        let args = ArgList::default().with_owned(25_u32).with_owned(75_u32);
         let result = func.call(args).unwrap().unwrap_owned();
         assert_eq!(result.try_take::<u32>().unwrap(), 100);
     }
@@ -757,7 +756,7 @@ mod tests {
 
         let func = add::<i32>.into_function().with_overload(add::<f32>);
 
-        let args = ArgList::default().push_owned(25_u32).push_owned(75_u32);
+        let args = ArgList::default().with_owned(25_u32).with_owned(75_u32);
         let result = func.call(args);
         assert_eq!(
             result.unwrap_err(),
