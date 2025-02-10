@@ -10,7 +10,7 @@ use bevy_ecs::{
     resource::Resource,
     system::SystemParam,
 };
-use bevy_image::{BevyDefault, Image, ImageSampler};
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_platform_support::collections::HashMap;
 
 /// A [`RenderApp`](crate::RenderApp) resource that contains the default "fallback image",
@@ -89,10 +89,11 @@ fn fallback_image_new(
 
     let image_dimension = dimension.compatible_texture_dimension();
     let mut image = if create_texture_with_data {
+        let data = vec![value; format.pixel_size()];
         Image::new_fill(
             extents,
             image_dimension,
-            &[value],
+            &data,
             format,
             RenderAssetUsages::RENDER_WORLD,
         )

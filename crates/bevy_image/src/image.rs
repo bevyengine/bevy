@@ -788,6 +788,9 @@ impl Image {
 
     /// Creates a new image from raw binary data and the corresponding metadata, by filling
     /// the image data with the `pixel` data repeated multiple times.
+    ///
+    /// # Panics
+    /// Panics if the size of the `format` is not a multiple of the length of the `pixel` data.
     pub fn new_fill(
         size: Extent3d,
         dimension: TextureDimension,
@@ -796,6 +799,17 @@ impl Image {
         asset_usage: RenderAssetUsages,
     ) -> Self {
         let byte_len = format.pixel_size() * size.volume();
+        debug_assert_eq!(
+            pixel.len() % format.pixel_size(),
+            0,
+            "Must not have incomplete pixel data (pixel size is {}B).",
+            format.pixel_size(),
+        );
+        debug_assert!(
+            pixel.len() <= byte_len,
+            "Fill data must fit within pixel buffer (expected {}B).",
+            byte_len,
+        );
         let data = pixel.iter().copied().cycle().take(byte_len).collect();
         Image::new(size, dimension, data, format, asset_usage)
     }
