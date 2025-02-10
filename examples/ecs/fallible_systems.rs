@@ -8,27 +8,47 @@ use rand::distributions::Distribution;
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins)
-        .add_systems(Startup, (setup, failing_system))
-        .add_systems(PostStartup, failing_system)
-        // You can set a global error handler for fallible systems.
-        //
-        // By default, fallible systems that return an error will panic.
-        .set_systems_error_handler(|err, system| warn!("{:?} failed: {err}", system.name()))
-        // You can handle individual systems by piping the output result.
-        .add_systems(
-            PostStartup,
-            failing_system.pipe(|result: In<Result>| {
-                result.0.inspect_err(|err| info!("captured error: {err}"))
-            }),
-        );
+    app.add_plugins(DefaultPlugins);
 
-    // You can also set a custom error handler per `Schedule` (optionally at runtime through
-    // `World::try_schedule_scope`):
-    app.get_schedule_mut(PostStartup)
+    // Fallible systems can be used the same way as regular systems. The only difference is they
+    // return a `Result<(), Box<dyn Error>>` instead of a `()` (unit) type. Bevy will handle both
+    // types of systems the same way, except for the error handling.
+    app.add_systems(Startup, (setup, failing_system));
+
+    // By default, fallible systems that return an error will panic.
+    //
+    // We can change this by setting a custom error handler. This can be done globally for all
+    // systems in a given `App`. Here we set the global error handler using one of the built-in
+    // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
+    // `debug`, `trace` and `ignore`.
+    app.set_systems_error_handler(bevy::ecs::result::warn);
+
+    // Additionally, you can set a custom error handler per `Schedule`. This will take precedence
+    // over the global error handler.
+    //
+    // In this instance we provide our own non-capturing closure that coerces to the expected error
+    // handler function pointer:
+    //
+    //     fn(bevy_ecs::result::Error, &bevy_ecs::system::ScheduleSystem)
+    //
+    app.add_systems(PostStartup, failing_system)
+        .get_schedule_mut(PostStartup)
         .unwrap()
-        .set_error_handler(|err, system| error!("{:?} failed: {err}", system.name()));
+        .set_error_handler(|err, system| error!("{} failed: {err}", system.name()));
 
+    // Individual systems can also be handled by piping the output result:
+    app.add_systems(
+        PostStartup,
+        failing_system.pipe(|result: In<Result>| {
+            let _ = result.0.inspect_err(|err| info!("captured error: {err}"));
+        }),
+    );
+
+    // If we run the app, we'll see the following output at startup:
+    //
+    //  WARN Encountered an error in system `fallible_systems::failing_system`: "Resource not initialized"
+    // ERROR fallible_systems::failing_system failed: Resource not initialized
+    //  INFO captured error: Resource not initialized
     app.run();
 }
 
@@ -103,7 +123,10 @@ struct UninitializedResource;
 
 fn failing_system(world: &mut World) -> Result {
     world
+        // `get_resource` returns an `Option<T>`, so we use `ok_or` to convert it to a `Result` on
+        // which we can call `?` to propagate the error.
         .get_resource::<UninitializedResource>()
+        // We can provide a `str` here because `Box<dyn Error>` implements `From<&str>`.
         .ok_or("Resource not initialized")?;
 
     Ok(())

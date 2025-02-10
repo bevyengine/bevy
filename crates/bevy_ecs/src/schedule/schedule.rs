@@ -414,6 +414,8 @@ impl Schedule {
     }
 
     /// Set the error handler to use for systems that return a [`Result`](crate::result::Result).
+    ///
+    /// See the [`result` module-level documentation](crate::result) for more information.
     pub fn set_error_handler(&mut self, error_handler: fn(Error, &ScheduleSystem)) {
         self.error_handler = Some(error_handler);
     }

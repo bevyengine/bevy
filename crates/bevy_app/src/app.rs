@@ -1263,8 +1263,10 @@ impl App {
         self
     }
 
-    /// Set the global system error handler to use for systems that return a
-    /// [`Result`].
+    /// Set the global system error handler to use for systems that return a [`Result`].
+    ///
+    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
+    /// for more information.
     pub fn set_systems_error_handler(
         &mut self,
         error_handler: fn(Error, &ScheduleSystem),
