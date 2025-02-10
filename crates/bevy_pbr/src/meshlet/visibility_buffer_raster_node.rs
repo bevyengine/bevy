@@ -374,6 +374,7 @@ fn fill_cluster_buffers_pass(
     );
 }
 
+// TODO: Replace this with vkCmdClearColorImage once wgpu supports it
 fn clear_visibility_buffer_pass(
     render_context: &mut RenderContext,
     clear_visibility_buffer_bind_group: &BindGroup,
