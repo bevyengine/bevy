@@ -21,7 +21,6 @@ pub mod picking_backend;
 pub mod text_picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
-use bevy_picking::events::Click;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 mod accessibility;
 // This module is not re-exported, but is instead made public.
@@ -39,7 +38,6 @@ pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
-use text_picking_backend::{get_and_emit_text_hits, TextPointer};
 pub use ui_material::*;
 pub use ui_node::*;
 
@@ -184,9 +182,7 @@ impl Plugin for UiPlugin {
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystem::Focus).after(InputSystem),
-            )
-            .add_event::<TextPointer<Click>>()
-            .add_observer(get_and_emit_text_hits::<Click>);
+            );
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystem::Layout)
@@ -224,6 +220,7 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_ui_picking_backend")]
         if self.add_picking {
             app.add_plugins(picking_backend::UiPickingPlugin);
+            app.add_plugins(text_picking_backend::plugin);
         }
 
         if !self.enable_rendering {

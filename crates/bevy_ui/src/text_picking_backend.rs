@@ -1,13 +1,19 @@
+use bevy_app::App;
 use bevy_ecs::{
     event::Event,
     observer::Trigger,
     system::{Commands, Query},
 };
-use bevy_picking::events::Pointer;
+use bevy_picking::events::{Click, Pointer};
 use bevy_reflect::Reflect;
-use bevy_text::{cosmic_text::Cursor, ComputedTextBlock};
+use bevy_text::{cosmic_text::Cursor, ComputedTextBlock, TextLayoutInfo};
 
 use crate::{ComputedNode, RelativeCursorPosition};
+
+pub(crate) fn plugin(app: &mut App) {
+    app.add_event::<TextPointer<Click>>();
+    app.add_observer(get_and_emit_text_hits::<Click>);
+}
 
 #[derive(Event, Debug, Clone)]
 pub struct TextPointer<E: Clone + Reflect + std::fmt::Debug> {
@@ -18,14 +24,19 @@ pub struct TextPointer<E: Clone + Reflect + std::fmt::Debug> {
 /// Takes UI pointer hits and re-emits them as `TextPointer` triggers.
 pub(crate) fn get_and_emit_text_hits<E: Clone + Reflect + std::fmt::Debug>(
     trigger: Trigger<Pointer<E>>,
-    q: Query<(&ComputedNode, &RelativeCursorPosition, &ComputedTextBlock)>,
+    q: Query<(
+        &ComputedNode,
+        &RelativeCursorPosition,
+        &ComputedTextBlock,
+        &TextLayoutInfo,
+    )>,
     mut commands: Commands,
 ) {
     if q.get(trigger.target()).is_err() {
         return;
     }
     // Get click position relative to node
-    let (c_node, pos, c_text) = q
+    let (c_node, pos, c_text, text_layout) = q
         .get(trigger.target())
         .expect("missing required component(s)");
 
@@ -39,12 +50,33 @@ pub(crate) fn get_and_emit_text_hits<E: Clone + Reflect + std::fmt::Debug>(
         return;
     };
 
-    // TODO: trigger targeted span entities, might need to have PositionedGlyph at this point?
-    commands.trigger_targets(
-        TextPointer::<E> {
-            cursor,
-            event: trigger.event().clone(),
-        },
-        trigger.target(),
-    );
+    // PERF: doing this as well as using cosmic's `hit` is the worst of both worlds. This approach
+    // allows for span-specific events, whereas cosmic's hit detection is faster by discarding
+    // per-line, and also gives cursor affinity (direction on glyph)
+    let Some(positioned_glyph) = text_layout
+        .glyphs
+        .iter()
+        .find(|g| g.byte_index == cursor.index && g.line_index == cursor.line)
+    else {
+        return;
+    };
+
+    // Get span entity
+    let target_span = c_text.entities()[positioned_glyph.span_index];
+
+    // TODO: consider sending the `PositionedGlyph` along with the event
+    let text_pointer = TextPointer::<E> {
+        cursor,
+        event: trigger.event().clone(),
+    };
+
+    commands.trigger_targets(text_pointer.clone(), target_span.entity);
+
+    // If span == 0, this event was sent already, so skip. This second dispatch means that an
+    // observer only added to the root text entity still triggers when child spans are interacted
+    // with.
+    // TODO: i think event propagation could be useful here?
+    if positioned_glyph.span_index != 0 {
+        commands.trigger_targets(text_pointer.clone(), trigger.target());
+    }
 }

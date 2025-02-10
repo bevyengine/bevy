@@ -2,7 +2,6 @@
 
 use bevy::{
     prelude::*,
-    text::TextLayoutInfo,
     ui::{text_picking_backend::TextPointer, RelativeCursorPosition},
 };
 
@@ -31,26 +30,13 @@ fn setup(mut commands: Commands) {
             // subset.
             cb.spawn(TextSpan::new(
                 "i'm a new span\n●●●●i'm the same span...\n····",
-            ));
+            ))
+            .observe(|t: Trigger<TextPointer<Click>>| {
+                info!("Span specific observer clicked! {:?}", t);
+            });
         })
-        .observe(
-            |t: Trigger<TextPointer<Click>>, texts: Query<&TextLayoutInfo>| {
-                // Observer to get the `PositionedGlyph` at the `Cursor` position.
-                let text = texts
-                    .get(t.target())
-                    .expect("no TLI? This should be unreachable.");
-
-                let Some(positioned_glyph) = text
-                    .glyphs
-                    .iter()
-                    .find(|g| g.byte_index == t.cursor.index && g.line_index == t.cursor.line)
-                else {
-                    return;
-                };
-
-                info!("found positioned glyph from cursor {:?}", positioned_glyph);
-
-                // TODO: Visualize a cursor on click.
-            },
-        );
+        .observe(|t: Trigger<TextPointer<Click>>| {
+            info!("Root observer clicked! {:?}", t);
+            // TODO: Visualize a cursor on click.
+        });
 }
