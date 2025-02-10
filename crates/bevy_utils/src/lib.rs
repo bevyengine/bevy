@@ -20,17 +20,17 @@ extern crate alloc;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     pub use crate::default;
-    #[cfg(feature = "std")]
-    pub use crate::option_ext::{NoneError, OptionExt as _};
+    #[cfg(feature = "alloc")]
+    pub use crate::option_ext::OptionExt as _;
 }
 
+#[cfg(feature = "alloc")]
+pub mod option_ext;
 pub mod synccell;
 pub mod syncunsafecell;
 
 mod default;
 mod once;
-#[cfg(feature = "std")]
-mod option_ext;
 #[cfg(feature = "std")]
 mod parallel_queue;
 
@@ -38,6 +38,7 @@ mod parallel_queue;
 pub use once::OnceFlag;
 
 pub use default::default;
+pub use option_ext::{NoneError, OptionExt as _};
 
 #[cfg(feature = "std")]
 pub use parallel_queue::*;

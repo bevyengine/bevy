@@ -1,5 +1,7 @@
+//! Extensions to the [`Option`] type used in Bevy.
+
 use crate::alloc::boxed::Box;
-use crate::std::{error::Error, fmt};
+use core::{error::Error, fmt};
 
 /// A custom type which implements [`Error`], used to indicate that an `Option` was `None`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
