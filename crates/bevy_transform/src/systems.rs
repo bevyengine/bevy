@@ -75,9 +75,6 @@ pub fn propagate_transforms_par(
     orphans.sort_unstable();
     drop(span);
 
-    // In parallel, compute the transform of all root entities. If their transform is changed, it
-    // will be pushed to the change queue. If the entity has children, it will be pushed to the
-    // queue.
     let span = info_span!("Roots").entered();
     transform_queries.p0().par_iter_mut().for_each_init(
         || stack.borrow_local_mut(),
@@ -93,6 +90,10 @@ pub fn propagate_transforms_par(
         if stack_size == 0 {
             break;
         }
+
+        // In both single threaded and multi threaded, we avoid allocations by double buffering
+        // between two `Parallel` thread locals. One acts as the current stack that can be consumed
+        // from. and the other is the next iteration's stack that can be pushed to.
         working_stack.iter_mut().for_each(Vec::clear);
         if stack_size < 1024 {
             // Single threaded when the stack is small
@@ -109,10 +110,18 @@ pub fn propagate_transforms_par(
             }
         } else {
             // Multithreaded only when the stack is large
+            //
+            // The main idea of the parallel traversal algorithm is to go wide over all entities of
+            // a given hierarchy level. Starting from the root, calculate the global transform, then
+            // work towards descendents, processing all entities at a given level per loop
+            // iteration. Because no entities at the same hierarchy level can depend on each other,
+            // we can parallelize across all these entities without any bookkeeping.
             let nodes = transform_queries.p1();
             let chunk_size = stack_size / task_pool.thread_num();
             let mut chunks = stack
                 .iter_mut()
+                // Break up the chunks to be smaller than the desired size, so that we are more
+                // likely to be able to distribute work evenly across all threads
                 .flat_map(|nodes| nodes.chunks(chunk_size / 4));
             let orphans = &orphans;
 
@@ -120,7 +129,7 @@ pub fn propagate_transforms_par(
                 // let _span = info_span!("Par").entered();
                 let mut locals = working_stack.borrow_local_mut();
                 for parent in chunks.iter().flat_map(|s| s.iter()) {
-                    let tree_children = children
+                    let children = children
                         .get(parent.entity)
                         .expect("Only entities with children are pushed onto the stack.");
                     // SAFETY:
@@ -131,7 +140,7 @@ pub fn propagate_transforms_par(
                     // children at the same level of the tree cannot alias.
                     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                     unsafe {
-                        let mut nodes = nodes.iter_many_unsafe(tree_children);
+                        let mut nodes = nodes.iter_many_unsafe(children);
                         while let Some(components) = nodes.fetch_next() {
                             compute_transform(&mut locals, Some(parent), components, orphans);
                         }
