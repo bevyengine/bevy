@@ -75,7 +75,7 @@ impl DefaultQueryFilters {
         self.disabling.iter()
     }
 
-    pub(super) fn apply(&self, component_access: &mut FilteredAccess<ComponentId>) {
+    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
         for &component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
@@ -99,7 +99,7 @@ mod tests {
     use alloc::{vec, vec::Vec};
 
     #[test]
-    fn test_apply_filters() {
+    fn filters_modify_access() {
         let mut filters = DefaultQueryFilters::default();
         filters.register_disabling_component(ComponentId::new(1));
 
@@ -110,7 +110,7 @@ mod tests {
             .add_component_read(ComponentId::new(2));
 
         let mut applied_access = component_access.clone();
-        filters.apply(&mut applied_access);
+        filters.modify_access(&mut applied_access);
         assert_eq!(0, applied_access.with_filters().count());
         assert_eq!(
             vec![ComponentId::new(1)],
@@ -121,7 +121,7 @@ mod tests {
         component_access.and_with(ComponentId::new(4));
 
         let mut applied_access = component_access.clone();
-        filters.apply(&mut applied_access);
+        filters.modify_access(&mut applied_access);
         assert_eq!(
             vec![ComponentId::new(4)],
             applied_access.with_filters().collect::<Vec<_>>()
@@ -136,7 +136,7 @@ mod tests {
         component_access.and_with(ComponentId::new(1));
 
         let mut applied_access = component_access.clone();
-        filters.apply(&mut applied_access);
+        filters.modify_access(&mut applied_access);
         assert_eq!(
             vec![ComponentId::new(1), ComponentId::new(4)],
             applied_access.with_filters().collect::<Vec<_>>()
@@ -150,7 +150,7 @@ mod tests {
             .add_archetypal(ComponentId::new(1));
 
         let mut applied_access = component_access.clone();
-        filters.apply(&mut applied_access);
+        filters.modify_access(&mut applied_access);
         assert_eq!(
             vec![ComponentId::new(4)],
             applied_access.with_filters().collect::<Vec<_>>()

@@ -258,7 +258,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut is_dense = D::IS_DENSE && F::IS_DENSE;
 
         if let Some(default_filters) = world.get_resource::<DefaultQueryFilters>() {
-            default_filters.apply(&mut component_access);
+            default_filters.modify_access(&mut component_access);
             is_dense &= default_filters.is_dense(world.components());
         }
 
@@ -293,7 +293,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut is_dense = builder.is_dense();
 
         if let Some(default_filters) = builder.world().get_resource::<DefaultQueryFilters>() {
-            default_filters.apply(&mut component_access);
+            default_filters.modify_access(&mut component_access);
             is_dense &= default_filters.is_dense(builder.world().components());
         }
 
