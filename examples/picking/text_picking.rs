@@ -2,7 +2,10 @@
 
 use bevy::{
     prelude::*,
-    ui::{text_picking_backend::TextPointer, RelativeCursorPosition},
+    ui::{
+        text_picking_backend::{GlyphPointer, TextPointer},
+        RelativeCursorPosition,
+    },
 };
 
 fn main() {
@@ -31,11 +34,15 @@ fn setup(mut commands: Commands) {
             cb.spawn(TextSpan::new(
                 "i'm a new span\n●●●●i'm the same span...\n····",
             ))
-            .observe(|t: Trigger<TextPointer<Click>>| {
+            .observe(|mut t: Trigger<TextPointer<Click>>| {
                 info!("Span specific observer clicked! {:?}", t);
+                t.propagate(false);
             })
-            .observe(|t: Trigger<TextPointer<Released>>| {
-                info!("Span specific observer released! {:?}", t);
+            .observe(|t: Trigger<GlyphPointer<Released>>| {
+                info!("Span specific glyph observer released! {:?}", t);
+            })
+            .observe(|t: Trigger<Pointer<Pressed>>| {
+                info!("\nGot the thing {:?}\n", t);
             });
         })
         .observe(|t: Trigger<TextPointer<Click>>| {

@@ -1,15 +1,21 @@
 use bevy_app::App;
 use bevy_ecs::{
+    entity::{Entity, EntityBorrow},
     event::Event,
+    hierarchy::ChildOf,
     observer::Trigger,
+    query::QueryData,
     system::{Commands, Query},
+    traversal::Traversal,
 };
 use bevy_picking::events::{
     Cancel, Click, Drag, DragDrop, DragEnd, DragEnter, DragLeave, DragOver, DragStart, Move, Out,
     Over, Pointer, Pressed, Released,
 };
 use bevy_reflect::Reflect;
-use bevy_text::{cosmic_text::Cursor, ComputedTextBlock, TextLayoutInfo};
+use bevy_render::camera::NormalizedRenderTarget;
+use bevy_text::{cosmic_text::Cursor, ComputedTextBlock, PositionedGlyph, TextLayoutInfo};
+use bevy_window::Window;
 
 use crate::{ComputedNode, RelativeCursorPosition};
 
@@ -45,10 +51,54 @@ pub(crate) fn plugin(app: &mut App) {
         .add_observer(get_and_emit_text_hits::<Released>);
 }
 
-#[derive(Event, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct TextPointer<E: Clone + Reflect + std::fmt::Debug> {
     pub cursor: Cursor,
+    pub glyph: PositionedGlyph,
     pub event: Pointer<E>,
+}
+
+impl<E> Event for TextPointer<E>
+where
+    E: Clone + Reflect + std::fmt::Debug,
+{
+    const AUTO_PROPAGATE: bool = true;
+    type Traversal = TextPointerTraversal;
+}
+
+/// A traversal query (eg it implements [`Traversal`]) intended for use with [`TextPointer`] events.
+///
+/// This will always traverse to the parent, if the entity being visited has one. Otherwise, it
+/// propagates to the pointer's window and stops there.
+#[derive(QueryData)]
+pub struct TextPointerTraversal {
+    parent: Option<&'static ChildOf>,
+    window: Option<&'static Window>,
+}
+
+impl<E> Traversal<TextPointer<E>> for TextPointerTraversal
+where
+    E: std::fmt::Debug + Clone + Reflect,
+{
+    fn traverse(item: Self::Item<'_>, pointer: &TextPointer<E>) -> Option<Entity> {
+        let TextPointerTraversalItem { parent, window } = item;
+
+        // Send event to parent, if it has one.
+        if let Some(parent) = parent {
+            return Some(parent.get());
+        };
+
+        // Otherwise, send it to the window entity (unless this is a window entity).
+        if window.is_none() {
+            if let NormalizedRenderTarget::Window(window_ref) =
+                pointer.event.pointer_location.target
+            {
+                return Some(window_ref.entity());
+            }
+        }
+
+        None
+    }
 }
 
 /// Takes UI pointer hits and re-emits them as `TextPointer` triggers.
@@ -62,13 +112,10 @@ pub(crate) fn get_and_emit_text_hits<E: Clone + Reflect + std::fmt::Debug>(
     )>,
     mut commands: Commands,
 ) {
-    if q.get(trigger.target()).is_err() {
-        return;
-    }
     // Get click position relative to node
-    let (c_node, pos, c_text, text_layout) = q
-        .get(trigger.target())
-        .expect("missing required component(s)");
+    let Ok((c_node, pos, c_text, text_layout)) = q.get(trigger.target()) else {
+        return;
+    };
 
     let Some(hit_pos) = pos.normalized else {
         return;
@@ -94,19 +141,12 @@ pub(crate) fn get_and_emit_text_hits<E: Clone + Reflect + std::fmt::Debug>(
     // Get span entity
     let target_span = c_text.entities()[positioned_glyph.span_index];
 
-    // TODO: consider sending the `PositionedGlyph` along with the event
     let text_pointer = TextPointer::<E> {
         cursor,
+        // TODO: can this be a borrow?
+        glyph: positioned_glyph.clone(),
         event: trigger.event().clone(),
     };
 
     commands.trigger_targets(text_pointer.clone(), target_span.entity);
-
-    // If span == 0, this event was sent already, so skip. This second dispatch means that an
-    // observer only added to the root text entity still triggers when child spans are interacted
-    // with.
-    // TODO: i think event propagation could be useful here?
-    if positioned_glyph.span_index != 0 {
-        commands.trigger_targets(text_pointer.clone(), trigger.target());
-    }
 }
