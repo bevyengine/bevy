@@ -67,7 +67,7 @@ use crate::{
     query::FilteredAccess,
 };
 use bevy_ecs_macros::{Component, Resource};
-use bevy_platform_support::collections::HashSet;
+use smallvec::SmallVec;
 
 #[cfg(feature = "bevy_reflect")]
 use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
@@ -111,7 +111,9 @@ pub struct Disabled;
 #[derive(Resource, Default, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters {
-    disabling: HashSet<ComponentId>,
+    // We only expect a few components per application to act as disabling components, so we use a SmallVec here
+    // to avoid heap allocation in most cases.
+    disabling: SmallVec<[ComponentId; 4]>,
 }
 
 impl DefaultQueryFilters {
@@ -126,7 +128,7 @@ impl DefaultQueryFilters {
     /// As discussed in the [module docs](crate::entity_disabling), this can have performance implications,
     /// as well as create interoperability issues, and should be used with caution.
     pub fn register_disabling_component(&mut self, component_id: ComponentId) {
-        self.disabling.insert(component_id);
+        self.disabling.push(component_id);
     }
 
     /// Get an iterator over all currently enabled filter components.
