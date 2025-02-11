@@ -289,6 +289,7 @@ fn spawn_button(
 
     if spawn_text {
         builder.with_children(|parent| {
+            // These labels are split to stress test multi-span text
             parent
                 .spawn((
                     Text(format!("{column}, ")),
