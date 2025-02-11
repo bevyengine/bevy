@@ -74,7 +74,7 @@ fn main() {
 
         // Curve can go out past endpoints
         let mut min = 0.0f32;
-        let mut max = 0.0f32;
+        let mut max = 1.0f32;
         for &(_, y) in &samples {
             min = min.min(y);
             max = max.max(y);
