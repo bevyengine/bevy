@@ -16,40 +16,12 @@ fn main() {
         .run();
 }
 
-/// Resource to allow cycling through available Tonemapping algorithms
-#[derive(Resource)]
-struct Tonemapper {
-    tonemapper: Tonemapping,
-}
-
-impl Tonemapper {
-    /// Modifies resources tonemapping algorithm for the next one and returns it
-    fn next(&mut self) -> Tonemapping {
-        let next = match self.tonemapper {
-            Tonemapping::None => Tonemapping::AcesFitted,
-            Tonemapping::AcesFitted => Tonemapping::AgX,
-            Tonemapping::AgX => Tonemapping::BlenderFilmic,
-            Tonemapping::BlenderFilmic => Tonemapping::Reinhard,
-            Tonemapping::Reinhard => Tonemapping::ReinhardLuminance,
-            Tonemapping::ReinhardLuminance => Tonemapping::SomewhatBoringDisplayTransform,
-            Tonemapping::SomewhatBoringDisplayTransform => Tonemapping::TonyMcMapface,
-            Tonemapping::TonyMcMapface => Tonemapping::None,
-        };
-        self.tonemapper = next;
-        next
-    }
-}
-
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    commands.insert_resource(Tonemapper {
-        tonemapper: Tonemapping::TonyMcMapface,
-    });
-
     commands.spawn((
         Camera2d,
         Camera {
@@ -101,17 +73,16 @@ fn setup(
 // ------------------------------------------------------------------------------------------------
 
 fn update_bloom_settings(
-    camera: Single<(Entity, Option<&mut Bloom>), With<Camera>>,
+    camera: Single<(Entity, &Tonemapping, Option<&mut Bloom>), With<Camera>>,
     mut text: Single<&mut Text>,
     mut commands: Commands,
-    mut tonemapper: ResMut<Tonemapper>,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
     let bloom = camera.into_inner();
 
     match bloom {
-        (entity, Some(mut bloom)) => {
+        (entity, _, Some(mut bloom)) => {
             text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
@@ -211,7 +182,7 @@ fn update_bloom_settings(
             bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
         }
 
-        (entity, None) => {
+        (entity, _, None) => {
             text.0 = "Bloom: Off (Toggle: Space)\n".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
@@ -220,8 +191,22 @@ fn update_bloom_settings(
         }
     }
 
-    text.push_str(&format!("(O) Tonemapper: {:?}\n", tonemapper.tonemapper));
+    text.push_str(&format!("(O) Tonemapper: {:?}\n", bloom.1));
     if keycode.just_pressed(KeyCode::KeyO) {
-        commands.entity(bloom.0).insert(tonemapper.next());
+        commands.entity(bloom.0).insert(next_tonemap(bloom.1));
+    }
+}
+
+/// Modifies resources tonemapping algorithm for the next one and returns it
+fn next_tonemap(tonemap: &Tonemapping) -> Tonemapping {
+    match tonemap {
+        Tonemapping::None => Tonemapping::AcesFitted,
+        Tonemapping::AcesFitted => Tonemapping::AgX,
+        Tonemapping::AgX => Tonemapping::BlenderFilmic,
+        Tonemapping::BlenderFilmic => Tonemapping::Reinhard,
+        Tonemapping::Reinhard => Tonemapping::ReinhardLuminance,
+        Tonemapping::ReinhardLuminance => Tonemapping::SomewhatBoringDisplayTransform,
+        Tonemapping::SomewhatBoringDisplayTransform => Tonemapping::TonyMcMapface,
+        Tonemapping::TonyMcMapface => Tonemapping::None,
     }
 }
