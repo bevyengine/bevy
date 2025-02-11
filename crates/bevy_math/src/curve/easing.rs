@@ -194,7 +194,7 @@ where
     }
 }
 
-/// Configuration options for the [`EaseFunction::steps_with`] curves. This closely replicates the
+/// Configuration options for the [`EaseFunction::Steps`] curves. This closely replicates the
 /// [CSS step function specification].
 ///
 /// [CSS step function specification]: https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function/steps#description
