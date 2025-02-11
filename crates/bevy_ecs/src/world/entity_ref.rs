@@ -3287,6 +3287,24 @@ impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
     }
 }
 
+impl<'a, B: Bundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
+    fn from(value: &'a EntityRefExcept<'_, B>) -> Self {
+        // SAFETY:
+        // - The FilteredEntityRef has the same component access as the given EntityRefExcept.
+        unsafe {
+            let mut access = Access::default();
+            access.read_all();
+            let components = value.entity.world().components();
+            B::get_component_ids(components, &mut |maybe_id| {
+                if let Some(id) = maybe_id {
+                    access.remove_component_read(id);
+                }
+            });
+            FilteredEntityRef::new(value.entity, access)
+        }
+    }
+}
+
 impl PartialEq for FilteredEntityRef<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
@@ -3612,6 +3630,24 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
     }
 }
 
+impl<'a, B: Bundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
+    fn from(value: &'a EntityMutExcept<'_, B>) -> Self {
+        // SAFETY:
+        // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
+        unsafe {
+            let mut access = Access::default();
+            access.write_all();
+            let components = value.entity.world().components();
+            B::get_component_ids(components, &mut |maybe_id| {
+                if let Some(id) = maybe_id {
+                    access.remove_component_read(id);
+                }
+            });
+            FilteredEntityMut::new(value.entity, access)
+        }
+    }
+}
+
 impl PartialEq for FilteredEntityMut<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
@@ -3826,11 +3862,11 @@ where
     }
 }
 
-impl<'a, B> From<&EntityMutExcept<'a, B>> for EntityRefExcept<'a, B>
+impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
 where
     B: Bundle,
 {
-    fn from(entity: &EntityMutExcept<'a, B>) -> Self {
+    fn from(entity: &'a EntityMutExcept<'_, B>) -> Self {
         // SAFETY: All accesses that `EntityRefExcept` provides are also
         // accesses that `EntityMutExcept` provides.
         unsafe { EntityRefExcept::new(entity.entity) }
