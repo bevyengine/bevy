@@ -386,8 +386,14 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     unsafe {
         (*system).update_archetype_component_access(world);
         if (*system).validate_param_unsafe(world) {
-            // TODO: implement an error-handling API instead of suppressing a possible failure.
-            let _ = (*system).run_unsafe(trigger, world);
+            // TODO: implement an error-handling API instead of panicking.
+            if let Err(err) = (*system).run_unsafe(trigger, world) {
+                panic!(
+                    "Encountered an error in system `{}`: {:?}",
+                    (*system).name(),
+                    err
+                );
+            }
             (*system).queue_deferred(world.into_deferred());
         }
     }
@@ -442,4 +448,26 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{self as bevy_ecs, event::Event, observer::Trigger};
+
+    #[derive(Event)]
+    struct TriggerEvent;
+
+    #[test]
+    #[should_panic(expected = "I failed!")]
+    fn test_fallible_observer() {
+        fn system(_: Trigger<TriggerEvent>) -> Result {
+            Err("I failed!".into())
+        }
+
+        let mut world = World::default();
+        world.add_observer(system);
+        Schedule::default().run(&mut world);
+        world.trigger(TriggerEvent);
+    }
 }
