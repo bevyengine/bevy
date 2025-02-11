@@ -287,7 +287,7 @@ where
                     Render,
                     (
                         specialize_material2d_meshes::<M>
-                            .in_set(RenderSet::PrepareAssets)
+                            .in_set(RenderSet::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>)
                             .after(prepare_assets::<RenderMesh>),
                         queue_material2d_meshes::<M>
@@ -848,10 +848,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 }
             }
         }
-
-        // Remove invalid entities from the bins.
-        opaque_phase.sweep_old_entities();
-        alpha_mask_phase.sweep_old_entities();
     }
 }
 

@@ -97,7 +97,7 @@ impl FontAtlas {
         let atlas_layout = atlas_layouts.get_mut(&self.texture_atlas).unwrap();
         let atlas_texture = textures.get_mut(&self.texture).unwrap();
 
-        if let Some(glyph_index) =
+        if let Ok(glyph_index) =
             self.dynamic_texture_atlas_builder
                 .add_texture(atlas_layout, texture, atlas_texture)
         {
