@@ -32,7 +32,7 @@
         // Check if an implemented trait has a `type Mutability = Immutable` associated type.
         // This is used to determine if a `Component` is immutable or not.
         // TODO: Ideally we should just check the associated types of the `Component` trait,
-        //       but the docs.rs layout makes it tricky to do so in a robust wau.
+        //       but the docs.rs layout makes it tricky to do so in a robust way.
         const associatedTypeHeader = document.querySelectorAll(".trait-impl.associatedtype .code-header");
         const isImmutable = [...associatedTypeHeader].some(el => el.innerText.includes('type Mutability = Immutable'));
 
