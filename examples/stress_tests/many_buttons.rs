@@ -289,14 +289,23 @@ fn spawn_button(
 
     if spawn_text {
         builder.with_children(|parent| {
-            parent.spawn((
-                Text(format!("{column}, {row}")),
-                TextFont {
-                    font_size: FONT_SIZE,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.2, 0.2, 0.2)),
-            ));
+            parent
+                .spawn((
+                    Text(format!("{column}, ")),
+                    TextFont {
+                        font_size: FONT_SIZE,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.5, 0.2, 0.2)),
+                ))
+                .with_child((
+                    TextSpan(format!("{row}")),
+                    TextFont {
+                        font_size: FONT_SIZE,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.2, 0.2, 0.5)),
+                ));
         });
     }
 }
