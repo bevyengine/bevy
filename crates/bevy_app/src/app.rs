@@ -1267,11 +1267,11 @@ impl App {
     ///
     /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
     /// for more information.
-    pub fn set_systems_error_handler(
+    pub fn set_system_error_handler(
         &mut self,
         error_handler: fn(Error, SystemErrorContext),
     ) -> &mut Self {
-        self.main_mut().set_systems_error_handler(error_handler);
+        self.main_mut().set_system_error_handler(error_handler);
         self
     }
 

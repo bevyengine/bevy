@@ -10,7 +10,7 @@
 //! You can change the default behavior by registering a custom error handler, either globally or
 //! per `Schedule`:
 //!
-//! - [`App::set_systems_error_handler`] sets the global error handler for all systems of the
+//! - [`App::set_system_error_handler`] sets the global error handler for all systems of the
 //!   current [`World`].
 //! - [`Schedule::set_error_handler`] sets the error handler for all systems of that schedule.
 //!
@@ -67,7 +67,7 @@
 //! [`Schedule::set_error_handler`]: crate::schedule::Schedule::set_error_handler
 //! [`System`]: crate::system::System
 //! [`name`]: crate::system::System::name
-//! [`App::set_systems_error_handler`]: ../../bevy_app/struct.App.html#method.set_systems_error_handler
+//! [`App::set_system_error_handler`]: ../../bevy_app/struct.App.html#method.set_system_error_handler
 //! [`system piping feature`]: crate::system::In
 
 use crate::{component::Tick, resource::Resource};
@@ -89,11 +89,11 @@ pub struct SystemErrorContext {
 }
 
 /// The default systems error handler stored as a resource in the [`World`](crate::world::World).
-pub struct DefaultSystemsErrorHandler(pub fn(Error, SystemErrorContext));
+pub struct DefaultSystemErrorHandler(pub fn(Error, SystemErrorContext));
 
-impl Resource for DefaultSystemsErrorHandler {}
+impl Resource for DefaultSystemErrorHandler {}
 
-impl Default for DefaultSystemsErrorHandler {
+impl Default for DefaultSystemErrorHandler {
     fn default() -> Self {
         Self(panic)
     }

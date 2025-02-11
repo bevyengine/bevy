@@ -29,7 +29,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
     resource::Resource,
-    result::{DefaultSystemsErrorHandler, Error, SystemErrorContext},
+    result::{DefaultSystemErrorHandler, Error, SystemErrorContext},
     schedule::*,
     system::ScheduleSystem,
     world::World,
@@ -488,7 +488,7 @@ impl Schedule {
         }
 
         if self.error_handler.is_none() {
-            self.error_handler = Some(world.get_resource_or_init::<DefaultSystemsErrorHandler>().0);
+            self.error_handler = Some(world.get_resource_or_init::<DefaultSystemErrorHandler>().0);
         }
 
         if !self.executor_initialized {

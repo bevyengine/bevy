@@ -21,7 +21,7 @@ fn main() {
     // systems in a given `App`. Here we set the global error handler using one of the built-in
     // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
     // `debug`, `trace` and `ignore`.
-    app.set_systems_error_handler(bevy::ecs::result::warn);
+    app.set_system_error_handler(bevy::ecs::result::warn);
 
     // Additionally, you can set a custom error handler per `Schedule`. This will take precedence
     // over the global error handler.

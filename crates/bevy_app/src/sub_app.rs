@@ -3,7 +3,7 @@ use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
-    result::{DefaultSystemsErrorHandler, SystemErrorContext},
+    result::{DefaultSystemErrorHandler, SystemErrorContext},
     schedule::{InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel},
     system::{SystemId, SystemInput},
 };
@@ -340,13 +340,13 @@ impl SubApp {
     ///
     /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
     /// for more information.
-    pub fn set_systems_error_handler(
+    pub fn set_system_error_handler(
         &mut self,
         error_handler: fn(Error, SystemErrorContext),
     ) -> &mut Self {
         let mut default_handler = self
             .world_mut()
-            .get_resource_or_init::<DefaultSystemsErrorHandler>();
+            .get_resource_or_init::<DefaultSystemErrorHandler>();
 
         default_handler.0 = error_handler;
         self
