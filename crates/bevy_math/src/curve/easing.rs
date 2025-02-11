@@ -953,8 +953,8 @@ mod tests {
     }
 
     #[test]
-    fn step_config_start() {
-        let config = JumpAt::Start;
+    fn jump_at_start() {
+        let jump_at = JumpAt::Start;
         let num_steps = 4;
 
         [
@@ -969,13 +969,13 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(t, expected)| {
-            assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
         });
     }
 
     #[test]
-    fn step_config_end() {
-        let config = JumpAt::End;
+    fn jump_at_end() {
+        let jump_at = JumpAt::End;
         let num_steps = 4;
 
         [
@@ -991,13 +991,13 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(t, expected)| {
-            assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
         });
     }
 
     #[test]
-    fn step_config_none() {
-        let config = JumpAt::None;
+    fn jump_at_none() {
+        let jump_at = JumpAt::None;
         let num_steps = 5;
 
         [
@@ -1015,13 +1015,13 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(t, expected)| {
-            assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
         });
     }
 
     #[test]
-    fn step_config_both() {
-        let config = JumpAt::Both;
+    fn jump_at_both() {
+        let jump_at = JumpAt::Both;
         let num_steps = 4;
 
         [
@@ -1037,7 +1037,7 @@ mod tests {
         ]
         .into_iter()
         .for_each(|(t, expected)| {
-            assert_abs_diff_eq!(config.eval(num_steps, t), expected);
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
         });
     }
 }
