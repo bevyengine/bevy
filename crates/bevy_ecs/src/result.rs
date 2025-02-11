@@ -61,6 +61,33 @@
 //! If you need special handling of individual fallible systems, you can use Bevy's [`system piping
 //! feature`] to capture the `Result` output of the system and handle it accordingly.
 //!
+//! # Conveniently returning `Result`
+//!
+//! The [`Unpack`] and [`Assume`] traits can be used to unpack and assume any value into a
+//! [`Result`] that can be handled by Rust's `?` operator. This makes working with fallible systems
+//! more ergonomic.
+//!
+//! See: <https://doc.rust-lang.org/reference/expressions/operator-expr.html#the-question-mark-operator>
+//!
+//! By default, these traits are implemented for [`Option`]:
+//!
+//! ```rust
+//! # use bevy_ecs::prelude::*;
+//! # #[derive(Component)]
+//! # struct MyComponent;
+//! use bevy_ecs::result::{Assume, Unpack};
+//!
+//! fn my_system(world: &World) -> Result {
+//!     world.get::<MyComponent>(Entity::PLACEHOLDER).unpack()?;
+//!
+//!     world.get::<MyComponent>(Entity::PLACEHOLDER).assume("MyComponent exists")?;
+//!
+//!     Ok(())
+//! }
+//!
+//! # bevy_ecs::system::assert_is_system(my_system);
+//! ```
+//!
 //! [`Schedule`]: crate::schedule::Schedule
 //! [`panic`]: panic()
 //! [`World`]: crate::world::World
@@ -70,8 +97,14 @@
 //! [`App::set_system_error_handler`]: ../../bevy_app/struct.App.html#method.set_system_error_handler
 //! [`system piping feature`]: crate::system::In
 
+mod assume;
+mod unpack;
+
 use crate::{component::Tick, resource::Resource};
 use alloc::{borrow::Cow, boxed::Box};
+
+pub use assume::Assume;
+pub use unpack::Unpack;
 
 /// A dynamic error type for use in fallible systems.
 pub type Error = Box<dyn core::error::Error + Send + Sync + 'static>;
