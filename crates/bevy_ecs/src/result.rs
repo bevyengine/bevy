@@ -63,9 +63,12 @@
 //!
 //! # Conveniently returning `Result`
 //!
-//! The [`Unpack`] and [`Assume`] traits can be used to transform any value into a
-//! [`Result`] that can be handled by Rust's `?` operator. This makes working with fallible systems
-//! more ergonomic.
+//! The [`Unpack`] and [`Assume`] traits can be used to transform any value into a [`Result`] that
+//! can be handled by Rust's `?` operator. This makes working with fallible systems more ergonomic.
+//!
+//! [`Unpack::unpack`] should be used in place of `unwrap` (to quickly get a value), while
+//! [`Assume::assume`] should be used in place of `expect` (if you want a custom error explaining
+//! the assumption that was violated).
 //!
 //! See: <https://doc.rust-lang.org/reference/expressions/operator-expr.html#the-question-mark-operator>
 //!

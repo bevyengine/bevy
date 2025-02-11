@@ -1,8 +1,15 @@
 use super::Error;
 
 /// Assume that `Self<T>` is `T`, otherwise return the provided error.
+///
+/// This can be a drop-in replacement for `expect`, combined with the question mark operator and
+/// [`Result`](super::Result) return type, to get the same ergonomics as `expect` but without the
+/// panicking behavior (when using a non-panicking error handler).
 pub trait Assume<T> {
     /// The error type returned by [`Assume::assume`].
+    ///
+    /// Typically implements the [`Error`] trait, allowing it to match Bevy's fallible system
+    /// [`Result`](super::Result) return type.
     type Error;
 
     /// Convert `Self<T>` to a `Result<T, Self::Error>`.

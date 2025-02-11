@@ -1,8 +1,15 @@
 use core::{error::Error, fmt};
 
 /// Unpack `Self<T>` to `T`, otherwise return [`Unpack::Error`].
+///
+/// This can be a drop-in replacement for `unwrap`, combined with the question mark operator and
+/// [`Result`](super::Result) return type, to get the same ergonomics as `unwrap` but without the
+/// panicking behavior (when using a non-panicking error handler).
 pub trait Unpack<T> {
     /// The error type returned by [`Unpack::unpack`].
+    ///
+    /// Typically implements the [`Error`] trait, allowing it to match Bevy's fallible system
+    /// [`Result`](super::Result) return type.
     type Error;
 
     /// Convert `Self<T>` to a `Result<T, Self::Error>`.
@@ -17,7 +24,7 @@ impl<T> Unpack<T> for Option<T> {
     }
 }
 
-/// A custom type which implements [`Error`], used to indicate that an [`Option`] was [`None`].
+/// An [`Error`] which indicates that an [`Option`] was [`None`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NoneError;
 
