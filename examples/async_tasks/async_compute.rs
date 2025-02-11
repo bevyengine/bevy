@@ -106,8 +106,7 @@ fn spawn_tasks(mut commands: Commands) {
 
 /// This system queries for entities that have the component that contains our Task<CommandQueue>.
 /// It polls the tasks to see if they're complete. If the task is complete it takes the result,
-/// and appends all the commands that were queued to the command object, so they will run.
-/// No implementation specific logic is needed here, so this system could be in a separate plugin.
+/// and appends all the commands that were queued to the command object so that they will run.
 fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
     for mut task in &mut transform_tasks {
         if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
