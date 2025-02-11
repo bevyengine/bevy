@@ -1,7 +1,6 @@
 use bevy_utils::Parallel;
 
 use crate::{
-    self as bevy_ecs,
     entity::Entities,
     prelude::World,
     system::{Deferred, SystemBuffer, SystemMeta, SystemParam},

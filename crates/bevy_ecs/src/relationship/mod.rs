@@ -286,7 +286,6 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;

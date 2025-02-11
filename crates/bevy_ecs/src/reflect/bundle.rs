@@ -8,6 +8,7 @@ use alloc::boxed::Box;
 use core::any::{Any, TypeId};
 
 use crate::{
+    bundle::BundleFromComponents,
     entity::EntityMapper,
     prelude::Bundle,
     world::{EntityMut, EntityWorldMut},
@@ -49,7 +50,7 @@ impl ReflectBundleFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Bundle + FromReflect + TypePath>() -> Self {
+    pub fn new<T: Bundle + FromReflect + TypePath + BundleFromComponents>() -> Self {
         <ReflectBundle as FromType<T>>::from_type().0
     }
 }
@@ -139,7 +140,7 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
+impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for ReflectBundle {
     fn from_type() -> Self {
         ReflectBundle(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {

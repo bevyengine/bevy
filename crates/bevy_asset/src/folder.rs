@@ -1,6 +1,5 @@
 use alloc::vec::Vec;
 
-use crate as bevy_asset;
 use crate::{Asset, UntypedHandle};
 use bevy_reflect::TypePath;
 

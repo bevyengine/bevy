@@ -19,8 +19,9 @@ struct MeshInput {
     // Low 16 bits: index of the material inside the bind group data.
     // High 16 bits: index of the lightmap in the binding array.
     material_and_lightmap_bind_group_slot: u32,
-    pad_a: u32,
-    pad_b: u32,
+    // User supplied index to identify the mesh instance
+    tag: u32,
+    pad: u32,
 }
 
 // The `wgpu` indirect parameters structure. This is a union of two structures.
@@ -50,8 +51,13 @@ struct IndirectParametersMetadata {
     mesh_index: u32,
     base_output_index: u32,
     batch_set_index: u32,
+#ifdef WRITE_INDIRECT_PARAMETERS_METADATA
     early_instance_count: atomic<u32>,
     late_instance_count: atomic<u32>,
+#else
+    early_instance_count: u32,
+    late_instance_count: u32,
+#endif
 }
 
 struct IndirectBatchSet {
