@@ -6,7 +6,6 @@ use bevy_color::ColorToComponents;
 use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
-use bevy_ecs::entity::EntityHash;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
@@ -1078,6 +1077,7 @@ pub fn prepare_lights(
                     all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu"))
                 ))]
                 dimension: Some(TextureViewDimension::Cube),
+                usage: None,
                 aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
                 mip_level_count: None,
@@ -1121,6 +1121,7 @@ pub fn prepare_lights(
                 dimension: Some(TextureViewDimension::D2Array),
                 #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
                 dimension: Some(TextureViewDimension::D2),
+                usage: None,
                 aspect: TextureAspect::DepthOnly,
                 base_mip_level: 0,
                 mip_level_count: None,
@@ -1243,6 +1244,7 @@ pub fn prepare_lights(
                                     label: Some("point_light_shadow_map_texture_view"),
                                     format: None,
                                     dimension: Some(TextureViewDimension::D2),
+                                    usage: None,
                                     aspect: TextureAspect::All,
                                     base_mip_level: 0,
                                     mip_level_count: None,
@@ -1299,7 +1301,7 @@ pub fn prepare_lights(
                 if first {
                     // Subsequent views with the same light entity will reuse the same shadow map
                     shadow_render_phases
-                        .insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                        .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                     live_shadow_mapping_lights.insert(retained_view_entity);
                 }
             }
@@ -1344,6 +1346,7 @@ pub fn prepare_lights(
                             label: Some("spot_light_shadow_map_texture_view"),
                             format: None,
                             dimension: Some(TextureViewDimension::D2),
+                            usage: None,
                             aspect: TextureAspect::All,
                             base_mip_level: 0,
                             mip_level_count: None,
@@ -1396,7 +1399,8 @@ pub fn prepare_lights(
 
             if first {
                 // Subsequent views with the same light entity will reuse the same shadow map
-                shadow_render_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                shadow_render_phases
+                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(retained_view_entity);
             }
         }
@@ -1477,6 +1481,7 @@ pub fn prepare_lights(
                             label: Some("directional_light_shadow_map_array_texture_view"),
                             format: None,
                             dimension: Some(TextureViewDimension::D2),
+                            usage: None,
                             aspect: TextureAspect::All,
                             base_mip_level: 0,
                             mip_level_count: None,
@@ -1539,7 +1544,8 @@ pub fn prepare_lights(
                 // Subsequent views with the same light entity will **NOT** reuse the same shadow map
                 // (Because the cascades are unique to each view)
                 // TODO: Implement GPU culling for shadow passes.
-                shadow_render_phases.insert_or_clear(retained_view_entity, gpu_preprocessing_mode);
+                shadow_render_phases
+                    .prepare_for_new_frame(retained_view_entity, gpu_preprocessing_mode);
                 live_shadow_mapping_lights.insert(retained_view_entity);
             }
         }
@@ -1600,16 +1606,16 @@ pub fn check_light_entities_needing_specialization<M: Material>(
 }
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct LightKeyCache(EntityHashMap<MeshPipelineKey>);
+pub struct LightKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct LightSpecializationTicks(EntityHashMap<Tick>);
+pub struct LightSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedShadowMaterialPipelineCache<M> {
     // (view_light_entity, visible_entity) -> (tick, pipeline_id)
     #[deref]
-    map: HashMap<(Entity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
+    map: HashMap<(RetainedViewEntity, MainEntity), (Tick, CachedRenderPipelineId)>,
     marker: PhantomData<M>,
 }
 
@@ -1623,14 +1629,14 @@ impl<M> Default for SpecializedShadowMaterialPipelineCache<M> {
 }
 
 pub fn check_views_lights_need_specialization(
-    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
+    view_lights: Query<&ViewLightEntities, With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut light_key_cache: ResMut<LightKeyCache>,
     mut light_specialization_ticks: ResMut<LightSpecializationTicks>,
     ticks: SystemChangeTick,
 ) {
-    for (entity, view_lights) in &view_lights {
+    for view_lights in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
                 view_light_entities.get(view_light_entity)
@@ -1644,14 +1650,18 @@ pub fn check_views_lights_need_specialization(
             let is_directional_light = matches!(light_entity, LightEntity::Directional { .. });
             let mut light_key = MeshPipelineKey::DEPTH_PREPASS;
             light_key.set(MeshPipelineKey::UNCLIPPED_DEPTH_ORTHO, is_directional_light);
-            if let Some(current_key) = light_key_cache.get_mut(&entity) {
+            if let Some(current_key) =
+                light_key_cache.get_mut(&extracted_view_light.retained_view_entity)
+            {
                 if *current_key != light_key {
-                    light_key_cache.insert(view_light_entity, light_key);
-                    light_specialization_ticks.insert(view_light_entity, ticks.this_run());
+                    light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
+                    light_specialization_ticks
+                        .insert(extracted_view_light.retained_view_entity, ticks.this_run());
                 }
             } else {
-                light_key_cache.insert(view_light_entity, light_key);
-                light_specialization_ticks.insert(view_light_entity, ticks.this_run());
+                light_key_cache.insert(extracted_view_light.retained_view_entity, light_key);
+                light_specialization_ticks
+                    .insert(extracted_view_light.retained_view_entity, ticks.this_run());
             }
         }
     }
@@ -1702,7 +1712,8 @@ pub fn specialize_shadows<M: Material>(
             if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
                 continue;
             }
-            let Some(light_key) = light_key_cache.get(&view_light_entity) else {
+            let Some(light_key) = light_key_cache.get(&extracted_view_light.retained_view_entity)
+            else {
                 continue;
             };
 
@@ -1734,10 +1745,12 @@ pub fn specialize_shadows<M: Material>(
             // so no meshes will be queued
 
             for (_, visible_entity) in visible_entities.iter().copied() {
-                let view_tick = light_specialization_ticks.get(&view_light_entity).unwrap();
+                let view_tick = light_specialization_ticks
+                    .get(&extracted_view_light.retained_view_entity)
+                    .unwrap();
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
                 let last_specialized_tick = specialized_material_pipeline_cache
-                    .get(&(view_light_entity, visible_entity))
+                    .get(&(extracted_view_light.retained_view_entity, visible_entity))
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                     view_tick.is_newer_than(tick, ticks.this_run())
@@ -1746,6 +1759,7 @@ pub fn specialize_shadows<M: Material>(
                 if !needs_specialization {
                     continue;
                 }
+
                 let Some(mesh_instance) =
                     render_mesh_instances.render_mesh_queue_data(visible_entity)
                 else {
@@ -1816,7 +1830,7 @@ pub fn specialize_shadows<M: Material>(
                 };
 
                 specialized_material_pipeline_cache.insert(
-                    (view_light_entity, visible_entity),
+                    (extracted_view_light.retained_view_entity, visible_entity),
                     (ticks.this_run(), pipeline_id),
                 );
             }
@@ -1830,6 +1844,8 @@ pub fn specialize_shadows<M: Material>(
 pub fn queue_shadows<M: Material>(
     shadow_draw_functions: Res<DrawFunctions<Shadow>>,
     render_mesh_instances: Res<RenderMeshInstances>,
+    render_materials: Res<RenderAssets<PreparedMaterial<M>>>,
+    render_material_instances: Res<RenderMaterialInstances<M>>,
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
@@ -1884,11 +1900,17 @@ pub fn queue_shadows<M: Material>(
             };
 
             for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some((_, pipeline_id)) =
-                    specialized_material_pipeline_cache.get(&(view_light_entity, main_entity))
+                let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
+                    .get(&(extracted_view_light.retained_view_entity, main_entity))
                 else {
                     continue;
                 };
+
+                // Skip the entity if it's cached in a bin and up to date.
+                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
+                    continue;
+                }
+
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
                     continue;
@@ -1900,12 +1922,20 @@ pub fn queue_shadows<M: Material>(
                     continue;
                 }
 
+                let Some(material_asset_id) = render_material_instances.get(&main_entity) else {
+                    continue;
+                };
+                let Some(material) = render_materials.get(*material_asset_id) else {
+                    continue;
+                };
+
                 let (vertex_slab, index_slab) =
                     mesh_allocator.mesh_slabs(&mesh_instance.mesh_asset_id);
 
                 let batch_set_key = ShadowBatchSetKey {
                     pipeline: *pipeline_id,
                     draw_function: draw_shadow_mesh,
+                    material_bind_group_index: Some(material.binding.group.0),
                     vertex_slab: vertex_slab.unwrap_or_default(),
                     index_slab,
                 };
@@ -1920,6 +1950,7 @@ pub fn queue_shadows<M: Material>(
                         mesh_instance.should_batch(),
                         &gpu_preprocessing_support,
                     ),
+                    *current_change_tick,
                 );
             }
         }
@@ -1951,6 +1982,11 @@ pub struct ShadowBatchSetKey {
 
     /// The function used to draw.
     pub draw_function: DrawFunctionId,
+
+    /// The ID of a bind group specific to the material.
+    ///
+    /// In the case of PBR, this is the `MaterialBindGroupIndex`.
+    pub material_bind_group_index: Option<u32>,
 
     /// The ID of the slab of GPU memory that contains vertex data.
     ///

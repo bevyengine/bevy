@@ -422,6 +422,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Pointer<Out>>()
             .add_event::<Pointer<Over>>()
             .add_event::<Pointer<Released>>()
+            .add_event::<Pointer<Scroll>>()
             .add_systems(
                 PreUpdate,
                 (generate_hovermap, update_interactions, pointer_events)

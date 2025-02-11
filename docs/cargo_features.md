@@ -96,6 +96,7 @@ The default feature set enables most of the expected features of a game engine, 
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
 |spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
+|statically-linked-dxc|Statically linked DXC shader compiler for DirectX 12|
 |symphonia-aac|AAC audio format support (through symphonia)|
 |symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
 |symphonia-flac|FLAC audio format support (through symphonia)|

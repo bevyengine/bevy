@@ -1,6 +1,6 @@
+use crate::ui_node::ComputedNodeTarget;
 use crate::CalculatedClip;
 use crate::ComputedNode;
-use crate::UiTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -64,7 +64,7 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -75,12 +75,12 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
+    for (entity, uinode, visibility, maybe_clip, transform, computed_target) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(computed_target) else {
             continue;
         };
 

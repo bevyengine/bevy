@@ -1,0 +1,6 @@
+[package]
+name = "remapped-test"
+edition = "2021"
+
+[dependencies]
+bevi = { path = "../../", package = "bevy" }

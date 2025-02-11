@@ -192,7 +192,6 @@ where
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         event::Event,
         observer::Trigger,
         system::{In, IntoSystem},

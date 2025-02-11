@@ -485,6 +485,8 @@ pub struct MeshUniform {
     /// Low 16 bits: index of the material inside the bind group data.
     /// High 16 bits: index of the lightmap in the binding array.
     pub material_and_lightmap_bind_group_slot: u32,
+    /// User supplied tag to identify this mesh instance.
+    pub tag: u32,
 }
 
 /// Information that has to be transferred from CPU to GPU in order to produce
@@ -541,10 +543,10 @@ pub struct MeshInputUniform {
     /// Low 16 bits: index of the material inside the bind group data.
     /// High 16 bits: index of the lightmap in the binding array.
     pub material_and_lightmap_bind_group_slot: u32,
+    /// User supplied tag to identify this mesh instance.
+    pub tag: u32,
     /// Padding.
-    pub pad_a: u32,
-    /// Padding.
-    pub pad_b: u32,
+    pub pad: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -578,6 +580,7 @@ impl MeshUniform {
         maybe_lightmap: Option<(LightmapSlotIndex, Rect)>,
         current_skin_index: Option<u32>,
         previous_skin_index: Option<u32>,
+        tag: Option<u32>,
     ) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
@@ -598,6 +601,7 @@ impl MeshUniform {
             previous_skin_index: previous_skin_index.unwrap_or(u32::MAX),
             material_and_lightmap_bind_group_slot: u32::from(material_bind_group_slot)
                 | ((lightmap_bind_group_slot as u32) << 16),
+            tag: tag.unwrap_or(0),
         }
     }
 }
@@ -729,6 +733,8 @@ pub struct RenderMeshInstanceShared {
     /// Index of the slab that the lightmap resides in, if a lightmap is
     /// present.
     pub lightmap_slab_index: Option<LightmapSlabIndex>,
+    /// User supplied tag to identify this mesh instance.
+    pub tag: u32,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -808,6 +814,7 @@ impl RenderMeshInstanceShared {
     fn from_components(
         previous_transform: Option<&PreviousGlobalTransform>,
         mesh: &Mesh3d,
+        tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
     ) -> Self {
@@ -828,6 +835,7 @@ impl RenderMeshInstanceShared {
             // This gets filled in later, during `RenderMeshGpuBuilder::update`.
             material_bindings_index: default(),
             lightmap_slab_index: None,
+            tag: tag.map_or(0, |i| **i),
         }
     }
 
@@ -1160,8 +1168,8 @@ impl RenderMeshInstanceGpuBuilder {
             material_and_lightmap_bind_group_slot: u32::from(
                 self.shared.material_bindings_index.slot,
             ) | ((lightmap_slot as u32) << 16),
-            pad_a: 0,
-            pad_b: 0,
+            tag: self.shared.tag,
+            pad: 0,
         };
 
         // Did the last frame contain this entity as well?
@@ -1296,6 +1304,7 @@ pub fn extract_meshes_for_cpu_building(
             &GlobalTransform,
             Option<&PreviousGlobalTransform>,
             &Mesh3d,
+            Option<&MeshTag>,
             Has<NoFrustumCulling>,
             Has<NotShadowReceiver>,
             Has<TransmittedShadowReceiver>,
@@ -1314,6 +1323,7 @@ pub fn extract_meshes_for_cpu_building(
             transform,
             previous_transform,
             mesh,
+            tag,
             no_frustum_culling,
             not_shadow_receiver,
             transmitted_receiver,
@@ -1341,6 +1351,7 @@ pub fn extract_meshes_for_cpu_building(
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
                 mesh,
+                tag,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1402,6 +1413,7 @@ pub fn extract_meshes_for_gpu_building(
                 Option<&Lightmap>,
                 Option<&Aabb>,
                 &Mesh3d,
+                Option<&MeshTag>,
                 Has<NoFrustumCulling>,
                 Has<NotShadowReceiver>,
                 Has<TransmittedShadowReceiver>,
@@ -1459,6 +1471,7 @@ pub fn extract_meshes_for_gpu_building(
             lightmap,
             aabb,
             mesh,
+            tag,
             no_frustum_culling,
             not_shadow_receiver,
             transmitted_receiver,
@@ -1487,6 +1500,7 @@ pub fn extract_meshes_for_gpu_building(
             let shared = RenderMeshInstanceShared::from_components(
                 previous_transform,
                 mesh,
+                tag,
                 not_shadow_caster,
                 no_automatic_batching,
             );
@@ -1732,8 +1746,8 @@ impl FromWorld for MeshPipeline {
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 texture.as_image_copy(),
-                &image.data,
-                ImageDataLayout {
+                image.data.as_ref().expect("Image was created without data"),
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
@@ -1840,6 +1854,7 @@ impl GetBatchData for MeshPipeline {
                 maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
                 current_skin_index,
                 previous_skin_index,
+                Some(mesh_instance.tag),
             ),
             mesh_instance.should_batch().then_some((
                 material_bind_group_index.group,
@@ -1907,6 +1922,7 @@ impl GetFullBatchData for MeshPipeline {
             maybe_lightmap.map(|lightmap| (lightmap.slot_index, lightmap.uv_rect)),
             current_skin_index,
             previous_skin_index,
+            Some(mesh_instance.tag),
         ))
     }
 
