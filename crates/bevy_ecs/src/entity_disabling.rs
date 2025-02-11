@@ -137,7 +137,7 @@ pub struct DefaultQueryFilters {
 
 impl FromWorld for DefaultQueryFilters {
     fn from_world(world: &mut World) -> Self {
-        let mut filters = DefaultQueryFilters::new();
+        let mut filters = DefaultQueryFilters::empty();
         let disabled_component_id = world.register_component::<Disabled>();
         filters.register_disabling_component(disabled_component_id);
         filters
@@ -149,12 +149,8 @@ impl DefaultQueryFilters {
     ///
     /// This is provided as an escape hatch; in most cases you should initialize this using [`FromWorld`],
     /// which is automatically called when creating a new [`World`].
-    #[expect(
-        clippy::new_without_default,
-        reason = "We cannot implement both Default and FromWorld due to the blanket impl for FromWorld"
-    )]
     #[must_use]
-    pub fn new() -> Self {
+    pub fn empty() -> Self {
         DefaultQueryFilters {
             disabling: SmallVec::new(),
         }
@@ -213,7 +209,7 @@ mod tests {
 
     #[test]
     fn filters_modify_access() {
-        let mut filters = DefaultQueryFilters::new();
+        let mut filters = DefaultQueryFilters::empty();
         filters.register_disabling_component(ComponentId::new(1));
 
         // A component access with an unrelated component
