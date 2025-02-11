@@ -6,13 +6,53 @@ use bevy::prelude::*;
 use rand::distributions::Distribution;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .run();
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins);
+
+    // Fallible systems can be used the same way as regular systems. The only difference is they
+    // return a `Result<(), Box<dyn Error>>` instead of a `()` (unit) type. Bevy will handle both
+    // types of systems the same way, except for the error handling.
+    app.add_systems(Startup, (setup, failing_system));
+
+    // By default, fallible systems that return an error will panic.
+    //
+    // We can change this by setting a custom error handler. This can be done globally for all
+    // systems in a given `App`. Here we set the global error handler using one of the built-in
+    // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
+    // `debug`, `trace` and `ignore`.
+    app.set_system_error_handler(bevy::ecs::result::warn);
+
+    // Additionally, you can set a custom error handler per `Schedule`. This will take precedence
+    // over the global error handler.
+    //
+    // In this instance we provide our own non-capturing closure that coerces to the expected error
+    // handler function pointer:
+    //
+    //     fn(bevy_ecs::result::Error, bevy_ecs::result::SystemErrorContext)
+    //
+    app.add_systems(PostStartup, failing_system)
+        .get_schedule_mut(PostStartup)
+        .unwrap()
+        .set_error_handler(|err, ctx| error!("{} failed: {err}", ctx.name));
+
+    // Individual systems can also be handled by piping the output result:
+    app.add_systems(
+        PostStartup,
+        failing_system.pipe(|result: In<Result>| {
+            let _ = result.0.inspect_err(|err| info!("captured error: {err}"));
+        }),
+    );
+
+    // If we run the app, we'll see the following output at startup:
+    //
+    //  WARN Encountered an error in system `fallible_systems::failing_system`: "Resource not initialized"
+    // ERROR fallible_systems::failing_system failed: Resource not initialized
+    //  INFO captured error: Resource not initialized
+    app.run();
 }
 
-/// An example of a system that calls several fallible functions with the questionmark operator.
+/// An example of a system that calls several fallible functions with the question mark operator.
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -75,5 +115,19 @@ fn setup(
     }
 
     // Indicate the system completed successfully:
+    Ok(())
+}
+
+#[derive(Resource)]
+struct UninitializedResource;
+
+fn failing_system(world: &mut World) -> Result {
+    world
+        // `get_resource` returns an `Option<T>`, so we use `ok_or` to convert it to a `Result` on
+        // which we can call `?` to propagate the error.
+        .get_resource::<UninitializedResource>()
+        // We can provide a `str` here because `Box<dyn Error>` implements `From<&str>`.
+        .ok_or("Resource not initialized")?;
+
     Ok(())
 }
