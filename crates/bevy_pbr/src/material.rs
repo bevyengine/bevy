@@ -1056,10 +1056,6 @@ pub fn queue_material_meshes<M: Material>(
                 }
             }
         }
-
-        // Remove invalid entities from the bins.
-        opaque_phase.sweep_old_entities();
-        alpha_mask_phase.sweep_old_entities();
     }
 }
 

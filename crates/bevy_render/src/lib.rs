@@ -146,6 +146,9 @@ pub enum RenderSet {
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
+    /// A sub-set within [`Queue`](RenderSet::Queue) where meshes that have
+    /// become invisible or changed phases are removed from the bins.
+    QueueSweep,
     // TODO: This could probably be moved in favor of a system ordering
     // abstraction in `Render` or `Queue`
     /// Sort the [`SortedRenderPhase`](render_phase::SortedRenderPhase)s and
@@ -204,7 +207,8 @@ impl Render {
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
-            QueueMeshes
+            (QueueMeshes, QueueSweep)
+                .chain()
                 .in_set(Queue)
                 .after(prepare_assets::<RenderMesh>),
         );
