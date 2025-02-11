@@ -1800,14 +1800,12 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         )
         .ok();
 
-        let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
-
         Some(PhasePreprocessBindGroups::Direct(
             self.render_device.create_bind_group(
                 "preprocess_direct_bind_group",
                 &self.pipelines.direct_preprocess.bind_group_layout,
                 &BindGroupEntries::with_indices((
-                    (0, view_uniforms_binding),
+                    (0, self.view_uniforms.uniforms.binding()?),
                     (3, self.current_input_buffer.as_entire_binding()),
                     (4, self.previous_input_buffer.as_entire_binding()),
                     (

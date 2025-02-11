@@ -1,7 +1,4 @@
-use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    skin::mark_meshes_as_changed_if_their_skins_changed,
-};
+use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
 use bevy_core_pipeline::{
@@ -30,7 +27,7 @@ use bevy_render::{
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     camera::Camera,
-    mesh::*,
+    mesh::{skinning::SkinnedMesh, *},
     primitives::Aabb,
     render_asset::RenderAssets,
     render_phase::{
@@ -167,13 +164,7 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_systems(
             PostUpdate,
-            (
-                no_automatic_skin_batching,
-                no_automatic_morph_batching,
-                mark_meshes_as_changed_if_their_skins_changed
-                    .ambiguous_with_all()
-                    .after(mark_3d_meshes_as_changed_if_their_assets_changed),
-            ),
+            (no_automatic_skin_batching, no_automatic_morph_batching),
         )
         .add_plugins((
             BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::default(),
@@ -546,12 +537,20 @@ pub struct MeshInputUniform {
     pub index_count: u32,
     /// The current skin index, or `u32::MAX` if there's no skin.
     pub current_skin_index: u32,
+    /// The previous skin index, or `u32::MAX` if there's no previous skin.
     pub previous_skin_index: u32,
     /// The material and lightmap indices, packed into 32 bits.
     ///
     /// Low 16 bits: index of the material inside the bind group data.
     /// High 16 bits: index of the lightmap in the binding array.
     pub material_and_lightmap_bind_group_slot: u32,
+    /// The number of the frame on which this [`MeshInputUniform`] was built.
+    ///
+    /// This is used to validate the previous transform and skin. If this
+    /// [`MeshInputUniform`] wasn't updated on this frame, then we know that
+    /// neither this mesh's transform nor that of its joints have been updated
+    /// on this frame, and therefore the transforms of both this mesh and its
+    /// joints must be identical to those for the previous frame.
     pub timestamp: u32,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
@@ -1442,6 +1441,7 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<NotShadowCaster>,
                 Changed<NoAutomaticBatching>,
                 Changed<VisibilityRange>,
+                With<SkinnedMesh>,
             )>,
         >,
     >,

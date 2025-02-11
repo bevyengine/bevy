@@ -59,7 +59,7 @@ fn skin_prev_model(
 #else   // SKINS_USE_UNIFORM_BUFFERS
     let prev_skin_index = mesh[instance_index].previous_skin_index;
     if (prev_skin_index == 0xffffffffu) {
-        return skin_model(indexed, weights, instance_index);
+        return skin_model(indexes, weights, instance_index);
     }
 
     return weights.x * prev_joint_matrices[prev_skin_index + indexes.x]
