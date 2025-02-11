@@ -139,7 +139,6 @@ fn update_bloom_settings(
                 bloom.prefilter.threshold_softness
             ));
             text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
-            text.push_str(&format!("(O) Tonemapper: {:?}\n", tonemapper.tonemapper));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<Bloom>();
@@ -210,18 +209,19 @@ fn update_bloom_settings(
                 bloom.scale.x += dt * 2.0;
             }
             bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
-
-            if keycode.just_pressed(KeyCode::KeyO) {
-                commands.entity(entity).insert(tonemapper.next());
-            }
         }
 
         (entity, None) => {
-            text.0 = "Bloom: Off (Toggle: Space)".to_string();
+            text.0 = "Bloom: Off (Toggle: Space)\n".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).insert(Bloom::default());
             }
         }
+    }
+
+    text.push_str(&format!("(O) Tonemapper: {:?}\n", tonemapper.tonemapper));
+    if keycode.just_pressed(KeyCode::KeyO) {
+        commands.entity(bloom.0).insert(tonemapper.next());
     }
 }
