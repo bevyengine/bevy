@@ -38,10 +38,14 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
+#[cfg(feature = "picking")]
+mod picking_backend;
 mod pipeline;
 mod text;
 mod text2d;
 mod text_access;
+#[cfg(feature = "picking")]
+pub mod text_pointer;
 
 pub use bounds::*;
 pub use error::*;
@@ -154,5 +158,10 @@ impl Plugin for TextPlugin {
             "FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
+
+        #[cfg(feature = "picking")]
+        {
+            app.add_plugins((text_pointer::plugin, picking_backend::plugin));
+        }
     }
 }
