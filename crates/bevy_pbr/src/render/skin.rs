@@ -2,10 +2,10 @@ use core::mem::{self, size_of};
 use std::sync::OnceLock;
 
 use bevy_asset::Assets;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
-use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
+use bevy_render::mesh::Mesh3d;
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -53,8 +53,16 @@ impl SkinIndex {
 ///
 /// We store both the current frame's joint matrices and the previous frame's
 /// joint matrices for the purposes of motion vector calculation.
-#[derive(Default, Resource, Deref, DerefMut)]
-pub struct SkinIndices(pub MainEntityHashMap<SkinIndex>);
+#[derive(Default, Resource)]
+pub struct SkinIndices {
+    /// Maps each skinned mesh to the applicable offset within
+    /// [`SkinUniforms::current_buffer`].
+    pub current: MainEntityHashMap<SkinIndex>,
+
+    /// Maps each skinned mesh to the applicable offset within
+    /// [`SkinUniforms::prev_buffer`].
+    pub prev: MainEntityHashMap<SkinIndex>,
+}
 
 /// The GPU buffers containing joint matrices for all skinned meshes.
 ///
@@ -102,21 +110,18 @@ pub fn prepare_skins(
     render_queue: Res<RenderQueue>,
     mut uniform: ResMut<SkinUniforms>,
 ) {
-    if !uniform.current_buffer.is_empty() {
-        let len = uniform.current_buffer.len();
-        uniform.current_buffer.reserve(len, &render_device);
-        uniform
-            .current_buffer
-            .write_buffer(&render_device, &render_queue);
+    if uniform.current_buffer.is_empty() {
+        return;
     }
 
-    if !uniform.prev_buffer.is_empty() {
-        let len = uniform.prev_buffer.len();
-        uniform.prev_buffer.reserve(len, &render_device);
-        uniform
-            .prev_buffer
-            .write_buffer(&render_device, &render_queue);
-    }
+    let len = uniform.current_buffer.len();
+    uniform.current_buffer.reserve(len, &render_device);
+    uniform
+        .current_buffer
+        .write_buffer(&render_device, &render_queue);
+
+    // We don't need to write `uniform.prev_buffer` because we already wrote it
+    // last frame, and the data should still be on the GPU.
 }
 
 // Notes on implementation:
@@ -146,35 +151,24 @@ pub fn prepare_skins(
 // which normally only support fixed size arrays. You just have to make sure
 // in the shader that you only read the values that are valid for that binding.
 pub fn extract_skins(
-    mut skin_indices: ResMut<SkinIndices>,
-    mut skin_uniforms: ResMut<SkinUniforms>,
+    skin_indices: ResMut<SkinIndices>,
+    uniform: ResMut<SkinUniforms>,
     query: Extract<Query<(Entity, &ViewVisibility, &SkinnedMesh)>>,
     inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     joints: Extract<Query<&GlobalTransform>>,
     render_device: Res<RenderDevice>,
 ) {
-    // We're going to make a new buffer, so figure out which we need.
     let skins_use_uniform_buffers = skins_use_uniform_buffers(&render_device);
-    let buffer_usages = if skins_use_uniform_buffers {
-        BufferUsages::UNIFORM
-    } else {
-        BufferUsages::STORAGE
-    };
 
-    // Grab the previous frame's buffer. We're going to copy matrices from it to
-    // the `prev_buffer`.
-    let old_skin_indices = mem::take(&mut **skin_indices);
-    let old_buffer = mem::replace(
-        &mut skin_uniforms.current_buffer,
-        RawBufferVec::new(buffer_usages),
-    );
+    // Borrow check workaround.
+    let (skin_indices, uniform) = (skin_indices.into_inner(), uniform.into_inner());
 
-    let skin_uniforms = skin_uniforms.into_inner();
-    let current_buffer = &mut skin_uniforms.current_buffer;
-    let prev_buffer = &mut skin_uniforms.prev_buffer;
-
-    // Clear out the previous buffer so we can push onto it.
-    prev_buffer.clear();
+    // Swap buffers. We need to keep the previous frame's buffer around for the
+    // purposes of motion vector computation.
+    mem::swap(&mut skin_indices.current, &mut skin_indices.prev);
+    mem::swap(&mut uniform.current_buffer, &mut uniform.prev_buffer);
+    skin_indices.current.clear();
+    uniform.current_buffer.clear();
 
     let mut last_start = 0;
 
@@ -183,71 +177,44 @@ pub fn extract_skins(
         if !view_visibility.get() {
             continue;
         }
-
+        let buffer = &mut uniform.current_buffer;
         let Some(inverse_bindposes) = inverse_bindposes.get(&skin.inverse_bindposes) else {
             continue;
         };
+        let start = buffer.len();
 
-        let main_entity = MainEntity::from(entity);
-
-        // Determine the boundaries of this skin in the joints buffer.
-        let start = current_buffer.len();
-        let joint_count = skin.joints.len().min(MAX_JOINTS);
-        let end = start + joint_count;
-
-        let first_old_skin_index = old_skin_indices.get(&main_entity).copied();
-
-        // Reserve space for the joints so we don't have to allocate.
-        current_buffer.reserve_internal(end);
-        prev_buffer.reserve_internal(end);
-
-        for (joint_index, joint) in joints.iter_many(&skin.joints).take(joint_count).enumerate() {
-            // Push the joint matrix for the current frame.
-            let joint_matrix = match inverse_bindposes.get(joint_index) {
-                Some(inverse_bindpose) => joint.affine() * *inverse_bindpose,
-                None => joint.compute_matrix(),
-            };
-            current_buffer.push(joint_matrix);
-
-            // Grab the joint matrix from the previous frame, if there is one,
-            // and copy it to the previous frame's joint matrix buffer.
-            let prev_joint_matrix = first_old_skin_index
-                .and_then(|first_old_skin_index| {
-                    old_buffer.get(first_old_skin_index.index() + (joint_index as u32))
-                })
-                .copied()
-                .unwrap_or(joint_matrix);
-            prev_buffer.push(prev_joint_matrix);
-        }
-
+        let target = start + skin.joints.len().min(MAX_JOINTS);
+        buffer.extend(
+            joints
+                .iter_many(&skin.joints)
+                .zip(inverse_bindposes.iter())
+                .take(MAX_JOINTS)
+                .map(|(joint, bindpose)| joint.affine() * *bindpose),
+        );
         // iter_many will skip any failed fetches. This will cause it to assign the wrong bones,
         // so just bail by truncating to the start.
-        if current_buffer.len() != end {
-            current_buffer.truncate(start);
-            prev_buffer.truncate(start);
+        if buffer.len() != target {
+            buffer.truncate(start);
             continue;
         }
-
         last_start = last_start.max(start);
-
-        debug_assert_eq!(current_buffer.len(), prev_buffer.len());
 
         // Pad to 256 byte alignment if we're using a uniform buffer.
         // There's no need to do this if we're using storage buffers, though.
         if skins_use_uniform_buffers {
-            while current_buffer.len() % 4 != 0 {
-                current_buffer.push(Mat4::ZERO);
-                prev_buffer.push(Mat4::ZERO);
+            while buffer.len() % 4 != 0 {
+                buffer.push(Mat4::ZERO);
             }
         }
 
-        skin_indices.insert(entity.into(), SkinIndex::new(start));
+        skin_indices
+            .current
+            .insert(entity.into(), SkinIndex::new(start));
     }
 
-    // Pad out the buffers to ensure that there's enough space for bindings
-    while current_buffer.len() - last_start < MAX_JOINTS {
-        current_buffer.push(Mat4::ZERO);
-        prev_buffer.push(Mat4::ZERO);
+    // Pad out the buffer to ensure that there's enough space for bindings
+    while uniform.current_buffer.len() - last_start < MAX_JOINTS {
+        uniform.current_buffer.push(Mat4::ZERO);
     }
 }
 
@@ -264,5 +231,20 @@ pub fn no_automatic_skin_batching(
 
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);
+    }
+}
+
+pub fn mark_meshes_as_changed_if_their_skins_changed(
+    mut skinned_meshes_query: Query<(&mut Mesh3d, &SkinnedMesh)>,
+    changed_joints_query: Query<Entity, Changed<GlobalTransform>>,
+) {
+    for (mut mesh, skinned_mesh) in &mut skinned_meshes_query {
+        if skinned_mesh
+            .joints
+            .iter()
+            .any(|&joint| changed_joints_query.contains(joint))
+        {
+            mesh.set_changed();
+        }
     }
 }

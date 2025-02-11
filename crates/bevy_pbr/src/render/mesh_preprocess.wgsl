@@ -192,12 +192,14 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 #endif
 
+    // Was the mesh transform updated this frame?
+    let timestamp = current_input[input_index].timestamp;
+    let mesh_changed_this_frame = timestamp == view.frame_count;
+
     // Look up the previous model matrix.
-    let previous_input_frame_count = current_input[input_index].previous_input_frame_count;
     let previous_input_index = current_input[input_index].previous_input_index;
-    let previous_input_is_valid = previous_input_frame_count + 1 == view.frame_count;
     var previous_world_from_local_affine_transpose: mat3x4<f32>;
-    if (previous_input_is_valid && previous_input_index != 0xffffffffu) {
+    if (mesh_changed_this_frame && previous_input_index != 0xffffffffu) {
         previous_world_from_local_affine_transpose =
             previous_input[previous_input_index].world_from_local;
     } else {
@@ -205,6 +207,12 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
     let previous_world_from_local =
         maths::affine3_to_square(previous_world_from_local_affine_transpose);
+
+    let previous_skin_index = select(
+        0xffffffffu,
+        current_input[input_index].previous_skin_index,
+        mesh_changed_this_frame
+    );
 
     // Occlusion cull if necessary. This is done by calculating the screen-space
     // axis-aligned bounding box (AABB) of the mesh and testing it against the
@@ -344,6 +352,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].lightmap_uv_rect = current_input[input_index].lightmap_uv_rect;
     output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
     output[mesh_output_index].current_skin_index = current_input[input_index].current_skin_index;
+    output[mesh_output_index].previous_skin_index = previous_skin_index;
     output[mesh_output_index].material_and_lightmap_bind_group_slot =
         current_input[input_index].material_and_lightmap_bind_group_slot;
     output[mesh_output_index].tag = current_input[input_index].tag;
