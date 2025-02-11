@@ -18,6 +18,19 @@
         'SystemParam',
     ];
 
+    // Html element ids of the icons
+    const iconIds = new Map([
+        ['Component', 'component-icon'],
+        ['Resource', 'resource-icon'],
+        ['Asset', 'asset-icon'],
+        ['Event', 'event-icon'],
+        ['ScheduleLabel', 'systems-label-icon'],
+        ['Plugin', 'plugin-icon'],
+        ['PluginGroup', 'plugin-icon'],
+        ['SystemSet', 'systems-label-icon'],
+        ['SystemParam', 'system-param-icon'],
+    ]);
+
     // Find all traits that are implemented by the current type.
     const implementedBevyTraits = findImplementedBevyTraits(document);
 
@@ -74,6 +87,12 @@
             [...implementedTraits].filter(([traitName, _]) => bevyTraits.find((x) => x == traitName))
         );
 
+        // Every `Event` also implements `Component`, but it is extremely rare
+        // to actually use events as components, so we skip the component tag for them.
+        if (implementedBevyTraits.has('Event')) {
+            implementedBevyTraits.delete('Component')
+        }
+
         return implementedBevyTraits;
     }
 
@@ -106,6 +125,75 @@
         el.className = `bevy-tag ${kebabCaseName}-tag`;
         return el;
     }
+
+    const info_node = document.getElementById("bevy-traits-data");
+
+    if (info_node) {
+        const info = JSON.parse(info_node.innerText);
+
+        // For item listings in modules, sort the items by implemented Bevy
+        // traits and add corresponding tags.
+        for (const kind of ['structs', 'enums', 'functions']) {
+            // Find the listing
+            let heading = document.getElementById(kind);
+            if (!heading) {
+                continue
+            }
+            const listing = heading.nextSibling;
+            const items = [];
+            for (const item of listing.children) {
+                // Only look at items, not their description
+                if (item.nodeName != "DT") {
+                    continue
+                }
+                let url = item.firstChild.href;
+                let name_end = url.lastIndexOf(".");
+                let name_start = url.lastIndexOf(".", name_end - 1) + 1;
+                let name = url.substring(name_start, name_end);
+                items.push({element: item, traits: new Set(info[name])});
+            }
+            applyTagsToItems(items);
+        }
+    }
+
+    // Sort the items in the DOM and apply tags
+    function applyTagsToItems(items) {
+        for (const item of items.toSorted(compareByTraits)) {
+            const listing = item.element.parentElement;
+            const description = item.element.nextSibling;
+
+            const link = item.element.firstChild;
+            // Add icons.
+            // It's easy to misclick on the icon, so include the icon in the link to the item.
+            // An explanation of which component is represented is available on hover.
+            // Use the same order used for sorting.
+            for (const trait of bevyTraits.slice().reverse()) {
+                if (item.traits.has(trait)) {
+                    link.prepend(createBevyTraitIcon(trait));
+                }
+            }
+        }
+    }
+
+    function compareByTraits(a, b) {
+        // Sorting must still work when an item impls multiple traits
+        for (const trait of bevyTraits) {
+            if (a.traits.has(trait) & !b.traits.has(trait)) {
+                return -1;
+            }
+            if (b.traits.has(trait) & !a.traits.has(trait)) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
+    function createBevyTraitIcon(tagName, href) {
+        const kebabCaseName = tagName.toLowerCase().replace(' ', '-');
+        const template = document.createElement('template');
+        template.innerHTML = `<svg class="${kebabCaseName}-tag bevy-trait-icon-instance"><title>${tagName}</title><use href="#${iconIds.get(tagName)}"></use></svg>`;
+        return template.content;
+    }
 </script>
 
 <style>
@@ -126,6 +214,24 @@
         font-size: 1rem;
         font-weight: normal;
         color: white;
+    }
+
+    .bevy-trait-icon-instance {
+        width: 1.25em;
+        height: 1.1em;
+
+        padding-right: 0.15em;
+        text-wrap-mode: nowrap;
+        /* Couldn't find a way to automatically vertically align this,
+           so manually add offset */
+        position: relative;
+        top: 0.13em;
+    }
+
+    .bevy-trait-icon {
+        width: 100%;
+        height: 100%;
+        fill: oklch(from var(--tag-color) 65% c h);
     }
 
     .bevy-tag {
@@ -163,3 +269,40 @@
         --tag-color: oklch(50% 27% 200);
     }
 </style>
+
+<!-- Without a way to include arbitrary static files on docs.rs, we inline them -->
+<div style="display:none">
+    <svg id="component-icon" viewBox="0 0 10 10" class="bevy-trait-icon">
+        <path transform="rotate(45)"
+            d="M 4.30,-3.33 H 9.83 a 0.51,0.51 45 0 1 0.51,0.51 V 2.65 A 0.58,0.58 135 0 1 9.76,3.23 H 4.28 A 0.50,0.50 45 0 1 3.77,2.73 v -5.53 a 0.53,0.53 135 0 1 0.53,-0.53 z" />
+    </svg>
+
+    <svg id="resource-icon" viewBox="0 0 12 12" class="bevy-trait-icon">
+        <path d="M 5.99,0.22 1.28,2.94 5.98,5.65 10.6,2.94 Z" />
+        <path d="M 10.97,3.49 5.99,6.36 1.00,3.49 V 8.86 L 5.99,11.74 10.97,8.86 Z" />
+    </svg>
+
+    <svg id="asset-icon" viewBox="0 0 10 10" class="bevy-trait-icon">
+        <circle cx="5" cy="5" r="4" />
+    </svg>
+
+    <svg id="event-icon" viewBox="0 0 10 10" class="bevy-trait-icon">
+        <path
+            d="M 8.74,8.50 5.39,6.56 a 0.66,0.66 5.12e-8 0 0 -0.66,0 L 1.29,8.54 A 0.05,0.05 45 0 1 1.21,8.46 L 3.19,5.03 a 0.67,0.67 90 0 0 0,-0.67 L 1.25,0.99 A 0.07,0.07 135 0 1 1.35,0.89 L 4.74,2.84 a 0.63,0.63 5.12e-8 0 0 0.62,0 l 3.41,-1.96 a 0.06,0.06 45 0 1 0.09,0.09 L 6.95,4.31 a 0.76,0.76 90 0 0 0,0.76 L 8.85,8.39 A 0.08,0.08 135 0 1 8.74,8.50 Z"
+            transform="matrix(0.62106212,-0.62106212,0.62106212,0.62106212,-1.0965573,5.2252001)" />
+    </svg>
+
+    <svg id="systems-label-icon" viewBox="0 0 10 10" class="bevy-trait-icon">
+        <path d="M 3.82,1.28 9.61,5.81 6.86,9.35 1.07,4.81 0.53,1.55 Z" />
+    </svg>
+
+    <svg id="plugin-icon" viewBox="0 0 10 10" class="bevy-trait-icon">
+        <path
+            d="M 5.60,0.63 C 4.97,0.63 4.46,1.01 4.46,1.48 4.46,1.85 4.95,2.09 5.13,2.18 5.24,2.23 5.16,2.33 5.08,2.41 3.76,2.37 2.23,2.27 2.23,2.27 c 0,0 -0.24,1.51 -0.28,2.8 0.01,-0.00 0.02,-0.00 0.04,-0.01 -0.01,0.00 -0.02,0.01 -0.04,0.01 -0.03,0.00 -0.07,-0.00 -0.11,-0.05 C 1.68,4.90 1.48,4.48 1.13,4.48 0.67,4.48 0.29,4.99 0.29,5.63 c -6.96e-6,0.63 0.37,1.14 0.84,1.14 0.37,-0.00 0.61,-0.49 0.70,-0.67 0.02,-0.06 0.07,-0.05 0.12,-0.02 0.05,1.34 0.27,2.80 0.27,2.80 0,0 1.45,-0.18 2.72,-0.22 0.09,-0.08 0.21,-0.21 0.09,-0.26 C 4.86,8.29 4.38,8.04 4.37,7.67 4.37,7.21 4.89,6.83 5.52,6.83 c 0.63,-6.9e-6 1.14,0.37 1.14,0.84 -0.00,0.35 -0.41,0.54 -0.60,0.70 -0.12,0.09 -0.02,0.20 0.06,0.26 l 0.00,0.00 c 1.25,0.05 2.71,0.22 2.71,0.22 0,0 0.18,-1.41 0.21,-2.82 C 8.98,5.96 8.87,5.88 8.82,5.99 8.73,6.17 8.49,6.66 8.11,6.66 7.65,6.66 7.27,6.15 7.27,5.52 c -6.9e-6,-0.63 0.37,-1.14 0.84,-1.14 0.35,0.00 0.54,0.41 0.70,0.61 0.08,0.10 0.16,0.04 0.23,-0.02 -0.04,-1.36 -0.21,-2.68 -0.21,-2.68 0,0 -1.39,0.12 -2.66,0.15 C 6.10,2.36 6.04,2.27 6.14,2.18 6.34,2.02 6.75,1.83 6.75,1.48 6.75,1.01 6.24,0.63 5.60,0.63 Z m 0.59,1.80 c 0.01,0.01 0.03,0.02 0.04,0.03 -0.01,-0.00 -0.03,-0.02 -0.04,-0.03 z M 2.15,4.95 c -0.00,0.01 -0.01,0.03 -0.03,0.05 0.01,-0.01 0.02,-0.03 0.03,-0.05 z M 2.04,5.10 c -0.00,0.00 -0.02,0.01 -0.03,0.02 0.01,-0.00 0.02,-0.01 0.03,-0.02 z m 0,1.02 c 0.02,0.02 0.04,0.04 0.07,0.07 0.04,0.04 0.07,0.08 0.07,0.08 0,0 -0.02,-0.04 -0.07,-0.08 -0.02,-0.02 -0.04,-0.05 -0.07,-0.07 z" />
+    </svg>
+
+    <svg id="system-param-icon" viewBox="0 0 10 10" class="bevy-trait-icon">
+        <path
+            d="M 5 0 A 5 5 0 0 0 0 5 A 5 5 0 0 0 5 10 A 5 5 0 0 0 10 5 A 5 5 0 0 0 5 0 z M 5.34 1.21 A 3.8 3.8 0 0 1 8.22 2.99 L 5.34 2.99 L 5.34 1.21 z M 4.51 1.23 L 4.51 2.99 L 1.78 2.99 A 3.8 3.8 0 0 1 4.51 1.23 z M 1.38 3.82 L 4.51 3.82 L 4.51 6.08 L 1.36 6.08 A 3.8 3.8 0 0 1 1.19 5 A 3.8 3.8 0 0 1 1.38 3.82 z M 5.34 3.82 L 8.61 3.82 A 3.8 3.8 0 0 1 8.80 5 A 3.8 3.8 0 0 1 8.6 6.08 L 5.34 6.08 L 5.34 3.82 z M 1.7 6.9 L 4.51 6.9 L 4.51 8.76 A 3.8 3.8 0 0 1 1.7 6.9 z M 5.34 6.9 L 8.27 6.9 A 3.8 3.8 0 0 1 5.34 8.78 L 5.34 6.9 z " />
+    </svg>
+</div>
