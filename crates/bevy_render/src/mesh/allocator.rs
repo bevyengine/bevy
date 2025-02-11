@@ -792,10 +792,11 @@ impl MeshAllocator {
 
     /// Reallocates a slab that needs to be resized, or allocates a new slab.
     ///
-    /// This performs the actual growth operation that [`GeneralSlab::try_grow`]
-    /// scheduled. We do the growth in two phases so that, if a slab grows
-    /// multiple times in the same frame, only one new buffer is reallocated,
-    /// rather than reallocating the buffer multiple times.
+    /// This performs the actual growth operation that
+    /// [`GeneralSlab::grow_if_necessary`] scheduled. We do the growth in two
+    /// phases so that, if a slab grows multiple times in the same frame, only
+    /// one new buffer is reallocated, rather than reallocating the buffer
+    /// multiple times.
     fn reallocate_slab(
         &mut self,
         render_device: &RenderDevice,
