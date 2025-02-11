@@ -1161,6 +1161,7 @@ mod tests {
         .into_iter()
         .for_each(|(t, expected)| {
             assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
+        });
     }
 
     #[test]
