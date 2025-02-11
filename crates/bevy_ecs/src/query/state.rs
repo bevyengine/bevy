@@ -2454,7 +2454,7 @@ mod tests {
         world.spawn((B(0), C(0)));
         world.spawn(C(0));
 
-        let mut df = DefaultQueryFilters::default();
+        let mut df = DefaultQueryFilters::new();
         df.register_disabling_component(world.register_component::<C>());
         world.insert_resource(df);
 
@@ -2494,7 +2494,7 @@ mod tests {
         assert!(query.is_dense);
         assert_eq!(3, query.iter(&world).count());
 
-        let mut df = DefaultQueryFilters::default();
+        let mut df = DefaultQueryFilters::new();
         df.register_disabling_component(world.register_component::<Sparse>());
         world.insert_resource(df);
 
@@ -2504,7 +2504,7 @@ mod tests {
         assert!(!query.is_dense);
         assert_eq!(1, query.iter(&world).count());
 
-        let mut df = DefaultQueryFilters::default();
+        let mut df = DefaultQueryFilters::new();
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
 

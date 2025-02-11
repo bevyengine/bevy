@@ -39,7 +39,7 @@ use crate::{
         Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
-    entity_disabling::{DefaultQueryFilters, Disabled},
+    entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
@@ -159,10 +159,8 @@ impl World {
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
 
-        let disabled = self.register_component::<Disabled>();
-        let mut filters = DefaultQueryFilters::default();
-        filters.register_disabling_component(disabled);
-        self.insert_resource(filters);
+        // This sets up `Disabled` as a disabling component, via the FromWorld impl
+        self.init_resource::<DefaultQueryFilters>();
     }
     /// Creates a new empty [`World`].
     ///

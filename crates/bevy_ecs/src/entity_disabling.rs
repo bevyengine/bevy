@@ -65,6 +65,7 @@
 use crate::{
     component::{ComponentId, Components, StorageType},
     query::FilteredAccess,
+    world::{FromWorld, World},
 };
 use bevy_ecs_macros::{Component, Resource};
 use smallvec::SmallVec;
@@ -95,6 +96,12 @@ pub struct Disabled;
 /// To be more precise, this checks if the query's [`FilteredAccess`] contains the component,
 /// and if it does not, adds a [`Without`](crate::prelude::Without) filter for that component to the query.
 ///
+/// This resource is initialized in the [`World`] whenever a new world is created,
+/// with the [`Disabled`] component as a disabling component.
+///
+/// Note that you can remove default query filters by overwriting the [`DefaultQueryFilters`] resource.
+/// This can be useful as a last resort escape hatch, but is liable to break compatibility with other libraries.
+///
 /// See the [module docs](crate::entity_disabling) for more info.
 ///
 ///
@@ -108,7 +115,7 @@ pub struct Disabled;
 ///
 /// Think carefully about whether you need to use a new disabling component,
 /// and clearly communicate their presence in any libraries you publish.
-#[derive(Resource, Default, Debug)]
+#[derive(Resource, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 pub struct DefaultQueryFilters {
     // We only expect a few components per application to act as disabling components, so we use a SmallVec here
@@ -116,7 +123,27 @@ pub struct DefaultQueryFilters {
     disabling: SmallVec<[ComponentId; 4]>,
 }
 
+impl FromWorld for DefaultQueryFilters {
+    fn from_world(world: &mut World) -> Self {
+        let mut filters = DefaultQueryFilters::new();
+        let disabled_component_id = world.register_component::<Disabled>();
+        filters.register_disabling_component(disabled_component_id);
+        filters
+    }
+}
+
 impl DefaultQueryFilters {
+    /// Creates a new, completely empty [`DefaultQueryFilters`].
+    ///
+    /// This is provided as an escape hatch; in most cases you should initialize this using [`FromWorld`],
+    /// which is automatically called when creating a new [`World`].
+    #[must_use]
+    pub fn new() -> Self {
+        DefaultQueryFilters {
+            disabling: SmallVec::new(),
+        }
+    }
+
     /// Adds this [`ComponentId`] to the set of [`DefaultQueryFilters`],
     /// causing entities with this component to be excluded from queries.
     ///
@@ -170,7 +197,7 @@ mod tests {
 
     #[test]
     fn filters_modify_access() {
-        let mut filters = DefaultQueryFilters::default();
+        let mut filters = DefaultQueryFilters::new();
         filters.register_disabling_component(ComponentId::new(1));
 
         // A component access with an unrelated component
