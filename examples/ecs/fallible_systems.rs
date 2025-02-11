@@ -6,6 +6,8 @@ use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
 use rand::distributions::Distribution;
+use rand::SeedableRng;
+use rand_chacha::ChaCha8Rng;
 
 fn main() {
     let mut app = App::new();
@@ -68,7 +70,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) -> Result {
-    let mut rng = rand::thread_rng();
+    let mut seeded_rng = ChaCha8Rng::seed_from_u64(19878367467712);
 
     // Make a plane for establishing space.
     commands.spawn((
@@ -116,7 +118,7 @@ fn setup(
     });
 
     // Add sample points as children of the sphere:
-    for point in distribution.sample_iter(&mut rng).take(10000) {
+    for point in distribution.sample_iter(&mut seeded_rng).take(10000) {
         sphere.with_child((
             Mesh3d(point_mesh.clone()),
             MeshMaterial3d(point_material.clone()),

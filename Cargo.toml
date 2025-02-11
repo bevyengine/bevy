@@ -2156,13 +2156,13 @@ wasm = false
 name = "fallible_systems"
 path = "examples/ecs/fallible_systems.rs"
 doc-scrape-examples = true
+required-features = ["bevy_mesh_picking_backend"]
 
 [package.metadata.example.fallible_systems]
 name = "Fallible Systems"
 description = "Systems that return results to handle errors"
 category = "ECS (Entity Component System)"
 wasm = false
-required-features = ["bevy_mesh_picking_backend"]
 
 [[example]]
 name = "startup_system"
@@ -4000,7 +4000,6 @@ name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
-required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
 name = "debug_picking"
