@@ -19,7 +19,7 @@ use bevy_render::{
     renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 pub use prepass_bindings::*;
 
@@ -147,19 +147,16 @@ where
 ///
 /// This depends on the [`PrepassPipelinePlugin`].
 pub struct PrepassPlugin<M: Material> {
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
     pub phantom: PhantomData<M>,
 }
 
 impl<M: Material> PrepassPlugin<M> {
-    pub fn new(allow_copies_from_indirect_parameters: bool) -> Self {
+    /// Creates a new [`PrepassPlugin`] with the given debug flags.
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
         PrepassPlugin {
-            allow_copies_from_indirect_parameters,
+            debug_flags,
             phantom: PhantomData,
         }
     }
@@ -187,11 +184,9 @@ where
                     ),
                 )
                 .add_plugins((
-                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::new(
-                        self.allow_copies_from_indirect_parameters,
-                    ),
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::new(self.debug_flags),
                     BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::new(
-                        self.allow_copies_from_indirect_parameters,
+                        self.debug_flags,
                     ),
                 ));
         }

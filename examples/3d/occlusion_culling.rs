@@ -37,6 +37,7 @@ use bevy::{
         Render, RenderApp, RenderPlugin, RenderSet,
     },
 };
+use bevy_render::RenderDebugFlags;
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
@@ -177,6 +178,8 @@ impl Default for AppStatus {
 }
 
 fn main() {
+    let render_debug_flags = RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS;
+
     App::new()
         .add_plugins(
             DefaultPlugins
@@ -188,11 +191,11 @@ fn main() {
                     ..default()
                 })
                 .set(RenderPlugin {
-                    allow_copies_from_indirect_parameters: true,
+                    debug_flags: render_debug_flags,
                     ..default()
                 })
                 .set(PbrPlugin {
-                    allow_copies_from_indirect_parameters: true,
+                    debug_flags: render_debug_flags,
                     ..default()
                 }),
         )

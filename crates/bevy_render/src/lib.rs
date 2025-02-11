@@ -102,6 +102,7 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
@@ -120,12 +121,21 @@ pub struct RenderPlugin {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+}
+
+bitflags! {
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    #[derive(Clone, Copy, PartialEq, Default, Debug)]
+    pub struct RenderDebugFlags: u8 {
+        /// If true, this sets the `COPY_SRC` flag on indirect draw parameters
+        /// so that they can be read back to CPU.
+        ///
+        /// This is a debugging feature that may reduce performance. It
+        /// primarily exists for the `occlusion_culling` example.
+        const ALLOW_COPIES_FROM_INDIRECT_PARAMETERS = 1;
+    }
 }
 
 /// The systems sets of the default [`App`] rendering schedule.
@@ -388,7 +398,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin {
-                allow_copies_from_indirect_parameters: self.allow_copies_from_indirect_parameters,
+                debug_flags: self.debug_flags,
             },
             SyncWorldPlugin,
             StoragePlugin,

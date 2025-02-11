@@ -86,19 +86,16 @@ pub struct MeshRenderPlugin {
     /// This requires compute shader support and so will be forcibly disabled if
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
 }
 
 impl MeshRenderPlugin {
-    pub fn new(allow_copies_from_indirect_parameters: bool) -> MeshRenderPlugin {
+    /// Creates a new [`MeshRenderPlugin`] with the given debug flags.
+    pub fn new(debug_flags: RenderDebugFlags) -> MeshRenderPlugin {
         MeshRenderPlugin {
             use_gpu_instance_buffer_builder: false,
-            allow_copies_from_indirect_parameters,
+            debug_flags,
         }
     }
 }
@@ -181,27 +178,13 @@ impl Plugin for MeshRenderPlugin {
             (no_automatic_skin_batching, no_automatic_morph_batching),
         )
         .add_plugins((
-            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::new(
-                self.allow_copies_from_indirect_parameters,
-            ),
-            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::new(
-                self.allow_copies_from_indirect_parameters,
-            ),
-            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::new(
-                self.allow_copies_from_indirect_parameters,
-            ),
-            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::new(
-                self.allow_copies_from_indirect_parameters,
-            ),
-            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::new(
-                self.allow_copies_from_indirect_parameters,
-            ),
-            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::new(
-                self.allow_copies_from_indirect_parameters,
-            ),
-            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::new(
-                self.allow_copies_from_indirect_parameters,
-            ),
+            BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<AlphaMask3d, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<Shadow, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<Opaque3dDeferred, MeshPipeline>::new(self.debug_flags),
+            BinnedRenderPhasePlugin::<AlphaMask3dDeferred, MeshPipeline>::new(self.debug_flags),
+            SortedRenderPhasePlugin::<Transmissive3d, MeshPipeline>::new(self.debug_flags),
+            SortedRenderPhasePlugin::<Transparent3d, MeshPipeline>::new(self.debug_flags),
         ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {

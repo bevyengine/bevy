@@ -31,19 +31,15 @@ use crate::{
     render_resource::{Buffer, BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 
 use super::{BatchMeta, GetBatchData, GetFullBatchData};
 
 #[derive(Default)]
 pub struct BatchingPlugin {
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
 }
 
 impl Plugin for BatchingPlugin {
@@ -54,7 +50,8 @@ impl Plugin for BatchingPlugin {
 
         render_app
             .insert_resource(IndirectParametersBuffers::new(
-                self.allow_copies_from_indirect_parameters,
+                self.debug_flags
+                    .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
             ))
             .add_systems(
                 Render,

@@ -50,6 +50,7 @@ use crate::batching::gpu_preprocessing::{
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::view::RetainedViewEntity;
+use crate::RenderDebugFlags;
 use crate::{
     batching::{
         self,
@@ -1032,12 +1033,8 @@ where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData,
 {
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
     phantom: PhantomData<(BPI, GFBD)>,
 }
 
@@ -1046,9 +1043,9 @@ where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData,
 {
-    pub fn new(allow_copies_from_indirect_parameters: bool) -> Self {
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
         Self {
-            allow_copies_from_indirect_parameters,
+            debug_flags,
             phantom: PhantomData,
         }
     }
@@ -1068,7 +1065,8 @@ where
             .init_resource::<ViewBinnedRenderPhases<BPI>>()
             .init_resource::<PhaseBatchedInstanceBuffers<BPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<BPI>::new(
-                self.allow_copies_from_indirect_parameters,
+                self.debug_flags
+                    .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
             ))
             .add_systems(
                 Render,
@@ -1141,12 +1139,8 @@ where
     SPI: SortedPhaseItem,
     GFBD: GetFullBatchData,
 {
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
     phantom: PhantomData<(SPI, GFBD)>,
 }
 
@@ -1155,9 +1149,9 @@ where
     SPI: SortedPhaseItem,
     GFBD: GetFullBatchData,
 {
-    pub fn new(allow_copies_from_indirect_parameters: bool) -> Self {
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
         Self {
-            allow_copies_from_indirect_parameters,
+            debug_flags,
             phantom: PhantomData,
         }
     }
@@ -1177,7 +1171,8 @@ where
             .init_resource::<ViewSortedRenderPhases<SPI>>()
             .init_resource::<PhaseBatchedInstanceBuffers<SPI, GFBD::BufferData>>()
             .insert_resource(PhaseIndirectParametersBuffers::<SPI>::new(
-                self.allow_copies_from_indirect_parameters,
+                self.debug_flags
+                    .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
             ))
             .add_systems(
                 Render,
