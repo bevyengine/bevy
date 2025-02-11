@@ -124,7 +124,7 @@ fn prepare_msaa_writeback_pipelines(
             let mut entity_commands = commands.entity(entity);
             entity_commands.insert(MsaaWritebackRequired);
 
-            let new_desciptor = (msaa.samples(), view_target.main_texture_format());
+            let new_descriptor = (msaa.samples(), view_target.main_texture_format());
 
             // We want to only create a new texture blitter if there isn't one or if the descriptor
             // has changed.
@@ -133,7 +133,7 @@ fn prepare_msaa_writeback_pipelines(
             // frame even if they haven't changed
             let mut create_new_texture_blitter = maybe_texture_blitter.is_none();
             if let Some(MsaaWritebackTextureBlitter { descriptor, .. }) = maybe_texture_blitter {
-                if *descriptor != new_desciptor {
+                if *descriptor != new_descriptor {
                     create_new_texture_blitter = true;
                 }
             }
@@ -141,13 +141,13 @@ fn prepare_msaa_writeback_pipelines(
             if create_new_texture_blitter {
                 // Create a new texture blitter based on the descriptor
                 let texture_blitter =
-                    TextureBlitterBuilder::new(render_device.wgpu_device(), new_desciptor.1)
-                        .target_sample_count(new_desciptor.0)
+                    TextureBlitterBuilder::new(render_device.wgpu_device(), new_descriptor.1)
+                        .target_sample_count(new_descriptor.0)
                         .build();
 
                 entity_commands.insert(MsaaWritebackTextureBlitter {
                     // Make sure to store the new descriptor
-                    descriptor: new_desciptor,
+                    descriptor: new_descriptor,
                     texture_blitter,
                 });
             }

@@ -72,14 +72,14 @@ fn prepare_view_upscaling_pipelines(
             None
         };
 
-        let mut texture_blitter_buider = TextureBlitterBuilder::new(
+        let mut texture_blitter_builder = TextureBlitterBuilder::new(
             render_device.wgpu_device(),
             view_target.out_texture_format(),
         );
         if let Some(blend_state) = blend_state {
-            texture_blitter_buider = texture_blitter_buider.blend_state(blend_state);
+            texture_blitter_builder = texture_blitter_builder.blend_state(blend_state);
         }
-        let texture_blitter = texture_blitter_buider.build();
+        let texture_blitter = texture_blitter_builder.build();
 
         commands
             .entity(entity)
