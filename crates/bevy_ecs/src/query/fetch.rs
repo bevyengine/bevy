@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
-    change_detection::{MaybeThinSlicePtrLocation, Ticks, TicksMut},
+    change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
@@ -12,7 +12,7 @@ use crate::{
     },
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use core::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
 use variadics_please::all_tuples;
 
@@ -1251,7 +1251,7 @@ pub struct RefFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            MaybeThinSlicePtrLocation<'w>,
+            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
@@ -1337,10 +1337,9 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_location")]
-            column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_location"))]
-            (),
+            column
+                .get_changed_by_slice(table.entity_count())
+                .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.components.set_table(table_data) };
@@ -1392,7 +1391,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, _callers) =
+                let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -1402,8 +1401,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_location")]
-                let caller = unsafe { _callers.get(table_row.as_usize()) };
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
 
                 Ref {
                     value: component.deref(),
@@ -1413,13 +1411,12 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_location")]
-                    changed_by: caller.deref(),
+                    changed_by: caller.map(|caller| caller.deref()),
                 }
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
-                let (component, ticks, _caller) = unsafe {
+                let (component, ticks, caller) = unsafe {
                     sparse_set
                         .debug_checked_unwrap()
                         .get_with_ticks(entity)
@@ -1429,8 +1426,7 @@ unsafe impl<'__w, T: Component> QueryData for Ref<'__w, T> {
                 Ref {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_location")]
-                    changed_by: _caller.deref(),
+                    changed_by: caller.map(|caller| caller.deref()),
                 }
             },
         )
@@ -1449,7 +1445,7 @@ pub struct WriteFetch<'w, T: Component> {
             ThinSlicePtr<'w, UnsafeCell<T>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
             ThinSlicePtr<'w, UnsafeCell<Tick>>,
-            MaybeThinSlicePtrLocation<'w>,
+            MaybeLocation<ThinSlicePtr<'w, UnsafeCell<&'static Location<'static>>>>,
         )>,
         // T::STORAGE_TYPE = StorageType::SparseSet
         // Can be `None` when the component has never been inserted
@@ -1535,10 +1531,9 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             column.get_data_slice(table.entity_count()).into(),
             column.get_added_ticks_slice(table.entity_count()).into(),
             column.get_changed_ticks_slice(table.entity_count()).into(),
-            #[cfg(feature = "track_location")]
-            column.get_changed_by_slice(table.entity_count()).into(),
-            #[cfg(not(feature = "track_location"))]
-            (),
+            column
+                .get_changed_by_slice(table.entity_count())
+                .map(Into::into),
         ));
         // SAFETY: set_table is only called when T::STORAGE_TYPE = StorageType::Table
         unsafe { fetch.components.set_table(table_data) };
@@ -1590,7 +1585,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
         fetch.components.extract(
             |table| {
                 // SAFETY: set_table was previously called
-                let (table_components, added_ticks, changed_ticks, _callers) =
+                let (table_components, added_ticks, changed_ticks, callers) =
                     unsafe { table.debug_checked_unwrap() };
 
                 // SAFETY: The caller ensures `table_row` is in range.
@@ -1600,8 +1595,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 // SAFETY: The caller ensures `table_row` is in range.
                 let changed = unsafe { changed_ticks.get(table_row.as_usize()) };
                 // SAFETY: The caller ensures `table_row` is in range.
-                #[cfg(feature = "track_location")]
-                let caller = unsafe { _callers.get(table_row.as_usize()) };
+                let caller = callers.map(|callers| unsafe { callers.get(table_row.as_usize()) });
 
                 Mut {
                     value: component.deref_mut(),
@@ -1611,13 +1605,12 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                         this_run: fetch.this_run,
                         last_run: fetch.last_run,
                     },
-                    #[cfg(feature = "track_location")]
-                    changed_by: caller.deref_mut(),
+                    changed_by: caller.map(|caller| caller.deref_mut()),
                 }
             },
             |sparse_set| {
                 // SAFETY: The caller ensures `entity` is in range and has the component.
-                let (component, ticks, _caller) = unsafe {
+                let (component, ticks, caller) = unsafe {
                     sparse_set
                         .debug_checked_unwrap()
                         .get_with_ticks(entity)
@@ -1627,8 +1620,7 @@ unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T 
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: TicksMut::from_tick_cells(ticks, fetch.last_run, fetch.this_run),
-                    #[cfg(feature = "track_location")]
-                    changed_by: _caller.deref_mut(),
+                    changed_by: caller.map(|caller| caller.deref_mut()),
                 }
             },
         )

@@ -1954,9 +1954,6 @@ pub fn queue_shadows<M: Material>(
                     *current_change_tick,
                 );
             }
-
-            // Remove invalid entities from the bins.
-            shadow_phase.sweep_old_entities();
         }
     }
 }

@@ -850,10 +850,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 }
             }
         }
-
-        // Remove invalid entities from the bins.
-        opaque_phase.sweep_old_entities();
-        alpha_mask_phase.sweep_old_entities();
     }
 }
 

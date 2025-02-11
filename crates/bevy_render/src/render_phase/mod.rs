@@ -841,16 +841,14 @@ where
     /// Removes all entities not marked as clean from the bins.
     ///
     /// During `queue_material_meshes`, we process all visible entities and mark
-    /// each as clean as we come to it. Then we call this method, which removes
-    /// entities that aren't marked as clean from the bins.
+    /// each as clean as we come to it. Then, in [`sweep_old_entities`], we call
+    /// this method, which removes entities that aren't marked as clean from the
+    /// bins.
     pub fn sweep_old_entities(&mut self) {
         // Search for entities not marked as valid. We have to do this in
         // reverse order because `swap_remove_index` will potentially invalidate
         // all indices after the one we remove.
         for index in ReverseFixedBitSetZeroesIterator::new(&self.valid_cached_entity_bin_keys) {
-            // If we found an invalid entity, remove it. Note that this
-            // potentially invalidates later indices, but that's OK because
-            // we're going in reverse order.
             let Some((entity, entity_bin_key)) =
                 self.cached_entity_bin_keys.swap_remove_index(index)
             else {
@@ -1086,6 +1084,7 @@ where
                             ),
                     )
                         .in_set(RenderSet::PrepareResources),
+                    sweep_old_entities::<BPI>.in_set(RenderSet::QueueSweep),
                 ),
             );
     }
@@ -1620,6 +1619,18 @@ where
 {
     for phase in render_phases.values_mut() {
         phase.sort();
+    }
+}
+
+/// Removes entities that became invisible or changed phases from the bins.
+///
+/// This must run after queuing.
+pub fn sweep_old_entities<BPI>(mut render_phases: ResMut<ViewBinnedRenderPhases<BPI>>)
+where
+    BPI: BinnedPhaseItem,
+{
+    for phase in render_phases.0.values_mut() {
+        phase.sweep_old_entities();
     }
 }
 
