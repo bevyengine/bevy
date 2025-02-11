@@ -120,6 +120,8 @@ impl DefaultQueryFilters {
     /// Adds this [`ComponentId`] to the set of [`DefaultQueryFilters`],
     /// causing entities with this component to be excluded from queries.
     ///
+    /// This method is idempotent, and will not add the same component multiple times.
+    ///
     /// # Warning
     ///
     /// This method should only be called before the app starts, as it will not affect queries
@@ -128,7 +130,9 @@ impl DefaultQueryFilters {
     /// As discussed in the [module docs](crate::entity_disabling), this can have performance implications,
     /// as well as create interoperability issues, and should be used with caution.
     pub fn register_disabling_component(&mut self, component_id: ComponentId) {
-        self.disabling.push(component_id);
+        if !self.disabling.contains(&component_id) {
+            self.disabling.push(component_id);
+        }
     }
 
     /// Get an iterator over all of the components which disable entities when present.
