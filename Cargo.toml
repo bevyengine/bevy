@@ -4000,7 +4000,17 @@ name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
-required-features = ["bevy_sprite_picking_backend"]
+
+[[example]]
+name = "ui_picking"
+path = "examples/picking/ui_picking.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_picking]
+name = "UI Picking"
+description = "Demonstrates picking in a UI context"
+category = "Picking"
+wasm = true
 
 [[example]]
 name = "debug_picking"
