@@ -38,7 +38,6 @@ var<workgroup> intermediate_memory: array<array<f32, 16>, 16>;
 @compute
 @workgroup_size(256, 1, 1)
 fn downsample_depth_first(
-    @builtin(num_workgroups) num_workgroups: vec3u,
     @builtin(workgroup_id) workgroup_id: vec3u,
     @builtin(local_invocation_index) local_invocation_index: u32,
 ) {
