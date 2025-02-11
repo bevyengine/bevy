@@ -1229,20 +1229,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 _ => {}
             }
         }
-
-        // Remove invalid entities from the bins.
-        if let Some(phase) = opaque_phase {
-            phase.sweep_old_entities();
-        }
-        if let Some(phase) = alpha_mask_phase {
-            phase.sweep_old_entities();
-        }
-        if let Some(phase) = opaque_deferred_phase {
-            phase.sweep_old_entities();
-        }
-        if let Some(phase) = alpha_mask_deferred_phase {
-            phase.sweep_old_entities();
-        }
     }
 }
 

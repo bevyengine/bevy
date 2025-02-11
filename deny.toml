@@ -75,6 +75,9 @@ deny = [
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
 ]
+skip = [
+  { name = "bevy_math", reason = "bevy_math has a path dev dependency on itself without a version" },
+]
 
 [sources]
 unknown-registry = "deny"

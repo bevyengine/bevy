@@ -183,11 +183,7 @@ pub fn ui_picking(
         for (hovered_node, position) in hovered {
             let node = node_query.get(*hovered_node).unwrap();
 
-            let Some(camera_entity) = node
-                .target_camera.camera()
-                .map(UiTargetCamera::entity)
-                .or(default_camera_entity)
-            else {
+            let Some(camera_entity) = node.target_camera.camera() else {
                 continue;
             };
 
