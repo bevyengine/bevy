@@ -29,6 +29,7 @@ use bevy::{
         batching::{
             gpu_preprocessing::{
                 batch_and_prepare_sorted_render_phase, IndirectParametersMetadata,
+                UntypedPhaseIndirectParametersBuffers,
             },
             GetBatchData, GetFullBatchData,
         },
@@ -56,7 +57,6 @@ use bevy::{
         Extract, Render, RenderApp, RenderSet,
     },
 };
-use bevy_render::batching::gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
 
 const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";

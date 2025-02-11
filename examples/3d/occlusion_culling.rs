@@ -34,10 +34,9 @@ use bevy::{
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderAdapter, RenderContext, RenderDevice},
         settings::WgpuFeatures,
-        Render, RenderApp, RenderPlugin, RenderSet,
+        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSet,
     },
 };
-use bevy_render::RenderDebugFlags;
 use bytemuck::Pod;
 
 /// The radius of the spinning sphere of cubes.
