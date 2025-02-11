@@ -179,13 +179,13 @@ impl DefaultQueryFilters {
     }
 
     /// Get an iterator over all of the components which disable entities when present.
-    pub fn disabling_ids(&self) -> impl Iterator<Item = &ComponentId> {
-        self.disabling.iter()
+    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> + use<'_> {
+        self.disabling.iter().copied()
     }
 
     /// Modifies the provided [`FilteredAccess`] to include the filters from this [`DefaultQueryFilters`].
     pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
-        for &component_id in self.disabling_ids() {
+        for component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
             }
@@ -195,7 +195,7 @@ impl DefaultQueryFilters {
     pub(super) fn is_dense(&self, components: &Components) -> bool {
         self.disabling_ids().all(|component_id| {
             components
-                .get_info(*component_id)
+                .get_info(component_id)
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
         })
     }
