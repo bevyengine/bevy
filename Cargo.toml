@@ -2165,6 +2165,7 @@ name = "Fallible Systems"
 description = "Systems that return results to handle errors"
 category = "ECS (Entity Component System)"
 wasm = false
+required-features = ["bevy_mesh_picking_backend"]
 
 [[example]]
 name = "startup_system"

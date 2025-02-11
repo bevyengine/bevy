@@ -1,5 +1,7 @@
-//! Showcases how fallible systems can be make use of rust's powerful result handling syntax.
+//! Showcases how fallible systems and observers can make use of Rust's powerful result handling
+//! syntax.
 
+use bevy::ecs::world::DeferredWorld;
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
@@ -9,6 +11,9 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins(DefaultPlugins);
+
+    #[cfg(feature = "bevy_mesh_picking_backend")]
+    app.add_plugins(MeshPickingPlugin);
 
     // Fallible systems can be used the same way as regular systems. The only difference is they
     // return a `Result<(), Box<dyn Error>>` instead of a `()` (unit) type. Bevy will handle both
@@ -44,6 +49,9 @@ fn main() {
         }),
     );
 
+    // Fallible observers are also sypported.
+    app.add_observer(fallible_observer);
+
     // If we run the app, we'll see the following output at startup:
     //
     //  WARN Encountered an error in system `fallible_systems::failing_system`: "Resource not initialized"
@@ -53,6 +61,8 @@ fn main() {
 }
 
 /// An example of a system that calls several fallible functions with the question mark operator.
+///
+/// See: <https://doc.rust-lang.org/reference/expressions/operator-expr.html#the-question-mark-operator>
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -115,6 +125,29 @@ fn setup(
     }
 
     // Indicate the system completed successfully:
+    Ok(())
+}
+
+// Observer systems can also return a `Result`.
+fn fallible_observer(
+    trigger: Trigger<Pointer<Move>>,
+    mut world: DeferredWorld,
+    mut step: Local<f32>,
+) -> Result {
+    let mut transform = world
+        .get_mut::<Transform>(trigger.target)
+        .ok_or("No transform found.")?;
+
+    *step = if transform.translation.x > 3. {
+        -0.1
+    } else if transform.translation.x < -3. || *step == 0. {
+        0.1
+    } else {
+        *step
+    };
+
+    transform.translation.x += *step;
+
     Ok(())
 }
 
