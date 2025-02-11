@@ -627,7 +627,7 @@ fn directional_light(
 
     color *= (*light).color.rgb;
 
-// #ifdef ATMOSPHERE_TRANSMITTANCE
+#ifdef ATMOSPHERE
     // Calculate atmospheric transmittance
     let P = (*input).P;
     // TODO: fix unknown identifier bindings
@@ -640,11 +640,12 @@ fn directional_light(
     // Apply transmittance after light color but before shadows
     // This ensures the light is attenuated by the atmosphere before any other effects
     color *= sample_transmittance_lut(r, mu);
-// #endif
+#endif  // ATMOSPHERE
 
     return color;
 }
 
+#ifdef ATMOSPHERE
 // TODO: remove these functions once the refactor is complete
 // these were copied from bevy_pbr/src/atmosphere/functions.wgsl
 fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
@@ -681,7 +682,8 @@ fn transmittance_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
 fn distance_to_top_atmosphere_boundary(r: f32, mu: f32) -> f32 {
     let atmosphere = view_bindings::atmosphere_data.atmosphere;
     // ignore the case where r > atmosphere.top_radius
-    let top_radius = atmosphere.top_radius;  // Dereference the pointer
+    let top_radius = atmosphere.top_radius;
     let positive_discriminant = max(r * r * (mu * mu - 1.0) + top_radius * top_radius, 0.0);
     return max(-r * mu + sqrt(positive_discriminant), 0.0);
 }
+#endif  // ATMOSPHERE

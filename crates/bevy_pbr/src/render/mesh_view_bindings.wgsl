@@ -119,8 +119,8 @@ const VISIBILITY_RANGE_UNIFORM_BUFFER_SIZE: u32 = 64u;
 @group(0) @binding(36) var<uniform> oit_settings: types::OrderIndependentTransparencySettings;
 #endif // OIT_ENABLED
 
-// #ifdef ATMOSPHERE_TRANSMITTANCE
+#ifdef ATMOSPHERE
 @group(0) @binding(37) var atmosphere_transmittance_texture: texture_2d<f32>;
 @group(0) @binding(38) var atmosphere_transmittance_sampler: sampler;
 @group(0) @binding(39) var<storage, read> atmosphere_data: atmosphere::GpuAtmosphereData;
-// #endif // ATMOSPHERE_TRANSMITTANCE
+#endif // ATMOSPHERE
