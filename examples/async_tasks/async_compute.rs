@@ -48,7 +48,7 @@ struct ComputeTransform(Task<CommandQueue>);
 /// This system generates tasks simulating computationally intensive
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, [`handle_tasks`], will poll the spawned tasks on subsequent
-/// frames/ticks, and execute the queued commands to spawn cubes
+/// frames/ticks and execute the queued commands to spawn cubes
 fn spawn_tasks(mut commands: Commands) {
     let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
