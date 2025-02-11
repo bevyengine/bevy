@@ -197,7 +197,7 @@ fn update_bloom_settings(
     }
 }
 
-/// Modifies resources tonemapping algorithm for the next one and returns it
+/// Get the next Tonemapping algorithm
 fn next_tonemap(tonemap: &Tonemapping) -> Tonemapping {
     match tonemap {
         Tonemapping::None => Tonemapping::AcesFitted,
