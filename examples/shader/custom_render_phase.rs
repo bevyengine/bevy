@@ -370,9 +370,9 @@ impl GetBatchData for StencilPipeline {
                 flags: mesh_transforms.flags,
                 first_vertex_index,
                 current_skin_index: u32::MAX,
-                previous_skin_index: u32::MAX,
                 material_and_lightmap_bind_group_slot: 0,
                 tag: 0,
+                pad: 0,
             }
         };
         Some((mesh_uniform, None))
@@ -423,7 +423,6 @@ impl GetFullBatchData for StencilPipeline {
             &mesh_instance.transforms,
             first_vertex_index,
             mesh_instance.material_bindings_index.slot,
-            None,
             None,
             None,
             None,
