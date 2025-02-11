@@ -45,6 +45,8 @@ mod text;
 mod text2d;
 mod text_access;
 #[cfg(feature = "picking")]
+pub mod text_picking_backend;
+#[cfg(feature = "picking")]
 pub mod text_pointer;
 
 pub use bounds::*;
@@ -161,7 +163,11 @@ impl Plugin for TextPlugin {
 
         #[cfg(feature = "picking")]
         {
-            app.add_plugins((text_pointer::plugin, picking_backend::plugin));
+            app.add_plugins((
+                text_pointer::plugin,
+                text_picking_backend::plugin,
+                picking_backend::Text2dPickingPlugin,
+            ));
         }
     }
 }
