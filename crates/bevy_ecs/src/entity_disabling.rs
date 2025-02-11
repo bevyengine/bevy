@@ -131,7 +131,7 @@ impl DefaultQueryFilters {
         self.disabling.push(component_id);
     }
 
-    /// Get an iterator over all currently enabled filter components.
+    /// Get an iterator over all of the components which disable entities when present.
     pub fn disabling_ids(&self) -> impl Iterator<Item = &ComponentId> {
         self.disabling.iter()
     }
