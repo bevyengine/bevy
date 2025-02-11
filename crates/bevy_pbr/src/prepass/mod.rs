@@ -1145,6 +1145,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
@@ -1169,6 +1170,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
@@ -1195,6 +1197,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             batch_set_key,
                             bin_key,
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
@@ -1218,6 +1221,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             batch_set_key,
                             bin_key,
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,

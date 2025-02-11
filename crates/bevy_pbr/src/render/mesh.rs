@@ -30,7 +30,7 @@ use bevy_render::{
     primitives::Aabb,
     render_asset::RenderAssets,
     render_phase::{
-        BinnedRenderPhasePlugin, PhaseItem, PhaseItemExtraIndex, RenderCommand,
+        BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
         RenderCommandResult, SortedRenderPhasePlugin, TrackedRenderPass,
     },
     render_resource::*,
@@ -958,6 +958,7 @@ impl RenderMeshInstancesCpu {
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 translation: render_mesh_instance.transforms.world_from_local.translation,
+                current_uniform_index: InputUniformIndex::default(),
             })
     }
 
@@ -981,6 +982,9 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
                 translation: render_mesh_instance.translation,
+                current_uniform_index: InputUniformIndex(
+                    render_mesh_instance.current_uniform_index.into(),
+                ),
             })
     }
 
@@ -1281,6 +1285,9 @@ pub struct RenderMeshQueueData<'a> {
     pub shared: &'a RenderMeshInstanceShared,
     /// The translation of the mesh instance.
     pub translation: Vec3,
+    /// The index of the [`MeshInputUniform`] in the GPU buffer for this mesh
+    /// instance.
+    pub current_uniform_index: InputUniformIndex,
 }
 
 /// A [`SystemSet`] that encompasses both [`extract_meshes_for_cpu_building`]
@@ -1945,7 +1952,7 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: u32,
+        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
@@ -1953,7 +1960,7 @@ impl GetFullBatchData for MeshPipeline {
         indirect_parameters_offset: u32,
     ) {
         let indirect_parameters = IndirectParametersMetadata {
-            mesh_index,
+            mesh_index: *mesh_index,
             base_output_index,
             batch_set_index: match batch_set_index {
                 Some(batch_set_index) => u32::from(batch_set_index),
