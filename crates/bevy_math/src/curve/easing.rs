@@ -204,20 +204,20 @@ where
 pub enum JumpAt {
     /// Indicates that the first step happens when the animation begins.
     ///
-    #[doc = include_str!("../../images/easefunction/JumpStart.svg")]
+    #[doc = include_str!("../../images/easefunction/StartSteps.svg")]
     Start,
     /// Indicates that the last step happens when the animation ends.
     ///
-    #[doc = include_str!("../../images/easefunction/JumpEnd.svg")]
+    #[doc = include_str!("../../images/easefunction/EndSteps.svg")]
     #[default]
     End,
     /// Indicates neither early nor late jumps happen.
     ///
-    #[doc = include_str!("../../images/easefunction/JumpNone.svg")]
+    #[doc = include_str!("../../images/easefunction/NoneSteps.svg")]
     None,
     /// Indicates both early and late jumps happen.
     ///
-    #[doc = include_str!("../../images/easefunction/JumpBoth.svg")]
+    #[doc = include_str!("../../images/easefunction/BothSteps.svg")]
     Both,
 }
 
@@ -475,9 +475,7 @@ pub enum EaseFunction {
     BounceInOut,
 
     /// `n` steps connecting the start and the end. Jumping behavior is customizable via
-    /// [`StepConfig::jump_at`]. See [`JumpAt`] for all the options.
-    ///
-    #[doc = include_str!("../../images/easefunction/Steps.svg")]
+    /// [`JumpAt`]. See [`JumpAt`] for all the options and visual examples.
     Steps(usize, JumpAt),
 
     /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
