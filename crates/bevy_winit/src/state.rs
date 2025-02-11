@@ -26,6 +26,7 @@ use bevy_platform_support::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 use core::marker::PhantomData;
+use std::any::Any;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::EventLoopExtWebSys;
 use winit::{
@@ -51,7 +52,7 @@ use crate::{
     converters, create_windows,
     system::{create_monitors, CachedWindow},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
-    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
+    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows, EVENT_LOOP,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -871,10 +872,7 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
         app.cleanup();
     }
 
-    let event_loop = app
-        .world_mut()
-        .remove_non_send_resource::<EventLoop<T>>()
-        .unwrap();
+    let event_loop = EVENT_LOOP.take().expect("event loop was either never initialized or already taken after initialization").downcast::<EventLoop<T>>().expect("event loop passed into Winit needs to be of type `EventLoop<T: Event>`");
 
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
