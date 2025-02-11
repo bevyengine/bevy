@@ -345,9 +345,39 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
         }
     }
 
+    /// Returns an iterator over the slice producing non-overlapping runs
+    /// of elements using the predicate to separate them.
+    ///
+    /// Equivalent to [`[T]::chunk_by`].
+    ///
+    /// [`[T]::chunk_by`]: `slice::chunk_by`
+    pub fn chunk_by<F>(&self, pred: F) -> ChunkBy<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.chunk_by(pred)) }
+    }
+
+    /// Returns an iterator over the slice producing non-overlapping mutable
+    /// runs of elements using the predicate to separate them.
+    ///
+    /// Equivalent to [`[T]::chunk_by_mut`].
+    ///
+    /// [`[T]::chunk_by_mut`]: `slice::chunk_by_mut`
+    pub fn chunk_by_mut<F>(&mut self, pred: F) -> ChunkByMut<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(self.0.chunk_by_mut(pred))
+        }
+    }
+
     /// Divides one slice into two at an index.
     ///
-    /// Equivalent to [`[T]::split_at`](slice::split_at)
+    /// Equivalent to [`[T]::split_at`](slice::split_at).
     pub const fn split_at(&self, mid: usize) -> (&Self, &Self) {
         let (left, right) = self.0.split_at(mid);
         // SAFETY: All elements in the original slice are unique.
@@ -361,7 +391,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
 
     /// Divides one mutable slice into two at an index.
     ///
-    /// Equivalent to [`[T]::split_at_mut`](slice::split_at_mut)
+    /// Equivalent to [`[T]::split_at_mut`](slice::split_at_mut).
     pub const fn split_at_mut(&mut self, mid: usize) -> (&mut Self, &mut Self) {
         let (left, right) = self.0.split_at_mut(mid);
         // SAFETY: All elements in the original slice are unique.
@@ -375,7 +405,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
 
     /// Divides one slice into two at an index, without doing bounds checking.
     ///
-    /// Equivalent to [`[T]::split_at_unchecked`](slice::split_at_unchecked)
+    /// Equivalent to [`[T]::split_at_unchecked`](slice::split_at_unchecked).
     ///
     /// # Safety
     ///
