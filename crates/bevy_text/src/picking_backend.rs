@@ -7,7 +7,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
-use bevy_math::{FloatExt, Vec3Swizzles};
+use bevy_math::{FloatExt, Rect, Vec2, Vec3Swizzles};
 use bevy_picking::{
     backend::{HitData, PointerHits},
     events::{
@@ -74,6 +74,7 @@ fn text2d_picking(
     for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
+        // TODO: blocking
         let mut blocked = false;
         let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho))) =
             cameras
@@ -106,9 +107,10 @@ fn text2d_picking(
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;
         let cursor_ray_end = cursor_ray_world.origin + cursor_ray_world.direction * cursor_ray_len;
 
+        // TODO: sort by Z
         let picks: Vec<(Entity, HitData)> = text_query
             .iter()
-            .filter_map(|(entity, a, b, c, d, text_transform)| {
+            .filter_map(|(entity, text_layout, b, c, text_bounds, text_transform)| {
                 //
                 // Transform cursor line segment to text coordinate system
                 let world_to_text = text_transform.affine().inverse();
@@ -134,7 +136,16 @@ fn text2d_picking(
                 // lerp factor to get the cursor position in sprite space!
                 let relative_cursor_pos = cursor_start_text.lerp(cursor_end_text, lerp_factor).xy();
 
-                // TODO: Find target rect, check cursor is contained inside
+                // Find target rect, check cursor is contained inside
+                let size = Vec2::new(
+                    text_bounds.width.unwrap_or(text_layout.size.x),
+                    text_bounds.height.unwrap_or(text_layout.size.y),
+                );
+
+                let text_rect = Rect::from_corners(-size / 2.0, size / 2.0);
+                if !text_rect.contains(relative_cursor_pos) {
+                    return None;
+                }
 
                 let hit_pos_world = text_transform.transform_point(relative_cursor_pos.extend(0.0));
                 // Transform point from world to camera space to get the Z distance
