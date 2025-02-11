@@ -87,7 +87,7 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 /// not its children or other entities that reference it.
 /// To disable an entire tree of entities, use [`EntityCommands::insert_recursive`](crate::prelude::EntityCommands::insert_recursive).
 ///
-/// Every [`World`](crate::prelude::World) has a default query filter that excludes entities with this component,
+/// Every [`World`] has a default query filter that excludes entities with this component,
 /// registered in the [`DefaultQueryFilters`] resource.
 /// See [the module docs] for more info.
 ///
