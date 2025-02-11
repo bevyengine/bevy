@@ -1,4 +1,4 @@
-//! This a slightly modified copy of the TextureBlitter from wgpu
+//! This a slightly modified copy of the [`TextureBlitter`] from wgpu
 //! We needed a few more features to be built into it to be able to use it.
 //! This lets us have the features we need and once wgpu has them we'll be able to delete this
 //! file.
