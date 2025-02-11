@@ -13,13 +13,13 @@ use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
+    result::{Error, SystemErrorContext},
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
-use thiserror::Error;
 
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -44,7 +44,7 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum AppError {
     #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
@@ -1034,6 +1034,17 @@ impl App {
             .try_register_required_components_with::<T, R>(constructor)
     }
 
+    /// Registers a component type as "disabling",
+    /// using [default query filters](bevy_ecs::entity_disabling::DefaultQueryFilters) to exclude entities with the component from queries.
+    ///
+    /// # Warning
+    ///
+    /// As discussed in the [module docs](bevy_ecs::entity_disabling), this can have performance implications,
+    /// as well as create interoperability issues, and should be used with caution.
+    pub fn register_disabling_component<C: Component>(&mut self) {
+        self.world_mut().register_disabling_component::<C>();
+    }
+
     /// Returns a reference to the main [`SubApp`]'s [`World`]. This is the same as calling
     /// [`app.main().world()`].
     ///
@@ -1260,6 +1271,18 @@ impl App {
         S2: IntoSystemSet<M2>,
     {
         self.main_mut().ignore_ambiguity(schedule, a, b);
+        self
+    }
+
+    /// Set the global system error handler to use for systems that return a [`Result`].
+    ///
+    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
+    /// for more information.
+    pub fn set_system_error_handler(
+        &mut self,
+        error_handler: fn(Error, SystemErrorContext),
+    ) -> &mut Self {
+        self.main_mut().set_system_error_handler(error_handler);
         self
     }
 

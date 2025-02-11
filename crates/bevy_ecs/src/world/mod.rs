@@ -42,13 +42,12 @@ use crate::{
         Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
-    entity_disabling::{DefaultQueryFilters, Disabled},
+    entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     removal_detection::RemovedComponentEvents,
     resource::Resource,
-    result::Result,
     schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{ResourceData, Storages},
     system::Commands,
@@ -156,10 +155,8 @@ impl World {
         let on_despawn = OnDespawn::register_component_id(self);
         assert_eq!(ON_DESPAWN, on_despawn);
 
-        let disabled = self.register_component::<Disabled>();
-        let mut filters = DefaultQueryFilters::default();
-        filters.set_disabled(disabled);
-        self.insert_resource(filters);
+        // This sets up `Disabled` as a disabling component, via the FromWorld impl
+        self.init_resource::<DefaultQueryFilters>();
     }
     /// Creates a new empty [`World`].
     ///
@@ -248,6 +245,14 @@ impl World {
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components.register_component::<T>()
+    }
+
+    /// Registers a component type as "disabling",
+    /// using [default query filters](DefaultQueryFilters) to exclude entities with the component from queries.
+    pub fn register_disabling_component<C: Component>(&mut self) {
+        let component_id = self.register_component::<C>();
+        let mut dqf = self.resource_mut::<DefaultQueryFilters>();
+        dqf.register_disabling_component(component_id);
     }
 
     /// Returns a mutable reference to the [`ComponentHooks`] for a [`Component`] type.

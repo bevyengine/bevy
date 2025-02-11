@@ -48,8 +48,7 @@ impl BevyManifest {
     /// Returns the path for the crate with the given name.
     pub fn get_path(&self, name: &str) -> syn::Path {
         self.maybe_get_path(name)
-            //.expect("Failed to get path for crate")
-            .unwrap_or_else(|_err| Self::parse_str(name))
+            .expect("Failed to get path for crate")
     }
 
     /// Attempt to parse the provided [path](str) as a [syntax tree node](syn::parse::Parse)
