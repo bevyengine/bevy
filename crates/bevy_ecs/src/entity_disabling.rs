@@ -117,6 +117,10 @@ pub struct Disabled;
 /// and clearly communicate their presence in any libraries you publish.
 #[derive(Resource, Debug)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+#[expect(
+    clippy::new_without_default,
+    reason = "We cannot implement both Default and FromWorld due to the blanket impl for FromWorld"
+)]
 pub struct DefaultQueryFilters {
     // We only expect a few components per application to act as disabling components, so we use a SmallVec here
     // to avoid heap allocation in most cases.
