@@ -27,9 +27,11 @@ use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
+pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("b5612b7b-aed5-41b4-a930-1d1588239fcd");
 
-const UI_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10123618247720234751);
+const UI_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("1d97ca3e-eaa8-4bc5-a676-e8e9568c472e");
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
 /// [`UiMaterial`] asset type (which includes [`UiMaterial`] types).
@@ -374,7 +376,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,

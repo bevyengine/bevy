@@ -13,15 +13,14 @@ pub use parallel_scope::*;
 
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use core::panic::Location;
 use log::error;
 
 use crate::{
     self as bevy_ecs,
-    bundle::{Bundle, InsertMode},
-    change_detection::Mut,
+    bundle::{Bundle, InsertMode, NoBundleEffect},
+    change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, Entity, EntityCloneBuilder},
+    entity::{Entities, Entity, EntityClonerBuilder},
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -540,7 +539,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
-        I::Item: Bundle,
+        I::Item: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::spawn_batch(bundles_iter));
     }
@@ -681,13 +680,12 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
-                #[cfg(feature = "track_location")]
                 caller,
             ) {
                 error!(
@@ -721,7 +719,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::insert_batch(batch, InsertMode::Replace));
     }
@@ -748,7 +746,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::insert_batch(batch, InsertMode::Keep));
     }
@@ -773,7 +771,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(
             command::insert_batch(batch, InsertMode::Replace)
@@ -801,7 +799,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(
             command::insert_batch(batch, InsertMode::Keep).handle_error_with(error_handler::warn()),
@@ -1913,7 +1911,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Clones parts of an entity (components, observers, etc.) onto another entity,
-    /// configured through [`EntityCloneBuilder`].
+    /// configured through [`EntityClonerBuilder`].
     ///
     /// By default, the other entity will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
@@ -1924,7 +1922,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Example
     ///
-    /// Configure through [`EntityCloneBuilder`] as follows:
+    /// Configure through [`EntityClonerBuilder`] as follows:
     /// ```
     /// # use bevy_ecs::prelude::*;
     ///
@@ -1948,14 +1946,11 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
     ///
-    /// See the following for more options:
-    /// - [`EntityCloneBuilder`]
-    /// - [`CloneEntityWithObserversExt`](crate::observer::CloneEntityWithObserversExt)
-    /// - `CloneEntityHierarchyExt`
+    /// See [`EntityClonerBuilder`] for more options.
     pub fn clone_with(
         &mut self,
         target: Entity,
-        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
     ) -> &mut Self {
         self.queue(entity_command::clone_with(target, config))
     }
@@ -1996,16 +1991,16 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Spawns a clone of this entity and allows configuring cloning behavior
-    /// using [`EntityCloneBuilder`], returning the [`EntityCommands`] of the clone.
+    /// using [`EntityClonerBuilder`], returning the [`EntityCommands`] of the clone.
     ///
     /// By default, the clone will receive all the components of the original that implement
     /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
     ///
-    /// To exclude specific components, use [`EntityCloneBuilder::deny`].
-    /// To only include specific components, use [`EntityCloneBuilder::deny_all`]
-    /// followed by [`EntityCloneBuilder::allow`].
+    /// To exclude specific components, use [`EntityClonerBuilder::deny`].
+    /// To only include specific components, use [`EntityClonerBuilder::deny_all`]
+    /// followed by [`EntityClonerBuilder::allow`].
     ///
-    /// See the methods on [`EntityCloneBuilder`] for more options.
+    /// See the methods on [`EntityClonerBuilder`] for more options.
     ///
     /// # Note
     ///
@@ -2034,7 +2029,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(example_system);
     pub fn clone_and_spawn_with(
         &mut self,
-        config: impl FnOnce(&mut EntityCloneBuilder) + Send + Sync + 'static,
+        config: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
     ) -> EntityCommands<'_> {
         let entity_clone = self.commands().spawn_empty().id();
         self.clone_with(entity_clone, config);
@@ -2206,7 +2201,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         component::{require, Component},
         resource::Resource,
         system::Commands,

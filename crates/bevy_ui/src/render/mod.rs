@@ -9,11 +9,12 @@ mod debug_overlay;
 
 use crate::widget::ImageNode;
 use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode, DefaultUiCamera,
-    Outline, ResolvedBorderRadius, UiAntiAlias, UiTargetCamera,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
+    ComputedNodeTarget, DefaultUiCamera, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
+    UiTargetCamera,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -95,7 +96,7 @@ pub mod stack_z_offsets {
     pub const MATERIAL: f32 = 0.18267;
 }
 
-pub const UI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(13012847047162779583);
+pub const UI_SHADER_HANDLE: Handle<Shader> = weak_handle!("7d190d05-545b-42f5-bd85-22a0da85b0f6");
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderUiSystem {
@@ -105,6 +106,7 @@ pub enum RenderUiSystem {
     ExtractImages,
     ExtractTextureSlice,
     ExtractBorders,
+    ExtractTextShadows,
     ExtractText,
     ExtractDebug,
 }
@@ -134,6 +136,7 @@ pub fn build_ui_render(app: &mut App) {
                 RenderUiSystem::ExtractImages,
                 RenderUiSystem::ExtractTextureSlice,
                 RenderUiSystem::ExtractBorders,
+                RenderUiSystem::ExtractTextShadows,
                 RenderUiSystem::ExtractText,
                 RenderUiSystem::ExtractDebug,
             )
@@ -146,6 +149,7 @@ pub fn build_ui_render(app: &mut App) {
                 extract_uinode_background_colors.in_set(RenderUiSystem::ExtractBackgrounds),
                 extract_uinode_images.in_set(RenderUiSystem::ExtractImages),
                 extract_uinode_borders.in_set(RenderUiSystem::ExtractBorders),
+                extract_text_shadows.in_set(RenderUiSystem::ExtractTextShadows),
                 extract_text_sections.in_set(RenderUiSystem::ExtractText),
                 #[cfg(feature = "bevy_ui_debug")]
                 debug_overlay::extract_debug_overlay.in_set(RenderUiSystem::ExtractDebug),
@@ -254,17 +258,14 @@ impl ExtractedUiNodes {
 
 #[derive(SystemParam)]
 pub struct UiCameraMap<'w, 's> {
-    default: DefaultUiCamera<'w, 's>,
     mapping: Query<'w, 's, RenderEntity>,
 }
 
 impl<'w, 's> UiCameraMap<'w, 's> {
     /// Get the default camera and create the mapper
     pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
-        let default_camera_entity = self.default.get();
         UiCameraMapper {
             mapping: &self.mapping,
-            default_camera_entity,
             camera_entity: Entity::PLACEHOLDER,
             render_entity: Entity::PLACEHOLDER,
         }
@@ -273,17 +274,14 @@ impl<'w, 's> UiCameraMap<'w, 's> {
 
 pub struct UiCameraMapper<'w, 's> {
     mapping: &'w Query<'w, 's, RenderEntity>,
-    default_camera_entity: Option<Entity>,
     camera_entity: Entity,
     render_entity: Entity,
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, camera: Option<&UiTargetCamera>) -> Option<Entity> {
-        let camera_entity = camera
-            .map(UiTargetCamera::entity)
-            .or(self.default_camera_entity)?;
+    pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
+        let camera_entity = computed_target.camera;
         if self.camera_entity != camera_entity {
             let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
                 return None;
@@ -335,7 +333,7 @@ pub fn extract_uinode_background_colors(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
             &BackgroundColor,
         )>,
     >,
@@ -394,7 +392,7 @@ pub fn extract_uinode_images(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
             &ImageNode,
         )>,
     >,
@@ -478,7 +476,7 @@ pub fn extract_uinode_borders(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -494,7 +492,7 @@ pub fn extract_uinode_borders(
         global_transform,
         inherited_visibility,
         maybe_clip,
-        maybe_camera,
+        camera,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
@@ -503,7 +501,7 @@ pub fn extract_uinode_borders(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(maybe_camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -706,7 +704,7 @@ pub fn extract_text_sections(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,
@@ -714,8 +712,8 @@ pub fn extract_text_sections(
     text_styles: Extract<Query<&TextColor>>,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut start = 0;
-    let mut end = 1;
+    let mut start = extracted_uinodes.glyphs.len();
+    let mut end = start + 1;
 
     let mut camera_mapper = camera_map.get_mapper();
     for (
@@ -743,6 +741,7 @@ pub fn extract_text_sections(
 
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
+
         for (
             i,
             PositionedGlyph {
@@ -784,6 +783,105 @@ pub fn extract_text_sections(
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     stack_index: uinode.stack_index,
                     color,
+                    image: atlas_info.texture.id(),
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    rect,
+                    item: ExtractedUiItem::Glyphs { range: start..end },
+                    main_entity: entity.into(),
+                });
+                start = end;
+            }
+
+            end += 1;
+        }
+    }
+}
+
+pub fn extract_text_shadows(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    default_ui_camera: Extract<DefaultUiCamera>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &GlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            Option<&UiTargetCamera>,
+            &TextLayoutInfo,
+            &TextShadow,
+        )>,
+    >,
+    mapping: Extract<Query<RenderEntity>>,
+) {
+    let mut start = extracted_uinodes.glyphs.len();
+    let mut end = start + 1;
+
+    let default_ui_camera = default_ui_camera.get();
+    for (
+        entity,
+        uinode,
+        global_transform,
+        inherited_visibility,
+        clip,
+        camera,
+        text_layout_info,
+        shadow,
+    ) in &uinode_query
+    {
+        let Some(camera_entity) = camera.map(UiTargetCamera::entity).or(default_ui_camera) else {
+            continue;
+        };
+
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Ok(extracted_camera_entity) = mapping.get(camera_entity) else {
+            continue;
+        };
+
+        let transform = global_transform.affine()
+            * Mat4::from_translation(
+                (-0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor()).extend(0.),
+            );
+
+        let mut current_span = usize::MAX;
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                span_index,
+                ..
+            },
+        ) in text_layout_info.glyphs.iter().enumerate()
+        {
+            if *span_index != current_span {
+                current_span = *span_index;
+            }
+
+            let rect = texture_atlases
+                .get(&atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
+            extracted_uinodes.glyphs.push(ExtractedGlyph {
+                transform: transform * Mat4::from_translation(position.extend(0.)),
+                rect,
+            });
+
+            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
+                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
+            }) {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    stack_index: uinode.stack_index,
+                    color: shadow.color.into(),
                     image: atlas_info.texture.id(),
                     clip: clip.map(|clip| clip.clip),
                     extracted_camera_entity,

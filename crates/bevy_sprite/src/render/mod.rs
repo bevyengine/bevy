@@ -102,8 +102,8 @@ impl FromWorld for SpritePipeline {
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 texture.as_image_copy(),
-                &image.data,
-                ImageDataLayout {
+                image.data.as_ref().expect("Image has no data"),
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
@@ -485,9 +485,9 @@ pub struct SpriteViewBindGroup {
 }
 
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct SpriteBatches(HashMap<(RetainedViewEntity, MainEntity), SpriteBatch>);
+pub struct SpriteBatches(HashMap<(RetainedViewEntity, Entity), SpriteBatch>);
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct SpriteBatch {
     image_handle_id: AssetId<Image>,
     range: Range<u32>,
@@ -694,7 +694,7 @@ pub fn prepare_sprite_image_bind_groups(
                     });
 
                 batch_item_index = item_index;
-                current_batch = Some(batches.entry((*retained_view, item.main_entity())).insert(
+                current_batch = Some(batches.entry((*retained_view, item.entity())).insert(
                     SpriteBatch {
                         image_handle_id: batch_image_handle,
                         range: index..index,
@@ -846,7 +846,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let image_bind_groups = image_bind_groups.into_inner();
-        let Some(batch) = batches.get(&(view.retained_view_entity, item.main_entity())) else {
+        let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {
             return RenderCommandResult::Skip;
         };
 
@@ -876,7 +876,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let sprite_meta = sprite_meta.into_inner();
-        let Some(batch) = batches.get(&(view.retained_view_entity, item.main_entity())) else {
+        let Some(batch) = batches.get(&(view.retained_view_entity, item.entity())) else {
             return RenderCommandResult::Skip;
         };
 
