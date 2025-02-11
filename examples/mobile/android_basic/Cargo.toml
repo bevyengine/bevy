@@ -45,9 +45,6 @@ bevy = { path = "../../", default-features = false, features = [
   "zstd",
 ] }
 
-[target.aarch64-apple-ios-sim.dependencies]
-bevy = { path = "../../", features = ["ios_simulator"] }
-
 [package.metadata.android]
 package = "org.bevyengine.example"
 apk_name = "bevyexample"
