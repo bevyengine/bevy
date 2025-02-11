@@ -4003,7 +4003,6 @@ name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
-required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
 name = "debug_picking"
