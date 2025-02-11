@@ -110,8 +110,8 @@ fn component_clone_observed_by(commands: &mut Commands, ctx: &mut ComponentClone
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs, entity::EntityCloner, event::Event, observer::Trigger,
-        resource::Resource, system::ResMut, world::World,
+        entity::EntityCloner, event::Event, observer::Trigger, resource::Resource, system::ResMut,
+        world::World,
     };
 
     #[derive(Resource, Default)]

@@ -150,8 +150,83 @@ all_tuples_enumerated!(
 ///
 /// The resulting curve's domain is always [the unit interval].
 ///
+/// # Example
+///
+/// Create a linear curve that interpolates between `2.0` and `4.0`.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
+/// ```
+///
+/// [`sample`] the curve at various points. This will return `None` if the parameter
+/// is outside the unit interval.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
+/// assert_eq!(c.sample(-1.0), None);
+/// assert_eq!(c.sample(0.0), Some(2.0));
+/// assert_eq!(c.sample(0.5), Some(3.0));
+/// assert_eq!(c.sample(1.0), Some(4.0));
+/// assert_eq!(c.sample(2.0), None);
+/// ```
+///
+/// [`sample_clamped`] will clamp the parameter to the unit interval, so it
+/// always returns a value.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
+/// assert_eq!(c.sample_clamped(-1.0), 2.0);
+/// assert_eq!(c.sample_clamped(0.0), 2.0);
+/// assert_eq!(c.sample_clamped(0.5), 3.0);
+/// assert_eq!(c.sample_clamped(1.0), 4.0);
+/// assert_eq!(c.sample_clamped(2.0), 4.0);
+/// ```
+///
+/// `EasingCurve` can be used with any type that implements the [`Ease`] trait.
+/// This includes many math types, like vectors and rotations.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// let c = EasingCurve::new(
+///     Vec2::new(0.0, 4.0),
+///     Vec2::new(2.0, 8.0),
+///     EaseFunction::Linear,
+/// );
+///
+/// assert_eq!(c.sample_clamped(0.5), Vec2::new(1.0, 6.0));
+/// ```
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # use approx::assert_abs_diff_eq;
+/// let c = EasingCurve::new(
+///     Rot2::degrees(10.0),
+///     Rot2::degrees(20.0),
+///     EaseFunction::Linear,
+/// );
+///
+/// assert_abs_diff_eq!(c.sample_clamped(0.5), Rot2::degrees(15.0));
+/// ```
+///
+/// As a shortcut, an `EasingCurve` between `0.0` and `1.0` can be replaced by
+/// [`EaseFunction`].
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let t = 0.5;
+/// let f = EaseFunction::SineIn;
+/// let c = EasingCurve::new(0.0, 1.0, EaseFunction::SineIn);
+///
+/// assert_eq!(f.sample(t), c.sample(t));
+/// ```
+///
 /// [easing function]: EaseFunction
 /// [the unit interval]: Interval::UNIT
+/// [`sample`]: EasingCurve::sample
+/// [`sample_clamped`]: EasingCurve::sample_clamped
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -196,6 +271,41 @@ where
 
 /// Curve functions over the [unit interval], commonly used for easing transitions.
 ///
+/// `EaseFunction` can be used on its own to interpolate between `0.0` and `1.0`.
+/// It can also be combined with [`EasingCurve`] to interpolate between other
+/// intervals and types, including vectors and rotations.
+///
+/// # Example
+///
+/// [`sample`] the smoothstep function at various points. This will return `None`
+/// if the parameter is outside the unit interval.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// let f = EaseFunction::SmoothStep;
+///
+/// assert_eq!(f.sample(-1.0), None);
+/// assert_eq!(f.sample(0.0), Some(0.0));
+/// assert_eq!(f.sample(0.5), Some(0.5));
+/// assert_eq!(f.sample(1.0), Some(1.0));
+/// assert_eq!(f.sample(2.0), None);
+/// ```
+///
+/// [`sample_clamped`] will clamp the parameter to the unit interval, so it
+/// always returns a value.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let f = EaseFunction::SmoothStep;
+/// assert_eq!(f.sample_clamped(-1.0), 0.0);
+/// assert_eq!(f.sample_clamped(0.0), 0.0);
+/// assert_eq!(f.sample_clamped(0.5), 0.5);
+/// assert_eq!(f.sample_clamped(1.0), 1.0);
+/// assert_eq!(f.sample_clamped(2.0), 1.0);
+/// ```
+///
+/// [`sample`]: EaseFunction::sample
+/// [`sample_clamped`]: EaseFunction::sample_clamped
 /// [unit interval]: `Interval::UNIT`
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -685,7 +795,7 @@ mod easing_functions {
 
     #[inline]
     pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        ops::round(t * num_steps as f32) / num_steps.max(1) as f32
+        ops::floor(t * num_steps as f32) / num_steps.max(1) as f32
     }
 
     #[inline]
@@ -740,7 +850,20 @@ impl EaseFunction {
     }
 }
 
+impl Curve<f32> for EaseFunction {
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> f32 {
+        self.eval(t)
+    }
+}
+
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use crate::{Vec2, Vec3, Vec3A};
     use approx::assert_abs_diff_eq;
@@ -901,6 +1024,31 @@ mod tests {
                 iso_3d_curve.sample(t).unwrap(),
                 Isometry3d::new(Vec3A::ONE * t, Quat::from_axis_angle(Vec3::Z, angle * t))
             );
+        });
+    }
+
+    #[test]
+    fn ease_function_curve() {
+        // Test that using `EaseFunction` directly is equivalent to `EasingCurve::new(0.0, 1.0, ...)`.
+
+        let f = EaseFunction::SmoothStep;
+        let c = EasingCurve::new(0.0, 1.0, EaseFunction::SmoothStep);
+
+        assert_eq!(f.domain(), c.domain());
+
+        [
+            -1.0,
+            0.0,
+            0.5,
+            1.0,
+            2.0,
+            -f32::MIN_POSITIVE,
+            1.0 + f32::EPSILON,
+        ]
+        .into_iter()
+        .for_each(|t| {
+            assert_eq!(f.sample(t), c.sample(t));
+            assert_eq!(f.sample_clamped(t), c.sample_clamped(t));
         });
     }
 }

@@ -287,7 +287,7 @@ where
                     Render,
                     (
                         specialize_material2d_meshes::<M>
-                            .in_set(RenderSet::PrepareAssets)
+                            .in_set(RenderSet::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>)
                             .after(prepare_assets::<RenderMesh>),
                         queue_material2d_meshes::<M>
@@ -754,12 +754,20 @@ pub fn queue_material2d_meshes<M: Material2d>(
         };
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh2d>() {
-            let Some(pipeline_id) = specialized_material_pipeline_cache
+            let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
                 .get(&(*view_entity, *visible_entity))
-                .map(|(_, pipeline_id)| *pipeline_id)
+                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
             else {
                 continue;
             };
+
+            // Skip the entity if it's cached in a bin and up to date.
+            if opaque_phase.validate_cached_entity(*visible_entity, current_change_tick)
+                || alpha_mask_phase.validate_cached_entity(*visible_entity, current_change_tick)
+            {
+                continue;
+            }
+
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -802,6 +810,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         bin_key,
                         (*render_entity, *visible_entity),
                         binned_render_phase_type,
+                        current_change_tick,
                     );
                 }
                 AlphaMode2d::Mask(_) => {
@@ -818,6 +827,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         bin_key,
                         (*render_entity, *visible_entity),
                         binned_render_phase_type,
+                        current_change_tick,
                     );
                 }
                 AlphaMode2d::Blend => {

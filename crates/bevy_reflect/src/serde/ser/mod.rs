@@ -21,7 +21,6 @@ mod tuples;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect,
         serde::{ReflectSerializer, ReflectSerializerProcessor},
         PartialReflect, Reflect, ReflectSerialize, Struct, TypeRegistry,
     };

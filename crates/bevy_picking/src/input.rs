@@ -14,6 +14,7 @@
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::{
+    mouse::MouseWheel,
     prelude::*,
     touch::{TouchInput, TouchPhase},
     ButtonState,
@@ -154,6 +155,23 @@ pub fn mouse_pick_events(
                     ButtonState::Pressed => PointerAction::Press(button),
                     ButtonState::Released => PointerAction::Release(button),
                 };
+                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
+            }
+            WindowEvent::MouseWheel(event) => {
+                let MouseWheel { unit, x, y, window } = *event;
+
+                let location = Location {
+                    target: match RenderTarget::Window(WindowRef::Entity(window))
+                        .normalize(primary_window.get_single().ok())
+                    {
+                        Some(target) => target,
+                        None => continue,
+                    },
+                    position: *cursor_last,
+                };
+
+                let action = PointerAction::Scroll { x, y, unit };
+
                 pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
             }
             _ => {}

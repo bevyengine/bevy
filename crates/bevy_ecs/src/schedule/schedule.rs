@@ -25,7 +25,6 @@ use thiserror::Error;
 use tracing::info_span;
 
 use crate::{
-    self as bevy_ecs,
     component::{ComponentId, Components, Tick},
     prelude::Component,
     resource::Resource,
@@ -2020,7 +2019,6 @@ mod tests {
     use bevy_ecs_macros::ScheduleLabel;
 
     use crate::{
-        self as bevy_ecs,
         prelude::{Res, Resource},
         schedule::{
             tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,

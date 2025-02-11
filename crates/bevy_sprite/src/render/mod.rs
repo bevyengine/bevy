@@ -102,8 +102,8 @@ impl FromWorld for SpritePipeline {
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 texture.as_image_copy(),
-                &image.data,
-                ImageDataLayout {
+                image.data.as_ref().expect("Image has no data"),
+                TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
                     rows_per_image: None,
