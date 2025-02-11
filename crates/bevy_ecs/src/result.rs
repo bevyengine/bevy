@@ -63,7 +63,7 @@
 //!
 //! # Conveniently returning `Result`
 //!
-//! The [`Unpack`] and [`Assume`] traits can be used to unpack and assume any value into a
+//! The [`Unpack`] and [`Assume`] traits can be used to transform any value into a
 //! [`Result`] that can be handled by Rust's `?` operator. This makes working with fallible systems
 //! more ergonomic.
 //!
