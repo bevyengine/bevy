@@ -1,4 +1,4 @@
-//! Showcases how fallible systems and observers can make use of rust's powerful result handling
+//! Showcases how fallible systems and observers can make use of Rust's powerful result handling
 //! syntax.
 
 use bevy::ecs::world::DeferredWorld;
