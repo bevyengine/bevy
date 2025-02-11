@@ -79,10 +79,10 @@ fn update_bloom_settings(
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
 ) {
-    let bloom = camera.into_inner();
+    let (camera_entity, tonemapping, bloom) = camera.into_inner();
 
     match bloom {
-        (entity, _, Some(mut bloom)) => {
+        Some(mut bloom) => {
             text.0 = "Bloom (Toggle: Space)\n".to_string();
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
             text.push_str(&format!(
@@ -112,7 +112,7 @@ fn update_bloom_settings(
             text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).remove::<Bloom>();
+                commands.entity(camera_entity).remove::<Bloom>();
             }
 
             let dt = time.delta_secs();
@@ -182,24 +182,26 @@ fn update_bloom_settings(
             bloom.scale.x = bloom.scale.x.clamp(0.0, 16.0);
         }
 
-        (entity, _, None) => {
+        None => {
             text.0 = "Bloom: Off (Toggle: Space)\n".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(Bloom::default());
+                commands.entity(camera_entity).insert(Bloom::default());
             }
         }
     }
 
-    text.push_str(&format!("(O) Tonemapper: {:?}\n", bloom.1));
+    text.push_str(&format!("(O) Tonemapping: {:?}\n", tonemapping));
     if keycode.just_pressed(KeyCode::KeyO) {
-        commands.entity(bloom.0).insert(next_tonemap(bloom.1));
+        commands
+            .entity(camera_entity)
+            .insert(next_tonemap(tonemapping));
     }
 }
 
 /// Get the next Tonemapping algorithm
-fn next_tonemap(tonemap: &Tonemapping) -> Tonemapping {
-    match tonemap {
+fn next_tonemap(tonemapping: &Tonemapping) -> Tonemapping {
+    match tonemapping {
         Tonemapping::None => Tonemapping::AcesFitted,
         Tonemapping::AcesFitted => Tonemapping::AgX,
         Tonemapping::AgX => Tonemapping::BlenderFilmic,
