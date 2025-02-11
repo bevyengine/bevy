@@ -453,7 +453,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{self as bevy_ecs, event::Event, observer::Trigger};
+    use crate::{event::Event, observer::Trigger};
 
     #[derive(Event)]
     struct TriggerEvent;
