@@ -28,9 +28,13 @@ struct Atmosphere {
 
 struct AtmosphereSettings {
     transmittance_lut_size: vec2<u32>,
+    _padone: vec2<f32>,
     multiscattering_lut_size: vec2<u32>,
+    _padtwo: vec2<f32>,
     sky_view_lut_size: vec2<u32>,
+    _padthree: vec2<f32>,
     aerial_view_lut_size: vec3<u32>,
+    _padfour: u32,
     transmittance_lut_samples: u32,
     multiscattering_lut_dirs: u32,
     multiscattering_lut_samples: u32,
@@ -38,6 +42,7 @@ struct AtmosphereSettings {
     aerial_view_lut_samples: u32,
     aerial_view_lut_max_distance: f32,
     scene_units_to_m: f32,
+    _padfive: f32,
 }
 
 
