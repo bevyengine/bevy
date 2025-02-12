@@ -24,7 +24,8 @@
 @group(0) @binding(11) var mip_11: texture_storage_2d<r32float, write>;
 @group(0) @binding(12) var mip_12: texture_storage_2d<r32float, write>;
 @group(0) @binding(13) var samplr: sampler;
-var<push_constant> max_mip_level: u32;
+struct Constants { max_mip_level: u32 }
+var<push_constant> constants: Constants;
 
 /// Generates a hierarchical depth buffer.
 /// Based on FidelityFX SPD v2.1 https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/sdk/include/FidelityFX/gpu/spd/ffx_spd.h#L528
@@ -85,7 +86,7 @@ fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
     v[3] = reduce_load_mip_0(tex);
     textureStore(mip_1, pix, vec4(v[3]));
 
-    if max_mip_level <= 1u { return; }
+    if constants.max_mip_level <= 1u { return; }
 
     for (var i = 0u; i < 4u; i++) {
         intermediate_memory[x][y] = v[i];
@@ -115,19 +116,19 @@ fn downsample_mips_0_and_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
 }
 
 fn downsample_mips_2_to_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32) {
-    if max_mip_level <= 2u { return; }
+    if constants.max_mip_level <= 2u { return; }
     workgroupBarrier();
     downsample_mip_2(x, y, workgroup_id, local_invocation_index);
 
-    if max_mip_level <= 3u { return; }
+    if constants.max_mip_level <= 3u { return; }
     workgroupBarrier();
     downsample_mip_3(x, y, workgroup_id, local_invocation_index);
 
-    if max_mip_level <= 4u { return; }
+    if constants.max_mip_level <= 4u { return; }
     workgroupBarrier();
     downsample_mip_4(x, y, workgroup_id, local_invocation_index);
 
-    if max_mip_level <= 5u { return; }
+    if constants.max_mip_level <= 5u { return; }
     workgroupBarrier();
     downsample_mip_5(workgroup_id, local_invocation_index);
 }
@@ -206,7 +207,7 @@ fn downsample_mips_6_and_7(x: u32, y: u32) {
     v[3] = reduce_load_mip_6(tex);
     textureStore(mip_7, pix, vec4(v[3]));
 
-    if max_mip_level <= 7u { return; }
+    if constants.max_mip_level <= 7u { return; }
 
     let vr = reduce_4(v);
     textureStore(mip_8, vec2(x, y), vec4(vr));
@@ -214,19 +215,19 @@ fn downsample_mips_6_and_7(x: u32, y: u32) {
 }
 
 fn downsample_mips_8_to_11(x: u32, y: u32, local_invocation_index: u32) {
-    if max_mip_level <= 8u { return; }
+    if constants.max_mip_level <= 8u { return; }
     workgroupBarrier();
     downsample_mip_8(x, y, local_invocation_index);
 
-    if max_mip_level <= 9u { return; }
+    if constants.max_mip_level <= 9u { return; }
     workgroupBarrier();
     downsample_mip_9(x, y, local_invocation_index);
 
-    if max_mip_level <= 10u { return; }
+    if constants.max_mip_level <= 10u { return; }
     workgroupBarrier();
     downsample_mip_10(x, y, local_invocation_index);
 
-    if max_mip_level <= 11u { return; }
+    if constants.max_mip_level <= 11u { return; }
     workgroupBarrier();
     downsample_mip_11(local_invocation_index);
 }
