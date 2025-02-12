@@ -832,6 +832,15 @@ impl<'w, T: ?Sized> Ref<'w, T> {
             changed_by: caller,
         }
     }
+
+    /// Overwrite the `last_run` and `this_run` tick that are used for change detection.
+    ///
+    /// This is an advanced feature. `Ref`s are usually _created_ by engine-internal code and
+    /// _consumed_ by end-user code.
+    pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
+        self.ticks.last_run = last_run;
+        self.ticks.this_run = this_run;
+    }
 }
 
 impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
@@ -948,6 +957,15 @@ impl<'w, T: ?Sized> Mut<'w, T> {
             },
             changed_by: caller,
         }
+    }
+
+    /// Overwrite the `last_run` and `this_run` tick that are used for change detection.
+    ///
+    /// This is an advanced feature. `Mut`s are usually _created_ by engine-internal code and
+    /// _consumed_ by end-user code.
+    pub fn set_ticks(&mut self, last_run: Tick, this_run: Tick) {
+        self.ticks.last_run = last_run;
+        self.ticks.this_run = this_run;
     }
 }
 

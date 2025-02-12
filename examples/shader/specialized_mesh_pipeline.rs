@@ -425,6 +425,7 @@ fn queue_custom_mesh_pipeline(
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
                 (render_entity, visible_entity),
+                mesh_instance.current_uniform_index,
                 // This example supports batching, but if your pipeline doesn't
                 // support it you can use `BinnedRenderPhaseType::UnbatchableMesh`
                 BinnedRenderPhaseType::BatchableMesh,
