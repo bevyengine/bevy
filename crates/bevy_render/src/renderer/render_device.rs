@@ -102,9 +102,7 @@ impl RenderDevice {
                 if self
                     .features()
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
-            {
-                self.create_shader_module(desc)
-            }
+            unsafe { self.create_shader_module(desc) },
             _ => self.device.create_shader_module(desc),
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
