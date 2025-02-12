@@ -209,6 +209,7 @@
     .bevy-trait-icon-container {
         display: inline-block;
         min-width: 1.1rem;
+        margin-right: 0.2rem;
     }
 
     .bevy-trait-icon {
@@ -216,7 +217,7 @@
         text-align: center;
         line-height: 100%;
 
-        background-color: var(--tag-color);
+        background-color: oklch(from var(--tag-color) l 45% h);
         color: white;
         font-size: 1rem;
         font-weight: bolder;
