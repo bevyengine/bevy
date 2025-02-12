@@ -3,6 +3,7 @@
 use core::{any::TypeId, marker::PhantomData, mem};
 
 use bevy_app::{App, Plugin};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
     query::{Has, With},
@@ -756,12 +757,13 @@ pub struct IndirectBatchSet {
 /// pass can determine how many meshes are actually to be drawn.
 ///
 /// These buffers will remain empty if indirect drawing isn't in use.
-#[derive(Resource)]
+#[derive(Resource, Deref, DerefMut)]
 pub struct IndirectParametersBuffers {
     /// A mapping from a phase type ID to the indirect parameters buffers for
     /// that phase.
     ///
     /// Examples of phase type IDs are `Opaque3d` and `AlphaMask3d`.
+    #[deref]
     pub buffers: TypeIdMap<UntypedPhaseIndirectParametersBuffers>,
     /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
     /// that they can be read back to CPU.
@@ -1875,8 +1877,8 @@ pub fn collect_buffers_for_phase<PI, GFBD>(
             indirect_parameters_buffers.allow_copies_from_indirect_parameter_buffers,
         ),
     );
-    if let Some(mut old_untyped_phase_indirect_parameters_buffers) =
-        indirect_parameters_buffers.buffers.insert(
+    if let Some(mut old_untyped_phase_indirect_parameters_buffers) = indirect_parameters_buffers
+        .insert(
             TypeId::of::<PI>(),
             untyped_phase_indirect_parameters_buffers,
         )
@@ -1955,7 +1957,7 @@ pub fn write_batched_instance_buffers<GFBD>(
 pub fn clear_indirect_parameters_buffers(
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
 ) {
-    for phase_indirect_parameters_buffers in indirect_parameters_buffers.buffers.values_mut() {
+    for phase_indirect_parameters_buffers in indirect_parameters_buffers.values_mut() {
         phase_indirect_parameters_buffers.clear();
     }
 }
@@ -1965,7 +1967,7 @@ pub fn write_indirect_parameters_buffers(
     render_queue: Res<RenderQueue>,
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
 ) {
-    for phase_indirect_parameters_buffers in indirect_parameters_buffers.buffers.values_mut() {
+    for phase_indirect_parameters_buffers in indirect_parameters_buffers.values_mut() {
         phase_indirect_parameters_buffers
             .indexed_data
             .write_buffer(&render_device);

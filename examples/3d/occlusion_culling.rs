@@ -434,9 +434,8 @@ impl render_graph::Node for ReadbackIndirectParametersNode {
 
         // Get the indirect parameters buffers corresponding to the opaque 3D
         // phase, since all our meshes are in that phase.
-        let Some(phase_indirect_parameters_buffers) = indirect_parameters_buffers
-            .buffers
-            .get(&TypeId::of::<Opaque3d>())
+        let Some(phase_indirect_parameters_buffers) =
+            indirect_parameters_buffers.get(&TypeId::of::<Opaque3d>())
         else {
             return Ok(());
         };
@@ -494,9 +493,8 @@ fn create_indirect_parameters_staging_buffers(
     indirect_parameters_buffers: Res<IndirectParametersBuffers>,
     render_device: Res<RenderDevice>,
 ) {
-    let Some(phase_indirect_parameters_buffers) = indirect_parameters_buffers
-        .buffers
-        .get(&TypeId::of::<Opaque3d>())
+    let Some(phase_indirect_parameters_buffers) =
+        indirect_parameters_buffers.get(&TypeId::of::<Opaque3d>())
     else {
         return;
     };

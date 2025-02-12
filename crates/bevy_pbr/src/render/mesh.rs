@@ -3077,7 +3077,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         // the buffer we're going to use for
                         // `multi_draw_indexed_indirect_count` (if available).
                         let Some(phase_indirect_parameters_buffers) =
-                            indirect_parameters_buffer.buffers.get(&TypeId::of::<P>())
+                            indirect_parameters_buffer.get(&TypeId::of::<P>())
                         else {
                             warn!(
                                 "Not rendering mesh because indexed indirect parameters buffer \
@@ -3143,7 +3143,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                     // buffer we're going to use for
                     // `multi_draw_indirect_count` (if available).
                     let Some(phase_indirect_parameters_buffers) =
-                        indirect_parameters_buffer.buffers.get(&TypeId::of::<P>())
+                        indirect_parameters_buffer.get(&TypeId::of::<P>())
                     else {
                         warn!(
                             "Not rendering mesh because indexed indirect parameters buffer \

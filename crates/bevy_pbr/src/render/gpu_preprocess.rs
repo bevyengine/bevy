@@ -1060,7 +1060,7 @@ fn run_build_indirect_parameters_node(
         build_indirect_params_bind_groups.iter()
     {
         let Some(phase_indirect_parameters_buffers) =
-            indirect_parameters_buffers.buffers.get(phase_type_id)
+            indirect_parameters_buffers.get(phase_type_id)
         else {
             continue;
         };
@@ -1709,7 +1709,7 @@ pub fn prepare_preprocess_bind_groups(
 
             // Grab the indirect parameters buffers for this phase.
             let Some(phase_indirect_parameters_buffers) =
-                indirect_parameters_buffers.buffers.get(phase_type_id)
+                indirect_parameters_buffers.get(phase_type_id)
             else {
                 continue;
             };
@@ -2403,7 +2403,7 @@ fn create_build_indirect_parameters_bind_groups(
 ) {
     let mut build_indirect_parameters_bind_groups = BuildIndirectParametersBindGroups::new();
 
-    for (phase_type_id, phase_indirect_parameters_buffer) in &indirect_parameters_buffers.buffers {
+    for (phase_type_id, phase_indirect_parameters_buffer) in indirect_parameters_buffers.iter() {
         build_indirect_parameters_bind_groups.insert(
             *phase_type_id,
             PhaseBuildIndirectParametersBindGroups {
