@@ -1,6 +1,5 @@
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
-use bevy_ecs::entity;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;

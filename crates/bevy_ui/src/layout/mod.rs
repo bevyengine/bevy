@@ -6,7 +6,7 @@ use crate::{
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
-    hierarchy::{ChildOf, Children},
+    hierarchy::Children,
     query::{With, Without},
     removal_detection::RemovedComponents,
     system::{Commands, Query, ResMut},
@@ -72,7 +72,7 @@ pub enum LayoutError {
 pub fn ui_layout_system(
     mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
-    ui_root_node_query: Query<Entity, Without<ChildOf>>,
+    ui_root_node_query: Query<Entity, (Without<ResolvedChildOf>, With<Node>)>,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
