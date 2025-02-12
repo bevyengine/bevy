@@ -131,8 +131,7 @@
     if (info_node) {
         const info = JSON.parse(info_node.innerText);
 
-        // For item listings in modules, sort the items by implemented Bevy
-        // traits and add corresponding tags.
+        // For item listings in modules, add corresponding tags.
         for (const kind of ['structs', 'enums', 'functions']) {
             // Find the listing
             let heading = document.getElementById(kind);
@@ -158,7 +157,7 @@
 
     // Sort the items in the DOM and apply tags
     function applyTagsToItems(items) {
-        for (const item of items.toSorted(compareByTraits)) {
+        for (const item of items) {
             const listing = item.element.parentElement;
             const description = item.element.nextSibling;
 
@@ -173,19 +172,6 @@
                 }
             }
         }
-    }
-
-    function compareByTraits(a, b) {
-        // Sorting must still work when an item impls multiple traits
-        for (const trait of bevyTraits) {
-            if (a.traits.has(trait) & !b.traits.has(trait)) {
-                return -1;
-            }
-            if (b.traits.has(trait) & !a.traits.has(trait)) {
-                return 1;
-            }
-        }
-        return 0;
     }
 
     function createBevyTraitIcon(tagName, href) {
