@@ -81,6 +81,11 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
                 .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
+        // Use dense iteration if possible, but fall back to sparse if we need to.
+        // Both `D` and `F` must allow dense iteration, just as for queries without dynamic filters.
+        // All `with` and `without` filters must be dense to ensure that we match all archetypes in a table.
+        // Note that `builder.data::<&Sparse>()` will add a filter and force sparse iteration,
+        // while `builder.data::<Option<&Sparse>>()` will not!
         D::IS_DENSE
             && F::IS_DENSE
             && self.access.with_filters().all(is_dense)

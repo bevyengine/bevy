@@ -645,11 +645,19 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             core::any::type_name::<(NewD, NewF)>(), core::any::type_name::<(D, F)>()
         );
 
+        // For transmuted queries, the dense-ness of the query is equal to the dense-ness of the original query.
+        // The check for `required` in `component_access.is_subset()` should ensure that this is always sound:
+        // Any `WorldQuery` implementations that rely on a query being sparse for soundness,
+        // including `&`, `&mut`, `Ref`, and `Mut`, will add a sparse component to the `required` set.
+        // If the original query has the component in the `required` set, then it must also have been sparse.
+        // That's even true for dynamic queries, since any `required` component will appear in the filters.
+        let is_dense = self.is_dense;
+
         QueryState {
             world_id: self.world_id,
             archetype_generation: self.archetype_generation,
             matched_storage_ids: self.matched_storage_ids.clone(),
-            is_dense: self.is_dense,
+            is_dense,
             fetch_state,
             filter_state,
             component_access: self.component_access.clone(),
