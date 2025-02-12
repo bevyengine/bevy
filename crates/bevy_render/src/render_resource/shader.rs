@@ -41,7 +41,7 @@ pub struct Shader {
     // we must store strong handles to our dependencies to stop them
     // from being immediately dropped if we are the only user.
     pub file_dependencies: Vec<Handle<Shader>>,
-    pub validate_shaders: ValidateShaders,
+    pub validate_shader: ValidateShaders,
 }
 
 impl Shader {
@@ -84,7 +84,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
-            validate_shaders: ValidateShaders::Disabled,
+            validate_shader: ValidateShaders::Disabled,
         }
     }
 
@@ -115,7 +115,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
-            validate_shaders: ValidateShaders::Disabled,
+            validate_shader: ValidateShaders::Disabled,
         }
     }
 
@@ -129,7 +129,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
-            validate_shaders: ValidateShaders::Disabled,
+            validate_shader: ValidateShaders::Disabled,
         }
     }
 
