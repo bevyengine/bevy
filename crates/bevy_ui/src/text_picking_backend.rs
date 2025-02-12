@@ -3,19 +3,16 @@ use bevy_ecs::{
     observer::Trigger,
     system::{Commands, Query},
 };
-use bevy_picking::{
-    backend::HitData,
-    events::{
-        Cancel, Click, DragDrop, DragEnter, DragLeave, DragOver, DragStart, Move, Out, Over,
-        Pointer, Pressed, Released,
-    },
+use bevy_picking::events::{
+    Cancel, Click, DragDrop, DragEnter, DragLeave, DragOver, DragStart, Move, Out, Over, Pointer,
+    Pressed, Released,
 };
-use bevy_reflect::Reflect;
-use bevy_text::{text_pointer::TextPointer, ComputedTextBlock, TextLayoutInfo};
+use bevy_text::{
+    text_pointer::{HasHit, TextPointer},
+    ComputedTextBlock, TextLayoutInfo,
+};
 
 use crate::ComputedNode;
-
-// TODO: differentiate drag events, just reemit as a text event :)
 
 pub(crate) fn plugin(app: &mut App) {
     app.add_observer(get_and_emit_text_hits::<Cancel>)
@@ -32,73 +29,9 @@ pub(crate) fn plugin(app: &mut App) {
         .add_observer(get_and_emit_text_hits::<Released>);
 
     // TODO: investigate whether hit data can be added here
+    // + investigate if drag events are ever useful?
     // .add_observer(get_and_emit_text_hits::<DragEnd>)
     // .add_observer(get_and_emit_text_hits::<Drag>)
-}
-
-pub trait HasHit: Clone + Reflect + std::fmt::Debug {
-    fn hit(&self) -> &HitData;
-}
-
-impl HasHit for Cancel {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for Click {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for Pressed {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for DragDrop {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for DragEnter {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for DragLeave {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for DragOver {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for DragStart {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for Move {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for Out {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for Over {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
-}
-impl HasHit for Released {
-    fn hit(&self) -> &HitData {
-        &self.hit
-    }
 }
 
 /// Takes UI pointer hits and re-emits them as `TextPointer` triggers.

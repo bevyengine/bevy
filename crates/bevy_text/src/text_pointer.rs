@@ -1,3 +1,5 @@
+//! Common types used for text picking.
+
 use bevy_app::App;
 use bevy_ecs::{
     entity::{Entity, EntityBorrow},
@@ -6,9 +8,12 @@ use bevy_ecs::{
     query::QueryData,
     traversal::Traversal,
 };
-use bevy_picking::events::{
-    Cancel, Click, Drag, DragDrop, DragEnd, DragEnter, DragLeave, DragOver, DragStart, Move, Out,
-    Over, Pointer, Pressed, Released,
+use bevy_picking::{
+    backend::HitData,
+    events::{
+        Cancel, Click, Drag, DragDrop, DragEnd, DragEnter, DragLeave, DragOver, DragStart, Move,
+        Out, Over, Pointer, Pressed, Released,
+    },
 };
 use bevy_reflect::Reflect;
 use bevy_render::camera::NormalizedRenderTarget;
@@ -34,10 +39,14 @@ pub(crate) fn plugin(app: &mut App) {
         .add_event::<TextPointer<Released>>();
 }
 
+/// Text-specific pointer event.
 #[derive(Debug, Clone)]
 pub struct TextPointer<E: Clone + Reflect + std::fmt::Debug> {
+    /// The picked location in text.
     pub cursor: Cursor,
+    /// The `PositionedGlyph` the the picked location in text.
     pub glyph: PositionedGlyph,
+    /// The original `Pointer` event that triggered the `TextPointer` event.
     pub event: Pointer<E>,
 }
 
@@ -81,5 +90,72 @@ where
         }
 
         None
+    }
+}
+
+/// Pointer event shared trait where `HitData` exists.
+pub trait HasHit: Clone + Reflect + std::fmt::Debug {
+    /// Provides access to the event's `HitData`.
+    fn hit(&self) -> &HitData;
+}
+
+impl HasHit for Cancel {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for Click {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for Pressed {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for DragDrop {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for DragEnter {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for DragLeave {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for DragOver {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for DragStart {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for Move {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for Out {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for Over {
+    fn hit(&self) -> &HitData {
+        &self.hit
+    }
+}
+impl HasHit for Released {
+    fn hit(&self) -> &HitData {
+        &self.hit
     }
 }

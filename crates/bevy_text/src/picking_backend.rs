@@ -7,7 +7,7 @@ use bevy_ecs::{
     entity::Entity, event::EventWriter, query::With, resource::Resource,
     schedule::IntoSystemConfigs, system::Query,
 };
-use bevy_math::{FloatExt, Rect, Vec2, Vec3Swizzles};
+use bevy_math::{FloatExt, Ray3d, Rect, Vec2, Vec3, Vec3Swizzles};
 use bevy_picking::Pickable;
 use bevy_picking::{
     backend::{HitData, PointerHits},
@@ -16,7 +16,7 @@ use bevy_picking::{
 };
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_render::camera::{Camera, Projection};
+use bevy_render::camera::{Camera, OrthographicProjection, Projection};
 use bevy_render::view::ViewVisibility;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::PrimaryWindow;
@@ -109,17 +109,11 @@ fn text2d_picking(
             continue;
         };
 
-        let viewport_pos = camera
-            .logical_viewport_rect()
-            .map(|v| v.min)
-            .unwrap_or_default();
-        let pos_in_viewport = location.position - viewport_pos;
-
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
+        let Some((cursor_ray_world, cursor_ray_end)) =
+            rays_from_cursor_camera(location.position, camera, cam_transform, cam_ortho)
+        else {
             continue;
         };
-        let cursor_ray_len = cam_ortho.far - cam_ortho.near;
-        let cursor_ray_end = cursor_ray_world.origin + cursor_ray_world.direction * cursor_ray_len;
 
         let picks: Vec<(Entity, HitData)> = sorted_texts
             .iter()
@@ -128,32 +122,13 @@ fn text2d_picking(
                     if blocked {
                         return None;
                     }
-                    //
-                    // Transform cursor line segment to text coordinate system
-                    let world_to_text = text_transform.affine().inverse();
-                    let cursor_start_text = world_to_text.transform_point3(cursor_ray_world.origin);
-                    let cursor_end_text = world_to_text.transform_point3(cursor_ray_end);
 
-                    // Find where the cursor segment intersects the plane Z=0 (which is the text's
-                    // plane in local space). It may not intersect if, for example, we're
-                    // viewing the text side-on
-                    if cursor_start_text.z == cursor_end_text.z {
-                        // Cursor ray is parallel to the text and misses it
+                    // Transform cursor line segment to local coordinate system
+                    let Some(relative_cursor_pos) =
+                        get_relative_cursor_pos(&text_transform, cursor_ray_world, cursor_ray_end)
+                    else {
                         return None;
-                    }
-                    let lerp_factor =
-                        f32::inverse_lerp(cursor_start_text.z, cursor_end_text.z, 0.0);
-                    if !(0.0..=1.0).contains(&lerp_factor) {
-                        // Lerp factor is out of range, meaning that while an infinite line cast by
-                        // the cursor would intersect the text, the text is not between the
-                        // camera's near and far planes
-                        return None;
-                    }
-
-                    // Otherwise we can interpolate the xy of the start and end positions by the
-                    // lerp factor to get the cursor position in local space
-                    let relative_cursor_pos =
-                        cursor_start_text.lerp(cursor_end_text, lerp_factor).xy();
+                    };
 
                     // Find target rect, check cursor is contained inside
                     let size = Vec2::new(
@@ -162,7 +137,6 @@ fn text2d_picking(
                     );
 
                     let text_rect = Rect::from_corners(-size / 2.0, size / 2.0);
-
                     if !text_rect.contains(relative_cursor_pos) {
                         return None;
                     }
@@ -195,4 +169,55 @@ fn text2d_picking(
         let order = camera.order as f32;
         output.send(PointerHits::new(*pointer, picks, order));
     }
+}
+
+// TODO: find a better home for this helper
+pub fn get_relative_cursor_pos(
+    transform: &GlobalTransform,
+    world_ray: Ray3d,
+    end_ray: Vec3,
+) -> Option<Vec2> {
+    // Transform cursor line segment to target's local coordinate system
+    let world_to_target = transform.affine().inverse();
+    let cursor_start = world_to_target.transform_point3(world_ray.origin);
+    let cursor_end = world_to_target.transform_point3(end_ray);
+
+    // Find where the cursor segment intersects the plane Z=0 (which is the target's
+    // plane in local space). It may not intersect if, for example, we're
+    // viewing the target side-on
+    if cursor_start.z == cursor_end.z {
+        // Cursor ray is parallel to the text and misses it
+        return None;
+    }
+    let lerp_factor = f32::inverse_lerp(cursor_start.z, cursor_end.z, 0.0);
+    if !(0.0..=1.0).contains(&lerp_factor) {
+        // Lerp factor is out of range, meaning that while an infinite line cast by
+        // the cursor would intersect the target, the target is not between the
+        // camera's near and far planes
+        return None;
+    }
+
+    // Otherwise we can interpolate the xy of the start and end positions by the
+    // lerp factor to get the cursor position in local space
+    Some(cursor_start.lerp(cursor_end, lerp_factor).xy())
+}
+
+pub fn rays_from_cursor_camera(
+    cursor: Vec2,
+    camera: &Camera,
+    cam_transform: &GlobalTransform,
+    projection: &OrthographicProjection,
+) -> Option<(Ray3d, Vec3)> {
+    let viewport_pos = camera
+        .logical_viewport_rect()
+        .map(|v| v.min)
+        .unwrap_or_default();
+    let pos_in_viewport = cursor - viewport_pos;
+
+    let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
+        return None;
+    };
+    let cursor_ray_len = projection.far - projection.near;
+    let cursor_ray_end = cursor_ray_world.origin + cursor_ray_world.direction * cursor_ray_len;
+    Some((cursor_ray_world, cursor_ray_end))
 }
