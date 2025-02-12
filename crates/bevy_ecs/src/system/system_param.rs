@@ -31,6 +31,8 @@ use core::{
 use disqualified::ShortName;
 
 use super::Populated;
+use crate::system::const_param_checking::ComponentAccess;
+use bevy_ecs::system::const_param_checking::ComponentAccessTree;
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// A parameter that can be used in a [`System`](super::System).
@@ -192,6 +194,12 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of [`SystemParam::Item<'w, 's>`] as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
+    const COMPONENT_ACCESS_TREE: ComponentAccessTree = ComponentAccessTree {
+        this: ComponentAccess::Ignore,
+        left: None,
+        right: None,
+    };
+
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
@@ -308,6 +316,8 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
     type State = QueryState<D, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
+
+    const COMPONENT_ACCESS_TREE: ComponentAccessTree = D::COMPONENT_ACCESS_TREE_QUERY_DATA;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);

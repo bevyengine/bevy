@@ -386,6 +386,8 @@ pub trait Component: Send + Sync + 'static {
     /// A constant indicating the storage type used for this component.
     const STORAGE_TYPE: StorageType;
 
+    /// A u128 randomly generated that is consistent per component type or 0 if it isn't derived automatically and can be used to differentiate them in const contexts.
+    const UNSTABLE_TYPE_ID: u128;
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
     /// while immutable components will instead have [`Component<Mutability = Immutable>`].

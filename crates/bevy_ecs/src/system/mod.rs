@@ -123,6 +123,7 @@ mod adapter_system;
 mod builder;
 mod combinator;
 mod commands;
+pub mod const_param_checking;
 mod exclusive_function_system;
 mod exclusive_system_param;
 mod function_system;

@@ -1,3 +1,4 @@
+use crate::system::const_param_checking::{AccessTreeContainer, ComponentAccess, ComponentAccessTree};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
@@ -283,6 +284,12 @@ pub unsafe trait QueryData: WorldQuery {
     /// This will be the data retrieved by the query,
     /// and is visible to the end user when calling e.g. `Query<Self>::get`.
     type Item<'a>;
+
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = ComponentAccessTree {
+        this: ComponentAccess::Ignore,
+        left: None,
+        right: None,
+    };
 
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
@@ -1203,9 +1210,14 @@ unsafe impl<T: Component> WorldQuery for &T {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<T: Component> QueryData for &T {
+unsafe impl<T: Component> QueryData for &T
+where
+    for<'a> &'a T: crate::system::const_param_checking::AccessTreeContainer,
+{
     type ReadOnly = Self;
     type Item<'w> = &'w T;
+
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = Self::COMPONENT_ACCESS_TREE;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
@@ -1568,9 +1580,14 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T
+where
+    for<'a> &'a mut T: crate::system::const_param_checking::AccessTreeContainer,
+{
     type ReadOnly = &'__w T;
     type Item<'w> = Mut<'w, T>;
+
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = Self::COMPONENT_ACCESS_TREE;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
         item
@@ -1710,7 +1727,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
+where
+    for<'a> &'a mut T: crate::system::const_param_checking::AccessTreeContainer,
+{
     type ReadOnly = Ref<'__w, T>;
     type Item<'w> = Mut<'w, T>;
 
@@ -2052,6 +2072,8 @@ macro_rules! impl_tuple_query_data {
             type ReadOnly = ($($name::ReadOnly,)*);
             type Item<'w> = ($($name::Item<'w>,)*);
 
+            const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = impl_tuple_query_data!(@tree $($name),*);
+
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 let ($($name,)*) = item;
                 ($(
@@ -2075,6 +2097,36 @@ macro_rules! impl_tuple_query_data {
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
+    };
+
+    // Handle empty case
+    (@tree) => {
+        ComponentAccessTree {
+            this: ComponentAccess::Ignore,
+            left: None,
+            right: None,
+        }
+    };
+    // Handle single item case
+    (@tree $t0:ident) => {
+        $t0::COMPONENT_ACCESS_TREE_QUERY_DATA
+    };
+    // Handle two item case
+    (@tree $t0:ident, $t1:ident) => {
+        ComponentAccessTree::combine(
+            &$t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            &$t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+        )
+    };
+    // Handle three or more items case
+    (@tree $t0:ident, $t1:ident, $($rest:ident),+) => {
+        ComponentAccessTree::combine(
+            &$t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            &ComponentAccessTree::combine(
+                &$t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+                &impl_tuple_query_data!(@tree $($rest),+)
+            )
+        )
     };
 }
 

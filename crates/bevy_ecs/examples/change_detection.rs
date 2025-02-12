@@ -29,6 +29,7 @@ fn main() {
     // We can label our systems to force a specific run-order between some of them
     schedule.add_systems((
         spawn_entities.in_set(SimulationSet::Spawn),
+        test.in_set(SimulationSet::Spawn),
         print_counter_when_changed.after(SimulationSet::Spawn),
         age_all_entities.in_set(SimulationSet::Age),
         remove_old_entities.after(SimulationSet::Age),
@@ -88,6 +89,13 @@ fn print_changed_entities(
     for (entity, value) in &entity_with_mutated_component {
         println!("    {entity} is now {value:?} frames old");
     }
+}
+
+#[derive(Component)]
+pub struct Awa;
+
+fn test(query1: Query<(&Age, (&Awa, &Age))>) {
+
 }
 
 // This system iterates over all entities and increases their age in every frame
