@@ -156,6 +156,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 ///
 /// This struct is created by the [`Query::par_iter_many`] method.
 ///
+/// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
 pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityBorrow> {
     pub(crate) world: UnsafeWorldCell<'w>,
@@ -296,6 +297,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
 ///
 /// This struct is created by the [`Query::par_iter_many_unique`] and [`Query::par_iter_many_unique_mut`] methods.
 ///
+/// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
 pub struct QueryParManyUniqueIter<
