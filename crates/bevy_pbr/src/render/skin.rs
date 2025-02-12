@@ -53,7 +53,7 @@ const JOINTS_PER_ALLOCATION_UNIT: u32 = (256 / size_of::<Mat4>()) as u32;
 const JOINT_EXTRACTION_THRESHOLD_FACTOR: f64 = 0.25;
 
 /// The location of the first joint matrix in the skin uniform buffer.
-#[derive(Component, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct SkinByteOffset {
     /// The byte offset of the first joint matrix.
     pub byte_offset: u32,
