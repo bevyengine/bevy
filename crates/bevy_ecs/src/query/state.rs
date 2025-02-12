@@ -1914,7 +1914,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                 let init_accum = init_accum.clone();
                 scope.spawn(async move {
                     #[cfg(feature = "trace")]
-                    let _span = self.par_many_iter_span.enter();
+                    let _span = self.par_iter_span.enter();
                     let accum = init_accum();
                     self.iter_many_unique_unchecked_manual(batch, world, last_run, this_run)
                         .fold(accum, &mut func);
@@ -1922,7 +1922,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             }
 
             #[cfg(feature = "trace")]
-            let _span = self.par_many_iter_span.enter();
+            let _span = self.par_iter_span.enter();
             let accum = init_accum();
             self.iter_many_unique_unchecked_manual(&entity_list[rem..], world, last_run, this_run)
                 .fold(accum, &mut func);
@@ -1974,7 +1974,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
                 let init_accum = init_accum.clone();
                 scope.spawn(async move {
                     #[cfg(feature = "trace")]
-                    let _span = self.par_many_iter_span.enter();
+                    let _span = self.par_iter_span.enter();
                     let accum = init_accum();
                     self.iter_many_unchecked_manual(batch, world, last_run, this_run)
                         .fold(accum, &mut func);
@@ -1982,7 +1982,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
             }
 
             #[cfg(feature = "trace")]
-            let _span = self.par_many_iter_span.enter();
+            let _span = self.par_iter_span.enter();
             let accum = init_accum();
             self.iter_many_unchecked_manual(&entity_list[rem..], world, last_run, this_run)
                 .fold(accum, &mut func);
