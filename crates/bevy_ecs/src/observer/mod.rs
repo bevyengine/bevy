@@ -8,6 +8,7 @@ pub use runner::*;
 
 use crate::{
     archetype::ArchetypeFlags,
+    change_detection::MaybeLocation,
     component::ComponentId,
     entity::hash_map::EntityHashMap,
     prelude::*,
@@ -23,9 +24,6 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use smallvec::SmallVec;
-
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
 /// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
@@ -143,8 +141,7 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     }
 
     /// Returns the source code location that triggered this observer.
-    #[cfg(feature = "track_location")]
-    pub fn caller(&self) -> &'static Location<'static> {
+    pub fn caller(&self) -> MaybeLocation {
         self.trigger.caller
     }
 }
@@ -335,10 +332,8 @@ pub struct ObserverTrigger {
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
     pub target: Entity,
-
     /// The location of the source code that triggered the obserer.
-    #[cfg(feature = "track_location")]
-    pub caller: &'static Location<'static>,
+    pub caller: MaybeLocation,
 }
 
 impl ObserverTrigger {
@@ -415,7 +410,7 @@ impl Observers {
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
@@ -440,7 +435,6 @@ impl Observers {
                     event_type,
                     components: components.clone().collect(),
                     target,
-                    #[cfg(feature = "track_location")]
                     caller,
                 },
                 data.into(),
@@ -565,28 +559,14 @@ impl World {
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     #[track_caller]
     pub fn trigger<E: Event>(&mut self, event: E) {
-        self.trigger_with_caller(
-            event,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        );
+        self.trigger_with_caller(event, MaybeLocation::caller());
     }
 
-    pub(crate) fn trigger_with_caller<E: Event>(
-        &mut self,
-        mut event: E,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) {
+    pub(crate) fn trigger_with_caller<E: Event>(&mut self, mut event: E, caller: MaybeLocation) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(
-                event_id,
-                &mut event,
-                (),
-                #[cfg(feature = "track_location")]
-                caller,
-            );
+            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, (), caller);
         }
     }
 
@@ -608,30 +588,19 @@ impl World {
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
     #[track_caller]
     pub fn trigger_targets<E: Event>(&mut self, event: E, targets: impl TriggerTargets) {
-        self.trigger_targets_with_caller(
-            event,
-            targets,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        );
+        self.trigger_targets_with_caller(event, targets, MaybeLocation::caller());
     }
 
     pub(crate) fn trigger_targets_with_caller<E: Event>(
         &mut self,
         mut event: E,
         targets: impl TriggerTargets,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
         unsafe {
-            self.trigger_targets_dynamic_ref_with_caller(
-                event_id,
-                &mut event,
-                targets,
-                #[cfg(feature = "track_location")]
-                caller,
-            );
+            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, targets, caller);
         }
     }
 
@@ -689,8 +658,7 @@ impl World {
             event_id,
             event_data,
             targets,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
+            MaybeLocation::caller(),
         );
     }
 
@@ -702,7 +670,7 @@ impl World {
         event_id: ComponentId,
         event_data: &mut E,
         targets: Targets,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
+        caller: MaybeLocation,
     ) {
         let mut world = DeferredWorld::from(self);
         if targets.entities().is_empty() {
@@ -714,7 +682,6 @@ impl World {
                     targets.components(),
                     event_data,
                     false,
-                    #[cfg(feature = "track_location")]
                     caller,
                 );
             };
@@ -728,7 +695,6 @@ impl World {
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,
-                        #[cfg(feature = "track_location")]
                         caller,
                     );
                 };
@@ -858,14 +824,13 @@ impl World {
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
-    #[cfg(feature = "track_location")]
-    use core::panic::Location;
 
     use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
     use crate::component::ComponentId;
     use crate::{
+        change_detection::MaybeLocation,
         observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
         prelude::*,
         traversal::Traversal,
@@ -1615,13 +1580,12 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "track_location")]
     #[track_caller]
     fn observer_caller_location_event() {
         #[derive(Event)]
         struct EventA;
 
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         let mut world = World::new();
         world.add_observer(move |trigger: Trigger<EventA>| {
             assert_eq!(trigger.caller(), caller);
@@ -1630,13 +1594,12 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "track_location")]
     #[track_caller]
     fn observer_caller_location_command_archetype_move() {
         #[derive(Component)]
         struct Component;
 
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         let mut world = World::new();
         world.add_observer(move |trigger: Trigger<OnAdd, Component>| {
             assert_eq!(trigger.caller(), caller);

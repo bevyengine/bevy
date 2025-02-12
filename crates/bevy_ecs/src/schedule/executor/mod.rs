@@ -18,7 +18,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
-    result::Result,
+    result::{Error, Result, SystemErrorContext},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -33,6 +33,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         schedule: &mut SystemSchedule,
         world: &mut World,
         skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(Error, SystemErrorContext),
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }

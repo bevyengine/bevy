@@ -2,6 +2,20 @@ use crate::{Image, TextureAtlasLayout, TextureFormatPixelInfo as _};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{URect, UVec2};
 use guillotiere::{size2, Allocation, AtlasAllocator};
+use thiserror::Error;
+use tracing::error;
+
+#[derive(Debug, Error)]
+pub enum DynamicTextureAtlasBuilderError {
+    #[error("Couldn't allocate space to add the image requested")]
+    FailedToAllocateSpace,
+    /// Attempted to add a texture to an uninitialzied atlas
+    #[error("cannot add texture to uninitialized atlas texture")]
+    UninitializedAtlas,
+    /// Attempted to add an uninitialized texture to an atlas
+    #[error("cannot add uninitialized texture to atlas")]
+    UninitializedSourceTexture,
+}
 
 /// Helper utility to update [`TextureAtlasLayout`] on the fly.
 ///
@@ -42,7 +56,7 @@ impl DynamicTextureAtlasBuilder {
         atlas_layout: &mut TextureAtlasLayout,
         texture: &Image,
         atlas_texture: &mut Image,
-    ) -> Option<usize> {
+    ) -> Result<usize, DynamicTextureAtlasBuilderError> {
         let allocation = self.atlas_allocator.allocate(size2(
             (texture.width() + self.padding).try_into().unwrap(),
             (texture.height() + self.padding).try_into().unwrap(),
@@ -53,12 +67,12 @@ impl DynamicTextureAtlasBuilder {
                 "The atlas_texture image must have the RenderAssetUsages::MAIN_WORLD usage flag set"
             );
 
-            self.place_texture(atlas_texture, allocation, texture);
+            self.place_texture(atlas_texture, allocation, texture)?;
             let mut rect: URect = to_rect(allocation.rectangle);
             rect.max = rect.max.saturating_sub(UVec2::splat(self.padding));
-            Some(atlas_layout.add_texture(rect))
+            Ok(atlas_layout.add_texture(rect))
         } else {
-            None
+            Err(DynamicTextureAtlasBuilderError::FailedToAllocateSpace)
         }
     }
 
@@ -67,7 +81,7 @@ impl DynamicTextureAtlasBuilder {
         atlas_texture: &mut Image,
         allocation: Allocation,
         texture: &Image,
-    ) {
+    ) -> Result<(), DynamicTextureAtlasBuilderError> {
         let mut rect = allocation.rectangle;
         rect.max.x -= self.padding as i32;
         rect.max.y -= self.padding as i32;
@@ -75,14 +89,20 @@ impl DynamicTextureAtlasBuilder {
         let rect_width = rect.width() as usize;
         let format_size = atlas_texture.texture_descriptor.format.pixel_size();
 
+        let Some(ref mut atlas_data) = atlas_texture.data else {
+            return Err(DynamicTextureAtlasBuilderError::UninitializedAtlas);
+        };
+        let Some(ref data) = texture.data else {
+            return Err(DynamicTextureAtlasBuilderError::UninitializedSourceTexture);
+        };
         for (texture_y, bound_y) in (rect.min.y..rect.max.y).map(|i| i as usize).enumerate() {
             let begin = (bound_y * atlas_width + rect.min.x as usize) * format_size;
             let end = begin + rect_width * format_size;
             let texture_begin = texture_y * rect_width * format_size;
             let texture_end = texture_begin + rect_width * format_size;
-            atlas_texture.data[begin..end]
-                .copy_from_slice(&texture.data[texture_begin..texture_end]);
+            atlas_data[begin..end].copy_from_slice(&data[texture_begin..texture_end]);
         }
+        Ok(())
     }
 }
 

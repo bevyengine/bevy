@@ -8,6 +8,7 @@ use tracing::info_span;
 use std::eprintln;
 
 use crate::{
+    result::{Error, SystemErrorContext},
     schedule::{
         executor::is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
     },
@@ -43,6 +44,7 @@ impl SystemExecutor for SimpleExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(Error, SystemErrorContext),
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -104,12 +106,13 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             let f = AssertUnwindSafe(|| {
-                // TODO: implement an error-handling API instead of panicking.
                 if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                    panic!(
-                        "Encountered an error in system `{}`: {:?}",
-                        &*system.name(),
-                        err
+                    error_handler(
+                        err,
+                        SystemErrorContext {
+                            name: system.name(),
+                            last_run: system.get_last_run(),
+                        },
                     );
                 }
             });

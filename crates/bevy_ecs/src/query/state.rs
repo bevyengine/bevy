@@ -258,7 +258,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut is_dense = D::IS_DENSE && F::IS_DENSE;
 
         if let Some(default_filters) = world.get_resource::<DefaultQueryFilters>() {
-            default_filters.apply(&mut component_access);
+            default_filters.modify_access(&mut component_access);
             is_dense &= default_filters.is_dense(world.components());
         }
 
@@ -293,7 +293,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         let mut is_dense = builder.is_dense();
 
         if let Some(default_filters) = builder.world().get_resource::<DefaultQueryFilters>() {
-            default_filters.apply(&mut component_access);
+            default_filters.modify_access(&mut component_access);
             is_dense &= default_filters.is_dense(builder.world().components());
         }
 
@@ -2464,8 +2464,8 @@ mod tests {
         world.spawn((B(0), C(0)));
         world.spawn(C(0));
 
-        let mut df = DefaultQueryFilters::default();
-        df.set_disabled(world.register_component::<C>());
+        let mut df = DefaultQueryFilters::empty();
+        df.register_disabling_component(world.register_component::<C>());
         world.insert_resource(df);
 
         // Without<C> only matches the first entity
@@ -2504,8 +2504,8 @@ mod tests {
         assert!(query.is_dense);
         assert_eq!(3, query.iter(&world).count());
 
-        let mut df = DefaultQueryFilters::default();
-        df.set_disabled(world.register_component::<Sparse>());
+        let mut df = DefaultQueryFilters::empty();
+        df.register_disabling_component(world.register_component::<Sparse>());
         world.insert_resource(df);
 
         let mut query = QueryState::<()>::new(&mut world);
@@ -2514,8 +2514,8 @@ mod tests {
         assert!(!query.is_dense);
         assert_eq!(1, query.iter(&world).count());
 
-        let mut df = DefaultQueryFilters::default();
-        df.set_disabled(world.register_component::<Table>());
+        let mut df = DefaultQueryFilters::empty();
+        df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
 
         let mut query = QueryState::<()>::new(&mut world);

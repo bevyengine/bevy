@@ -22,7 +22,7 @@ use bevy_ecs::{
 use bevy_math::FloatOrd;
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::render_phase::DrawFunctionId;
+use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
 use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::{
@@ -809,6 +809,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         },
                         bin_key,
                         (*render_entity, *visible_entity),
+                        InputUniformIndex::default(),
                         binned_render_phase_type,
                         current_change_tick,
                     );
@@ -826,6 +827,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         },
                         bin_key,
                         (*render_entity, *visible_entity),
+                        InputUniformIndex::default(),
                         binned_render_phase_type,
                         current_change_tick,
                     );
@@ -848,10 +850,6 @@ pub fn queue_material2d_meshes<M: Material2d>(
                 }
             }
         }
-
-        // Remove invalid entities from the bins.
-        opaque_phase.sweep_old_entities();
-        alpha_mask_phase.sweep_old_entities();
     }
 }
 
