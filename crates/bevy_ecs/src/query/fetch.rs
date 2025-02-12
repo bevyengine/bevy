@@ -320,6 +320,11 @@ pub type QueryItem<'w, 's, Q> = <Q as QueryData>::Item<'w, 's>;
 pub type ROQueryItem<'w, 's, D> = QueryItem<'w, 's, <D as QueryData>::ReadOnly>;
 
 /// A [`QueryData`] that does not borrow from its [`QueryState`](crate::query::QueryState).
+///
+/// This is implemented by most `QueryData` types.
+/// The main exceptions are [`FilteredEntityRef`], [`FilteredEntityMut`], [`EntityRefExcept`], and [`EntityMutExcept`],
+/// which borrow an access list from their query state.
+/// Consider using a full [`EntityRef`] or [`EntityMut`] if you would need those.
 pub trait ReleaseStateQueryData: QueryData {
     /// Releases the borrow from the query state by converting an item to have a `'static` state lifetime.
     fn release_state<'w>(item: Self::Item<'w, '_>) -> Self::Item<'w, 'static>;
