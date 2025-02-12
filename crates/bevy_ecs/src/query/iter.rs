@@ -2904,13 +2904,13 @@ mod tests {
         {
             let mut query = query_state
                 .iter_many_mut(&mut world, [id, id])
-                .sort_by::<&C>(Ord::cmp);
+                .sort_by::<&C>(|l, r| Ord::cmp(l, r));
             while query.fetch_next().is_some() {}
         }
         {
             let mut query = query_state
                 .iter_many_mut(&mut world, [id, id])
-                .sort_unstable_by::<&C>(Ord::cmp);
+                .sort_unstable_by::<&C>(|l, r| Ord::cmp(l, r));
             while query.fetch_next().is_some() {}
         }
         {
