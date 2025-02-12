@@ -284,7 +284,9 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
 /// See [`Handle`] for more information.
 #[derive(Clone)]
 pub enum UntypedHandle {
+    /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
     Strong(Arc<StrongHandle>),
+    /// A weak handle, which does not keep the referenced [`Asset`] alive.
     Weak(UntypedAssetId),
 }
 
@@ -528,7 +530,12 @@ pub enum UntypedAssetConversionError {
     #[error(
         "This UntypedHandle is for {found:?} and cannot be converted into a Handle<{expected:?}>"
     )]
-    TypeIdMismatch { expected: TypeId, found: TypeId },
+    TypeIdMismatch {
+        /// The expected [`TypeId`] of the [`Handle`] being converted to.
+        expected: TypeId,
+        /// The [`TypeId`] of the [`UntypedHandle`] being converted from.
+        found: TypeId,
+    },
 }
 
 #[cfg(test)]
