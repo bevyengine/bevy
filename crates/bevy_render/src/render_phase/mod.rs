@@ -105,7 +105,7 @@ where
     /// the same pipeline. The first bin, corresponding to the cubes, will have
     /// two entities in it. The second bin, corresponding to the sphere, will
     /// have one entity in it.
-    pub multidrawable_meshes: IndexMap<BPI::BatchSetKey, HashMap<BPI::BinKey, RenderBin>>,
+    pub multidrawable_meshes: IndexMap<BPI::BatchSetKey, IndexMap<BPI::BinKey, RenderBin>>,
 
     /// The bins corresponding to batchable items that aren't multidrawable.
     ///
@@ -441,7 +441,7 @@ where
                             .insert(main_entity, input_uniform_index);
                     }
                     indexmap::map::Entry::Vacant(entry) => {
-                        let mut new_batch_set = HashMap::default();
+                        let mut new_batch_set = IndexMap::default();
                         new_batch_set.insert(
                             bin_key.clone(),
                             RenderBin::from_entity(main_entity, input_uniform_index),
@@ -861,7 +861,7 @@ where
 fn remove_entity_from_bin<BPI>(
     entity: MainEntity,
     entity_bin_key: &CachedBinKey<BPI>,
-    multidrawable_meshes: &mut IndexMap<BPI::BatchSetKey, HashMap<BPI::BinKey, RenderBin>>,
+    multidrawable_meshes: &mut IndexMap<BPI::BatchSetKey, IndexMap<BPI::BinKey, RenderBin>>,
     batchable_meshes: &mut IndexMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
     unbatchable_meshes: &mut IndexMap<(BPI::BatchSetKey, BPI::BinKey), UnbatchableBinnedEntities>,
     non_mesh_items: &mut IndexMap<(BPI::BatchSetKey, BPI::BinKey), RenderBin>,
@@ -873,7 +873,7 @@ fn remove_entity_from_bin<BPI>(
             if let indexmap::map::Entry::Occupied(mut batch_set_entry) =
                 multidrawable_meshes.entry(entity_bin_key.batch_set_key.clone())
             {
-                if let Entry::Occupied(mut bin_entry) = batch_set_entry
+                if let indexmap::map::Entry::Occupied(mut bin_entry) = batch_set_entry
                     .get_mut()
                     .entry(entity_bin_key.bin_key.clone())
                 {
@@ -881,7 +881,7 @@ fn remove_entity_from_bin<BPI>(
 
                     // If the bin is now empty, remove the bin.
                     if bin_entry.get_mut().is_empty() {
-                        bin_entry.remove();
+                        bin_entry.swap_remove();
                     }
                 }
 
