@@ -562,9 +562,14 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         // SAFETY:
         // - We have read-only access to the components accessed by query.
         // - The world has been validated.
-        !unsafe {
-            state.is_empty_unsafe_world_cell(world, system_meta.last_run, world.change_tick())
-        }
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
+                world,
+                system_meta.last_run,
+                world.change_tick(),
+            )
+        };
+        !query.is_empty()
     }
 }
 
