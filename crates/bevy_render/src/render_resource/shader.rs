@@ -21,6 +21,11 @@ pub enum ShaderReflectError {
     #[error(transparent)]
     Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
 }
+#[derive(Clone, Debug)]
+pub enum ValidateShaders {
+  Disabled,
+  Enabled
+}
 /// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
 #[derive(Asset, TypePath, Debug, Clone)]
@@ -36,6 +41,7 @@ pub struct Shader {
     // we must store strong handles to our dependencies to stop them
     // from being immediately dropped if we are the only user.
     pub file_dependencies: Vec<Handle<Shader>>,
+    pub validate_shaders: ValidateShaders,
 }
 
 impl Shader {
@@ -78,6 +84,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shaders: ValidateShaders::Disabled,
         }
     }
 
@@ -108,6 +115,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shaders: ValidateShaders::Disabled,
         }
     }
 
@@ -121,6 +129,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shaders: ValidateShaders::Disabled,
         }
     }
 

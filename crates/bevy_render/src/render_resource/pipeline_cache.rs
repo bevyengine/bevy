@@ -318,7 +318,14 @@ impl ShaderCache {
                 render_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(module_descriptor);
+
+                // `validate_shader` is evaluated to determine whether or not to perform
+                //  validation checks
+                let shader_module = match validate_shader {
+                  ValidateShaders::Enabled =>  render_device.create_and_validate_shader_module(module_descriptor),
+                  ValidateShaders::Disabled =>  render_device.create_shader_module(module_descriptor),
+                };
+
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
