@@ -212,8 +212,11 @@ pub fn prepare_skins(
     // Swap current and previous buffers.
     mem::swap(&mut uniform.current_buffer, &mut uniform.prev_buffer);
 
-    // Resize the buffer if necessary.
-    let needed_size = uniform.current_staging_buffer.len() as u64 * size_of::<Mat4>() as u64;
+    // Resize the buffer if necessary. Include extra space equal to `MAX_JOINTS`
+    // because we need to be able to bind a full uniform buffer's worth of data
+    // if skins use uniform buffers on this platform.
+    let needed_size = (uniform.current_staging_buffer.len() as u64 + MAX_JOINTS as u64)
+        * size_of::<Mat4>() as u64;
     if uniform.current_buffer.size() < needed_size {
         let mut new_size = uniform.current_buffer.size();
         while new_size < needed_size {
