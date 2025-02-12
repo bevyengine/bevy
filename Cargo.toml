@@ -2076,6 +2076,18 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "index"
+path = "examples/ecs/index.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.index]
+name = "Indexes"
+description = "Demonstrates querying by component value using indexing"
+category = "ECS (Entity Component System)"
+wasm = true
+
+[[example]]
 name = "iter_combinations"
 path = "examples/ecs/iter_combinations.rs"
 doc-scrape-examples = true

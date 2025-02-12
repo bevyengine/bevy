@@ -46,6 +46,7 @@ pub mod entity_disabling;
 pub mod event;
 pub mod hierarchy;
 pub mod identifier;
+pub mod index;
 pub mod intern;
 pub mod label;
 pub mod name;
@@ -83,6 +84,7 @@ pub mod prelude {
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
+        index::{IndexOptions, QueryByIndex},
         name::{Name, NameOrEntity},
         observer::{Observer, Trigger},
         query::{Added, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
