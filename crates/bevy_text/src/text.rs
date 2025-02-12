@@ -79,13 +79,6 @@ impl ComputedTextBlock {
         &self.entities
     }
 
-    /// Read only access to the internal buffer.
-    ///
-    /// Used for text picking.
-    pub fn buffer(&self) -> &CosmicBuffer {
-        &self.buffer
-    }
-
     /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
     ///
     /// Updated automatically by [`detect_text_needs_rerender`] and cleared
