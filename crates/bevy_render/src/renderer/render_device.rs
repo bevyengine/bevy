@@ -47,9 +47,10 @@ impl RenderDevice {
     #[inline]
     /// # Safety
     ///
-    /// we are interfacing with shader code, which may contain undefined behavior,
-    /// such as indexing out of bounds.
-    /// The checks required are prohibitively expensive and a poor default for game engines.
+    /// creates a shader module with user-customizable runtime checks which allows shaders to
+    /// perform operations which can lead to undefined behavior like indexing out of bounds,
+    /// thus it's the caller responsibility to pass a shader which doesn't perform any of this
+    /// operations.
     pub unsafe fn create_shader_module(
         &self,
         desc: wgpu::ShaderModuleDescriptor,
@@ -72,14 +73,24 @@ impl RenderDevice {
                         })
                 }
             }
-            // SAFETY: use code without runtime checks
+            // SAFETY:
+            //
+            // creates a shader module with user-customizable runtime checks which allows shaders to
+            // perform operations which can lead to undefined behavior like indexing out of bounds,
+            // thus it's the caller responsibility to pass a shader which doesn't perform any of this
+            // operations.
             _ => unsafe {
                 self.device
                     .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
             },
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
-        // SAFETY: use code without runtime checks
+        // SAFETY:
+        //
+        // creates a shader module with user-customizable runtime checks which allows shaders to
+        // perform operations which can lead to undefined behavior like indexing out of bounds,
+        // thus it's the caller responsibility to pass a shader which doesn't perform any of this
+        // operations.
         unsafe {
             self.device
                 .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
@@ -98,9 +109,13 @@ impl RenderDevice {
                 if self
                     .features()
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
-            // SAFETY:
-            // we are using the SpirV Shader Passthrough which is unsafe
-            unsafe { self.create_shader_module(desc) },
+            /// Safety:
+            ///
+            /// This function passes binary data to the backend as-is and can potentially result in a
+            /// driver crash or bogus behaviour. No attempt is made to ensure that data is valid SPIR-V.
+            unsafe {
+                self.create_shader_module(desc)
+            },
             _ => self.device.create_shader_module(desc),
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
