@@ -169,6 +169,8 @@ impl TypeRegistry {
     ///
     /// See [`register`] for more details.
     ///
+    /// # Example
+    ///
     /// ```
     /// # use bevy_reflect::{Reflect, TypeRegistry};
     /// # use core::any::TypeId;
