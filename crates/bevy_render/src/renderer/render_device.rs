@@ -79,7 +79,7 @@ impl RenderDevice {
             },
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
-        // SAFETY: use code without runtime checks
+        // SAFETY: the caller is responsible for upholding the safety requirements
         unsafe {
             self.device
                 .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
