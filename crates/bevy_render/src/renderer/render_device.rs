@@ -76,6 +76,11 @@ impl RenderDevice {
         }
 
         #[cfg(not(feature = "spirv_shader_passthrough"))]
+        // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
+        // such as indexing out of bounds.
+        // The checks required are prohibitively expensive and a poor default for game engines.
+        // TODO: split this method into safe and unsafe variants, and propagate the safety requirements from
+        // https://docs.rs/wgpu/latest/wgpu/struct.Device.html#method.create_shader_module_trusted to the unsafe form.
         unsafe {
             self.device
                 .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
