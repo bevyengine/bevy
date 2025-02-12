@@ -319,16 +319,16 @@ impl ShaderCache {
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
 
-                // `validate_shader` is evaluated to determine whether or not to perform
-                //  validation checks
-                let validate_shader = shader.validate_shader.clone();
-                let shader_module = match validate_shader {
-                    ValidateShaders::Enabled => {
+                let shader_module = match shader.validate_shader {
+                    ValidateShader::Enabled => {
                         render_device.create_and_validate_shader_module(module_descriptor)
-                    }
-                    ValidateShaders::Disabled => {
+                    },
+                    // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
+                    // such as indexing out of bounds.
+                    // The checks required are prohibitively expensive and a poor default for game engines.
+                    ValidateShader::Disabled => unsafe {
                         render_device.create_shader_module(module_descriptor)
-                    }
+                    },
                 };
 
                 let error = render_device.wgpu_device().pop_error_scope();
