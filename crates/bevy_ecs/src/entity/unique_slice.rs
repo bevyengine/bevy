@@ -1,7 +1,7 @@
 use core::{
     borrow::Borrow,
     cmp::Ordering,
-    fmt::{self, Debug, Formatter},
+    fmt::Debug,
     iter::FusedIterator,
     ops::{
         Bound, Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
@@ -1314,7 +1314,9 @@ impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::IterMut<'a, T>> {
     }
 }
 
-/// An iterator that yields unique entity/entity borrow slices.
+/// An iterator that yields `&UniqueEntitySlice`. Note that an entity may appear
+/// in multiple slices, depending on the wrapped iterator.
+#[derive(Debug)]
 pub struct UniqueEntitySliceIter<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> {
     pub(crate) iter: I,
 }
@@ -1392,14 +1394,6 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]> + AsRef<[&'a [
     fn as_ref(&self) -> &[&'a UniqueEntitySlice<T>] {
         // SAFETY:
         unsafe { cast_slice_of_unique_entity_slice(self.iter.as_ref()) }
-    }
-}
-
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> Debug
-    for UniqueEntitySliceIter<'a, T, I>
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UniqueEntitySliceIter").finish()
     }
 }
 
@@ -1490,7 +1484,9 @@ pub type SplitN<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::SplitN<'a, T, P>
 /// This struct is created by [`UniqueEntitySlice::rsplitn`].
 pub type RSplitN<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::RSplitN<'a, T, P>>;
 
-/// An iterator that yields unique, mutable entity/entity borrow slices.
+/// An iterator that yields `&mut UniqueEntitySlice`. Note that an entity may appear
+/// in multiple slices, depending on the wrapped iterator.
+#[derive(Debug)]
 pub struct UniqueEntitySliceIterMut<
     'a,
     T: TrustedEntityBorrow + 'a,
@@ -1583,14 +1579,6 @@ impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]> + AsMut<[&
     fn as_mut(&mut self) -> &mut [&'a mut UniqueEntitySlice<T>] {
         // SAFETY: All elements in the original iterator are unique slices.
         unsafe { cast_slice_of_mut_unique_entity_slice_mut(self.iter.as_mut()) }
-    }
-}
-
-impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]>> Debug
-    for UniqueEntitySliceIterMut<'a, T, I>
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UniqueEntitySliceIterMut").finish()
     }
 }
 
