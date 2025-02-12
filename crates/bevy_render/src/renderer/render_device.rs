@@ -104,13 +104,11 @@ impl RenderDevice {
                 if self
                     .features()
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
-            /// Safety:
-            ///
-            /// This function passes binary data to the backend as-is and can potentially result in a
-            /// driver crash or bogus behaviour. No attempt is made to ensure that data is valid SPIR-V.
-            unsafe {
-                self.create_shader_module(desc)
-            },
+            // SAFETY:
+            //
+            // This function passes binary data to the backend as-is and can potentially result in a
+            // driver crash or bogus behaviour. No attempt is made to ensure that data is valid SPIR-V.
+            unsafe { self.create_shader_module(desc) },
             _ => self.device.create_shader_module(desc),
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
