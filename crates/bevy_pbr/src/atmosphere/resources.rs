@@ -155,6 +155,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
                     (6, sampler(SamplerBindingType::Filtering)),
+                    (7, texture_2d(TextureSampleType::Float { filterable: true })), //multiscattering lut and sampler
+                    (8, sampler(SamplerBindingType::Filtering)),
                     (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
                     (
@@ -184,6 +186,8 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
                     (6, sampler(SamplerBindingType::Filtering)),
+                    (7, texture_2d(TextureSampleType::Float { filterable: true })), //multiscattering lut and sampler
+                    (8, sampler(SamplerBindingType::Filtering)),
                     (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
                     (
@@ -715,6 +719,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (4, lights_binding.clone()),
                 (5, &textures.transmittance_lut.default_view),
                 (6, &samplers.transmittance_lut),
+                (7, &textures.multiscattering_lut.default_view),
+                (8, &samplers.multiscattering_lut),
                 (9, &textures.sky_view_lut.default_view),
                 (10, &samplers.sky_view_lut),
                 (11, &textures.aerial_view_lut.default_view),
