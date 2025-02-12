@@ -96,6 +96,8 @@ impl RenderDevice {
                 if self
                     .features()
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
+            // SAFETY:
+            // we are using the SpirV Shader Passthrough which is unsafe
             unsafe { self.create_shader_module(desc) },
             _ => self.device.create_shader_module(desc),
         }
