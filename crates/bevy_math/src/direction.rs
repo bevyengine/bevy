@@ -885,7 +885,7 @@ mod tests {
             Err(InvalidDirectionError::NaN)
         );
         assert_eq!(Dir2::new_and_length(Vec2::X * 6.5), Ok((Dir2::X, 6.5)));
-        
+
         assert!(anyhow::Error::from(InvalidDirectionError::Zero).is::<InvalidDirectionError>());
     }
 
