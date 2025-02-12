@@ -1918,7 +1918,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let accum = init_accum();
                     self.iter_many_unique_unchecked_manual(batch, world, last_run, this_run)
                         .fold(accum, &mut func);
-                })
+                });
             }
 
             #[cfg(feature = "trace")]
@@ -1978,7 +1978,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
                     let accum = init_accum();
                     self.iter_many_unchecked_manual(batch, world, last_run, this_run)
                         .fold(accum, &mut func);
-                })
+                });
             }
 
             #[cfg(feature = "trace")]
