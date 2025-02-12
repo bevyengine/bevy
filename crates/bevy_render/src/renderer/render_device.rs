@@ -95,7 +95,7 @@ impl RenderDevice {
     ) -> wgpu::ShaderModule {
         #[cfg(feature = "spirv_shader_passthrough")]
         match &desc.source {
-            wgpu::ShaderSource::SpirV(source)
+            wgpu::ShaderSource::SpirV(_source)
                 if self
                     .features()
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
