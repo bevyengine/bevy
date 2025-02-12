@@ -44,13 +44,13 @@ impl RenderDevice {
     }
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
-    #[inline]
     /// # Safety
     ///
     /// creates a shader module with user-customizable runtime checks which allows shaders to
     /// perform operations which can lead to undefined behavior like indexing out of bounds,
     /// thus it's the caller responsibility to pass a shader which doesn't perform any of this
     /// operations.
+    #[inline]
     pub unsafe fn create_shader_module(
         &self,
         desc: wgpu::ShaderModuleDescriptor,
