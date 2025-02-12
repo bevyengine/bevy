@@ -4,7 +4,7 @@ use core::any::TypeId;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
-    entity::{hash_map::EntityHashMap, Entity},
+    prelude::Entity,
     query::{Has, With},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 use bevy_math::UVec4;
-use bevy_platform_support::collections::hash_map::Entry;
+use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use bytemuck::{Pod, Zeroable};
 use nonmax::NonMaxU32;
@@ -24,13 +24,13 @@ use crate::{
     experimental::occlusion_culling::OcclusionCulling,
     render_phase::{
         BinnedPhaseItem, BinnedRenderPhaseBatch, BinnedRenderPhaseBatchSet,
-        BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, PhaseItemBatchSetKey as _,
-        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, UnbatchableBinnedEntityIndices,
-        ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        BinnedRenderPhaseBatchSets, CachedRenderPipelinePhaseItem, InputUniformIndex,
+        PhaseItemBatchSetKey as _, PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase,
+        UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
     render_resource::{Buffer, BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    view::{ExtractedView, NoIndirectDrawing},
+    view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
     Render, RenderApp, RenderSet,
 };
 
@@ -157,7 +157,7 @@ where
     /// corresponds to each instance.
     ///
     /// This is keyed off each view. Each view has a separate buffer.
-    pub work_item_buffers: EntityHashMap<TypeIdMap<PreprocessWorkItemBuffers>>,
+    pub work_item_buffers: HashMap<RetainedViewEntity, TypeIdMap<PreprocessWorkItemBuffers>>,
 
     /// The uniform data inputs for the current frame.
     ///
@@ -409,21 +409,15 @@ impl Default for LatePreprocessWorkItemIndirectParameters {
 /// You may need to call this function if you're implementing your own custom
 /// render phases. See the `specialized_mesh_pipeline` example.
 pub fn get_or_create_work_item_buffer<'a, I>(
-    work_item_buffers: &'a mut EntityHashMap<TypeIdMap<PreprocessWorkItemBuffers>>,
-    view: Entity,
+    work_item_buffers: &'a mut HashMap<RetainedViewEntity, TypeIdMap<PreprocessWorkItemBuffers>>,
+    view: RetainedViewEntity,
     no_indirect_drawing: bool,
-    gpu_occlusion_culling: bool,
-    late_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
-        LatePreprocessWorkItemIndirectParameters,
-    >,
-    late_non_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
-        LatePreprocessWorkItemIndirectParameters,
-    >,
+    enable_gpu_occlusion_culling: bool,
 ) -> &'a mut PreprocessWorkItemBuffers
 where
     I: 'static,
 {
-    match work_item_buffers
+    let preprocess_work_item_buffers = match work_item_buffers
         .entry(view)
         .or_default()
         .entry(TypeId::of::<I>())
@@ -438,27 +432,70 @@ where
                 vacant_entry.insert(PreprocessWorkItemBuffers::Indirect {
                     indexed: BufferVec::new(BufferUsages::STORAGE),
                     non_indexed: BufferVec::new(BufferUsages::STORAGE),
-                    gpu_occlusion_culling: if gpu_occlusion_culling {
-                        let late_indirect_parameters_indexed_offset =
-                            late_indexed_indirect_parameters_buffer
-                                .push(LatePreprocessWorkItemIndirectParameters::default());
-                        let late_indirect_parameters_non_indexed_offset =
-                            late_non_indexed_indirect_parameters_buffer
-                                .push(LatePreprocessWorkItemIndirectParameters::default());
-                        Some(GpuOcclusionCullingWorkItemBuffers {
-                            late_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
-                            late_non_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
-                            late_indirect_parameters_indexed_offset:
-                                late_indirect_parameters_indexed_offset as u32,
-                            late_indirect_parameters_non_indexed_offset:
-                                late_indirect_parameters_non_indexed_offset as u32,
-                        })
-                    } else {
-                        None
-                    },
+                    // We fill this in below if `enable_gpu_occlusion_culling`
+                    // is set.
+                    gpu_occlusion_culling: None,
                 })
             }
         }
+    };
+
+    // Initialize the GPU occlusion culling buffers if necessary.
+    if let PreprocessWorkItemBuffers::Indirect {
+        ref mut gpu_occlusion_culling,
+        ..
+    } = *preprocess_work_item_buffers
+    {
+        match (
+            enable_gpu_occlusion_culling,
+            gpu_occlusion_culling.is_some(),
+        ) {
+            (false, false) | (true, true) => {}
+            (false, true) => {
+                *gpu_occlusion_culling = None;
+            }
+            (true, false) => {
+                *gpu_occlusion_culling = Some(GpuOcclusionCullingWorkItemBuffers {
+                    late_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
+                    late_non_indexed: UninitBufferVec::new(BufferUsages::STORAGE),
+                    late_indirect_parameters_indexed_offset: 0,
+                    late_indirect_parameters_non_indexed_offset: 0,
+                });
+            }
+        }
+    }
+
+    preprocess_work_item_buffers
+}
+
+/// Initializes work item buffers for a phase in preparation for a new frame.
+pub fn init_work_item_buffers(
+    work_item_buffers: &mut PreprocessWorkItemBuffers,
+    late_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
+        LatePreprocessWorkItemIndirectParameters,
+    >,
+    late_non_indexed_indirect_parameters_buffer: &'_ mut RawBufferVec<
+        LatePreprocessWorkItemIndirectParameters,
+    >,
+) {
+    // Add the offsets for indirect parameters that the late phase of mesh
+    // preprocessing writes to.
+    if let PreprocessWorkItemBuffers::Indirect {
+        gpu_occlusion_culling:
+            Some(GpuOcclusionCullingWorkItemBuffers {
+                ref mut late_indirect_parameters_indexed_offset,
+                ref mut late_indirect_parameters_non_indexed_offset,
+                ..
+            }),
+        ..
+    } = *work_item_buffers
+    {
+        *late_indirect_parameters_indexed_offset = late_indexed_indirect_parameters_buffer
+            .push(LatePreprocessWorkItemIndirectParameters::default())
+            as u32;
+        *late_indirect_parameters_non_indexed_offset = late_non_indexed_indirect_parameters_buffer
+            .push(LatePreprocessWorkItemIndirectParameters::default())
+            as u32;
     }
 }
 
@@ -489,6 +526,30 @@ impl PreprocessWorkItemBuffers {
                     } else {
                         gpu_occlusion_culling.late_non_indexed.add();
                     }
+                }
+            }
+        }
+    }
+
+    /// Clears out the GPU work item buffers in preparation for a new frame.
+    pub fn clear(&mut self) {
+        match *self {
+            PreprocessWorkItemBuffers::Direct(ref mut buffer) => {
+                buffer.clear();
+            }
+            PreprocessWorkItemBuffers::Indirect {
+                indexed: ref mut indexed_buffer,
+                non_indexed: ref mut non_indexed_buffer,
+                ref mut gpu_occlusion_culling,
+            } => {
+                indexed_buffer.clear();
+                non_indexed_buffer.clear();
+
+                if let Some(ref mut gpu_occlusion_culling) = *gpu_occlusion_culling {
+                    gpu_occlusion_culling.late_indexed.clear();
+                    gpu_occlusion_culling.late_non_indexed.clear();
+                    gpu_occlusion_culling.late_indirect_parameters_indexed_offset = 0;
+                    gpu_occlusion_culling.late_indirect_parameters_non_indexed_offset = 0;
                 }
             }
         }
@@ -914,16 +975,22 @@ impl FromWorld for GpuPreprocessingSupport {
             crate::get_adreno_model(adapter).is_some_and(|model| model != 720 && model <= 730)
         }
 
-        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0 ||
-            is_non_supported_android_device(adapter)
+        let feature_support = device.features().contains(
+            Features::INDIRECT_FIRST_INSTANCE
+                | Features::MULTI_DRAW_INDIRECT
+                | Features::PUSH_CONSTANTS,
+        );
+        // Depth downsampling for occlusion culling requires 12 textures
+        let limit_support = device.limits().max_storage_textures_per_shader_stage >= 12;
+        let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
+            DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
+        );
+
+        let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
+            || is_non_supported_android_device(adapter)
         {
             GpuPreprocessingMode::None
-        } else if !device
-            .features()
-            .contains(Features::INDIRECT_FIRST_INSTANCE | Features::MULTI_DRAW_INDIRECT) ||
-            !adapter.get_downlevel_capabilities().flags.contains(
-        DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW)
-        {
+        } else if !(feature_support && limit_support && downlevel_support) {
             GpuPreprocessingMode::PreprocessingOnly
         } else {
             GpuPreprocessingMode::Culling
@@ -942,7 +1009,7 @@ where
     pub fn new() -> Self {
         BatchedInstanceBuffers {
             data_buffer: UninitBufferVec::new(BufferUsages::STORAGE),
-            work_item_buffers: EntityHashMap::default(),
+            work_item_buffers: HashMap::default(),
             current_input_buffer: InstanceInputUniformBuffer::new(),
             previous_input_buffer: InstanceInputUniformBuffer::new(),
             late_indexed_indirect_parameters_buffer: RawBufferVec::new(
@@ -968,7 +1035,14 @@ where
         self.data_buffer.clear();
         self.late_indexed_indirect_parameters_buffer.clear();
         self.late_non_indexed_indirect_parameters_buffer.clear();
-        self.work_item_buffers.clear();
+
+        // Clear each individual set of buffers, but don't depopulate the hash
+        // table. We want to avoid reallocating these vectors every frame.
+        for view_work_item_buffers in self.work_item_buffers.values_mut() {
+            for phase_work_item_buffers in view_work_item_buffers.values_mut() {
+                phase_work_item_buffers.clear();
+            }
+        }
     }
 }
 
@@ -1074,13 +1148,17 @@ pub fn delete_old_work_item_buffers<GFBD>(
     mut gpu_batched_instance_buffers: ResMut<
         BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
     >,
-    extracted_views: Query<Entity, With<ExtractedView>>,
+    extracted_views: Query<&ExtractedView>,
 ) where
     GFBD: GetFullBatchData,
 {
+    let retained_view_entities: HashSet<_> = extracted_views
+        .iter()
+        .map(|extracted_view| extracted_view.retained_view_entity)
+        .collect();
     gpu_batched_instance_buffers
         .work_item_buffers
-        .retain(|entity, _| extracted_views.contains(*entity));
+        .retain(|retained_view_entity, _| retained_view_entities.contains(retained_view_entity));
 }
 
 /// Batch the items in a sorted render phase, when GPU instance buffer building
@@ -1091,7 +1169,6 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
     mut views: Query<(
-        Entity,
         &ExtractedView,
         Has<NoIndirectDrawing>,
         Has<OcclusionCulling>,
@@ -1110,7 +1187,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
+    for (extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
         let Some(phase) = sorted_render_phases.get_mut(&extracted_view.retained_view_entity) else {
             continue;
         };
@@ -1118,9 +1195,14 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
         // Create the work item buffer if necessary.
         let work_item_buffer = get_or_create_work_item_buffer::<I>(
             work_item_buffers,
-            view,
+            extracted_view.retained_view_entity,
             no_indirect_drawing,
             gpu_occlusion_culling,
+        );
+
+        // Initialize those work item buffers in preparation for this new frame.
+        init_work_item_buffers(
+            work_item_buffer,
             late_indexed_indirect_parameters_buffer,
             late_non_indexed_indirect_parameters_buffer,
         );
@@ -1189,7 +1271,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                 // Start a new batch.
                 if let Some(indirect_parameters_index) = indirect_parameters_index {
                     GFBD::write_batch_indirect_parameters_metadata(
-                        current_input_index.into(),
+                        InputUniformIndex(current_input_index.into()),
                         item_is_indexed,
                         output_index,
                         None,
@@ -1248,7 +1330,6 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     mut binned_render_phases: ResMut<ViewBinnedRenderPhases<BPI>>,
     mut views: Query<
         (
-            Entity,
             &ExtractedView,
             Has<NoIndirectDrawing>,
             Has<OcclusionCulling>,
@@ -1270,7 +1351,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         ..
     } = gpu_array_buffer.into_inner();
 
-    for (view, extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
+    for (extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
         let Some(phase) = binned_render_phases.get_mut(&extracted_view.retained_view_entity) else {
             continue;
         };
@@ -1279,9 +1360,14 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         // used this frame.
         let work_item_buffer = get_or_create_work_item_buffer::<BPI>(
             work_item_buffers,
-            view,
+            extracted_view.retained_view_entity,
             no_indirect_drawing,
             gpu_occlusion_culling,
+        );
+
+        // Initialize those work item buffers in preparation for this new frame.
+        init_work_item_buffers(
+            work_item_buffer,
             late_indexed_indirect_parameters_buffer,
             late_non_indexed_indirect_parameters_buffer,
         );
@@ -1296,11 +1382,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 let first_output_index = data_buffer.len() as u32;
                 let mut batch: Option<BinnedRenderPhaseBatch> = None;
 
-                for &(entity, main_entity) in &bin.entities {
-                    let Some(input_index) = GFBD::get_binned_index(&system_param_item, main_entity)
-                    else {
-                        continue;
-                    };
+                for (&main_entity, &input_index) in bin.entities() {
                     let output_index = data_buffer.add() as u32;
 
                     match batch {
@@ -1310,7 +1392,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             work_item_buffer.push(
                                 batch_set_key.indexed(),
                                 PreprocessWorkItem {
-                                    input_index: input_index.into(),
+                                    input_index: *input_index,
                                     output_index: first_output_index,
                                     indirect_parameters_index: match batch.extra_index {
                                         PhaseItemExtraIndex::IndirectParametersIndex {
@@ -1332,7 +1414,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                                 .get_next_batch_set_index(batch_set_key.indexed());
 
                             GFBD::write_batch_indirect_parameters_metadata(
-                                input_index.into(),
+                                input_index,
                                 batch_set_key.indexed(),
                                 output_index,
                                 batch_set_index,
@@ -1342,13 +1424,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             work_item_buffer.push(
                                 batch_set_key.indexed(),
                                 PreprocessWorkItem {
-                                    input_index: input_index.into(),
+                                    input_index: *input_index,
                                     output_index: first_output_index,
                                     indirect_parameters_index,
                                 },
                             );
                             batch = Some(BinnedRenderPhaseBatch {
-                                representative_entity: (entity, main_entity),
+                                representative_entity: (Entity::PLACEHOLDER, main_entity),
                                 instance_range: output_index..output_index + 1,
                                 extra_index: PhaseItemExtraIndex::maybe_indirect_parameters_index(
                                     NonMaxU32::new(indirect_parameters_index),
@@ -1394,11 +1476,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
             let first_output_index = data_buffer.len() as u32;
 
             let mut batch: Option<BinnedRenderPhaseBatch> = None;
-            for &(entity, main_entity) in &phase.batchable_mesh_values[key].entities {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, main_entity)
-                else {
-                    continue;
-                };
+            for (&main_entity, &input_index) in phase.batchable_mesh_values[key].entities() {
                 let output_index = data_buffer.add() as u32;
 
                 match batch {
@@ -1415,7 +1493,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         work_item_buffer.push(
                             key.0.indexed(),
                             PreprocessWorkItem {
-                                input_index: input_index.into(),
+                                input_index: *input_index,
                                 output_index: if no_indirect_drawing {
                                     output_index
                                 } else {
@@ -1441,7 +1519,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                             indirect_parameters_buffers.get_next_batch_set_index(key.0.indexed());
 
                         GFBD::write_batch_indirect_parameters_metadata(
-                            input_index.into(),
+                            input_index,
                             key.0.indexed(),
                             output_index,
                             batch_set_index,
@@ -1451,13 +1529,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         work_item_buffer.push(
                             key.0.indexed(),
                             PreprocessWorkItem {
-                                input_index: input_index.into(),
+                                input_index: *input_index,
                                 output_index: first_output_index,
                                 indirect_parameters_index,
                             },
                         );
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: (entity, main_entity),
+                            representative_entity: (Entity::PLACEHOLDER, main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::IndirectParametersIndex {
                                 range: indirect_parameters_index..(indirect_parameters_index + 1),
@@ -1471,13 +1549,13 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                         work_item_buffer.push(
                             key.0.indexed(),
                             PreprocessWorkItem {
-                                input_index: input_index.into(),
+                                input_index: *input_index,
                                 output_index,
                                 indirect_parameters_index: 0,
                             },
                         );
                         batch = Some(BinnedRenderPhaseBatch {
-                            representative_entity: (entity, main_entity),
+                            representative_entity: (Entity::PLACEHOLDER, main_entity),
                             instance_range: output_index..output_index + 1,
                             extra_index: PhaseItemExtraIndex::None,
                         });
@@ -1529,8 +1607,8 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                 )
             };
 
-            for &(_, main_entity) in &unbatchables.entities {
-                let Some(input_index) = GFBD::get_binned_index(&system_param_item, main_entity)
+            for main_entity in unbatchables.entities.keys() {
+                let Some(input_index) = GFBD::get_binned_index(&system_param_item, *main_entity)
                 else {
                     continue;
                 };
@@ -1540,7 +1618,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
                     // We're in indirect mode, so add an indirect parameters
                     // index.
                     GFBD::write_batch_indirect_parameters_metadata(
-                        input_index.into(),
+                        InputUniformIndex(input_index.into()),
                         key.0.indexed(),
                         output_index,
                         None,

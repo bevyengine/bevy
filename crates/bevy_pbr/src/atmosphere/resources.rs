@@ -367,7 +367,7 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
                     blend: Some(BlendState {
                         color: BlendComponent {
                             src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::Src1,
                             operation: BlendOperation::Add,
                         },
                         alpha: BlendComponent {

@@ -74,7 +74,7 @@ use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_target_camera_system};
+use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
 pub struct UiPlugin {
@@ -105,6 +105,8 @@ pub enum UiSystem {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
+    /// Update content requirements before layout.
+    Content,
     /// After this label, the ui layout state has been updated.
     ///
     /// Runs in [`PostUpdate`].
@@ -169,11 +171,13 @@ impl Plugin for UiPlugin {
             .register_type::<Outline>()
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
+            .register_type::<TextShadow>()
             .configure_sets(
                 PostUpdate,
                 (
                     CameraUpdateSystem,
-                    UiSystem::Prepare.before(UiSystem::Stack).after(Animation),
+                    UiSystem::Prepare.after(Animation),
+                    UiSystem::Content,
                     UiSystem::Layout,
                     UiSystem::PostLayout,
                 )
@@ -196,7 +200,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_target_camera_system.in_set(UiSystem::Prepare),
+                update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystem::Stack)
@@ -210,7 +214,7 @@ impl Plugin for UiPlugin {
                 // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
                 // will never modify a pre-existing `Image` asset.
                 widget::update_image_content_size_system
-                    .in_set(UiSystem::Prepare)
+                    .in_set(UiSystem::Content)
                     .in_set(AmbiguousWithTextSystem)
                     .in_set(AmbiguousWithUpdateText2DLayout),
             ),
@@ -263,7 +267,7 @@ fn build_text_interop(app: &mut App) {
                 widget::measure_text_system,
             )
                 .chain()
-                .in_set(UiSystem::Prepare)
+                .in_set(UiSystem::Content)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 // Potential conflict: `Assets<Image>`
@@ -276,6 +280,7 @@ fn build_text_interop(app: &mut App) {
             widget::text_system
                 .in_set(UiSystem::PostLayout)
                 .after(bevy_text::remove_dropped_font_atlas_sets)
+                .before(bevy_asset::AssetEvents)
                 // Text2d and bevy_ui text are entirely on separate entities
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 .ambiguous_with(bevy_text::update_text2d_layout)
