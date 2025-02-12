@@ -1300,7 +1300,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     pub fn get_many_readonly<const N: usize>(
         self,
         entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>>
+    ) -> Result<[D::Item<'w, 's>; N], QueryEntityError<'w>>
     where
         D: ReadOnlyQueryData,
     {
