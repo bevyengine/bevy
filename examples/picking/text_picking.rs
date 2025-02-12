@@ -23,11 +23,40 @@ fn main() {
         .run();
 }
 
+fn set_cursor_target_ui(
+    t: Trigger<TextPointer<Click>>,
+    q: Query<(&GlobalTransform, &TextLayoutInfo)>,
+    mut target: ResMut<CursorTarget>,
+    cam: Single<(&Camera, &GlobalTransform)>,
+) {
+    let Ok((gt, tli)) = q.get(t.target()) else {
+        return;
+    };
+
+    let (cam, cam_transform) = cam.into_inner();
+
+    const LINEHEIGHT: f32 = 12.0;
+
+    let xoff = match t.cursor.affinity {
+        Affinity::Before => -t.glyph.size.x / 2.0,
+        Affinity::After => t.glyph.size.x / 2.0,
+    };
+    let xpos = t.glyph.position.x + xoff - tli.size.x / 2.;
+    let ypos = (t.cursor.line + 1) as f32 * LINEHEIGHT - tli.size.y / 2.;
+
+    let pos = gt.translation().truncate() + Vec2::new(xpos, ypos);
+
+    target.0 = cam
+        .viewport_to_world_2d(cam_transform, pos)
+        .unwrap()
+        .extend(1.0);
+}
+
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     commands.spawn((
         Sprite {
-            custom_size: Some(Vec2::new(2.0, 12.0)),
+            custom_size: Some(Vec2::new(4.0, 16.0)),
             color: GREEN.into(),
             ..default()
         },
@@ -54,12 +83,10 @@ fn setup(mut commands: Commands) {
                 info!("Span specific observer clicked! {:?}", t);
                 // Prevent parent observer triggering when span clicked.
                 t.propagate(false);
-            });
+            })
+            .observe(set_cursor_target_ui);
         })
-        .observe(|t: Trigger<TextPointer<Click>>| {
-            info!("Root observer clicked! {:?}", t);
-            // TODO: Visualize a cursor on click.
-        });
+        .observe(set_cursor_target_ui);
 
     commands
         .spawn((
@@ -95,7 +122,7 @@ fn setup(mut commands: Commands) {
                 let ypos = transform.translation.y + (t.cursor.line + 1) as f32 * LINEHEIGHT
                     - tli.size.y / 2.;
 
-                target.0 = Vec3::new(xpos, ypos, transform.translation.z);
+                target.0 = Vec3::new(xpos, ypos, 1.0);
             },
         )
         .observe(|_t: Trigger<Pointer<Click>>| info!("clicked text2d"));

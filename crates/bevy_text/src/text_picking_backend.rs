@@ -85,8 +85,6 @@ pub(crate) fn get_and_emit_text_hits<E: HasHit>(
     local_pos.y *= -1.;
     local_pos += size / 2.;
 
-    info!("{:?}", local_pos);
-
     // TODO: DRY: this is repeated in UI text picking
 
     let Some(cursor) = c_text.buffer().hit(local_pos.x, local_pos.y) else {
