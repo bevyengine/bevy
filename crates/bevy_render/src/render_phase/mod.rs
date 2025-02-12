@@ -38,7 +38,7 @@ pub use draw::*;
 pub use draw_state::*;
 use encase::{internal::WriteInto, ShaderSize};
 use fixedbitset::{Block, FixedBitSet};
-use indexmap::{IndexMap, IndexSet};
+use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 use wgpu::Features;
@@ -191,8 +191,9 @@ where
 /// a [`BinnedRenderPhase`].
 #[derive(Default)]
 pub struct RenderBin {
-    /// A list of the entities in each bin.
-    entities: IndexSet<MainEntity, EntityHash>,
+    /// A list of the entities in each bin, along with their cached
+    /// [`InputUniformIndex`].
+    entities: IndexMap<MainEntity, InputUniformIndex, EntityHash>,
 }
 
 /// Information that we track about an entity that was in one bin on the
@@ -422,6 +423,19 @@ where
     }
 }
 
+/// The index of the uniform describing this object in the GPU buffer, when GPU
+/// preprocessing is enabled.
+///
+/// For example, for 3D meshes, this is the index of the `MeshInputUniform` in
+/// the buffer.
+///
+/// This field is ignored if GPU preprocessing isn't in use, such as (currently)
+/// in the case of 2D meshes. In that case, it can be safely set to
+/// [`core::default::Default::default`].
+#[derive(Clone, Copy, PartialEq, Default, Deref, DerefMut)]
+#[repr(transparent)]
+pub struct InputUniformIndex(pub u32);
+
 impl<BPI> BinnedRenderPhase<BPI>
 where
     BPI: BinnedPhaseItem,
@@ -436,6 +450,7 @@ where
         batch_set_key: BPI::BatchSetKey,
         bin_key: BPI::BinKey,
         (entity, main_entity): (Entity, MainEntity),
+        input_uniform_index: InputUniformIndex,
         phase_type: BinnedRenderPhaseType,
         change_tick: Tick,
     ) {
@@ -447,11 +462,14 @@ where
                             .get_mut()
                             .entry(bin_key.clone())
                             .or_default()
-                            .insert(main_entity);
+                            .insert(main_entity, input_uniform_index);
                     }
                     Entry::Vacant(entry) => {
                         let mut new_batch_set = HashMap::default();
-                        new_batch_set.insert(bin_key.clone(), RenderBin::from_entity(main_entity));
+                        new_batch_set.insert(
+                            bin_key.clone(),
+                            RenderBin::from_entity(main_entity, input_uniform_index),
+                        );
                         entry.insert(new_batch_set);
                     }
                 }
@@ -463,10 +481,10 @@ where
                     .entry((batch_set_key.clone(), bin_key.clone()).clone())
                 {
                     Entry::Occupied(mut entry) => {
-                        entry.get_mut().insert(main_entity);
+                        entry.get_mut().insert(main_entity, input_uniform_index);
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert(RenderBin::from_entity(main_entity));
+                        entry.insert(RenderBin::from_entity(main_entity, input_uniform_index));
                     }
                 }
             }
@@ -497,10 +515,10 @@ where
                     .entry((batch_set_key.clone(), bin_key.clone()).clone())
                 {
                     Entry::Occupied(mut entry) => {
-                        entry.get_mut().insert(main_entity);
+                        entry.get_mut().insert(main_entity, input_uniform_index);
                     }
                     Entry::Vacant(entry) => {
-                        entry.insert(RenderBin::from_entity(main_entity));
+                        entry.insert(RenderBin::from_entity(main_entity, input_uniform_index));
                     }
                 }
             }
@@ -753,7 +771,7 @@ where
         let mut draw_functions = draw_functions.write();
 
         for ((batch_set_key, bin_key), bin) in &self.non_mesh_items {
-            for &entity in &bin.entities {
+            for &entity in bin.entities.keys() {
                 // Come up with a fake batch range and extra index. The draw
                 // function is expected to manage any sort of batching logic itself.
                 let binned_phase_item = BPI::new(
@@ -823,16 +841,14 @@ where
     /// Removes all entities not marked as clean from the bins.
     ///
     /// During `queue_material_meshes`, we process all visible entities and mark
-    /// each as clean as we come to it. Then we call this method, which removes
-    /// entities that aren't marked as clean from the bins.
+    /// each as clean as we come to it. Then, in [`sweep_old_entities`], we call
+    /// this method, which removes entities that aren't marked as clean from the
+    /// bins.
     pub fn sweep_old_entities(&mut self) {
         // Search for entities not marked as valid. We have to do this in
         // reverse order because `swap_remove_index` will potentially invalidate
         // all indices after the one we remove.
         for index in ReverseFixedBitSetZeroesIterator::new(&self.valid_cached_entity_bin_keys) {
-            // If we found an invalid entity, remove it. Note that this
-            // potentially invalidates later indices, but that's OK because
-            // we're going in reverse order.
             let Some((entity, entity_bin_key)) =
                 self.cached_entity_bin_keys.swap_remove_index(index)
             else {
@@ -1068,6 +1084,7 @@ where
                             ),
                     )
                         .in_set(RenderSet::PrepareResources),
+                    sweep_old_entities::<BPI>.in_set(RenderSet::QueueSweep),
                 ),
             );
     }
@@ -1605,6 +1622,18 @@ where
     }
 }
 
+/// Removes entities that became invisible or changed phases from the bins.
+///
+/// This must run after queuing.
+pub fn sweep_old_entities<BPI>(mut render_phases: ResMut<ViewBinnedRenderPhases<BPI>>)
+where
+    BPI: BinnedPhaseItem,
+{
+    for phase in render_phases.0.values_mut() {
+        phase.sweep_old_entities();
+    }
+}
+
 impl BinnedRenderPhaseType {
     pub fn mesh(
         batchable: bool,
@@ -1620,15 +1649,15 @@ impl BinnedRenderPhaseType {
 
 impl RenderBin {
     /// Creates a [`RenderBin`] containing a single entity.
-    fn from_entity(entity: MainEntity) -> RenderBin {
-        let mut entities = IndexSet::default();
-        entities.insert(entity);
+    fn from_entity(entity: MainEntity, uniform_index: InputUniformIndex) -> RenderBin {
+        let mut entities = IndexMap::default();
+        entities.insert(entity, uniform_index);
         RenderBin { entities }
     }
 
     /// Inserts an entity into the bin.
-    fn insert(&mut self, entity: MainEntity) {
-        self.entities.insert(entity);
+    fn insert(&mut self, entity: MainEntity, uniform_index: InputUniformIndex) {
+        self.entities.insert(entity, uniform_index);
     }
 
     /// Removes an entity from the bin.
@@ -1641,9 +1670,10 @@ impl RenderBin {
         self.entities.is_empty()
     }
 
-    /// Returns the [`IndexSet`] containing all the entities in the bin.
+    /// Returns the [`IndexMap`] containing all the entities in the bin, along
+    /// with the cached [`InputUniformIndex`] of each.
     #[inline]
-    pub fn entities(&self) -> &IndexSet<MainEntity, EntityHash> {
+    pub fn entities(&self) -> &IndexMap<MainEntity, InputUniformIndex, EntityHash> {
         &self.entities
     }
 }

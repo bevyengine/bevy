@@ -1,5 +1,6 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
+use bevy_render::render_phase::InputUniformIndex;
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
@@ -19,6 +20,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
+use bevy_render::mesh::MeshTag;
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
@@ -230,10 +232,11 @@ pub struct Mesh2dUniform {
     pub local_from_world_transpose_a: [Vec4; 2],
     pub local_from_world_transpose_b: f32,
     pub flags: u32,
+    pub tag: u32,
 }
 
-impl From<&Mesh2dTransforms> for Mesh2dUniform {
-    fn from(mesh_transforms: &Mesh2dTransforms) -> Self {
+impl Mesh2dUniform {
+    fn from_components(mesh_transforms: &Mesh2dTransforms, tag: u32) -> Self {
         let (local_from_world_transpose_a, local_from_world_transpose_b) =
             mesh_transforms.world_from_local.inverse_transpose_3x3();
         Self {
@@ -241,6 +244,7 @@ impl From<&Mesh2dTransforms> for Mesh2dUniform {
             local_from_world_transpose_a,
             local_from_world_transpose_b,
             flags: mesh_transforms.flags,
+            tag,
         }
     }
 }
@@ -259,6 +263,7 @@ pub struct RenderMesh2dInstance {
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
+    pub tag: u32,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -275,13 +280,14 @@ pub fn extract_mesh2d(
             &ViewVisibility,
             &GlobalTransform,
             &Mesh2d,
+            Option<&MeshTag>,
             Has<NoAutomaticBatching>,
         )>,
     >,
 ) {
     render_mesh_instances.clear();
 
-    for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
+    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in &query {
         if !view_visibility.get() {
             continue;
         }
@@ -295,6 +301,7 @@ pub fn extract_mesh2d(
                 mesh_asset_id: handle.0.id(),
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: !no_automatic_batching,
+                tag: tag.map_or(0, |i| **i),
             },
         );
     }
@@ -359,7 +366,7 @@ impl FromWorld for Mesh2dPipeline {
             let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 texture.as_image_copy(),
-                &image.data,
+                image.data.as_ref().expect("Image has no data"),
                 TexelCopyBufferLayout {
                     offset: 0,
                     bytes_per_row: Some(image.width() * format_size as u32),
@@ -422,7 +429,7 @@ impl GetBatchData for Mesh2dPipeline {
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
-            (&mesh_instance.transforms).into(),
+            Mesh2dUniform::from_components(&mesh_instance.transforms, mesh_instance.tag),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
@@ -439,7 +446,10 @@ impl GetFullBatchData for Mesh2dPipeline {
         main_entity: MainEntity,
     ) -> Option<Self::BufferData> {
         let mesh_instance = mesh_instances.get(&main_entity)?;
-        Some((&mesh_instance.transforms).into())
+        Some(Mesh2dUniform::from_components(
+            &mesh_instance.transforms,
+            mesh_instance.tag,
+        ))
     }
 
     fn get_index_and_compare_data(
@@ -465,7 +475,7 @@ impl GetFullBatchData for Mesh2dPipeline {
     }
 
     fn write_batch_indirect_parameters_metadata(
-        input_index: u32,
+        input_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
@@ -476,7 +486,7 @@ impl GetFullBatchData for Mesh2dPipeline {
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
         let indirect_parameters = IndirectParametersMetadata {
-            mesh_index: input_index,
+            mesh_index: *input_index,
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
