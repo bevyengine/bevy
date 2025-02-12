@@ -377,3 +377,52 @@ fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     let cos_azimuth = cos(azimuth);
     return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
 }
+
+struct RaymarchResult {
+    inscattering: vec3<f32>,
+    transmittance: vec3<f32>,
+}
+
+fn raymarch_atmosphere(
+    r: f32,
+    ray_dir: vec3<f32>,
+    t_max: f32,
+    sample_count: f32,
+) -> RaymarchResult {
+    let mu = ray_dir.y;
+    
+    var result: RaymarchResult;
+    result.inscattering = vec3(0.0);
+    result.transmittance = vec3(1.0);
+    var prev_t = 0.0;
+    for (var s = 0.0; s < sample_count; s += 1.0) {
+        // Linear distribution
+        let t_i = t_max * (s + MIDPOINT_RATIO) / sample_count;
+        let dt_i = (t_i - prev_t);
+        prev_t = t_i;
+
+        let local_r = get_local_r(r, mu, t_i);
+        let local_up = get_local_up(r, t_i, ray_dir);
+        let local_atmosphere = sample_atmosphere(local_r);
+
+        let sample_optical_depth = local_atmosphere.extinction * dt_i;
+        let sample_transmittance = exp(-sample_optical_depth);
+
+        let inscattering = sample_local_inscattering(
+            local_atmosphere,
+            ray_dir,
+            local_r,
+            local_up
+        );
+
+        let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
+        result.inscattering += result.transmittance * s_int;
+
+        result.transmittance *= sample_transmittance;
+        if all(result.transmittance < vec3(0.001)) {
+            break;
+        }
+    }
+
+    return result;
+}
