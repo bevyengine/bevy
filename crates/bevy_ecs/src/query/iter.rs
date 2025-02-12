@@ -694,7 +694,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// #[derive(Component)]
     /// struct AvailableMarker;
     ///
-    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord)]
+    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
     /// enum Rarity {
     ///   Common,
     ///   Rare,
@@ -722,7 +722,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     ///         .sort_by_key::<EntityRef, _>(|entity_ref| {
     ///             (
     ///                 entity_ref.contains::<AvailableMarker>(),
-    ///                 entity_ref.get::<Rarity>()
+    ///                 entity_ref.get::<Rarity>().copied()
     ///             )
     ///         })
     ///         .rev()
@@ -1537,7 +1537,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// #[derive(Component)]
     /// struct AvailableMarker;
     ///
-    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord)]
+    /// #[derive(Component, PartialEq, Eq, PartialOrd, Ord, Copy, Clone)]
     /// enum Rarity {
     ///   Common,
     ///   Rare,
@@ -1567,7 +1567,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     ///         .sort_by_key::<EntityRef, _>(|entity_ref| {
     ///             (
     ///                 entity_ref.contains::<AvailableMarker>(),
-    ///                 entity_ref.get::<Rarity>()
+    //                  entity_ref.get::<Rarity>().copied()
     ///             )
     ///         })
     ///         .rev()
