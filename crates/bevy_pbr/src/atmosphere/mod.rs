@@ -41,7 +41,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{lifetimeless::Read, Query},
 };
-use bevy_math::{UVec2, UVec3, Vec2, Vec3};
+use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::UniformComponentPlugin,
@@ -258,7 +258,7 @@ impl Plugin for AtmospherePlugin {
 /// from the planet's surface, ozone only exists in a band centered at a fairly
 /// high altitude.
 #[derive(Clone, Component, Reflect, ShaderType, Pod, Zeroable, Copy)]
-#[repr(C, align(16))]
+#[repr(C)]
 #[require(AtmosphereSettings)]
 pub struct Atmosphere {
     /// Radius of the planet
@@ -278,7 +278,6 @@ pub struct Atmosphere {
     /// units: N/A
     pub ground_albedo: Vec3,
 
-    pub _padone: f32,
     /// The rate of falloff of rayleigh particulate with respect to altitude:
     /// optical density = exp(-rayleigh_density_exp_scale * altitude in meters).
     ///
@@ -335,7 +334,6 @@ pub struct Atmosphere {
     ///
     /// units: m^-1
     pub ozone_absorption: Vec3,
-    pub _padtwo: f32,
 }
 
 impl Atmosphere {
@@ -343,7 +341,6 @@ impl Atmosphere {
         bottom_radius: 6_360_000.0,
         top_radius: 6_460_000.0,
         ground_albedo: Vec3::splat(0.3),
-        _padone: 0.0,
         rayleigh_density_exp_scale: 1.0 / 8_000.0,
         rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
         mie_density_exp_scale: 1.0 / 1_200.0,
@@ -353,7 +350,6 @@ impl Atmosphere {
         ozone_layer_altitude: 25_000.0,
         ozone_layer_width: 30_000.0,
         ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
-        _padtwo: 0.0,
     };
 
     pub fn with_density_multiplier(mut self, mult: f32) -> Self {
@@ -402,23 +398,19 @@ impl ExtractComponent for Atmosphere {
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
 #[derive(Clone, Component, Reflect, ShaderType, Pod, Zeroable, Copy)]
-#[repr(C, align(16))]
+#[repr(C)]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,
-    pub _padone: Vec2,
 
     /// The size of the multiscattering LUT
     pub multiscattering_lut_size: UVec2,
-    pub _padtwo: Vec2,
 
     /// The size of the sky-view LUT.
     pub sky_view_lut_size: UVec2,
-    pub _padthree: Vec2,
 
     /// The size of the aerial-view LUT.
     pub aerial_view_lut_size: UVec3,
-    pub _padfour: f32,
 
     /// The number of points to sample along each ray when
     /// computing the transmittance LUT
@@ -451,7 +443,6 @@ pub struct AtmosphereSettings {
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
-    pub _padfive: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -468,11 +459,6 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_samples: 10,
             aerial_view_lut_max_distance: 3.2e4,
             scene_units_to_m: 1.0,
-            _padone: Vec2::ZERO,
-            _padtwo: Vec2::ZERO,
-            _padthree: Vec2::ZERO,
-            _padfour: 0.0,
-            _padfive: 0.0,
         }
     }
 }
