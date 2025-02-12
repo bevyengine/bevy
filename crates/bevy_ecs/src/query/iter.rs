@@ -487,7 +487,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -495,7 +495,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'lw> L::Item<'lw>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
 
@@ -541,7 +544,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort_unstable<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -549,7 +552,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'lw> L::Item<'lw>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
 
@@ -604,7 +610,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -636,7 +642,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -728,7 +734,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -761,7 +767,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -796,7 +802,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -826,7 +832,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedIter<
         'w,
         's,
@@ -1333,7 +1339,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'lw> L::Item<'lw>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
@@ -1391,7 +1397,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'lw> L::Item<'lw>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
@@ -1448,7 +1454,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1479,7 +1485,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'_>, &L::Item<'_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1573,7 +1579,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1605,7 +1611,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1639,7 +1645,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1668,7 +1674,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedManyIter<
         'w,
         's,
