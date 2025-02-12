@@ -5,7 +5,7 @@
     // This extension is passed to `rustdoc` using the `--html-after-content` flag.
 
     // Traits that we want to show as tags.
-    // Order determines sort order of items in listings.
+    // Order determines order of tags if multiple are implemented.
     const bevyTraits = [
         'Plugin',
         'PluginGroup',
@@ -217,8 +217,8 @@
     }
 
     .bevy-trait-icon-instance {
-        width: 1.25em;
-        height: 1.1em;
+        width: 1em;
+        height: 1em;
 
         padding-right: 0.15em;
         text-wrap-mode: nowrap;
