@@ -1095,6 +1095,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that you must use the `for_each` method to iterate over the
     /// results, see [`par_iter_mut`] for an example.
     ///
+    /// [`Entity`]: crate::entity::Entity
     /// [`par_iter_many_unique_mut`]: Self::par_iter_many_unique_mut
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
@@ -1124,6 +1125,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that you must use the `for_each` method to iterate over the
     /// results, see [`par_iter_mut`] for an example.
     ///
+    /// [`EntitySet`]: crate::entity::EntitySet
     /// [`par_iter_many_unique_mut`]: Self::par_iter_many_unique_mut
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
@@ -1153,6 +1155,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// Note that you must use the `for_each` method to iterate over the
     /// results, see [`par_iter_mut`] for an example.
     ///
+    /// [`EntitySet`]: crate::entity::EntitySet
     /// [`par_iter_many_unique`]: Self::par_iter_many_unique
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
