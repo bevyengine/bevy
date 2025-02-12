@@ -3,7 +3,7 @@ use crate::{
     skin::mark_skins_as_changed_if_their_inverse_bindposes_changed,
 };
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
+use bevy_asset::{load_internal_asset, AssetEvents, AssetId, UntypedAssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -169,7 +169,7 @@ impl Plugin for MeshRenderPlugin {
             (
                 no_automatic_skin_batching,
                 no_automatic_morph_batching,
-                mark_skins_as_changed_if_their_inverse_bindposes_changed,
+                mark_skins_as_changed_if_their_inverse_bindposes_changed.after(AssetEvents),
             ),
         )
         .add_plugins((
