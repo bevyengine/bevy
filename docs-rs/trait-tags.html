@@ -171,6 +171,10 @@
                     link.prepend(createBevyTraitIcon(trait));
                 }
             }
+            if (item.traits.size == 0) {
+                // Line up with items that have an icon
+                link.prepend(createBevyTraitIcon("none"));
+            }
         }
     }
 
