@@ -628,19 +628,24 @@ fn directional_light(
     color *= (*light).color.rgb;
 
 #ifdef ATMOSPHERE
-    // Calculate atmospheric transmittance
     let P = (*input).P;
-    // TODO: fix unknown identifier bindings
-    let P_as = view_bindings::atmosphere_data.transforms.atmosphere_from_world * vec4(P, 1.0);
-    let planet_center = vec3(0.0, view_bindings::atmosphere_data.atmosphere.bottom_radius, 0.0);
-    let r = length(P - planet_center);
-    let up = normalize(P - planet_center);
-    let mu = dot(-L, up);
+    let O = vec3(0.0, view_bindings::atmosphere_data.atmosphere.bottom_radius, 0.0);
+    // Scale the positions by view_bindings::atmosphere_data.settings.scene_units_to_m
+    // TODO: figure out why it's not being passed into the storage buffer properly
+    // likely an issue with byte alignment
+    let P_scaled = P * vec3(10000.0);
+    let P_as = P_scaled + O;
+    let r = length(P_as);
+    let local_up = normalize(P_as);
+    let mu_light = dot(L, local_up);
+
+    // Sample atmosphere
+    let transmittance = sample_transmittance_lut(r, mu_light);
+    let sun_visibility = calculate_visible_sun_ratio(r, mu_light);
     
-    // Apply transmittance after light color but before shadows
-    // This ensures the light is attenuated by the atmosphere before any other effects
-    color *= sample_transmittance_lut(r, mu);
-#endif  // ATMOSPHERE
+    // Apply atmospheric effects
+    color *= transmittance * sun_visibility;
+#endif
 
     return color;
 }
@@ -685,5 +690,37 @@ fn distance_to_top_atmosphere_boundary(r: f32, mu: f32) -> f32 {
     let top_radius = atmosphere.top_radius;
     let positive_discriminant = max(r * r * (mu * mu - 1.0) + top_radius * top_radius, 0.0);
     return max(-r * mu + sqrt(positive_discriminant), 0.0);
+}
+
+fn ray_intersects_ground(r: f32, mu: f32) -> bool {
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
+    return mu < 0.0 && r * r * (mu * mu - 1.0) + atmosphere.bottom_radius * atmosphere.bottom_radius >= 0.0;
+}
+
+const SUN_ANGULAR_SIZE: f32 = 0.0174533;
+
+fn calculate_visible_sun_ratio(r: f32, mu: f32) -> f32 {
+    let atmosphere = view_bindings::atmosphere_data.atmosphere;
+    
+    // Calculate the angle between horizon and sun center
+    // Invert the horizon angle calculation to fix shading direction
+    let horizon_cos = -sqrt(1.0 - (atmosphere.bottom_radius * atmosphere.bottom_radius) / (r * r));
+    let horizon_angle = acos(horizon_cos);
+    let sun_zenith_angle = acos(mu);
+    
+    // If sun is completely above horizon
+    if sun_zenith_angle + SUN_ANGULAR_SIZE * 0.5 <= horizon_angle {
+        return 1.0;
+    }
+    
+    // If sun is completely below horizon
+    if sun_zenith_angle - SUN_ANGULAR_SIZE * 0.5 >= horizon_angle {
+        return 0.0;
+    }
+    
+    // Calculate partial visibility using circular segment area formula
+    let d = (horizon_angle - sun_zenith_angle) / (SUN_ANGULAR_SIZE * 0.5);
+    let visible_ratio = 0.5 + d * 0.5;
+    return clamp(visible_ratio, 0.0, 1.0);
 }
 #endif  // ATMOSPHERE

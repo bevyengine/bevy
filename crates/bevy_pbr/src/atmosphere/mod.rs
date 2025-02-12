@@ -41,7 +41,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs,
     system::{lifetimeless::Read, Query},
 };
-use bevy_math::{UVec2, UVec3, Vec3};
+use bevy_math::{UVec2, UVec3, Vec2, Vec3};
 use bevy_reflect::Reflect;
 use bevy_render::{
     extract_component::UniformComponentPlugin,
@@ -406,15 +406,19 @@ impl ExtractComponent for Atmosphere {
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
     pub transmittance_lut_size: UVec2,
+    pub _padone: Vec2,
 
     /// The size of the multiscattering LUT
     pub multiscattering_lut_size: UVec2,
+    pub _padtwo: Vec2,
 
     /// The size of the sky-view LUT.
     pub sky_view_lut_size: UVec2,
+    pub _padthree: Vec2,
 
     /// The size of the aerial-view LUT.
     pub aerial_view_lut_size: UVec3,
+    pub _padfour: f32,
 
     /// The number of points to sample along each ray when
     /// computing the transmittance LUT
@@ -447,6 +451,7 @@ pub struct AtmosphereSettings {
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
+    pub _padfive: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -463,6 +468,11 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_samples: 10,
             aerial_view_lut_max_distance: 3.2e4,
             scene_units_to_m: 1.0,
+            _padone: Vec2::ZERO,
+            _padtwo: Vec2::ZERO,
+            _padthree: Vec2::ZERO,
+            _padfour: 0.0,
+            _padfive: 0.0,
         }
     }
 }

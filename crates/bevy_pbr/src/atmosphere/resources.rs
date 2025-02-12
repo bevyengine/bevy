@@ -759,17 +759,14 @@ pub(crate) fn prepare_atmosphere_buffer(
         (
             Entity,
             &Atmosphere,
+            &AtmosphereSettings,
             &ExtractedView,
             &AtmosphereTransformsOffset,
         ),
         With<Camera3d>,
     >,
-    settings_entity: Query<&AtmosphereSettings>,
 ) {
-    let Ok((_, atmosphere, view, _)) = atmosphere_entity.get_single() else {
-        return;
-    };
-    let Ok(settings) = settings_entity.get_single() else {
+    let Ok((_, atmosphere, settings, view, _)) = atmosphere_entity.get_single() else {
         return;
     };
 
