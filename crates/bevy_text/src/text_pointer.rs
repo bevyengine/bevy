@@ -41,7 +41,7 @@ pub(crate) fn plugin(app: &mut App) {
 
 /// Text-specific pointer event.
 #[derive(Debug, Clone)]
-pub struct TextPointer<E: Clone + Reflect + std::fmt::Debug> {
+pub struct TextPointer<E: Clone + Reflect + core::fmt::Debug> {
     /// The picked location in text.
     pub cursor: Cursor,
     /// The `PositionedGlyph` the the picked location in text.
@@ -52,7 +52,7 @@ pub struct TextPointer<E: Clone + Reflect + std::fmt::Debug> {
 
 impl<E> Event for TextPointer<E>
 where
-    E: Clone + Reflect + std::fmt::Debug,
+    E: Clone + Reflect + core::fmt::Debug,
 {
     const AUTO_PROPAGATE: bool = true;
     type Traversal = TextPointerTraversal;
@@ -70,7 +70,7 @@ pub struct TextPointerTraversal {
 
 impl<E> Traversal<TextPointer<E>> for TextPointerTraversal
 where
-    E: std::fmt::Debug + Clone + Reflect,
+    E: core::fmt::Debug + Clone + Reflect,
 {
     fn traverse(item: Self::Item<'_>, pointer: &TextPointer<E>) -> Option<Entity> {
         let TextPointerTraversalItem { parent, window } = item;
@@ -94,7 +94,7 @@ where
 }
 
 /// Pointer event shared trait where `HitData` exists.
-pub trait HasHit: Clone + Reflect + std::fmt::Debug {
+pub trait HasHit: Clone + Reflect + core::fmt::Debug {
     /// Provides access to the event's `HitData`.
     fn hit(&self) -> &HitData;
 }

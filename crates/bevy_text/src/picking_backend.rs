@@ -124,11 +124,8 @@ fn text2d_picking(
                     }
 
                     // Transform cursor line segment to local coordinate system
-                    let Some(relative_cursor_pos) =
-                        get_relative_cursor_pos(&text_transform, cursor_ray_world, cursor_ray_end)
-                    else {
-                        return None;
-                    };
+                    let relative_cursor_pos =
+                        get_relative_cursor_pos(text_transform, cursor_ray_world, cursor_ray_end)?;
 
                     // Find target rect, check cursor is contained inside
                     let size = Vec2::new(

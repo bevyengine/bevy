@@ -13,7 +13,6 @@ use bevy_picking::events::{
 };
 use bevy_render::camera::{Camera, Projection};
 use bevy_transform::components::GlobalTransform;
-use tracing::info;
 
 use crate::{
     picking_backend::{get_relative_cursor_pos, rays_from_cursor_camera},

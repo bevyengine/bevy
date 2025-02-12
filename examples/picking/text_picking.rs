@@ -95,7 +95,7 @@ fn setup(mut commands: Commands) {
         ))
         .with_children(|cb| {
             cb.spawn(TextSpan("And I'm a text span!".into())).observe(
-                |mut t: Trigger<TextPointer<Click>>| {
+                |t: Trigger<TextPointer<Click>>| {
                     info!("Textmode clicked text2d span {:?}", t);
                     // t.propagate(false);
                 },
@@ -136,6 +136,6 @@ struct CursorTarget(pub Vec3);
 
 fn cursor_to_target(target: Res<CursorTarget>, mut q: Query<&mut Transform, With<MyCursor>>) {
     for mut t in &mut q {
-        t.translation = target.0
+        t.translation = target.0;
     }
 }
