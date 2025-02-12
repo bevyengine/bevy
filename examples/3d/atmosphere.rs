@@ -138,20 +138,20 @@ fn setup_terrain_scene(
         Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
     ));
 
-    // let tall_cylinder_mesh = meshes.add(Cylinder {
-    //     radius: 0.5,
-    //     half_height: 5.0,
-    //     ..default()
-    // });
+    let tall_cylinder_mesh = meshes.add(Cylinder {
+        radius: 0.5,
+        half_height: 5.0,
+        ..default()
+    });
 
-    // commands.spawn((
-    //     Mesh3d(tall_cylinder_mesh.clone()),
-    //     MeshMaterial3d(materials.add(StandardMaterial {
-    //         base_color: Color::WHITE,
-    //         ..default()
-    //     })),
-    //     Transform::from_xyz(0.0, 5.0, 0.0),
-    // ));
+    commands.spawn((
+        Mesh3d(tall_cylinder_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            ..default()
+        })),
+        Transform::from_xyz(0.0, 5.0, 0.0),
+    ));
 
     // Terrain
     commands.spawn((

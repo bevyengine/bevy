@@ -33,7 +33,7 @@ use core::{array, num::NonZero};
 use environment_map::EnvironmentMapLight;
 
 use crate::{
-    atmosphere::resources::GpuAtmosphereData,
+    atmosphere::resources::PbrAtmosphereData,
     decal::{
         self,
         clustered::{
@@ -418,7 +418,7 @@ fn layout_entries(
             ),
             (38, sampler(SamplerBindingType::Filtering)),
             // atmosphere data buffer
-            (39, storage_buffer_read_only::<GpuAtmosphereData>(false)),
+            (39, storage_buffer_read_only::<PbrAtmosphereData>(false)),
         ));
     }
 

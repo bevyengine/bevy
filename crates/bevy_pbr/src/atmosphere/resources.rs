@@ -741,10 +741,10 @@ pub(super) fn prepare_atmosphere_bind_groups(
 
 #[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
 #[repr(C)]
-pub(crate) struct GpuAtmosphereData {
-    pub atmosphere: Atmosphere,
-    pub settings: AtmosphereSettings,
-    pub transforms: AtmosphereTransform,
+pub(crate) struct PbrAtmosphereData {
+    pub bottom_radius: f32,
+    pub top_radius: f32,
+    pub scene_units_to_m: f32,
 }
 
 #[derive(Resource)]
@@ -760,7 +760,7 @@ impl FromWorld for AtmosphereBuffer {
         // Create buffer with enough space for the atmosphere data
         let buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("atmosphere_buffer"),
-            size: GpuAtmosphereData::min_size().get(),
+            size: PbrAtmosphereData::min_size().get(),
             usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
@@ -775,48 +775,16 @@ impl FromWorld for AtmosphereBuffer {
 pub(crate) fn prepare_atmosphere_buffer(
     render_queue: Res<RenderQueue>,
     atmosphere_buffer: Res<AtmosphereBuffer>,
-    atmosphere_entity: Query<
-        (
-            Entity,
-            &Atmosphere,
-            &AtmosphereSettings,
-            &ExtractedView,
-            &AtmosphereTransformsOffset,
-        ),
-        With<Camera3d>,
-    >,
+    atmosphere_entity: Query<(Entity, &Atmosphere, &AtmosphereSettings), With<Camera3d>>,
 ) {
-    let Ok((_, atmosphere, settings, view, _)) = atmosphere_entity.get_single() else {
+    let Ok((_, atmosphere, settings)) = atmosphere_entity.get_single() else {
         return;
     };
 
-    // Recreate the transforms (same logic as in prepare_atmosphere_transforms)
-    let world_from_view = view.world_from_view.compute_matrix();
-    let camera_z = world_from_view.z_axis.truncate();
-    let camera_y = world_from_view.y_axis.truncate();
-    let atmo_z = camera_z
-        .with_y(0.0)
-        .try_normalize()
-        .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
-    let atmo_y = Vec3::Y;
-    let atmo_x = atmo_y.cross(atmo_z).normalize();
-    let world_from_atmosphere = Mat4::from_cols(
-        atmo_x.extend(0.0),
-        atmo_y.extend(0.0),
-        atmo_z.extend(0.0),
-        world_from_view.w_axis,
-    );
-    let atmosphere_from_world = world_from_atmosphere.inverse();
-
-    let transforms = AtmosphereTransform {
-        world_from_atmosphere,
-        atmosphere_from_world,
-    };
-
-    let data = GpuAtmosphereData {
-        atmosphere: atmosphere.clone(),
-        settings: settings.clone(),
-        transforms,
+    let data = PbrAtmosphereData {
+        bottom_radius: atmosphere.bottom_radius,
+        top_radius: atmosphere.top_radius,
+        scene_units_to_m: settings.scene_units_to_m,
     };
 
     // Write the data to the GPU buffer

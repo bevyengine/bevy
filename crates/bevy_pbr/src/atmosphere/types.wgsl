@@ -8,9 +8,6 @@ struct Atmosphere {
     top_radius: f32, // units: m
 
     ground_albedo: vec3<f32>,
-
-    _padone: f32,
-
     rayleigh_density_exp_scale: f32,
     rayleigh_scattering: vec3<f32>,
 
@@ -22,19 +19,13 @@ struct Atmosphere {
     ozone_layer_altitude: f32, // units: m
     ozone_layer_width: f32, // units: m
     ozone_absorption: vec3<f32>, // ozone absorption. units: m^-1
-
-    _padtwo: f32,
 }
 
 struct AtmosphereSettings {
     transmittance_lut_size: vec2<u32>,
-    _padone: vec2<f32>,
     multiscattering_lut_size: vec2<u32>,
-    _padtwo: vec2<f32>,
     sky_view_lut_size: vec2<u32>,
-    _padthree: vec2<f32>,
     aerial_view_lut_size: vec3<u32>,
-    _padfour: u32,
     transmittance_lut_samples: u32,
     multiscattering_lut_dirs: u32,
     multiscattering_lut_samples: u32,
@@ -42,7 +33,6 @@ struct AtmosphereSettings {
     aerial_view_lut_samples: u32,
     aerial_view_lut_max_distance: f32,
     scene_units_to_m: f32,
-    _padfive: f32,
 }
 
 
@@ -53,8 +43,8 @@ struct AtmosphereTransforms {
     atmosphere_from_world: mat4x4<f32>,
 }
 
-struct GpuAtmosphereData {
-    atmosphere: Atmosphere,
-    settings: AtmosphereSettings,
-    transforms: AtmosphereTransforms,
+struct PbrAtmosphereData {
+    bottom_radius: f32,
+    top_radius: f32,
+    scene_units_to_m: f32,
 }
