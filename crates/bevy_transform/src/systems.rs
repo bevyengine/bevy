@@ -196,19 +196,23 @@ fn compute_transform(
         // Only check if orphaned if it has no parent; avoids the search when not needed
         || parent.is_none() && orphans.binary_search(&entity).is_ok();
 
-    if is_changed {
-        *global_transform = if let Some(parent) = parent {
+    let global_transform = if is_changed {
+        let new_transform = if let Some(parent) = parent {
             parent.global_transform.mul_transform(*transform)
         } else {
             GlobalTransform::from(*transform)
-        }
-    }
+        };
+        *global_transform = new_transform;
+        new_transform
+    } else {
+        *global_transform.bypass_change_detection()
+    };
 
     if has_children {
         thread_local_queue.push(PropagationNode {
             is_changed,
             entity,
-            global_transform: *(global_transform.as_ref()),
+            global_transform,
         });
     }
 }
