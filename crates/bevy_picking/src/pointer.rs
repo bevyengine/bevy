@@ -33,8 +33,8 @@ pub enum PointerId {
     /// The mouse pointer.
     #[default]
     Mouse,
-    /// A touch input, usually numbered by window touch events from `winit`.
-    Touch(u64),
+    /// A touch input.
+    Touch,
     /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software
     /// controlled cursor.
     #[reflect(ignore)]
@@ -44,7 +44,7 @@ pub enum PointerId {
 impl PointerId {
     /// Returns true if the pointer is a touch input.
     pub fn is_touch(&self) -> bool {
-        matches!(self, PointerId::Touch(_))
+        matches!(self, PointerId::Touch)
     }
     /// Returns true if the pointer is the mouse.
     pub fn is_mouse(&self) -> bool {
@@ -53,14 +53,6 @@ impl PointerId {
     /// Returns true if the pointer is a custom input.
     pub fn is_custom(&self) -> bool {
         matches!(self, PointerId::Custom(_))
-    }
-    /// Returns the touch id if the pointer is a touch input.
-    pub fn get_touch_id(&self) -> Option<u64> {
-        if let PointerId::Touch(id) = self {
-            Some(*id)
-        } else {
-            None
-        }
     }
 }
 
@@ -270,6 +262,8 @@ pub enum PointerAction {
 pub struct PointerInput {
     /// The id of the pointer.
     pub pointer_id: PointerId,
+    /// The pointer entity
+    pub pointer_entity: Option<Entity>,
     /// The location of the pointer. For [`PointerAction::Move`], this is the location after the movement.
     pub location: Location,
     /// The action that the event describes.
@@ -283,6 +277,24 @@ impl PointerInput {
     pub fn new(pointer_id: PointerId, location: Location, action: PointerAction) -> PointerInput {
         PointerInput {
             pointer_id,
+            pointer_entity: None,
+            location,
+            action,
+        }
+    }
+
+    /// Creates a new pointer input event.
+    ///
+    /// Note that `location` refers to the position of the pointer *after* the event occurred.
+    pub fn new_with_entity(
+        pointer_id: PointerId,
+        pointer_entity: Entity,
+        location: Location,
+        action: PointerAction,
+    ) -> PointerInput {
+        PointerInput {
+            pointer_id,
+            pointer_entity: Some(pointer_entity),
             location,
             action,
         }
