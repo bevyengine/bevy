@@ -718,13 +718,35 @@ pub fn extract_camera_prepass_phase(
         }
         live_entities.insert(retained_view_entity);
 
-        commands
+        // Add or remove prepasses as appropriate.
+
+        let mut camera_commands = commands
             .get_entity(entity)
-            .expect("Camera entity wasn't synced.")
-            .insert_if(DepthPrepass, || depth_prepass)
-            .insert_if(NormalPrepass, || normal_prepass)
-            .insert_if(MotionVectorPrepass, || motion_vector_prepass)
-            .insert_if(DeferredPrepass, || deferred_prepass);
+            .expect("Camera entity wasn't synced.");
+
+        if depth_prepass {
+            camera_commands.insert(DepthPrepass);
+        } else {
+            camera_commands.remove::<DepthPrepass>();
+        }
+
+        if normal_prepass {
+            camera_commands.insert(NormalPrepass);
+        } else {
+            camera_commands.remove::<NormalPrepass>();
+        }
+
+        if motion_vector_prepass {
+            camera_commands.insert(MotionVectorPrepass);
+        } else {
+            camera_commands.remove::<MotionVectorPrepass>();
+        }
+
+        if deferred_prepass {
+            camera_commands.insert(DeferredPrepass);
+        } else {
+            camera_commands.remove::<DeferredPrepass>();
+        }
     }
 
     opaque_3d_prepass_phases.retain(|view_entity, _| live_entities.contains(view_entity));
@@ -986,6 +1008,7 @@ pub fn prepare_prepass_textures(
             && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)
         {
+            commands.entity(entity).remove::<ViewPrepassTextures>();
             continue;
         };
 
