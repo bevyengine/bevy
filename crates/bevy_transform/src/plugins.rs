@@ -1,6 +1,4 @@
-use crate::systems::{
-    compute_leaves, propagate_transforms_mpsc, propagate_transforms_par, sync_simple_transforms,
-};
+use crate::systems::{compute_leaves, propagate_transforms_mpsc, sync_simple_transforms};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
 

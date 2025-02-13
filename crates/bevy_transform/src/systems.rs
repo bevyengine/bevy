@@ -2,15 +2,11 @@ use core::{
     ops::DerefMut,
     sync::atomic::{AtomicI32, Ordering},
 };
-use std::{
-    dbg,
-    sync::{mpsc::channel, Arc, Mutex},
-};
+use std::sync::{mpsc::channel, Arc, Mutex};
 
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
 use bevy_ecs::prelude::*;
-use bevy_log::info_span;
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_utils::Parallel;
 
@@ -48,6 +44,7 @@ pub fn sync_simple_transforms(
     }
 }
 
+/// A queue shared between threads for transform propagation.
 pub struct WorkQueue {
     busy_threads: AtomicI32,
     sender: std::sync::mpsc::Sender<Vec<Entity>>,
