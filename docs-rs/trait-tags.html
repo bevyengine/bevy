@@ -5,7 +5,7 @@
     // This extension is passed to `rustdoc` using the `--html-after-content` flag.
 
     // Traits that we want to show as tags.
-    // Order determines order of tags if multiple are implemented.
+    // Order determines order sections, as well as order of tags if multiple are implemented.
     const bevyTraits = [
         'Plugin',
         'PluginGroup',
@@ -117,6 +117,11 @@
 
     if (info_node) {
         const info = JSON.parse(info_node.innerText);
+
+        // Make sure sections are in the right order
+        for (const trait of bevyTraits) {
+            findOrCreateListing(trait + "s")
+        }
 
         for (const item of findItems()) {
             const traits = info[itemName(item)];
