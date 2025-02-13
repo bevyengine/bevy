@@ -22,7 +22,9 @@ pub enum ShaderReflectError {
     Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
 }
 
-/// Describes whether or not to perform runtime checks on shaders
+/// Describes whether or not to perform runtime checks on shaders.
+/// Runtime checks can be enabled for safety at the cost of speed.
+/// By default no runtime checks will be performed.
 #[derive(Clone, Debug, Default)]
 pub enum ValidateShader {
     #[default]
@@ -46,8 +48,8 @@ pub struct Shader {
     // from being immediately dropped if we are the only user.
     pub file_dependencies: Vec<Handle<Shader>>,
     /// Enable or disable runtime shader validation, trading safety against speed.
-    /// 
-    /// Please read the [`ValidateShader`] docs for a discussion of the tradeoffs involved. 
+    ///
+    /// Please read the [`ValidateShader`] docs for a discussion of the tradeoffs involved.
     pub validate_shader: ValidateShader,
 }
 
