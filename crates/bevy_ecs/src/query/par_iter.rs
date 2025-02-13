@@ -201,15 +201,29 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     ///
     /// ```
     /// use bevy_utils::Parallel;
-    /// use crate::{bevy_ecs::prelude::{Component, Res, Entity}, bevy_ecs::system::Query};
-    /// use std::collections::Vec;
+    /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::system::Query};
+    /// use bevy_platform_support::prelude::Vec;
     /// # fn some_expensive_operation(item: T) -> usize {
     /// #     0
     /// # }
     ///
     /// #[derive(Component)]
     /// struct T;
-    /// fn system(query: Query<&T>, entities: Res<Vec<Entity>>){
+    ///
+    /// #[derive(Resource)]
+    /// struct V(Vec<Entity>)
+    ///
+    /// impl<'a> IntoIterator for &V {
+    /// // ...
+    /// #   type Item = &'a Entity;
+    /// #   type IntoIter = slice::Iter<'a, Entity>;
+    /// #
+    /// #    fn into_iter(self) -> Self::IntoIter {
+    /// #        self.0.iter()
+    /// #    }
+    /// }
+    ///
+    /// fn system(query: Query<&T>, entities: Res<V>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
     ///     query.par_iter_many(entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
@@ -361,7 +375,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///
     /// #[derive(Component)]
     /// struct T;
-    /// fn system(query: Query<&T>, entities: Res<UniqueEntityVec<Entity>>){
+    ///
+    /// #[derive(Resource)]
+    /// struct V(UniqueEntityVec<Entity>)
+    ///
+    /// impl<'a> IntoIterator for &V {
+    /// // ...
+    /// #   type Item = &'a Entity;
+    /// #   type IntoIter = UniqueEntityVec<slice::Iter<'a, Entity>>;
+    /// #
+    /// #    fn into_iter(self) -> Self::IntoIter {
+    /// #        self.0.iter()
+    /// #    }
+    /// }
+    ///
+    /// fn system(query: Query<&T>, entities: Res<V>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
     ///     query.par_iter_many_unique(entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
