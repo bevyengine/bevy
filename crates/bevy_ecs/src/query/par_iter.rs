@@ -59,12 +59,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// fn system(query: Query<&T>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue,item| {
+    ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += 1;
     ///      });
     ///     
     ///     // collect value from every thread
-    ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
+    ///     let entity_count = queue.iter().copied().sum();
     /// }
     /// ```
     ///
@@ -202,6 +202,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     /// ```
     /// use bevy_utils::Parallel;
     /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::system::Query};
+    /// # use core::slice;
     /// use bevy_platform_support::prelude::Vec;
     /// # fn some_expensive_operation(item: T) -> usize {
     /// #     0
@@ -211,9 +212,9 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     /// struct T;
     ///
     /// #[derive(Resource)]
-    /// struct V(Vec<Entity>)
+    /// struct V(Vec<Entity>);
     ///
-    /// impl<'a> IntoIterator for &V {
+    /// impl<'a> IntoIterator for &'a V {
     /// // ...
     /// #   type Item = &'a Entity;
     /// #   type IntoIter = slice::Iter<'a, Entity>;
@@ -231,7 +232,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     ///     });
     ///     
     ///     // collect value from every thread
-    ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
+    ///     let final_value = queue.iter().copied().sum();
     /// }
     /// ```
     ///
@@ -368,7 +369,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///
     /// ```
     /// use bevy_utils::Parallel;
-    /// use crate::{bevy_ecs::prelude::{Component, Res, Entity}, bevy_ecs::{entity::UniqueEntityVec, system::Query}};
+    /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::{entity::UniqueEntityVec, system::Query}};
+    /// # use core::slice;
     /// # fn some_expensive_operation(item: T) -> usize {
     /// #     0
     /// # }
@@ -377,9 +379,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     /// struct T;
     ///
     /// #[derive(Resource)]
-    /// struct V(UniqueEntityVec<Entity>)
+    /// struct V(UniqueEntityVec<Entity>);
     ///
-    /// impl<'a> IntoIterator for &V {
+    /// impl<'a> IntoIterator for &'a V {
     /// // ...
     /// #   type Item = &'a Entity;
     /// #   type IntoIter = UniqueEntityVec<slice::Iter<'a, Entity>>;
@@ -397,7 +399,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///     });
     ///     
     ///     // collect value from every thread
-    ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
+    ///     let final_value = queue.iter().copied().sum();
     /// }
     /// ```
     ///
