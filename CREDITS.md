@@ -32,7 +32,7 @@
 * Epic orchestra music sample, modified to loop, from [Migfus20](https://freesound.org/people/Migfus20/sounds/560449/) ([CC BY 4.0 DEED](https://creativecommons.org/licenses/by/4.0/))
 
 [MorphStressTest]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphStressTest
-[fox]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Fox
+[fox]: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Fox
 [by PixelMannen]: https://opengameart.org/content/fox-and-shiba
 [by @tomkranis on Sketchfab]: https://sketchfab.com/models/371dea88d7e04a76af5763f2a36866bc
 [CC-BY 4.0]: https://creativecommons.org/licenses/by/4.0/

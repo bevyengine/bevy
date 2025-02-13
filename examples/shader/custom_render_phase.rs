@@ -29,6 +29,7 @@ use bevy::{
         batching::{
             gpu_preprocessing::{
                 batch_and_prepare_sorted_render_phase, IndirectParametersMetadata,
+                UntypedPhaseIndirectParametersBuffers,
             },
             GetBatchData, GetFullBatchData,
         },
@@ -41,8 +42,8 @@ use bevy::{
         },
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
-            DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
-            ViewSortedRenderPhases,
+            DrawFunctions, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
+            SortedPhaseItem, ViewSortedRenderPhases,
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
@@ -431,18 +432,18 @@ impl GetFullBatchData for StencilPipeline {
     }
 
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: u32,
+        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
-        indirect_parameters_buffers: &mut bevy_render::batching::gpu_preprocessing::IndirectParametersBuffers,
+        indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     ) {
         // Note that `IndirectParameters` covers both of these structures, even
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
         let indirect_parameters = IndirectParametersMetadata {
-            mesh_index,
+            mesh_index: *mesh_index,
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,

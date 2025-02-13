@@ -2,6 +2,7 @@ use core::{
     borrow::Borrow,
     cmp::Ordering,
     fmt::Debug,
+    iter::FusedIterator,
     ops::{
         Bound, Deref, Index, IndexMut, Range, RangeFrom, RangeFull, RangeInclusive, RangeTo,
         RangeToInclusive,
@@ -226,9 +227,157 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
         unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.iter()) }
     }
 
+    /// Returns an iterator over all contiguous windows of length
+    /// `size`.
+    ///
+    /// Equivalent to [`[T]::windows`].
+    ///
+    /// [`[T]::windows`]: `slice::windows`
+    pub fn windows(&self, size: usize) -> Windows<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.windows(size)) }
+    }
+
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the
+    /// beginning of the slice.
+    ///
+    /// Equivalent to [`[T]::chunks`].
+    ///
+    /// [`[T]::chunks`]: `slice::chunks`
+    pub fn chunks(&self, chunk_size: usize) -> Chunks<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.chunks(chunk_size)) }
+    }
+
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the
+    /// beginning of the slice.
+    ///
+    /// Equivalent to [`[T]::chunks_mut`].
+    ///
+    /// [`[T]::chunks_mut`]: `slice::chunks_mut`
+    pub fn chunks_mut(&mut self, chunk_size: usize) -> ChunksMut<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(
+                self.0.chunks_mut(chunk_size),
+            )
+        }
+    }
+
+    ///
+    ///
+    /// Equivalent to [`[T]::chunks_exact`].
+    ///
+    /// [`[T]::chunks_exact`]: `slice::chunks_exact`
+    pub fn chunks_exact(&self, chunk_size: usize) -> ChunksExact<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.chunks_exact(chunk_size))
+        }
+    }
+
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the
+    /// beginning of the slice.
+    ///
+    /// Equivalent to [`[T]::chunks_exact_mut`].
+    ///
+    /// [`[T]::chunks_exact_mut`]: `slice::chunks_exact_mut`
+    pub fn chunks_exact_mut(&mut self, chunk_size: usize) -> ChunksExactMut<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(
+                self.0.chunks_exact_mut(chunk_size),
+            )
+        }
+    }
+
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the end
+    /// of the slice.
+    ///
+    /// Equivalent to [`[T]::rchunks`].
+    ///
+    /// [`[T]::rchunks`]: `slice::rchunks`
+    pub fn rchunks(&self, chunk_size: usize) -> RChunks<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.rchunks(chunk_size)) }
+    }
+
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the end
+    /// of the slice.
+    ///
+    /// Equivalent to [`[T]::rchunks_mut`].
+    ///
+    /// [`[T]::rchunks_mut`]: `slice::rchunks_mut`
+    pub fn rchunks_mut(&mut self, chunk_size: usize) -> RChunksMut<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(
+                self.0.rchunks_mut(chunk_size),
+            )
+        }
+    }
+
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the
+    /// end of the slice.
+    ///
+    /// Equivalent to [`[T]::rchunks_exact`].
+    ///
+    /// [`[T]::rchunks_exact`]: `slice::rchunks_exact`
+    pub fn rchunks_exact(&self, chunk_size: usize) -> RChunksExact<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.rchunks_exact(chunk_size))
+        }
+    }
+
+    /// Returns an iterator over `chunk_size` elements of the slice at a time, starting at the end
+    /// of the slice.
+    ///
+    /// Equivalent to [`[T]::rchunks_exact_mut`].
+    ///
+    /// [`[T]::rchunks_exact_mut`]: `slice::rchunks_exact_mut`
+    pub fn rchunks_exact_mut(&mut self, chunk_size: usize) -> RChunksExactMut<'_, T> {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(
+                self.0.rchunks_exact_mut(chunk_size),
+            )
+        }
+    }
+
+    /// Returns an iterator over the slice producing non-overlapping runs
+    /// of elements using the predicate to separate them.
+    ///
+    /// Equivalent to [`[T]::chunk_by`].
+    ///
+    /// [`[T]::chunk_by`]: `slice::chunk_by`
+    pub fn chunk_by<F>(&self, pred: F) -> ChunkBy<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.chunk_by(pred)) }
+    }
+
+    /// Returns an iterator over the slice producing non-overlapping mutable
+    /// runs of elements using the predicate to separate them.
+    ///
+    /// Equivalent to [`[T]::chunk_by_mut`].
+    ///
+    /// [`[T]::chunk_by_mut`]: `slice::chunk_by_mut`
+    pub fn chunk_by_mut<F>(&mut self, pred: F) -> ChunkByMut<'_, T, F>
+    where
+        F: FnMut(&T, &T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(self.0.chunk_by_mut(pred))
+        }
+    }
+
     /// Divides one slice into two at an index.
     ///
-    /// Equivalent to [`[T]::split_at`](slice::split_at)
+    /// Equivalent to [`[T]::split_at`](slice::split_at).
     pub const fn split_at(&self, mid: usize) -> (&Self, &Self) {
         let (left, right) = self.0.split_at(mid);
         // SAFETY: All elements in the original slice are unique.
@@ -242,7 +391,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
 
     /// Divides one mutable slice into two at an index.
     ///
-    /// Equivalent to [`[T]::split_at_mut`](slice::split_at_mut)
+    /// Equivalent to [`[T]::split_at_mut`](slice::split_at_mut).
     pub const fn split_at_mut(&mut self, mid: usize) -> (&mut Self, &mut Self) {
         let (left, right) = self.0.split_at_mut(mid);
         // SAFETY: All elements in the original slice are unique.
@@ -256,7 +405,7 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
 
     /// Divides one slice into two at an index, without doing bounds checking.
     ///
-    /// Equivalent to [`[T]::split_at_unchecked`](slice::split_at_unchecked)
+    /// Equivalent to [`[T]::split_at_unchecked`](slice::split_at_unchecked).
     ///
     /// # Safety
     ///
@@ -327,6 +476,161 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
                 Self::from_slice_unchecked_mut(left),
                 Self::from_slice_unchecked_mut(right),
             ))
+        }
+    }
+
+    /// Returns an iterator over subslices separated by elements that match
+    /// `pred`.
+    ///
+    /// Equivalent to [`[T]::split`].
+    ///
+    /// [`[T]::split`]: `slice::split`
+    pub fn split<F>(&self, pred: F) -> Split<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.split(pred)) }
+    }
+
+    /// Returns an iterator over mutable subslices separated by elements that
+    /// match `pred`.
+    ///
+    /// Equivalent to [`[T]::split_mut`].
+    ///
+    /// [`[T]::split_mut`]: `slice::split_mut`
+    pub fn split_mut<F>(&mut self, pred: F) -> SplitMut<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(self.0.split_mut(pred))
+        }
+    }
+
+    /// Returns an iterator over subslices separated by elements that match
+    /// `pred`.
+    ///
+    /// Equivalent to [`[T]::split_inclusive`].
+    ///
+    /// [`[T]::split_inclusive`]: `slice::split_inclusive`
+    pub fn split_inclusive<F>(&self, pred: F) -> SplitInclusive<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.split_inclusive(pred))
+        }
+    }
+
+    /// Returns an iterator over mutable subslices separated by elements that
+    /// match `pred`.
+    ///
+    /// Equivalent to [`[T]::split_inclusive_mut`].
+    ///
+    /// [`[T]::split_inclusive_mut`]: `slice::split_inclusive_mut`
+    pub fn split_inclusive_mut<F>(&mut self, pred: F) -> SplitInclusiveMut<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(
+                self.0.split_inclusive_mut(pred),
+            )
+        }
+    }
+
+    /// Returns an iterator over subslices separated by elements that match
+    /// `pred`, starting at the end of the slice and working backwards.
+    ///
+    /// Equivalent to [`[T]::rsplit`].
+    ///
+    /// [`[T]::rsplit`]: `slice::rsplit`
+    pub fn rsplit<F>(&self, pred: F) -> RSplit<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.rsplit(pred)) }
+    }
+
+    /// Returns an iterator over mutable subslices separated by elements that
+    /// match `pred`, starting at the end of the slice and working
+    /// backwards.
+    ///
+    /// Equivalent to [`[T]::rsplit_mut`].
+    ///
+    /// [`[T]::rsplit_mut`]: `slice::rsplit_mut`
+    pub fn rsplit_mut<F>(&mut self, pred: F) -> RSplitMut<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(self.0.rsplit_mut(pred))
+        }
+    }
+
+    /// Returns an iterator over subslices separated by elements that match
+    /// `pred`, limited to returning at most `n` items.
+    ///
+    /// Equivalent to [`[T]::splitn`].
+    ///
+    /// [`[T]::splitn`]: `slice::splitn`
+    pub fn splitn<F>(&self, n: usize, pred: F) -> SplitN<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.splitn(n, pred)) }
+    }
+
+    /// Returns an iterator over mutable subslices separated by elements that match
+    /// `pred`, limited to returning at most `n` items.
+    ///
+    /// Equivalent to [`[T]::splitn_mut`].
+    ///
+    /// [`[T]::splitn_mut`]: `slice::splitn_mut`
+    pub fn splitn_mut<F>(&mut self, n: usize, pred: F) -> SplitNMut<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(self.0.splitn_mut(n, pred))
+        }
+    }
+
+    /// Returns an iterator over subslices separated by elements that match
+    /// `pred` limited to returning at most `n` items.
+    ///
+    /// Equivalent to [`[T]::rsplitn`].
+    ///
+    /// [`[T]::rsplitn`]: `slice::rsplitn`
+    pub fn rsplitn<F>(&self, n: usize, pred: F) -> RSplitN<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe { UniqueEntitySliceIter::from_slice_iterator_unchecked(self.0.rsplitn(n, pred)) }
+    }
+
+    /// Returns an iterator over subslices separated by elements that match
+    /// `pred` limited to returning at most `n` items.
+    ///
+    /// Equivalent to [`[T]::rsplitn_mut`].
+    ///
+    /// [`[T]::rsplitn_mut`]: `slice::rsplitn_mut`
+    pub fn rsplitn_mut<F>(&mut self, n: usize, pred: F) -> RSplitNMut<'_, T, F>
+    where
+        F: FnMut(&T) -> bool,
+    {
+        // SAFETY: Any subslice of a unique slice is also unique.
+        unsafe {
+            UniqueEntitySliceIterMut::from_mut_slice_iterator_unchecked(self.0.rsplitn_mut(n, pred))
         }
     }
 
@@ -489,6 +793,42 @@ pub const unsafe fn from_raw_parts_mut<'a, T: TrustedEntityBorrow>(
 ) -> &'a mut UniqueEntitySlice<T> {
     // SAFETY: The safety contract is upheld by the caller.
     unsafe { UniqueEntitySlice::from_slice_unchecked_mut(slice::from_raw_parts_mut(data, len)) }
+}
+
+/// Casts a slice of entity slices to a slice of [`UniqueEntitySlice`]s.
+///
+/// # Safety
+///
+/// All elements in each of the casted slices must be unique.
+pub unsafe fn cast_slice_of_unique_entity_slice<'a, 'b, T: TrustedEntityBorrow + 'a>(
+    slice: &'b [&'a [T]],
+) -> &'b [&'a UniqueEntitySlice<T>] {
+    // SAFETY: All elements in the original iterator are unique slices.
+    unsafe { &*(ptr::from_ref(slice) as *const [&UniqueEntitySlice<T>]) }
+}
+
+/// Casts a mutable slice of entity slices to a slice of [`UniqueEntitySlice`]s.
+///
+/// # Safety
+///
+/// All elements in each of the casted slices must be unique.
+pub unsafe fn cast_slice_of_unique_entity_slice_mut<'a, 'b, T: TrustedEntityBorrow + 'a>(
+    slice: &'b mut [&'a [T]],
+) -> &'b mut [&'a UniqueEntitySlice<T>] {
+    // SAFETY: All elements in the original iterator are unique slices.
+    unsafe { &mut *(ptr::from_mut(slice) as *mut [&UniqueEntitySlice<T>]) }
+}
+
+/// Casts a mutable slice of mutable entity slices to a slice of mutable [`UniqueEntitySlice`]s.
+///
+/// # Safety
+///
+/// All elements in each of the casted slices must be unique.
+pub unsafe fn cast_slice_of_mut_unique_entity_slice_mut<'a, 'b, T: TrustedEntityBorrow + 'a>(
+    slice: &'b mut [&'a mut [T]],
+) -> &'b mut [&'a mut UniqueEntitySlice<T>] {
+    // SAFETY: All elements in the original iterator are unique slices.
+    unsafe { &mut *(ptr::from_mut(slice) as *mut [&mut UniqueEntitySlice<T>]) }
 }
 
 impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a UniqueEntitySlice<T> {
@@ -973,3 +1313,356 @@ impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::IterMut<'a, T>> {
         unsafe { UniqueEntitySlice::from_slice_unchecked(self.as_inner().as_slice()) }
     }
 }
+
+/// An iterator that yields `&UniqueEntitySlice`. Note that an entity may appear
+/// in multiple slices, depending on the wrapped iterator.
+#[derive(Debug)]
+pub struct UniqueEntitySliceIter<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> {
+    pub(crate) iter: I,
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> UniqueEntitySliceIter<'a, T, I> {
+    /// Constructs a [`UniqueEntitySliceIter`] from a slice iterator unsafely.
+    ///
+    /// # Safety
+    ///
+    /// All elements in each of the slices must be unique.
+    pub unsafe fn from_slice_iterator_unchecked(iter: I) -> Self {
+        Self { iter }
+    }
+
+    /// Returns the inner `I`.
+    pub fn into_inner(self) -> I {
+        self.iter
+    }
+
+    /// Returns a reference to the inner `I`.
+    pub fn as_inner(&self) -> &I {
+        &self.iter
+    }
+
+    /// Returns a mutable reference to the inner `I`.
+    ///
+    /// # Safety
+    ///
+    /// `self` must always contain an iterator that yields unique elements,
+    /// even while this reference is live.
+    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+        &mut self.iter
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]>> Iterator
+    for UniqueEntitySliceIter<'a, T, I>
+{
+    type Item = &'a UniqueEntitySlice<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|slice|
+        // SAFETY: All elements in the original iterator are unique slices.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(slice) })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: ExactSizeIterator<Item = &'a [T]>> ExactSizeIterator
+    for UniqueEntitySliceIter<'a, T, I>
+{
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: DoubleEndedIterator<Item = &'a [T]>> DoubleEndedIterator
+    for UniqueEntitySliceIter<'a, T, I>
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|slice|
+            // SAFETY: All elements in the original iterator are unique slices.
+            unsafe { UniqueEntitySlice::from_slice_unchecked(slice) })
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: FusedIterator<Item = &'a [T]>> FusedIterator
+    for UniqueEntitySliceIter<'a, T, I>
+{
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a [T]> + AsRef<[&'a [T]]>>
+    AsRef<[&'a UniqueEntitySlice<T>]> for UniqueEntitySliceIter<'a, T, I>
+{
+    fn as_ref(&self) -> &[&'a UniqueEntitySlice<T>] {
+        // SAFETY:
+        unsafe { cast_slice_of_unique_entity_slice(self.iter.as_ref()) }
+    }
+}
+
+/// An iterator over overlapping subslices of length `size`.
+///
+/// This struct is created by [`UniqueEntitySlice::windows`].
+pub type Windows<'a, T> = UniqueEntitySliceIter<'a, T, slice::Windows<'a, T>>;
+
+/// An iterator over a slice in (non-overlapping) chunks (`chunk_size` elements at a
+/// time), starting at the beginning of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::chunks`].
+pub type Chunks<'a, T> = UniqueEntitySliceIter<'a, T, slice::Chunks<'a, T>>;
+
+/// An iterator over a slice in (non-overlapping) chunks (`chunk_size` elements at a
+/// time), starting at the beginning of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::chunks_exact`].
+pub type ChunksExact<'a, T> = UniqueEntitySliceIter<'a, T, slice::ChunksExact<'a, T>>;
+
+impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIter<'a, T, slice::ChunksExact<'a, T>> {
+    /// Returns the remainder of the original slice that is not going to be
+    /// returned by the iterator.
+    ///
+    /// Equivalent to [`slice::ChunksExact::remainder`].
+    pub fn remainder(&self) -> &'a UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original iterator are unique slices.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.iter.remainder()) }
+    }
+}
+
+/// An iterator over a slice in (non-overlapping) chunks (`chunk_size` elements at a
+/// time), starting at the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rchunks`].
+pub type RChunks<'a, T> = UniqueEntitySliceIter<'a, T, slice::RChunks<'a, T>>;
+
+/// An iterator over a slice in (non-overlapping) chunks (`chunk_size` elements at a
+/// time), starting at the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rchunks_exact`].
+pub type RChunksExact<'a, T> = UniqueEntitySliceIter<'a, T, slice::RChunksExact<'a, T>>;
+
+impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIter<'a, T, slice::RChunksExact<'a, T>> {
+    /// Returns the remainder of the original slice that is not going to be
+    /// returned by the iterator.
+    ///
+    /// Equivalent to [`slice::RChunksExact::remainder`].
+    pub fn remainder(&self) -> &'a UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original iterator are unique slices.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.iter.remainder()) }
+    }
+}
+
+/// An iterator over slice in (non-overlapping) chunks separated by a predicate.
+///
+/// This struct is created by [`UniqueEntitySlice::chunk_by`].
+pub type ChunkBy<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::ChunkBy<'a, T, P>>;
+
+/// An iterator over subslices separated by elements that match a predicate
+/// function.
+///
+/// This struct is created by [`UniqueEntitySlice::split`].
+pub type Split<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::Split<'a, T, P>>;
+
+/// An iterator over subslices separated by elements that match a predicate
+/// function.
+///
+/// This struct is created by [`UniqueEntitySlice::split_inclusive`].
+pub type SplitInclusive<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::SplitInclusive<'a, T, P>>;
+
+/// An iterator over subslices separated by elements that match a predicate
+/// function, starting from the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rsplit`].
+pub type RSplit<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::RSplit<'a, T, P>>;
+
+/// An iterator over subslices separated by elements that match a predicate
+/// function, limited to a given number of splits.
+///
+/// This struct is created by [`UniqueEntitySlice::splitn`].
+pub type SplitN<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::SplitN<'a, T, P>>;
+
+/// An iterator over subslices separated by elements that match a
+/// predicate function, limited to a given number of splits, starting
+/// from the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rsplitn`].
+pub type RSplitN<'a, T, P> = UniqueEntitySliceIter<'a, T, slice::RSplitN<'a, T, P>>;
+
+/// An iterator that yields `&mut UniqueEntitySlice`. Note that an entity may appear
+/// in multiple slices, depending on the wrapped iterator.
+#[derive(Debug)]
+pub struct UniqueEntitySliceIterMut<
+    'a,
+    T: TrustedEntityBorrow + 'a,
+    I: Iterator<Item = &'a mut [T]>,
+> {
+    pub(crate) iter: I,
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]>>
+    UniqueEntitySliceIterMut<'a, T, I>
+{
+    /// Constructs a [`UniqueEntitySliceIterMut`] from a mutable slice iterator unsafely.
+    ///
+    /// # Safety
+    ///
+    /// All elements in each of the slices must be unique.
+    pub unsafe fn from_mut_slice_iterator_unchecked(iter: I) -> Self {
+        Self { iter }
+    }
+
+    /// Returns the inner `I`.
+    pub fn into_inner(self) -> I {
+        self.iter
+    }
+
+    /// Returns a reference to the inner `I`.
+    pub fn as_inner(&self) -> &I {
+        &self.iter
+    }
+
+    /// Returns a mutable reference to the inner `I`.
+    ///
+    /// # Safety
+    ///
+    /// `self` must always contain an iterator that yields unique elements,
+    /// even while this reference is live.
+    pub unsafe fn as_mut_inner(&mut self) -> &mut I {
+        &mut self.iter
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]>> Iterator
+    for UniqueEntitySliceIterMut<'a, T, I>
+{
+    type Item = &'a mut UniqueEntitySlice<T>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next().map(|slice|
+            // SAFETY: All elements in the original iterator are unique slices.
+            unsafe { UniqueEntitySlice::from_slice_unchecked_mut(slice) })
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: ExactSizeIterator<Item = &'a mut [T]>> ExactSizeIterator
+    for UniqueEntitySliceIterMut<'a, T, I>
+{
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: DoubleEndedIterator<Item = &'a mut [T]>>
+    DoubleEndedIterator for UniqueEntitySliceIterMut<'a, T, I>
+{
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.iter.next_back().map(|slice|
+            // SAFETY: All elements in the original iterator are unique slices.
+            unsafe { UniqueEntitySlice::from_slice_unchecked_mut(slice) })
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: FusedIterator<Item = &'a mut [T]>> FusedIterator
+    for UniqueEntitySliceIterMut<'a, T, I>
+{
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]> + AsRef<[&'a [T]]>>
+    AsRef<[&'a UniqueEntitySlice<T>]> for UniqueEntitySliceIterMut<'a, T, I>
+{
+    fn as_ref(&self) -> &[&'a UniqueEntitySlice<T>] {
+        // SAFETY: All elements in the original iterator are unique slices.
+        unsafe { cast_slice_of_unique_entity_slice(self.iter.as_ref()) }
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + 'a, I: Iterator<Item = &'a mut [T]> + AsMut<[&'a mut [T]]>>
+    AsMut<[&'a mut UniqueEntitySlice<T>]> for UniqueEntitySliceIterMut<'a, T, I>
+{
+    fn as_mut(&mut self) -> &mut [&'a mut UniqueEntitySlice<T>] {
+        // SAFETY: All elements in the original iterator are unique slices.
+        unsafe { cast_slice_of_mut_unique_entity_slice_mut(self.iter.as_mut()) }
+    }
+}
+
+/// An iterator over a slice in (non-overlapping) mutable chunks (`chunk_size`
+/// elements at a time), starting at the beginning of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::chunks_mut`].
+pub type ChunksMut<'a, T> = UniqueEntitySliceIterMut<'a, T, slice::ChunksMut<'a, T>>;
+
+/// An iterator over a slice in (non-overlapping) mutable chunks (`chunk_size`
+/// elements at a time), starting at the beginning of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::chunks_exact_mut`].
+pub type ChunksExactMut<'a, T> = UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>>;
+
+impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIterMut<'a, T, slice::ChunksExactMut<'a, T>> {
+    /// Returns the remainder of the original slice that is not going to be
+    /// returned by the iterator.
+    ///
+    /// Equivalent to [`slice::ChunksExactMut::into_remainder`].
+    pub fn into_remainder(self) -> &'a mut UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original iterator are unique slices.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.iter.into_remainder()) }
+    }
+}
+
+/// An iterator over a slice in (non-overlapping) mutable chunks (`chunk_size`
+/// elements at a time), starting at the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rchunks_mut`].
+pub type RChunksMut<'a, T> = UniqueEntitySliceIterMut<'a, T, slice::RChunksMut<'a, T>>;
+
+/// An iterator over a slice in (non-overlapping) mutable chunks (`chunk_size`
+/// elements at a time), starting at the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rchunks_exact_mut`].
+pub type RChunksExactMut<'a, T> = UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>>;
+
+impl<'a, T: TrustedEntityBorrow> UniqueEntitySliceIterMut<'a, T, slice::RChunksExactMut<'a, T>> {
+    /// Returns the remainder of the original slice that is not going to be
+    /// returned by the iterator.
+    ///
+    /// Equivalent to [`slice::RChunksExactMut::into_remainder`].
+    pub fn into_remainder(self) -> &'a mut UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original iterator are unique slices.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.iter.into_remainder()) }
+    }
+}
+
+/// An iterator over slice in (non-overlapping) mutable chunks separated
+/// by a predicate.
+///
+/// This struct is created by [`UniqueEntitySlice::chunk_by_mut`].
+pub type ChunkByMut<'a, T, P> = UniqueEntitySliceIterMut<'a, T, slice::ChunkByMut<'a, T, P>>;
+
+/// An iterator over the mutable subslices of the vector which are separated
+/// by elements that match `pred`.
+///
+/// This struct is created by [`UniqueEntitySlice::split_mut`].
+pub type SplitMut<'a, T, P> = UniqueEntitySliceIterMut<'a, T, slice::SplitMut<'a, T, P>>;
+
+/// An iterator over the mutable subslices of the vector which are separated
+/// by elements that match `pred`. Unlike `SplitMut`, it contains the matched
+/// parts in the ends of the subslices.
+///
+/// This struct is created by [`UniqueEntitySlice::split_inclusive_mut`].
+pub type SplitInclusiveMut<'a, T, P> =
+    UniqueEntitySliceIterMut<'a, T, slice::SplitInclusiveMut<'a, T, P>>;
+
+/// An iterator over the subslices of the vector which are separated
+/// by elements that match `pred`, starting from the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rsplit_mut`].
+pub type RSplitMut<'a, T, P> = UniqueEntitySliceIterMut<'a, T, slice::RSplitMut<'a, T, P>>;
+
+/// An iterator over subslices separated by elements that match a predicate
+/// function, limited to a given number of splits.
+///
+/// This struct is created by [`UniqueEntitySlice::splitn_mut`].
+pub type SplitNMut<'a, T, P> = UniqueEntitySliceIterMut<'a, T, slice::SplitNMut<'a, T, P>>;
+
+/// An iterator over subslices separated by elements that match a
+/// predicate function, limited to a given number of splits, starting
+/// from the end of the slice.
+///
+/// This struct is created by [`UniqueEntitySlice::rsplitn_mut`].
+pub type RSplitNMut<'a, T, P> = UniqueEntitySliceIterMut<'a, T, slice::RSplitNMut<'a, T, P>>;

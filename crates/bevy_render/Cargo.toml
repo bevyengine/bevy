@@ -33,7 +33,6 @@ tracing-tracy = []
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
-ios_simulator = []
 detailed_trace = []
 
 [dependencies]
@@ -102,6 +101,7 @@ variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }
+bitflags = "2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.

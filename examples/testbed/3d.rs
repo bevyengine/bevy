@@ -282,19 +282,19 @@ mod animation {
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        let entity = children.get(trigger.target()).unwrap()[0];
-        let entity = children.get(entity).unwrap()[0];
+        for child in children.iter_descendants(trigger.target()) {
+            if let Ok((entity, mut player)) = players.get_mut(child) {
+                let mut transitions = AnimationTransitions::new();
+                transitions
+                    .play(&mut player, animation.animation, Duration::ZERO)
+                    .seek_to(0.5)
+                    .pause();
 
-        let (entity, mut player) = players.get_mut(entity).unwrap();
-        let mut transitions = AnimationTransitions::new();
-        transitions
-            .play(&mut player, animation.animation, Duration::ZERO)
-            .seek_to(0.5)
-            .pause();
-
-        commands
-            .entity(entity)
-            .insert(AnimationGraphHandle(animation.graph.clone()))
-            .insert(transitions);
+                commands
+                    .entity(entity)
+                    .insert(AnimationGraphHandle(animation.graph.clone()))
+                    .insert(transitions);
+            }
+        }
     }
 }
