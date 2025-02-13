@@ -45,7 +45,9 @@ pub struct Shader {
     // we must store strong handles to our dependencies to stop them
     // from being immediately dropped if we are the only user.
     pub file_dependencies: Vec<Handle<Shader>>,
-    // enable or disable runtime validation
+    /// Enable or disable runtime shader validation, trading safety against speed.
+    /// 
+    /// Please read the [`ValidateShader`] docs for a discussion of the tradeoffs involved. 
     pub validate_shader: ValidateShader,
 }
 
