@@ -14,6 +14,9 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
 };
 
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use crate::entity::{TrustedEntityBorrow, UniqueEntitySlice};
+
 use alloc::vec::Vec;
 use core::{fmt, mem::MaybeUninit, ptr};
 use fixedbitset::FixedBitSet;
@@ -23,7 +26,7 @@ use tracing::Span;
 
 use super::{
     NopWorldQuery, QueryBuilder, QueryData, QueryEntityError, QueryFilter, QueryManyIter,
-    QueryManyUniqueIter, QuerySingleError, ROQueryItem,
+    QueryManyUniqueIter, QuerySingleError, ROQueryItem, ReadOnlyQueryData,
 };
 
 /// An ID for either a table or an archetype. Used for Query iteration.
@@ -1788,7 +1791,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual,
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
@@ -1868,6 +1872,128 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         });
     }
 
+    /// Runs `func` on each query result in parallel for the given [`EntitySet`],
+    /// where the last change and the current change tick are given. This is faster than the
+    /// equivalent `iter_many_unique()` method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    pub(crate) unsafe fn par_many_unique_fold_init_unchecked_manual<'w, T, FN, INIT, E>(
+        &self,
+        init_accum: INIT,
+        world: UnsafeWorldCell<'w>,
+        entity_list: &UniqueEntitySlice<E>,
+        batch_size: usize,
+        mut func: FN,
+        last_run: Tick,
+        this_run: Tick,
+    ) where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        INIT: Fn() -> T + Sync + Send + Clone,
+        E: TrustedEntityBorrow + Sync,
+    {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+
+        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+            let chunks = entity_list.chunks_exact(batch_size);
+            let remainder = chunks.remainder();
+
+            for batch in chunks {
+                let mut func = func.clone();
+                let init_accum = init_accum.clone();
+                scope.spawn(async move {
+                    #[cfg(feature = "trace")]
+                    let _span = self.par_iter_span.enter();
+                    let accum = init_accum();
+                    self.iter_many_unique_unchecked_manual(batch, world, last_run, this_run)
+                        .fold(accum, &mut func);
+                });
+            }
+
+            #[cfg(feature = "trace")]
+            let _span = self.par_iter_span.enter();
+            let accum = init_accum();
+            self.iter_many_unique_unchecked_manual(remainder, world, last_run, this_run)
+                .fold(accum, &mut func);
+        });
+    }
+}
+
+impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
+    /// Runs `func` on each read-only query result in parallel for the given [`Entity`] list,
+    /// where the last change and the current change tick are given. This is faster than the equivalent
+    /// `iter_many()` method, but cannot be chained like a normal [`Iterator`].
+    ///
+    /// # Panics
+    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// initialized and run from the ECS scheduler, this should never panic.
+    ///
+    /// # Safety
+    ///
+    /// This does not check for mutable query correctness. To be safe, make sure mutable queries
+    /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
+    ///
+    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+    pub(crate) unsafe fn par_many_fold_init_unchecked_manual<'w, T, FN, INIT, E>(
+        &self,
+        init_accum: INIT,
+        world: UnsafeWorldCell<'w>,
+        entity_list: &[E],
+        batch_size: usize,
+        mut func: FN,
+        last_run: Tick,
+        this_run: Tick,
+    ) where
+        FN: Fn(T, D::Item<'w>) -> T + Send + Sync + Clone,
+        INIT: Fn() -> T + Sync + Send + Clone,
+        E: EntityBorrow + Sync,
+    {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
+
+        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+            let chunks = entity_list.chunks_exact(batch_size);
+            let remainder = chunks.remainder();
+
+            for batch in chunks {
+                let mut func = func.clone();
+                let init_accum = init_accum.clone();
+                scope.spawn(async move {
+                    #[cfg(feature = "trace")]
+                    let _span = self.par_iter_span.enter();
+                    let accum = init_accum();
+                    self.iter_many_unchecked_manual(batch, world, last_run, this_run)
+                        .fold(accum, &mut func);
+                });
+            }
+
+            #[cfg(feature = "trace")]
+            let _span = self.par_iter_span.enter();
+            let accum = init_accum();
+            self.iter_many_unchecked_manual(remainder, world, last_run, this_run)
+                .fold(accum, &mut func);
+        });
+    }
+}
+
+impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// Returns a single immutable query result when there is exactly one entity matching
     /// the query.
     ///
