@@ -197,32 +197,75 @@ pub fn touch_pick_events(
                 },
                 position: touch.position,
             };
-            let (start, pointer_entity) = *touch_cache.entry(touch.id).or_insert_with(|| {
-                let pointer_entity = commands
-                    .spawn((PointerId::Touch, PointerLocation::new(location.clone())))
-                    .id();
-                debug!("Spawning touch pointer {:?}", pointer_entity);
-                (*touch, pointer_entity)
-            });
 
-            pointer_events.send(PointerInput::new_with_entity(
-                PointerId::Touch,
-                pointer_entity,
-                location,
-                match touch.phase {
-                    TouchPhase::Started => PointerAction::Press(PointerButton::Primary),
-                    TouchPhase::Moved => PointerAction::Move {
-                        delta: touch.position - start.position,
-                    },
-                    TouchPhase::Ended => PointerAction::Release(PointerButton::Primary),
-                    TouchPhase::Canceled => PointerAction::Cancel,
-                },
-            ));
+            match touch.phase {
+                TouchPhase::Started => {
+                    let (_, pointer) = *touch_cache.entry(touch.id).or_insert_with(|| {
+                        let pointer = commands
+                            .spawn((PointerId::Touch, PointerLocation::new(location.clone())))
+                            .id();
+                        debug!(
+                            "Spawning touch finger: {:?}, pointer:{:?}",
+                            touch.id, pointer
+                        );
+                        (*touch, pointer)
+                    });
 
-            if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Canceled) {
-                touch_cache.remove(&touch.id);
-                debug!("Despawning touch pointer {:?}", pointer_entity);
-                commands.entity(pointer_entity).despawn();
+                    pointer_events.send(PointerInput::new_with_entity(
+                        PointerId::Touch,
+                        pointer,
+                        location,
+                        PointerAction::Press(PointerButton::Primary),
+                    ));
+                }
+                TouchPhase::Moved => {
+                    if let Some((last_touch, pointer)) = touch_cache.get_mut(&touch.id) {
+                        if *last_touch == *touch {
+                            continue;
+                        }
+                        pointer_events.send(PointerInput::new_with_entity(
+                            PointerId::Touch,
+                            *pointer,
+                            location,
+                            PointerAction::Move {
+                                delta: touch.position - last_touch.position,
+                            },
+                        ));
+                        *last_touch = *touch;
+                    }
+                }
+                TouchPhase::Ended => {
+                    if let Some((last_touch, pointer)) = touch_cache.remove(&touch.id) {
+                        debug!(
+                            "Despawning touch finger {:?}, entity {:?}",
+                            last_touch.id, pointer
+                        );
+                        commands.entity(pointer).despawn();
+
+                        pointer_events.send(PointerInput::new_with_entity(
+                            PointerId::Touch,
+                            pointer,
+                            location,
+                            PointerAction::Release(PointerButton::Primary),
+                        ));
+                    }
+                }
+                TouchPhase::Canceled => {
+                    if let Some((last_touch, pointer)) = touch_cache.remove(&touch.id) {
+                        debug!(
+                            "Despawning touch finger {:?}, entity {:?}",
+                            last_touch.id, pointer
+                        );
+                        commands.entity(pointer).despawn();
+
+                        pointer_events.send(PointerInput::new_with_entity(
+                            PointerId::Touch,
+                            pointer,
+                            location,
+                            PointerAction::Cancel,
+                        ));
+                    }
+                }
             }
         }
     }
