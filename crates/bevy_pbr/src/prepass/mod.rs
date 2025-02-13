@@ -2,12 +2,12 @@ mod prepass_bindings;
 
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
-    material_bind_groups::MaterialBindGroupAllocator, queue_material_meshes,
-    setup_morph_and_skinning_defs, skin, DrawMesh, EntitySpecializationTicks, Material,
-    MaterialPipeline, MaterialPipelineKey, MeshLayouts, MeshPipeline, MeshPipelineKey,
-    OpaqueRendererMethod, PreparedMaterial, RenderLightmaps, RenderMaterialInstances,
-    RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup,
-    SetMeshBindGroup, ShadowView, StandardMaterial,
+    collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
+    queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh,
+    EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts,
+    MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
+    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -19,7 +19,7 @@ use bevy_render::{
     renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 pub use prepass_bindings::*;
 
@@ -61,7 +61,7 @@ use bevy_ecs::system::SystemChangeTick;
 use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::RenderVisibleEntities;
-use bevy_render::RenderSet::PrepareAssets;
+use bevy_render::RenderSet::{PrepareAssets, PrepareResources};
 use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> =
@@ -146,11 +146,19 @@ where
 /// Sets up the prepasses for a [`Material`].
 ///
 /// This depends on the [`PrepassPipelinePlugin`].
-pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+pub struct PrepassPlugin<M: Material> {
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+    pub phantom: PhantomData<M>,
+}
 
-impl<M: Material> Default for PrepassPlugin<M> {
-    fn default() -> Self {
-        Self(Default::default())
+impl<M: Material> PrepassPlugin<M> {
+    /// Creates a new [`PrepassPlugin`] with the given debug flags.
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
+        PrepassPlugin {
+            debug_flags,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -176,8 +184,10 @@ where
                     ),
                 )
                 .add_plugins((
-                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
-                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::new(self.debug_flags),
+                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::new(
+                        self.debug_flags,
+                    ),
                 ));
         }
 
@@ -190,7 +200,7 @@ where
                 .add_systems(ExtractSchedule, extract_camera_previous_view_data)
                 .add_systems(
                     Render,
-                    prepare_previous_view_uniforms.in_set(RenderSet::PrepareResources),
+                    prepare_previous_view_uniforms.in_set(PrepareResources),
                 );
         }
 
@@ -207,9 +217,10 @@ where
                 (
                     check_prepass_views_need_specialization.in_set(PrepareAssets),
                     specialize_prepass_material_meshes::<M>
-                        .in_set(PrepareAssets)
+                        .in_set(RenderSet::PrepareMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
-                        .after(prepare_assets::<RenderMesh>),
+                        .after(prepare_assets::<RenderMesh>)
+                        .after(collect_meshes_for_gpu_building),
                     queue_prepass_material_meshes::<M>
                         .in_set(RenderSet::QueueMeshes)
                         .after(prepare_assets::<PreparedMaterial<M>>)
@@ -1089,11 +1100,25 @@ pub fn queue_prepass_material_meshes<M: Material>(
         }
 
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some((_, pipeline_id)) =
+            let Some((current_change_tick, pipeline_id)) =
                 specialized_material_pipeline_cache.get(&(*view_entity, *visible_entity))
             else {
                 continue;
             };
+
+            // Skip the entity if it's cached in a bin and up to date.
+            if opaque_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            }) || alpha_mask_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            }) || opaque_deferred_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            }) || alpha_mask_deferred_phase.as_mut().is_some_and(|phase| {
+                phase.validate_cached_entity(*visible_entity, *current_change_tick)
+            }) {
+                continue;
+            }
+
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -1130,10 +1155,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
                             ),
+                            *current_change_tick,
                         );
                     } else if let Some(opaque_phase) = opaque_phase.as_mut() {
                         let (vertex_slab, index_slab) =
@@ -1153,10 +1180,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
                             ),
+                            *current_change_tick,
                         );
                     }
                 }
@@ -1178,10 +1207,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             batch_set_key,
                             bin_key,
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
                             ),
+                            *current_change_tick,
                         );
                     } else if let Some(alpha_mask_phase) = alpha_mask_phase.as_mut() {
                         let (vertex_slab, index_slab) =
@@ -1200,10 +1231,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             batch_set_key,
                             bin_key,
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
                             ),
+                            *current_change_tick,
                         );
                     }
                 }

@@ -427,7 +427,7 @@ impl SpecializedComputePipeline for DownsampleDepthPipeline {
             layout: vec![self.bind_group_layout.clone()],
             push_constant_ranges: vec![PushConstantRange {
                 stages: ShaderStages::COMPUTE,
-                range: 0..8,
+                range: 0..4,
             }],
             shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
             shader_defs,
@@ -484,6 +484,7 @@ pub fn create_depth_pyramid_dummy_texture(
             label: Some(texture_view_label),
             format: Some(TextureFormat::R32Float),
             dimension: Some(TextureViewDimension::D2),
+            usage: None,
             aspect: TextureAspect::All,
             base_mip_level: 0,
             mip_level_count: Some(1),
@@ -551,6 +552,7 @@ impl ViewDepthPyramid {
                     label: Some(texture_view_label),
                     format: Some(TextureFormat::R32Float),
                     dimension: Some(TextureViewDimension::D2),
+                    usage: None,
                     aspect: TextureAspect::All,
                     base_mip_level: i as u32,
                     mip_level_count: Some(1),
@@ -625,9 +627,8 @@ impl ViewDepthPyramid {
             timestamp_writes: None,
         });
         downsample_pass.set_pipeline(downsample_depth_first_pipeline);
-        // Pass the mip count and the texture width as push constants, for
-        // simplicity.
-        downsample_pass.set_push_constants(0, bytemuck::cast_slice(&[self.mip_count, view_size.x]));
+        // Pass the mip count as a push constant, for simplicity.
+        downsample_pass.set_push_constants(0, &self.mip_count.to_le_bytes());
         downsample_pass.set_bind_group(0, downsample_depth_bind_group, &[]);
         downsample_pass.dispatch_workgroups(view_size.x.div_ceil(64), view_size.y.div_ceil(64), 1);
 

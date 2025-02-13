@@ -71,10 +71,10 @@ impl Default for WgpuSettings {
             Backends::all()
         };
 
-        let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
+        let backends = Some(Backends::from_env().unwrap_or(default_backends));
 
         let power_preference =
-            wgpu::util::power_preference_from_env().unwrap_or(PowerPreference::HighPerformance);
+            PowerPreference::from_env().unwrap_or(PowerPreference::HighPerformance);
 
         let priority = settings_priority_from_env().unwrap_or(WgpuSettingsPriority::Functionality);
 
@@ -100,13 +100,27 @@ impl Default for WgpuSettings {
             limits
         };
 
-        let dx12_compiler =
-            wgpu::util::dx12_shader_compiler_from_env().unwrap_or(Dx12Compiler::Dxc {
-                dxil_path: None,
-                dxc_path: None,
+        let dx12_shader_compiler =
+            Dx12Compiler::from_env().unwrap_or(if cfg!(feature = "statically-linked-dxc") {
+                Dx12Compiler::StaticDxc
+            } else {
+                let dxc = "dxcompiler.dll";
+                let dxil = "dxil.dll";
+
+                if cfg!(target_os = "windows")
+                    && std::fs::metadata(dxc).is_ok()
+                    && std::fs::metadata(dxil).is_ok()
+                {
+                    Dx12Compiler::DynamicDxc {
+                        dxc_path: String::from(dxc),
+                        dxil_path: String::from(dxil),
+                    }
+                } else {
+                    Dx12Compiler::Fxc
+                }
             });
 
-        let gles3_minor_version = wgpu::util::gles_minor_version_from_env().unwrap_or_default();
+        let gles3_minor_version = Gles3MinorVersion::from_env().unwrap_or_default();
 
         let instance_flags = InstanceFlags::default().with_env();
 
@@ -119,7 +133,7 @@ impl Default for WgpuSettings {
             disabled_features: None,
             limits,
             constrained_limits: None,
-            dx12_shader_compiler: dx12_compiler,
+            dx12_shader_compiler,
             gles3_minor_version,
             instance_flags,
             memory_hints: MemoryHints::default(),

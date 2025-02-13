@@ -1135,7 +1135,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &self,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
-        self.as_readonly().get_many_inner(entities)
+        // Note that this calls `get_many_readonly` instead of `get_many_inner`
+        // since we don't need to check for duplicates.
+        self.as_readonly().get_many_readonly(entities)
     }
 
     /// Returns the read-only query items for the given array of [`Entity`].
@@ -1249,7 +1251,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_many`](Self::get_many) to get read-only query items.
+    /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
     /// - [`many_mut`](Self::many_mut) for the panicking version.
     #[inline]
     pub fn get_many_mut<const N: usize>(
@@ -1267,8 +1269,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # See also
     ///
-    /// - [`get_many`](Self::get_many) to get read-only query items.
+    /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
     /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
+    /// - [`get_many_readonly`](Self::get_many_readonly) to get read-only query items without checking for duplicate entities
+    ///   with the actual "inner" world lifetime.
     #[inline]
     pub fn get_many_inner<const N: usize>(
         self,
@@ -1278,6 +1282,32 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         unsafe {
             self.state
                 .get_many_unchecked_manual(self.world, entities, self.last_run, self.this_run)
+        }
+    }
+
+    /// Returns the query items for the given array of [`Entity`].
+    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
+    ///
+    /// The returned query items are in the same order as the input.
+    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    ///
+    /// # See also
+    ///
+    /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
+    /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
+    /// - [`get_many_inner`](Self::get_many_readonly) to get mutable query items with the actual "inner" world lifetime.
+    #[inline]
+    pub fn get_many_readonly<const N: usize>(
+        self,
+        entities: [Entity; N],
+    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>>
+    where
+        D: ReadOnlyQueryData,
+    {
+        // SAFETY: scheduler ensures safe Query world access
+        unsafe {
+            self.state
+                .get_many_read_only_manual(self.world, entities, self.last_run, self.this_run)
         }
     }
 
@@ -2097,7 +2127,21 @@ pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = ()> {
 
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     /// Create a [`Query`] from the underlying [`QueryState`].
-    pub fn query(&mut self) -> Query<'w, '_, Q, F> {
+    pub fn query(&mut self) -> Query<'_, '_, Q, F> {
+        Query {
+            world: self.world,
+            state: &self.state,
+            last_run: self.last_run,
+            this_run: self.this_run,
+        }
+    }
+}
+
+impl<'w, Q: ReadOnlyQueryData, F: QueryFilter> QueryLens<'w, Q, F> {
+    /// Create a [`Query`] from the underlying [`QueryState`].
+    /// This returns results with the actual "inner" world lifetime,
+    /// so it may only be used with read-only queries to prevent mutable aliasing.
+    pub fn query_inner(&self) -> Query<'w, '_, Q, F> {
         Query {
             world: self.world,
             state: &self.state,
@@ -2108,9 +2152,9 @@ impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
 }
 
 impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
-    for Query<'w, 's, Q, F>
+    for Query<'s, 's, Q, F>
 {
-    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'w, 's, Q, F> {
+    fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'s, 's, Q, F> {
         value.query()
     }
 }

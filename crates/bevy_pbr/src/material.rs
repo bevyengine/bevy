@@ -252,6 +252,8 @@ pub struct MaterialPlugin<M: Material> {
     pub prepass_enabled: bool,
     /// Controls if shadows are enabled for the Material.
     pub shadows_enabled: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
     pub _marker: PhantomData<M>,
 }
 
@@ -260,6 +262,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
         Self {
             prepass_enabled: true,
             shadows_enabled: true,
+            debug_flags: RenderDebugFlags::default(),
             _marker: Default::default(),
         }
     }
@@ -314,9 +317,10 @@ where
                     Render,
                     (
                         specialize_material_meshes::<M>
-                            .in_set(RenderSet::PrepareAssets)
+                            .in_set(RenderSet::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>)
-                            .after(prepare_assets::<RenderMesh>),
+                            .after(prepare_assets::<RenderMesh>)
+                            .after(collect_meshes_for_gpu_building),
                         queue_material_meshes::<M>
                             .in_set(RenderSet::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial<M>>),
@@ -339,7 +343,7 @@ where
                         (
                             check_views_lights_need_specialization.in_set(RenderSet::PrepareAssets),
                             specialize_shadows::<M>
-                                .in_set(RenderSet::PrepareAssets)
+                                .in_set(RenderSet::PrepareMeshes)
                                 .after(prepare_assets::<PreparedMaterial<M>>),
                             queue_shadows::<M>
                                 .in_set(RenderSet::QueueMeshes)
@@ -373,7 +377,7 @@ where
         }
 
         if self.prepass_enabled {
-            app.add_plugins(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::new(self.debug_flags));
         }
     }
 
@@ -940,12 +944,20 @@ pub fn queue_material_meshes<M: Material>(
 
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some(pipeline_id) = specialized_material_pipeline_cache
+            let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
                 .get(&(*view_entity, *visible_entity))
-                .map(|(_, pipeline_id)| *pipeline_id)
+                .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
             else {
                 continue;
             };
+
+            // Skip the entity if it's cached in a bin and up to date.
+            if opaque_phase.validate_cached_entity(*visible_entity, current_change_tick)
+                || alpha_mask_phase.validate_cached_entity(*visible_entity, current_change_tick)
+            {
+                continue;
+            }
+
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
@@ -993,10 +1005,12 @@ pub fn queue_material_meshes<M: Material>(
                         batch_set_key,
                         bin_key,
                         (*render_entity, *visible_entity),
+                        mesh_instance.current_uniform_index,
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
                         ),
+                        current_change_tick,
                     );
                 }
                 // Alpha mask
@@ -1015,10 +1029,12 @@ pub fn queue_material_meshes<M: Material>(
                         batch_set_key,
                         bin_key,
                         (*render_entity, *visible_entity),
+                        mesh_instance.current_uniform_index,
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
                         ),
+                        current_change_tick,
                     );
                 }
                 RenderPhaseType::Transparent => {
