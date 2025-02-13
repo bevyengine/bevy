@@ -197,17 +197,16 @@ pub fn touch_pick_events(
                 },
                 position: touch.position,
             };
-            let pointer_id = PointerId::Touch;
             let (start, pointer_entity) = *touch_cache.entry(touch.id).or_insert_with(|| {
                 let pointer_entity = commands
-                    .spawn((pointer_id, PointerLocation::new(location.clone())))
+                    .spawn((PointerId::Touch, PointerLocation::new(location.clone())))
                     .id();
                 debug!("Spawning touch pointer {:?}", pointer_entity);
                 (*touch, pointer_entity)
             });
 
             pointer_events.send(PointerInput::new_with_entity(
-                pointer_id,
+                PointerId::Touch,
                 pointer_entity,
                 location,
                 match touch.phase {
@@ -222,7 +221,7 @@ pub fn touch_pick_events(
 
             if matches!(touch.phase, TouchPhase::Ended | TouchPhase::Canceled) {
                 touch_cache.remove(&touch.id);
-                debug!("Despawning {:?} pointer {:?}", pointer_id, pointer_entity);
+                debug!("Despawning touch pointer {:?}", pointer_entity);
                 commands.entity(pointer_entity).despawn();
             }
         }
