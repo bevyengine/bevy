@@ -160,7 +160,7 @@ Example | Description
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
 [Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
-[Load glTF extras as Components](../examples/3d/load_gltf_components.rs) | Loads a glTF file as a scene, injecting the gltf extras as deserialized components
+[Load glTF extras as Components](../examples/3d/load_gltf_components.rs) | Loads a glTF file as a scene, injecting the gltf extras as reflected components
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
