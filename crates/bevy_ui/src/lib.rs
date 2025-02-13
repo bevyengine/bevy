@@ -37,7 +37,7 @@ pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
-use resolve_hierarchy::resolve_ui_hierarchy;
+use resolve_hierarchy::{removed_children, resolve_ui_hierarchy};
 pub use ui_material::*;
 pub use ui_node::*;
 
@@ -72,6 +72,8 @@ use bevy_input::InputSystem;
 use bevy_render::{camera::CameraUpdateSystem, RenderApp};
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
+#[cfg(feature = "ghost_nodes")]
+use resolve_hierarchy::mark_ghost_parent_nodes_changed;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_ui_context_system};
@@ -202,6 +204,14 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
+                #[cfg(feature = "ghost_nodes")]
+                mark_ghost_parent_nodes_changed
+                    .in_set(UiSystem::Resolve)
+                    .before(removed_children)
+                    .before(resolve_ui_hierarchy),
+                removed_children
+                    .in_set(UiSystem::Resolve)
+                    .before(resolve_ui_hierarchy),
                 resolve_ui_hierarchy.in_set(UiSystem::Resolve),
                 update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
