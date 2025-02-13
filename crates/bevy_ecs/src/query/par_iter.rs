@@ -64,7 +64,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     ///      });
     ///     
     ///     // collect value from every thread
-    ///     let entity_count = queue.iter().copied().sum();
+    ///     let entity_count = queue.iter_mut().copied().sum();
     /// }
     /// ```
     ///
@@ -232,7 +232,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     ///     });
     ///     
     ///     // collect value from every thread
-    ///     let final_value = queue.iter().copied().sum();
+    ///     let final_value = queue.iter_mut().copied().sum();
     /// }
     /// ```
     ///
@@ -399,7 +399,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///     });
     ///     
     ///     // collect value from every thread
-    ///     let final_value = queue.iter().copied().sum();
+    ///     let final_value = queue.iter_mut().copied().sum();
     /// }
     /// ```
     ///
