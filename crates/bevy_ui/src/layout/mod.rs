@@ -355,7 +355,7 @@ mod tests {
     use bevy_render::{camera::ManualTextureViews, prelude::Camera};
     use bevy_transform::{
         prelude::GlobalTransform,
-        systems::{compute_transform_leaves, propagate_transform_nodes, sync_simple_transforms},
+        systems::{compute_transform_leaves, propagate_parent_transforms, sync_simple_transforms},
     };
     use bevy_utils::prelude::default;
     use bevy_window::{
@@ -409,7 +409,7 @@ mod tests {
                 ApplyDeferred,
                 ui_layout_system,
                 sync_simple_transforms,
-                propagate_transform_nodes,
+                propagate_parent_transforms,
                 compute_transform_leaves,
             )
                 .chain(),

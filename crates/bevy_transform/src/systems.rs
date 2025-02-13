@@ -12,7 +12,8 @@ use bevy_utils::Parallel;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
-/// Third party plugins should ensure that this is used in concert with [`propagate_transforms`].
+/// Third party plugins should ensure that this is used in concert with
+/// [`propagate_parent_transforms`] and [`compute_transform_leaves`].
 pub fn sync_simple_transforms(
     mut query: ParamSet<(
         Query<
@@ -67,7 +68,7 @@ impl Default for WorkQueue {
 
 /// Computes the [`GlobalTransform`]s of non-leaf nodes in the entity hierarchy, propagating
 /// [`Transform`]s of parents to their children.
-pub fn propagate_transform_nodes(
+pub fn propagate_parent_transforms(
     queue: Local<WorkQueue>,
     mut orphaned: RemovedComponents<ChildOf>,
     mut orphans: Local<Vec<Entity>>,
@@ -257,7 +258,7 @@ mod test {
         schedule.add_systems(
             (
                 sync_simple_transforms,
-                propagate_transform_nodes,
+                propagate_parent_transforms,
                 compute_transform_leaves,
             )
                 .chain(),
@@ -315,7 +316,7 @@ mod test {
         schedule.add_systems(
             (
                 sync_simple_transforms,
-                propagate_transform_nodes,
+                propagate_parent_transforms,
                 compute_transform_leaves,
             )
                 .chain(),
@@ -352,7 +353,7 @@ mod test {
         schedule.add_systems(
             (
                 sync_simple_transforms,
-                propagate_transform_nodes,
+                propagate_parent_transforms,
                 compute_transform_leaves,
             )
                 .chain(),
@@ -391,7 +392,7 @@ mod test {
         schedule.add_systems(
             (
                 sync_simple_transforms,
-                propagate_transform_nodes,
+                propagate_parent_transforms,
                 compute_transform_leaves,
             )
                 .chain(),
@@ -471,7 +472,7 @@ mod test {
             Update,
             (
                 sync_simple_transforms,
-                propagate_transform_nodes,
+                propagate_parent_transforms,
                 compute_transform_leaves,
             )
                 .chain(),
@@ -524,7 +525,7 @@ mod test {
         app.add_systems(
             Update,
             (
-                propagate_transform_nodes,
+                propagate_parent_transforms,
                 sync_simple_transforms,
                 compute_transform_leaves,
             )
@@ -589,7 +590,7 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems((
             sync_simple_transforms,
-            propagate_transform_nodes,
+            propagate_parent_transforms,
             compute_transform_leaves,
         ));
 
