@@ -242,7 +242,10 @@ pub struct LogPlugin {
 
     /// Override the default [`tracing_subscriber::fmt::Layer`] with a custom one.
     ///
-    /// This allows you to customize the format of the default log output.
+    /// This differs from [`custom_layer`](Self::custom_layer) in that
+    /// [`fmt_layer`](Self::fmt_layer) allows you to overwrite the default formatter layer, while
+    /// `custom_layer` only allows you to add additional layers (which are unable to modify the
+    /// default formatter).
     ///
     /// For example, you can use [`tracing_subscriber::fmt::Layer::without_time`] to remove the
     /// timestamp from the log output.
