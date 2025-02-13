@@ -2736,8 +2736,7 @@ fn prepare_mesh_bind_groups_for_phase(
     };
 
     // Create the skinned mesh bind group with the current and previous buffers
-    // (the latter being for motion vector computation). If there's no previous
-    // buffer, just use the current one as the shader will ignore it.
+    // (the latter being for motion vector computation).
     let (skin, prev_skin) = (&skins_uniform.current_buffer, &skins_uniform.prev_buffer);
     groups.skinned = Some(MeshBindGroupPair {
         motion_vectors: layouts.skinned_motion(render_device, &model, skin, prev_skin),
@@ -2945,8 +2944,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
 
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
-            // Attach the previous skin index for motion vector computation. If
-            // there isn't one, just use zero as the shader will ignore it.
+            // Attach the previous skin index for motion vector computation.
             if skin::skins_use_uniform_buffers(&render_device) {
                 if let Some(current_skin_byte_offset) = current_skin_byte_offset {
                     dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;

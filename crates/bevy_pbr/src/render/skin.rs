@@ -60,9 +60,9 @@ pub struct SkinByteOffset {
 
 impl SkinByteOffset {
     /// Index to be in address space based on the size of a skin uniform.
-    const fn new(start: usize) -> Self {
+    const fn from_index(index: usize) -> Self {
         SkinByteOffset {
-            byte_offset: (start * size_of::<Mat4>()) as u32,
+            byte_offset: (index * size_of::<Mat4>()) as u32,
         }
     }
 
@@ -162,9 +162,9 @@ impl SkinUniforms {
 
     /// Returns the current offset in bytes of the skin in the buffer.
     pub fn skin_byte_offset(&self, skin: MainEntity) -> Option<SkinByteOffset> {
-        self.skin_uniform_info
-            .get(&skin)
-            .map(|skin_uniform_info| SkinByteOffset::new(skin_uniform_info.offset() as usize))
+        self.skin_uniform_info.get(&skin).map(|skin_uniform_info| {
+            SkinByteOffset::from_index(skin_uniform_info.offset() as usize)
+        })
     }
 
     /// Returns an iterator over all skins in the scene.
