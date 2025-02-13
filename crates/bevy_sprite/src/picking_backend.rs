@@ -89,7 +89,7 @@ fn sprite_picking(
         Entity,
         &Sprite,
         &GlobalTransform,
-        Option<&Pickable>,
+        &Pickable,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
@@ -97,7 +97,7 @@ fn sprite_picking(
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
         .filter_map(|(entity, sprite, transform, pickable, vis)| {
-            let marker_requirement = !settings.require_markers || pickable.is_some();
+            let marker_requirement = !settings.require_markers;
             if !transform.affine().is_nan() && vis.get() && marker_requirement {
                 Some((entity, sprite, transform, pickable))
             } else {
@@ -214,8 +214,7 @@ fn sprite_picking(
                     }
                 };
 
-                blocked = cursor_in_valid_pixels_of_sprite
-                    && pickable.is_none_or(|p| p.should_block_lower);
+                blocked = cursor_in_valid_pixels_of_sprite && pickable.should_block_lower;
 
                 cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =
