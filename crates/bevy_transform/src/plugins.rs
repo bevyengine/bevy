@@ -1,4 +1,4 @@
-use crate::systems::{compute_leaves, propagate_transforms_mpsc, sync_simple_transforms};
+use crate::systems::{compute_transform_leaves, propagate_transform_nodes, sync_simple_transforms};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
 
@@ -38,9 +38,7 @@ impl Plugin for TransformPlugin {
                     // These systems cannot access the same entities,
                     // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
                     .ambiguous_with(PropagateTransformsSet),
-                // propagate_transforms.in_set(PropagateTransformsSet),
-                // propagate_transforms_par.in_set(PropagateTransformsSet),
-                (propagate_transforms_mpsc, compute_leaves)
+                (propagate_transform_nodes, compute_transform_leaves)
                     .chain()
                     .in_set(PropagateTransformsSet),
             ),
@@ -55,9 +53,7 @@ impl Plugin for TransformPlugin {
                 sync_simple_transforms
                     .in_set(TransformSystem::TransformPropagate)
                     .ambiguous_with(PropagateTransformsSet),
-                // propagate_transforms.in_set(PropagateTransformsSet),
-                // propagate_transforms_par.in_set(PropagateTransformsSet),
-                (propagate_transforms_mpsc, compute_leaves)
+                (propagate_transform_nodes, compute_transform_leaves)
                     .chain()
                     .in_set(PropagateTransformsSet),
             ),
