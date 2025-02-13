@@ -379,6 +379,54 @@ fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
 }
 
+fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
+    let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
+    
+    // No intersection
+    if discriminant < 0.0 {
+        return vec2(-1.0);
+    }
+    
+    let q = -r * mu;
+    let sqrt_discriminant = sqrt(discriminant);
+    
+    // Return both intersection distances
+    return vec2(
+        q - sqrt_discriminant,
+        q + sqrt_discriminant
+    );
+}
+
+struct RaymarchSegment {
+    start: f32,
+    end: f32,
+}
+
+fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
+    // Get both intersection points with atmosphere
+    let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.top_radius);
+    let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
+    
+    var segment: RaymarchSegment;
+    
+    if r < atmosphere.top_radius {
+        // Inside atmosphere
+        segment.start = 0.0;
+        segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));
+    } else {
+        // Outside atmosphere
+        if atmosphere_intersections.x < 0.0 {
+            // No intersection with atmosphere
+            return segment;
+        }
+        // Start at atmosphere entry, end at exit or ground
+        segment.start = atmosphere_intersections.x;
+        segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));
+    }
+
+    return segment;
+}
+
 struct RaymarchResult {
     inscattering: vec3<f32>,
     transmittance: vec3<f32>,
@@ -392,13 +440,26 @@ fn raymarch_atmosphere(
 ) -> RaymarchResult {
     let mu = ray_dir.y;
     
+    let segment = get_raymarch_segment(r, mu);
+    let t_start = segment.start;
+    var t_end = segment.end;
+    
+    t_end = min(t_end, t_max);
+    let t_total = t_end - t_start;
+    
     var result: RaymarchResult;
     result.inscattering = vec3(0.0);
     result.transmittance = vec3(1.0);
-    var prev_t = 0.0;
+    
+    // Skip if invalid segment
+    if t_total <= 0.0 {
+        return result;
+    }
+    
+    var prev_t = t_start;
     for (var s = 0.0; s < sample_count; s += 1.0) {
-        // Linear distribution
-        let t_i = t_max * (s + MIDPOINT_RATIO) / sample_count;
+        // Linear distribution from atmosphere entry to exit/ground
+        let t_i = t_start + t_total * (s + MIDPOINT_RATIO) / sample_count;
         let dt_i = (t_i - prev_t);
         prev_t = t_i;
 

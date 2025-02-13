@@ -32,7 +32,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let r = view_radius();
     let mu = ray_dir_ws.y;
     let raymarch_split = 1.0;
-    let raymarch_steps = 64.0;
+    let raymarch_steps = 32.0;
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
