@@ -420,9 +420,9 @@ pub enum UntypedAssetIdConversionError {
     /// Caused when trying to convert an [`UntypedAssetId`] into an [`AssetId`] of the wrong type.
     #[error("This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>")]
     TypeIdMismatch {
-        /// The TypeId of the asset that we are trying to convert to.
+        /// The [`TypeId`] of the asset that we are trying to convert to.
         expected: TypeId,
-        /// The TypeId of the asset that we are trying to convert from.
+        /// The [`TypeId`] of the asset that we are trying to convert from.
         found: TypeId,
     },
 }
