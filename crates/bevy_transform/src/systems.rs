@@ -1,5 +1,8 @@
 use core::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{mpsc::channel, Arc, Mutex};
+use std::sync::{
+    mpsc::{channel, Receiver, Sender},
+    Arc, Mutex,
+};
 
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
@@ -44,8 +47,9 @@ pub fn sync_simple_transforms(
 /// A queue shared between threads for transform propagation.
 pub struct WorkQueue {
     busy_threads: AtomicI32,
-    sender: std::sync::mpsc::Sender<Vec<Entity>>,
-    receiver: Arc<Mutex<std::sync::mpsc::Receiver<Vec<Entity>>>>,
+    sender: Sender<Vec<Entity>>,
+    receiver: Arc<Mutex<Receiver<Vec<Entity>>>>,
+    local_queue: Parallel<Vec<Entity>>,
 }
 impl Default for WorkQueue {
     fn default() -> Self {
@@ -54,6 +58,7 @@ impl Default for WorkQueue {
             busy_threads: AtomicI32::default(),
             sender: tx,
             receiver: Arc::new(Mutex::new(rx)),
+            local_queue: Default::default(),
         }
     }
 }
@@ -61,13 +66,9 @@ impl Default for WorkQueue {
 /// Computes the [`GlobalTransform`]s of non-leaf nodes in the entity hierarchy, propagating
 /// [`Transform`]s of parents to their children.
 pub fn propagate_transform_nodes(
-    // Orphans
+    queue: Local<WorkQueue>,
     mut orphaned: RemovedComponents<ChildOf>,
     mut orphans: Local<Vec<Entity>>,
-    // Work queue
-    queue: Local<WorkQueue>,
-    thread_local: Local<Parallel<Vec<Entity>>>,
-    // Queries
     mut roots: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), Without<ChildOf>>,
     nodes: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
 ) {
@@ -87,31 +88,18 @@ pub fn propagate_transform_nodes(
                 *parent_transform = GlobalTransform::from(*transform);
             }
 
-            // SAFETY:
-            //
-            // The hierarchy is guaranteed to exist without cycles. Traversing the hierarchy is then
-            // guaranteed to visit disjoint entities, which means it is impossible to mutably alias
-            // two entities.
+            // SAFETY: Visiting the hierarchy as a tree without cycles
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
-                let mut message = Vec::new();
-                let mut children = nodes.iter_many_unsafe(children);
-                while let Some((child, transform, mut global_transform, _)) = children.fetch_next()
-                {
-                    if parent_transform.is_changed()
-                        || transform.is_changed()
-                        || global_transform.is_added()
-                    {
-                        *global_transform = parent_transform.mul_transform(*transform);
-                    }
-                    message.push(child);
-                }
-                queue.sender.send(message).ok();
+                let mut outbox = Vec::new();
+                propagate_to_child_unchecked(parent_transform, children, &nodes, &mut outbox);
+                queue.sender.send(outbox).ok();
             }
         });
 
+    // A parallel worker that will consume processed parent entities from the queue
     let worker = || {
-        let mut messages = thread_local.borrow_local_mut();
+        let mut outbox = queue.local_queue.borrow_local_mut();
         loop {
             // Try to acquire a lock on the work queue in a tight loop.
             let Ok(rx) = queue.receiver.try_lock() else {
@@ -135,42 +123,50 @@ pub fn propagate_transform_nodes(
             // incremented.
             queue.busy_threads.fetch_add(1, Ordering::Relaxed);
             drop(rx);
-
-            // SAFETY:
-            //
-            // The hierarchy is guaranteed to exist without cycles. Traversing the hierarchy is then
-            // guaranteed to visit disjoint entities, which means it is impossible to mutably alias
-            // two entities.
-            #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-            unsafe {
-                for parent in tasks.drain(..) {
+            for parent in tasks.drain(..) {
+                // SAFETY: Visiting the hierarchy as a tree without cycles
+                #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+                unsafe {
                     let (_, _, parent_transform, children) = nodes.get_unchecked(parent).unwrap();
-                    let mut children = nodes.iter_many_unsafe(children);
-                    while let Some((child, transform, mut global_transform, _)) =
-                        children.fetch_next()
-                    {
-                        if parent_transform.is_changed()
-                            || transform.is_changed()
-                            || global_transform.is_added()
-                        {
-                            *global_transform = parent_transform.mul_transform(*transform);
-                        }
-                        messages.push(child);
-                    }
+                    propagate_to_child_unchecked(parent_transform, children, &nodes, &mut outbox);
                 }
             }
-
-            for chunk in messages.chunks(1024) {
+            for chunk in outbox.chunks(1024) {
                 queue.sender.send(chunk.to_vec()).ok();
             }
-            messages.clear();
-
+            outbox.clear();
             queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
         }
     };
 
     let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
     task_pool.scope(|s| (0..task_pool.thread_num()).for_each(|_| s.spawn(async { worker() })));
+}
+
+/// # Safety
+///
+/// Callers of this function must ensure that if `nodes` is being used elsewhere concurrently, the
+/// entities passed in to `children` are disjoint.
+#[inline]
+#[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+unsafe fn propagate_to_child_unchecked(
+    parent_transform: Mut<'_, GlobalTransform>,
+    children: &Children,
+    nodes: &Query<(Entity, Ref<'_, Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
+    outbox: &mut Vec<Entity>,
+) {
+    // SAFETY:
+    //
+    // The outer function must only be called with disjoint entity access. If that contract is
+    // upheld, it is safe to access this global transform without mutable aliasing.
+    #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+    let mut children = unsafe { nodes.iter_many_unsafe(children) };
+    while let Some((child, transform, mut global_transform, _)) = children.fetch_next() {
+        if parent_transform.is_changed() || transform.is_changed() || global_transform.is_added() {
+            *global_transform = parent_transform.mul_transform(*transform);
+        }
+        outbox.push(child);
+    }
 }
 
 /// Compute leaf [`GlobalTransform`]s in parallel.
