@@ -278,7 +278,10 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::{prelude::*, world::FilteredEntityRef};
+    use crate::{
+        prelude::*,
+        world::{FilteredEntityMut, FilteredEntityRef},
+    };
     use std::dbg;
 
     #[derive(Component, PartialEq, Debug)]
@@ -446,5 +449,33 @@ mod tests {
 
         let matched = query.iter(&world).count();
         assert_eq!(matched, 1);
+    }
+
+    #[test]
+    fn builder_dynamic_can_be_dense() {
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+
+        // FilteredEntityRef and FilteredEntityMut are dense by default
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world).build();
+        assert!(query.is_dense);
+
+        let query = QueryBuilder::<FilteredEntityMut>::new(&mut world).build();
+        assert!(query.is_dense);
+
+        // Adding a required sparse term makes the query sparse
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+            .data::<&Sparse>()
+            .build();
+        assert!(!query.is_dense);
+
+        // Adding an optional sparse term lets it remain dense
+        let query = QueryBuilder::<FilteredEntityRef>::new(&mut world)
+            .data::<Option<&Sparse>>()
+            .build();
+        assert!(query.is_dense);
     }
 }

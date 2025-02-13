@@ -1901,7 +1901,10 @@ impl<D: QueryData, F: QueryFilter> From<QueryBuilder<'_, D, F>> for QueryState<D
 mod tests {
     use crate as bevy_ecs;
     use crate::{
-        component::Component, prelude::*, query::QueryEntityError, world::FilteredEntityRef,
+        component::Component,
+        prelude::*,
+        query::QueryEntityError,
+        world::{EntityRef, FilteredEntityRef},
     };
     use alloc::vec::Vec;
 
@@ -2276,6 +2279,33 @@ mod tests {
         // remains dense.
         let matched = query.iter(&world).count();
         assert_eq!(matched, 2);
+    }
+
+    #[test]
+    fn dense_query_over_option_is_buggy() {
+        #[derive(Component)]
+        #[component(storage = "SparseSet")]
+        struct Sparse;
+
+        let mut world = World::new();
+        world.spawn(Sparse);
+
+        let mut query =
+            QueryState::<EntityRef>::new(&mut world).transmute::<Option<&Sparse>>(&world);
+        // EntityRef always performs dense iteration
+        // But `Option<&Sparse>` will incorrectly report a component as never being present when doing dense iteration
+        // See https://github.com/bevyengine/bevy/issues/16397
+        assert!(query.is_dense);
+        let matched = query.iter(&world).filter(Option::is_some).count();
+        assert_eq!(matched, 0);
+
+        let mut query = QueryState::<EntityRef>::new(&mut world).transmute::<Has<Sparse>>(&world);
+        // EntityRef always performs dense iteration
+        // But `Has<Sparse>` will incorrectly report a component as never being present when doing dense iteration
+        // See https://github.com/bevyengine/bevy/issues/16397
+        assert!(query.is_dense);
+        let matched = query.iter(&world).filter(|&has| has).count();
+        assert_eq!(matched, 0);
     }
 
     #[test]
