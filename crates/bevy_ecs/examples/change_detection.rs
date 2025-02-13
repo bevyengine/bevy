@@ -29,7 +29,8 @@ fn main() {
     // We can label our systems to force a specific run-order between some of them
     schedule.add_systems((
         spawn_entities.in_set(SimulationSet::Spawn),
-        test.in_set(SimulationSet::Spawn),
+        test,
+        test2.before(test),
         print_counter_when_changed.after(SimulationSet::Spawn),
         age_all_entities.in_set(SimulationSet::Age),
         remove_old_entities.after(SimulationSet::Age),
@@ -94,9 +95,15 @@ fn print_changed_entities(
 #[derive(Component)]
 pub struct Awa;
 
-fn test(query1: Query<(&Age, (&Awa, &Age))>) {
+fn test(query1: Query<&mut Age, With<Awa>>, query2: Query<&mut Age, Without<Awa>>) {
 
 }
+
+
+fn test2(query1: Query<&mut Age, With<Awa>>, query2: Query<&mut Age, Without<Awa>>) {
+
+}
+
 
 // This system iterates over all entities and increases their age in every frame
 fn age_all_entities(mut entities: Query<&mut Age>) {

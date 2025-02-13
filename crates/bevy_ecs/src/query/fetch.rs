@@ -1,4 +1,6 @@
-use crate::system::const_param_checking::{AccessTreeContainer, ComponentAccess, ComponentAccessTree};
+use crate::system::const_param_checking::{
+    AccessTreeContainer, ComponentAccess, ComponentAccessTree,
+};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
@@ -12,6 +14,7 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
+use bevy_ecs::system::const_param_checking::{WithFilterTree, WithoutFilterTree};
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;

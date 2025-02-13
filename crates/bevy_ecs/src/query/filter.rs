@@ -1,3 +1,4 @@
+use crate::system::const_param_checking::{WithId, WithoutId};
 use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
@@ -6,6 +7,7 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
+use bevy_ecs::system::const_param_checking::{WithFilterTree, WithoutFilterTree};
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
@@ -88,6 +90,9 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
+
+    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = None;
+    const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = None;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
     /// If false, the entity will be skipped.
@@ -202,6 +207,12 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
+    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
+        this: WithId(T::UNSTABLE_TYPE_ID),
+        left: None,
+        right: None,
+    });
+
     #[inline(always)]
     unsafe fn filter_fetch(
         _fetch: &mut Self::Fetch<'_>,
@@ -301,6 +312,12 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 // SAFETY: WorldQuery impl performs no access at all
 unsafe impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
+
+    const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = Some(WithoutFilterTree {
+        this: WithoutId(T::UNSTABLE_TYPE_ID),
+        left: None,
+        right: None,
+    });
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -748,6 +765,13 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
+
+    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
+        this: WithId(T::UNSTABLE_TYPE_ID),
+        left: None,
+        right: None,
+    });
+
     #[inline(always)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,
@@ -975,7 +999,11 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
-
+    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
+        this: WithId(T::UNSTABLE_TYPE_ID),
+        left: None,
+        right: None,
+    });
     #[inline(always)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,

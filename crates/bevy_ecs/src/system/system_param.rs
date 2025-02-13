@@ -31,8 +31,8 @@ use core::{
 use disqualified::ShortName;
 
 use super::Populated;
-use crate::system::const_param_checking::ComponentAccess;
-use bevy_ecs::system::const_param_checking::ComponentAccessTree;
+use crate::system::const_param_checking::{ComponentAccess, WithoutFilterTree};
+use bevy_ecs::system::const_param_checking::{ComponentAccessTree, WithFilterTree};
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// A parameter that can be used in a [`System`](super::System).
@@ -200,6 +200,9 @@ pub unsafe trait SystemParam: Sized {
         right: None,
     };
 
+    const WITH_FILTER_TREE: Option<WithFilterTree> = None;
+    const WITHOUT_FILTER_TREE: Option<WithoutFilterTree> = None;
+
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
@@ -318,6 +321,10 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
     type Item<'w, 's> = Query<'w, 's, D, F>;
 
     const COMPONENT_ACCESS_TREE: ComponentAccessTree = D::COMPONENT_ACCESS_TREE_QUERY_DATA;
+
+    const WITH_FILTER_TREE: Option<WithFilterTree> = F::WITH_FILTER_TREE_QUERY_DATA;
+
+    const WITHOUT_FILTER_TREE: Option<WithoutFilterTree> = F::WITHOUT_FILTER_TREE_QUERY_DATA;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);

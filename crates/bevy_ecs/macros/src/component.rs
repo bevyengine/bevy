@@ -1,6 +1,7 @@
 use proc_macro::{TokenStream, TokenTree};
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{format_ident, quote, ToTokens};
+use rand::Rng;
 use std::collections::HashSet;
 use syn::{
     parenthesized,
@@ -12,7 +13,6 @@ use syn::{
     Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Fields, Ident, Index, LitStr, Member,
     Path, Result, Token, Visibility,
 };
-use rand::{Rng};
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
