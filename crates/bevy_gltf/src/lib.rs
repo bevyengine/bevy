@@ -94,7 +94,7 @@ extern crate alloc;
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::AnimationClip;
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 
 mod loader;
 mod vertex_attributes;
@@ -492,13 +492,13 @@ pub struct GltfMaterialName(pub String);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GltfAssetLabel {
-    /// `Scene{}`: glTF Scene as a Bevy `Scene`
+    /// `Scene{}`: glTF Scene as a Bevy [`Scene`]
     Scene(usize),
-    /// `Node{}`: glTF Node as a `GltfNode`
+    /// `Node{}`: glTF Node as a [`GltfNode`]
     Node(usize),
-    /// `Mesh{}`: glTF Mesh as a `GltfMesh`
+    /// `Mesh{}`: glTF Mesh as a [`GltfMesh`]
     Mesh(usize),
-    /// `Mesh{}/Primitive{}`: glTF Primitive as a Bevy `Mesh`
+    /// `Mesh{}/Primitive{}`: glTF Primitive as a Bevy [`Mesh`]
     Primitive {
         /// Index of the mesh for this primitive
         mesh: usize,
@@ -506,28 +506,29 @@ pub enum GltfAssetLabel {
         primitive: usize,
     },
     /// `Mesh{}/Primitive{}/MorphTargets`: Morph target animation data for a glTF Primitive
+    /// as a Bevy [`Image`](bevy_image::prelude::Image)
     MorphTarget {
         /// Index of the mesh for this primitive
         mesh: usize,
         /// Index of this primitive in its parent mesh
         primitive: usize,
     },
-    /// `Texture{}`: glTF Texture as a Bevy `Image`
+    /// `Texture{}`: glTF Texture as a Bevy [`Image`](bevy_image::prelude::Image)
     Texture(usize),
-    /// `Material{}`: glTF Material as a Bevy `StandardMaterial`
+    /// `Material{}`: glTF Material as a Bevy [`StandardMaterial`]
     Material {
         /// Index of this material
         index: usize,
         /// Used to set the [`Face`](bevy_render::render_resource::Face) of the material, useful if it is used with negative scale
         is_scale_inverted: bool,
     },
-    /// `DefaultMaterial`: as above, if the glTF file contains a default material with no index
+    /// `DefaultMaterial`: glTF's default Material as a Bevy [`StandardMaterial`]
     DefaultMaterial,
-    /// `Animation{}`: glTF Animation as Bevy `AnimationClip`
+    /// `Animation{}`: glTF Animation as Bevy [`AnimationClip`]
     Animation(usize),
-    /// `Skin{}`: glTF mesh skin as `GltfSkin`
+    /// `Skin{}`: glTF mesh skin as [`GltfSkin`]
     Skin(usize),
-    /// `Skin{}/InverseBindMatrices`: glTF mesh skin matrices as Bevy `SkinnedMeshInverseBindposes`
+    /// `Skin{}/InverseBindMatrices`: glTF mesh skin matrices as Bevy [`SkinnedMeshInverseBindposes`]
     InverseBindMatrices(usize),
 }
 

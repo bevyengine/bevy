@@ -134,7 +134,6 @@ fn setup(
 }
 
 // Handle user inputs from the keyboard:
-#[allow(clippy::too_many_arguments)]
 fn handle_keypress(
     mut commands: Commands,
     keyboard: Res<ButtonInput<KeyCode>>,

@@ -2,14 +2,15 @@ use core::ops::Deref;
 
 use crate::{
     archetype::Archetype,
-    change_detection::MutUntyped,
-    component::{ComponentId, Mutable},
+    change_detection::{MaybeLocation, MutUntyped},
+    component::{ComponentId, HookContext, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
-    system::{Commands, Query, Resource},
+    resource::Resource,
+    system::{Commands, Query},
     traversal::Traversal,
     world::{error::EntityFetchError, WorldEntityFetch},
 };
@@ -75,11 +76,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         entity: Entity,
     ) -> Option<Mut<T>> {
-        // SAFETY:
-        // - `as_unsafe_world_cell` is the only thing that is borrowing world
-        // - `as_unsafe_world_cell` provides mutable permission to everything
-        // - `&mut self` ensures no other borrows on world data
-        unsafe { self.world.get_entity(entity)?.get_mut() }
+        self.get_entity_mut(entity).ok()?.into_mut()
     }
 
     /// Temporarily removes a [`Component`] `T` from the provided [`Entity`] and
@@ -111,8 +108,7 @@ impl<'w> DeferredWorld<'w> {
             Err(EntityFetchError::NoSuchEntity(..)) => {
                 return Err(EntityFetchError::NoSuchEntity(
                     entity,
-                    self.entities()
-                        .entity_does_not_exist_error_details_message(entity),
+                    self.entities().entity_does_not_exist_error_details(entity),
                 ))
             }
         };
@@ -130,9 +126,19 @@ impl<'w> DeferredWorld<'w> {
         // - ON_REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
-            self.trigger_on_replace(archetype, entity, [component_id].into_iter());
+            self.trigger_on_replace(
+                archetype,
+                entity,
+                [component_id].into_iter(),
+                MaybeLocation::caller(),
+            );
             if archetype.has_replace_observer() {
-                self.trigger_observers(ON_REPLACE, entity, [component_id].into_iter());
+                self.trigger_observers(
+                    ON_REPLACE,
+                    entity,
+                    [component_id].into_iter(),
+                    MaybeLocation::caller(),
+                );
             }
         }
 
@@ -159,9 +165,19 @@ impl<'w> DeferredWorld<'w> {
         // - ON_REPLACE is able to accept ZST events
         unsafe {
             let archetype = &*archetype;
-            self.trigger_on_insert(archetype, entity, [component_id].into_iter());
+            self.trigger_on_insert(
+                archetype,
+                entity,
+                [component_id].into_iter(),
+                MaybeLocation::caller(),
+            );
             if archetype.has_insert_observer() {
-                self.trigger_observers(ON_INSERT, entity, [component_id].into_iter());
+                self.trigger_observers(
+                    ON_INSERT,
+                    entity,
+                    [component_id].into_iter(),
+                    MaybeLocation::caller(),
+                );
             }
         }
 
@@ -194,8 +210,8 @@ impl<'w> DeferredWorld<'w> {
     /// For examples, see [`DeferredWorld::entity_mut`].
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
@@ -303,7 +319,7 @@ impl<'w> DeferredWorld<'w> {
     /// ## [`&EntityHashSet`]
     ///
     /// ```
-    /// # use bevy_ecs::{prelude::*, entity::EntityHashSet, world::DeferredWorld};
+    /// # use bevy_ecs::{prelude::*, entity::hash_set::EntityHashSet, world::DeferredWorld};
     /// #[derive(Component)]
     /// struct Position {
     ///   x: f32,
@@ -326,8 +342,8 @@ impl<'w> DeferredWorld<'w> {
     /// ```
     ///
     /// [`EntityMut`]: crate::world::EntityMut
-    /// [`&EntityHashSet`]: crate::entity::EntityHashSet
-    /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
+    /// [`&EntityHashSet`]: crate::entity::hash_set::EntityHashSet
+    /// [`EntityHashMap<EntityMut>`]: crate::entity::hash_map::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
     #[inline]
     pub fn entity_mut<F: WorldEntityFetch>(&mut self, entities: F) -> F::DeferredMut<'_> {
@@ -344,18 +360,8 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         state: &'s mut QueryState<D, F>,
     ) -> Query<'_, 's, D, F> {
-        state.validate_world(self.world.id());
-        state.update_archetypes(self);
-        // SAFETY: We ran validate_world to ensure our state matches
-        unsafe {
-            let world_cell = self.world;
-            Query::new(
-                world_cell,
-                state,
-                world_cell.last_change_tick(),
-                world_cell.change_tick(),
-            )
-        }
+        // SAFETY: We have mutable access to the entire world
+        unsafe { state.query_unchecked(self.world) }
     }
 
     /// Gets a mutable reference to the resource of the given type
@@ -491,13 +497,10 @@ impl<'w> DeferredWorld<'w> {
         entity: Entity,
         component_id: ComponentId,
     ) -> Option<MutUntyped<'_>> {
-        // SAFETY: &mut self ensure that there are no outstanding accesses to the resource
-        unsafe {
-            self.world
-                .get_entity(entity)?
-                .get_mut_by_id(component_id)
-                .ok()
-        }
+        self.get_entity_mut(entity)
+            .ok()?
+            .into_mut_by_id(component_id)
+            .ok()
     }
 
     /// Triggers all `on_add` hooks for [`ComponentId`] in target.
@@ -510,13 +513,21 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
     ) {
         if archetype.has_add_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_add {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            caller,
+                        },
+                    );
                 }
             }
         }
@@ -532,13 +543,21 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
     ) {
         if archetype.has_insert_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_insert {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            caller,
+                        },
+                    );
                 }
             }
         }
@@ -554,13 +573,21 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
     ) {
         if archetype.has_replace_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_replace {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            caller,
+                        },
+                    );
                 }
             }
         }
@@ -576,13 +603,51 @@ impl<'w> DeferredWorld<'w> {
         archetype: &Archetype,
         entity: Entity,
         targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
     ) {
         if archetype.has_remove_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
                 let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
                 if let Some(hook) = hooks.on_remove {
-                    hook(DeferredWorld { world: self.world }, entity, component_id);
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            caller,
+                        },
+                    );
+                }
+            }
+        }
+    }
+
+    /// Triggers all `on_despawn` hooks for [`ComponentId`] in target.
+    ///
+    /// # Safety
+    /// Caller must ensure [`ComponentId`] in target exist in self.
+    #[inline]
+    pub(crate) unsafe fn trigger_on_despawn(
+        &mut self,
+        archetype: &Archetype,
+        entity: Entity,
+        targets: impl Iterator<Item = ComponentId>,
+        caller: MaybeLocation,
+    ) {
+        if archetype.has_despawn_hook() {
+            for component_id in targets {
+                // SAFETY: Caller ensures that these components exist
+                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                if let Some(hook) = hooks.on_despawn {
+                    hook(
+                        DeferredWorld { world: self.world },
+                        HookContext {
+                            entity,
+                            component_id,
+                            caller,
+                        },
+                    );
                 }
             }
         }
@@ -598,6 +663,7 @@ impl<'w> DeferredWorld<'w> {
         event: ComponentId,
         target: Entity,
         components: impl Iterator<Item = ComponentId> + Clone,
+        caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
@@ -606,6 +672,7 @@ impl<'w> DeferredWorld<'w> {
             components,
             &mut (),
             &mut false,
+            caller,
         );
     }
 
@@ -621,6 +688,7 @@ impl<'w> DeferredWorld<'w> {
         components: &[ComponentId],
         data: &mut E,
         mut propagate: bool,
+        caller: MaybeLocation,
     ) where
         T: Traversal<E>,
     {
@@ -632,6 +700,7 @@ impl<'w> DeferredWorld<'w> {
                 components.iter().copied(),
                 data,
                 &mut propagate,
+                caller,
             );
             if !propagate {
                 break;

@@ -8,10 +8,12 @@ use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_ecs::{
     event::EventReader,
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
 };
+use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::{default, hashbrown::hash_map::EntryRef, HashMap, HashSet};
+use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
@@ -26,7 +28,7 @@ use wgpu::{
 
 /// A descriptor for a [`Pipeline`].
 ///
-/// Used to store an heterogenous collection of render and compute pipeline descriptors together.
+/// Used to store a heterogenous collection of render and compute pipeline descriptors together.
 #[derive(Debug)]
 pub enum PipelineDescriptor {
     RenderPipelineDescriptor(Box<RenderPipelineDescriptor>),
@@ -35,7 +37,7 @@ pub enum PipelineDescriptor {
 
 /// A pipeline defining the data layout and shader logic for a specific GPU task.
 ///
-/// Used to store an heterogenous collection of render and compute pipelines together.
+/// Used to store a heterogenous collection of render and compute pipelines together.
 #[derive(Debug)]
 pub enum Pipeline {
     RenderPipeline(RenderPipeline),
@@ -210,7 +212,6 @@ impl ShaderCache {
         Ok(())
     }
 
-    #[allow(clippy::result_large_err)]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -250,7 +251,7 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                if cfg!(feature = "ios_simulator") {
+                if cfg!(target_abi = "sim") {
                     shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
                 }
 
@@ -917,7 +918,10 @@ impl PipelineCache {
         mut events: Extract<EventReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
-            #[allow(clippy::match_same_arms)]
+            #[expect(
+                clippy::match_same_arms,
+                reason = "LoadedWithDependencies is marked as a TODO, so it's likely this will no longer lint soon."
+            )]
             match event {
                 // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
@@ -1064,6 +1068,18 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::SUBGROUP_VERTEX_STAGE,
         features.contains(Features::SUBGROUP_VERTEX),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT32_ATOMIC,
+        features.contains(Features::SHADER_FLOAT32_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_ATOMIC,
+        features.contains(Features::TEXTURE_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::TEXTURE_INT64_ATOMIC,
+        features.contains(Features::TEXTURE_INT64_ATOMIC),
     );
 
     capabilities

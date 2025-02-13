@@ -3,11 +3,11 @@ use super::asset::{
 };
 use alloc::borrow::Cow;
 use bevy_math::{ops::log2, IVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_platform_support::collections::HashMap;
 use bevy_render::{
     mesh::{Indices, Mesh},
     render_resource::PrimitiveTopology,
 };
-use bevy_utils::HashMap;
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::{iter, ops::Range};
 use half::f16;
@@ -601,7 +601,6 @@ fn split_simplified_group_into_new_meshlets(
     new_meshlets_count
 }
 
-#[allow(clippy::too_many_arguments)]
 fn build_and_compress_per_meshlet_vertex_data(
     meshlet: &meshopt_Meshlet,
     meshlet_vertex_ids: &[u32],

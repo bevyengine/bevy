@@ -1,4 +1,3 @@
-#[allow(clippy::module_inception)]
 mod camera;
 mod camera_driver_node;
 mod clear_color;

@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_tasks", "bevy_ecs/default", "downcast"]
+default = ["std", "bevy_reflect", "bevy_tasks", "bevy_ecs/default"]
 
 # Functionality
 
@@ -25,9 +25,6 @@ reflect_functions = [
 
 ## Adds support for running async background tasks
 bevy_tasks = ["dep:bevy_tasks"]
-
-## Adds `downcast-rs` integration for `Plugin`
-downcast = ["dep:downcast-rs"]
 
 # Debugging Features
 
@@ -48,26 +45,28 @@ std = [
   "bevy_reflect?/std",
   "bevy_ecs/std",
   "dep:ctrlc",
-  "downcast-rs?/std",
+  "downcast-rs/std",
   "bevy_utils/std",
   "bevy_tasks?/std",
+  "bevy_platform_support/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "portable-atomic?/critical-section",
   "bevy_tasks?/critical-section",
   "bevy_ecs/critical-section",
+  "bevy_platform_support/critical-section",
+  "bevy_reflect?/critical-section",
 ]
 
 ## `portable-atomic` provides additional platform support for atomic types and
 ## operations, even on targets without native support. 
 portable-atomic = [
-  "dep:portable-atomic",
-  "dep:portable-atomic-util",
   "bevy_tasks?/portable-atomic",
   "bevy_ecs/portable-atomic",
+  "bevy_platform_support/portable-atomic",
+  "bevy_reflect?/portable-atomic",
 ]
 
 [dependencies]
@@ -79,19 +78,14 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
   "alloc",
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
-downcast-rs = { version = "1.2.0", default-features = false, optional = true }
+downcast-rs = { version = "2", default-features = false }
 thiserror = { version = "2", default-features = false }
 variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
-portable-atomic = { version = "1", default-features = false, features = [
-  "fallback",
-], optional = true }
-portable-atomic-util = { version = "0.2.4", features = [
-  "alloc",
-], optional = true }
 
 [target.'cfg(any(unix, windows))'.dependencies]
 ctrlc = { version = "3.4.4", optional = true }

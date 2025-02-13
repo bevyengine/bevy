@@ -70,17 +70,16 @@ fn pbr_input_from_standard_material(
     in: VertexOutput,
     is_front: bool,
 ) -> pbr_types::PbrInput {
-#ifdef BINDLESS
 #ifdef MESHLET_MESH_MATERIAL_PASS
     let slot = in.material_bind_group_slot;
 #else   // MESHLET_MESH_MATERIAL_PASS
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
 #endif  // MESHLET_MESH_MATERIAL_PASS
+#ifdef BINDLESS
     let flags = pbr_bindings::material[slot].flags;
     let base_color = pbr_bindings::material[slot].base_color;
     let deferred_lighting_pass_id = pbr_bindings::material[slot].deferred_lighting_pass_id;
 #else   // BINDLESS
-    let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
     let flags = pbr_bindings::material.flags;
     let base_color = pbr_bindings::material.base_color;
     let deferred_lighting_pass_id = pbr_bindings::material.deferred_lighting_pass_id;
@@ -233,18 +232,91 @@ fn pbr_input_from_standard_material(
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 #ifdef BINDLESS
-        pbr_input.material.reflectance = pbr_bindings::material[slot].reflectance;
         pbr_input.material.ior = pbr_bindings::material[slot].ior;
         pbr_input.material.attenuation_color = pbr_bindings::material[slot].attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material[slot].attenuation_distance;
         pbr_input.material.alpha_cutoff = pbr_bindings::material[slot].alpha_cutoff;
 #else   // BINDLESS
-        pbr_input.material.reflectance = pbr_bindings::material.reflectance;
         pbr_input.material.ior = pbr_bindings::material.ior;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
         pbr_input.material.attenuation_distance = pbr_bindings::material.attenuation_distance;
         pbr_input.material.alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif  // BINDLESS
+
+        // reflectance
+#ifdef BINDLESS
+        pbr_input.material.reflectance = pbr_bindings::material[slot].reflectance;
+#else   // BINDLESS
+        pbr_input.material.reflectance = pbr_bindings::material.reflectance;
+#endif  // BINDLESS
+
+#ifdef PBR_SPECULAR_TEXTURES_SUPPORTED
+#ifdef VERTEX_UVS
+
+        // Specular texture
+        if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TEXTURE_BIT) != 0u) {
+            let specular =
+#ifdef MESHLET_MESH_MATERIAL_PASS
+                textureSampleGrad(
+#else   // MESHLET_MESH_MATERIAL_PASS
+                textureSampleBias(
+#endif  // MESHLET_MESH_MATERIAL_PASS
+#ifdef BINDLESS
+                pbr_bindings::specular_texture[slot],
+                pbr_bindings::specular_sampler[slot],
+#else   // BINDLESS
+                pbr_bindings::specular_texture,
+                pbr_bindings::specular_sampler,
+#endif  // BINDLESS
+#ifdef STANDARD_MATERIAL_SPECULAR_UV_B
+                uv_b,
+#else   // STANDARD_MATERIAL_SPECULAR_UV_B
+                uv,
+#endif  // STANDARD_MATERIAL_SPECULAR_UV_B
+#ifdef MESHLET_MESH_MATERIAL_PASS
+                    bias.ddx_uv,
+                    bias.ddy_uv,
+#else   // MESHLET_MESH_MATERIAL_PASS
+                    bias.mip_bias,
+#endif  // MESHLET_MESH_MATERIAL_PASS
+            ).a;
+            // This 0.5 factor is from the `KHR_materials_specular` specification:
+            // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+            pbr_input.material.reflectance *= specular * 0.5;
+        }
+
+        // Specular tint texture
+        if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_SPECULAR_TINT_TEXTURE_BIT) != 0u) {
+            let specular_tint =
+#ifdef MESHLET_MESH_MATERIAL_PASS
+                textureSampleGrad(
+#else   // MESHLET_MESH_MATERIAL_PASS
+                textureSampleBias(
+#endif  // MESHLET_MESH_MATERIAL_PASS
+#ifdef BINDLESS
+                pbr_bindings::specular_tint_texture[slot],
+                pbr_bindings::specular_tint_sampler[slot],
+#else   // BINDLESS
+                pbr_bindings::specular_tint_texture,
+                pbr_bindings::specular_tint_sampler,
+#endif  // BINDLESS
+#ifdef STANDARD_MATERIAL_SPECULAR_TINT_UV_B
+                uv_b,
+#else   // STANDARD_MATERIAL_SPECULAR_TINT_UV_B
+                uv,
+#endif  // STANDARD_MATERIAL_SPECULAR_TINT_UV_B
+#ifdef MESHLET_MESH_MATERIAL_PASS
+                    bias.ddx_uv,
+                    bias.ddy_uv,
+#else   // MESHLET_MESH_MATERIAL_PASS
+                    bias.mip_bias,
+#endif  // MESHLET_MESH_MATERIAL_PASS
+            ).rgb;
+            pbr_input.material.reflectance *= specular_tint;
+        }
+
+#endif  // VERTEX_UVS
+#endif  // PBR_SPECULAR_TEXTURES_SUPPORTED
 
         // emissive
 #ifdef BINDLESS

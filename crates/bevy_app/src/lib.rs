@@ -7,11 +7,6 @@
 )]
 #![cfg_attr(any(docsrs, docsrs_dep), feature(doc_auto_cfg, rustdoc_internals))]
 #![forbid(unsafe_code)]
-#![deny(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -24,6 +19,9 @@
 extern crate std;
 
 extern crate alloc;
+
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_app;
 
 mod app;
 mod main_schedule;

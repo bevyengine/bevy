@@ -31,9 +31,13 @@ const CODE_POINT_RANGES: [RangeInclusive<u32>; 5] = [
 #[derive(FromArgs, Resource)]
 /// `many_text2d` stress test
 struct Args {
-    /// whether to use many different glyphs so that multiple separate font atlas textures are used.
+    /// whether to use many different glyphs to increase the amount of font atlas textures used.
     #[argh(switch)]
     many_glyphs: bool,
+
+    /// whether to use many different font sizes to increase the amount of font atlas textures used.
+    #[argh(switch)]
+    many_font_sizes: bool,
 
     /// whether to force the text to recompute every frame by triggering change detection.
     #[argh(switch)]
@@ -42,6 +46,10 @@ struct Args {
     /// whether to disable all frustum culling.
     #[argh(switch)]
     no_frustum_culling: bool,
+
+    /// whether the text should use `JustifyText::Center`.
+    #[argh(switch)]
+    center: bool,
 }
 
 #[derive(Resource)]
@@ -62,7 +70,7 @@ fn main() {
     let mut app = App::new();
 
     app.add_plugins((
-        FrameTimeDiagnosticsPlugin,
+        FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -123,6 +131,11 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
                 Text2d(random_text(&mut rng, &args)),
                 random_text_font(&mut rng, &args, font.0.clone()),
                 TextColor(color.into()),
+                TextLayout::new_with_justify(if args.center {
+                    JustifyText::Center
+                } else {
+                    JustifyText::Left
+                }),
                 Transform {
                     translation,
                     rotation,
@@ -177,7 +190,7 @@ fn print_counts(
 }
 
 fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<Font>) -> TextFont {
-    let font_size = if args.many_glyphs {
+    let font_size = if args.many_font_sizes {
         *[10.0, 20.0, 30.0, 40.0, 50.0, 60.0].choose(rng).unwrap()
     } else {
         60.0

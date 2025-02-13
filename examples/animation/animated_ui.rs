@@ -141,7 +141,7 @@ fn setup(
         ))
         .with_children(|builder| {
             // Build the text node.
-            let player = builder.parent_entity();
+            let player = builder.target_entity();
             builder
                 .spawn((
                     Text::new("Bevy"),

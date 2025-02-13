@@ -4,7 +4,6 @@ use crate::{
 };
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
@@ -171,7 +170,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume.0 * global_volume.volume.0);
+            sink.set_volume(settings.volume * global_volume.volume);
 
             if settings.paused {
                 sink.pause();
@@ -211,7 +210,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume.0 * global_volume.volume.0);
+            sink.set_volume(settings.volume * global_volume.volume);
 
             if settings.paused {
                 sink.pause();
@@ -253,12 +252,12 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_spatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_nonspatial_remove {

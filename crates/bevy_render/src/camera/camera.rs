@@ -1,3 +1,7 @@
+#![expect(
+    clippy::module_inception,
+    reason = "The parent module contains all things viewport-related, while this module handles cameras as a component. However, a rename/refactor which should clear up this lint is being discussed; see #17196."
+)]
 use super::{ClearColorConfig, Projection};
 use crate::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -10,7 +14,7 @@ use crate::{
     texture::GpuImage,
     view::{
         ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
-        RenderVisibleEntities, ViewUniformOffset, Visibility, VisibleEntities,
+        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
     },
     Extract,
 };
@@ -18,21 +22,22 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::{Component, ComponentId},
+    component::{Component, HookContext},
     entity::{Entity, EntityBorrow},
     event::EventReader,
     prelude::{require, With},
     query::Has,
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
 use bevy_image::Image;
 use bevy_math::{ops, vec2, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, UVec4, Vec2, Vec3};
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{HashMap, HashSet};
 use bevy_window::{
     NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
     WindowScaleFactorChanged,
@@ -327,9 +332,9 @@ pub struct Camera {
     pub sub_camera_view: Option<SubCameraView>,
 }
 
-fn warn_on_no_render_graph(world: DeferredWorld, entity: Entity, _: ComponentId) {
+fn warn_on_no_render_graph(world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
     if !world.entity(entity).contains::<CameraRenderGraph>() {
-        warn!("Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.");
+        warn!("{}Entity {entity} has a `Camera` component, but it doesn't have a render graph configured. Consider adding a `Camera2d` or `Camera3d` component, or manually adding a `CameraRenderGraph` component if you need a custom render graph.", caller.map(|location|format!("{location}: ")).unwrap_or_default());
     }
 }
 
@@ -893,7 +898,6 @@ impl NormalizedRenderTarget {
 ///
 /// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 /// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
-#[allow(clippy::too_many_arguments)]
 pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -938,7 +942,7 @@ pub fn camera_system(
                 || camera.computed.old_sub_camera_view != camera.sub_camera_view
             {
                 let new_computed_target_info = normalized_target.get_render_target_info(
-                    &windows,
+                    windows,
                     &images,
                     &manual_texture_views,
                 );
@@ -1042,6 +1046,7 @@ pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
         Query<(
+            Entity,
             RenderEntity,
             &Camera,
             &CameraRenderGraph,
@@ -1062,6 +1067,7 @@ pub fn extract_cameras(
 ) {
     let primary_window = primary_window.iter().next();
     for (
+        main_entity,
         render_entity,
         camera,
         camera_render_graph,
@@ -1128,6 +1134,7 @@ pub fn extract_cameras(
                     })
                     .collect(),
             };
+
             let mut commands = commands.entity(render_entity);
             commands.insert((
                 ExtractedCamera {
@@ -1148,6 +1155,7 @@ pub fn extract_cameras(
                     hdr: camera.hdr,
                 },
                 ExtractedView {
+                    retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
                     clip_from_view: camera.clip_from_view(),
                     world_from_view: *transform,
                     clip_from_world: None,

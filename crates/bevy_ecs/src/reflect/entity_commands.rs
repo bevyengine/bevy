@@ -2,7 +2,8 @@ use crate::{
     entity::Entity,
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
-    system::{EntityCommands, Resource},
+    resource::Resource,
+    system::EntityCommands,
     world::{EntityWorldMut, World},
 };
 use alloc::{borrow::Cow, boxed::Box};
@@ -169,10 +170,8 @@ pub trait ReflectCommandExt {
 
 impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert_reflect(component);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect(component);
         })
     }
 
@@ -180,19 +179,15 @@ impl ReflectCommandExt for EntityCommands<'_> {
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.insert_reflect_with_registry::<T>(component);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect_with_registry::<T>(component);
         })
     }
 
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self {
         let component_type_path: Cow<'static, str> = component_type_path.into();
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_reflect(component_type_path);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect(component_type_path);
         })
     }
 
@@ -201,10 +196,8 @@ impl ReflectCommandExt for EntityCommands<'_> {
         component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
         let component_type_path: Cow<'static, str> = component_type_path.into();
-        self.queue(move |entity: Entity, world: &mut World| {
-            if let Ok(mut entity) = world.get_entity_mut(entity) {
-                entity.remove_reflect_with_registry::<T>(component_type_path);
-            }
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect_with_registry::<T>(component_type_path);
         })
     }
 }
@@ -357,7 +350,7 @@ fn insert_reflect_with_registry_ref(
     let type_path = type_info.type_path();
     let Ok(mut entity) = world.get_entity_mut(entity) else {
         panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003",
-        world.entities().entity_does_not_exist_error_details_message(entity));
+        world.entities().entity_does_not_exist_error_details(entity));
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
         panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");
@@ -395,7 +388,6 @@ fn remove_reflect_with_registry_ref(
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},

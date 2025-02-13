@@ -17,7 +17,7 @@
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    entity::{EntityHashMap, EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet},
     prelude::*,
     system::SystemParam,
 };
@@ -26,6 +26,9 @@ use thiserror::Error;
 
 use crate::InputFocus;
 
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
+
 /// A plugin that sets up the directional navigation systems and resources.
 #[derive(Default)]
 pub struct DirectionalNavigationPlugin;
@@ -33,11 +36,20 @@ pub struct DirectionalNavigationPlugin;
 impl Plugin for DirectionalNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DirectionalNavigationMap>();
+
+        #[cfg(feature = "bevy_reflect")]
+        app.register_type::<NavNeighbors>()
+            .register_type::<DirectionalNavigationMap>();
     }
 }
 
 /// The up-to-eight neighbors of a focusable entity, one for each [`CompassOctant`].
 #[derive(Default, Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Default, Debug, PartialEq)
+)]
 pub struct NavNeighbors {
     /// The array of neighbors, one for each [`CompassOctant`].
     /// The mapping between array elements and directions is determined by [`CompassOctant::to_index`].
@@ -79,6 +91,11 @@ impl NavNeighbors {
 ///
 /// For now, this graph must be built manually, and the developer is responsible for ensuring that it meets the above criteria.
 #[derive(Resource, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Resource, Debug, Default, PartialEq)
+)]
 pub struct DirectionalNavigationMap {
     /// A directed graph of focusable entities.
     ///
@@ -114,7 +131,7 @@ impl DirectionalNavigationMap {
     /// it is more efficient than calling [`remove`](Self::remove) multiple times,
     /// as we can check for connections to all removed entities in a single pass.
     ///
-    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`].
+    /// An [`EntityHashSet`] must be provided as it is noticeably faster than the standard hasher or a [`Vec`](`alloc::vec::Vec`).
     pub fn remove_multiple(&mut self, entities: EntityHashSet) {
         for entity in &entities {
             self.neighbors.remove(entity);
@@ -157,14 +174,24 @@ impl DirectionalNavigationMap {
         self.add_edge(b, a, direction.opposite());
     }
 
-    /// Add symmetrical edges between all entities in the provided slice, looping back to the first entity at the end.
+    /// Add symmetrical edges between each consecutive pair of entities in the provided slice.
+    ///
+    /// Unlike [`add_looping_edges`](Self::add_looping_edges), this method does not loop back to the first entity.
+    pub fn add_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
+        for pair in entities.windows(2) {
+            self.add_symmetrical_edge(pair[0], pair[1], direction);
+        }
+    }
+
+    /// Add symmetrical edges between each consecutive pair of entities in the provided slice, looping back to the first entity at the end.
     ///
     /// This is useful for creating a circular navigation path between a set of entities, such as a menu.
     pub fn add_looping_edges(&mut self, entities: &[Entity], direction: CompassOctant) {
-        for i in 0..entities.len() {
-            let a = entities[i];
-            let b = entities[(i + 1) % entities.len()];
-            self.add_symmetrical_edge(a, b, direction);
+        self.add_edges(entities, direction);
+        if let Some((first_entity, rest)) = entities.split_first() {
+            if let Some(last_entity) = rest.last() {
+                self.add_symmetrical_edge(*last_entity, *first_entity, direction);
+            }
         }
     }
 
@@ -202,14 +229,17 @@ impl DirectionalNavigation<'_> {
     /// If the result was `Ok`, the [`InputFocus`] resource is updated to the new focus as part of this method call.
     pub fn navigate(
         &mut self,
-        octant: CompassOctant,
+        direction: CompassOctant,
     ) -> Result<Entity, DirectionalNavigationError> {
         if let Some(current_focus) = self.focus.0 {
-            if let Some(new_focus) = self.map.get_neighbor(current_focus, octant) {
+            if let Some(new_focus) = self.map.get_neighbor(current_focus, direction) {
                 self.focus.set(new_focus);
                 Ok(new_focus)
             } else {
-                Err(DirectionalNavigationError::NoNeighborInDirection)
+                Err(DirectionalNavigationError::NoNeighborInDirection {
+                    current_focus,
+                    direction,
+                })
             }
         } else {
             Err(DirectionalNavigationError::NoFocus)
@@ -224,8 +254,13 @@ pub enum DirectionalNavigationError {
     #[error("No focusable entity is currently set.")]
     NoFocus,
     /// No neighbor in the requested direction.
-    #[error("No neighbor in the requested direction.")]
-    NoNeighborInDirection,
+    #[error("No neighbor from {current_focus} in the {direction:?} direction.")]
+    NoNeighborInDirection {
+        /// The entity that was the focus when the error occurred.
+        current_focus: Entity,
+        /// The direction in which the navigation was attempted.
+        direction: CompassOctant,
+    },
 }
 
 #[cfg(test)]
@@ -324,6 +359,25 @@ mod tests {
         assert_eq!(map.get_neighbor(b, CompassOctant::South), None);
         assert_eq!(map.get_neighbor(b, CompassOctant::East), None);
         assert_eq!(map.get_neighbor(c, CompassOctant::West), None);
+    }
+
+    #[test]
+    fn edges() {
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+        let c = world.spawn_empty().id();
+
+        let mut map = DirectionalNavigationMap::default();
+        map.add_edges(&[a, b, c], CompassOctant::East);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::East), Some(b));
+        assert_eq!(map.get_neighbor(b, CompassOctant::East), Some(c));
+        assert_eq!(map.get_neighbor(c, CompassOctant::East), None);
+
+        assert_eq!(map.get_neighbor(a, CompassOctant::West), None);
+        assert_eq!(map.get_neighbor(b, CompassOctant::West), Some(a));
+        assert_eq!(map.get_neighbor(c, CompassOctant::West), Some(b));
     }
 
     #[test]

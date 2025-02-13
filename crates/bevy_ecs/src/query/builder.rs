@@ -277,7 +277,6 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         prelude::*,
         world::{FilteredEntityMut, FilteredEntityRef},
