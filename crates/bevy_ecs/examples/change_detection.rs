@@ -30,7 +30,6 @@ fn main() {
     schedule.add_systems((
         spawn_entities.in_set(SimulationSet::Spawn),
         test,
-        test2.before(test),
         print_counter_when_changed.after(SimulationSet::Spawn),
         age_all_entities.in_set(SimulationSet::Age),
         remove_old_entities.after(SimulationSet::Age),
@@ -93,16 +92,34 @@ fn print_changed_entities(
 }
 
 #[derive(Component)]
-pub struct Awa;
+pub struct SceneRoot;
 
-fn test(query1: Query<&mut Age, With<Awa>>, query2: Query<&mut Age, Without<Awa>>) {
+#[derive(Component)]
+pub struct DynamicSceneRoot;
+
+#[derive(Component)]
+pub struct SceneInstance;
+
+/*fn test(query2: Query<(Option<&mut Age>, &Uwu), Without<Awa>>, query1: Query<(Option<&mut Age>, &Awa), Without<Uwu>>) {
+
+}*/
+
+fn test(
+    mut scene_to_spawn: Query<
+        (&SceneRoot, Option<&mut SceneInstance>),
+        (Changed<SceneRoot>, Without<DynamicSceneRoot>),
+    >,
+    mut dynamic_scene_to_spawn: Query<
+        (&DynamicSceneRoot, Option<&mut SceneInstance>),
+        (Changed<DynamicSceneRoot>, Without<SceneRoot>),
+    >,
+) {
 
 }
-
-
+/*
 fn test2(query1: Query<&mut Age, With<Awa>>, query2: Query<&mut Age, Without<Awa>>) {
 
-}
+}*/
 
 
 // This system iterates over all entities and increases their age in every frame

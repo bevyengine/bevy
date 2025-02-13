@@ -35,11 +35,18 @@ pub enum AccessType {
 #[derive(Copy, Clone, Debug)]
 pub struct WithFilterTree {
     pub this: WithId,
-    pub left: Option<&'static WithFilterTree>,
-    pub right: Option<&'static WithFilterTree>,
+    pub left: &'static Option<WithFilterTree>,
+    pub right: &'static Option<WithFilterTree>,
 }
 
 impl WithFilterTree {
+    pub const fn combine(left: &'static Option<WithFilterTree>, right: &'static Option<WithFilterTree>) -> Option<Self> {
+        Some(Self {
+            this: WithId(None),
+            left: left,
+            right,
+        })
+    }
     const fn is_filtered_out_list(&self, rhs: &WithoutFilterTree) -> bool {
         if self.is_filtered_out(rhs.this) {
             return true;
@@ -57,8 +64,12 @@ impl WithFilterTree {
         return false;
     }
     const fn is_filtered_out(&self, without_id: WithoutId) -> bool {
-        if self.this.0 == without_id.0 {
-            return true;
+        if let Some(this_id) = self.this.0 {
+            if let Some(without_id) = without_id.0 {
+                if this_id == without_id {
+                    return true;
+                }
+            }
         }
         if let Some(right) = self.right {
             if right.is_filtered_out(without_id) {
@@ -77,14 +88,64 @@ impl WithFilterTree {
 #[derive(Copy, Clone, Debug)]
 pub struct WithoutFilterTree {
     pub this: WithoutId,
-    pub left: Option<&'static WithoutFilterTree>,
-    pub right: Option<&'static WithoutFilterTree>,
+    pub left: &'static Option<WithoutFilterTree>,
+    pub right: &'static Option<WithoutFilterTree>,
+}
+
+impl WithoutFilterTree {
+
+    pub const fn combine(left: &'static Option<WithoutFilterTree>, right: &'static Option<WithoutFilterTree>) -> Option<Self> {
+        Some(Self {
+            this: WithoutId(None),
+            left,
+            right,
+        })
+    }
+    const fn is_filtered_out_component_list(&self, rhs: &ComponentAccessTree) -> bool {
+        if self.is_filtered_out_component(rhs.this) {
+            return true;
+        }
+        if let Some(right) = rhs.right {
+            if self.is_filtered_out_component_list(right) {
+                return true;
+            }
+        }
+        if let Some(left) = rhs.left {
+            if self.is_filtered_out_component_list(left) {
+                return true;
+            }
+        }
+        return false;
+    }
+    const fn is_filtered_out_component(&self, component_access: ComponentAccess ) -> bool {
+        match component_access {
+            ComponentAccess::Ignore => false,
+            ComponentAccess::Use { type_id, access } => {
+                if let Some(type_id_this) = self.this.0 {
+                    if type_id_this == type_id {
+                        return true;
+                    }
+                    if let Some(right) = self.right {
+                        if right.is_filtered_out_component(component_access) {
+                            return true;
+                        }
+                    }
+                    if let Some(left) = self.left {
+                        if left.is_filtered_out_component(component_access) {
+                            return true;
+                        }
+                    }
+                }
+                false
+            }
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct WithoutId(pub u128);
+pub struct WithoutId(pub Option<u128>);
 #[derive(Clone, Copy, Debug)]
-pub struct WithId(pub u128);
+pub struct WithId(pub Option<u128>);
 
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentAccessTree {
@@ -118,6 +179,18 @@ impl ComponentAccessTree {
             &'static Option<WithoutFilterTree>,
         ),
     ) {
+        if let Some(left_without_tree) = left.2 {
+            if left_without_tree.is_filtered_out_component_list(right.0) {
+                return;
+            }
+        }
+        if let Some(right_without_tree) = right.2 {
+            if right_without_tree.is_filtered_out_component_list(left.0) {
+                return;
+            }
+        }
+
+
         let (with_tree, without_tree, maybe_with_tree, maybe_without_tree): (
             &WithFilterTree,
             &WithoutFilterTree,

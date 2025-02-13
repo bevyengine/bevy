@@ -208,9 +208,9 @@ unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
     const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
-        this: WithId(T::UNSTABLE_TYPE_ID),
-        left: None,
-        right: None,
+        this: WithId(Some(T::UNSTABLE_TYPE_ID)),
+        left: &None,
+        right: &None,
     });
 
     #[inline(always)]
@@ -314,9 +314,9 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
 
     const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = Some(WithoutFilterTree {
-        this: WithoutId(T::UNSTABLE_TYPE_ID),
-        left: None,
-        right: None,
+        this: WithoutId(Some(T::UNSTABLE_TYPE_ID)),
+        left: &None,
+        right: &None,
     });
 
     #[inline(always)]
@@ -524,6 +524,8 @@ macro_rules! impl_or_query_filter {
     };
 }
 
+
+
 macro_rules! impl_tuple_query_filter {
     ($(#[$meta:meta])* $($name: ident),*) => {
         #[expect(
@@ -543,6 +545,9 @@ macro_rules! impl_tuple_query_filter {
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
+            const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = impl_tuple_query_filter!(@without_tree $($name),*);
+            const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = impl_tuple_query_filter!(@with_tree $($name),*);
+
             #[inline(always)]
             unsafe fn filter_fetch(
                 fetch: &mut Self::Fetch<'_>,
@@ -554,7 +559,56 @@ macro_rules! impl_tuple_query_filter {
                 true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }
         }
-
+    };
+    // Handle empty case for WITHOUT_FILTER_TREE
+    (@without_tree) => {
+        None
+    };
+    // Handle single item case for WITHOUT_FILTER_TREE
+    (@without_tree $t0:ident) => {
+        $t0::WITHOUT_FILTER_TREE_QUERY_DATA
+    };
+    // Handle two item case for WITHOUT_FILTER_TREE
+    (@without_tree $t0:ident, $t1:ident) => {
+        WithoutFilterTree::combine(
+            &$t0::WITHOUT_FILTER_TREE_QUERY_DATA,
+            &$t1::WITHOUT_FILTER_TREE_QUERY_DATA,
+        )
+    };
+    // Handle three or more items case for WITHOUT_FILTER_TREE
+    (@without_tree $t0:ident, $t1:ident, $($rest:ident),+) => {
+        WithoutFilterTree::combine(
+            &$t0::WITHOUT_FILTER_TREE_QUERY_DATA,
+            &WithoutFilterTree::combine(
+                &$t1::WITHOUT_FILTER_TREE_QUERY_DATA,
+                &impl_tuple_query_filter!(@without_tree $($rest),+)
+            )
+        )
+    };
+    // Handle empty case for WITH_FILTER_TREE
+    (@with_tree) => {
+        None
+    };
+    // Handle single item case for WITH_FILTER_TREE
+    (@with_tree $t0:ident) => {
+        $t0::WITH_FILTER_TREE_QUERY_DATA
+    };
+    // Handle two item case for WITH_FILTER_TREE
+    (@with_tree $t0:ident, $t1:ident) => {
+        WithFilterTree::combine(
+            &$t0::WITH_FILTER_TREE_QUERY_DATA,
+            &$t1::WITH_FILTER_TREE_QUERY_DATA,
+        )
+    };
+    // Handle three or more items case for WITH_FILTER_TREE
+    (@with_tree $t0:ident, $t1:ident, $($rest:ident),+) => {
+        WithFilterTree::combine(
+            &$t0::WITH_FILTER_TREE_QUERY_DATA,
+            &WithFilterTree::combine(
+                &$t1::WITH_FILTER_TREE_QUERY_DATA,
+                &impl_tuple_query_filter!(@with_tree $($rest),+)
+            )
+        )
     };
 }
 
@@ -767,9 +821,9 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
 
     const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
-        this: WithId(T::UNSTABLE_TYPE_ID),
-        left: None,
-        right: None,
+        this: WithId(Some(T::UNSTABLE_TYPE_ID)),
+        left: &None,
+        right: &None,
     });
 
     #[inline(always)]
@@ -1000,9 +1054,9 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
     const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
-        this: WithId(T::UNSTABLE_TYPE_ID),
-        left: None,
-        right: None,
+        this: WithId(Some(T::UNSTABLE_TYPE_ID)),
+        left: &None,
+        right: &None,
     });
     #[inline(always)]
     unsafe fn filter_fetch(

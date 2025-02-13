@@ -1864,6 +1864,8 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
     type Item<'w> = Option<T::Item<'w>>;
 
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = T::COMPONENT_ACCESS_TREE_QUERY_DATA;
+
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item.map(T::shrink)
     }
