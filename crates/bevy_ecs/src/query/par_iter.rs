@@ -64,7 +64,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     ///      });
     ///     
     ///     // collect value from every thread
-    ///     let entity_count = queue.iter_mut().copied().sum();
+    ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
     /// ```
     ///
@@ -204,7 +204,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::system::Query};
     /// # use core::slice;
     /// use bevy_platform_support::prelude::Vec;
-    /// # fn some_expensive_operation(item: T) -> usize {
+    /// # fn some_expensive_operation(_item: &T) -> usize {
     /// #     0
     /// # }
     ///
@@ -227,12 +227,12 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     /// fn system(query: Query<&T>, entities: Res<V>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.par_iter_many(entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
+    ///     query.par_iter_many(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
     ///     
     ///     // collect value from every thread
-    ///     let final_value = queue.iter_mut().copied().sum();
+    ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
     /// ```
     ///
@@ -369,9 +369,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///
     /// ```
     /// use bevy_utils::Parallel;
-    /// use crate::{bevy_ecs::prelude::{Component, Res, Resource, Entity}, bevy_ecs::{entity::UniqueEntityVec, system::Query}};
+    /// use crate::{bevy_ecs::{prelude::{Component, Res, Resource, Entity}, entity::UniqueEntityVec, system::Query}};
     /// # use core::slice;
-    /// # fn some_expensive_operation(item: T) -> usize {
+    /// # use crate::bevy_ecs::entity::UniqueEntityIter;
+    /// # fn some_expensive_operation(_item: &T) -> usize {
     /// #     0
     /// # }
     ///
@@ -384,7 +385,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     /// impl<'a> IntoIterator for &'a V {
     /// // ...
     /// #   type Item = &'a Entity;
-    /// #   type IntoIter = UniqueEntityVec<slice::Iter<'a, Entity>>;
+    /// #   type IntoIter = UniqueEntityIter<slice::Iter<'a, Entity>>;
     /// #
     /// #    fn into_iter(self) -> Self::IntoIter {
     /// #        self.0.iter()
@@ -394,12 +395,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     /// fn system(query: Query<&T>, entities: Res<V>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.par_iter_many_unique(entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
+    ///     query.par_iter_many_unique(&entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
     ///         **local_queue += some_expensive_operation(item);
     ///     });
     ///     
     ///     // collect value from every thread
-    ///     let final_value = queue.iter_mut().copied().sum();
+    ///     let final_value: usize = queue.iter_mut().map(|v| *v).sum();
     /// }
     /// ```
     ///
