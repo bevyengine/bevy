@@ -188,7 +188,7 @@ fn pan_camera(
     // Handle zoom with mouse wheel
     for ev in scroll_evr.read() {
         let zoom_factor = camera_orbit.distance * 0.1; // Scale zoom speed with distance
-        camera_orbit.distance = (camera_orbit.distance - ev.y * zoom_factor).clamp(0.5, 500.0);
+        camera_orbit.distance = (camera_orbit.distance - ev.y * zoom_factor).clamp(0.5, 400.0);
 
         // Update target transform to maintain direction but change distance
         let direction = camera_orbit.target_transform.translation.normalize();

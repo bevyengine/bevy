@@ -8,6 +8,7 @@
         view_radius, sample_sun_radiance, ndc_to_camera_dist,
         raymarch_atmosphere, max_atmosphere_distance, get_view_position
     },
+    bruneton_functions::distance_to_bottom_atmosphere_boundary
 };
 #import bevy_render::view::View;
 
@@ -33,10 +34,12 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let world_pos = get_view_position();
     let r = view_radius();
     let ray_dir_ws = uv_to_ray_direction(in.uv).xyz;
-    let mu = ray_dir_ws.y;
+    let up = normalize(world_pos);
+    let mu = dot(ray_dir_ws, up);
 
-    let raymarch_split = 0.5;
-    let raymarch_steps = 32.0;
+    let camera_outside = false; //length(world_pos) >= atmosphere.top_radius;
+
+    let raymarch_steps = 8.0;
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
@@ -47,10 +50,10 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
         transmittance = sample_transmittance_lut(r, mu);
         inscattering += sample_sky_view_lut(r, ray_dir_as);
-        
-        if (in.uv.x > raymarch_split) {
+        if camera_outside {
             let t_max = max_atmosphere_distance(r, mu);
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, raymarch_steps);
+            let sample_count = mix(1.0, raymarch_steps, clamp(t_max * 0.01, 0.0, 1.0));
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
@@ -61,8 +64,9 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         inscattering = sample_aerial_view_lut(in.uv, t);
         transmittance = sample_transmittance_lut_segment(r, mu, t);
 
-        if (in.uv.x > raymarch_split) {
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, raymarch_steps);
+        if camera_outside {
+            let sample_count = mix(1.0, raymarch_steps, clamp(t * 0.01, 0.0, 1.0));
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
