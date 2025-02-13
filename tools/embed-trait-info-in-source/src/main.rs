@@ -113,8 +113,8 @@ fn position_in_string(str: &str, (line, column): (usize, usize)) -> usize {
     pos + column
 }
 
-type BevyTraits<'a> = Vec<&'a str>;
-type ModuleInfo<'a> = HashMap<&'a str, BevyTraits<'a>>;
+type BevyTraits = Vec<String>;
+type ModuleInfo<'a> = HashMap<&'a str, BevyTraits>;
 
 // Finds all metadata within the crate we need to embed.
 fn info_for_modules(crate_doc: &Crate) -> Vec<(&Span, ModuleInfo)> {
@@ -183,9 +183,13 @@ fn name_and_bevy_traits_for_item(crate_doc: &'_ Crate, item_id: Id) -> ModuleInf
             panic!()
         };
         if let Some(trait_) = &impl_block.trait_ {
-            let trait_name = trait_.path.as_str();
+            let mut trait_name = trait_.path.as_str().to_owned();
             // This matches how EMCAScript detects traits
-            if BEVY_TRAITS.contains(trait_name) {
+            if BEVY_TRAITS.contains(&trait_name) {
+                // Put plugin groups under the plugins section
+                if trait_name == "PluginGroup" {
+                    trait_name = "Plugin".into()
+                }
                 traits.push(trait_name);
             }
         }

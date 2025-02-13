@@ -18,19 +18,6 @@
         'SystemParam',
     ];
 
-    // Html element ids of the icons
-    const iconIds = new Map([
-        ['Component', 'component-icon'],
-        ['Resource', 'resource-icon'],
-        ['Asset', 'asset-icon'],
-        ['Event', 'event-icon'],
-        ['ScheduleLabel', 'systems-label-icon'],
-        ['Plugin', 'plugin-icon'],
-        ['PluginGroup', 'plugin-icon'],
-        ['SystemSet', 'systems-label-icon'],
-        ['SystemParam', 'system-param-icon'],
-    ]);
-
     // Find all traits that are implemented by the current type.
     const implementedBevyTraits = findImplementedBevyTraits(document);
 
@@ -131,57 +118,113 @@
     if (info_node) {
         const info = JSON.parse(info_node.innerText);
 
-        // For item listings in modules, add corresponding tags.
-        for (const kind of ['structs', 'enums', 'functions']) {
-            // Find the listing
-            let heading = document.getElementById(kind);
-            if (!heading) {
+        for (const item of findItems()) {
+            const traits = info[itemName(item)];
+            if (!traits) {
                 continue
             }
-            const listing = heading.nextSibling;
-            const items = [];
+            const description = item.nextSibling;
+
+            // If item implements multiple Bevy traits, it gets
+            // added to multiple listings
+            for (const trait of traits) {
+                const listing = findOrCreateListing(trait + "s");
+                listing.appendChild(item.cloneNode(true));
+                if (description && description.nodeName == "DD") {
+                    listing.appendChild(description.cloneNode(true))
+                }
+            }
+
+            item.remove()
+            if (description) {
+                description.remove()
+            }
+        }
+
+        removeEmptySections();
+    }
+
+    // Collect and sort items that may implement Bevy traits
+    function findItems() {
+        const items = [];
+        for (const kind of ['structs', 'enums', 'unions', 'functions']) {
+            // Find the listing
+            const header = document.getElementById(kind);
+            if (!header) {
+                continue
+            }
+            const listing = header.nextSibling;
+
             for (const item of listing.children) {
                 // Only look at items, not their description
-                if (item.nodeName != "DT") {
-                    continue
-                }
-                let url = item.firstChild.href;
-                let name_end = url.lastIndexOf(".");
-                let name_start = url.lastIndexOf(".", name_end - 1) + 1;
-                let name = url.substring(name_start, name_end);
-                items.push({element: item, traits: new Set(info[name])});
-            }
-            applyTagsToItems(items);
-        }
-    }
-
-    // Sort the items in the DOM and apply tags
-    function applyTagsToItems(items) {
-        for (const item of items) {
-            const listing = item.element.parentElement;
-            const description = item.element.nextSibling;
-
-            const link = item.element.firstChild;
-            // Add icons.
-            // It's easy to misclick on the icon, so include the icon in the link to the item.
-            // An explanation of which component is represented is available on hover.
-            const container = document.createElement('div');
-            container.className = "bevy-trait-icon-container"
-            link.prepend(container)
-            for (const trait of bevyTraits.slice().reverse()) {
-                if (item.traits.has(trait)) {
-                    container.prepend(createBevyTraitIcon(trait));
+                if (item.nodeName == "DT") {
+                    items.push(item);
                 }
             }
         }
+        // Sort alphabetically as they aren't in order
+        items.sort((a, b) => itemName(a).localeCompare(itemName(b)));
+        return items
     }
 
-    function createBevyTraitIcon(tagName) {
-        const kebabCaseName = tagName.toLowerCase().replace(' ', '-');
-        const tag = document.createElement('div');
-        tag.innerText = tagName.charAt(0);
-        tag.className = `bevy-trait-icon ${kebabCaseName}-tag`
-        return tag
+    // Given an item of a listing, returns its name
+    function itemName(item) {
+        let url = item.firstChild.href;
+        let name_end = url.lastIndexOf(".");
+        let name_start = url.lastIndexOf(".", name_end - 1) + 1;
+        return url.substring(name_start, name_end);
+    }
+
+    // Requires there to be a structs, enums, unions or functions listing
+    function findOrCreateListing(tagName) {
+        // Try to find the listing
+        let header = document.getElementById(kebabCase(tagName));
+        if (header) {
+            return header.nextSibling;
+        }
+
+        // Insert the new heading between Modules and Structs
+        let next_header;
+        for (const kind of ['functions', 'unions', 'enums', 'structs']) {
+            next_header = document.getElementById(kind);
+        }
+
+        // Create new listing
+        const listing = document.createElement('dl');
+        next_header.before(listing);
+        listing.className = 'item-table';
+
+        header = document.createElement('h2');
+        listing.before(header);
+        header.id = kebabCase(tagName);
+        header.className = 'section-header'
+        header.innerText = tagName;
+
+        const anchor = document.createElement('a');
+        header.appendChild(anchor);
+        anchor.className = 'anchor';
+        anchor.href = '#' + kebabCase(tagName);
+        anchor.innerText = '§';
+
+        return listing;
+    }
+
+    function kebabCase(tagName) {
+        return tagName.toLowerCase().replace(' ', '-');
+    }
+
+    function removeEmptySections() {
+        let toRemove = []
+        for (const header of document.getElementsByClassName('section-header')) {
+            const listing = header.nextSibling;
+            if (listing.nodeName == "DL" & listing.childElementCount == 0) {
+                toRemove.push(header);
+                toRemove.push(listing);
+            }
+        }
+        for (const elem of toRemove) {
+            elem.remove()
+        }
     }
 </script>
 
@@ -204,28 +247,6 @@
         font-weight: normal;
         color: white;
         background-color: var(--tag-color);
-    }
-
-    .bevy-trait-icon-container {
-        display: inline-block;
-        min-width: 1.1rem;
-        margin-right: 0.2rem;
-    }
-
-    .bevy-trait-icon {
-        display: inline-block;
-        text-align: center;
-        line-height: 100%;
-
-        background-color: oklch(from var(--tag-color) l 45% h);
-        color: white;
-        font-size: 1rem;
-        font-weight: bolder;
-
-        width: 1.0rem;
-        height: 1.0rem;
-        border-radius: 0.25rem;
-        margin-right: 0.1rem;
     }
 
     .component-tag,
