@@ -84,8 +84,12 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         // Use dense iteration if possible, but fall back to sparse if we need to.
         // Both `D` and `F` must allow dense iteration, just as for queries without dynamic filters.
         // All `with` and `without` filters must be dense to ensure that we match all archetypes in a table.
-        // Note that `builder.data::<&Sparse>()` will add a filter and force sparse iteration,
-        // while `builder.data::<Option<&Sparse>>()` will not!
+        // We also need to ensure that any sparse set components in `access.required` cause sparse iteration,
+        // but anything that adds a `required` component also adds a `with` filter.
+        //
+        // Note that `EntityRef` and `EntityMut` types, including `FilteredEntityRef` and `FilteredEntityMut`, have `D::IS_DENSE = true`.
+        // Calling `builder.data::<&Sparse>()` will add a filter and force sparse iteration,
+        // but calling `builder.data::<Option<&Sparse>>()` will still allow them to use dense iteration!
         D::IS_DENSE
             && F::IS_DENSE
             && self.access.with_filters().all(is_dense)

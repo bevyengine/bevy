@@ -646,11 +646,22 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         );
 
         // For transmuted queries, the dense-ness of the query is equal to the dense-ness of the original query.
-        // The check for `required` in `component_access.is_subset()` should ensure that this is always sound:
+        //
+        // We ensure soundness using `FiteredAccess::required`.
+        //
         // Any `WorldQuery` implementations that rely on a query being sparse for soundness,
-        // including `&`, `&mut`, `Ref`, and `Mut`, will add a sparse component to the `required` set.
-        // If the original query has the component in the `required` set, then it must also have been sparse.
-        // That's even true for dynamic queries, since any `required` component will appear in the filters.
+        // including `&`, `&mut`, `Ref`, and `Mut`, will add a sparse set component to the `required` set.
+        // (`Option<&Sparse>` and `Has<Sparse>` will incorrectly report a component as never being present
+        // when doing dense iteration, but are not unsound.  See https://github.com/bevyengine/bevy/issues/16397)
+        //
+        // And any query with a sparse set component in the `required` set must have `is_dense = false`.
+        // For static queries, the `WorldQuery` implementations ensure this.
+        // For dynamic queries, anything that adds a `required` component also adds a `with` filter.
+        //
+        // The `component_access.is_subset()` check ensures that if the new query has a sparse set component in the `required` set,
+        // then the original query must also have had that component in the `required` set.
+        // Therefore, if the `WorldQuery` implementations rely on a query being sparse for soundness,
+        // then there was a sparse set component in the `required` set, and the query has `is_dense = false`.
         let is_dense = self.is_dense;
 
         QueryState {
