@@ -234,10 +234,10 @@ pub fn touch_pick_events(
                     }
                 }
                 TouchPhase::Ended => {
-                    if let Some((last_touch, pointer)) = touch_cache.remove(&touch.id) {
+                    if let Some((_, pointer)) = touch_cache.remove(&touch.id) {
                         debug!(
                             "Despawning touch, finger {:?}, entity {:?}",
-                            last_touch.id, pointer
+                            touch.id, pointer
                         );
                         commands.entity(pointer).despawn();
 
@@ -250,10 +250,10 @@ pub fn touch_pick_events(
                     }
                 }
                 TouchPhase::Canceled => {
-                    if let Some((last_touch, pointer)) = touch_cache.remove(&touch.id) {
+                    if let Some((_, pointer)) = touch_cache.remove(&touch.id) {
                         debug!(
                             "Despawning touch, finger {:?}, entity {:?}",
-                            last_touch.id, pointer
+                            touch.id, pointer
                         );
                         commands.entity(pointer).despawn();
 
