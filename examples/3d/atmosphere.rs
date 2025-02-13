@@ -57,7 +57,7 @@ fn setup_camera_fog(mut commands: Commands) {
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 12.0 },
+        Exposure { ev100: 15.0 },
         // Tonemapper chosen just because it looked good with the scene, any
         // tonemapper would be fine :)
         Tonemapping::AcesFitted,
@@ -154,15 +154,15 @@ fn setup_terrain_scene(
     ));
 
     // Terrain
-    commands.spawn((
-        Terrain,
-        SceneRoot(
-            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
-        ),
-        Transform::from_xyz(-1.0, 0.0, -0.5)
-            .with_scale(Vec3::splat(0.5))
-            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-    ));
+    // commands.spawn((
+    //     Terrain,
+    //     SceneRoot(
+    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+    //     ),
+    //     Transform::from_xyz(-1.0, 0.0, -0.5)
+    //         .with_scale(Vec3::splat(0.5))
+    //         .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    // ));
 }
 
 fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {
@@ -220,11 +220,11 @@ fn pan_camera(
                 continue;
             };
 
-            let sphere_radius = 10.0;
+            let sphere_radius = 999999.0;
 
             if let Some(intersection) = ray_sphere_intersection(
                 ray.origin,
-                Vec3::splat(1.0) * Vec3::from(ray.direction),
+                Vec3::splat(-1.0) * Vec3::from(ray.direction),
                 Vec3::ZERO,
                 sphere_radius,
             ) {

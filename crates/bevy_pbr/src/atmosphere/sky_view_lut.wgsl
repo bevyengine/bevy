@@ -5,7 +5,7 @@
         functions::{
             view_radius, max_atmosphere_distance, direction_atmosphere_to_world,
             sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
-            raymarch_atmosphere
+            raymarch_atmosphere, get_view_position
         },
     }
 }
@@ -33,7 +33,8 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let t_max = max_atmosphere_distance(r, mu);
 
     let sample_count = mix(1.0, f32(settings.sky_view_lut_samples), clamp(t_max * 0.01, 0.0, 1.0));
-    let result = raymarch_atmosphere(r, ray_dir_ws, t_max, sample_count);
+    let world_pos = vec3(0.0, r, 0.0);
+    let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count);
 
     textureStore(sky_view_lut_out, idx.xy, vec4(result.inscattering, 1.0));
 }

@@ -112,6 +112,7 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                 (
                     (0, uniform_buffer::<Atmosphere>(true)),
                     (1, uniform_buffer::<AtmosphereSettings>(true)),
+                    (2, uniform_buffer::<AtmosphereTransform>(true)),
                     (3, uniform_buffer::<ViewUniform>(true)),
                     (4, uniform_buffer::<GpuLights>(true)),
                     (5, texture_2d(TextureSampleType::Float { filterable: true })), //transmittance lut and sampler
@@ -693,6 +694,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             &BindGroupEntries::with_indices((
                 (0, atmosphere_binding.clone()),
                 (1, settings_binding.clone()),
+                (2, transforms_binding.clone()),
                 (3, view_binding.clone()),
                 (4, lights_binding.clone()),
                 (5, &textures.transmittance_lut.default_view),

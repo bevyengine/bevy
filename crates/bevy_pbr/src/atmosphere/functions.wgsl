@@ -303,10 +303,18 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
+fn get_view_position() -> vec3<f32> {
+    let origin = vec3(0.0, atmosphere.bottom_radius, 0.0);
+    let world_pos = view.world_position * settings.scene_units_to_m + origin;
+    return world_pos;
+}
+
 /// Assuming y=0 is the planet ground, returns the view radius in meters
 fn view_radius() -> f32 {
-    let r = view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
-    return max(r, atmosphere.bottom_radius);
+    // Simply return the length of the view position vector since we're now
+    // properly positioning the camera in spherical coordinates
+    let world_pos = get_view_position();
+    return length(world_pos);
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
@@ -379,6 +387,14 @@ fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
 }
 
+fn get_view_ray(uv: vec2<f32>) -> vec3<f32> {
+    let clip_pos = vec2(uv.x * 2.0 - 1.0, uv.y * 2.0 - 1.0) * vec2(1.0, -1.0);
+    let view_pos = view.view_from_clip * vec4(clip_pos, 1.0, 1.0);
+    let view_ray = normalize(view_pos.xyz / view_pos.w);
+    let world_ray = (view.world_from_view * vec4(view_ray, 0.0)).xyz;
+    return normalize(world_ray);
+}
+
 fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
     let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
     
@@ -433,12 +449,14 @@ struct RaymarchResult {
 }
 
 fn raymarch_atmosphere(
-    r: f32,
+    pos: vec3<f32>,
     ray_dir: vec3<f32>,
     t_max: f32,
     sample_count: f32,
 ) -> RaymarchResult {
-    let mu = ray_dir.y;
+    let r = length(pos);
+    let up = normalize(pos);
+    let mu = dot(ray_dir, up);
     
     let segment = get_raymarch_segment(r, mu);
     let t_start = segment.start;
@@ -463,8 +481,9 @@ fn raymarch_atmosphere(
         let dt_i = (t_i - prev_t);
         prev_t = t_i;
 
-        let local_r = get_local_r(r, mu, t_i);
-        let local_up = get_local_up(r, t_i, ray_dir);
+        let sample_pos = pos + ray_dir * t_i;
+        let local_r = length(sample_pos);
+        let local_up = normalize(sample_pos);
         let local_atmosphere = sample_atmosphere(local_r);
 
         let sample_optical_depth = local_atmosphere.extinction * dt_i;

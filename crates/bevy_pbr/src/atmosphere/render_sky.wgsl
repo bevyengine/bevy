@@ -6,7 +6,7 @@
         sample_sky_view_lut, direction_world_to_atmosphere,
         uv_to_ray_direction, uv_to_ndc, sample_aerial_view_lut,
         view_radius, sample_sun_radiance, ndc_to_camera_dist,
-        raymarch_atmosphere, max_atmosphere_distance
+        raymarch_atmosphere, max_atmosphere_distance, get_view_position
     },
 };
 #import bevy_render::view::View;
@@ -30,10 +30,12 @@ struct RenderSkyOutput {
 fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
 
-    let ray_dir_ws = uv_to_ray_direction(in.uv).xyz;
+    let world_pos = get_view_position();
     let r = view_radius();
+    let ray_dir_ws = uv_to_ray_direction(in.uv).xyz;
     let mu = ray_dir_ws.y;
-    let raymarch_split = 1.0;
+
+    let raymarch_split = 0.5;
     let raymarch_steps = 32.0;
 
     var transmittance: vec3<f32>;
@@ -48,7 +50,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         
         if (in.uv.x > raymarch_split) {
             let t_max = max_atmosphere_distance(r, mu);
-            let result = raymarch_atmosphere(r, ray_dir_ws, t_max, raymarch_steps);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, raymarch_steps);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
@@ -60,7 +62,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         transmittance = sample_transmittance_lut_segment(r, mu, t);
 
         if (in.uv.x > raymarch_split) {
-            let result = raymarch_atmosphere(r, ray_dir_ws, t, raymarch_steps);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, raymarch_steps);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
