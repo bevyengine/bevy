@@ -1009,7 +1009,7 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
 /// A marker type used to distinguish function systems with and without input.
 #[doc(hidden)]
 pub struct HasSystemInput;
-
+use crate::system::const_param_checking::ValidSystemParams;
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[expect(
@@ -1022,11 +1022,14 @@ macro_rules! impl_system_function {
         )]
         impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
-            Func: Send + Sync + 'static,
+            Func: Send + Sync + 'static + ValidSystemParams<($($param,)*)>,
             for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
                 FnMut($(SystemParamItem<$param>),*) -> Out,
-            Out: 'static
+
+
+            Out: 'static,
+
         {
             type In = ();
             type Out = Out;
@@ -1043,6 +1046,7 @@ macro_rules! impl_system_function {
                     f($($param,)*)
                 }
                 let ($($param,)*) = param_value;
+                let _ = Func::COMPONENT_ACCESS_TREE;
                 call_inner(self, $($param),*)
             }
         }
