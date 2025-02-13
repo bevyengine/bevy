@@ -66,6 +66,7 @@ struct CustomUiMaterial {
     color: Vec4,
     /// Represents how much of the image is visible
     /// Goes from 0 to 1
+    /// A `Vec4` is used here because Bevy with webgl2 requires that uniforms are 16-byte aligned but only the first component is read.
     #[uniform(1)]
     slider: Vec4,
     /// Image used to represent the slider
