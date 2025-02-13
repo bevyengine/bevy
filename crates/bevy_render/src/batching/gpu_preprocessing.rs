@@ -1143,8 +1143,9 @@ where
 
     /// Clears out the buffers in preparation for a new frame.
     pub fn clear(&mut self) {
-        // TODO: Don't do this.
-        self.phase_instance_buffers.clear();
+        for phase_instance_buffer in self.phase_instance_buffers.values_mut() {
+            phase_instance_buffer.clear();
+        }
     }
 }
 
@@ -1274,6 +1275,8 @@ pub fn clear_batched_gpu_instance_buffers<GFBD>(
 ) where
     GFBD: GetFullBatchData,
 {
+    // Don't clear the entire table, because that would delete the buffers, and
+    // we want to reuse those allocations.
     if let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
         gpu_batched_instance_buffers.clear();
     }
