@@ -139,7 +139,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         range: Option<Range<usize>>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if self.cursor.is_dense {
             // SAFETY: `self.cursor.is_dense` is true, so storage ids are guaranteed to be table ids.
@@ -202,7 +202,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         rows: Range<usize>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if table.is_empty() {
             return accum;
@@ -257,7 +257,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         indices: Range<usize>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if archetype.is_empty() {
             return accum;
@@ -326,7 +326,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         rows: Range<usize>,
     ) -> B
     where
-        Func: FnMut(B, D::Item<'w>) -> B,
+        Func: FnMut(B, D::Item<'w, 's>) -> B,
     {
         if archetype.is_empty() {
             return accum;
@@ -487,7 +487,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1, system_2, system_3));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -495,7 +495,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'l> L::Item<'w, 'l>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
 
@@ -541,7 +544,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// # schedule.add_systems((system_1));
     /// # schedule.run(&mut world);
     /// ```
-    pub fn sort_unstable<L: ReadOnlyQueryData<Item<'w>: Ord> + 'w>(
+    pub fn sort_unstable<L: ReadOnlyQueryData + 'w>(
         self,
     ) -> QuerySortedIter<
         'w,
@@ -549,7 +552,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
         D,
         F,
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
-    > {
+    >
+    where
+        for<'l> L::Item<'w, 'l>: Ord,
+    {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
 
@@ -604,7 +610,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -636,7 +642,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -728,7 +734,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -761,7 +767,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -796,7 +802,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedIter<
         'w,
         's,
@@ -826,7 +832,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
     /// This will panic if `next` has been called on `QueryIter` before, unless the underlying `Query` is empty.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'w, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedIter<
         'w,
         's,
@@ -854,7 +860,11 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
             .map(|(key, entity)| (key, NeutralOrd(entity)))
             .collect();
         f(&mut keyed_query);
-        let entity_iter = keyed_query.into_iter().map(|(.., entity)| entity.0);
+        let entity_iter = keyed_query
+            .into_iter()
+            .map(|(.., entity)| entity.0)
+            .collect::<Vec<_>>()
+            .into_iter();
         // SAFETY:
         // `self.world` has permission to access the required components.
         // Each lens query item is dropped before the respective actual query item is accessed.
@@ -871,7 +881,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIter<'w, 's, D, F> {
 }
 
 impl<'w, 's, D: QueryData, F: QueryFilter> Iterator for QueryIter<'w, 's, D, F> {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -973,7 +983,7 @@ where
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1008,7 +1018,7 @@ where
     /// # Safety
     /// `entity` must stem from `self.entity_iter`, and not have been passed before.
     #[inline(always)]
-    unsafe fn fetch_next(&mut self, entity: Entity) -> D::Item<'w> {
+    unsafe fn fetch_next(&mut self, entity: Entity) -> D::Item<'w, 's> {
         let (location, archetype, table);
         // SAFETY:
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
@@ -1046,7 +1056,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator> Iterator
 where
     I: Iterator<Item = Entity>,
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1116,8 +1126,8 @@ pub struct QueryManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item:
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
-    filter: F::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
+    filter: F::Fetch<'w, 's>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1164,10 +1174,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         entities: &'w Entities,
         tables: &'w Tables,
         archetypes: &'w Archetypes,
-        fetch: &mut D::Fetch<'w>,
-        filter: &mut F::Fetch<'w>,
+        fetch: &mut D::Fetch<'w, 's>,
+        filter: &mut F::Fetch<'w, 's>,
         query_state: &'s QueryState<D, F>,
-    ) -> Option<D::Item<'w>> {
+    ) -> Option<D::Item<'w, 's>> {
         for entity_borrow in entity_iter {
             let entity = entity_borrow.entity();
             let Some(location) = entities.get(entity) else {
@@ -1209,7 +1219,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
 
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         // SAFETY:
         // All arguments stem from self.
         // We are limiting the returned reference to self,
@@ -1333,7 +1343,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'l> L::Item<'w, 'l>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort())
     }
@@ -1391,7 +1401,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
         impl ExactSizeIterator<Item = Entity> + DoubleEndedIterator + FusedIterator + 'w,
     >
     where
-        L::Item<'w>: Ord,
+        for<'l> L::Item<'w, 'l>: Ord,
     {
         self.sort_impl::<L>(|keyed_query| keyed_query.sort_unstable())
     }
@@ -1448,7 +1458,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1479,7 +1489,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by<L: ReadOnlyQueryData + 'w>(
         self,
-        mut compare: impl FnMut(&L::Item<'w>, &L::Item<'w>) -> Ordering,
+        mut compare: impl FnMut(&L::Item<'w, '_>, &L::Item<'w, '_>) -> Ordering,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1573,7 +1583,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// ```
     pub fn sort_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1605,7 +1615,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_unstable_by_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1639,7 +1649,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     pub fn sort_by_cached_key<L: ReadOnlyQueryData + 'w, K>(
         self,
-        mut f: impl FnMut(&L::Item<'w>) -> K,
+        mut f: impl FnMut(&L::Item<'w, '_>) -> K,
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1668,7 +1678,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>>
     /// called on [`QueryManyIter`] before.
     fn sort_impl<L: ReadOnlyQueryData + 'w>(
         self,
-        f: impl FnOnce(&mut Vec<(L::Item<'w>, NeutralOrd<Entity>)>),
+        f: impl FnOnce(&mut Vec<(L::Item<'w, '_>, NeutralOrd<Entity>)>),
     ) -> QuerySortedManyIter<
         'w,
         's,
@@ -1717,7 +1727,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityBo
 {
     /// Get next result from the back of the query
     #[inline(always)]
-    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>> {
         // SAFETY:
         // All arguments stem from self.
         // We are limiting the returned reference to self,
@@ -1741,7 +1751,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item: EntityBo
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item: EntityBorrow>> Iterator
     for QueryManyIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1852,7 +1862,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator>
 impl<'w, 's, D: QueryData, F: QueryFilter, I: EntitySetIterator> Iterator
     for QueryManyUniqueIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -1906,7 +1916,7 @@ pub struct QuerySortedManyIter<'w, 's, D: QueryData, F: QueryFilter, I: Iterator
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: D::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
     query_state: &'s QueryState<D, F>,
 }
 
@@ -1945,7 +1955,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
     /// It is always safe for shared access.
     /// `entity` must stem from `self.entity_iter`, and not have been passed before.
     #[inline(always)]
-    unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> D::Item<'w> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self, entity: Entity) -> D::Item<'w, 's> {
         let (location, archetype, table);
         // SAFETY:
         // `tables` and `archetypes` belong to the same world that the [`QueryIter`]
@@ -1979,7 +1989,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: Iterator<Item = Entity>>
 
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next(&mut self) -> Option<D::Item<'_, 's>> {
         let entity = self.entity_iter.next()?;
 
         // SAFETY:
@@ -1998,7 +2008,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>
 {
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_>> {
+    pub fn fetch_next_back(&mut self) -> Option<D::Item<'_, 's>> {
         let entity = self.entity_iter.next_back()?;
 
         // SAFETY:
@@ -2015,7 +2025,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, I: DoubleEndedIterator<Item = Entity>
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, I: Iterator<Item = Entity>> Iterator
     for QuerySortedManyIter<'w, 's, D, F, I>
 {
-    type Item = D::Item<'w>;
+    type Item = D::Item<'w, 's>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -2176,7 +2186,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
     /// .
     /// It is always safe for shared access.
     #[inline]
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w>; K]> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[D::Item<'w, 's>; K]> {
         // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
         // when D::IS_ARCHETYPAL && F::IS_ARCHETYPAL
         //
@@ -2202,9 +2212,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
             }
         }
 
-        let mut values = MaybeUninit::<[D::Item<'w>; K]>::uninit();
+        let mut values = MaybeUninit::<[D::Item<'w, 's>; K]>::uninit();
 
-        let ptr = values.as_mut_ptr().cast::<D::Item<'w>>();
+        let ptr = values.as_mut_ptr().cast::<D::Item<'w, 's>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
             ptr.add(offset).write(cursor.peek_last().unwrap());
         }
@@ -2214,7 +2224,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[D::Item<'_>; K]> {
+    pub fn fetch_next(&mut self) -> Option<[D::Item<'_, 's>; K]> {
         // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
@@ -2231,7 +2241,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
 impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, D, F, K>
 {
-    type Item = [D::Item<'w>; K];
+    type Item = [D::Item<'w, 's>; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -2300,8 +2310,8 @@ struct QueryIterationCursor<'w, 's, D: QueryData, F: QueryFilter> {
     storage_id_iter: core::slice::Iter<'s, StorageId>,
     table_entities: &'w [Entity],
     archetype_entities: &'w [ArchetypeEntity],
-    fetch: D::Fetch<'w>,
-    filter: F::Fetch<'w>,
+    fetch: D::Fetch<'w, 's>,
+    filter: F::Fetch<'w, 's>,
     // length of the table or length of the archetype, depending on whether both `D`'s and `F`'s fetches are dense
     current_len: usize,
     // either table row or archetype index, depending on whether both `D`'s and `F`'s fetches are dense
@@ -2381,7 +2391,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
     /// The result of `next` and any previous calls to `peek_last` with this row must have been
     /// dropped to prevent aliasing mutable references.
     #[inline]
-    unsafe fn peek_last(&mut self) -> Option<D::Item<'w>> {
+    unsafe fn peek_last(&mut self) -> Option<D::Item<'w, 's>> {
         if self.current_row > 0 {
             let index = self.current_row - 1;
             if self.is_dense {
@@ -2444,7 +2454,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         tables: &'w Tables,
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<D, F>,
-    ) -> Option<D::Item<'w>> {
+    ) -> Option<D::Item<'w, 's>> {
         if self.is_dense {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
