@@ -89,7 +89,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             // at the same time.
             unsafe {
                 self.state
-                    .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                    .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                    .into_iter()
                     .fold(init, func);
             }
         }
@@ -101,7 +102,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
-                        .iter_unchecked_manual(self.world, self.last_run, self.this_run)
+                        .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
+                        .into_iter()
                         .fold(init, func);
                 }
             } else {

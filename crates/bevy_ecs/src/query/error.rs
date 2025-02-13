@@ -17,7 +17,7 @@ pub enum QueryEntityError<'w> {
     NoSuchEntity(Entity, EntityDoesNotExistDetails),
     /// The [`Entity`] was requested mutably more than once.
     ///
-    /// See [`QueryState::get_many_mut`](crate::query::QueryState::get_many_mut) for an example.
+    /// See [`Query::get_many_mut`](crate::system::Query::get_many_mut) for an example.
     AliasedMutability(Entity),
 }
 
