@@ -21,6 +21,17 @@ pub enum ShaderReflectError {
     #[error(transparent)]
     Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
 }
+
+/// Describes whether or not to perform runtime checks on shaders.
+/// Runtime checks can be enabled for safety at the cost of speed.
+/// By default no runtime checks will be performed.
+#[derive(Clone, Debug, Default)]
+pub enum ValidateShader {
+    #[default]
+    Disabled,
+    Enabled,
+}
+
 /// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
 #[derive(Asset, TypePath, Debug, Clone)]
@@ -36,6 +47,10 @@ pub struct Shader {
     // we must store strong handles to our dependencies to stop them
     // from being immediately dropped if we are the only user.
     pub file_dependencies: Vec<Handle<Shader>>,
+    /// Enable or disable runtime shader validation, trading safety against speed.
+    ///
+    /// Please read the [`ValidateShader`] docs for a discussion of the tradeoffs involved.
+    pub validate_shader: ValidateShader,
 }
 
 impl Shader {
@@ -78,6 +93,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
         }
     }
 
@@ -108,6 +124,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
         }
     }
 
@@ -121,6 +138,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
         }
     }
 
