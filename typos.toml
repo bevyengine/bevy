@@ -1,9 +1,9 @@
 [files]
 extend-exclude = [
-  "*.pbxproj", # metadata file
-  "*.patch",   # Automatically generated files that should not be manually modified.
-  "*.bin",     # Binary files
-  ".git/",     # Version control files
+  "*.pbxproj",      # metadata file
+  "*.patch",        # Automatically generated files that should not be manually modified.
+  "*.bin",          # Binary files
+  ".git/",          # Version control files
 ]
 ignore-hidden = false
 
@@ -13,6 +13,7 @@ LOD = "LOD"                             # Level of detail
 reparametrization = "reparametrization" # Mathematical term in curve context (reparameterize)
 reparametrize = "reparametrize"
 reparametrized = "reparametrized"
+implementors = "implementors"           # https://github.com/crate-ci/typos/issues/1226
 
 # Match a Whole Word - Case Sensitive
 [default.extend-identifiers]
