@@ -4,18 +4,15 @@ use bevy_ecs::{
     system::{ResMut, SystemParam, SystemParamItem},
 };
 use bytemuck::Pod;
+use gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
 
-use self::gpu_preprocessing::IndirectParametersBuffers;
 use crate::{
     render_phase::{
-        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
-        SortedRenderPhase, ViewBinnedRenderPhases,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, InputUniformIndex,
+        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
-};
-use crate::{
-    render_phase::{InputUniformIndex, PhaseItemExtraIndex},
     sync_world::MainEntity,
 };
 
@@ -179,7 +176,7 @@ pub trait GetFullBatchData: GetBatchData {
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
-        indirect_parameters_buffers: &mut IndirectParametersBuffers,
+        indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     );
 }

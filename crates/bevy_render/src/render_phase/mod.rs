@@ -43,10 +43,14 @@ use nonmax::NonMaxU32;
 pub use rangefinder::*;
 use wgpu::Features;
 
-use crate::batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport};
+use crate::batching::gpu_preprocessing::{
+    GpuPreprocessingMode, GpuPreprocessingSupport, PhaseBatchedInstanceBuffers,
+    PhaseIndirectParametersBuffers,
+};
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::view::RetainedViewEntity;
+use crate::RenderDebugFlags;
 use crate::{
     batching::{
         self,
@@ -1011,18 +1015,26 @@ impl UnbatchableBinnedEntityIndexSet {
 ///
 /// This is the version used when the pipeline supports GPU preprocessing: e.g.
 /// 3D PBR meshes.
-pub struct BinnedRenderPhasePlugin<BPI, GFBD>(PhantomData<(BPI, GFBD)>)
-where
-    BPI: BinnedPhaseItem,
-    GFBD: GetFullBatchData;
-
-impl<BPI, GFBD> Default for BinnedRenderPhasePlugin<BPI, GFBD>
+pub struct BinnedRenderPhasePlugin<BPI, GFBD>
 where
     BPI: BinnedPhaseItem,
     GFBD: GetFullBatchData,
 {
-    fn default() -> Self {
-        Self(PhantomData)
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+    phantom: PhantomData<(BPI, GFBD)>,
+}
+
+impl<BPI, GFBD> BinnedRenderPhasePlugin<BPI, GFBD>
+where
+    BPI: BinnedPhaseItem,
+    GFBD: GetFullBatchData,
+{
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
+        Self {
+            debug_flags,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -1038,6 +1050,11 @@ where
 
         render_app
             .init_resource::<ViewBinnedRenderPhases<BPI>>()
+            .init_resource::<PhaseBatchedInstanceBuffers<BPI, GFBD::BufferData>>()
+            .insert_resource(PhaseIndirectParametersBuffers::<BPI>::new(
+                self.debug_flags
+                    .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
+            ))
             .add_systems(
                 Render,
                 (
@@ -1054,6 +1071,13 @@ where
                     )
                         .in_set(RenderSet::PrepareResources),
                     sweep_old_entities::<BPI>.in_set(RenderSet::QueueSweep),
+                    gpu_preprocessing::collect_buffers_for_phase::<BPI, GFBD>
+                        .run_if(
+                            resource_exists::<
+                                BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                            >,
+                        )
+                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
     }
@@ -1097,18 +1121,26 @@ where
 ///
 /// This is the version used when the pipeline supports GPU preprocessing: e.g.
 /// 3D PBR meshes.
-pub struct SortedRenderPhasePlugin<SPI, GFBD>(PhantomData<(SPI, GFBD)>)
-where
-    SPI: SortedPhaseItem,
-    GFBD: GetFullBatchData;
-
-impl<SPI, GFBD> Default for SortedRenderPhasePlugin<SPI, GFBD>
+pub struct SortedRenderPhasePlugin<SPI, GFBD>
 where
     SPI: SortedPhaseItem,
     GFBD: GetFullBatchData,
 {
-    fn default() -> Self {
-        Self(PhantomData)
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+    phantom: PhantomData<(SPI, GFBD)>,
+}
+
+impl<SPI, GFBD> SortedRenderPhasePlugin<SPI, GFBD>
+where
+    SPI: SortedPhaseItem,
+    GFBD: GetFullBatchData,
+{
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
+        Self {
+            debug_flags,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -1124,18 +1156,33 @@ where
 
         render_app
             .init_resource::<ViewSortedRenderPhases<SPI>>()
+            .init_resource::<PhaseBatchedInstanceBuffers<SPI, GFBD::BufferData>>()
+            .insert_resource(PhaseIndirectParametersBuffers::<SPI>::new(
+                self.debug_flags
+                    .contains(RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS),
+            ))
             .add_systems(
                 Render,
                 (
-                    no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
-                        .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
-                    gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>.run_if(
-                        resource_exists::<
-                            BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
-                        >,
-                    ),
-                )
-                    .in_set(RenderSet::PrepareResources),
+                    (
+                        no_gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
+                            .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
+                        gpu_preprocessing::batch_and_prepare_sorted_render_phase::<SPI, GFBD>
+                            .run_if(
+                                resource_exists::<
+                                    BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                                >,
+                            ),
+                    )
+                        .in_set(RenderSet::PrepareResources),
+                    gpu_preprocessing::collect_buffers_for_phase::<SPI, GFBD>
+                        .run_if(
+                            resource_exists::<
+                                BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
+                            >,
+                        )
+                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
+                ),
             );
     }
 }
