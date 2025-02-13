@@ -1045,6 +1045,17 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "load_gltf_components"
+path = "examples/3d/load_gltf_components.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.load_gltf_components]
+name = "Load glTF extras as components"
+description = "Loads and renders a glTF file as a scene, inserting gltf extras as deserialized components"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "query_gltf_primitives"
 path = "examples/3d/query_gltf_primitives.rs"
 doc-scrape-examples = true
