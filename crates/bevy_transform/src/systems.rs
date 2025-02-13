@@ -46,6 +46,8 @@ pub fn sync_simple_transforms(
 
 /// A queue shared between threads for transform propagation.
 pub struct WorkQueue {
+    /// A semaphore that tracks how many threads are busy doing work. Used to determine when there
+    /// is no more work to do.
     busy_threads: AtomicI32,
     sender: Sender<Vec<Entity>>,
     receiver: Arc<Mutex<Receiver<Vec<Entity>>>>,
@@ -70,7 +72,13 @@ pub fn propagate_transform_nodes(
     mut orphaned: RemovedComponents<ChildOf>,
     mut orphans: Local<Vec<Entity>>,
     mut roots: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), Without<ChildOf>>,
-    nodes: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
+    nodes: Query<(
+        Entity,
+        Ref<Transform>,
+        &mut GlobalTransform,
+        &Children,
+        &ChildOf,
+    )>,
 ) {
     // Orphans
     orphans.clear();
@@ -80,10 +88,10 @@ pub fn propagate_transform_nodes(
     // Process roots in parallel, seeding the work queue
     roots
         .par_iter_mut()
-        .for_each(|(entity, transform, mut parent_transform, children)| {
+        .for_each(|(parent, transform, mut parent_transform, children)| {
             if transform.is_changed()
                 || parent_transform.is_added()
-                || orphans.binary_search(&entity).is_ok()
+                || orphans.binary_search(&parent).is_ok()
             {
                 *parent_transform = GlobalTransform::from(*transform);
             }
@@ -92,7 +100,11 @@ pub fn propagate_transform_nodes(
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
                 let mut outbox = Vec::new();
-                propagate_to_child_unchecked(parent_transform, children, &nodes, &mut outbox);
+                propagate_to_child_unchecked(
+                    (parent, parent_transform, children),
+                    &nodes,
+                    &mut outbox,
+                );
                 queue.sender.send(outbox).ok();
             }
         });
@@ -109,7 +121,13 @@ pub fn propagate_transform_nodes(
 /// to the queue once it has propagated their [`GlobalTransform`].
 fn propagation_worker(
     queue: &WorkQueue,
-    nodes: &Query<(Entity, Ref<'_, Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
+    nodes: &Query<(
+        Entity,
+        Ref<'_, Transform>,
+        &mut GlobalTransform,
+        &Children,
+        &ChildOf,
+    )>,
 ) {
     let mut outbox = queue.local_queue.borrow_local_mut();
     loop {
@@ -136,11 +154,12 @@ fn propagation_worker(
         queue.busy_threads.fetch_add(1, Ordering::Relaxed);
         drop(rx);
         for parent in tasks.drain(..) {
-            // SAFETY: Visiting the hierarchy as a tree without cycles
+            // SAFETY: Visiting the hierarchy as a tree without cycles. The assertion inside the
+            // function will trigger if the hierarchy has a cycle
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
-                let (_, _, parent_transform, children) = nodes.get_unchecked(parent).unwrap();
-                propagate_to_child_unchecked(parent_transform, children, nodes, &mut outbox);
+                let (_, _, transform, children, _) = nodes.get_unchecked(parent).unwrap();
+                propagate_to_child_unchecked((parent, transform, children), nodes, &mut outbox);
             }
         }
         for chunk in outbox.chunks(1024) {
@@ -151,6 +170,19 @@ fn propagation_worker(
     }
 }
 
+/// Propagate transforms from `parent` to its non-leaf `children`, pushing updated child entities to
+/// the `outbox`. Propagation does not visit leaf nodes as they are computed in a second parallel
+/// pass.
+///
+/// # Panics
+///
+/// Panics if the parent of a node is not the same as the supplied `parent`. This check can be used
+/// to call this function safely.
+///
+/// If this function is only called when traversing from ancestors to descendant, using the entities
+/// returned from te `outbox`, it can be used safely in parallel. This function will internally
+/// panic if a cycle is found in the hierarchy to prevent soundness issues.
+///
 /// # Safety
 ///
 /// Callers of this function must ensure that if `nodes` is being used elsewhere concurrently, the
@@ -158,15 +190,21 @@ fn propagation_worker(
 #[inline]
 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
 unsafe fn propagate_to_child_unchecked(
-    parent_transform: Mut<'_, GlobalTransform>,
-    children: &Children,
-    nodes: &Query<(Entity, Ref<'_, Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
+    (parent, parent_transform, children): (Entity, Mut<GlobalTransform>, &Children),
+    nodes: &Query<(
+        Entity,
+        Ref<Transform>,
+        &mut GlobalTransform,
+        &Children,
+        &ChildOf,
+    )>,
     outbox: &mut Vec<Entity>,
 ) {
     // SAFETY: This function must only be called with disjoint entity access.
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
     let mut children = unsafe { nodes.iter_many_unsafe(children) };
-    while let Some((child, transform, mut global_transform, _)) = children.fetch_next() {
+    while let Some((child, transform, mut global_transform, _, child_of)) = children.fetch_next() {
+        assert!(child_of.get() == parent);
         if parent_transform.is_changed() || transform.is_changed() || global_transform.is_added() {
             *global_transform = parent_transform.mul_transform(*transform);
         }
@@ -216,7 +254,14 @@ mod test {
         let offset_transform = |offset| Transform::from_xyz(offset, offset, offset);
 
         let mut schedule = Schedule::default();
-        schedule.add_systems((sync_simple_transforms, propagate_transform_nodes));
+        schedule.add_systems(
+            (
+                sync_simple_transforms,
+                propagate_transform_nodes,
+                compute_transform_leaves,
+            )
+                .chain(),
+        );
 
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
@@ -267,7 +312,14 @@ mod test {
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
-        schedule.add_systems((sync_simple_transforms, propagate_transform_nodes));
+        schedule.add_systems(
+            (
+                sync_simple_transforms,
+                propagate_transform_nodes,
+                compute_transform_leaves,
+            )
+                .chain(),
+        );
 
         // Root entity
         world.spawn(Transform::from_xyz(1.0, 0.0, 0.0));
@@ -297,7 +349,14 @@ mod test {
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
-        schedule.add_systems((sync_simple_transforms, propagate_transform_nodes));
+        schedule.add_systems(
+            (
+                sync_simple_transforms,
+                propagate_transform_nodes,
+                compute_transform_leaves,
+            )
+                .chain(),
+        );
 
         // Root entity
         let mut queue = CommandQueue::default();
@@ -329,7 +388,14 @@ mod test {
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
-        schedule.add_systems((sync_simple_transforms, propagate_transform_nodes));
+        schedule.add_systems(
+            (
+                sync_simple_transforms,
+                propagate_transform_nodes,
+                compute_transform_leaves,
+            )
+                .chain(),
+        );
 
         // Add parent entities
         let mut children = Vec::new();
@@ -401,7 +467,15 @@ mod test {
         let mut app = App::new();
         ComputeTaskPool::get_or_init(TaskPool::default);
 
-        app.add_systems(Update, (sync_simple_transforms, propagate_transform_nodes));
+        app.add_systems(
+            Update,
+            (
+                sync_simple_transforms,
+                propagate_transform_nodes,
+                compute_transform_leaves,
+            )
+                .chain(),
+        );
 
         let translation = vec3(1.0, 0.0, 0.0);
 
@@ -447,7 +521,15 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        app.add_systems(Update, (propagate_transform_nodes, sync_simple_transforms));
+        app.add_systems(
+            Update,
+            (
+                propagate_transform_nodes,
+                sync_simple_transforms,
+                compute_transform_leaves,
+            )
+                .chain(),
+        );
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
@@ -505,7 +587,11 @@ mod test {
 
         // Create transform propagation schedule
         let mut schedule = Schedule::default();
-        schedule.add_systems((sync_simple_transforms, propagate_transform_nodes));
+        schedule.add_systems((
+            sync_simple_transforms,
+            propagate_transform_nodes,
+            compute_transform_leaves,
+        ));
 
         // Spawn a `Transform` entity with a local translation of `Vec3::ONE`
         let mut spawn_transform_bundle =
