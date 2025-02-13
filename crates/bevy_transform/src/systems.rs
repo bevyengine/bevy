@@ -1,9 +1,17 @@
-use core::ops::DerefMut;
+use core::{
+    ops::DerefMut,
+    sync::atomic::{AtomicI32, Ordering},
+};
+use std::{
+    dbg,
+    sync::{mpsc::channel, Arc, Mutex},
+};
 
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
 use bevy_ecs::prelude::*;
-use bevy_tasks::TaskPool;
+use bevy_log::info_span;
+use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_utils::Parallel;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
@@ -40,6 +48,156 @@ pub fn sync_simple_transforms(
     }
 }
 
+pub struct WorkQueue {
+    busy_threads: AtomicI32,
+    sender: std::sync::mpsc::Sender<Vec<Entity>>,
+    receiver: Arc<Mutex<std::sync::mpsc::Receiver<Vec<Entity>>>>,
+}
+impl Default for WorkQueue {
+    fn default() -> Self {
+        let (tx, rx) = channel();
+        Self {
+            busy_threads: AtomicI32::default(),
+            sender: tx,
+            receiver: Arc::new(Mutex::new(rx)),
+        }
+    }
+}
+
+/// Propagate transforms
+pub fn propagate_transforms_mpsc(
+    // Orphans
+    mut orphaned: RemovedComponents<ChildOf>,
+    mut orphans: Local<Vec<Entity>>,
+    // Work queue
+    queue: Local<WorkQueue>,
+    thread_local: Local<Parallel<Vec<Entity>>>,
+    // Queries
+    mut roots: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), Without<ChildOf>>,
+    nodes: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
+) {
+    // Orphans
+    orphans.clear();
+    orphans.extend(orphaned.read());
+    orphans.sort_unstable();
+
+    // Process roots in parallel, seeding the work queue
+    roots
+        .par_iter_mut()
+        .for_each(|(entity, transform, mut parent_transform, children)| {
+            if transform.is_changed()
+                || parent_transform.is_added()
+                || orphans.binary_search(&entity).is_ok()
+            {
+                *parent_transform = GlobalTransform::from(*transform);
+            }
+
+            // SAFETY:
+            //
+            // The hierarchy is guaranteed to exist without cycles. Traversing the hierarchy is then
+            // guaranteed to visit disjoint entities, which means it is impossible to mutably alias
+            // two entities.
+            #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+            unsafe {
+                let mut message = Vec::new();
+                let mut children = nodes.iter_many_unsafe(children);
+                while let Some((child, transform, mut global_transform, _)) = children.fetch_next()
+                {
+                    if parent_transform.is_changed()
+                        || transform.is_changed()
+                        || global_transform.is_added()
+                    {
+                        *global_transform = parent_transform.mul_transform(*transform);
+                    }
+                    message.push(child);
+                }
+                queue.sender.send(message).ok();
+            }
+        });
+
+    let worker = || {
+        let mut messages = thread_local.borrow_local_mut();
+        loop {
+            // Try to acquire a lock on the work queue in a tight loop.
+            let Ok(rx) = queue.receiver.try_lock() else {
+                continue;
+            };
+            // If the queue is empty and no other threads are busy processing work, we can conclude
+            // there is no more work to do, and end the task by exiting the loop.
+            let Some(mut tasks) = rx.try_iter().next() else {
+                if queue.busy_threads.load(Ordering::Relaxed) == 0 {
+                    break; // All work is complete, kill the worker
+                }
+                continue; // No work to do now, but another thread is busy creating more work
+            };
+            if tasks.is_empty() {
+                continue;
+            }
+
+            // At this point, we know there is work to do, so we increment the busy thread counter,
+            // and drop the mutex guard *after* we have incremented the counter. This ensures that
+            // if another thread is able to acquire a lock, the busy thread counter will already be
+            // incremented.
+            queue.busy_threads.fetch_add(1, Ordering::Relaxed);
+            drop(rx);
+
+            // SAFETY:
+            //
+            // The hierarchy is guaranteed to exist without cycles. Traversing the hierarchy is then
+            // guaranteed to visit disjoint entities, which means it is impossible to mutably alias
+            // two entities.
+            #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+            unsafe {
+                for parent in tasks.drain(..) {
+                    let (_, _, parent_transform, children) = nodes.get_unchecked(parent).unwrap();
+                    let mut children = nodes.iter_many_unsafe(children);
+                    while let Some((child, transform, mut global_transform, _)) =
+                        children.fetch_next()
+                    {
+                        if parent_transform.is_changed()
+                            || transform.is_changed()
+                            || global_transform.is_added()
+                        {
+                            *global_transform = parent_transform.mul_transform(*transform);
+                        }
+                        messages.push(child);
+                    }
+                }
+            }
+
+            for chunk in messages.chunks(1024) {
+                queue.sender.send(chunk.to_vec()).ok();
+            }
+            messages.clear();
+
+            queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
+        }
+    };
+
+    let task_pool = ComputeTaskPool::get();
+    task_pool.scope(|s| (0..task_pool.thread_num()).for_each(|_| s.spawn(async { worker() })));
+}
+
+/// Compute leaf transforms in parallel
+pub fn compute_leaves(
+    parents: Query<Ref<GlobalTransform>, With<Children>>,
+    mut leaves: Query<(Ref<Transform>, &mut GlobalTransform, &ChildOf), Without<Children>>,
+) {
+    leaves
+        .par_iter_mut()
+        .for_each(|(transform, mut global_transform, parent)| {
+            let Ok(parent_transform) = parents.get(parent.get()) else {
+                return;
+            };
+            if parent_transform.is_changed()
+                || transform.is_changed()
+                || global_transform.is_added()
+            {
+                *global_transform = parent_transform.mul_transform(*transform);
+            }
+        });
+}
+
 /// Represent a subtree in the hierarchy when propagating transforms.
 #[derive(Clone, Debug)]
 pub struct PropagationNode {
@@ -59,11 +217,8 @@ pub fn propagate_transforms_par(
     mut next_stack: Local<Parallel<Vec<PropagationNode>>>,
     // Queries
     mut transform_queries: ParamSet<(
-        Query<
-            (Entity, Ref<Transform>, &mut GlobalTransform, Has<Children>),
-            (Without<ChildOf>, With<Children>),
-        >,
-        Query<(Entity, Ref<Transform>, &mut GlobalTransform, Has<Children>), With<ChildOf>>,
+        Query<(Entity, Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, With<Children>)>,
+        Query<(Entity, Ref<Transform>, &mut GlobalTransform), (With<ChildOf>, With<Children>)>,
         Query<&mut GlobalTransform>,
     )>,
     children: Query<&Children>,
@@ -76,8 +231,13 @@ pub fn propagate_transforms_par(
     // Roots
     transform_queries.p0().par_iter_mut().for_each_init(
         || stack.borrow_local_mut(),
-        |locals, components| {
-            compute_transform(locals, None, components, &orphans);
+        |locals, (entity, transform, global_transform)| {
+            compute_transform(
+                locals,
+                None,
+                (entity, transform, global_transform),
+                &orphans,
+            );
         },
     );
 
@@ -111,8 +271,13 @@ pub fn propagate_transforms_par(
                     .get(parent.entity)
                     .expect("Only entities with children are pushed onto the stack.");
                 let mut nodes = nodes.iter_many_mut(children);
-                while let Some(components) = nodes.fetch_next() {
-                    compute_transform(&mut next_stack, Some(parent), components, &orphans);
+                while let Some((entity, transform, global_transform)) = nodes.fetch_next() {
+                    compute_transform(
+                        &mut next_stack,
+                        Some(parent),
+                        (entity, transform, global_transform),
+                        &orphans,
+                    );
                 }
             }
         } else {
@@ -148,8 +313,13 @@ pub fn propagate_transforms_par(
                     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                     unsafe {
                         let mut nodes = nodes.iter_many_unsafe(children);
-                        while let Some(components) = nodes.fetch_next() {
-                            compute_transform(&mut next_stack, Some(parent), components, orphans);
+                        while let Some((entity, transform, global_transform)) = nodes.fetch_next() {
+                            compute_transform(
+                                &mut next_stack,
+                                Some(parent),
+                                (entity, transform, global_transform),
+                                orphans,
+                            );
                         }
                     }
                 }
@@ -182,12 +352,7 @@ pub fn propagate_transforms_par(
 fn compute_transform(
     thread_local_queue: &mut impl DerefMut<Target = Vec<PropagationNode>>,
     parent: Option<&PropagationNode>,
-    (entity, transform, mut global_transform, has_children): (
-        Entity,
-        Ref<Transform>,
-        Mut<GlobalTransform>,
-        bool,
-    ),
+    (entity, transform, mut global_transform): (Entity, Ref<Transform>, Mut<GlobalTransform>),
     orphans: &[Entity],
 ) {
     let is_changed = parent.map(|s| s.is_changed).unwrap_or_default()
@@ -208,13 +373,11 @@ fn compute_transform(
         *global_transform.bypass_change_detection()
     };
 
-    if has_children {
-        thread_local_queue.push(PropagationNode {
-            is_changed,
-            entity,
-            global_transform,
-        });
-    }
+    thread_local_queue.push(PropagationNode {
+        is_changed,
+        entity,
+        global_transform,
+    });
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
