@@ -438,8 +438,11 @@ fn queue_custom_mesh_pipeline(
                 mesh.indexed(),
                 PreprocessWorkItem {
                     input_index: input_index.into(),
-                    output_index,
-                    indirect_parameters_index: mesh_info.indirect_parameters_index,
+                    output_or_indirect_parameters_index: if no_indirect_drawing {
+                        output_index
+                    } else {
+                        mesh_info.indirect_parameters_index
+                    },
                 },
             );
         }
