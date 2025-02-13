@@ -37,7 +37,7 @@ pub enum SpritePickingMode {
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
     /// When set to `true` sprite picking will only consider cameras marked with
-    /// [`SpritePickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    /// [`SpritePickingCamera`].
     ///
     /// This setting is provided to give you fine-grained control over which cameras and entities
     /// should be used by the sprite picking backend at runtime.
@@ -97,8 +97,7 @@ fn sprite_picking(
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
         .filter_map(|(entity, sprite, transform, pickable, vis)| {
-            let marker_requirement = !settings.require_markers;
-            if !transform.affine().is_nan() && vis.get() && marker_requirement {
+            if !transform.affine().is_nan() && vis.get() {
                 Some((entity, sprite, transform, pickable))
             } else {
                 None
