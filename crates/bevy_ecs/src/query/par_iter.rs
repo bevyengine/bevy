@@ -201,15 +201,20 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
     ///
     /// ```
     /// use bevy_utils::Parallel;
-    /// use crate::{bevy_ecs::prelude::Component, bevy_ecs::system::Query};
+    /// use crate::{bevy_ecs::prelude::{Component, Res, Entity}, bevy_ecs::system::Query};
+    /// use alloc::collections::Vec;
+    /// # fn some_expensive_operation(item: T) -> usize {
+    /// #     0
+    /// # }
+    ///
     /// #[derive(Component)]
     /// struct T;
-    /// fn system(query: Query<&T>){
+    /// fn system(query: Query<&T>, entities: Res<Vec<Entity>>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue,item| {
-    ///         **local_queue += 1;
-    ///      });
+    ///     query.par_iter_many(entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
+    ///         **local_queue += some_expensive_operation(item);
+    ///     });
     ///     
     ///     // collect value from every thread
     ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
@@ -235,10 +240,10 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
         {
             let init = init();
             // SAFETY:
-            // This method can only be called once per instance of QueryParIter,
+            // This method can only be called once per instance of QueryParManyIter,
             // which ensures that mutable queries cannot be executed multiple times at once.
-            // Mutable instances of QueryParIter can only be created via an exclusive borrow of a
-            // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
+            // Mutable instances of QueryParManyUniqueIter can only be created via an exclusive borrow of a
+            // Query or a World, which ensures that multiple aliasing QueryParManyIters cannot exist
             // at the same time.
             unsafe {
                 self.state
@@ -349,15 +354,19 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
     ///
     /// ```
     /// use bevy_utils::Parallel;
-    /// use crate::{bevy_ecs::prelude::Component, bevy_ecs::system::Query};
+    /// use crate::{bevy_ecs::prelude::{Component, Res, Entity}, bevy_ecs::{entity::UniqueEntityVec, system::Query}};
+    /// # fn some_expensive_operation(item: T) -> usize {
+    /// #     0
+    /// # }
+    ///
     /// #[derive(Component)]
     /// struct T;
-    /// fn system(query: Query<&T>){
+    /// fn system(query: Query<&T>, entities: Res<UniqueEntityVec>){
     ///     let mut queue: Parallel<usize> = Parallel::default();
     ///     // queue.borrow_local_mut() will get or create a thread_local queue for each task/thread;
-    ///     query.par_iter().for_each_init(|| queue.borrow_local_mut(),|local_queue,item| {
-    ///         **local_queue += 1;
-    ///      });
+    ///     query.par_iter_many_unique(entities).for_each_init(|| queue.borrow_local_mut(),|local_queue, item| {
+    ///         **local_queue += some_expensive_operation(item);
+    ///     });
     ///     
     ///     // collect value from every thread
     ///     let entity_count: usize = queue.iter_mut().map(|v| *v).sum();
@@ -383,10 +392,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
         {
             let init = init();
             // SAFETY:
-            // This method can only be called once per instance of QueryParIter,
+            // This method can only be called once per instance of QueryParManyUniqueIter,
             // which ensures that mutable queries cannot be executed multiple times at once.
-            // Mutable instances of QueryParIter can only be created via an exclusive borrow of a
-            // Query or a World, which ensures that multiple aliasing QueryParIters cannot exist
+            // Mutable instances of QueryParManyUniqueIter can only be created via an exclusive borrow of a
+            // Query or a World, which ensures that multiple aliasing QueryParManyUniqueIters cannot exist
             // at the same time.
             unsafe {
                 self.state

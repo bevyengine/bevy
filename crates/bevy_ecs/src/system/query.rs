@@ -1089,7 +1089,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// If the `multithreaded` feature is disabled, iterating with this operates identically to [`Iterator::for_each`]
     /// on [`QueryManyIter`].
     ///
-    /// This can only be called for read-only queries, there is no `par_iter_many_mut` equivalent.
+    /// This can only be called for read-only queries. To avoid potential aliasing, there is no `par_iter_many_mut` equivalent.
     /// See [`par_iter_many_unique_mut`] for an alternative using [`EntitySet`].
     ///
     /// Note that you must use the `for_each` method to iterate over the

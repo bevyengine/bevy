@@ -1791,7 +1791,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         INIT: Fn() -> T + Sync + Send + Clone,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual,
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
@@ -1904,6 +1905,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size);
@@ -1963,7 +1965,8 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         E: EntityBorrow + Sync,
     {
         // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
-        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
+        // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
 
         bevy_tasks::ComputeTaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size);
