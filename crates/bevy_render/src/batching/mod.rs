@@ -7,13 +7,16 @@ use bytemuck::Pod;
 use nonmax::NonMaxU32;
 
 use self::gpu_preprocessing::IndirectParametersBuffers;
-use crate::{render_phase::PhaseItemExtraIndex, sync_world::MainEntity};
 use crate::{
     render_phase::{
         BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
         SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
+};
+use crate::{
+    render_phase::{InputUniformIndex, PhaseItemExtraIndex},
+    sync_world::MainEntity,
 };
 
 pub mod gpu_preprocessing;
@@ -132,12 +135,17 @@ pub trait GetFullBatchData: GetBatchData {
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
-    /// GPU preprocessing phase will use, for the binning path.
+    /// GPU preprocessing phase will use.
     ///
     /// We already inserted the [`GetFullBatchData::BufferInputData`] during the
     /// extraction phase before we got here, so this function shouldn't need to
-    /// look up any render data. If CPU instance buffer building is in use, this
-    /// function will never be called.
+    /// look up any render data.
+    ///
+    /// This function is currently only called for unbatchable entities when GPU
+    /// instance buffer building is in use. For batchable entities, the uniform
+    /// index is written during queuing (e.g. in `queue_material_meshes`). In
+    /// the case of CPU instance buffer building, the CPU writes the uniforms,
+    /// so there's no index to return.
     fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
         query_item: MainEntity,
@@ -167,7 +175,7 @@ pub trait GetFullBatchData: GetBatchData {
     /// * `indirect_parameters_offset` is the index in that buffer at which to
     ///   write the metadata.
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: u32,
+        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,

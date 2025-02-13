@@ -57,15 +57,11 @@ fn skin_prev_model(
         + weights.z * prev_joint_matrices.data[indexes.z]
         + weights.w * prev_joint_matrices.data[indexes.w];
 #else   // SKINS_USE_UNIFORM_BUFFERS
-    let prev_skin_index = mesh[instance_index].previous_skin_index;
-    if (prev_skin_index == 0xffffffffu) {
-        return skin_model(indexes, weights, instance_index);
-    }
-
-    return weights.x * prev_joint_matrices[prev_skin_index + indexes.x]
-        + weights.y * prev_joint_matrices[prev_skin_index + indexes.y]
-        + weights.z * prev_joint_matrices[prev_skin_index + indexes.z]
-        + weights.w * prev_joint_matrices[prev_skin_index + indexes.w];
+    let skin_index = mesh[instance_index].current_skin_index;
+    return weights.x * prev_joint_matrices[skin_index + indexes.x]
+        + weights.y * prev_joint_matrices[skin_index + indexes.y]
+        + weights.z * prev_joint_matrices[skin_index + indexes.z]
+        + weights.w * prev_joint_matrices[skin_index + indexes.w];
 #endif  // SKINS_USE_UNIFORM_BUFFERS
 }
 

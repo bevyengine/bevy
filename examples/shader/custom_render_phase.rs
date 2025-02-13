@@ -41,8 +41,8 @@ use bevy::{
         },
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
-            DrawFunctions, PhaseItem, PhaseItemExtraIndex, SetItemPipeline, SortedPhaseItem,
-            ViewSortedRenderPhases,
+            DrawFunctions, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
+            SortedPhaseItem, ViewSortedRenderPhases,
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
@@ -370,9 +370,9 @@ impl GetBatchData for StencilPipeline {
                 flags: mesh_transforms.flags,
                 first_vertex_index,
                 current_skin_index: u32::MAX,
-                previous_skin_index: u32::MAX,
                 material_and_lightmap_bind_group_slot: 0,
                 tag: 0,
+                pad: 0,
             }
         };
         Some((mesh_uniform, None))
@@ -426,12 +426,11 @@ impl GetFullBatchData for StencilPipeline {
             None,
             None,
             None,
-            None,
         ))
     }
 
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: u32,
+        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
@@ -442,7 +441,7 @@ impl GetFullBatchData for StencilPipeline {
         // though they actually have distinct layouts. See the comment above that
         // type for more information.
         let indirect_parameters = IndirectParametersMetadata {
-            mesh_index,
+            mesh_index: *mesh_index,
             base_output_index,
             batch_set_index: match batch_set_index {
                 None => !0,
