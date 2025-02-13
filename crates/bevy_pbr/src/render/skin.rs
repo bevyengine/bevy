@@ -1,11 +1,10 @@
 use core::mem::{self, size_of};
 use std::sync::OnceLock;
 
-use bevy_asset::{AssetEvent, Assets};
+use bevy_asset::{prelude::AssetChanged, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_platform_support::collections::hash_map::Entry;
-use bevy_platform_support::collections::HashSet;
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
@@ -282,7 +281,11 @@ pub fn extract_skins(
     changed_skinned_meshes: Extract<
         Query<
             (Entity, &ViewVisibility, &SkinnedMesh),
-            Or<(Changed<ViewVisibility>, Changed<SkinnedMesh>)>,
+            Or<(
+                Changed<ViewVisibility>,
+                Changed<SkinnedMesh>,
+                AssetChanged<SkinnedMesh>,
+            )>,
         >,
     >,
     skinned_mesh_inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
@@ -333,7 +336,11 @@ fn add_or_delete_skins(
     skin_uniforms: &mut SkinUniforms,
     changed_skinned_meshes: &Query<
         (Entity, &ViewVisibility, &SkinnedMesh),
-        Or<(Changed<ViewVisibility>, Changed<SkinnedMesh>)>,
+        Or<(
+            Changed<ViewVisibility>,
+            Changed<SkinnedMesh>,
+            AssetChanged<SkinnedMesh>,
+        )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
     joints: &Query<&GlobalTransform>,
@@ -370,7 +377,11 @@ fn extract_joints(
     skinned_meshes: &Query<(Entity, &SkinnedMesh)>,
     changed_skinned_meshes: &Query<
         (Entity, &ViewVisibility, &SkinnedMesh),
-        Or<(Changed<ViewVisibility>, Changed<SkinnedMesh>)>,
+        Or<(
+            Changed<ViewVisibility>,
+            Changed<SkinnedMesh>,
+            AssetChanged<SkinnedMesh>,
+        )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
     changed_transforms: &Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>,
@@ -437,7 +448,11 @@ fn extract_joints_for_skin(
     skin_uniforms: &mut SkinUniforms,
     changed_skinned_meshes: &Query<
         (Entity, &ViewVisibility, &SkinnedMesh),
-        Or<(Changed<ViewVisibility>, Changed<SkinnedMesh>)>,
+        Or<(
+            Changed<ViewVisibility>,
+            Changed<SkinnedMesh>,
+            AssetChanged<SkinnedMesh>,
+        )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
     joints: &Query<&GlobalTransform>,
@@ -575,37 +590,6 @@ fn remove_skin(skin_uniforms: &mut SkinUniforms, skinned_mesh_entity: MainEntity
 
     // Update the total number of joints.
     skin_uniforms.total_joints -= old_skin_uniform_info.joints.len();
-}
-
-/// Marks [`SkinnedMesh`] components as changed if the
-/// [`SkinnedMeshInverseBindposes`] assets that they refer to changed.
-///
-/// This is needed to ensure that we pick up the new inverse bindposes in
-/// [`extract_skins`].
-pub fn mark_skins_as_changed_if_their_inverse_bindposes_changed(
-    mut events: EventReader<AssetEvent<SkinnedMeshInverseBindposes>>,
-    mut skins: Query<Mut<SkinnedMesh>>,
-) {
-    let dirty_skinned_mesh_inverse_bindposes: HashSet<_> = events
-        .read()
-        .map(|event| match *event {
-            AssetEvent::Added { id }
-            | AssetEvent::Modified { id }
-            | AssetEvent::Removed { id }
-            | AssetEvent::Unused { id }
-            | AssetEvent::LoadedWithDependencies { id } => id,
-        })
-        .collect();
-
-    if dirty_skinned_mesh_inverse_bindposes.is_empty() {
-        return;
-    }
-
-    for mut skin in &mut skins {
-        if dirty_skinned_mesh_inverse_bindposes.contains(&skin.inverse_bindposes.id()) {
-            skin.set_changed();
-        }
-    }
 }
 
 // NOTE: The skinned joints uniform buffer has to be bound at a dynamic offset per

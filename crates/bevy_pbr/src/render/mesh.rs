@@ -1,9 +1,6 @@
-use crate::{
-    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    skin::mark_skins_as_changed_if_their_inverse_bindposes_changed,
-};
+use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
 use allocator::MeshAllocator;
-use bevy_asset::{load_internal_asset, AssetEvents, AssetId, UntypedAssetId};
+use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -178,11 +175,7 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_systems(
             PostUpdate,
-            (
-                no_automatic_skin_batching,
-                no_automatic_morph_batching,
-                mark_skins_as_changed_if_their_inverse_bindposes_changed.after(AssetEvents),
-            ),
+            (no_automatic_skin_batching, no_automatic_morph_batching),
         )
         .add_plugins((
             BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::new(self.debug_flags),
@@ -2786,12 +2779,7 @@ fn prepare_mesh_bind_groups_for_phase(
                             targets,
                             prev_weights,
                         ),
-                        no_motion_vectors: layouts.morphed(
-                            &render_device,
-                            &model,
-                            weights,
-                            targets,
-                        ),
+                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets),
                     }
                 };
                 groups.morph_targets.insert(id, bind_group_pair);
