@@ -24,6 +24,7 @@ pub struct EmbeddedWatcher {
 }
 
 impl EmbeddedWatcher {
+    /// Creates a new `EmbeddedWatcher` that watches for changes to the embedded assets in the given `dir`.
     pub fn new(
         dir: Dir,
         root_paths: Arc<RwLock<HashMap<Box<Path>, PathBuf>>>,

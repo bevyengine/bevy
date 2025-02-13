@@ -65,15 +65,14 @@ impl FileAssetReader {
     }
 }
 
+/// A writer for the local filesystem.
 pub struct FileAssetWriter {
     root_path: PathBuf,
 }
 
 impl FileAssetWriter {
-    /// Creates a new `FileAssetIo` at a path relative to the executable's directory, optionally
+    /// Creates a new [`FileAssetWriter`] at a path relative to the executable's directory, optionally
     /// watching for changes.
-    ///
-    /// See `get_base_path` below.
     pub fn new<P: AsRef<Path> + core::fmt::Debug>(path: P, create_root: bool) -> Self {
         let root_path = get_base_path().join(path.as_ref());
         if create_root {

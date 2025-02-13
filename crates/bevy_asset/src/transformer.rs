@@ -153,6 +153,7 @@ pub struct IdentityAssetTransformer<A: Asset> {
 }
 
 impl<A: Asset> IdentityAssetTransformer<A> {
+    /// Creates a new [`IdentityAssetTransformer`] with the correct internal [`PhantomData`] field.
     pub const fn new() -> Self {
         Self {
             _phantom: PhantomData,

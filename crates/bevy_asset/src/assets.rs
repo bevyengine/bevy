@@ -95,6 +95,7 @@ impl AssetIndexAllocator {
 /// [`AssetPath`]: crate::AssetPath
 #[derive(Asset, TypePath)]
 pub struct LoadedUntypedAsset {
+    /// The handle to the loaded asset.
     #[dependency]
     pub handle: UntypedHandle,
 }
@@ -629,6 +630,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     }
 }
 
+/// An error returned when an [`AssetIndex`] has an invalid generation.
 #[derive(Error, Debug)]
 #[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
 pub struct InvalidGenerationError {
