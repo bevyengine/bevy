@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_platform_support::collections::HashSet;
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
+    resolve_hierarchy::{ResolvedChildOf, ResolvedChildren},
     ComputedNode, GlobalZIndex, ZIndex,
 };
 
@@ -43,17 +43,19 @@ pub fn ui_stack_system(
     mut root_nodes: Local<Vec<(Entity, (i32, i32))>>,
     mut visited_root_nodes: Local<HashSet<Entity>>,
     mut ui_stack: ResMut<UiStack>,
-    ui_root_nodes: UiRootNodes,
-    root_node_query: Query<(Entity, Option<&GlobalZIndex>, Option<&ZIndex>)>,
+    root_node_query: Query<
+        (Entity, Option<&GlobalZIndex>, Option<&ZIndex>),
+        Without<ResolvedChildOf>,
+    >,
     zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
-    ui_children: UiChildren,
+    ui_children: Query<&ResolvedChildren>,
     zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedNode>,
 ) {
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
-    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
+    for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter() {
         root_nodes.push((
             id,
             (
@@ -100,23 +102,21 @@ pub fn ui_stack_system(
 fn update_uistack_recursive(
     cache: &mut ChildBufferCache,
     node_entity: Entity,
-    ui_children: &UiChildren,
+    ui_children: &Query<&ResolvedChildren>,
     zindex_query: &Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
     ui_stack: &mut Vec<Entity>,
 ) {
     ui_stack.push(node_entity);
 
     let mut child_buffer = cache.pop();
-    child_buffer.extend(
-        ui_children
-            .iter_ui_children(node_entity)
-            .filter_map(|child_entity| {
-                zindex_query
-                    .get(child_entity)
-                    .ok()
-                    .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
-            }),
-    );
+    if let Ok(children) = ui_children.get(node_entity) {
+        child_buffer.extend(children.0.iter().cloned().filter_map(|child_entity| {
+            zindex_query
+                .get(child_entity)
+                .ok()
+                .map(|zindex| (child_entity, zindex.map(|zindex| zindex.0).unwrap_or(0)))
+        }));
+    }
     child_buffer.sort_by_key(|k| k.1);
     for (child_entity, _) in child_buffer.drain(..) {
         update_uistack_recursive(cache, child_entity, ui_children, zindex_query, ui_stack);

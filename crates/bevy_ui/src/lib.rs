@@ -17,6 +17,7 @@ pub mod widget;
 
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+pub mod resolve_hierarchy;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -36,6 +37,7 @@ pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
+use resolve_hierarchy::resolve_ui_hierarchy;
 pub use ui_material::*;
 pub use ui_node::*;
 
@@ -101,6 +103,7 @@ pub enum UiSystem {
     ///
     /// Runs in [`PreUpdate`].
     Focus,
+    Resolve,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
     /// Update content requirements before layout.
@@ -174,6 +177,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
+                    UiSystem::Resolve,
                     UiSystem::Prepare.after(Animation),
                     UiSystem::Content,
                     UiSystem::Layout,
@@ -198,6 +202,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
+                resolve_ui_hierarchy.in_set(UiSystem::Resolve),
                 update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system

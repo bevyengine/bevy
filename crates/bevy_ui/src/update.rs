@@ -1,9 +1,8 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
-    UiTargetCamera,
+    experimental::UiRootNodes, resolve_hierarchy::ResolvedChildren, CalculatedClip,
+    ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -11,7 +10,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{hash_set::EntityHashSet, Entity},
     hierarchy::ChildOf,
-    query::{Changed, With},
+    query::{Changed, With, Without},
     system::{Commands, Local, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -22,14 +21,14 @@ use bevy_transform::components::GlobalTransform;
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
     mut commands: Commands,
-    root_nodes: UiRootNodes,
+    root_nodes: Query<Entity, (Without<ChildOf>, With<ComputedNode>)>,
     mut node_query: Query<(
         &Node,
         &ComputedNode,
         &GlobalTransform,
         Option<&mut CalculatedClip>,
     )>,
-    ui_children: UiChildren,
+    ui_children: Query<&ResolvedChildren>,
 ) {
     for root_node in root_nodes.iter() {
         update_clipping(
@@ -44,7 +43,7 @@ pub fn update_clipping_system(
 
 fn update_clipping(
     commands: &mut Commands,
-    ui_children: &UiChildren,
+    ui_children: &Query<&ResolvedChildren>,
     node_query: &mut Query<(
         &Node,
         &ComputedNode,
@@ -125,8 +124,10 @@ fn update_clipping(
         Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
     };
 
-    for child in ui_children.iter_ui_children(entity) {
-        update_clipping(commands, ui_children, node_query, child, children_clip);
+    if let Ok(children) = ui_children.get(entity) {
+        for child in children.0.iter() {
+            update_clipping(commands, ui_children, node_query, *child, children_clip);
+        }
     }
 }
 
@@ -137,7 +138,7 @@ pub fn update_ui_context_system(
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
     mut computed_target_query: Query<&mut ComputedNodeTarget>,
-    ui_children: UiChildren,
+    ui_children: Query<&ResolvedChildren>,
     reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTarget>)>,
     mut visited: Local<EntityHashSet>,
 ) {
@@ -194,7 +195,7 @@ pub fn update_ui_context_system(
 fn update_contexts_recursively(
     entity: Entity,
     inherited_computed_target: ComputedNodeTarget,
-    ui_children: &UiChildren,
+    ui_children: &Query<&ResolvedChildren>,
     query: &mut Query<&mut ComputedNodeTarget>,
     visited: &mut EntityHashSet,
 ) {
@@ -206,14 +207,16 @@ fn update_contexts_recursively(
         .map(|mut computed_target| computed_target.set_if_neq(inherited_computed_target))
         .unwrap_or(false)
     {
-        for child in ui_children.iter_ui_children(entity) {
-            update_contexts_recursively(
-                child,
-                inherited_computed_target,
-                ui_children,
-                query,
-                visited,
-            );
+        if let Ok(children) = ui_children.get(entity) {
+            for child in children.0.iter() {
+                update_contexts_recursively(
+                    *child,
+                    inherited_computed_target,
+                    ui_children,
+                    query,
+                    visited,
+                );
+            }
         }
     }
 }
