@@ -1,4 +1,7 @@
-use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
+use crate::{
+    material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
+    skin::mark_meshes_as_changed_if_their_skins_changed,
+};
 use allocator::MeshAllocator;
 use bevy_asset::{load_internal_asset, AssetId, UntypedAssetId};
 use bevy_core_pipeline::{
@@ -8,6 +11,7 @@ use bevy_core_pipeline::{
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -175,7 +179,13 @@ impl Plugin for MeshRenderPlugin {
 
         app.add_systems(
             PostUpdate,
-            (no_automatic_skin_batching, no_automatic_morph_batching),
+            (
+                no_automatic_skin_batching,
+                no_automatic_morph_batching,
+                mark_meshes_as_changed_if_their_skins_changed
+                    .ambiguous_with_all()
+                    .after(mark_3d_meshes_as_changed_if_their_assets_changed),
+            ),
         )
         .add_plugins((
             BinnedRenderPhasePlugin::<Opaque3d, MeshPipeline>::new(self.debug_flags),
@@ -549,17 +559,15 @@ pub struct MeshInputUniform {
     pub index_count: u32,
     /// The current skin index, or `u32::MAX` if there's no skin.
     pub current_skin_index: u32,
-    /// The previous skin index, or `u32::MAX` if there's no previous skin.
     pub previous_skin_index: u32,
     /// The material and lightmap indices, packed into 32 bits.
     ///
     /// Low 16 bits: index of the material inside the bind group data.
     /// High 16 bits: index of the lightmap in the binding array.
     pub material_and_lightmap_bind_group_slot: u32,
+    pub timestamp: u32,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
-    /// Padding.
-    pub pad: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -1121,6 +1129,7 @@ impl RenderMeshInstanceGpuBuilder {
         render_material_bindings: &RenderMaterialBindings,
         render_lightmaps: &RenderLightmaps,
         skin_indices: &SkinIndices,
+        timestamp: FrameCount,
     ) -> u32 {
         let (first_vertex_index, vertex_count) =
             match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
@@ -1139,7 +1148,6 @@ impl RenderMeshInstanceGpuBuilder {
                 ),
                 None => (false, 0, 0),
             };
-
         let current_skin_index = match skin_indices.current.get(&entity) {
             Some(skin_indices) => skin_indices.index(),
             None => u32::MAX,
@@ -1173,6 +1181,7 @@ impl RenderMeshInstanceGpuBuilder {
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
             previous_input_index: u32::MAX,
+            timestamp: timestamp.0,
             first_vertex_index,
             first_index_index,
             index_count: if mesh_is_indexed {
@@ -1186,7 +1195,6 @@ impl RenderMeshInstanceGpuBuilder {
                 self.shared.material_bindings_index.slot,
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
-            pad: 0,
         };
 
         // Did the last frame contain this entity as well?
@@ -1615,6 +1623,7 @@ pub fn collect_meshes_for_gpu_building(
     render_material_bindings: Res<RenderMaterialBindings>,
     render_lightmaps: Res<RenderLightmaps>,
     skin_indices: Res<SkinIndices>,
+    frame_count: Res<FrameCount>,
 ) {
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1654,6 +1663,7 @@ pub fn collect_meshes_for_gpu_building(
                         &render_material_bindings,
                         &render_lightmaps,
                         &skin_indices,
+                        *frame_count,
                     );
                 }
 
@@ -1681,6 +1691,7 @@ pub fn collect_meshes_for_gpu_building(
                         &render_material_bindings,
                         &render_lightmaps,
                         &skin_indices,
+                        *frame_count,
                     );
                     mesh_culling_builder
                         .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
@@ -1863,7 +1874,6 @@ impl GetBatchData for MeshPipeline {
 
         let current_skin_index = skin_indices.current.get(&main_entity).map(SkinIndex::index);
         let previous_skin_index = skin_indices.prev.get(&main_entity).map(SkinIndex::index);
-
         let material_bind_group_index = mesh_instance.material_bindings_index;
 
         Some((
