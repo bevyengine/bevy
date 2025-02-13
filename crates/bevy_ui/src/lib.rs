@@ -17,6 +17,8 @@ pub mod widget;
 
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+#[cfg(feature = "bevy_ui_picking_backend")]
+pub mod text_picking_backend;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -222,6 +224,7 @@ impl Plugin for UiPlugin {
         #[cfg(feature = "bevy_ui_picking_backend")]
         if self.add_picking {
             app.add_plugins(picking_backend::UiPickingPlugin);
+            app.add_plugins(text_picking_backend::plugin);
         }
 
         if !self.enable_rendering {
