@@ -97,50 +97,58 @@ pub fn propagate_transform_nodes(
             }
         });
 
-    // A parallel worker that will consume processed parent entities from the queue
-    let worker = || {
-        let mut outbox = queue.local_queue.borrow_local_mut();
-        loop {
-            // Try to acquire a lock on the work queue in a tight loop.
-            let Ok(rx) = queue.receiver.try_lock() else {
-                continue;
-            };
-            // If the queue is empty and no other threads are busy processing work, we can conclude
-            // there is no more work to do, and end the task by exiting the loop.
-            let Some(mut tasks) = rx.try_iter().next() else {
-                if queue.busy_threads.load(Ordering::Relaxed) == 0 {
-                    break; // All work is complete, kill the worker
-                }
-                continue; // No work to do now, but another thread is busy creating more work
-            };
-            if tasks.is_empty() {
-                continue;
-            }
-
-            // At this point, we know there is work to do, so we increment the busy thread counter,
-            // and drop the mutex guard *after* we have incremented the counter. This ensures that
-            // if another thread is able to acquire a lock, the busy thread counter will already be
-            // incremented.
-            queue.busy_threads.fetch_add(1, Ordering::Relaxed);
-            drop(rx);
-            for parent in tasks.drain(..) {
-                // SAFETY: Visiting the hierarchy as a tree without cycles
-                #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-                unsafe {
-                    let (_, _, parent_transform, children) = nodes.get_unchecked(parent).unwrap();
-                    propagate_to_child_unchecked(parent_transform, children, &nodes, &mut outbox);
-                }
-            }
-            for chunk in outbox.chunks(1024) {
-                queue.sender.send(chunk.to_vec()).ok();
-            }
-            outbox.clear();
-            queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
-        }
-    };
-
+    // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
     let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
-    task_pool.scope(|s| (0..task_pool.thread_num()).for_each(|_| s.spawn(async { worker() })));
+    task_pool.scope(|s| {
+        (0..task_pool.thread_num())
+            .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
+    });
+}
+
+/// A parallel worker that will consume processed parent entities from the queue, and push children
+/// to the queue once it has propagated their [`GlobalTransform`].
+fn propagation_worker(
+    queue: &WorkQueue,
+    nodes: &Query<(Entity, Ref<'_, Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
+) {
+    let mut outbox = queue.local_queue.borrow_local_mut();
+    loop {
+        // Try to acquire a lock on the work queue in a tight loop.
+        let Ok(rx) = queue.receiver.try_lock() else {
+            continue;
+        };
+        // If the queue is empty and no other threads are busy processing work, we can conclude
+        // there is no more work to do, and end the task by exiting the loop.
+        let Some(mut tasks) = rx.try_iter().next() else {
+            if queue.busy_threads.load(Ordering::Relaxed) == 0 {
+                break; // All work is complete, kill the worker
+            }
+            continue; // No work to do now, but another thread is busy creating more work
+        };
+        if tasks.is_empty() {
+            continue;
+        }
+
+        // At this point, we know there is work to do, so we increment the busy thread counter,
+        // and drop the mutex guard *after* we have incremented the counter. This ensures that
+        // if another thread is able to acquire a lock, the busy thread counter will already be
+        // incremented.
+        queue.busy_threads.fetch_add(1, Ordering::Relaxed);
+        drop(rx);
+        for parent in tasks.drain(..) {
+            // SAFETY: Visiting the hierarchy as a tree without cycles
+            #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+            unsafe {
+                let (_, _, parent_transform, children) = nodes.get_unchecked(parent).unwrap();
+                propagate_to_child_unchecked(parent_transform, children, nodes, &mut outbox);
+            }
+        }
+        for chunk in outbox.chunks(1024) {
+            queue.sender.send(chunk.to_vec()).ok();
+        }
+        outbox.clear();
+        queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
+    }
 }
 
 /// # Safety
@@ -155,10 +163,7 @@ unsafe fn propagate_to_child_unchecked(
     nodes: &Query<(Entity, Ref<'_, Transform>, &mut GlobalTransform, &Children), With<ChildOf>>,
     outbox: &mut Vec<Entity>,
 ) {
-    // SAFETY:
-    //
-    // The outer function must only be called with disjoint entity access. If that contract is
-    // upheld, it is safe to access this global transform without mutable aliasing.
+    // SAFETY: This function must only be called with disjoint entity access.
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
     let mut children = unsafe { nodes.iter_many_unsafe(children) };
     while let Some((child, transform, mut global_transform, _)) = children.fetch_next() {
