@@ -113,14 +113,21 @@ impl core::fmt::Debug for StrongHandle {
     }
 }
 
-/// A strong or weak handle to a specific [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
+/// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
+/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// avoiding the need to store multiple copies of the same data.
+///
+/// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
 /// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
 /// nor will it keep assets alive.
+///
+/// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
+/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
 ///
-/// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
+/// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
 #[reflect(Default, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
