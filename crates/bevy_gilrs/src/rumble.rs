@@ -132,7 +132,7 @@ pub(crate) fn play_gilrs_rumble(
 ) {
     GILRS.with(|gilrs_ref_cell| {
         let mut gilrs_ref = gilrs_ref_cell.borrow_mut();
-        let gilrs = gilrs_ref.as_mut().expect("");
+        let gilrs = gilrs_ref.as_mut().expect("gilrs should have been initialized");
         let current_time = time.elapsed();
         // Remove outdated rumble effects.
         for rumbles in running_rumbles.rumbles.values_mut() {

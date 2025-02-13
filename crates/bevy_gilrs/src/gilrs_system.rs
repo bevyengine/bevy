@@ -50,7 +50,7 @@ pub fn gilrs_event_system(
 ) {
     GILRS.with(|gilrs_ref_cell| {
         let mut gilrs_ref = gilrs_ref_cell.borrow_mut();
-        let gilrs = gilrs_ref.as_mut().expect("");
+        let gilrs = gilrs_ref.as_mut().expect("gilrs should have been initialized");
         while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
             gilrs.update(&gilrs_event);
             match gilrs_event.event {
