@@ -1495,7 +1495,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     #[cfg(feature = "trace")]
                     let _span = self.par_iter_span.enter();
                     let accum = init_accum();
-                    self.iter_many_unique_unchecked_manual(batch, world, last_run, this_run)
+                    self.query_unchecked_manual_with_ticks(world, last_run, this_run)
+                        .iter_many_unique(batch)
                         .fold(accum, &mut func);
                 });
             }
@@ -1503,7 +1504,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             let _span = self.par_iter_span.enter();
             let accum = init_accum();
-            self.iter_many_unique_unchecked_manual(remainder, world, last_run, this_run)
+            self.query_unchecked_manual_with_ticks(world, last_run, this_run)
+                .iter_many_unique(remainder)
                 .fold(accum, &mut func);
         });
     }
@@ -1556,7 +1558,8 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
                     #[cfg(feature = "trace")]
                     let _span = self.par_iter_span.enter();
                     let accum = init_accum();
-                    self.iter_many_unchecked_manual(batch, world, last_run, this_run)
+                    self.query_unchecked_manual_with_ticks(world, last_run, this_run)
+                        .iter_many_inner(batch)
                         .fold(accum, &mut func);
                 });
             }
@@ -1564,7 +1567,8 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
             #[cfg(feature = "trace")]
             let _span = self.par_iter_span.enter();
             let accum = init_accum();
-            self.iter_many_unchecked_manual(remainder, world, last_run, this_run)
+            self.query_unchecked_manual_with_ticks(world, last_run, this_run)
+                .iter_many_inner(remainder)
                 .fold(accum, &mut func);
         });
     }
