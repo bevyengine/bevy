@@ -38,10 +38,11 @@ pub use texture_slice::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvents, Assets, Handle};
-use bevy_core_pipeline::core_2d::Transparent2d;
+use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_render::{
+    batching::sort_binned_render_phase,
     mesh::{Mesh, Mesh2d, MeshAabb},
     primitives::Aabb,
     render_phase::AddRenderCommand,
@@ -151,6 +152,8 @@ impl Plugin for SpritePlugin {
                             .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
                         prepare_sprite_image_bind_groups.in_set(RenderSet::PrepareBindGroups),
                         prepare_sprite_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSet::PhaseSort),
+                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSet::PhaseSort),
                     ),
                 );
         };

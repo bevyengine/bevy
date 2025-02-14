@@ -6,7 +6,6 @@ use super::{
     GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
     MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
-    VertexFormatSize,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
@@ -379,7 +378,7 @@ impl Mesh {
     pub fn get_vertex_size(&self) -> u64 {
         self.attributes
             .values()
-            .map(|data| data.attribute.format.get_size())
+            .map(|data| data.attribute.format.size())
             .sum()
     }
 
@@ -414,7 +413,7 @@ impl Mesh {
                 format: data.attribute.format,
                 shader_location: index as u32,
             });
-            accumulated_offset += data.attribute.format.get_size();
+            accumulated_offset += data.attribute.format.size();
         }
 
         let layout = MeshVertexBufferLayout {
@@ -482,7 +481,7 @@ impl Mesh {
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
         for attribute_data in self.attributes.values() {
-            let attribute_size = attribute_data.attribute.format.get_size() as usize;
+            let attribute_size = attribute_data.attribute.format.size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in attributes_bytes
                 .chunks_exact(attribute_size)

@@ -149,6 +149,9 @@
 extern crate alloc;
 extern crate std;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_asset;
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -627,7 +630,6 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{
@@ -723,7 +725,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get();
+                let cool = loaded.get_asset().get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {

@@ -100,7 +100,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             self.#field.get_components(&mut *func);
                         });
                         field_from_components.push(quote! {
-                            #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                            #field: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
                     }
                     None => {
@@ -109,7 +109,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                             self.#index.get_components(&mut *func);
                         });
                         field_from_components.push(quote! {
-                            #index: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                            #index: <#field_type as #ecs_path::bundle::BundleFromComponents>::from_components(ctx, &mut *func),
                         });
                     }
                 }
@@ -128,9 +128,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         // SAFETY:
-        // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // - ComponentId is returned in field-definition-order. [get_components] uses field-definition-order
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
+        #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
@@ -146,6 +147,18 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(#field_get_component_ids)*
             }
 
+            fn register_required_components(
+                components: &mut #ecs_path::component::Components,
+                required_components: &mut #ecs_path::component::RequiredComponents
+            ){
+                #(#field_required_components)*
+            }
+        }
+
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] uses field-definition-order
+        #[allow(deprecated)]
+        unsafe impl #impl_generics #ecs_path::bundle::BundleFromComponents for #struct_name #ty_generics #where_clause {
             #[allow(unused_variables, non_snake_case)]
             unsafe fn from_components<__T, __F>(ctx: &mut __T, func: &mut __F) -> Self
             where
@@ -155,16 +168,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     #(#field_from_components)*
                 }
             }
-
-            fn register_required_components(
-                components: &mut #ecs_path::component::Components,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ){
-                #(#field_required_components)*
-            }
         }
 
+        #[allow(deprecated)]
         impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+            type Effect = ();
             #[allow(unused_variables)]
             #[inline]
             fn get_components(

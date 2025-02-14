@@ -18,7 +18,6 @@ experimental_pbr_pcss = []
 pbr_specular_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
-ios_simulator = ["bevy_render/ios_simulator"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:half", "dep:bevy_tasks"]
 # Enables processing meshes into meshlet meshes

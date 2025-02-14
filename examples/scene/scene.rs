@@ -24,7 +24,7 @@
 //! won't work on WASM because WASM typically doesn't have direct filesystem access.
 //!
 
-use bevy::{prelude::*, tasks::IoTaskPool};
+use bevy::{asset::LoadState, prelude::*, tasks::IoTaskPool};
 use core::time::Duration;
 use std::{fs::File, io::Write};
 
@@ -42,7 +42,7 @@ fn main() {
             Startup,
             (save_scene_system, load_scene_system, infotext_system),
         )
-        .add_systems(Update, log_system)
+        .add_systems(Update, (log_system, panic_on_fail))
         .run();
 }
 
@@ -225,4 +225,14 @@ fn infotext_system(mut commands: Commands) {
             ..default()
         },
     ));
+}
+
+/// To help with Bevy's automated testing, we want the example to close with an appropriate if the
+/// scene fails to load. This is most likely not something you want in your own app.
+fn panic_on_fail(scenes: Query<&DynamicSceneRoot>, asset_server: Res<AssetServer>) {
+    for scene in &scenes {
+        if let Some(LoadState::Failed(err)) = asset_server.get_load_state(&scene.0) {
+            panic!("Failed to load scene. {}", err);
+        }
+    }
 }

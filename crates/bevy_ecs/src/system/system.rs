@@ -386,7 +386,6 @@ impl Debug for RunSystemError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_ecs;
     use crate::prelude::*;
 
     #[test]
