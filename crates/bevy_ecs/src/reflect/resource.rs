@@ -113,19 +113,23 @@ impl ReflectResource {
     }
 
     /// Gets the value of this [`Resource`] type from the world as a reflected reference.
+    ///
+    /// Note that [`&World`](World) is a valid type for `resources`.
     pub fn reflect<'w, 's>(
         &self,
-        world: impl Into<FilteredResources<'w, 's>>,
+        resources: impl Into<FilteredResources<'w, 's>>,
     ) -> Option<&'w dyn Reflect> {
-        (self.0.reflect)(world.into())
+        (self.0.reflect)(resources.into())
     }
 
     /// Gets the value of this [`Resource`] type from the world as a mutable reflected reference.
+    ///
+    /// Note that [`&mut World`](World) is a valid type for `resources`.
     pub fn reflect_mut<'w, 's>(
         &self,
-        world: impl Into<FilteredResourcesMut<'w, 's>>,
+        resources: impl Into<FilteredResourcesMut<'w, 's>>,
     ) -> Option<Mut<'w, dyn Reflect>> {
-        (self.0.reflect_mut)(world.into())
+        (self.0.reflect_mut)(resources.into())
     }
 
     /// # Safety
