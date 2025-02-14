@@ -41,7 +41,7 @@ pub enum ValidateShader {
     /// While this can have a meaningful impact on performance,
     /// this setting should *always* be enabled when loading untrusted shaders.
     /// This might occur if you are creating a shader playground, running user-generated shaders
-    /// (as in VRChat), or writing a web browser in Bevy.
+    /// (as in `VRChat`), or writing a web browser in Bevy.
     Enabled,
 }
 
