@@ -123,6 +123,8 @@ mod adapter_system;
 mod builder;
 mod combinator;
 mod commands;
+/// Module containing types and traits for compile-time parameter checking of systems
+/// Enables validation of component access patterns and system parameter compatibility
 pub mod const_param_checking;
 mod exclusive_function_system;
 mod exclusive_system_param;
@@ -184,6 +186,8 @@ pub use system_registry::*;
     label = "invalid system"
 )]
 pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
+    /// Compile-time error checker for systems
+    /// Contains validation results from checking parameter compatibility
     const INTO_SYSTEM_PANIC_CHECKER: Option<SystemPanicMessage> = None;
 
     /// The type of [`System`] that this instance converts into.

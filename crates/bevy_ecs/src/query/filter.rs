@@ -91,7 +91,13 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
+
+    /// A compile-time representation of the `With<T>`/`Added<T>`/`Changed<T>` filters applied to this query
+    /// Used for validating query compatibility during const evaluation
     const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = None;
+
+    /// A compile-time representation of the Without<T> filters applied to this query
+    /// Used for validating query compatibility during const evaluation
     const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = None;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.

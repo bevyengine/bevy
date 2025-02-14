@@ -992,6 +992,9 @@ where
     label = "invalid system"
 )]
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+
+    /// Compile-time error checker for system parameter functions
+    /// Contains validation results from checking parameter compatibility
     const SYSTEM_PARAM_FUNCTION_PANIC_CHECKER: Option<SystemPanicMessage> = None;
 
     /// The input type of this system. See [`System::In`].

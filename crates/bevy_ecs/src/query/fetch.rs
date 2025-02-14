@@ -14,7 +14,6 @@ use crate::{
         FilteredEntityMut, FilteredEntityRef, Mut, Ref, World,
     },
 };
-use bevy_ecs::system::const_param_checking::{WithFilterTree, WithoutFilterTree};
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
@@ -1222,7 +1221,7 @@ unsafe impl<T: Component> WorldQuery for &T {
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<T: Component> QueryData for &T
 where
-    for<'a> &'a T: crate::system::const_param_checking::AccessTreeContainer,
+    for<'a> &'a T: AccessTreeContainer,
 {
     type ReadOnly = Self;
     type Item<'w> = &'w T;
@@ -1592,7 +1591,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T
 where
-    for<'a> &'a mut T: crate::system::const_param_checking::AccessTreeContainer,
+    for<'a> &'a mut T: AccessTreeContainer,
 {
     type ReadOnly = &'__w T;
     type Item<'w> = Mut<'w, T>;
@@ -1739,7 +1738,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
 unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
 where
-    for<'a> &'a mut T: crate::system::const_param_checking::AccessTreeContainer,
+    for<'a> &'a mut T: AccessTreeContainer,
 {
     type ReadOnly = Ref<'__w, T>;
     type Item<'w> = Mut<'w, T>;

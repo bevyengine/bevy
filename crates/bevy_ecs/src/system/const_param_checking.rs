@@ -7,9 +7,13 @@ use core::fmt::Debug;
 /// displaying helpful error messages to users.
 #[derive(Copy, Clone, Debug)]
 pub struct SystemPanicMessage {
+    /// The type of access (Ref/Mut) for the left-hand side component in a conflict
     pub lhs_access_type: AccessType,
+    /// The name of the left-hand side component involved in the conflict
     pub lhs_name: &'static str,
+    /// The type of access (Ref/Mut) for the right-hand side component in a conflict
     pub rhs_access_type: AccessType,
+    /// The name of the right-hand side component involved in the conflict
     pub rhs_name: &'static str,
 }
 
@@ -17,39 +21,19 @@ pub struct SystemPanicMessage {
 /// or used with a specific access type (Ref/Mut) and optional name.
 #[derive(Copy, Clone, Debug)]
 pub enum ComponentAccess {
+    /// The component is not accessed by this system
     Ignore,
+    /// The component is accessed with specific access patterns
     Use {
+        /// Unique compile-time identifier for the component type
         type_id: u128,
+        /// The type of access (reference or mutable) to the component
         access: AccessType,
+        /// The component's name if available, used for error reporting
         name: Option<&'static str>,
     },
 }
 impl ComponentAccess {
-    const fn invalid(&self, rhs: &ComponentAccess) -> bool {
-        match self {
-            ComponentAccess::Ignore => false,
-            ComponentAccess::Use {
-                type_id,
-                access,
-                name,
-            } => {
-                let type_id_self = type_id;
-                let access_self = access;
-                match rhs {
-                    ComponentAccess::Ignore => false,
-                    ComponentAccess::Use {
-                        type_id,
-                        access,
-                        name,
-                    } => {
-                        *type_id_self == *type_id
-                            && (matches!(access_self, AccessType::Mut)
-                                || matches!(access, AccessType::Mut))
-                    }
-                }
-            }
-        }
-    }
     const fn invalid_2(&self, rhs: &ComponentAccess) -> Option<SystemPanicMessage> {
         match self {
             ComponentAccess::Ignore => None,
@@ -122,7 +106,9 @@ impl ComponentAccess {
 /// The type of access to a component - either read-only reference or mutable reference.
 #[derive(Copy, Clone, Debug)]
 pub enum AccessType {
+    /// Immutable reference access (&T)
     Ref,
+    /// Mutable reference access (&mut T)
     Mut,
 }
 
@@ -141,6 +127,8 @@ pub struct WithFilterTree {
 }
 
 impl WithFilterTree {
+    /// Combines two `With<T>`/`Added<T>`/`Changed<T>` filter trees into a single tree for validation
+    /// Returns a new tree containing both filter patterns
     pub const fn combine(
         left: &'static Option<WithFilterTree>,
         right: &'static Option<WithFilterTree>,
@@ -203,6 +191,9 @@ pub struct WithoutFilterTree {
 }
 
 impl WithoutFilterTree {
+
+    /// Combines two `Without<T>` filter trees into a single tree for validation
+    /// Returns a new tree containing both filter patterns
     pub const fn combine(
         left: &'static Option<WithoutFilterTree>,
         right: &'static Option<WithoutFilterTree>,
@@ -234,8 +225,8 @@ impl WithoutFilterTree {
             ComponentAccess::Ignore => false,
             ComponentAccess::Use {
                 type_id,
-                access,
-                name,
+                access: _,
+                name: _,
             } => {
                 if let Some(type_id_this) = self.this.0 {
                     if type_id_this == type_id {
@@ -270,13 +261,17 @@ pub struct WithId(pub Option<u128>);
 /// of query compatibility and detection of conflicting accesses.
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentAccessTree {
+    /// The component access pattern at this node
     pub this: ComponentAccess,
+    /// Left subtree of component access patterns, if any
     pub left: Option<&'static ComponentAccessTree>,
+    /// Right subtree of component access patterns, if any
     pub right: Option<&'static ComponentAccessTree>,
 }
 
 impl ComponentAccessTree {
-    #[track_caller]
+    /// Combines two component access trees into a single tree for validation
+    /// Returns a new tree containing both access patterns for conflict checking
     pub const fn combine(
         left: &'static ComponentAccessTree,
         right: &'static ComponentAccessTree,
@@ -289,6 +284,8 @@ impl ComponentAccessTree {
         }
     }
 
+    /// Checks for conflicts between two sets of component access patterns and filters
+    /// Returns Some(SystemPanicMessage) if a conflict is found, None otherwise
     pub const fn filter_check(
         left: (
             &'static ComponentAccessTree,
@@ -457,6 +454,8 @@ impl<T: Component> AccessTreeContainer for &mut T {
 /// Implementing types provide a const evaluation mechanism to detect invalid
 /// parameter combinations before runtime.
 pub trait ValidSystemParams<SystemParams> {
+    /// Compile-time error detection for system parameters
+    /// Contains validation results from checking parameter compatibility
     const SYSTEM_PARAMS_COMPILE_ERROR: Option<SystemPanicMessage>;
 }
 use crate::system::SystemParamItem;
@@ -469,6 +468,7 @@ macro_rules! impl_valid_system_params_for_fn {
         for<'a> &'a mut Func: FnMut($($param),*) -> Out + FnMut($(SystemParamItem<$param>),*) -> Out,
     {
         const SYSTEM_PARAMS_COMPILE_ERROR: Option<SystemPanicMessage> = const {
+                #[allow(unused_mut)]
                 let mut error = None;
                 impl_valid_system_params_for_fn!(@check_all error, $($param),+);
                 error

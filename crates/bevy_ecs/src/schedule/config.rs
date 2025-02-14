@@ -291,6 +291,9 @@ pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
 {
+    /// Compile-time error checker for system configurations
+    /// Contains validation results from checking parameter compatibility in system configs and
+    /// if there is a resulting panic message, trickles it up the stack.
     const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = None;
     /// Convert into a [`SystemConfigs`].
     fn into_configs(self) -> SystemConfigs;

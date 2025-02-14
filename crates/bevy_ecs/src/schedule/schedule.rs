@@ -2,7 +2,6 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
-#![allow(const_err)]
 use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
@@ -20,7 +19,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
-use bevy_ecs::system::const_param_checking::{AccessType, SystemPanicMessage};
+use bevy_ecs::system::const_param_checking::{AccessType};
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use core::{

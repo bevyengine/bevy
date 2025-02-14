@@ -194,13 +194,20 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of [`SystemParam::Item<'w, 's>`] as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
+    /// A compile-time representation of how this system parameter accesses components
+    /// Used for validating access patterns during const evaluation
     const COMPONENT_ACCESS_TREE: ComponentAccessTree = ComponentAccessTree {
         this: ComponentAccess::Ignore,
         left: None,
         right: None,
     };
 
+    /// A compile-time representation of With<T>, Added<T>, and Changed<T> filters for this parameter
+    /// Used for validating filter compatibility during const evaluation
     const WITH_FILTER_TREE: Option<WithFilterTree> = None;
+
+    /// A compile-time representation of Without<T> filters for this parameter
+    /// Used for validating filter compatibility during const evaluation
     const WITHOUT_FILTER_TREE: Option<WithoutFilterTree> = None;
 
     /// Registers any [`World`] access used by this [`SystemParam`]
