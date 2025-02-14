@@ -144,7 +144,7 @@ macro_rules! embedded_path {
     }};
 
     ($source_path: expr, $path_str: expr) => {{
-        let crate_name = module_path!().split(':').next().unwrap();
+        let crate_name = env!("CARGO_CRATE_NAME");
         $crate::io::embedded::_embedded_asset_path(
             crate_name,
             $source_path.as_ref(),

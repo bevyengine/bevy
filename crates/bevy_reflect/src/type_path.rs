@@ -21,7 +21,7 @@ use core::fmt;
 /// becoming `my_crate::bar::MyComponent`.
 /// This trait, through attributes when deriving itself or [`Reflect`], can ensure breaking changes are avoidable.
 ///
-/// The only external factor we rely on for stability when deriving is the [`module_path!`] macro,
+/// The only external factor we rely on for stability when deriving is the [`module_path!`] and [`env!`] macros,
 /// only if the derive does not provide a `#[type_path = "..."]` attribute.
 ///
 /// # Anonymity
@@ -30,7 +30,7 @@ use core::fmt;
 /// because not all types define all parts of a type path, for example the array type `[T; N]`.
 ///
 /// Such types are 'anonymous' in that they have only a defined [`type_path`] and [`short_type_path`]
-/// and the methods [`crate_name`], [`module_path`] and [`type_ident`] all return `None`.
+/// and the methods [`crate_name`], [`crate_version`], [`module_path`] and [`type_ident`] all return `None`.
 ///
 /// Primitives are treated like anonymous types, except they also have a defined [`type_ident`].
 ///
@@ -77,6 +77,7 @@ use core::fmt;
 /// [`type_path`]: TypePath::type_path
 /// [`short_type_path`]: TypePath::short_type_path
 /// [`crate_name`]: TypePath::crate_name
+/// [`crate_version`]: TypePath::crate_version
 /// [`module_path`]: TypePath::module_path
 /// [`type_ident`]: TypePath::type_ident
 #[diagnostic::on_unimplemented(
@@ -118,6 +119,13 @@ pub trait TypePath: 'static {
         None
     }
 
+    /// Returns the version of the crate the type is in, or [`None`] if it is [anonymous].
+    ///
+    /// [anonymous]: TypePath#anonymity
+    fn crate_version() -> Option<&'static str> {
+        None
+    }
+
     /// Returns the path to the module the type is in, or [`None`] if it is [anonymous].
     ///
     /// For `Option<Vec<usize>>`, this is `"std::option"`.
@@ -150,6 +158,9 @@ pub trait DynamicTypePath {
     /// See [`TypePath::crate_name`].
     fn reflect_crate_name(&self) -> Option<&str>;
 
+    /// See [`TypePath::crate_version`].
+    fn reflect_crate_version(&self) -> Option<&str>;
+
     /// See [`TypePath::module_path`].
     fn reflect_module_path(&self) -> Option<&str>;
 }
@@ -176,6 +187,11 @@ impl<T: TypePath> DynamicTypePath for T {
     }
 
     #[inline]
+    fn reflect_crate_version(&self) -> Option<&str> {
+        Self::crate_version()
+    }
+
+    #[inline]
     fn reflect_module_path(&self) -> Option<&str> {
         Self::module_path()
     }
@@ -189,6 +205,7 @@ pub struct TypePathTable {
     short_type_path: fn() -> &'static str,
     type_ident: fn() -> Option<&'static str>,
     crate_name: fn() -> Option<&'static str>,
+    crate_version: fn() -> Option<&'static str>,
     module_path: fn() -> Option<&'static str>,
 }
 
@@ -199,6 +216,7 @@ impl fmt::Debug for TypePathTable {
             .field("short_type_path", &(self.short_type_path)())
             .field("type_ident", &(self.type_ident)())
             .field("crate_name", &(self.crate_name)())
+            .field("crate_version", &(self.crate_version)())
             .field("module_path", &(self.module_path)())
             .finish()
     }
@@ -212,6 +230,7 @@ impl TypePathTable {
             short_type_path: T::short_type_path,
             type_ident: T::type_ident,
             crate_name: T::crate_name,
+            crate_version: T::crate_version,
             module_path: T::module_path,
         }
     }
@@ -234,6 +253,11 @@ impl TypePathTable {
     /// See [`TypePath::crate_name`].
     pub fn crate_name(&self) -> Option<&'static str> {
         (self.crate_name)()
+    }
+
+    /// See [`TypePath::crate_version`].
+    pub fn crate_version(&self) -> Option<&'static str> {
+        (self.crate_version)()
     }
 
     /// See [`TypePath::module_path`].

@@ -2448,6 +2448,10 @@ bevy_reflect::tests::Test {
                 Some("bevy_reflect")
             }
 
+            fn crate_version() -> Option<&'static str> {
+                Some("0.0.0")
+            }
+
             fn module_path() -> Option<&'static str> {
                 Some("bevy_reflect::tests")
             }
