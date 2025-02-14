@@ -44,6 +44,7 @@ impl RenderDevice {
     }
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
     /// # Safety
     ///
     /// Creates a shader module with user-customizable runtime checks which allows shaders to
@@ -91,6 +92,8 @@ impl RenderDevice {
     }
 
     /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
+    /// See [`ValidateShaders`] for more information on the tradeoffs involved with shader validation.
     #[inline]
     pub fn create_and_validate_shader_module(
         &self,
