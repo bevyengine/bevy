@@ -2,6 +2,9 @@ use bevy_ecs::component::Component;
 use bevy_ecs::system::SystemParam;
 use core::fmt::Debug;
 
+/// A message describing a system parameter validation error that occurred during const evaluation.
+/// Contains information about the conflicting parameter access types and their names for
+/// displaying helpful error messages to users.
 #[derive(Copy, Clone, Debug)]
 pub struct SystemPanicMessage {
     pub lhs_access_type: AccessType,
@@ -10,6 +13,8 @@ pub struct SystemPanicMessage {
     pub rhs_name: &'static str,
 }
 
+/// Describes how a component is accessed within a system - either ignored
+/// or used with a specific access type (Ref/Mut) and optional name.
 #[derive(Copy, Clone, Debug)]
 pub enum ComponentAccess {
     Ignore,
@@ -114,16 +119,24 @@ impl ComponentAccess {
         }
     }
 }
+/// The type of access to a component - either read-only reference or mutable reference.
 #[derive(Copy, Clone, Debug)]
 pub enum AccessType {
     Ref,
     Mut,
 }
 
+/// A tree structure representing the `With<T>`, `Added<T>`, and `Changed<T>` filters
+/// applied to a query, tracking which component types must be present. Used for compile-time
+/// validation of query compatibility. The tree allows recursively checking filter constraints
+/// across complex query combinations.
 #[derive(Copy, Clone, Debug)]
 pub struct WithFilterTree {
+    /// `WithId`
     pub this: WithId,
+    /// The lhs of the tree structure
     pub left: &'static Option<WithFilterTree>,
+    /// The rhs of the tree structure
     pub right: &'static Option<WithFilterTree>,
 }
 
@@ -176,10 +189,16 @@ impl WithFilterTree {
     }
 }
 
+/// A tree structure representing the `Without<T>` filters applied to a query, tracking which
+/// component types must be absent. Used for compile-time validation of query compatibility.
+/// The tree allows recursively checking filter constraints across complex query combinations.
 #[derive(Copy, Clone, Debug)]
 pub struct WithoutFilterTree {
+    /// `WithoutId`
     pub this: WithoutId,
+    /// The lhs of the tree structure
     pub left: &'static Option<WithoutFilterTree>,
+    /// The rhs of the tree structure
     pub right: &'static Option<WithoutFilterTree>,
 }
 
@@ -239,11 +258,16 @@ impl WithoutFilterTree {
     }
 }
 
+/// CONST_UNSTABLE_TYPEID for a component within a Without<> filter
 #[derive(Clone, Copy, Debug)]
 pub struct WithoutId(pub Option<u128>);
+/// CONST_UNSTABLE_TYPEID for a component within a With<>, Added<>, and Changed<> filter
 #[derive(Clone, Copy, Debug)]
 pub struct WithId(pub Option<u128>);
 
+/// A tree structure representing how components are accessed within a query or system.
+/// Tracks access types and CONST_UNSTABLE_IDs to enable compile-time validation
+/// of query compatibility and detection of conflicting accesses.
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentAccessTree {
     pub this: ComponentAccess,
@@ -393,7 +417,9 @@ impl ComponentAccessTree {
     }
 }
 
-pub trait AccessTreeContainer {
+/// A trait for providing a const ComponentAccessTree on Components without adding them directly
+/// to the Component type
+pub(crate) trait AccessTreeContainer {
     const COMPONENT_ACCESS_TREE: ComponentAccessTree;
 }
 
@@ -427,6 +453,9 @@ impl<T: Component> AccessTreeContainer for &mut T {
     };
 }
 
+/// A trait for validating system parameter combinations at compile time.
+/// Implementing types provide a const evaluation mechanism to detect invalid
+/// parameter combinations before runtime.
 pub trait ValidSystemParams<SystemParams> {
     const SYSTEM_PARAMS_COMPILE_ERROR: Option<SystemPanicMessage>;
 }
