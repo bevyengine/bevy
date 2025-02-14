@@ -17,12 +17,12 @@ use {
 };
 
 /// Resolved parent UI node after flattening ghost nodes
-/// Updated by `resolve_ui_hierarchy`
+/// Automatically inserted and updated by `resolve_ui_hierarchy`
 #[derive(Component, PartialEq)]
 pub struct ResolvedChildOf(pub(crate) Entity);
 
 /// Resolved children of a UI node after flattening ghost nodes
-/// Updated by `resolve_ui_hierarchy`
+/// Automatically inserted and updated by `resolve_ui_hierarchy`
 #[derive(Component, PartialEq)]
 pub struct ResolvedChildren(pub(crate) Vec<Entity>);
 
