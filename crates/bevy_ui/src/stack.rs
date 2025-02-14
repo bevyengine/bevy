@@ -45,7 +45,7 @@ pub fn ui_stack_system(
     mut ui_stack: ResMut<UiStack>,
     root_node_query: Query<
         (Entity, Option<&GlobalZIndex>, Option<&ZIndex>),
-        Without<ResolvedChildOf>,
+        (Without<ResolvedChildOf>, With<ComputedNode>),
     >,
     zindex_global_node_query: Query<(Entity, &GlobalZIndex, Option<&ZIndex>), With<ComputedNode>>,
     ui_children: Query<&ResolvedChildren>,
