@@ -6,7 +6,7 @@ use std::sync::{
 
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::lifetimeless::Read};
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_utils::Parallel;
 
@@ -66,6 +66,18 @@ impl Default for WorkQueue {
     }
 }
 
+type NodeQuery<'w, 's> = Query<
+    'w,
+    's,
+    (
+        Entity,
+        Ref<'static, Transform>,
+        Mut<'static, GlobalTransform>,
+        Read<Children>,
+        Read<ChildOf>,
+    ),
+>;
+
 /// Computes the [`GlobalTransform`]s of non-leaf nodes in the entity hierarchy, propagating
 /// [`Transform`]s of parents to their children.
 pub fn propagate_parent_transforms(
@@ -73,13 +85,7 @@ pub fn propagate_parent_transforms(
     mut orphaned: RemovedComponents<ChildOf>,
     mut orphans: Local<Vec<Entity>>,
     mut roots: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), Without<ChildOf>>,
-    nodes: Query<(
-        Entity,
-        Ref<Transform>,
-        &mut GlobalTransform,
-        &Children,
-        &ChildOf,
-    )>,
+    nodes: NodeQuery,
 ) {
     // Orphans
     orphans.clear();
@@ -96,6 +102,9 @@ pub fn propagate_parent_transforms(
             {
                 *parent_transform = GlobalTransform::from(*transform);
             }
+
+            // let children_iter = UniqueEntityIter::from_iterator_unchecked(children.iter());
+            // for (child, transform, global_transform) in nodes.iter_many_unique_mut(children_iter) {}
 
             // SAFETY: Visiting the hierarchy as a tree without cycles
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
@@ -120,19 +129,12 @@ pub fn propagate_parent_transforms(
 
 /// A parallel worker that will consume processed parent entities from the queue, and push children
 /// to the queue once it has propagated their [`GlobalTransform`].
-fn propagation_worker(
-    queue: &WorkQueue,
-    nodes: &Query<(
-        Entity,
-        Ref<'_, Transform>,
-        &mut GlobalTransform,
-        &Children,
-        &ChildOf,
-    )>,
-) {
+fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
+    let _span = bevy_log::info_span!("transform propagation worker").entered();
     let mut outbox = queue.local_queue.borrow_local_mut();
     loop {
-        // Try to acquire a lock on the work queue in a tight loop.
+        // Try to acquire a lock on the work queue in a tight loop. Profiling shows this is much
+        // more efficient than relying on `.lock()`, which causes gaps to form between tasks.
         let Ok(rx) = queue.receiver.try_lock() else {
             continue;
         };
@@ -142,10 +144,10 @@ fn propagation_worker(
             if queue.busy_threads.load(Ordering::Relaxed) == 0 {
                 break; // All work is complete, kill the worker
             }
-            continue; // No work to do now, but another thread is busy creating more work
+            continue; // No work to do now, but another thread is busy creating more work.
         };
         if tasks.is_empty() {
-            continue;
+            continue; // This shouldn't happen, but if it does, we might as well stop early.
         }
 
         // At this point, we know there is work to do, so we increment the busy thread counter,
@@ -153,7 +155,8 @@ fn propagation_worker(
         // if another thread is able to acquire a lock, the busy thread counter will already be
         // incremented.
         queue.busy_threads.fetch_add(1, Ordering::Relaxed);
-        drop(rx);
+        drop(rx); // Important: drop after atomic and before work starts.
+
         for parent in tasks.drain(..) {
             // SAFETY: Visiting the hierarchy as a tree without cycles. The assertion inside the
             // function will trigger if the hierarchy has a cycle
@@ -163,7 +166,7 @@ fn propagation_worker(
                 propagate_to_child_unchecked((parent, transform, children), nodes, &mut outbox);
             }
         }
-        for chunk in outbox.chunks(1024) {
+        for chunk in outbox.chunks(1024).filter(|c| !c.is_empty()) {
             queue.sender.send(chunk.to_vec()).ok();
         }
         outbox.clear();
@@ -172,8 +175,8 @@ fn propagation_worker(
 }
 
 /// Propagate transforms from `parent` to its non-leaf `children`, pushing updated child entities to
-/// the `outbox`. Propagation does not visit leaf nodes as they are computed in a second parallel
-/// pass.
+/// the `outbox`. Propagation does not visit leaf nodes; instead, they are computed in
+/// [`compute_transform_leaves`], which can optimize much more efficiently.
 ///
 /// # Panics
 ///
@@ -192,13 +195,7 @@ fn propagation_worker(
 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
 unsafe fn propagate_to_child_unchecked(
     (parent, parent_transform, children): (Entity, Mut<GlobalTransform>, &Children),
-    nodes: &Query<(
-        Entity,
-        Ref<Transform>,
-        &mut GlobalTransform,
-        &Children,
-        &ChildOf,
-    )>,
+    nodes: &NodeQuery,
     outbox: &mut Vec<Entity>,
 ) {
     // SAFETY: This function must only be called with disjoint entity access.
