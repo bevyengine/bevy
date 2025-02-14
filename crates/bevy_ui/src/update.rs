@@ -1,7 +1,6 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::UiRootNodes,
     resolve_hierarchy::{ResolvedChildOf, ResolvedChildren},
     CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
     UiTargetCamera,
@@ -138,7 +137,7 @@ pub fn update_ui_context_system(
     ui_scale: Res<UiScale>,
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
-    ui_root_nodes: UiRootNodes,
+    ui_root_nodes: Query<Entity, (Without<ResolvedChildOf>, With<Node>)>,
     mut computed_target_query: Query<&mut ComputedNodeTarget>,
     ui_children: Query<&ResolvedChildren>,
     reparented_nodes: Query<
