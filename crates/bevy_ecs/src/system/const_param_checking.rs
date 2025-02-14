@@ -402,7 +402,10 @@ impl<T: Component> AccessTreeContainer for &T {
         this: ComponentAccess::Use {
             type_id: T::UNSTABLE_TYPE_ID,
             access: AccessType::Ref,
+            #[cfg(feature="diagnostic_component_names")]
             name: T::STRUCT_NAME,
+            #[cfg(not(feature="diagnostic_component_names"))]
+            name: Some(""),
         },
         left: None,
         right: None,
@@ -414,7 +417,10 @@ impl<T: Component> AccessTreeContainer for &mut T {
         this: ComponentAccess::Use {
             type_id: T::UNSTABLE_TYPE_ID,
             access: AccessType::Mut,
+            #[cfg(feature="diagnostic_component_names")]
             name: T::STRUCT_NAME,
+            #[cfg(not(feature="diagnostic_component_names"))]
+            name: Some(""),
         },
         left: None,
         right: None,

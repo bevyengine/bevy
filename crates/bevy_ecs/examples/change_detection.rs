@@ -11,9 +11,9 @@
     reason = "Examples should not follow this lint"
 )]
 
-use std::backtrace::Backtrace;
 use bevy_ecs::prelude::*;
 use rand::Rng;
+use std::backtrace::Backtrace;
 use std::ops::Deref;
 
 fn main() {
@@ -63,6 +63,10 @@ enum SimulationSet {
     Age,
 }
 
+fn test(query: Query<(&mut Age)>, query2: Query<(&mut Age)>) {
+
+}
+
 // This system randomly spawns a new entity in 60% of all frames
 // The entity will start with an age of 0 frames
 // If an entity gets spawned, we increase the counter in the EntityCounter resource
@@ -91,22 +95,6 @@ fn print_changed_entities(
         println!("    {entity} is now {value:?} frames old");
     }
 }
-
-#[derive(Component)]
-pub struct Awa;
-
-#[derive(Component)]
-pub struct Uwu;
-
-fn test(query2: Query<(Option<&mut Age>, &Uwu)>, query1: Query<(Option<&mut Age>, &Awa)>) {
-
-}
-
-/*
-fn test2(query1: Query<&mut Age, With<Awa>>, query2: Query<&mut Age, Without<Awa>>) {
-
-}*/
-
 
 // This system iterates over all entities and increases their age in every frame
 fn age_all_entities(mut entities: Query<&mut Age>) {

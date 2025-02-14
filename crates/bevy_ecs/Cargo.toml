@@ -11,7 +11,7 @@ categories = ["game-engines", "data-structures"]
 rust-version = "1.83.0"
 
 [features]
-default = ["std", "bevy_reflect", "async_executor"]
+default = ["std", "bevy_reflect", "async_executor", "diagnostic_component_names"]
 
 # Functionality
 
@@ -52,6 +52,9 @@ bevy_debug_stepping = []
 ## Provides more detailed tracking of the cause of various effects within the ECS.
 ## This will often provide more detailed error messages.
 track_location = []
+
+## Provides name information in Component traits for use in System conflict diagnostics
+diagnostic_component_names = []
 
 # Executor Backend
 
