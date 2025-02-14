@@ -21,19 +21,17 @@ fn main() {
     std::env::set_current_dir(working_dir).unwrap();
 
     // Generate HTML as normal
-    assert!(
-        Command::new("rustdoc")
-            .args(std::env::args().skip(1))
-            // Restore clobbered env var.
-            // This is required by our derive macros.
-            .env(
-                "CARGO_MANIFEST_PATH",
-                std::env::var("SET_CARGO_MANIFEST_PATH").unwrap()
-            )
-            .status()
-            .unwrap()
-            .success(),
-    );
+    assert!(Command::new("rustdoc")
+        .args(std::env::args().skip(1))
+        // Restore clobbered env var.
+        // This is required by our derive macros.
+        .env(
+            "CARGO_MANIFEST_PATH",
+            std::env::var("SET_CARGO_MANIFEST_PATH").unwrap()
+        )
+        .status()
+        .unwrap()
+        .success());
 
     // Find package name
     let package = std::env::args()
