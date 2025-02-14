@@ -1737,6 +1737,10 @@ impl RecursiveDependencyLoadState {
 
 /// An error that occurs during an [`Asset`] load.
 #[derive(Error, Debug, Clone)]
+#[expect(
+    missing_docs,
+    reason = "Adding docs to the variants would not add information beyond the error message and the names"
+)]
 pub enum AssetLoadError {
     #[error("Requested handle of type {requested:?} for asset '{path}' does not match actual asset type '{actual_asset_name}', which used loader '{loader_name}'")]
     RequestedHandleTypeMismatch {
@@ -1798,6 +1802,7 @@ pub enum AssetLoadError {
     },
 }
 
+/// An error that can occur during asset loading.
 #[derive(Error, Debug, Clone)]
 #[error("Failed to load asset '{path}' with asset loader '{loader_name}': {error}")]
 pub struct AssetLoaderError {
@@ -1807,11 +1812,13 @@ pub struct AssetLoaderError {
 }
 
 impl AssetLoaderError {
+    /// The path of the asset that failed to load.
     pub fn path(&self) -> &AssetPath<'static> {
         &self.path
     }
 }
 
+/// An error that occurs while resolving an asset added by `add_async`.
 #[derive(Error, Debug, Clone)]
 #[error("An error occurred while resolving an asset added by `add_async`: {error}")]
 pub struct AddAsyncError {
@@ -1829,13 +1836,15 @@ pub struct MissingAssetLoaderForExtensionError {
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("no `AssetLoader` found with the name '{type_name}'")]
 pub struct MissingAssetLoaderForTypeNameError {
-    type_name: String,
+    /// The type name that was not found.
+    pub type_name: String,
 }
 
 /// An error that occurs when an [`AssetLoader`] is not registered for a given [`Asset`] [`TypeId`].
 #[derive(Error, Debug, Clone, PartialEq, Eq)]
 #[error("no `AssetLoader` found with the ID '{type_id:?}'")]
 pub struct MissingAssetLoaderForTypeIdError {
+    /// The type ID that was not found.
     pub type_id: TypeId,
 }
 
@@ -1866,10 +1875,13 @@ const UNTYPED_SOURCE_SUFFIX: &str = "--untyped";
 /// An error when attempting to wait asynchronously for an [`Asset`] to load.
 #[derive(Error, Debug, Clone)]
 pub enum WaitForAssetError {
+    /// The asset is not being loaded; waiting for it is meaningless.
     #[error("tried to wait for an asset that is not being loaded")]
     NotLoaded,
+    /// The asset failed to load.
     #[error(transparent)]
     Failed(Arc<AssetLoadError>),
+    /// A dependency of the asset failed to load.
     #[error(transparent)]
     DependencyFailed(Arc<AssetLoadError>),
 }

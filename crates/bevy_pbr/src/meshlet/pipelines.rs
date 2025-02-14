@@ -10,6 +10,8 @@ use bevy_ecs::{
 };
 use bevy_render::render_resource::*;
 
+pub const MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("a4bf48e4-5605-4d1c-987e-29c7b1ec95dc");
 pub const MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("80ccea4a-8234-4ee0-af74-77b3cad503cf");
 pub const MESHLET_CULLING_SHADER_HANDLE: Handle<Shader> =
@@ -26,6 +28,8 @@ pub const MESHLET_REMAP_1D_TO_2D_DISPATCH_SHADER_HANDLE: Handle<Shader> =
 #[derive(Resource)]
 pub struct MeshletPipelines {
     fill_cluster_buffers: CachedComputePipelineId,
+    clear_visibility_buffer: CachedComputePipelineId,
+    clear_visibility_buffer_shadow_view: CachedComputePipelineId,
     cull_first: CachedComputePipelineId,
     cull_second: CachedComputePipelineId,
     downsample_depth_first: CachedComputePipelineId,
@@ -33,10 +37,10 @@ pub struct MeshletPipelines {
     downsample_depth_first_shadow_view: CachedComputePipelineId,
     downsample_depth_second_shadow_view: CachedComputePipelineId,
     visibility_buffer_software_raster: CachedComputePipelineId,
-    visibility_buffer_software_raster_depth_only: CachedComputePipelineId,
+    visibility_buffer_software_raster_shadow_view: CachedComputePipelineId,
     visibility_buffer_hardware_raster: CachedRenderPipelineId,
-    visibility_buffer_hardware_raster_depth_only: CachedRenderPipelineId,
-    visibility_buffer_hardware_raster_depth_only_unclipped: CachedRenderPipelineId,
+    visibility_buffer_hardware_raster_shadow_view: CachedRenderPipelineId,
+    visibility_buffer_hardware_raster_shadow_view_unclipped: CachedRenderPipelineId,
     resolve_depth: CachedRenderPipelineId,
     resolve_depth_shadow_view: CachedRenderPipelineId,
     resolve_material_depth: CachedRenderPipelineId,
@@ -49,12 +53,27 @@ impl FromWorld for MeshletPipelines {
         let fill_cluster_buffers_bind_group_layout = resource_manager
             .fill_cluster_buffers_bind_group_layout
             .clone();
+        let clear_visibility_buffer_bind_group_layout = resource_manager
+            .clear_visibility_buffer_bind_group_layout
+            .clone();
+        let clear_visibility_buffer_shadow_view_bind_group_layout = resource_manager
+            .clear_visibility_buffer_shadow_view_bind_group_layout
+            .clone();
         let cull_layout = resource_manager.culling_bind_group_layout.clone();
         let downsample_depth_layout = resource_manager.downsample_depth_bind_group_layout.clone();
+        let downsample_depth_shadow_view_layout = resource_manager
+            .downsample_depth_shadow_view_bind_group_layout
+            .clone();
         let visibility_buffer_raster_layout = resource_manager
             .visibility_buffer_raster_bind_group_layout
             .clone();
+        let visibility_buffer_raster_shadow_view_layout = resource_manager
+            .visibility_buffer_raster_shadow_view_bind_group_layout
+            .clone();
         let resolve_depth_layout = resource_manager.resolve_depth_bind_group_layout.clone();
+        let resolve_depth_shadow_view_layout = resource_manager
+            .resolve_depth_shadow_view_bind_group_layout
+            .clone();
         let resolve_material_depth_layout = resource_manager
             .resolve_material_depth_bind_group_layout
             .clone();
@@ -67,7 +86,7 @@ impl FromWorld for MeshletPipelines {
             fill_cluster_buffers: pipeline_cache.queue_compute_pipeline(
                 ComputePipelineDescriptor {
                     label: Some("meshlet_fill_cluster_buffers_pipeline".into()),
-                    layout: vec![fill_cluster_buffers_bind_group_layout.clone()],
+                    layout: vec![fill_cluster_buffers_bind_group_layout],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::COMPUTE,
                         range: 0..4,
@@ -75,6 +94,36 @@ impl FromWorld for MeshletPipelines {
                     shader: MESHLET_FILL_CLUSTER_BUFFERS_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET_FILL_CLUSTER_BUFFERS_PASS".into()],
                     entry_point: "fill_cluster_buffers".into(),
+                    zero_initialize_workgroup_memory: false,
+                },
+            ),
+
+            clear_visibility_buffer: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_clear_visibility_buffer_pipeline".into()),
+                    layout: vec![clear_visibility_buffer_bind_group_layout],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..8,
+                    }],
+                    shader: MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+                    shader_defs: vec!["MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT".into()],
+                    entry_point: "clear_visibility_buffer".into(),
+                    zero_initialize_workgroup_memory: false,
+                },
+            ),
+
+            clear_visibility_buffer_shadow_view: pipeline_cache.queue_compute_pipeline(
+                ComputePipelineDescriptor {
+                    label: Some("meshlet_clear_visibility_buffer_shadow_view_pipeline".into()),
+                    layout: vec![clear_visibility_buffer_shadow_view_bind_group_layout],
+                    push_constant_ranges: vec![PushConstantRange {
+                        stages: ShaderStages::COMPUTE,
+                        range: 0..8,
+                    }],
+                    shader: MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+                    shader_defs: vec![],
+                    entry_point: "clear_visibility_buffer".into(),
                     zero_initialize_workgroup_memory: false,
                 },
             ),
@@ -117,7 +166,7 @@ impl FromWorld for MeshletPipelines {
                     layout: vec![downsample_depth_layout.clone()],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::COMPUTE,
-                        range: 0..8,
+                        range: 0..4,
                     }],
                     shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![
@@ -135,7 +184,7 @@ impl FromWorld for MeshletPipelines {
                     layout: vec![downsample_depth_layout.clone()],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::COMPUTE,
-                        range: 0..8,
+                        range: 0..4,
                     }],
                     shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec![
@@ -150,10 +199,10 @@ impl FromWorld for MeshletPipelines {
             downsample_depth_first_shadow_view: pipeline_cache.queue_compute_pipeline(
                 ComputePipelineDescriptor {
                     label: Some("meshlet_downsample_depth_first_pipeline".into()),
-                    layout: vec![downsample_depth_layout.clone()],
+                    layout: vec![downsample_depth_shadow_view_layout.clone()],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::COMPUTE,
-                        range: 0..8,
+                        range: 0..4,
                     }],
                     shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET".into()],
@@ -165,10 +214,10 @@ impl FromWorld for MeshletPipelines {
             downsample_depth_second_shadow_view: pipeline_cache.queue_compute_pipeline(
                 ComputePipelineDescriptor {
                     label: Some("meshlet_downsample_depth_second_pipeline".into()),
-                    layout: vec![downsample_depth_layout],
+                    layout: vec![downsample_depth_shadow_view_layout],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::COMPUTE,
-                        range: 0..8,
+                        range: 0..4,
                     }],
                     shader: DOWNSAMPLE_DEPTH_SHADER_HANDLE,
                     shader_defs: vec!["MESHLET".into()],
@@ -198,12 +247,12 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_software_raster_depth_only: pipeline_cache.queue_compute_pipeline(
+            visibility_buffer_software_raster_shadow_view: pipeline_cache.queue_compute_pipeline(
                 ComputePipelineDescriptor {
                     label: Some(
-                        "meshlet_visibility_buffer_software_raster_depth_only_pipeline".into(),
+                        "meshlet_visibility_buffer_software_raster_shadow_view_pipeline".into(),
                     ),
-                    layout: vec![visibility_buffer_raster_layout.clone()],
+                    layout: vec![visibility_buffer_raster_shadow_view_layout.clone()],
                     push_constant_ranges: vec![],
                     shader: MESHLET_VISIBILITY_BUFFER_SOFTWARE_RASTER_SHADER_HANDLE,
                     shader_defs: vec![
@@ -265,12 +314,12 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_hardware_raster_depth_only: pipeline_cache.queue_render_pipeline(
+            visibility_buffer_hardware_raster_shadow_view: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some(
-                        "meshlet_visibility_buffer_hardware_raster_depth_only_pipeline".into(),
+                        "meshlet_visibility_buffer_hardware_raster_shadow_view_pipeline".into(),
                     ),
-                    layout: vec![visibility_buffer_raster_layout.clone()],
+                    layout: vec![visibility_buffer_raster_shadow_view_layout.clone()],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
@@ -306,13 +355,13 @@ impl FromWorld for MeshletPipelines {
                 },
             ),
 
-            visibility_buffer_hardware_raster_depth_only_unclipped: pipeline_cache
+            visibility_buffer_hardware_raster_shadow_view_unclipped: pipeline_cache
                 .queue_render_pipeline(RenderPipelineDescriptor {
                     label: Some(
-                        "meshlet_visibility_buffer_hardware_raster_depth_only_unclipped_pipeline"
+                        "meshlet_visibility_buffer_hardware_raster_shadow_view_unclipped_pipeline"
                             .into(),
                     ),
-                    layout: vec![visibility_buffer_raster_layout],
+                    layout: vec![visibility_buffer_raster_shadow_view_layout],
                     push_constant_ranges: vec![PushConstantRange {
                         stages: ShaderStages::VERTEX,
                         range: 0..4,
@@ -349,17 +398,14 @@ impl FromWorld for MeshletPipelines {
 
             resolve_depth: pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("meshlet_resolve_depth_pipeline".into()),
-                layout: vec![resolve_depth_layout.clone()],
-                push_constant_ranges: vec![PushConstantRange {
-                    stages: ShaderStages::FRAGMENT,
-                    range: 0..4,
-                }],
+                layout: vec![resolve_depth_layout],
+                push_constant_ranges: vec![],
                 vertex: fullscreen_shader_vertex_state(),
                 primitive: PrimitiveState::default(),
                 depth_stencil: Some(DepthStencilState {
                     format: CORE_3D_DEPTH_FORMAT,
                     depth_write_enabled: true,
-                    depth_compare: CompareFunction::GreaterEqual,
+                    depth_compare: CompareFunction::Always,
                     stencil: StencilState::default(),
                     bias: DepthBiasState::default(),
                 }),
@@ -376,17 +422,14 @@ impl FromWorld for MeshletPipelines {
             resolve_depth_shadow_view: pipeline_cache.queue_render_pipeline(
                 RenderPipelineDescriptor {
                     label: Some("meshlet_resolve_depth_pipeline".into()),
-                    layout: vec![resolve_depth_layout],
-                    push_constant_ranges: vec![PushConstantRange {
-                        stages: ShaderStages::FRAGMENT,
-                        range: 0..4,
-                    }],
+                    layout: vec![resolve_depth_shadow_view_layout],
+                    push_constant_ranges: vec![],
                     vertex: fullscreen_shader_vertex_state(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
                         format: CORE_3D_DEPTH_FORMAT,
                         depth_write_enabled: true,
-                        depth_compare: CompareFunction::GreaterEqual,
+                        depth_compare: CompareFunction::Always,
                         stencil: StencilState::default(),
                         bias: DepthBiasState::default(),
                     }),
@@ -405,10 +448,7 @@ impl FromWorld for MeshletPipelines {
                 RenderPipelineDescriptor {
                     label: Some("meshlet_resolve_material_depth_pipeline".into()),
                     layout: vec![resolve_material_depth_layout],
-                    push_constant_ranges: vec![PushConstantRange {
-                        stages: ShaderStages::FRAGMENT,
-                        range: 0..4,
-                    }],
+                    push_constant_ranges: vec![],
                     vertex: fullscreen_shader_vertex_state(),
                     primitive: PrimitiveState::default(),
                     depth_stencil: Some(DepthStencilState {
@@ -460,6 +500,8 @@ impl MeshletPipelines {
         &ComputePipeline,
         &ComputePipeline,
         &ComputePipeline,
+        &ComputePipeline,
+        &ComputePipeline,
         &RenderPipeline,
         &RenderPipeline,
         &RenderPipeline,
@@ -472,6 +514,8 @@ impl MeshletPipelines {
         let pipeline = world.get_resource::<Self>()?;
         Some((
             pipeline_cache.get_compute_pipeline(pipeline.fill_cluster_buffers)?,
+            pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer)?,
+            pipeline_cache.get_compute_pipeline(pipeline.clear_visibility_buffer_shadow_view)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_first)?,
             pipeline_cache.get_compute_pipeline(pipeline.cull_second)?,
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_first)?,
@@ -480,12 +524,12 @@ impl MeshletPipelines {
             pipeline_cache.get_compute_pipeline(pipeline.downsample_depth_second_shadow_view)?,
             pipeline_cache.get_compute_pipeline(pipeline.visibility_buffer_software_raster)?,
             pipeline_cache
-                .get_compute_pipeline(pipeline.visibility_buffer_software_raster_depth_only)?,
+                .get_compute_pipeline(pipeline.visibility_buffer_software_raster_shadow_view)?,
             pipeline_cache.get_render_pipeline(pipeline.visibility_buffer_hardware_raster)?,
             pipeline_cache
-                .get_render_pipeline(pipeline.visibility_buffer_hardware_raster_depth_only)?,
+                .get_render_pipeline(pipeline.visibility_buffer_hardware_raster_shadow_view)?,
             pipeline_cache.get_render_pipeline(
-                pipeline.visibility_buffer_hardware_raster_depth_only_unclipped,
+                pipeline.visibility_buffer_hardware_raster_shadow_view_unclipped,
             )?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth)?,
             pipeline_cache.get_render_pipeline(pipeline.resolve_depth_shadow_view)?,

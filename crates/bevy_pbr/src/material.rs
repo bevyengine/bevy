@@ -252,6 +252,8 @@ pub struct MaterialPlugin<M: Material> {
     pub prepass_enabled: bool,
     /// Controls if shadows are enabled for the Material.
     pub shadows_enabled: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
     pub _marker: PhantomData<M>,
 }
 
@@ -260,6 +262,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
         Self {
             prepass_enabled: true,
             shadows_enabled: true,
+            debug_flags: RenderDebugFlags::default(),
             _marker: Default::default(),
         }
     }
@@ -374,7 +377,7 @@ where
         }
 
         if self.prepass_enabled {
-            app.add_plugins(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::new(self.debug_flags));
         }
     }
 
