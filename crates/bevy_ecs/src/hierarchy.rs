@@ -130,7 +130,7 @@ impl FromWorld for ChildOf {
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
-pub struct Children(Vec<Entity>);
+pub struct Children(#[entities] Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
     type Item = <Self::IntoIter as Iterator>::Item;

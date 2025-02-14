@@ -77,7 +77,7 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
     for component in component_ids {
         builder.override_clone_behavior_with_id(component, ComponentCloneBehavior::reflect());
     }
-    builder.recursive(recursive);
+    builder.linked_cloning(recursive);
 
     builder.finish()
 }
@@ -136,7 +136,7 @@ fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
         reflection_cloner::<B>(&mut world, true)
     } else {
         let mut builder = EntityCloner::build(&mut world);
-        builder.recursive(true);
+        builder.linked_cloning(true);
         builder.finish()
     };
 

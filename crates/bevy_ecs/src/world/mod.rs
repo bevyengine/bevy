@@ -46,6 +46,7 @@ use crate::{
     event::{Event, EventId, Events, SendBatchIds},
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
+    relationship::RelationshipInsertHookMode,
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     schedule::{Schedule, ScheduleLabel, Schedules},
@@ -2227,6 +2228,7 @@ impl World {
                                     bundle,
                                     InsertMode::Replace,
                                     caller,
+                                    RelationshipInsertHookMode::Run,
                                 )
                             };
                         }
@@ -2248,6 +2250,7 @@ impl World {
                                     bundle,
                                     InsertMode::Replace,
                                     caller,
+                                    RelationshipInsertHookMode::Run,
                                 )
                             };
                             spawn_or_insert =
@@ -2382,6 +2385,7 @@ impl World {
                         first_bundle,
                         insert_mode,
                         caller,
+                        RelationshipInsertHookMode::Run,
                     )
                 };
 
@@ -2403,9 +2407,14 @@ impl World {
                         }
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe {
-                            cache
-                                .inserter
-                                .insert(entity, location, bundle, insert_mode, caller)
+                            cache.inserter.insert(
+                                entity,
+                                location,
+                                bundle,
+                                insert_mode,
+                                caller,
+                                RelationshipInsertHookMode::Run,
+                            )
                         };
                     } else {
                         panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003", core::any::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
@@ -2523,6 +2532,7 @@ impl World {
                             first_bundle,
                             insert_mode,
                             caller,
+                            RelationshipInsertHookMode::Run,
                         )
                     };
                     break Some(cache);
@@ -2553,9 +2563,14 @@ impl World {
                     }
                     // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                     unsafe {
-                        cache
-                            .inserter
-                            .insert(entity, location, bundle, insert_mode, caller)
+                        cache.inserter.insert(
+                            entity,
+                            location,
+                            bundle,
+                            insert_mode,
+                            caller,
+                            RelationshipInsertHookMode::Run,
+                        )
                     };
                 } else {
                     invalid_entities.push(entity);

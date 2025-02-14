@@ -13,6 +13,7 @@ use crate::{
     event::Event,
     observer::Observer,
     query::{Access, ReadOnlyQueryData},
+    relationship::RelationshipInsertHookMode,
     removal_detection::RemovedComponentEvents,
     resource::Resource,
     storage::Storages,
@@ -1526,7 +1527,35 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(bundle, InsertMode::Replace, MaybeLocation::caller())
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+            RelationshipInsertHookMode::Run,
+        )
+    }
+
+    /// Adds a [`Bundle`] of components to the entity.
+    /// [`Relationship`](crate::relationship::Relationship) component in the bundle will follow the configuration
+    /// in `relationship_insert_hook_mode`.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
+    ///
+    /// # Panics
+    ///
+    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    #[track_caller]
+    pub(crate) fn insert_with_relationship_insert_hook_mode<T: Bundle>(
+        &mut self,
+        bundle: T,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
+    ) -> &mut Self {
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+            relationship_insert_hook_mode,
+        )
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
@@ -1539,7 +1568,12 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(bundle, InsertMode::Keep, MaybeLocation::caller())
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Keep,
+            MaybeLocation::caller(),
+            RelationshipInsertHookMode::Run,
+        )
     }
 
     /// Split into a new function so we can pass the calling location into the function when using
@@ -1550,14 +1584,23 @@ impl<'w> EntityWorldMut<'w> {
         bundle: T,
         mode: InsertMode,
         caller: MaybeLocation,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, self.location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
-        let (location, after_effect) =
-            unsafe { bundle_inserter.insert(self.entity, self.location, bundle, mode, caller) };
+        let (location, after_effect) = unsafe {
+            bundle_inserter.insert(
+                self.entity,
+                self.location,
+                bundle,
+                mode,
+                caller,
+                relationship_insert_hook_mode,
+            )
+        };
         self.location = location;
         self.world.flush();
         self.update_location();
@@ -1585,7 +1628,12 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
-        self.insert_by_id_with_caller(component_id, component, MaybeLocation::caller())
+        self.insert_by_id_with_caller(
+            component_id,
+            component,
+            MaybeLocation::caller(),
+            RelationshipInsertHookMode::Run,
+        )
     }
 
     /// # Safety
@@ -1596,6 +1644,7 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
         caller: MaybeLocation,
+        relationship_hook_insert_mode: RelationshipInsertHookMode,
     ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
@@ -1620,6 +1669,7 @@ impl<'w> EntityWorldMut<'w> {
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
             caller,
+            relationship_hook_insert_mode,
         );
         self.world.flush();
         self.update_location();
@@ -1648,6 +1698,20 @@ impl<'w> EntityWorldMut<'w> {
         component_ids: &[ComponentId],
         iter_components: I,
     ) -> &mut Self {
+        self.insert_by_ids_internal(
+            component_ids,
+            iter_components,
+            RelationshipInsertHookMode::Run,
+        )
+    }
+
+    #[track_caller]
+    pub(crate) unsafe fn insert_by_ids_internal<'a, I: Iterator<Item = OwningPtr<'a>>>(
+        &mut self,
+        component_ids: &[ComponentId],
+        iter_components: I,
+        relationship_hook_insert_mode: RelationshipInsertHookMode,
+    ) -> &mut Self {
         self.assert_not_despawned();
         let change_tick = self.world.change_tick();
         let bundle_id = self.world.bundles.init_dynamic_info(
@@ -1671,6 +1735,7 @@ impl<'w> EntityWorldMut<'w> {
             iter_components,
             (*storage_types).iter().cloned(),
             MaybeLocation::caller(),
+            relationship_hook_insert_mode,
         );
         *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
         self.world.flush();
@@ -3964,6 +4029,7 @@ unsafe fn insert_dynamic_bundle<
     components: I,
     storage_types: S,
     caller: MaybeLocation,
+    relationship_hook_insert_mode: RelationshipInsertHookMode,
 ) -> EntityLocation {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
@@ -3985,7 +4051,14 @@ unsafe fn insert_dynamic_bundle<
     // SAFETY: location matches current entity.
     unsafe {
         bundle_inserter
-            .insert(entity, location, bundle, InsertMode::Replace, caller)
+            .insert(
+                entity,
+                location,
+                bundle,
+                InsertMode::Replace,
+                caller,
+                relationship_hook_insert_mode,
+            )
             .0
     }
 }
