@@ -337,7 +337,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This will create read-only queries, see [`Self::query_mut`] for mutable queries.
     pub fn query_manual<'w, 's>(&'s self, world: &'w World) -> Query<'w, 's, D::ReadOnly, F> {
-        // SAFETY: We have read access to the entire world, and we call `as_readonly()` so the query only performs read access.
+        self.validate_world(world.id());
+        // SAFETY:
+        // - We have read access to the entire world, and we call `as_readonly()` so the query only performs read access.
+        // - We called `validate_world`.
         unsafe {
             self.as_readonly()
                 .query_unchecked_manual(world.as_unsafe_world_cell_readonly())
@@ -381,13 +384,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
     pub unsafe fn query_unchecked_manual<'w, 's>(
         &'s self,
         world: UnsafeWorldCell<'w>,
     ) -> Query<'w, 's, D, F> {
         let last_run = world.last_change_tick();
         let this_run = world.change_tick();
-        // SAFETY: The caller ensured we have the correct access to the world.
+        // SAFETY:
+        // - The caller ensured we have the correct access to the world.
+        // - The caller ensured that the world matches.
         unsafe { self.query_unchecked_manual_with_ticks(world, last_run, this_run) }
     }
 
@@ -404,7 +411,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         this_run: Tick,
     ) -> Query<'w, 's, D, F> {
         self.update_archetypes_unsafe_world_cell(world);
-        // SAFETY: The caller ensured we have the correct access to the world.
+        // SAFETY:
+        // - The caller ensured we have the correct access to the world.
+        // - We called `update_archetypes_unsafe_world_cell`, which calls `validate_world`.
         unsafe { self.query_unchecked_manual_with_ticks(world, last_run, this_run) }
     }
 
@@ -422,16 +431,17 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
     pub unsafe fn query_unchecked_manual_with_ticks<'w, 's>(
         &'s self,
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
         this_run: Tick,
     ) -> Query<'w, 's, D, F> {
-        self.validate_world(world.id());
         // SAFETY:
         // - The caller ensured we have the correct access to the world.
-        // - `validate_world` did not panic, so the world matches.
+        // - The caller ensured that the world matches.
         unsafe { Query::new(world, self, last_run, this_run) }
     }
 
@@ -450,7 +460,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// [`Changed`]: crate::query::Changed
     #[inline]
     pub fn is_empty(&self, world: &World, last_run: Tick, this_run: Tick) -> bool {
-        // SAFETY: We have read access to the entire world, and `is_empty()` only performs read access.
+        self.validate_world(world.id());
+        // SAFETY:
+        // - We have read access to the entire world, and `is_empty()` only performs read access.
+        // - We called `validate_world`.
         unsafe {
             self.query_unchecked_manual_with_ticks(
                 world.as_unsafe_world_cell_readonly(),
@@ -466,7 +479,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This is always guaranteed to run in `O(1)` time.
     #[inline]
     pub fn contains(&self, entity: Entity, world: &World, last_run: Tick, this_run: Tick) -> bool {
-        // SAFETY: We have read access to the entire world, and `contains()` only performs read access.
+        self.validate_world(world.id());
+        // SAFETY:
+        // - We have read access to the entire world, and `is_empty()` only performs read access.
+        // - We called `validate_world`.
         unsafe {
             self.query_unchecked_manual_with_ticks(
                 world.as_unsafe_world_cell_readonly(),
@@ -1660,6 +1676,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
+    /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
+    /// with a mismatched [`WorldId`] is unsound.
     #[inline]
     pub unsafe fn get_single_unchecked_manual<'w>(
         &self,
@@ -1667,6 +1685,9 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         last_run: Tick,
         this_run: Tick,
     ) -> Result<D::Item<'w>, QuerySingleError> {
+        // SAFETY:
+        // - The caller ensured we have the correct access to the world.
+        // - The caller ensured that the world matches.
         self.query_unchecked_manual_with_ticks(world, last_run, this_run)
             .get_single_inner()
     }
