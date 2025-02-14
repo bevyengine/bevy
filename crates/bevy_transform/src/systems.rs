@@ -65,6 +65,34 @@ impl Default for WorkQueue {
         }
     }
 }
+impl WorkQueue {
+    const TASK_CHUNK_SIZE: usize = 1024;
+
+    #[inline]
+    fn send_batches_with(sender: &Sender<Vec<Entity>>, outbox: &mut Vec<Entity>) {
+        for chunk in outbox
+            .chunks(Self::TASK_CHUNK_SIZE)
+            .filter(|c| !c.is_empty())
+        {
+            sender.send(chunk.to_vec()).ok();
+        }
+        outbox.clear();
+    }
+
+    #[inline]
+    fn send_batches(&mut self) {
+        let Self {
+            sender,
+            local_queue,
+            ..
+        } = self;
+        // Iterate over the locals to send batched tasks, avoiding the need to drain the locals into
+        // a larger allocation.
+        local_queue
+            .iter_mut()
+            .for_each(|outbox| Self::send_batches_with(sender, outbox));
+    }
+}
 
 /// Alias for a large, repeatedly used query.
 type NodeQuery<'w, 's> = Query<
@@ -82,7 +110,7 @@ type NodeQuery<'w, 's> = Query<
 /// Computes the [`GlobalTransform`]s of non-leaf nodes in the entity hierarchy, propagating
 /// [`Transform`]s of parents to their children.
 pub fn propagate_parent_transforms(
-    queue: Local<WorkQueue>,
+    mut queue: Local<WorkQueue>,
     mut orphaned: RemovedComponents<ChildOf>,
     mut orphans: Local<Vec<Entity>>,
     mut roots: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), Without<ChildOf>>,
@@ -94,9 +122,9 @@ pub fn propagate_parent_transforms(
     orphans.sort_unstable();
 
     // Process roots in parallel, seeding the work queue
-    roots
-        .par_iter_mut()
-        .for_each(|(parent, transform, mut parent_transform, children)| {
+    roots.par_iter_mut().for_each_init(
+        || queue.local_queue.borrow_local_mut(),
+        |outbox, (parent, transform, mut parent_transform, children)| {
             if transform.is_changed()
                 || parent_transform.is_added()
                 || orphans.binary_search(&parent).is_ok()
@@ -109,15 +137,13 @@ pub fn propagate_parent_transforms(
             // mutable aliasing, and making this call safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
-                let mut outbox = Vec::new();
-                propagate_to_child_unchecked(
-                    (parent, parent_transform, children),
-                    &nodes,
-                    &mut outbox,
-                );
-                queue.sender.send(outbox).ok();
+                propagate_to_child_unchecked((parent, parent_transform, children), &nodes, outbox);
             }
-        });
+        },
+    );
+    // Send all tasks in thread local outboxes *after* roots are processed to reduce the total
+    // number of channel sends by avoiding sending partial batches.
+    queue.send_batches();
 
     // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
     let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
@@ -168,11 +194,14 @@ fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
                 let (_, _, transform, children, _) = nodes.get_unchecked(parent).unwrap();
                 propagate_to_child_unchecked((parent, transform, children), nodes, &mut outbox);
             }
+            // Send chunks from inside the loop as well as at the end. This allows other workers to
+            // pick up work while this task is still running. Only do this within the loop when the
+            // outbox has grown large enough.
+            if outbox.len() >= WorkQueue::TASK_CHUNK_SIZE {
+                WorkQueue::send_batches_with(&queue.sender, &mut outbox);
+            }
         }
-        for chunk in outbox.chunks(1024).filter(|c| !c.is_empty()) {
-            queue.sender.send(chunk.to_vec()).ok();
-        }
-        outbox.clear();
+        WorkQueue::send_batches_with(&queue.sender, &mut outbox);
         queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
     }
 }
