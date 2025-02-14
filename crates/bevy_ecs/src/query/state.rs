@@ -1496,7 +1496,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                     let _span = self.par_iter_span.enter();
                     let accum = init_accum();
                     self.query_unchecked_manual_with_ticks(world, last_run, this_run)
-                        .iter_many_unique(batch)
+                        .iter_many_unique_inner(batch)
                         .fold(accum, &mut func);
                 });
             }
@@ -1505,7 +1505,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
             let _span = self.par_iter_span.enter();
             let accum = init_accum();
             self.query_unchecked_manual_with_ticks(world, last_run, this_run)
-                .iter_many_unique(remainder)
+                .iter_many_unique_inner(remainder)
                 .fold(accum, &mut func);
         });
     }
