@@ -93,14 +93,14 @@ impl ReflectBundle {
         bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
         mapper: &mut dyn EntityMapper,
-        relatioship_insert_hook_mode: RelationshipInsertHookMode,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
     ) {
         (self.0.apply_or_insert_mapped)(
             entity,
             bundle,
             registry,
             mapper,
-            relatioship_insert_hook_mode,
+            relationship_insert_hook_mode,
         );
     }
 
