@@ -19,6 +19,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
+use std::{any::Any, cell::RefCell};
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
@@ -52,6 +53,10 @@ mod system;
 mod winit_config;
 mod winit_monitors;
 mod winit_windows;
+
+thread_local! {
+    pub static EVENT_LOOP: RefCell<Option<Box<dyn Any>>> = RefCell::new(None);
+}
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
@@ -144,9 +149,10 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             .build()
             .expect("Failed to build event loop");
 
+        EVENT_LOOP.set(Some(Box::new(event_loop)));
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
         // be inserted as a resource here to pass it onto the runner.
-        app.insert_non_send_resource(event_loop);
+        //app.insert_resource(event_loop);
     }
 }
 
