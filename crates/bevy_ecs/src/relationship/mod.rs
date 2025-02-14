@@ -160,7 +160,7 @@ pub type SourceIter<'w, R> =
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
 pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
-    /// If this is true, when despawning or cloning (when [recursion is enabled](crate::entity::EntityClonerBuilder::recursive)), the related entities targeting this entity will also be despawned or cloned.
+    /// If this is true, when despawning or cloning (when [linked cloning is enabled](crate::entity::EntityClonerBuilder::linked_cloning)), the related entities targeting this entity will also be despawned or cloned.
     ///
     /// For example, this is set to `true` for Bevy's built-in parent-child relation, defined by [`ChildOf`](crate::prelude::ChildOf) and [`Children`](crate::prelude::Children).
     /// This means that when a parent is despawned, any children targeting that parent are also despawned (and the same applies to cloning).

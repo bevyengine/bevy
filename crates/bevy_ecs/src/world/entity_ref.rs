@@ -1541,11 +1541,16 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// This will overwrite any previous value(s) of the same component type.
     ///
+    /// # Warning
+    ///
+    /// This can easily break the integrity of relationships. This is intended to be used for cloning and spawning code internals,
+    /// not most user-facing scenarios.
+    ///
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub(crate) fn insert_with_relationship_insert_hook_mode<T: Bundle>(
+    pub fn insert_with_relationship_insert_hook_mode<T: Bundle>(
         &mut self,
         bundle: T,
         relationship_insert_hook_mode: RelationshipInsertHookMode,
