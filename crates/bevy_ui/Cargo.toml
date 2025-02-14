@@ -56,9 +56,6 @@ serialize = [
 bevy_ui_picking_backend = ["bevy_picking"]
 bevy_ui_debug = []
 
-# Experimental features
-ghost_nodes = []
-
 [lints]
 workspace = true
 
