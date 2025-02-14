@@ -25,7 +25,7 @@ pub enum ShaderReflectError {
 /// Describes whether or not to perform runtime checks on shaders.
 /// Runtime checks can be enabled for safety at the cost of speed.
 /// By default no runtime checks will be performed.
-/// Because no runtime checks are performed for SpirV, 
+/// Because no runtime checks are performed for SpirV,
 /// enabling `ValidateShader` for SpirV will cause a panic
 #[derive(Clone, Debug, Default)]
 pub enum ValidateShader {
