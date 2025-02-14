@@ -12,6 +12,7 @@ use crate::{
     },
     system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
 };
+use crate::system::const_param_checking::SystemPanicMessage;
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
@@ -290,6 +291,7 @@ pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
 {
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = None;
     /// Convert into a [`SystemConfigs`].
     fn into_configs(self) -> SystemConfigs;
 
@@ -534,6 +536,7 @@ impl<F, Marker> IntoSystemConfigs<(Infallible, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = F::INTO_SYSTEM_PANIC_CHECKER;
     fn into_configs(self) -> SystemConfigs {
         let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
         SystemConfigs::new_system(Box::new(wrapper))
@@ -548,6 +551,7 @@ impl<F, Marker> IntoSystemConfigs<(Fallible, Marker)> for F
 where
     F: IntoSystem<(), Result, Marker>,
 {
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = F::INTO_SYSTEM_PANIC_CHECKER;
     fn into_configs(self) -> SystemConfigs {
         let boxed_system = Box::new(IntoSystem::into_system(self));
         SystemConfigs::new_system(boxed_system)
@@ -570,6 +574,15 @@ macro_rules! impl_system_collection {
         where
             $($sys: IntoSystemConfigs<$param>),*
         {
+            const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = const {
+                let mut val = None;
+                $(if let Some(awa) = $sys::INTO_SYSTEM_CONFIGS_PANIC_CHECKER {
+                    val = Some(awa);
+
+                })*
+                val
+            };
+
             #[expect(
                 clippy::allow_attributes,
                 reason = "We are inside a macro, and as such, `non_snake_case` is not guaranteed to apply."

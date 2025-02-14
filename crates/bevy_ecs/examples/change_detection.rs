@@ -11,6 +11,7 @@
     reason = "Examples should not follow this lint"
 )]
 
+use std::backtrace::Backtrace;
 use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
@@ -92,30 +93,15 @@ fn print_changed_entities(
 }
 
 #[derive(Component)]
-pub struct SceneRoot;
+pub struct Awa;
 
 #[derive(Component)]
-pub struct DynamicSceneRoot;
+pub struct Uwu;
 
-#[derive(Component)]
-pub struct SceneInstance;
-
-/*fn test(query2: Query<(Option<&mut Age>, &Uwu), Without<Awa>>, query1: Query<(Option<&mut Age>, &Awa), Without<Uwu>>) {
-
-}*/
-
-fn test(
-    mut scene_to_spawn: Query<
-        (&SceneRoot, Option<&mut SceneInstance>),
-        (Changed<SceneRoot>, Without<DynamicSceneRoot>),
-    >,
-    mut dynamic_scene_to_spawn: Query<
-        (&DynamicSceneRoot, Option<&mut SceneInstance>),
-        (Changed<DynamicSceneRoot>, Without<SceneRoot>),
-    >,
-) {
+fn test(query2: Query<(Option<&mut Age>, &Uwu)>, query1: Query<(Option<&mut Age>, &Awa)>) {
 
 }
+
 /*
 fn test2(query1: Query<&mut Age, With<Awa>>, query2: Query<&mut Age, Without<Awa>>) {
 

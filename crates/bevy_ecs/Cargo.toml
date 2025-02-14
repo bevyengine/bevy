@@ -138,7 +138,9 @@ variadics_please = { version = "1.1", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 log = { version = "0.4", default-features = false }
 bumpalo = "3"
-
+const-str = "0.6.2"
+const_panic = { version = "0.2.12" , features = ["rust_latest_stable"] }
+libc = "0.2.169"
 [dev-dependencies]
 rand = "0.8"
 static_assertions = "1.1.0"

@@ -217,12 +217,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
     let mut rng = rand::rng();
     let unstable_type_id: u128 = rng.random();
+    let struct_name_2 = struct_name.to_string();
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
     // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             const UNSTABLE_TYPE_ID: u128 = #unstable_type_id;
+            const STRUCT_NAME: Option<&'static str> = Some(#struct_name_2);
             type Mutability = #mutable_type;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,

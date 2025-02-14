@@ -388,6 +388,8 @@ pub trait Component: Send + Sync + 'static {
 
     /// A u128 randomly generated that is consistent per component type or 0 if it isn't derived automatically and can be used to differentiate them in const contexts.
     const UNSTABLE_TYPE_ID: u128;
+
+    const STRUCT_NAME: Option<&'static str> = None;
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
     /// while immutable components will instead have [`Component<Mutability = Immutable>`].

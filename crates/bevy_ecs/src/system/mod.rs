@@ -153,7 +153,7 @@ pub use system::*;
 pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
-
+use crate::system::const_param_checking::SystemPanicMessage;
 use crate::world::World;
 
 /// Conversion trait to turn something into a [`System`].
@@ -184,6 +184,8 @@ use crate::world::World;
     label = "invalid system"
 )]
 pub trait IntoSystem<In: SystemInput, Out, Marker>: Sized {
+    const INTO_SYSTEM_PANIC_CHECKER: Option<SystemPanicMessage> = None;
+
     /// The type of [`System`] that this instance converts into.
     type System: System<In = In, Out = Out>;
 

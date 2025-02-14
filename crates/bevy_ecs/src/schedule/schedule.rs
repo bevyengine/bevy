@@ -2,6 +2,7 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+#![allow(const_err)]
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -23,7 +24,7 @@ use pass::ScheduleBuildPassObj;
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
-
+use bevy_ecs::system::const_param_checking::{AccessType, SystemPanicMessage};
 use crate::{
     component::{ComponentId, Components, Tick},
     prelude::Component,
@@ -334,7 +335,25 @@ impl Schedule {
     }
 
     /// Add a collection of systems to the schedule.
-    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
+    pub fn add_systems<M, IntoSystemConfig: IntoSystemConfigs<M>>(&mut self, systems: IntoSystemConfig) -> &mut Self {
+        const {
+            match IntoSystemConfig::INTO_SYSTEM_CONFIGS_PANIC_CHECKER {
+                None => {}
+                Some(owo) => {
+                    let lhs_access_type = match owo.lhs_access_type {
+                        AccessType::Ref => "&",
+                        AccessType::Mut => "&mut"
+                    };
+                    let rhs_access_type = match owo.rhs_access_type {
+                        AccessType::Ref => "&",
+                        AccessType::Mut => "&mut"
+                    };
+                    let lhs_name = owo.lhs_name;
+                    let rhs_name = owo.rhs_name;
+                    const_panic::concat_panic!("\nInvalid System Queries, ", lhs_access_type, lhs_name, ", ", rhs_access_type, rhs_name);
+                }
+            }
+        };
         self.graph.process_configs(systems.into_configs(), false);
         self
     }
