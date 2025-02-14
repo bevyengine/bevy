@@ -29,6 +29,7 @@ use core::{
     fmt::Debug,
     marker::PhantomData,
     mem::needs_drop,
+    ops::Deref,
     panic::Location,
 };
 use disqualified::ShortName;
@@ -1132,6 +1133,165 @@ pub struct Components {
     component_clone_handlers: ComponentCloneHandlers,
 }
 
+/// The [`Deref`] trait ties the lifetime of the returned reference to the lifetime of the value itself.
+/// However, when the returned reference has nothing to do with the value containing it, this behavior is undesirable.
+/// This trait gets around that by putting the lifetime in the trait, allowing a number of niche conviniencies.
+pub trait DerefByLifetime<'a>: Deref {
+    /// Corresponds to [`Deref::deref`]
+    fn deref_lifetime(&self) -> &'a Self::Target;
+}
+
+impl<'a, T> DerefByLifetime<'a> for &'a T {
+    #[inline]
+    fn deref_lifetime(&self) -> &'a Self::Target {
+        self
+    }
+}
+
+/// Allows [`ComponentInfo::name`] to be retrieved with a lifetime from anything that implements [`DerefByLifetime`] for [`ComponentInfo`].
+pub struct ComponentNameFromRef<'a, T: DerefByLifetime<'a, Target = ComponentInfo>>(
+    pub T,
+    pub PhantomData<&'a ()>,
+);
+
+impl<'a, T: DerefByLifetime<'a, Target = ComponentInfo>> Deref for ComponentNameFromRef<'a, T> {
+    type Target = str;
+
+    #[inline]
+    fn deref(&self) -> &'a Self::Target {
+        self.0.deref_lifetime().name()
+    }
+}
+
+impl<'a, T: DerefByLifetime<'a, Target = ComponentInfo>> DerefByLifetime<'a>
+    for ComponentNameFromRef<'a, T>
+{
+    #[inline]
+    fn deref_lifetime(&self) -> &'a Self::Target {
+        self.0.deref_lifetime().name()
+    }
+}
+
+/// A trait that allows the user to read into a collection of registered [`Component`]s.
+pub trait ComponentsReader {
+    /// Returns the number of components registered with this instance.
+    fn len(&self) -> usize;
+
+    /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
+    #[inline]
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Gets the metadata associated with the given component.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    #[inline]
+    fn get_info(&self, id: ComponentId) -> Option<impl DerefByLifetime<Target = ComponentInfo>> {
+        if !self.is_id_valid(id) {
+            return None;
+        }
+
+        // SAFETY: We know the id is valid
+        let info = unsafe { self.get_info_unchecked(id) };
+
+        Some(info)
+    }
+
+    /// Returns the name associated with the given component.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
+    #[inline]
+    fn get_name(&self, id: ComponentId) -> Option<impl DerefByLifetime<Target = str>> {
+        self.get_info(id)
+            .map(|info| ComponentNameFromRef(info, PhantomData))
+    }
+
+    /// Gets the metadata associated with the given component.
+    /// # Safety
+    ///
+    /// `id` must be a valid [`ComponentId`]
+    unsafe fn get_info_unchecked(
+        &self,
+        id: ComponentId,
+    ) -> impl DerefByLifetime<Target = ComponentInfo>;
+
+    /// Retrieves the [`ComponentCloneHandlers`]. Can be used to get clone functions for components.
+    fn get_component_clone_handlers(&self) -> &ComponentCloneHandlers;
+
+    /// Returns true only if this `id` is valid on this collection of [`Component`]s
+    fn is_id_valid(&self, id: ComponentId) -> bool;
+
+    /// Type-erased equivalent of [`Components::component_id()`].
+    fn get_id(&self, type_id: TypeId) -> Option<ComponentId>;
+
+    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Component` type has not
+    /// yet been initialized using [`Components::register_component()`].
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let component_a_id = world.register_component::<ComponentA>();
+    ///
+    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::get_id()`]
+    /// * [`Components::resource_id()`]
+    /// * [`World::component_id()`]
+    #[inline]
+    fn component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.get_id(TypeId::of::<T>())
+    }
+
+    /// Type-erased equivalent of [`Components::resource_id()`].
+    fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId>;
+
+    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Resource` type has not
+    /// yet been initialized using [`Components::register_resource()`].
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Resource, Default)]
+    /// struct ResourceA;
+    ///
+    /// let resource_a_id = world.init_resource::<ResourceA>();
+    ///
+    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
+    /// ```
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::get_resource_id()`]
+    #[inline]
+    fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
+        self.get_resource_id(TypeId::of::<T>())
+    }
+}
+
 impl Components {
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
@@ -1894,7 +2054,7 @@ impl<T: Component> ComponentIdFor<'_, T> {
     }
 }
 
-impl<T: Component> core::ops::Deref for ComponentIdFor<'_, T> {
+impl<T: Component> Deref for ComponentIdFor<'_, T> {
     type Target = ComponentId;
     fn deref(&self) -> &Self::Target {
         &self.0.component_id
