@@ -75,10 +75,8 @@ impl RenderDevice {
             }
             // SAFETY:
             //
-            // creates a shader module with user-customizable runtime checks which allows shaders to
-            // perform operations which can lead to undefined behavior like indexing out of bounds,
-            // thus it's the caller responsibility to pass a shader which doesn't perform any of this
-            // operations.
+            // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
+            // No attempt is made to ensure that data is valid SPIR-V.
             _ => unsafe {
                 self.device
                     .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
@@ -104,11 +102,7 @@ impl RenderDevice {
                 if self
                     .features()
                     .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
-            // SAFETY:
-            //
-            // This function passes binary data to the backend as-is and can potentially result in a
-            // driver crash or bogus behavior. No attempt is made to ensure that data is valid SPIR-V.
-            unsafe { self.create_shader_module(desc) },
+            panic!("no safety checks are performed for spirv shaders. use `create_shader_module` instead"),
             _ => self.device.create_shader_module(desc),
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
