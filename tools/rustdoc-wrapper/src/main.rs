@@ -87,7 +87,7 @@ fn post_process_type(doc: &mut Document) {
 }
 
 /// If this is the documentation page of a single type,
-/// returns which of the relavant traits it implements,
+/// returns which of the relevant traits it implements,
 /// alongside a (relative) url to the trait, if available.
 fn implemented_bevy_traits(doc: &Document) -> HashMap<String, Option<String>> {
     // Scanning the table of contents is easiest, but we need to find the link
