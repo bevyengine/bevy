@@ -31,7 +31,7 @@ fn main() {
         )
         .status()
         .unwrap()
-        .success(),);
+        .success());
 
     // Find package name
     let package = std::env::args()
