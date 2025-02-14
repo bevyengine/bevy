@@ -6,7 +6,7 @@ use crate::{
     bundle::Bundles,
     change_detection::{MaybeLocation, MutUntyped, Ticks, TicksMut},
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
-    entity::{Entities, Entity, EntityBorrow, EntityLocation},
+    entity::{Entities, Entity, EntityBorrow, EntityDoesNotExistError, EntityLocation},
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReadOnlyQueryData},
@@ -351,9 +351,15 @@ impl<'w> UnsafeWorldCell<'w> {
     /// Retrieves an [`UnsafeEntityCell`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`UnsafeWorldCell`], you are in charge of making sure that no aliasing rules are violated.
     #[inline]
-    pub fn get_entity(self, entity: Entity) -> Option<UnsafeEntityCell<'w>> {
-        let location = self.entities().get(entity)?;
-        Some(UnsafeEntityCell::new(self, entity, location))
+    pub fn get_entity(
+        self,
+        entity: Entity,
+    ) -> Result<UnsafeEntityCell<'w>, EntityDoesNotExistError> {
+        let location = self
+            .entities()
+            .get(entity)
+            .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+        Ok(UnsafeEntityCell::new(self, entity, location))
     }
 
     /// Gets a reference to the resource of the given type if it exists

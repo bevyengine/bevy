@@ -15,7 +15,7 @@ use crate::{
     event::Event,
     result::Result,
     system::{command::HandleError, Command, IntoObserverSystem},
-    world::{error::EntityFetchError, EntityWorldMut, FromWorld, World},
+    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };
 use bevy_ptr::OwningPtr;
 
@@ -96,13 +96,13 @@ pub trait CommandWithEntity<Out> {
     fn with_entity(self, entity: Entity) -> impl Command<Out> + HandleError<Out>;
 }
 
-impl<C: EntityCommand> CommandWithEntity<Result<(), EntityFetchError>> for C {
+impl<C: EntityCommand> CommandWithEntity<Result<(), EntityMutableFetchError>> for C {
     fn with_entity(
         self,
         entity: Entity,
-    ) -> impl Command<Result<(), EntityFetchError>> + HandleError<Result<(), EntityFetchError>>
-    {
-        move |world: &mut World| -> Result<(), EntityFetchError> {
+    ) -> impl Command<Result<(), EntityMutableFetchError>>
+           + HandleError<Result<(), EntityMutableFetchError>> {
+        move |world: &mut World| -> Result<(), EntityMutableFetchError> {
             let entity = world.get_entity_mut(entity)?;
             self.apply(entity);
             Ok(())
@@ -134,7 +134,7 @@ impl<
 pub enum EntityCommandError<E> {
     /// The entity this [`EntityCommand`] tried to run on could not be fetched.
     #[error(transparent)]
-    EntityFetchError(#[from] EntityFetchError),
+    EntityFetchError(#[from] EntityMutableFetchError),
     /// An error that occurred while running the [`EntityCommand`].
     #[error("{0}")]
     CommandFailed(E),
@@ -300,6 +300,7 @@ pub fn log_components() -> impl EntityCommand {
         let debug_infos: Vec<_> = entity
             .world()
             .inspect_entity(entity.id())
+            .expect("Entity existence is verified before an EntityCommand is executed")
             .map(ComponentInfo::name)
             .collect();
         info!("Entity {}: {debug_infos:?}", entity.id());
