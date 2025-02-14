@@ -53,7 +53,7 @@ serialize = [
   "bevy_math/serialize",
   "bevy_platform_support/serialize",
 ]
-bevy_ui_picking_backend = ["bevy_picking"]
+bevy_ui_picking_backend = ["bevy_picking", "bevy_text/picking"]
 bevy_ui_debug = []
 
 # Experimental features
