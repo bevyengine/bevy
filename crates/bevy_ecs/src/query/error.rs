@@ -21,6 +21,12 @@ pub enum QueryEntityError<'w> {
     AliasedMutability(Entity),
 }
 
+impl<'w> From<EntityDoesNotExistError> for QueryEntityError<'w> {
+    fn from(error: EntityDoesNotExistError) -> Self {
+        QueryEntityError::EntityDoesNotExist(error)
+    }
+}
+
 impl<'w> core::error::Error for QueryEntityError<'w> {}
 
 impl<'w> core::fmt::Display for QueryEntityError<'w> {

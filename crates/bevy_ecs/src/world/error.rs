@@ -34,7 +34,7 @@ pub struct TryInsertBatchError {
 /// [`World::try_despawn`]: crate::world::World::try_despawn
 #[derive(thiserror::Error, Debug, Clone, Copy)]
 #[error("Could not despawn entity: {0}")]
-pub struct EntityDespawnError(pub EntityMutableFetchError);
+pub struct EntityDespawnError(#[from] pub EntityMutableFetchError);
 
 /// An error that occurs when dynamically retrieving components from an entity.
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +52,7 @@ pub enum EntityComponentError {
 pub enum EntityMutableFetchError {
     /// The entity with the given ID does not exist.
     #[error(transparent)]
-    EntityDoesNotExist(EntityDoesNotExistError),
+    EntityDoesNotExist(#[from] EntityDoesNotExistError),
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once")]
     AliasedMutability(Entity),

@@ -1317,7 +1317,7 @@ impl World {
         caller: MaybeLocation,
     ) -> Result<(), EntityDespawnError> {
         self.flush();
-        let entity = self.get_entity_mut(entity).map_err(EntityDespawnError)?;
+        let entity = self.get_entity_mut(entity)?;
         entity.despawn_with_caller(caller);
         Ok(())
     }

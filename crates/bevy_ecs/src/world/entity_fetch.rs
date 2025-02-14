@@ -127,12 +127,10 @@ unsafe impl WorldEntityFetch for Entity {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
-        let location =
-            cell.entities()
-                .get(self)
-                .ok_or(EntityMutableFetchError::EntityDoesNotExist(
-                    EntityDoesNotExistError::new(self, cell.entities()),
-                ))?;
+        let location = cell
+            .entities()
+            .get(self)
+            .ok_or(EntityDoesNotExistError::new(self, cell.entities()))?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         let world = unsafe { cell.world_mut() };
         // SAFETY: location was fetched from the same world's `Entities`.
@@ -143,9 +141,7 @@ unsafe impl WorldEntityFetch for Entity {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError> {
-        let ecell = cell
-            .get_entity(self)
-            .map_err(EntityMutableFetchError::EntityDoesNotExist)?;
+        let ecell = cell.get_entity(self)?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         Ok(unsafe { EntityMut::new(ecell) })
     }
@@ -223,9 +219,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
 
         let mut refs = [const { MaybeUninit::uninit() }; N];
         for (r, &id) in core::iter::zip(&mut refs, self) {
-            let ecell = cell
-                .get_entity(id)
-                .map_err(EntityMutableFetchError::EntityDoesNotExist)?;
+            let ecell = cell.get_entity(id)?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
             *r = MaybeUninit::new(unsafe { EntityMut::new(ecell) });
         }
@@ -284,9 +278,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
 
         let mut refs = Vec::with_capacity(self.len());
         for &id in self {
-            let ecell = cell
-                .get_entity(id)
-                .map_err(EntityMutableFetchError::EntityDoesNotExist)?;
+            let ecell = cell.get_entity(id)?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
             refs.push(unsafe { EntityMut::new(ecell) });
         }
@@ -332,9 +324,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
         let mut refs = EntityHashMap::with_capacity(self.len());
         for &id in self {
-            let ecell = cell
-                .get_entity(id)
-                .map_err(EntityMutableFetchError::EntityDoesNotExist)?;
+            let ecell = cell.get_entity(id)?;
             // SAFETY: caller ensures that the world cell has mutable access to the entity.
             refs.insert(id, unsafe { EntityMut::new(ecell) });
         }
