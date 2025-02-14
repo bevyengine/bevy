@@ -264,7 +264,7 @@ mod tests {
     }
 
     #[test]
-    fn should_allow_removeting_nonexistent_count() {
+    fn should_allow_removing_nonexistent_count() {
         let mut count = ArgCount::default();
 
         assert_eq!(count.len(), 0);
