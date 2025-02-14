@@ -13,7 +13,6 @@
 
 use bevy_ecs::prelude::*;
 use rand::Rng;
-use std::backtrace::Backtrace;
 use std::ops::Deref;
 
 fn main() {
@@ -61,7 +60,6 @@ enum SimulationSet {
     Spawn,
     Age,
 }
-
 
 // This system randomly spawns a new entity in 60% of all frames
 // The entity will start with an age of 0 frames
