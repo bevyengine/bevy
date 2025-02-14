@@ -1,33 +1,34 @@
+use crate::experimental::UiChildren;
+use crate::Node;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::hierarchy::Children;
 use bevy_ecs::query::Changed;
-use bevy_ecs::query::Has;
 use bevy_ecs::query::With;
 use bevy_ecs::query::Without;
-use bevy_ecs::removal_detection::RemovedComponents;
 use bevy_ecs::system::Commands;
-use bevy_ecs::system::ParamSet;
 use bevy_ecs::system::Query;
-use bevy_ecs::world::Mut;
-use bevy_ecs::world::Ref;
 
-#[cfg(feature = "ghost_nodes")]
-use crate::experimental::GhostNode;
-use crate::experimental::UiChildren;
-use crate::experimental::UiRootNodes;
-use crate::Node;
+use {
+    crate::experimental::GhostNode,
+    bevy_ecs::{query::Has, system::ParamSet, world::Mut},
+};
 
+/// Resolved parent UI node after flattening ghost nodes
+/// Updated by `resolve_ui_hierarchy`
 #[derive(Component, PartialEq)]
 pub struct ResolvedChildOf(pub(crate) Entity);
 
+/// Resolved children of a UI node after flattening ghost nodes
+/// Updated by `resolve_ui_hierarchy`
 #[derive(Component, PartialEq)]
 pub struct ResolvedChildren(pub(crate) Vec<Entity>);
 
-#[cfg(feature = "ghost_nodes")]
-pub fn mark_ghost_parent_nodes_changed(
+/// For each `GhostNode` entity with changed children,
+/// find its first `Node` entity ancestor and mark its children changed.
+pub fn mark_ghost_ancestor_nodes_changed(
     mut param_set: ParamSet<(
         Query<&ChildOf, (With<GhostNode>, Changed<Children>)>,
         Query<(Option<&ChildOf>, Mut<Children>, Has<Node>)>,
@@ -39,12 +40,13 @@ pub fn mark_ghost_parent_nodes_changed(
         .map(|child_of| child_of.get())
         .collect::<Vec<Entity>>();
     for parent in parents.into_iter() {
-        find_node_parent_of_ghost_recursively(parent, &mut param_set.p1());
+        mark_changed_children_of_node_ancestor(parent, &mut param_set.p1());
     }
 }
 
-#[cfg(feature = "ghost_nodes")]
-fn find_node_parent_of_ghost_recursively(
+/// Walk up the tree until a `Node` entity is found and mark its children changed.
+/// Does nothing if no `Node` ancestor found.
+fn mark_changed_children_of_node_ancestor(
     entity: Entity,
     node_query: &mut Query<(Option<&ChildOf>, Mut<Children>, Has<Node>)>,
 ) {
@@ -55,13 +57,17 @@ fn find_node_parent_of_ghost_recursively(
         }
         if let Some(child_of) = child_of {
             let parent = child_of.get();
-            find_node_parent_of_ghost_recursively(parent, node_query);
+            mark_changed_children_of_node_ancestor(parent, node_query);
         }
         return;
     }
 }
 
-pub fn removed_children(
+/// If `Children` or `ChildOf` is removed, remove their resolved equivalent as well.
+///
+/// Possible optimisation might be that instead of removing the `ResolvedChildren` and `ResolvedChildOf`
+/// components, we could add `With<Children>` and With<ChildOf>` filters to their respective queries.
+pub fn synchronise_removed_hierarchy_components(
     mut commands: Commands,
     removed_child_of: Query<Entity, (With<ResolvedChildren>, Without<Children>)>,
     removed_children: Query<Entity, (With<ResolvedChildOf>, Without<ChildOf>)>,
@@ -75,6 +81,8 @@ pub fn removed_children(
     }
 }
 
+/// Update the `ResolvedChildren` and `ResolvedChildOf` components for any `Node` entity with
+/// changed `Children` by flattening any ghost nodes.
 pub fn resolve_ui_hierarchy(
     mut commands: Commands,
     nodes_with_changed_children_query: Query<Entity, (Changed<Children>, With<Node>)>,
@@ -83,15 +91,14 @@ pub fn resolve_ui_hierarchy(
     ui_children: UiChildren,
 ) {
     for parent in nodes_with_changed_children_query.iter() {
+        let child_iter = ui_children.iter_ui_children(parent);
         if let Ok(mut resolved_children) = resolved_children.get_mut(parent) {
             resolved_children.0.clear();
-            resolved_children
-                .0
-                .extend(ui_children.iter_ui_children(parent));
+            resolved_children.0.extend(child_iter);
         } else {
-            commands.entity(parent).insert(ResolvedChildren(
-                ui_children.iter_ui_children(parent).collect(),
-            ));
+            commands
+                .entity(parent)
+                .insert(ResolvedChildren(child_iter.collect()));
         }
 
         for child in ui_children.iter_ui_children(parent) {
