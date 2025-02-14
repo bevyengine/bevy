@@ -53,9 +53,15 @@ fn main() {
 }
 
 // We only use the HTML and not rustdoc's JSON output because
+// we would need to be able to match Rust items to HTML files.
+// There is an index from HTML to source file we could use, but
+// it's in JS instead of in an easily parsable format.
+// Scanning the HTML is also bit simpler as we don't need to e.g.
+// manually resolver blob imports.
 fn post_process_type(doc: &mut Document) {
     let traits = implemented_bevy_traits(doc);
 
+    // Tags sit below headline
     let mut heading = doc.select(".main-heading h1");
     heading.append_html("<div class=\"bevy-tag-container\"/>");
     let mut container = heading.select(".bevy-tag-container");
@@ -80,7 +86,12 @@ fn post_process_type(doc: &mut Document) {
     doc.select("html").append_html(STYLE);
 }
 
+/// If this is the documentation page of a single type,
+/// returns which of the relavant traits it implements,
+/// alongside a (relative) url to the trait, if available.
 fn implemented_bevy_traits(doc: &Document) -> HashMap<String, Option<String>> {
+    // Scanning the table of contents is easiest, but we need to find the link
+    // elsewhere as the ToC just points at the impls section.
     doc.select("#rustdoc-toc .trait-implementation a")
         .iter()
         .filter_map(|label| {
