@@ -40,13 +40,31 @@ fn main() {
         .expect("No crate name passed")
         .clone();
 
+    // Find target directory
+    let target_dir = std::env::args()
+        .skip_while(|arg| (*arg != "-o") & (*arg != "--output"))
+        .nth(1)
+        .unwrap()
+        .clone();
+    let target_dir = Path::new(&target_dir);
+
+    // Extra style sheet is shared between files
+    std::fs::write(
+        target_dir.join("static.files/bevy_style.css"),
+        STYLE.as_bytes(),
+    )
+    .unwrap();
+
     // Post-process HTML to apply our modifications
-    for entry in WalkDir::new(Path::new("target/doc/").join(package)) {
-        let path = entry.unwrap();
-        let path = path.path();
+    for entry in WalkDir::new(target_dir.join(package)) {
+        let entry = entry.unwrap();
+        let path = entry.path();
         if path.extension() == Some(OsStr::new("html")) {
             let mut doc = Document::from(&read_to_string(path).unwrap());
             post_process_type(&mut doc);
+            let style_url = "../".repeat(entry.depth()) + "static.files/bevy_style.css";
+            doc.select("head")
+                .append_html(format!("<link rel=\"stylesheet\" href=\"{style_url}\">"));
             std::fs::write(path, doc.html().as_bytes()).unwrap();
         }
     }
@@ -82,8 +100,6 @@ fn post_process_type(doc: &mut Document) {
             url.unwrap_or_default()
         ));
     }
-
-    doc.select("html").append_html(STYLE);
 }
 
 /// If this is the documentation page of a single type,
@@ -131,61 +147,59 @@ static BEVY_TRAITS: LazyLock<HashSet<String>> = LazyLock::new(|| {
 });
 
 const STYLE: &str = "
-<style>
-    .bevy-tag-container {
-        padding: 0.5rem 0;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
+.bevy-tag-container {
+    padding: 0.5rem 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
 
-    .bevy-tag {
-        display: flex;
-        align-items: center;
-        width: fit-content;
-        height: 1.5rem;
-        padding: 0 0.5rem;
-        border-radius: 0.75rem;
-        font-size: 1rem;
-        font-weight: normal;
-        color: white;
-        background-color: var(--tag-color);
-    }
+.bevy-tag {
+    display: flex;
+    align-items: center;
+    width: fit-content;
+    height: 1.5rem;
+    padding: 0 0.5rem;
+    border-radius: 0.75rem;
+    font-size: 1rem;
+    font-weight: normal;
+    color: white;
+    background-color: var(--tag-color);
+}
 
-    .component-tag,
-    .immutable-component-tag {
-        --tag-color: oklch(50% 27% 95);
-    }
+.component-tag,
+.immutable-component-tag {
+    --tag-color: oklch(50% 27% 95);
+}
 
-    .resource-tag {
-        --tag-color: oklch(50% 27% 110);
-    }
+.resource-tag {
+   --tag-color: oklch(50% 27% 110);
+}
 
-    .asset-tag {
-        --tag-color: oklch(50% 27% 0);
-    }
+.asset-tag {
+    --tag-color: oklch(50% 27% 0);
+}
 
-    .event-tag {
-        --tag-color: oklch(50% 27% 310);
-    }
+.event-tag {
+    --tag-color: oklch(50% 27% 310);
+}
 
-    .plugin-tag,
-    .plugingroup-tag {
-        --tag-color: oklch(50% 27% 50);
-    }
+.plugin-tag,
+.plugingroup-tag {
+    --tag-color: oklch(50% 27% 50);
+}
 
-    .schedulelabel-tag,
-    .systemset-tag {
-        --tag-color: oklch(50% 27% 270);
-    }
+.schedulelabel-tag,
+.systemset-tag {
+    --tag-color: oklch(50% 27% 270);
+}
 
-    .systemparam-tag {
-        --tag-color: oklch(50% 27% 200);
-    }
+.systemparam-tag {
+    --tag-color: oklch(50% 27% 200);
+}
 
-    .relationship-tag,
-    .relationshiptarget-tag {
-        --tag-color: oklch(50% 27% 150);
-    }
-</style>
+.relationship-tag,
+.relationshiptarget-tag {
+    --tag-color: oklch(50% 27% 150);
+}
 ";
