@@ -292,7 +292,7 @@ pub unsafe trait QueryData: WorldQuery {
     /// during const evaluation.
     /// By default it implements an Ignore, and can be overrided by implementations such as
     /// impl<T: Component> or impl<T0: QueryData, T1: QueryData>
-    /// There we recursively build up this component accces tree, checking for intra-query
+    /// There we recursively build up this component access tree, checking for intra-query
     /// errors along the way.
     const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = ComponentAccessTree {
         this: ComponentAccess::Ignore,
