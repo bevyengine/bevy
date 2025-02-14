@@ -16,8 +16,6 @@ use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_window::PrimaryWindow;
 
-use uuid::Uuid;
-
 use core::{fmt::Debug, ops::Deref};
 
 use crate::backend::HitData;
@@ -29,39 +27,67 @@ use crate::backend::HitData;
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash, Component, Reflect)]
 #[require(PointerLocation, PointerPress, PointerInteraction)]
 #[reflect(Component, Default, Debug, Hash, PartialEq)]
-pub enum PointerId {
-    /// The mouse pointer.
-    #[default]
-    Mouse,
-    /// A touch input, usually numbered by window touch events from `winit`.
-    Touch(u64),
-    /// A custom, uniquely identified pointer. Useful for mocking inputs or implementing a software
-    /// controlled cursor.
-    #[reflect(ignore)]
-    Custom(Uuid),
+pub struct PointerId {
+    /// A stable identifier for a specific pointer.
+    ///
+    /// This is typically provided by winit,
+    /// and is unique for each touch input or mouse.
+    pub id: u64,
+    /// The type of hardware device that created this pointer.
+    pub kind: PointerKind,
 }
 
 impl PointerId {
+    /// The [`PointerId`] of the mouse.
+    ///
+    /// Currently, only one mouse pointer is supported.
+    pub const MOUSE: Self = Self {
+        id: 0,
+        kind: PointerKind::Mouse,
+    };
+
     /// Returns true if the pointer is a touch input.
     pub fn is_touch(&self) -> bool {
-        matches!(self, PointerId::Touch(_))
+        matches!(self.kind, PointerKind::Touch)
     }
     /// Returns true if the pointer is the mouse.
     pub fn is_mouse(&self) -> bool {
-        matches!(self, PointerId::Mouse)
+        matches!(self.kind, PointerKind::Mouse)
     }
-    /// Returns true if the pointer is a custom input.
-    pub fn is_custom(&self) -> bool {
-        matches!(self, PointerId::Custom(_))
+    /// Returns true if the pointer is a virtual input.
+    pub fn is_virtual(&self) -> bool {
+        matches!(self.kind, PointerKind::Virtual)
     }
     /// Returns the touch id if the pointer is a touch input.
     pub fn get_touch_id(&self) -> Option<u64> {
-        if let PointerId::Touch(id) = self {
-            Some(*id)
+        if let PointerKind::Touch = self.kind {
+            Some(self.id)
         } else {
             None
         }
     }
+}
+
+/// The input device that created a pointer.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect)]
+#[reflect(Default, Debug, Hash, PartialEq)]
+pub enum PointerKind {
+    /// A pointer that is controlled by a mouse.
+    ///
+    /// Not a rodent; the device that you move around on a desk.
+    Mouse,
+    /// A pointer that is controlled by a touch input.
+    ///
+    /// Typically with your fingers on a touch screen,
+    /// but can also be a stylus or other touch input device.
+    Touch,
+    /// A pointer that is driven by code.
+    ///
+    /// No underlying hardware is associated with this pointer,
+    /// and it might represent a gamepad moving a cursor,
+    /// or an input sent to a focused element in a UI.
+    #[default]
+    Virtual,
 }
 
 /// Holds a list of entities this pointer is currently interacting with, sorted from nearest to

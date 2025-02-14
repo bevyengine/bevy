@@ -27,7 +27,7 @@ use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
 use tracing::debug;
 
 use crate::pointer::{
-    Location, PointerAction, PointerButton, PointerId, PointerInput, PointerLocation,
+    Location, PointerAction, PointerButton, PointerId, PointerInput, PointerKind, PointerLocation,
 };
 
 use crate::PickSet;
@@ -99,7 +99,7 @@ impl Plugin for PointerInputPlugin {
 
 /// Spawns the default mouse pointer.
 pub fn spawn_mouse_pointer(mut commands: Commands) {
-    commands.spawn(PointerId::Mouse);
+    commands.spawn(PointerId::MOUSE);
 }
 
 /// Sends mouse pointer events to be processed by the core plugin
@@ -126,7 +126,7 @@ pub fn mouse_pick_events(
                     position: event.position,
                 };
                 pointer_events.send(PointerInput::new(
-                    PointerId::Mouse,
+                    PointerId::MOUSE,
                     location,
                     PointerAction::Move {
                         delta: event.position - *cursor_last,
@@ -155,7 +155,7 @@ pub fn mouse_pick_events(
                     ButtonState::Pressed => PointerAction::Press(button),
                     ButtonState::Released => PointerAction::Release(button),
                 };
-                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_events.send(PointerInput::new(PointerId::MOUSE, location, action));
             }
             WindowEvent::MouseWheel(event) => {
                 let MouseWheel { unit, x, y, window } = *event;
@@ -172,7 +172,7 @@ pub fn mouse_pick_events(
 
                 let action = PointerAction::Scroll { x, y, unit };
 
-                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_events.send(PointerInput::new(PointerId::MOUSE, location, action));
             }
             _ => {}
         }
@@ -192,7 +192,10 @@ pub fn touch_pick_events(
 ) {
     for window_event in window_events.read() {
         if let WindowEvent::TouchInput(touch) = window_event {
-            let pointer = PointerId::Touch(touch.id);
+            let pointer = PointerId {
+                id: touch.id,
+                kind: PointerKind::Touch,
+            };
             let location = Location {
                 target: match RenderTarget::Window(WindowRef::Entity(touch.window))
                     .normalize(primary_window.get_single().ok())
