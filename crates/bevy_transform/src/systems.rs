@@ -6,7 +6,7 @@ use std::sync::{
 
 use crate::components::{GlobalTransform, Transform};
 use alloc::vec::Vec;
-use bevy_ecs::{prelude::*, system::lifetimeless::Read};
+use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
 use bevy_tasks::{ComputeTaskPool, TaskPool};
 use bevy_utils::Parallel;
 
@@ -66,6 +66,7 @@ impl Default for WorkQueue {
     }
 }
 
+/// Alias for a large, repeatedly used query.
 type NodeQuery<'w, 's> = Query<
     'w,
     's,
@@ -103,10 +104,9 @@ pub fn propagate_parent_transforms(
                 *parent_transform = GlobalTransform::from(*transform);
             }
 
-            // let children_iter = UniqueEntityIter::from_iterator_unchecked(children.iter());
-            // for (child, transform, global_transform) in nodes.iter_many_unique_mut(children_iter) {}
-
-            // SAFETY: Visiting the hierarchy as a tree without cycles
+            // SAFETY: the parent entities passed into this function are taken from iterating over
+            // the root entity query. Queries always iterate over unique entities, preventing
+            // mutable aliasing, and making this call safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
                 let mut outbox = Vec::new();
@@ -129,6 +129,7 @@ pub fn propagate_parent_transforms(
 
 /// A parallel worker that will consume processed parent entities from the queue, and push children
 /// to the queue once it has propagated their [`GlobalTransform`].
+#[inline]
 fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
     let _span = bevy_log::info_span!("transform propagation worker").entered();
     let mut outbox = queue.local_queue.borrow_local_mut();
@@ -158,8 +159,10 @@ fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
         drop(rx); // Important: drop after atomic and before work starts.
 
         for parent in tasks.drain(..) {
-            // SAFETY: Visiting the hierarchy as a tree without cycles. The assertion inside the
-            // function will trigger if the hierarchy has a cycle
+            // SAFETY: Parent entities fed into this function are pulled from the work queue, which
+            // is in turn fed from this function. The function will panic if cycles are found in the
+            // hierarchy, which means we can be certain that the work queue itself contains unique
+            // entities, making this safe to call.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
                 let (_, _, transform, children, _) = nodes.get_unchecked(parent).unwrap();
@@ -178,6 +181,14 @@ fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
 /// the `outbox`. Propagation does not visit leaf nodes; instead, they are computed in
 /// [`compute_transform_leaves`], which can optimize much more efficiently.
 ///
+/// # Safety
+///
+/// Callers must ensure that concurrent calls to this function are given unique `parent` entities.
+/// Calling this function concurrently with the same `parent` is unsafe. This function will validate
+/// that the entity hierarchy does not contain cycles to prevent mutable aliasing during
+/// propagation, but it is unable to verify that it isn't being used to mutably alias the same
+/// entity.
+///
 /// # Panics
 ///
 /// Panics if the parent of a node is not the same as the supplied `parent`. This check can be used
@@ -186,11 +197,6 @@ fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
 /// If this function is only called when traversing from ancestors to descendant, using the entities
 /// returned from te `outbox`, it can be used safely in parallel. This function will internally
 /// panic if a cycle is found in the hierarchy to prevent soundness issues.
-///
-/// # Safety
-///
-/// Callers of this function must ensure that if `nodes` is being used elsewhere concurrently, the
-/// entities passed in to `children` are disjoint.
 #[inline]
 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
 unsafe fn propagate_to_child_unchecked(
@@ -198,10 +204,16 @@ unsafe fn propagate_to_child_unchecked(
     nodes: &NodeQuery,
     outbox: &mut Vec<Entity>,
 ) {
-    // SAFETY: This function must only be called with disjoint entity access.
+    // Safety: `Children` is guaranteed to hold unique entities.
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-    let mut children = unsafe { nodes.iter_many_unsafe(children) };
-    while let Some((child, transform, mut global_transform, _, child_of)) = children.fetch_next() {
+    let children_iter = unsafe { UniqueEntityIter::from_iterator_unchecked(children.iter()) };
+    for (child, transform, mut global_transform, _, child_of) in
+        // Safety: traversing the entity tree from the roots, we assert that the childof and
+        // children pointers match in both directions (see assert below) to ensure the hierarchy
+        // does not have any cycles. Because the hierarchy does not have cycles, we know we are
+        // visiting disjoint entities in parallel, which is safe.
+        unsafe { nodes.iter_many_unique_unsafe(children_iter) }
+    {
         assert!(child_of.get() == parent);
         if parent_transform.is_changed() || transform.is_changed() || global_transform.is_added() {
             *global_transform = parent_transform.mul_transform(*transform);
@@ -212,7 +224,7 @@ unsafe fn propagate_to_child_unchecked(
 
 /// Compute leaf [`GlobalTransform`]s in parallel.
 ///
-/// This is run after [`propagate_transform_nodes`], to ensure the parents' [`GlobalTransform`]s
+/// This is run after [`propagate_parent_transforms`], to ensure the parents' [`GlobalTransform`]s
 /// have been computed. This makes computing leaves embarrassingly parallel.
 pub fn compute_transform_leaves(
     parents: Query<Ref<GlobalTransform>, With<Children>>,
