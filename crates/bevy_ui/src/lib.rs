@@ -104,6 +104,7 @@ pub enum UiSystem {
     ///
     /// Runs in [`PreUpdate`].
     Focus,
+    /// After this label, the `ResolvedChildOf` and `ResolvedChildren` have been updated for this frame.
     Resolve,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
