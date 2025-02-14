@@ -54,7 +54,9 @@ bevy_debug_stepping = []
 track_location = []
 
 ## Provides name information in Component traits for use in System conflict diagnostics
-diagnostic_component_names = []
+diagnostic_component_names = [
+  "bevy_ecs_macros/diagnostic_component_names"
+]
 
 # Executor Backend
 
