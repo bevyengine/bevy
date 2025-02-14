@@ -1314,7 +1314,8 @@ pub fn delete_old_work_item_buffers<GFBD>(
 /// is in use. This means comparing metadata needed to draw each phase item and
 /// trying to combine the draws into a batch.
 pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
-    indirect_parameters_buffers: Res<IndirectParametersBuffers>,
+    mut phase_batched_instance_buffers: ResMut<PhaseBatchedInstanceBuffers<I, GFBD::BufferData>>,
+    mut phase_indirect_parameters_buffers: ResMut<PhaseIndirectParametersBuffers<I>>,
     mut sorted_render_phases: ResMut<ViewSortedRenderPhases<I>>,
     mut views: Query<(
         &ExtractedView,
@@ -1326,19 +1327,13 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
     I: CachedRenderPipelinePhaseItem + SortedPhaseItem,
     GFBD: GetFullBatchData,
 {
-    let mut phase_batched_instance_buffers =
-        UntypedPhaseBatchedInstanceBuffers::<GFBD::BufferData>::new();
-    let mut phase_indirect_parameters_buffers = UntypedPhaseIndirectParametersBuffers::new(
-        indirect_parameters_buffers.allow_copies_from_indirect_parameter_buffers,
-    );
-
     // We only process GPU-built batch data in this function.
     let UntypedPhaseBatchedInstanceBuffers {
         ref mut data_buffer,
         ref mut work_item_buffers,
         ref mut late_indexed_indirect_parameters_buffer,
         ref mut late_non_indexed_indirect_parameters_buffer,
-    } = phase_batched_instance_buffers;
+    } = phase_batched_instance_buffers.buffers;
 
     for (extracted_view, no_indirect_drawing, gpu_occlusion_culling) in &mut views {
         let Some(phase) = sorted_render_phases.get_mut(&extracted_view.retained_view_entity) else {
@@ -1382,7 +1377,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                     batch.flush(
                         data_buffer.len() as u32,
                         phase,
-                        &mut phase_indirect_parameters_buffers,
+                        &mut phase_indirect_parameters_buffers.buffers,
                     );
                 }
 
@@ -1408,15 +1403,27 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             if !can_batch {
                 // Break a batch if we need to.
                 if let Some(batch) = batch.take() {
-                    batch.flush(output_index, phase, &mut phase_indirect_parameters_buffers);
+                    batch.flush(
+                        output_index,
+                        phase,
+                        &mut phase_indirect_parameters_buffers.buffers,
+                    );
                 }
 
                 let indirect_parameters_index = if no_indirect_drawing {
                     None
                 } else if item_is_indexed {
-                    Some(phase_indirect_parameters_buffers.allocate_indexed(1))
+                    Some(
+                        phase_indirect_parameters_buffers
+                            .buffers
+                            .allocate_indexed(1),
+                    )
                 } else {
-                    Some(phase_indirect_parameters_buffers.allocate_non_indexed(1))
+                    Some(
+                        phase_indirect_parameters_buffers
+                            .buffers
+                            .allocate_non_indexed(1),
+                    )
                 };
 
                 // Start a new batch.
@@ -1426,7 +1433,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
                         item_is_indexed,
                         output_index,
                         None,
-                        &mut phase_indirect_parameters_buffers,
+                        &mut phase_indirect_parameters_buffers.buffers,
                         indirect_parameters_index,
                     );
                 };
@@ -1467,7 +1474,7 @@ pub fn batch_and_prepare_sorted_render_phase<I, GFBD>(
             batch.flush(
                 data_buffer.len() as u32,
                 phase,
-                &mut phase_indirect_parameters_buffers,
+                &mut phase_indirect_parameters_buffers.buffers,
             );
         }
     }
