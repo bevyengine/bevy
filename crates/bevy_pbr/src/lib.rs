@@ -105,6 +105,7 @@ pub mod graph {
         EarlyPrepassBuildIndirectParameters,
         LatePrepassBuildIndirectParameters,
         MainBuildIndirectParameters,
+        ClearIndirectParametersMetadata,
     }
 }
 

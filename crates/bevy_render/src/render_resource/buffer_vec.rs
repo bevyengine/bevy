@@ -451,8 +451,14 @@ where
 
     /// Reserves space for one more element in the buffer and returns its index.
     pub fn add(&mut self) -> usize {
+        self.add_multiple(1)
+    }
+
+    /// Reserves space for the given number of elements in the buffer and
+    /// returns the index of the first one.
+    pub fn add_multiple(&mut self, count: usize) -> usize {
         let index = self.len;
-        self.len += 1;
+        self.len += count;
         index
     }
 
