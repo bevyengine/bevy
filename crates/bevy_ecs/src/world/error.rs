@@ -29,9 +29,7 @@ pub struct TryInsertBatchError {
     pub entities: Vec<Entity>,
 }
 
-/// The error type returned by [`World::try_despawn`] if the provided entity does not exist.
-///
-/// [`World::try_despawn`]: crate::world::World::try_despawn
+/// An error that occurs when a specified [`Entity`] could not be despawned.
 #[derive(thiserror::Error, Debug, Clone, Copy)]
 #[error("Could not despawn entity: {0}")]
 pub struct EntityDespawnError(#[from] pub EntityMutableFetchError);
