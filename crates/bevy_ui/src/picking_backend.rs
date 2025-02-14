@@ -19,8 +19,8 @@
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
 //! - The `position` reported in `HitData` is normalized relative to the node, with `(0.,0.,0.)` at
-//! the top left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire
-//! node, not just the visible region. This backend does not provide a `normal`.
+//!   the top left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire
+//!   node, not just the visible region. This backend does not provide a `normal`.
 
 #![deny(missing_docs)]
 

@@ -5,7 +5,7 @@
 //! ## Implementation Notes
 //!
 //! - The `position` reported in `HitData` in in world space, and the `normal` is a normalized
-//! vector provided by the target's `GlobalTransform::back()`.
+//!   vector provided by the target's `GlobalTransform::back()`.
 
 use crate::Sprite;
 use bevy_app::prelude::*;

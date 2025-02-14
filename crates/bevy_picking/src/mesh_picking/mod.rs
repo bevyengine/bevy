@@ -11,7 +11,7 @@
 //! ## Implementation Notes
 //!
 //! - The `position` reported in `HitData` is in world space. The `normal` is a vector pointing
-//! away from the face, it is not guaranteed to be normalized for scaled meshes.
+//!   away from the face, it is not guaranteed to be normalized for scaled meshes.
 
 pub mod ray_cast;
 
