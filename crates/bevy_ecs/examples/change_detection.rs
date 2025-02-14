@@ -30,7 +30,6 @@ fn main() {
     // We can label our systems to force a specific run-order between some of them
     schedule.add_systems((
         spawn_entities.in_set(SimulationSet::Spawn),
-        test,
         print_counter_when_changed.after(SimulationSet::Spawn),
         age_all_entities.in_set(SimulationSet::Age),
         remove_old_entities.after(SimulationSet::Age),
@@ -63,9 +62,6 @@ enum SimulationSet {
     Age,
 }
 
-fn test(query: Query<(&mut Age)>, query2: Query<(&mut Age)>) {
-
-}
 
 // This system randomly spawns a new entity in 60% of all frames
 // The entity will start with an age of 0 frames
