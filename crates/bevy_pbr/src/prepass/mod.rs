@@ -46,7 +46,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
-use tracing::error;
+use tracing::{error, warn};
 
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
@@ -965,6 +965,7 @@ pub fn specialize_prepass_material_meshes<M>(
             let Some(material_bind_group) =
                 material_bind_group_allocator.get(material.binding.group)
             else {
+                warn!("Couldn't get bind group for material");
                 continue;
             };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {

@@ -289,6 +289,8 @@ pub const MATHS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("d94d70d4-746d-49c4-bfc3-27d63f2acda0");
 pub const COLOR_OPERATIONS_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("33a80b2f-aaf7-4c86-b828-e7ae83b72f1a");
+pub const BINDLESS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("13f1baaa-41bf-448e-929e-258f9307a522");
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderSet`] and creates the rendering sub-app.
@@ -432,6 +434,12 @@ impl Plugin for RenderPlugin {
             app,
             COLOR_OPERATIONS_SHADER_HANDLE,
             "color_operations.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            BINDLESS_SHADER_HANDLE,
+            "bindless.wgsl",
             Shader::from_wgsl
         );
         if let Some(future_render_resources) =
