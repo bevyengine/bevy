@@ -749,8 +749,8 @@ where
     Marker: 'static,
     F: SystemParamFunction<Marker>,
 {
-
-    const INTO_SYSTEM_PANIC_CHECKER: Option<SystemPanicMessage> = F::SYSTEM_PARAM_FUNCTION_PANIC_CHECKER;
+    const INTO_SYSTEM_PANIC_CHECKER: Option<SystemPanicMessage> =
+        F::SYSTEM_PARAM_FUNCTION_PANIC_CHECKER;
     type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
@@ -992,7 +992,6 @@ where
     label = "invalid system"
 )]
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
-
     const SYSTEM_PARAM_FUNCTION_PANIC_CHECKER: Option<SystemPanicMessage> = None;
 
     /// The input type of this system. See [`System::In`].

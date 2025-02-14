@@ -1,6 +1,7 @@
 use alloc::{boxed::Box, vec, vec::Vec};
 use variadics_please::all_tuples;
 
+use crate::system::const_param_checking::SystemPanicMessage;
 use crate::{
     result::Result,
     schedule::{
@@ -12,7 +13,6 @@ use crate::{
     },
     system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
 };
-use crate::system::const_param_checking::SystemPanicMessage;
 
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
@@ -536,7 +536,8 @@ impl<F, Marker> IntoSystemConfigs<(Infallible, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
-    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = F::INTO_SYSTEM_PANIC_CHECKER;
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> =
+        F::INTO_SYSTEM_PANIC_CHECKER;
     fn into_configs(self) -> SystemConfigs {
         let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
         SystemConfigs::new_system(Box::new(wrapper))
@@ -551,7 +552,8 @@ impl<F, Marker> IntoSystemConfigs<(Fallible, Marker)> for F
 where
     F: IntoSystem<(), Result, Marker>,
 {
-    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = F::INTO_SYSTEM_PANIC_CHECKER;
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> =
+        F::INTO_SYSTEM_PANIC_CHECKER;
     fn into_configs(self) -> SystemConfigs {
         let boxed_system = Box::new(IntoSystem::into_system(self));
         SystemConfigs::new_system(boxed_system)

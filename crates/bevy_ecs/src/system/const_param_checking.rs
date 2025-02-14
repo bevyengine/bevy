@@ -1,14 +1,6 @@
-use core::fmt::Debug;
-use std::backtrace::Backtrace;
-use std::panic::{catch_unwind, Location};
-use std::{io, print, println};
-use std::mem::ManuallyDrop;
-use std::process::Stdio;
-use const_panic::{PanicVal, __write_array};
-use const_panic::utils::bytes_up_to;
 use bevy_ecs::component::Component;
 use bevy_ecs::system::SystemParam;
-use variadics_please::all_tuples;
+use core::fmt::Debug;
 
 #[derive(Copy, Clone, Debug)]
 pub struct SystemPanicMessage {
@@ -21,18 +13,30 @@ pub struct SystemPanicMessage {
 #[derive(Copy, Clone, Debug)]
 pub enum ComponentAccess {
     Ignore,
-    Use { type_id: u128, access: AccessType, name: Option<&'static str> },
+    Use {
+        type_id: u128,
+        access: AccessType,
+        name: Option<&'static str>,
+    },
 }
 impl ComponentAccess {
     const fn invalid(&self, rhs: &ComponentAccess) -> bool {
         match self {
             ComponentAccess::Ignore => false,
-            ComponentAccess::Use { type_id, access, name } => {
+            ComponentAccess::Use {
+                type_id,
+                access,
+                name,
+            } => {
                 let type_id_self = type_id;
                 let access_self = access;
                 match rhs {
                     ComponentAccess::Ignore => false,
-                    ComponentAccess::Use { type_id, access, name } => {
+                    ComponentAccess::Use {
+                        type_id,
+                        access,
+                        name,
+                    } => {
                         *type_id_self == *type_id
                             && (matches!(access_self, AccessType::Mut)
                                 || matches!(access, AccessType::Mut))
@@ -44,13 +48,21 @@ impl ComponentAccess {
     const fn invalid_2(&self, rhs: &ComponentAccess) -> Option<SystemPanicMessage> {
         match self {
             ComponentAccess::Ignore => None,
-            ComponentAccess::Use { type_id, access, name } => {
+            ComponentAccess::Use {
+                type_id,
+                access,
+                name,
+            } => {
                 let type_id_self = type_id;
                 let access_self = access;
                 let name_self = name;
                 match rhs {
                     ComponentAccess::Ignore => None,
-                    ComponentAccess::Use { type_id, access, name } => {
+                    ComponentAccess::Use {
+                        type_id,
+                        access,
+                        name,
+                    } => {
                         if *type_id_self != *type_id {
                             return None;
                         }
@@ -71,7 +83,7 @@ impl ComponentAccess {
                                     lhs_name: "",
                                     rhs_access_type: *access,
                                     rhs_name: "",
-                                })
+                                });
                             }
                         } else {
                             if matches!(access, AccessType::Mut) {
@@ -91,7 +103,7 @@ impl ComponentAccess {
                                         lhs_name: "",
                                         rhs_access_type: *access,
                                         rhs_name: "",
-                                    })
+                                    });
                                 }
                             }
                         }
@@ -116,10 +128,13 @@ pub struct WithFilterTree {
 }
 
 impl WithFilterTree {
-    pub const fn combine(left: &'static Option<WithFilterTree>, right: &'static Option<WithFilterTree>) -> Option<Self> {
+    pub const fn combine(
+        left: &'static Option<WithFilterTree>,
+        right: &'static Option<WithFilterTree>,
+    ) -> Option<Self> {
         Some(Self {
             this: WithId(None),
-            left: left,
+            left,
             right,
         })
     }
@@ -169,8 +184,10 @@ pub struct WithoutFilterTree {
 }
 
 impl WithoutFilterTree {
-
-    pub const fn combine(left: &'static Option<WithoutFilterTree>, right: &'static Option<WithoutFilterTree>) -> Option<Self> {
+    pub const fn combine(
+        left: &'static Option<WithoutFilterTree>,
+        right: &'static Option<WithoutFilterTree>,
+    ) -> Option<Self> {
         Some(Self {
             this: WithoutId(None),
             left,
@@ -193,10 +210,14 @@ impl WithoutFilterTree {
         }
         return false;
     }
-    const fn is_filtered_out_component(&self, component_access: ComponentAccess ) -> bool {
+    const fn is_filtered_out_component(&self, component_access: ComponentAccess) -> bool {
         match component_access {
             ComponentAccess::Ignore => false,
-            ComponentAccess::Use { type_id, access, name } => {
+            ComponentAccess::Use {
+                type_id,
+                access,
+                name,
+            } => {
                 if let Some(type_id_this) = self.this.0 {
                     if type_id_this == type_id {
                         return true;
@@ -267,7 +288,6 @@ impl ComponentAccessTree {
             }
         }
 
-
         let (with_tree, without_tree, maybe_with_tree, maybe_without_tree): (
             &WithFilterTree,
             &WithoutFilterTree,
@@ -299,8 +319,10 @@ impl ComponentAccessTree {
         return Self::check_list_with_output(left.0, right.0);
     }
 
-
-    const fn check_list_with_output(&self, rhs: &ComponentAccessTree) -> Option<SystemPanicMessage> {
+    const fn check_list_with_output(
+        &self,
+        rhs: &ComponentAccessTree,
+    ) -> Option<SystemPanicMessage> {
         if let Some(owo) = self.check_with_output(rhs.this) {
             return Some(owo);
         }
@@ -317,7 +339,10 @@ impl ComponentAccessTree {
         None
     }
 
-    const fn check_with_output(&self, component_access: ComponentAccess) -> Option<SystemPanicMessage> {
+    const fn check_with_output(
+        &self,
+        component_access: ComponentAccess,
+    ) -> Option<SystemPanicMessage> {
         if let Some(str) = self.this.invalid_2(&component_access) {
             return Some(str);
         }
@@ -346,13 +371,18 @@ impl ComponentAccessTree {
     }
     #[track_caller]
     const fn check(&self, component_access: ComponentAccess) {
-        if self.this.invalid(&component_access) {
-            const CALLER: &'static Location = Location::caller();
-            const LINE: &'static str = const_str::to_str!(CALLER.line());
-            const COLUMN: &'static str = const_str::to_str!(CALLER.column());
-            const FILE: &'static str = CALLER.file();
-            //const COMPILE_ERR: &'static str = const_str::concat!("Compile Error at", FILE, ":", LINE, ":", COLUMN);
-            const_panic::concat_panic!("Compile Error at", FILE, ":", LINE, ":", COLUMN);
+        if let Some(invalid) = self.this.invalid_2(&component_access) {
+            let lhs_access_type = match invalid.lhs_access_type {
+                AccessType::Ref => "&",
+                AccessType::Mut => "&mut",
+            };
+            let rhs_access_type = match invalid.rhs_access_type {
+                AccessType::Ref => "&",
+                AccessType::Mut => "&mut",
+            };
+            let lhs_name = invalid.lhs_name;
+            let rhs_name = invalid.rhs_name;
+            const_panic::concat_panic!(const_panic::FmtArg::DISPLAY; "\nInvalid System Queries, ", lhs_access_type," ", lhs_name, ", ", rhs_access_type," ", rhs_name, "\n");
         }
         if let Some(right) = self.right {
             right.check(component_access);
@@ -362,8 +392,6 @@ impl ComponentAccessTree {
         }
     }
 }
-
-
 
 pub trait AccessTreeContainer {
     const COMPONENT_ACCESS_TREE: ComponentAccessTree;
@@ -414,7 +442,7 @@ macro_rules! impl_valid_system_params_for_fn {
     };
 
     (@check_all $error:ident, $t0:ident) => {
-        // Single element has no pairs to check
+        let _ = &$t0::COMPONENT_ACCESS_TREE;
     };
 
     (@check_all $error:ident, $t0:ident, $($rest:ident),+) => {
@@ -433,8 +461,12 @@ macro_rules! impl_valid_system_params_for_fn {
     };
 }
 
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15);
+impl_valid_system_params_for_fn!(
+    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16
+);
+impl_valid_system_params_for_fn!(
+    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
+);
 impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
 impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
 impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);

@@ -138,6 +138,8 @@ mod system_registry;
 
 use core::any::TypeId;
 
+use crate::system::const_param_checking::SystemPanicMessage;
+use crate::world::World;
 pub use adapter_system::*;
 pub use builder::*;
 pub use combinator::*;
@@ -153,8 +155,6 @@ pub use system::*;
 pub use system_name::*;
 pub use system_param::*;
 pub use system_registry::*;
-use crate::system::const_param_checking::SystemPanicMessage;
-use crate::world::World;
 
 /// Conversion trait to turn something into a [`System`].
 ///

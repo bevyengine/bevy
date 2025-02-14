@@ -524,8 +524,6 @@ macro_rules! impl_or_query_filter {
     };
 }
 
-
-
 macro_rules! impl_tuple_query_filter {
     ($(#[$meta:meta])* $($name: ident),*) => {
         #[expect(
