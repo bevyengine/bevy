@@ -1480,6 +1480,10 @@ pub trait ComponentsWriter: ComponentsReader {
 /// This trait provides easily misused read only access to [`Component`] collections intended for use only within this crate.
 pub(crate) trait ComponentsInternalReader: ComponentsReader {
     /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
+    #[expect(
+        unused,
+        reason = "Although this is not used now, it is nice to have for parity."
+    )]
     fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef>;
 
     /// Gets the [`RequiredByStagedMut`] for a component if it exists.

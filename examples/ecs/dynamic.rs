@@ -11,7 +11,8 @@ use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 use bevy::{
     ecs::{
         component::{
-            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo,
+            ComponentsReader, StorageType,
         },
         query::QueryData,
         world::FilteredEntityMut,
@@ -19,7 +20,6 @@ use bevy::{
     prelude::*,
     ptr::{Aligned, OwningPtr},
 };
-use bevy_ecs::component::ComponentsReader;
 
 const PROMPT: &str = "
 Commands:
