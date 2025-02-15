@@ -1831,7 +1831,10 @@ fn texture_sampler(texture: &gltf::Texture, anisotropy_clamp: u16) -> ImageSampl
                 MagFilter::Nearest => ImageFilterMode::Nearest,
                 MagFilter::Linear => ImageFilterMode::Linear,
             })
-            .unwrap_or(ImageSamplerDescriptor::default().mag_filter),
+            .or(Some(ImageSamplerDescriptor::default().mag_filter))
+            // Enabling anisotropy with Nearest filters causes wgpu Validation Error
+            .filter(|_| anisotropy_clamp==1)
+            .unwrap_or(ImageFilterMode::Linear),
 
         min_filter: gltf_sampler
             .min_filter()
@@ -1843,7 +1846,9 @@ fn texture_sampler(texture: &gltf::Texture, anisotropy_clamp: u16) -> ImageSampl
                 | MinFilter::LinearMipmapNearest
                 | MinFilter::LinearMipmapLinear => ImageFilterMode::Linear,
             })
-            .unwrap_or(ImageSamplerDescriptor::default().min_filter),
+            .or(Some(ImageSamplerDescriptor::default().min_filter))
+            .filter(|_| anisotropy_clamp==1)
+            .unwrap_or(ImageFilterMode::Linear),
 
         mipmap_filter: gltf_sampler
             .min_filter()
@@ -1856,7 +1861,9 @@ fn texture_sampler(texture: &gltf::Texture, anisotropy_clamp: u16) -> ImageSampl
                     ImageFilterMode::Linear
                 }
             })
-            .unwrap_or(ImageSamplerDescriptor::default().mipmap_filter),
+            .or(Some(ImageSamplerDescriptor::default().mipmap_filter))
+            .filter(|_| anisotropy_clamp==1)
+            .unwrap_or(ImageFilterMode::Linear),
 
         anisotropy_clamp,
         
