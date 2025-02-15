@@ -1168,6 +1168,16 @@ pub struct StagedComponents {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
+    /// Changes to staged [`ComponentInfo::required_components`].
+    ///
+    /// # Safety
+    /// ids must be valid and cold.
+    additional_required_components: HashMap<ComponentId, RequiredComponents>,
+    /// Changes to staged [`ComponentInfo::required_by`].
+    ///
+    /// # Safety
+    /// ids must be valid and cold.
+    additional_required_by: HashMap<ComponentId, HashSet<ComponentId>>,
 }
 
 impl StagedChanges for StagedComponents {
@@ -1179,6 +1189,20 @@ impl StagedChanges for StagedComponents {
         storage
             .resource_indices
             .extend(self.resource_indices.drain());
+
+        for (id, additional_required_components) in self.additional_required_components.drain() {
+            // SAFETY: ids are known to be valid and cold.
+            unsafe { storage.components.get_mut(id.0).debug_checked_unwrap() }
+                .required_components
+                .merge(&additional_required_components);
+        }
+
+        for (id, additional_required_by) in self.additional_required_by.drain() {
+            // SAFETY: ids are known to be valid and cold.
+            unsafe { storage.components.get_mut(id.0).debug_checked_unwrap() }
+                .required_by
+                .extend(additional_required_by);
+        }
     }
 
     fn any_staged(&self) -> bool {
@@ -1853,6 +1877,76 @@ impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
     #[inline]
     fn is_id_staged(&self, id: ComponentId) -> bool {
         self.cold.len() > id.0
+    }
+}
+
+impl ComponentsInternalReader for StagedRef<'_, StagedComponents> {
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef> {
+        if !self.is_id_valid(id) {
+            return None;
+        }
+
+        Some(if self.is_id_staged(id) {
+            // SAFETY: We just checked that it was valid and staged
+            let info = unsafe {
+                self.staged
+                    .components
+                    .get(id.0 - self.cold.components.len())
+                    .debug_checked_unwrap()
+            };
+            RequiredComponentsStagedRef {
+                working: &info.required_components,
+                cold: None,
+            }
+        } else {
+            // SAFETY: We just checked that it was valid and cold
+            let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
+            if let Some(additional) = self.staged.additional_required_components.get(&id) {
+                RequiredComponentsStagedRef {
+                    working: additional,
+                    cold: Some(&info.required_components),
+                }
+            } else {
+                RequiredComponentsStagedRef {
+                    working: &info.required_components,
+                    cold: None,
+                }
+            }
+        })
+    }
+
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef> {
+        if !self.is_id_valid(id) {
+            return None;
+        }
+
+        Some(if self.is_id_staged(id) {
+            // SAFETY: We just checked that it was valid and staged
+            let info = unsafe {
+                self.staged
+                    .components
+                    .get(id.0 - self.cold.components.len())
+                    .debug_checked_unwrap()
+            };
+            RequiredByStagedRef {
+                working: &info.required_by,
+                cold: None,
+            }
+        } else {
+            // SAFETY: We just checked that it was valid and cold
+            let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
+            if let Some(additional) = self.staged.additional_required_by.get(&id) {
+                RequiredByStagedRef {
+                    working: additional,
+                    cold: Some(&info.required_by),
+                }
+            } else {
+                RequiredByStagedRef {
+                    working: &info.required_by,
+                    cold: None,
+                }
+            }
+        })
     }
 }
 
@@ -2543,8 +2637,8 @@ impl RequiredComponents {
         }
     }
 
-    // Merges `required_components` into this collection. This only inserts a required component
-    // if it _did not already exist_.
+    /// Merges `required_components` into this collection. This only inserts a required component
+    /// if it _did not already exist_.
     pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
         for (id, constructor) in &required_components.0 {
             self.0.entry(*id).or_insert_with(|| constructor.clone());
