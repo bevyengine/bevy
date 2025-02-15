@@ -71,7 +71,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(err) => err.into_compile_error().into(),
     };
 
-    let visit_entities = visit_entities(&ast.data, &bevy_ecs_path, relationship.is_some());
+    let visit_entities = visit_entities(
+        &ast.data,
+        &bevy_ecs_path,
+        relationship.is_some(),
+        relationship_target.is_some(),
+    );
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
@@ -255,7 +260,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     })
 }
 
-fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
+fn visit_entities(
+    data: &Data,
+    bevy_ecs_path: &Path,
+    is_relationship: bool,
+    is_relatonship_target: bool,
+) -> TokenStream2 {
     match data {
         Data::Struct(DataStruct { ref fields, .. }) => {
             let mut visited_fields = Vec::new();
@@ -276,7 +286,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 }
                 Fields::Unnamed(fields) => {
                     for (index, field) in fields.unnamed.iter().enumerate() {
-                        if index == 0 && is_relationship {
+                        if index == 0 && (is_relationship || is_relatonship_target) {
                             visited_indices.push(Index::from(0));
                         } else if field
                             .attrs
