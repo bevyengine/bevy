@@ -21,7 +21,9 @@
 
 use crate::{
     bundle::BundleId,
-    component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
+    component::{
+        ComponentId, Components, ComponentsReader, RequiredComponentConstructor, StorageType,
+    },
     entity::{Entity, EntityLocation},
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},

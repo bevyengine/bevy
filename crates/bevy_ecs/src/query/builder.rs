@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use crate::{
-    component::{ComponentId, StorageType},
+    component::{ComponentId, ComponentsReader, StorageType},
     prelude::*,
 };
 

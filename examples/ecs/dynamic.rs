@@ -10,7 +10,9 @@ use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
+        component::{
+            ComponentDescriptor, ComponentId, ComponentInfo, ComponentsReader, StorageType,
+        },
         query::QueryData,
         world::FilteredEntityMut,
     },

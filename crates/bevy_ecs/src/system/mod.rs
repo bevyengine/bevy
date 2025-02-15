@@ -334,7 +334,7 @@ mod tests {
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
         change_detection::DetectChanges,
-        component::{Component, Components, Tick},
+        component::{Component, Components, ComponentsReader, Tick},
         entity::{Entities, Entity},
         prelude::{AnyOf, EntityRef},
         query::{Added, Changed, Or, With, Without},

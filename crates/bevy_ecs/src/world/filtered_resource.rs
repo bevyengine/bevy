@@ -1,6 +1,6 @@
 use crate::{
     change_detection::{Mut, MutUntyped, Ref, Ticks, TicksMut},
-    component::{ComponentId, Tick},
+    component::{ComponentId, ComponentsReader, Tick},
     query::Access,
     resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},

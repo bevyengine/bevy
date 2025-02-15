@@ -1292,6 +1292,41 @@ pub trait ComponentsReader {
     }
 }
 
+impl ComponentsReader for Components {
+    #[inline]
+    fn len(&self) -> usize {
+        self.components.len()
+    }
+
+    #[inline]
+    unsafe fn get_info_unchecked(
+        &self,
+        id: ComponentId,
+    ) -> impl DerefByLifetime<Target = ComponentInfo> {
+        debug_assert!(id.index() < self.components.len());
+        // SAFETY: The caller ensures `id` is valid.
+        unsafe { self.components.get_unchecked(id.0) }
+    }
+
+    #[inline]
+    fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.indices.get(&type_id).copied()
+    }
+
+    #[inline]
+    fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.resource_indices.get(&type_id).copied()
+    }
+
+    fn get_component_clone_handlers(&self) -> &ComponentCloneHandlers {
+        &self.component_clone_handlers
+    }
+
+    fn is_id_valid(&self, id: ComponentId) -> bool {
+        self.components.len() > id.0
+    }
+}
+
 impl Components {
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
@@ -1382,45 +1417,6 @@ impl Components {
         }
         components.push(info);
         component_id
-    }
-
-    /// Returns the number of components registered with this instance.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.components.len()
-    }
-
-    /// Returns `true` if there are no components registered with this instance. Otherwise, this returns `false`.
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.components.len() == 0
-    }
-
-    /// Gets the metadata associated with the given component.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
-    #[inline]
-    pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
-        self.components.get(id.0)
-    }
-
-    /// Returns the name associated with the given component.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
-    #[inline]
-    pub fn get_name(&self, id: ComponentId) -> Option<&str> {
-        self.get_info(id).map(ComponentInfo::name)
-    }
-
-    /// Gets the metadata associated with the given component.
-    /// # Safety
-    ///
-    /// `id` must be a valid [`ComponentId`]
-    #[inline]
-    pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
-        debug_assert!(id.index() < self.components.len());
-        // SAFETY: The caller ensures `id` is valid.
-        unsafe { self.components.get_unchecked(id.0) }
     }
 
     #[inline]
@@ -1543,24 +1539,26 @@ impl Components {
         required: ComponentId,
     ) -> Vec<(ComponentId, RequiredComponent)> {
         // Get required components inherited from the `required` component.
-        // SAFETY: The caller ensures that the `required` component is valid.
-        let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
-        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = required_component_info
-            .required_components()
-            .0
-            .iter()
-            .map(|(component_id, required_component)| {
-                (
-                    *component_id,
-                    RequiredComponent {
-                        constructor: required_component.constructor.clone(),
-                        // Add `1` to the inheritance depth since this will be registered
-                        // for the component that requires `required`.
-                        inheritance_depth: required_component.inheritance_depth + 1,
-                    },
-                )
-            })
-            .collect();
+        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = {
+            // SAFETY: The caller ensures that the `required` component is valid.
+            let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
+            required_component_info
+                .required_components()
+                .0
+                .iter()
+                .map(|(component_id, required_component)| {
+                    (
+                        *component_id,
+                        RequiredComponent {
+                            constructor: required_component.constructor.clone(),
+                            // Add `1` to the inheritance depth since this will be registered
+                            // for the component that requires `required`.
+                            inheritance_depth: required_component.inheritance_depth + 1,
+                        },
+                    )
+                })
+                .collect()
+        };
 
         // Register the new required components.
         for (component_id, component) in inherited_requirements.iter().cloned() {
@@ -1708,89 +1706,9 @@ impl Components {
             .map(|info| &mut info.required_by)
     }
 
-    /// Retrieves the [`ComponentCloneHandlers`]. Can be used to get clone functions for components.
-    pub fn get_component_clone_handlers(&self) -> &ComponentCloneHandlers {
-        &self.component_clone_handlers
-    }
-
     /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
     pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
         &mut self.component_clone_handlers
-    }
-
-    /// Type-erased equivalent of [`Components::component_id()`].
-    #[inline]
-    pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied()
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
-    ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
-    /// instance.
-    ///
-    /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::register_component()`].
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Component)]
-    /// struct ComponentA;
-    ///
-    /// let component_a_id = world.register_component::<ComponentA>();
-    ///
-    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::get_id()`]
-    /// * [`Components::resource_id()`]
-    /// * [`World::component_id()`]
-    #[inline]
-    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.get_id(TypeId::of::<T>())
-    }
-
-    /// Type-erased equivalent of [`Components::resource_id()`].
-    #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
-    }
-
-    /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
-    ///
-    /// The returned `ComponentId` is specific to the `Components` instance
-    /// it was retrieved from and should not be used with another `Components`
-    /// instance.
-    ///
-    /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::register_resource()`].
-    ///
-    /// ```
-    /// use bevy_ecs::prelude::*;
-    ///
-    /// let mut world = World::new();
-    ///
-    /// #[derive(Resource, Default)]
-    /// struct ResourceA;
-    ///
-    /// let resource_a_id = world.init_resource::<ResourceA>();
-    ///
-    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::get_resource_id()`]
-    #[inline]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
     }
 
     /// Registers a [`Resource`] of type `T` with this instance.
@@ -2344,13 +2262,13 @@ pub fn enforce_no_required_components_recursion(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap())))
+                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap().deref())))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
                     format!(
                         "Remove require({}).",
-                        ShortName(components.get_name(requiree).unwrap())
+                        ShortName(components.get_name(requiree).unwrap().deref())
                     )
                 } else {
                     "If this is intentional, consider merging the components.".into()

@@ -1,6 +1,6 @@
 use crate::{
     archetype::Archetype,
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, Components, ComponentsReader, StorageType, Tick},
     entity::Entity,
     query::{DebugCheckedUnwrap, FilteredAccess, StorageSwitch, WorldQuery},
     storage::{ComponentSparseSet, Table, TableRow},
@@ -96,7 +96,7 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
     ///
-    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// Implementers of this method will generally either have a trivial `true` body (required for archetypal filters),
     /// or call [`WorldQuery::fetch`] to access the raw data needed to make the final decision on filter inclusion.
     ///
     /// # Safety

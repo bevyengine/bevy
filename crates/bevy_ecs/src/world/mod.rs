@@ -36,8 +36,8 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, Mutable, RequiredComponents,
-        RequiredComponentsError, Tick,
+        ComponentInfo, ComponentTicks, Components, ComponentsReader, DerefByLifetime, Mutable,
+        RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     entity_disabling::{DefaultQueryFilters, Disabled},
@@ -504,13 +504,13 @@ impl World {
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
     pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
         let id = self.components().component_id::<C>()?;
-        let component_info = self.components().get_info(id)?;
+        let component_info = self.components().get_info(id)?.deref_lifetime();
         Some(component_info.required_components())
     }
 
     /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
     pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
-        let component_info = self.components().get_info(id)?;
+        let component_info = self.components().get_info(id)?.deref_lifetime();
         Some(component_info.required_components())
     }
 
@@ -851,6 +851,7 @@ impl World {
         archetype
             .components()
             .filter_map(|id| self.components().get_info(id))
+            .map(|info| info.deref_lifetime())
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -3354,7 +3355,7 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                Some((component_info, data.get_data()?))
+                Some((component_info.deref_lifetime(), data.get_data()?))
             })
     }
 
@@ -3434,7 +3435,8 @@ impl World {
                     self.components
                         .get_info(component_id)
                         .debug_checked_unwrap()
-                };
+                }
+                .deref_lifetime();
                 let (ptr, ticks, _caller) = data.get_with_ticks()?;
 
                 // SAFETY:
@@ -3770,7 +3772,7 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::DetectChangesMut,
-        component::{ComponentDescriptor, ComponentInfo, StorageType},
+        component::{ComponentDescriptor, ComponentInfo, ComponentsReader, StorageType},
         entity::hash_set::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,

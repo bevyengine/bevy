@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::{
+    component::{ComponentsReader, DerefByLifetime},
     entity::{Entity, EntityDoesNotExistDetails},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
@@ -78,7 +79,8 @@ fn format_archetype(
         let name = world
             .components()
             .get_name(component_id)
-            .expect("entity does not belong to world");
+            .expect("entity does not belong to world")
+            .deref_lifetime();
         write!(f, "{}", disqualified::ShortName(name))?;
     }
     Ok(())

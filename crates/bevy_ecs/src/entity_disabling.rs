@@ -22,6 +22,7 @@
 //! [`Query` performance]: crate::prelude::Query#performance
 
 use crate as bevy_ecs;
+use crate::component::ComponentsReader;
 use crate::{
     component::{ComponentId, Components, StorageType},
     query::FilteredAccess,

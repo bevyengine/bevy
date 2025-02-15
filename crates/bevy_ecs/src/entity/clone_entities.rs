@@ -8,6 +8,7 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
+use crate::component::{ComponentsReader, DerefByLifetime};
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
@@ -61,7 +62,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             target_component_written: false,
             target_components_buffer,
             components,
-            component_info: components.get_info_unchecked(component_id),
+            component_info: components.get_info_unchecked(component_id).deref_lifetime(),
             entity_cloner,
             type_registry,
         }

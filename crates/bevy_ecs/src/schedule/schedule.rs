@@ -12,7 +12,10 @@ use alloc::{
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_utils::default;
-use core::fmt::{Debug, Write};
+use core::{
+    fmt::{Debug, Write},
+    ops::Deref,
+};
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
 use log::{error, info, warn};
@@ -22,7 +25,7 @@ use tracing::info_span;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components, Tick},
+    component::{ComponentId, Components, ComponentsReader, DerefByLifetime, Tick},
     prelude::Component,
     resource::Resource,
     result::Result,
@@ -163,7 +166,7 @@ impl Schedules {
             "System order ambiguities caused by conflicts on the following types are ignored:\n"
                 .to_string();
         for id in self.iter_ignored_ambiguities() {
-            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+            writeln!(message, "{}", components.get_name(*id).unwrap().deref()).unwrap();
         }
 
         info!("{}", message);
@@ -1919,7 +1922,7 @@ impl ScheduleGraph {
 
                 let conflict_names: Vec<_> = conflicts
                     .iter()
-                    .map(|id| components.get_name(*id).unwrap())
+                    .map(|id| components.get_name(*id).unwrap().deref_lifetime())
                     .collect();
 
                 (name_a, name_b, conflict_names)

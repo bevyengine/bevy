@@ -3,6 +3,7 @@ use core::any::TypeId;
 use crate::{DynamicScene, SceneSpawnError};
 use bevy_asset::Asset;
 use bevy_ecs::{
+    component::ComponentsReader,
     entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectMapEntities, ReflectResource},

@@ -10,8 +10,8 @@ use crate::{
         ComponentStatus, SpawnBundleStatus,
     },
     component::{
-        Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
-        StorageType, Tick,
+        Component, ComponentId, Components, ComponentsReader, DerefByLifetime,
+        RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -31,7 +31,7 @@ use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
-/// Implementors of the `Bundle` trait are called 'bundles'.
+/// Implementers of the `Bundle` trait are called 'bundles'.
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
@@ -72,7 +72,7 @@ use variadics_please::all_tuples;
 /// That is, if the entity does not have all the components of the bundle, those
 /// which are present will be removed.
 ///
-/// # Implementors
+/// # Implementers
 ///
 /// Every type which implements [`Component`] also implements `Bundle`, since
 /// [`Component`] types can be added to or removed from an entity.
@@ -419,7 +419,7 @@ impl BundleInfo {
                 .into_iter()
                 .map(|id| {
                     // SAFETY: the caller ensures component_id is valid.
-                    unsafe { components.get_info_unchecked(id).name() }
+                    unsafe { components.get_info_unchecked(id).deref_lifetime().name() }
                 })
                 .collect::<Vec<_>>()
                 .join(", ");

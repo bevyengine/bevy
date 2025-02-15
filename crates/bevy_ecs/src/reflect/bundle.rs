@@ -8,6 +8,7 @@ use alloc::boxed::Box;
 use core::any::{Any, TypeId};
 
 use crate::{
+    component::ComponentsReader,
     prelude::Bundle,
     world::{EntityMut, EntityWorldMut},
 };
