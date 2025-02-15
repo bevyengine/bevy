@@ -1828,7 +1828,7 @@ impl<C: ComponentsReader + ComponentsInternalWriter> ComponentsWriter for C {
     }
 }
 
-impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
+impl ComponentsReader for StagedRef<'_, StagedComponents> {
     #[inline]
     fn len(&self) -> usize {
         self.cold.len() + self.staged.components.len()
@@ -1950,7 +1950,77 @@ impl ComponentsInternalReader for StagedRef<'_, StagedComponents> {
     }
 }
 
-impl<'a> ComponentsReader for Stager<'a, StagedComponents> {
+impl ComponentsInternalReader for Stager<'_, StagedComponents> {
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef> {
+        if !self.is_id_valid(id) {
+            return None;
+        }
+
+        Some(if self.is_id_staged(id) {
+            // SAFETY: We just checked that it was valid and staged
+            let info = unsafe {
+                self.staged
+                    .components
+                    .get(id.0 - self.cold.components.len())
+                    .debug_checked_unwrap()
+            };
+            RequiredComponentsStagedRef {
+                working: &info.required_components,
+                cold: None,
+            }
+        } else {
+            // SAFETY: We just checked that it was valid and cold
+            let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
+            if let Some(additional) = self.staged.additional_required_components.get(&id) {
+                RequiredComponentsStagedRef {
+                    working: additional,
+                    cold: Some(&info.required_components),
+                }
+            } else {
+                RequiredComponentsStagedRef {
+                    working: &info.required_components,
+                    cold: None,
+                }
+            }
+        })
+    }
+
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef> {
+        if !self.is_id_valid(id) {
+            return None;
+        }
+
+        Some(if self.is_id_staged(id) {
+            // SAFETY: We just checked that it was valid and staged
+            let info = unsafe {
+                self.staged
+                    .components
+                    .get(id.0 - self.cold.components.len())
+                    .debug_checked_unwrap()
+            };
+            RequiredByStagedRef {
+                working: &info.required_by,
+                cold: None,
+            }
+        } else {
+            // SAFETY: We just checked that it was valid and cold
+            let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
+            if let Some(additional) = self.staged.additional_required_by.get(&id) {
+                RequiredByStagedRef {
+                    working: additional,
+                    cold: Some(&info.required_by),
+                }
+            } else {
+                RequiredByStagedRef {
+                    working: &info.required_by,
+                    cold: None,
+                }
+            }
+        })
+    }
+}
+
+impl ComponentsReader for Stager<'_, StagedComponents> {
     #[inline]
     fn len(&self) -> usize {
         self.as_staged_ref().len()
