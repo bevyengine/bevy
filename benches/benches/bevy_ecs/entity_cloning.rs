@@ -2,7 +2,7 @@ use core::hint::black_box;
 
 use benches::bench;
 use bevy_ecs::bundle::Bundle;
-use bevy_ecs::component::ComponentCloneHandler;
+use bevy_ecs::component::{ComponentCloneHandler, ComponentCloneHandlersWriter};
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::reflect::AppTypeRegistry;
 use bevy_ecs::{component::Component, world::World};
@@ -71,7 +71,7 @@ fn set_reflect_clone_handler<B: Bundle + GetTypeRegistration>(world: &mut World)
 
     // Overwrite the clone handler for all components in the bundle to use `Reflect`, not `Clone`.
     for component in component_ids {
-        clone_handlers.set_component_handler(component, ComponentCloneHandler::reflect_handler());
+        clone_handlers.set_clone_handler(component, ComponentCloneHandler::reflect_handler());
     }
 }
 

@@ -1071,37 +1071,25 @@ pub struct ComponentCloneHandlers {
     default_handler: ComponentCloneFn,
 }
 
-impl ComponentCloneHandlers {
-    /// Sets the default handler for this registry. All components with [`default`](ComponentCloneHandler::default_handler) handler, as well as any component that does not have an
-    /// explicitly registered clone function will use this handler.
+/// A trait that allows reading a collection of [`ComponentCloneHandler`]s
+pub trait ComponentCloneHandlersReader {
+    /// Returns the currently registered default clone handler.
+    fn get_default_clone_handler(&self) -> ComponentCloneFn;
+
+    /// Returns the [`ComponentCloneHandler`] for this [`ComponentId`].
+    /// If no [`ComponentCloneFn`] is specified for this id, the inner value will be [`None`], and the default handler may be used.
     ///
-    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    pub fn set_default_handler(&mut self, handler: ComponentCloneFn) {
-        self.default_handler = handler;
-    }
-
-    /// Returns the currently registered default handler.
-    #[inline]
-    pub fn get_default_handler(&self) -> ComponentCloneFn {
-        self.default_handler
-    }
-
-    /// Sets a handler for a specific component.
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
     ///
-    /// See [Handlers section of `EntityCloneBuilder`](crate::entity::EntityCloneBuilder#handlers) to understand how this affects handler priority.
-    pub fn set_component_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
-        if id.0 >= self.handlers.len() {
-            self.handlers.resize(id.0 + 1, None);
-        }
-        self.handlers[id.0] = handler.0;
-    }
+    /// See also [`get_clone_handler`](ComponentsReader::get_clone_handler).
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler;
 
-    /// Checks if the specified component is registered. If not, the component will use the default global handler.
+    /// Checks if the specified component has a registered [`ComponentCloneFn`]. If not, the component will use the default global handler.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
     #[inline]
-    pub fn is_handler_registered(&self, id: ComponentId) -> bool {
-        self.handlers.get(id.0).is_some_and(Option::is_some)
+    fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
+        self.get_special_clone_handler(id).0.is_some()
     }
 
     /// Gets a handler to clone a component. This can be one of the following:
@@ -1111,26 +1099,50 @@ impl ComponentCloneHandlers {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
     #[inline]
-    pub fn get_handler(&self, id: ComponentId) -> ComponentCloneFn {
+    fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
         match self.get_special_clone_handler(id).0 {
             Some(handler) => handler,
-            None => self.default_handler,
+            None => self.get_default_clone_handler(),
         }
     }
+}
 
-    /// Returns the [`ComponentCloneHandler`] for this [`ComponentId`].
-    /// If no [`ComponentCloneFn`] is specified for this id, the inner value will be [`None`], and the default handler may be used.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    ///
-    /// See also [`get_clone_handler`](ComponentsReader::get_clone_handler).
+/// A trait that allows writing a collection of [`ComponentCloneHandler`]s
+pub trait ComponentCloneHandlersWriter: ComponentCloneHandlersReader {
+    /// Sets the [`ComponentCloneHandler`] for the [`ComponentId`].
+    /// If the inner [`ComponentCloneFn`] is [`None`], the component will use the default handler.
+    fn set_clone_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler);
+
+    /// Sets the default [`ComponentCloneFn`] for this collection.
+    fn set_default_clone_handler(&mut self, handler: ComponentCloneFn);
+}
+
+impl ComponentCloneHandlersReader for ComponentCloneHandlers {
     #[inline]
-    pub fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.default_handler
+    }
+
+    #[inline]
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
         self.handlers
             .get(id.0)
             .copied()
             .map(ComponentCloneHandler)
             .unwrap_or(ComponentCloneHandler(None))
+    }
+}
+
+impl ComponentCloneHandlersWriter for ComponentCloneHandlers {
+    fn set_clone_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
+        if id.0 >= self.handlers.len() {
+            self.handlers.resize(id.0 + 1, None);
+        }
+        self.handlers[id.0] = handler.0;
+    }
+
+    fn set_default_clone_handler(&mut self, handler: ComponentCloneFn) {
+        self.default_handler = handler;
     }
 }
 
@@ -1176,7 +1188,7 @@ impl StagedChanges for StagedComponents {
         for (id, handler) in self.component_clone_handlers.drain() {
             storage
                 .component_clone_handlers
-                .set_component_handler(id, handler);
+                .set_clone_handler(id, handler);
         }
     }
 
@@ -1256,7 +1268,7 @@ pub enum ComponentRegistrationStatus {
 }
 
 /// A trait that allows the user to read into a collection of registered [`Component`]s.
-pub trait ComponentsReader {
+pub trait ComponentsReader: ComponentCloneHandlersReader {
     /// Returns the number of components registered with this instance.
     fn len(&self) -> usize;
 
@@ -1317,39 +1329,6 @@ pub trait ComponentsReader {
             ComponentRegistrationStatus::Staged
         } else {
             ComponentRegistrationStatus::Cold
-        }
-    }
-
-    /// Returns the currently registered default clone handler.
-    fn get_default_clone_handler(&self) -> ComponentCloneFn;
-
-    /// Returns the [`ComponentCloneHandler`] for this [`ComponentId`].
-    /// If no [`ComponentCloneFn`] is specified for this id, the inner value will be [`None`], and the default handler may be used.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    ///
-    /// See also [`get_clone_handler`](ComponentsReader::get_clone_handler).
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler;
-
-    /// Checks if the specified component has a registered [`ComponentCloneFn`]. If not, the component will use the default global handler.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    #[inline]
-    fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
-        self.get_special_clone_handler(id).0.is_some()
-    }
-
-    /// Gets a handler to clone a component. This can be one of the following:
-    /// - Custom clone function for this specific component.
-    /// - Default global handler.
-    /// - A [`component_clone_ignore`] (no cloning).
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    #[inline]
-    fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
-        match self.get_special_clone_handler(id).0 {
-            Some(handler) => handler,
-            None => self.get_default_clone_handler(),
         }
     }
 
@@ -1424,7 +1403,7 @@ pub trait ComponentsReader {
 }
 
 /// A trait that allows the user to read into a collection of registered Components.
-pub trait ComponentsWriter: ComponentsReader {
+pub trait ComponentsWriter: ComponentsReader + ComponentCloneHandlersWriter {
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
@@ -1480,9 +1459,6 @@ pub trait ComponentsWriter: ComponentsReader {
         inheritance_depth: u16,
         recursion_check_stack: &mut Vec<ComponentId>,
     );
-
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
-    fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers;
 
     /// Registers a [`Resource`] of type `T` with this instance.
     /// If a resource of this type has already been registered, this will return
@@ -1744,7 +1720,9 @@ trait ComponentsPrivateWriter {
     ) -> ComponentId;
 }
 
-impl<C: ComponentsReader + ComponentsInternalWriter> ComponentsWriter for C {
+impl<C: ComponentsReader + ComponentsInternalWriter + ComponentCloneHandlersWriter> ComponentsWriter
+    for C
+{
     fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         self.register_component_internal::<T>(storages, &mut Vec::new())
     }
@@ -1781,11 +1759,6 @@ impl<C: ComponentsReader + ComponentsInternalWriter> ComponentsWriter for C {
         }
     }
 
-    #[inline]
-    fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        todo!()
-    }
-
     fn register_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
@@ -1810,6 +1783,22 @@ impl<C: ComponentsReader + ComponentsInternalWriter> ComponentsWriter for C {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
+    }
+}
+
+impl ComponentCloneHandlersReader for StagedRef<'_, StagedComponents> {
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.cold.get_default_clone_handler()
+    }
+
+    #[inline]
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+        self.staged
+            .component_clone_handlers
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| self.cold.get_special_clone_handler(id))
     }
 }
 
@@ -1842,20 +1831,6 @@ impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
     }
 
     #[inline]
-    fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.cold.get_default_clone_handler()
-    }
-
-    #[inline]
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
-        self.staged
-            .component_clone_handlers
-            .get(&id)
-            .cloned()
-            .unwrap_or_else(|| self.cold.get_special_clone_handler(id))
-    }
-
-    #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.staged
             .indices
@@ -1876,6 +1851,18 @@ impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
     #[inline]
     fn is_id_staged(&self, id: ComponentId) -> bool {
         self.cold.len() > id.0
+    }
+}
+
+impl ComponentCloneHandlersReader for Stager<'_, StagedComponents> {
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.as_staged_ref().get_default_clone_handler()
+    }
+
+    #[inline]
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+        self.as_staged_ref().get_special_clone_handler(id)
     }
 }
 
@@ -1908,16 +1895,6 @@ impl<'a> ComponentsReader for Stager<'a, StagedComponents> {
     }
 
     #[inline]
-    fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.as_staged_ref().get_default_clone_handler()
-    }
-
-    #[inline]
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
-        self.as_staged_ref().get_special_clone_handler(id)
-    }
-
-    #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.as_staged_ref().get_id(type_id)
     }
@@ -1930,6 +1907,18 @@ impl<'a> ComponentsReader for Stager<'a, StagedComponents> {
     #[inline]
     fn is_id_staged(&self, id: ComponentId) -> bool {
         self.as_staged_ref().is_id_staged(id)
+    }
+}
+
+impl ComponentCloneHandlersReader for Components {
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.component_clone_handlers.get_default_clone_handler()
+    }
+
+    #[inline]
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+        self.component_clone_handlers.get_special_clone_handler(id)
     }
 }
 
@@ -1955,16 +1944,6 @@ impl ComponentsReader for Components {
     }
 
     #[inline]
-    fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.component_clone_handlers.get_default_handler()
-    }
-
-    #[inline]
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
-        self.component_clone_handlers.get_special_clone_handler(id)
-    }
-
-    #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).copied()
     }
@@ -1977,6 +1956,19 @@ impl ComponentsReader for Components {
     #[inline]
     fn is_id_staged(&self, _id: ComponentId) -> bool {
         false // this is cold storage, so nothing is staged.
+    }
+}
+
+impl ComponentCloneHandlersWriter for Components {
+    #[inline]
+    fn set_clone_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
+        self.component_clone_handlers.set_clone_handler(id, handler);
+    }
+
+    #[inline]
+    fn set_default_clone_handler(&mut self, handler: ComponentCloneFn) {
+        self.component_clone_handlers
+            .set_default_clone_handler(handler);
     }
 }
 
@@ -2015,11 +2007,6 @@ impl ComponentsWriter for Components {
                 inheritance_depth,
             );
         }
-    }
-
-    #[inline]
-    fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        &mut self.component_clone_handlers
     }
 
     fn register_resource<T: Resource>(&mut self) -> ComponentId {
@@ -2089,7 +2076,7 @@ impl Components {
             info.required_components = required_components;
             let clone_handler = T::get_component_clone_handler();
             self.component_clone_handlers
-                .set_component_handler(id, clone_handler);
+                .set_clone_handler(id, clone_handler);
         }
         id
     }

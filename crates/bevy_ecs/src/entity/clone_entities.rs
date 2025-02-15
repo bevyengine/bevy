@@ -8,7 +8,7 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
-use crate::component::{ComponentsReader, DerefByLifetime};
+use crate::component::{ComponentCloneHandlersReader, ComponentsReader, DerefByLifetime};
 use crate::{
     bundle::Bundle,
     component::{Component, ComponentCloneHandler, ComponentId, ComponentInfo, Components},
@@ -717,7 +717,10 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         self as bevy_ecs,
-        component::{Component, ComponentCloneHandler, ComponentDescriptor, StorageType},
+        component::{
+            Component, ComponentCloneHandler, ComponentCloneHandlersWriter, ComponentDescriptor,
+            StorageType,
+        },
         entity::EntityCloneBuilder,
         world::{DeferredWorld, World},
     };
@@ -729,7 +732,10 @@ mod tests {
     #[cfg(feature = "bevy_reflect")]
     mod reflect {
         use super::*;
-        use crate::reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld};
+        use crate::{
+            component::ComponentCloneHandlersWriter,
+            reflect::{AppTypeRegistry, ReflectComponent, ReflectFromWorld},
+        };
         use alloc::vec;
         use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
 
@@ -750,7 +756,7 @@ mod tests {
             let id = world.component_id::<A>().unwrap();
             world
                 .get_component_clone_handlers_mut()
-                .set_component_handler(id, ComponentCloneHandler::reflect_handler());
+                .set_clone_handler(id, ComponentCloneHandler::reflect_handler());
 
             let component = A { field: 5 };
 
@@ -799,9 +805,9 @@ mod tests {
             let b_id = world.register_component::<B>();
             let c_id = world.register_component::<C>();
             let handlers = world.get_component_clone_handlers_mut();
-            handlers.set_component_handler(a_id, ComponentCloneHandler::reflect_handler());
-            handlers.set_component_handler(b_id, ComponentCloneHandler::reflect_handler());
-            handlers.set_component_handler(c_id, ComponentCloneHandler::reflect_handler());
+            handlers.set_clone_handler(a_id, ComponentCloneHandler::reflect_handler());
+            handlers.set_clone_handler(b_id, ComponentCloneHandler::reflect_handler());
+            handlers.set_clone_handler(c_id, ComponentCloneHandler::reflect_handler());
 
             let component_a = A {
                 field: 5,
@@ -852,8 +858,7 @@ mod tests {
 
             let a_id = world.register_component::<A>();
             let handlers = world.get_component_clone_handlers_mut();
-            handlers
-                .set_component_handler(a_id, ComponentCloneHandler::custom_handler(test_handler));
+            handlers.set_clone_handler(a_id, ComponentCloneHandler::custom_handler(test_handler));
 
             let e = world.spawn(A).id();
             let e_clone = world.spawn_empty().id();
@@ -908,8 +913,8 @@ mod tests {
             let a_id = world.register_component::<A>();
             let b_id = world.register_component::<B>();
             let handlers = world.get_component_clone_handlers_mut();
-            handlers.set_component_handler(a_id, ComponentCloneHandler::reflect_handler());
-            handlers.set_component_handler(b_id, ComponentCloneHandler::reflect_handler());
+            handlers.set_clone_handler(a_id, ComponentCloneHandler::reflect_handler());
+            handlers.set_clone_handler(b_id, ComponentCloneHandler::reflect_handler());
 
             // No AppTypeRegistry
             let e = world.spawn((A, B)).id();
@@ -1134,7 +1139,7 @@ mod tests {
         let component_id = world.register_component_with_descriptor(descriptor);
 
         let handlers = world.get_component_clone_handlers_mut();
-        handlers.set_component_handler(
+        handlers.set_clone_handler(
             component_id,
             ComponentCloneHandler::custom_handler(test_handler),
         );

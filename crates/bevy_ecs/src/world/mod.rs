@@ -35,7 +35,7 @@ use crate::{
     bundle::{Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentCloneHandlers, ComponentDescriptor, ComponentHooks, ComponentId,
+        Component, ComponentCloneHandlersWriter, ComponentDescriptor, ComponentHooks, ComponentId,
         ComponentInfo, ComponentTicks, Components, ComponentsReader, ComponentsWriter,
         DerefByLifetime, Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
@@ -3217,8 +3217,8 @@ impl World {
     /// world.get_component_clone_handlers_mut()
     ///      .set_component_handler(component_id, ComponentCloneHandler::custom_handler(custom_clone_handler))
     /// ```
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        self.components.get_component_clone_handlers_mut()
+    pub fn get_component_clone_handlers_mut(&mut self) -> &mut impl ComponentCloneHandlersWriter {
+        &mut self.components
     }
 }
 
