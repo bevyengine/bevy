@@ -66,7 +66,7 @@ fn post_process_type(doc: &mut Document) {
     let traits = implemented_bevy_traits(doc);
 
     // Tags sit below headline
-    let mut heading = doc.select(".main-heading h1");
+    let mut heading = doc.select("h1").first();
     heading.append_html("<div class=\"bevy-tag-container\"/>");
     let mut container = heading.select(".bevy-tag-container");
 

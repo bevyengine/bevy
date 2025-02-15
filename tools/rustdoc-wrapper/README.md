@@ -9,7 +9,7 @@ Note that the format of rustdoc's html output is (and always will be) unstable. 
 
 On docs.rs and dev-docs.bevyengine.org the wrapper is invoked by passing the following flag:
 
-```
+```none
 --config "build.rustdoc = \"tools/rustdoc-wrapper/rustdoc.sh\""
 ```
 
