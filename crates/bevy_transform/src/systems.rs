@@ -278,8 +278,8 @@ mod parallel {
                 }
 
                 // SAFETY: the parent entities passed into this function are taken from iterating
-                // over the root entity query. Queries always iterate over unique entities,
-                // preventing mutable aliasing, and making this call safe.
+                // over the root entity query. Queries iterate over disjoint entities, preventing
+                // mutable aliasing, and making this call safe.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
                     propagate_to_child_unchecked(
@@ -405,7 +405,7 @@ mod parallel {
                 // contains unique entities, making this safe to call.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
-                    let (_, _, mut parent_g_transform, mut children, _) =
+                    let (_, _, mut parent_global_transform, mut children, _) =
                         nodes.get_unchecked(parent).unwrap();
 
                     // Optimization: when there is a single child, we want to recurse the hierarchy
@@ -419,27 +419,28 @@ mod parallel {
                         let Ok((
                             _,
                             child_transform,
-                            mut child_g_transform,
+                            mut child_global_transform,
                             grandchildren,
-                            child_of,
+                            actual_parent,
                         )) = nodes.get_unchecked(child)
                         else {
                             continue 'task_loop;
                         };
-                        assert!(child_of.get() == parent); // Safety: ensure no hierarchy cycles
-                        if parent_g_transform.is_changed()
+                        assert!(actual_parent.get() == parent); // Safety: check for cycles
+                        if parent_global_transform.is_changed()
                             || child_transform.is_changed()
-                            || child_g_transform.is_added()
+                            || child_global_transform.is_added()
                         {
-                            *child_g_transform = parent_g_transform.mul_transform(*child_transform);
+                            *child_global_transform =
+                                parent_global_transform.mul_transform(*child_transform);
                         }
                         parent = child;
                         children = grandchildren;
-                        parent_g_transform = child_g_transform;
+                        parent_global_transform = child_global_transform;
                     }
 
                     propagate_to_child_unchecked(
-                        (parent, parent_g_transform, children),
+                        (parent, parent_global_transform, children),
                         nodes,
                         &mut outbox,
                     );
