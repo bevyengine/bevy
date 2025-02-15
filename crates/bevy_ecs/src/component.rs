@@ -1568,9 +1568,54 @@ pub(crate) trait ComponentsInternalWriter:
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.working.insert(requiree);
 
-        // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
-        let inherited_requirements =
-            unsafe { self.register_inherited_required_components(requiree, required) };
+        // Get required components inherited from the `required` component.
+        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = {
+            // SAFETY: The caller ensures that the `required` component is valid.
+            let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
+            required_component_info
+                .required_components()
+                .0
+                .iter()
+                .map(|(component_id, required_component)| {
+                    (
+                        *component_id,
+                        RequiredComponent {
+                            constructor: required_component.constructor.clone(),
+                            // Add `1` to the inheritance depth since this will be registered
+                            // for the component that requires `required`.
+                            inheritance_depth: required_component.inheritance_depth + 1,
+                        },
+                    )
+                })
+                .collect()
+        };
+
+        // Register the new required components.
+        for (component_id, component) in inherited_requirements.iter().cloned() {
+            // SAFETY: The caller ensures that the `requiree` is valid.
+            let required_components = unsafe {
+                self.get_required_components_mut(requiree)
+                    .debug_checked_unwrap()
+            };
+
+            // Register the required component for the requiree.
+            // SAFETY: Component ID and constructor match the ones on the original requiree.
+            unsafe {
+                required_components.working.register_dynamic(
+                    component_id,
+                    component.constructor,
+                    component.inheritance_depth,
+                );
+            };
+
+            // Add the requiree to the list of components that require the required component.
+            // SAFETY: The caller ensures that the required components are valid.
+            let required_by = unsafe {
+                self.get_required_by_mut(component_id)
+                    .debug_checked_unwrap()
+            };
+            required_by.working.insert(requiree);
+        }
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).map(|required_by| {
@@ -1683,18 +1728,6 @@ pub(crate) trait ComponentsInternalWriter:
 
 /// This trait provides low level access to [`Component`] collections intended for use only within this module.
 trait ComponentsPrivateWriter {
-    /// Registers the components inherited from `required` for the given `requiree`,
-    /// returning the requirements in a list.
-    ///
-    /// # Safety
-    ///
-    /// The given component IDs `requiree` and `required` must be valid.
-    unsafe fn register_inherited_required_components(
-        &mut self,
-        requiree: ComponentId,
-        required: ComponentId,
-    ) -> Vec<(ComponentId, RequiredComponent)>;
-
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
@@ -1926,63 +1959,6 @@ impl ComponentsInternalReader for Components {
 }
 
 impl ComponentsPrivateWriter for Components {
-    unsafe fn register_inherited_required_components(
-        &mut self,
-        requiree: ComponentId,
-        required: ComponentId,
-    ) -> Vec<(ComponentId, RequiredComponent)> {
-        // Get required components inherited from the `required` component.
-        let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = {
-            // SAFETY: The caller ensures that the `required` component is valid.
-            let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
-            required_component_info
-                .required_components()
-                .0
-                .iter()
-                .map(|(component_id, required_component)| {
-                    (
-                        *component_id,
-                        RequiredComponent {
-                            constructor: required_component.constructor.clone(),
-                            // Add `1` to the inheritance depth since this will be registered
-                            // for the component that requires `required`.
-                            inheritance_depth: required_component.inheritance_depth + 1,
-                        },
-                    )
-                })
-                .collect()
-        };
-
-        // Register the new required components.
-        for (component_id, component) in inherited_requirements.iter().cloned() {
-            // SAFETY: The caller ensures that the `requiree` is valid.
-            let required_components = unsafe {
-                self.get_required_components_mut(requiree)
-                    .debug_checked_unwrap()
-            };
-
-            // Register the required component for the requiree.
-            // SAFETY: Component ID and constructor match the ones on the original requiree.
-            unsafe {
-                required_components.working.register_dynamic(
-                    component_id,
-                    component.constructor,
-                    component.inheritance_depth,
-                );
-            };
-
-            // Add the requiree to the list of components that require the required component.
-            // SAFETY: The caller ensures that the required components are valid.
-            let required_by = unsafe {
-                self.get_required_by_mut(component_id)
-                    .debug_checked_unwrap()
-            };
-            required_by.working.insert(requiree);
-        }
-
-        inherited_requirements
-    }
-
     unsafe fn get_or_register_resource_with(
         &mut self,
         type_id: TypeId,
