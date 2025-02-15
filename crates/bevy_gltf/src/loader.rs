@@ -168,6 +168,11 @@ pub struct GltfLoaderSettings {
     pub load_lights: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
+    /// If some, the loader will ignore the gltf sampler data and generate materials with provided ImageSamplerDescriptor.
+    pub override_sampler: Option<ImageSamplerDescriptor>,
+    /// Anisotropic filtering level. Must be a power 1, 2, 4, 8 or 16.
+    /// Is passed into ImageSamplerDescriptor when parsing gltf sampler data.
+    pub anisotropy_clamp: u16
 }
 
 impl Default for GltfLoaderSettings {
@@ -178,6 +183,8 @@ impl Default for GltfLoaderSettings {
             load_cameras: true,
             load_lights: true,
             include_source: false,
+            override_sampler: None,
+            anisotropy_clamp: 1,
         }
     }
 }
@@ -574,7 +581,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 &linear_textures,
                 parent_path,
                 loader.supported_compressed_formats,
-                settings.load_materials,
+                settings,
             )
             .await?;
             process_loaded_texture(load_context, &mut _texture_handles, image);
@@ -594,7 +601,7 @@ async fn load_gltf<'a, 'b, 'c>(
                             linear_textures,
                             parent_path,
                             loader.supported_compressed_formats,
-                            settings.load_materials,
+                            settings,
                         )
                         .await
                     });
@@ -1050,10 +1057,11 @@ async fn load_image<'a, 'b>(
     linear_textures: &HashSet<usize>,
     parent_path: &'b Path,
     supported_compressed_formats: CompressedImageFormats,
-    render_asset_usages: RenderAssetUsages,
+    settings: &GltfLoaderSettings,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let sampler_descriptor = texture_sampler(&gltf_texture);
+    let sampler_descriptor = settings.override_sampler.clone()
+        .unwrap_or(texture_sampler(&gltf_texture, settings.anisotropy_clamp));
     #[cfg(all(debug_assertions, feature = "dds"))]
     let name = gltf_texture
         .name()
@@ -1071,7 +1079,7 @@ async fn load_image<'a, 'b>(
                 supported_compressed_formats,
                 is_srgb,
                 ImageSampler::Descriptor(sampler_descriptor),
-                render_asset_usages,
+                settings.load_materials,
             )?;
             Ok(ImageOrPath::Image {
                 image,
@@ -1095,7 +1103,7 @@ async fn load_image<'a, 'b>(
                         supported_compressed_formats,
                         is_srgb,
                         ImageSampler::Descriptor(sampler_descriptor),
-                        render_asset_usages,
+                        settings.load_materials,
                     )?,
                     label: GltfAssetLabel::Texture(gltf_texture.index()),
                 })
@@ -1810,7 +1818,7 @@ fn inverse_bind_matrices_label(skin: &gltf::Skin) -> String {
 }
 
 /// Extracts the texture sampler data from the glTF texture.
-fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
+fn texture_sampler(texture: &gltf::Texture, anisotropy_clamp: u16) -> ImageSamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
     ImageSamplerDescriptor {
@@ -1850,6 +1858,8 @@ fn texture_sampler(texture: &gltf::Texture) -> ImageSamplerDescriptor {
             })
             .unwrap_or(ImageSamplerDescriptor::default().mipmap_filter),
 
+        anisotropy_clamp,
+        
         ..Default::default()
     }
 }
