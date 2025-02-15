@@ -397,7 +397,7 @@ pub trait Component: Send + Sync + 'static {
     /// are detected at compile-time. Will be None if the component isn't derived automatically
     /// or if the name isn't available.
     #[cfg(feature = "diagnostic_component_names")]
-    const STRUCT_NAME: Option<&'static str> = None;
+    const STRUCT_NAME: &'static str = "";
     /// A marker type to assist Bevy with determining if this component is
     /// mutable, or immutable. Mutable components will have [`Component<Mutability = Mutable>`],
     /// while immutable components will instead have [`Component<Mutability = Immutable>`].

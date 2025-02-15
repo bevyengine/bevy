@@ -226,7 +226,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
                 const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
                 const UNSTABLE_TYPE_ID: u128 = #unstable_type_id;
-                const STRUCT_NAME: Option<&'static str> = Some(#struct_name_2);
+                const STRUCT_NAME: &'static str = #struct_name_2;
                 type Mutability = #mutable_type;
                 fn register_required_components(
                     requiree: #bevy_ecs_path::component::ComponentId,

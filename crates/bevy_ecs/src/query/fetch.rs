@@ -1,5 +1,5 @@
 use crate::system::const_param_checking::{
-    AccessTreeContainer, ComponentAccess, ComponentAccessTree,
+    AccessTreeContainer, ComponentAccess, ConstTree, ConstTreeInner,
 };
 use crate::{
     archetype::{Archetype, Archetypes},
@@ -294,11 +294,7 @@ pub unsafe trait QueryData: WorldQuery {
     /// impl<T: Component> or impl<T0: QueryData, T1: QueryData>
     /// There we recursively build up this component access tree, checking for intra-query
     /// errors along the way.
-    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = ComponentAccessTree {
-        this: ComponentAccess::Ignore,
-        left: None,
-        right: None,
-    };
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> = &ConstTreeInner::Empty;
 
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
@@ -1226,7 +1222,8 @@ where
     type ReadOnly = Self;
     type Item<'w> = &'w T;
 
-    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = Self::COMPONENT_ACCESS_TREE;
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> =
+        Self::COMPONENT_ACCESS_TREE;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
@@ -1596,7 +1593,8 @@ where
     type ReadOnly = &'__w T;
     type Item<'w> = Mut<'w, T>;
 
-    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = Self::COMPONENT_ACCESS_TREE;
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> =
+        Self::COMPONENT_ACCESS_TREE;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
         item
@@ -1870,7 +1868,7 @@ unsafe impl<T: QueryData> QueryData for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
     type Item<'w> = Option<T::Item<'w>>;
 
-    const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree =
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> =
         T::COMPONENT_ACCESS_TREE_QUERY_DATA;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
@@ -2084,7 +2082,7 @@ macro_rules! impl_tuple_query_data {
             type ReadOnly = ($($name::ReadOnly,)*);
             type Item<'w> = ($($name::Item<'w>,)*);
 
-            const COMPONENT_ACCESS_TREE_QUERY_DATA: ComponentAccessTree = impl_tuple_query_data!(@tree $($name),*);
+            const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> = impl_tuple_query_data!(@tree $($name),*);
 
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 let ($($name,)*) = item;
@@ -2113,11 +2111,7 @@ macro_rules! impl_tuple_query_data {
 
     // Handle empty case
     (@tree) => {
-        ComponentAccessTree {
-            this: ComponentAccess::Ignore,
-            left: None,
-            right: None,
-        }
+        &ConstTreeInner::Empty
     };
     // Handle single item case
     (@tree $t0:ident) => {
@@ -2125,18 +2119,18 @@ macro_rules! impl_tuple_query_data {
     };
     // Handle two item case
     (@tree $t0:ident, $t1:ident) => {
-        ComponentAccessTree::combine(
-            &$t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
-            &$t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
         )
     };
     // Handle three or more items case
     (@tree $t0:ident, $t1:ident, $($rest:ident),+) => {
-        ComponentAccessTree::combine(
-            &$t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
-            &ComponentAccessTree::combine(
-                &$t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
-                &impl_tuple_query_data!(@tree $($rest),+)
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            &ConstTreeInner::<ComponentAccess>::combine(
+                $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+                impl_tuple_query_data!(@tree $($rest),+)
             )
         )
     };

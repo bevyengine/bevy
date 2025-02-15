@@ -1,6 +1,9 @@
 use bevy_ecs::component::Component;
 use bevy_ecs::system::SystemParam;
 use core::fmt::Debug;
+use core::panic::PanicMessage;
+use std::arch::x86_64::CpuidResult;
+use variadics_please::all_tuples;
 
 /// A message describing a system parameter validation error that occurred during const evaluation.
 /// Contains information about the conflicting parameter access types and their names for
@@ -20,86 +23,30 @@ pub struct SystemPanicMessage {
 /// Describes how a component is accessed within a system - either ignored
 /// or used with a specific access type (Ref/Mut) and optional name.
 #[derive(Copy, Clone, Debug)]
-pub enum ComponentAccess {
-    /// The component is not accessed by this system
-    Ignore,
-    /// The component is accessed with specific access patterns
-    Use {
-        /// Unique compile-time identifier for the component type
-        type_id: u128,
-        /// The type of access (reference or mutable) to the component
-        access: AccessType,
-        /// The component's name if available, used for error reporting
-        name: Option<&'static str>,
-    },
+pub struct ComponentAccess {
+    /// Unique compile-time identifier for the component type
+    type_id: u128,
+    /// The type of access (reference or mutable) to the component
+    access: AccessType,
+    /// The component's name if available, used for error reporting
+    name: &'static str,
 }
 impl ComponentAccess {
-    const fn invalid_2(&self, rhs: &ComponentAccess) -> Option<SystemPanicMessage> {
-        match self {
-            ComponentAccess::Ignore => None,
-            ComponentAccess::Use {
-                type_id,
-                access,
-                name,
-            } => {
-                let type_id_self = type_id;
-                let access_self = access;
-                let name_self = name;
-                match rhs {
-                    ComponentAccess::Ignore => None,
-                    ComponentAccess::Use {
-                        type_id,
-                        access,
-                        name,
-                    } => {
-                        if *type_id_self != *type_id {
-                            return None;
-                        }
-                        if matches!(access_self, AccessType::Mut) {
-                            if let Some(name_self) = name_self {
-                                let name_self = *name_self;
-                                if let Some(name) = name {
-                                    let name = *name;
-                                    return Some(SystemPanicMessage {
-                                        lhs_access_type: *access_self,
-                                        lhs_name: name_self,
-                                        rhs_access_type: *access,
-                                        rhs_name: name,
-                                    });
-                                }
-                                return Some(SystemPanicMessage {
-                                    lhs_access_type: *access_self,
-                                    lhs_name: "",
-                                    rhs_access_type: *access,
-                                    rhs_name: "",
-                                });
-                            }
-                        } else {
-                            if matches!(access, AccessType::Mut) {
-                                if let Some(name_self) = name_self {
-                                    let name_self = *name_self;
-                                    if let Some(name) = name {
-                                        let name = *name;
-                                        return Some(SystemPanicMessage {
-                                            lhs_access_type: *access_self,
-                                            lhs_name: name_self,
-                                            rhs_access_type: *access,
-                                            rhs_name: name,
-                                        });
-                                    }
-                                    return Some(SystemPanicMessage {
-                                        lhs_access_type: *access_self,
-                                        lhs_name: "",
-                                        rhs_access_type: *access,
-                                        rhs_name: "",
-                                    });
-                                }
-                            }
-                        }
-                        None
-                    }
-                }
+    const fn conflicts(&self, rhs: &ComponentAccess) -> Option<SystemPanicMessage> {
+        if self.type_id != rhs.type_id {
+            return None;
+        }
+        match (self.access, rhs.access) {
+            (AccessType::Mut, _) | (_, AccessType::Mut) => {
+                //panic!("OwO");
+                Some(SystemPanicMessage {
+                    lhs_access_type: self.access,
+                    lhs_name: self.name,
+                    rhs_access_type: rhs.access,
+                    rhs_name: rhs.name,
+                })
             }
+            _ => None,
         }
     }
 }
@@ -112,303 +59,158 @@ pub enum AccessType {
     Mut,
 }
 
-/// A tree structure representing the `With<T>`, `Added<T>`, and `Changed<T>` filters
-/// applied to a query, tracking which component types must be present. Used for compile-time
-/// validation of query compatibility. The tree allows recursively checking filter constraints
-/// across complex query combinations.
-#[derive(Copy, Clone, Debug)]
-pub struct WithFilterTree {
-    /// `WithId`
-    pub this: WithId,
-    /// The lhs of the tree structure
-    pub left: &'static Option<WithFilterTree>,
-    /// The rhs of the tree structure
-    pub right: &'static Option<WithFilterTree>,
-}
-
-impl WithFilterTree {
-    /// Combines two `With<T>`/`Added<T>`/`Changed<T>` filter trees into a single tree for validation
-    /// Returns a new tree containing both filter patterns
-    pub const fn combine(
-        left: &'static Option<WithFilterTree>,
-        right: &'static Option<WithFilterTree>,
-    ) -> Option<Self> {
-        Some(Self {
-            this: WithId(None),
-            left,
-            right,
-        })
-    }
-    const fn is_filtered_out_list(&self, rhs: &WithoutFilterTree) -> bool {
-        if self.is_filtered_out(rhs.this) {
-            return true;
-        }
-        if let Some(right) = rhs.right {
-            if self.is_filtered_out_list(right) {
-                return true;
-            }
-        }
-        if let Some(left) = rhs.left {
-            if self.is_filtered_out_list(left) {
-                return true;
-            }
-        }
-        return false;
-    }
-    const fn is_filtered_out(&self, without_id: WithoutId) -> bool {
-        if let Some(this_id) = self.this.0 {
-            if let Some(without_id) = without_id.0 {
-                if this_id == without_id {
-                    return true;
-                }
-            }
-        }
-        if let Some(right) = self.right {
-            if right.is_filtered_out(without_id) {
-                return true;
-            }
-        }
-        if let Some(left) = self.left {
-            if left.is_filtered_out(without_id) {
-                return true;
-            }
-        }
-        return false;
-    }
-}
-
-/// A tree structure representing the `Without<T>` filters applied to a query, tracking which
-/// component types must be absent. Used for compile-time validation of query compatibility.
-/// The tree allows recursively checking filter constraints across complex query combinations.
-#[derive(Copy, Clone, Debug)]
-pub struct WithoutFilterTree {
-    /// `WithoutId`
-    pub this: WithoutId,
-    /// The lhs of the tree structure
-    pub left: &'static Option<WithoutFilterTree>,
-    /// The rhs of the tree structure
-    pub right: &'static Option<WithoutFilterTree>,
-}
-
-impl WithoutFilterTree {
-    /// Combines two `Without<T>` filter trees into a single tree for validation
-    /// Returns a new tree containing both filter patterns
-    pub const fn combine(
-        left: &'static Option<WithoutFilterTree>,
-        right: &'static Option<WithoutFilterTree>,
-    ) -> Option<Self> {
-        Some(Self {
-            this: WithoutId(None),
-            left,
-            right,
-        })
-    }
-    const fn is_filtered_out_component_list(&self, rhs: &ComponentAccessTree) -> bool {
-        if self.is_filtered_out_component(rhs.this) {
-            return true;
-        }
-        if let Some(right) = rhs.right {
-            if self.is_filtered_out_component_list(right) {
-                return true;
-            }
-        }
-        if let Some(left) = rhs.left {
-            if self.is_filtered_out_component_list(left) {
-                return true;
-            }
-        }
-        return false;
-    }
-    const fn is_filtered_out_component(&self, component_access: ComponentAccess) -> bool {
-        match component_access {
-            ComponentAccess::Ignore => false,
-            ComponentAccess::Use {
-                type_id,
-                access: _,
-                name: _,
-            } => {
-                if let Some(type_id_this) = self.this.0 {
-                    if type_id_this == type_id {
-                        return true;
-                    }
-                    if let Some(right) = self.right {
-                        if right.is_filtered_out_component(component_access) {
-                            return true;
-                        }
-                    }
-                    if let Some(left) = self.left {
-                        if left.is_filtered_out_component(component_access) {
-                            return true;
-                        }
-                    }
-                }
-                false
-            }
+impl AccessType {
+    const REF_STR: &'static str = "&";
+    const MUT_STR: &'static str = "&mut";
+    fn as_str(&self) -> &'static str {
+        match self {
+            AccessType::Ref => Self::REF_STR,
+            AccessType::Mut => Self::MUT_STR,
         }
     }
 }
 
 /// CONST_UNSTABLE_TYPEID for a component within a Without<> filter
 #[derive(Clone, Copy, Debug)]
-pub struct WithoutId(pub Option<u128>);
+pub struct WithoutId(pub u128);
 /// CONST_UNSTABLE_TYPEID for a component within a With<>, Added<>, and Changed<> filter
 #[derive(Clone, Copy, Debug)]
-pub struct WithId(pub Option<u128>);
+pub struct WithId(pub u128);
 
-/// A tree structure representing how components are accessed within a query or system.
-/// Tracks access types and CONST_UNSTABLE_IDs to enable compile-time validation
-/// of query compatibility and detection of conflicting accesses.
 #[derive(Copy, Clone, Debug)]
-pub struct ComponentAccessTree {
-    /// The component access pattern at this node
-    pub this: ComponentAccess,
-    /// Left subtree of component access patterns, if any
-    pub left: Option<&'static ComponentAccessTree>,
-    /// Right subtree of component access patterns, if any
-    pub right: Option<&'static ComponentAccessTree>,
+pub enum ConstTreeInner<T: Copy + Clone + Debug + 'static> {
+    Empty,
+    Leaf(T),
+    Node(ConstTree<T>, ConstTree<T>),
+    PanicMessage(SystemPanicMessage),
+}
+pub type ConstTree<T> = &'static ConstTreeInner<T>;
+
+pub struct ConstTrees {
+    pub component_tree: ConstTree<ComponentAccess>,
+    pub without_tree: ConstTree<WithoutId>,
+    pub with_tree: ConstTree<WithId>,
 }
 
-impl ComponentAccessTree {
-    /// Combines two component access trees into a single tree for validation
-    /// Returns a new tree containing both access patterns for conflict checking
-    pub const fn combine(
-        left: &'static ComponentAccessTree,
-        right: &'static ComponentAccessTree,
-    ) -> ComponentAccessTree {
-        left.check_list(right);
-        ComponentAccessTree {
-            this: ComponentAccess::Ignore,
-            left: Some(left),
-            right: Some(right),
-        }
+pub const fn check_system_parameters_for_conflicts(
+    left: ConstTrees,
+    right: ConstTrees,
+) -> Option<SystemPanicMessage> {
+    // First thing we do is return any panic messages, these should only exist on the component trees
+    // But later we might want some sort of check to ensure we aren't doubling up on filters in the filters.
+    if let ConstTreeInner::PanicMessage(panic_message) = left.component_tree {
+        return Some(*panic_message);
+    }
+    if let ConstTreeInner::PanicMessage(panic_message) = right.component_tree {
+        return Some(*panic_message);
     }
 
-    /// Checks for conflicts between two sets of component access patterns and filters
-    /// Returns Some(SystemPanicMessage) if a conflict is found, None otherwise
-    pub const fn filter_check(
-        left: (
-            &'static ComponentAccessTree,
-            &'static Option<WithFilterTree>,
-            &'static Option<WithoutFilterTree>,
-        ),
-        right: (
-            &'static ComponentAccessTree,
-            &'static Option<WithFilterTree>,
-            &'static Option<WithoutFilterTree>,
-        ),
+
+    // REGION: We check for any intersections between components we require and components we anti-require.
+    if right.component_tree.intersects(left.without_tree) {
+        return None;
+    }
+    if left.component_tree.intersects(right.without_tree) {
+        return None;
+    }
+    if right.with_tree.intersects(left.without_tree) {
+        return None;
+    }
+    if left.with_tree.intersects(right.without_tree) {
+        return None;
+    }
+    // END-REGION
+
+    right.component_tree.self_intersects(left.component_tree)
+}
+impl ConstTreeInner<WithoutId> {
+    pub const fn combine(lhs: ConstTree<WithoutId>, rhs: ConstTree<WithoutId>) -> Self {
+        Self::Node(lhs, rhs)
+    }
+}
+impl ConstTreeInner<WithId> {
+    pub const fn combine(lhs: ConstTree<WithId>, rhs: ConstTree<WithId>) -> Self {
+        Self::Node(lhs, rhs)
+    }
+    const fn intersects(&'static self, without_tree: ConstTree<WithoutId>) -> bool {
+        match without_tree {
+            ConstTreeInner::Empty => false,
+            ConstTreeInner::Leaf(without_id) => match self {
+                ConstTreeInner::Empty => false,
+                ConstTreeInner::Leaf(with_id) => with_id.0 == without_id.0,
+                ConstTreeInner::Node(component_tree_lhs, component_tree_rhs) => {
+                    component_tree_lhs.intersects(without_tree)
+                        || component_tree_rhs.intersects(without_tree)
+                }
+                ConstTreeInner::PanicMessage(_) => unreachable!(),
+            },
+            ConstTreeInner::Node(without_lhs, without_rhs) => {
+                self.intersects(without_lhs) || self.intersects(without_rhs)
+            }
+            ConstTreeInner::PanicMessage(_) => unreachable!(),
+        }
+    }
+}
+
+impl ConstTreeInner<ComponentAccess> {
+    pub const fn combine(lhs: ConstTree<ComponentAccess>, rhs: ConstTree<ComponentAccess>) -> Self {
+        if let Some(panic_message) = lhs.self_intersects(rhs) {
+            return Self::PanicMessage(panic_message);
+        }
+        Self::Node(lhs, rhs)
+    }
+    const fn intersects(&'static self, without_tree: ConstTree<WithoutId>) -> bool {
+        match without_tree {
+            ConstTreeInner::Empty => false,
+            ConstTreeInner::Leaf(without_id) => match self {
+                ConstTreeInner::Empty => false,
+                ConstTreeInner::Leaf(component_access) => component_access.type_id == without_id.0,
+                ConstTreeInner::Node(component_tree_lhs, component_tree_rhs) => {
+                    component_tree_lhs.intersects(without_tree)
+                        || component_tree_rhs.intersects(without_tree)
+                }
+                ConstTreeInner::PanicMessage(_) => unreachable!(),
+            },
+            ConstTreeInner::Node(without_lhs, without_rhs) => {
+                self.intersects(without_lhs) || self.intersects(without_rhs)
+            }
+            ConstTreeInner::PanicMessage(_) => unreachable!(),
+        }
+    }
+    const fn self_intersects(
+        &'static self,
+        right: ConstTree<ComponentAccess>,
     ) -> Option<SystemPanicMessage> {
-        if let Some(left_without_tree) = left.2 {
-            if left_without_tree.is_filtered_out_component_list(right.0) {
-                return None;
-            }
-        }
-        if let Some(right_without_tree) = right.2 {
-            if right_without_tree.is_filtered_out_component_list(left.0) {
-                return None;
-            }
-        }
-
-        let (with_tree, without_tree, maybe_with_tree, maybe_without_tree): (
-            &WithFilterTree,
-            &WithoutFilterTree,
-            &Option<WithFilterTree>,
-            &Option<WithoutFilterTree>,
-        ) = match (left.1, left.2, right.1, right.2) {
-            (Some(left_with), left_without, right_with, Some(right_without)) => {
-                (left_with, right_without, right_with, left_without)
-            }
-            (left_with, Some(left_without), Some(right_with), right_without) => {
-                (right_with, left_without, left_with, right_without)
-            }
-            _ => {
-                return Self::check_list_with_output(left.0, right.0);
-            }
-        };
-
-        if with_tree.is_filtered_out_list(without_tree) {
-            return None;
-        }
-        if let Some(with_tree) = maybe_with_tree {
-            if let Some(without_tree) = maybe_without_tree {
-                if with_tree.is_filtered_out_list(without_tree) {
-                    return None;
+        match self {
+            ConstTreeInner::Empty => {
+                if let ConstTreeInner::PanicMessage(panic_message) = right {
+                    Some(*panic_message)
+                } else {
+                    None
                 }
             }
-        }
-
-        return Self::check_list_with_output(left.0, right.0);
-    }
-
-    const fn check_list_with_output(
-        &self,
-        rhs: &ComponentAccessTree,
-    ) -> Option<SystemPanicMessage> {
-        if let Some(owo) = self.check_with_output(rhs.this) {
-            return Some(owo);
-        }
-        if let Some(right) = rhs.right {
-            if let Some(owo) = self.check_list_with_output(right) {
-                return Some(owo);
+            ConstTreeInner::Leaf(component_access) => match right {
+                ConstTreeInner::Empty => None,
+                ConstTreeInner::Leaf(component_access_2) => {
+                    component_access.conflicts(component_access_2)
+                }
+                ConstTreeInner::Node(rhs, lhs) => {
+                    if let Some(panic_message) = self.self_intersects(rhs) {
+                        Some(panic_message)
+                    } else {
+                        self.self_intersects(lhs)
+                    }
+                }
+                ConstTreeInner::PanicMessage(panic_message) => Some(*panic_message),
+            },
+            ConstTreeInner::Node(lhs, rhs) => {
+                if let Some(panic_message) = right.self_intersects(rhs) {
+                    Some(panic_message)
+                } else {
+                    right.self_intersects(lhs)
+                }
             }
-        }
-        if let Some(left) = rhs.left {
-            if let Some(owo) = self.check_list_with_output(left) {
-                return Some(owo);
-            }
-        }
-        None
-    }
-
-    const fn check_with_output(
-        &self,
-        component_access: ComponentAccess,
-    ) -> Option<SystemPanicMessage> {
-        if let Some(str) = self.this.invalid_2(&component_access) {
-            return Some(str);
-        }
-        if let Some(right) = self.right {
-            if let Some(owo) = right.check_with_output(component_access) {
-                return Some(owo);
-            }
-        }
-        if let Some(left) = self.left {
-            if let Some(owo) = left.check_with_output(component_access) {
-                return Some(owo);
-            }
-        }
-        None
-    }
-
-    #[track_caller]
-    const fn check_list(&self, rhs: &ComponentAccessTree) {
-        self.check(rhs.this);
-        if let Some(right) = rhs.right {
-            self.check_list(right);
-        }
-        if let Some(left) = rhs.left {
-            self.check_list(left);
-        }
-    }
-    #[track_caller]
-    const fn check(&self, component_access: ComponentAccess) {
-        if let Some(invalid) = self.this.invalid_2(&component_access) {
-            let lhs_access_type = match invalid.lhs_access_type {
-                AccessType::Ref => "&",
-                AccessType::Mut => "&mut",
-            };
-            let rhs_access_type = match invalid.rhs_access_type {
-                AccessType::Ref => "&",
-                AccessType::Mut => "&mut",
-            };
-            let lhs_name = invalid.lhs_name;
-            let rhs_name = invalid.rhs_name;
-            const_panic::concat_panic!(const_panic::FmtArg::DISPLAY; "\nInvalid System Queries, ", lhs_access_type," ", lhs_name, ", ", rhs_access_type," ", rhs_name, "\n");
-        }
-        if let Some(right) = self.right {
-            right.check(component_access);
-        }
-        if let Some(left) = self.left {
-            left.check(component_access);
+            ConstTreeInner::PanicMessage(panic_message) => Some(*panic_message),
         }
     }
 }
@@ -416,37 +218,31 @@ impl ComponentAccessTree {
 /// A trait for providing a const ComponentAccessTree on Components without adding them directly
 /// to the Component type
 pub(crate) trait AccessTreeContainer {
-    const COMPONENT_ACCESS_TREE: ComponentAccessTree;
+    const COMPONENT_ACCESS_TREE: ConstTree<ComponentAccess>;
 }
 
 impl<T: Component> AccessTreeContainer for &T {
-    const COMPONENT_ACCESS_TREE: ComponentAccessTree = ComponentAccessTree {
-        this: ComponentAccess::Use {
+    const COMPONENT_ACCESS_TREE: ConstTree<ComponentAccess> =
+        &ConstTreeInner::Leaf(ComponentAccess {
             type_id: T::UNSTABLE_TYPE_ID,
             access: AccessType::Ref,
             #[cfg(feature = "diagnostic_component_names")]
             name: T::STRUCT_NAME,
             #[cfg(not(feature = "diagnostic_component_names"))]
             name: Some(""),
-        },
-        left: None,
-        right: None,
-    };
+        });
 }
 
 impl<T: Component> AccessTreeContainer for &mut T {
-    const COMPONENT_ACCESS_TREE: ComponentAccessTree = ComponentAccessTree {
-        this: ComponentAccess::Use {
+    const COMPONENT_ACCESS_TREE: ConstTree<ComponentAccess> =
+        &ConstTreeInner::Leaf(ComponentAccess {
             type_id: T::UNSTABLE_TYPE_ID,
             access: AccessType::Mut,
             #[cfg(feature = "diagnostic_component_names")]
             name: T::STRUCT_NAME,
             #[cfg(not(feature = "diagnostic_component_names"))]
             name: Some(""),
-        },
-        left: None,
-        right: None,
-    };
+        });
 }
 
 /// A trait for validating system parameter combinations at compile time.
@@ -468,55 +264,36 @@ macro_rules! impl_valid_system_params_for_fn {
     {
         const SYSTEM_PARAMS_COMPILE_ERROR: Option<SystemPanicMessage> = const {
                 #[allow(unused_mut)]
-                let mut error = None;
-                impl_valid_system_params_for_fn!(@check_all error, $($param),+);
-                error
+                let mut system_panic_message = None;
+                impl_valid_system_params_for_fn!(@check_all system_panic_message, $($param),+);
+                system_panic_message
             };
     }
     };
 
-    (@check_all $error:ident, $t0:ident) => {
-        let _ = &$t0::COMPONENT_ACCESS_TREE;
+    (@check_all $system_panic_message:ident, $t0:ident) => {
+        if let ConstTreeInner::PanicMessage(system_panic_msg) = $t0::COMPONENT_ACCESS_TREE {
+            $system_panic_message = Some(*system_panic_msg);
+        }
     };
 
-    (@check_all $error:ident, $t0:ident, $($rest:ident),+) => {
+    (@check_all $system_panic_message:ident, $t0:ident, $($rest:ident),+) => {
         // Check t0 against all remaining elements
 
         $(
-            if let Some(err) = ComponentAccessTree::filter_check(
-                (&$t0::COMPONENT_ACCESS_TREE, &$t0::WITH_FILTER_TREE, &$t0::WITHOUT_FILTER_TREE),
-                (&$rest::COMPONENT_ACCESS_TREE, &$rest::WITH_FILTER_TREE, &$rest::WITHOUT_FILTER_TREE)
+            if let Some(system_panic_msg) = check_system_parameters_for_conflicts(
+                $t0::CONST_TREES,
+                $rest::CONST_TREES,
             ) {
-                $error = Some(err);
+                $system_panic_message = Some(system_panic_msg);
             }
         )*
         // Recursively check remaining elements
-        impl_valid_system_params_for_fn!(@check_all $error, $($rest),+);
+        impl_valid_system_params_for_fn!(@check_all $system_panic_message, $($rest),+);
     };
 }
 
-impl_valid_system_params_for_fn!(
-    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15, T16
-);
-impl_valid_system_params_for_fn!(
-    T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14, T15
-);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13, T14);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12, T13);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11, T12);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10, T11);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9, T10);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8, T9);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7, T8);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6, T7);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5, T6);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4, T5);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3, T4);
-impl_valid_system_params_for_fn!(T0, T1, T2, T3);
-impl_valid_system_params_for_fn!(T0, T1, T2);
-impl_valid_system_params_for_fn!(T0, T1);
-impl_valid_system_params_for_fn!(T0);
-
+all_tuples!(impl_valid_system_params_for_fn, 1, 15, T);
 impl<Func, Out> ValidSystemParams<()> for Func
 where
     Func: Send + Sync + 'static,

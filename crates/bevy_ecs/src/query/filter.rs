@@ -1,4 +1,4 @@
-use crate::system::const_param_checking::{WithId, WithoutId};
+use crate::system::const_param_checking::{ConstTree, ConstTreeInner, WithId, WithoutId};
 use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
@@ -7,7 +7,6 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use bevy_ecs::system::const_param_checking::{WithFilterTree, WithoutFilterTree};
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
@@ -93,11 +92,11 @@ pub unsafe trait QueryFilter: WorldQuery {
 
     /// A compile-time representation of the `With<T>`/`Added<T>`/`Changed<T>` filters applied to this query
     /// Used for validating query compatibility during const evaluation
-    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = None;
+    const WITH_FILTER_TREE_QUERY_DATA: ConstTree<WithId> = &ConstTreeInner::Empty;
 
     /// A compile-time representation of the Without<T> filters applied to this query
     /// Used for validating query compatibility during const evaluation
-    const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = None;
+    const WITHOUT_FILTER_TREE_QUERY_DATA: ConstTree<WithoutId> = &ConstTreeInner::Empty;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
     /// If false, the entity will be skipped.
@@ -212,11 +211,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 unsafe impl<T: Component> QueryFilter for With<T> {
     const IS_ARCHETYPAL: bool = true;
 
-    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
-        this: WithId(Some(T::UNSTABLE_TYPE_ID)),
-        left: &None,
-        right: &None,
-    });
+    const WITH_FILTER_TREE_QUERY_DATA: ConstTree<WithId> =
+        &ConstTreeInner::Leaf(WithId(T::UNSTABLE_TYPE_ID));
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -318,11 +314,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 unsafe impl<T: Component> QueryFilter for Without<T> {
     const IS_ARCHETYPAL: bool = true;
 
-    const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = Some(WithoutFilterTree {
-        this: WithoutId(Some(T::UNSTABLE_TYPE_ID)),
-        left: &None,
-        right: &None,
-    });
+    const WITHOUT_FILTER_TREE_QUERY_DATA: ConstTree<WithoutId> =
+        &ConstTreeInner::Leaf(WithoutId(T::UNSTABLE_TYPE_ID));
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -548,8 +541,8 @@ macro_rules! impl_tuple_query_filter {
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
             const IS_ARCHETYPAL: bool = true $(&& $name::IS_ARCHETYPAL)*;
 
-            const WITHOUT_FILTER_TREE_QUERY_DATA: Option<WithoutFilterTree> = impl_tuple_query_filter!(@without_tree $($name),*);
-            const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = impl_tuple_query_filter!(@with_tree $($name),*);
+            const WITHOUT_FILTER_TREE_QUERY_DATA: ConstTree<WithoutId> = impl_tuple_query_filter!(@without_tree $($name),*);
+            const WITH_FILTER_TREE_QUERY_DATA: ConstTree<WithId> = impl_tuple_query_filter!(@with_tree $($name),*);
 
             #[inline(always)]
             unsafe fn filter_fetch(
@@ -565,7 +558,7 @@ macro_rules! impl_tuple_query_filter {
     };
     // Handle empty case for WITHOUT_FILTER_TREE
     (@without_tree) => {
-        None
+        &ConstTreeInner::Empty
     };
     // Handle single item case for WITHOUT_FILTER_TREE
     (@without_tree $t0:ident) => {
@@ -573,24 +566,24 @@ macro_rules! impl_tuple_query_filter {
     };
     // Handle two item case for WITHOUT_FILTER_TREE
     (@without_tree $t0:ident, $t1:ident) => {
-        WithoutFilterTree::combine(
-            &$t0::WITHOUT_FILTER_TREE_QUERY_DATA,
-            &$t1::WITHOUT_FILTER_TREE_QUERY_DATA,
+        &ConstTreeInner::<WithoutId>::combine(
+            $t0::WITHOUT_FILTER_TREE_QUERY_DATA,
+            $t1::WITHOUT_FILTER_TREE_QUERY_DATA,
         )
     };
     // Handle three or more items case for WITHOUT_FILTER_TREE
     (@without_tree $t0:ident, $t1:ident, $($rest:ident),+) => {
-        WithoutFilterTree::combine(
-            &$t0::WITHOUT_FILTER_TREE_QUERY_DATA,
-            &WithoutFilterTree::combine(
-                &$t1::WITHOUT_FILTER_TREE_QUERY_DATA,
-                &impl_tuple_query_filter!(@without_tree $($rest),+)
+        &ConstTreeInner::<WithoutId>::combine(
+            $t0::WITHOUT_FILTER_TREE_QUERY_DATA,
+            &ConstTreeInner::<WithoutId>::combine(
+                $t1::WITHOUT_FILTER_TREE_QUERY_DATA,
+                impl_tuple_query_filter!(@without_tree $($rest),+)
             )
         )
     };
     // Handle empty case for WITH_FILTER_TREE
     (@with_tree) => {
-        None
+        &ConstTreeInner::Empty
     };
     // Handle single item case for WITH_FILTER_TREE
     (@with_tree $t0:ident) => {
@@ -598,18 +591,18 @@ macro_rules! impl_tuple_query_filter {
     };
     // Handle two item case for WITH_FILTER_TREE
     (@with_tree $t0:ident, $t1:ident) => {
-        WithFilterTree::combine(
-            &$t0::WITH_FILTER_TREE_QUERY_DATA,
-            &$t1::WITH_FILTER_TREE_QUERY_DATA,
+        &ConstTreeInner::<WithId>::combine(
+            $t0::WITH_FILTER_TREE_QUERY_DATA,
+            $t1::WITH_FILTER_TREE_QUERY_DATA,
         )
     };
     // Handle three or more items case for WITH_FILTER_TREE
     (@with_tree $t0:ident, $t1:ident, $($rest:ident),+) => {
-        WithFilterTree::combine(
-            &$t0::WITH_FILTER_TREE_QUERY_DATA,
-            &WithFilterTree::combine(
-                &$t1::WITH_FILTER_TREE_QUERY_DATA,
-                &impl_tuple_query_filter!(@with_tree $($rest),+)
+        &ConstTreeInner::<WithId>::combine(
+            $t0::WITH_FILTER_TREE_QUERY_DATA,
+            &ConstTreeInner::<WithId>::combine(
+                $t1::WITH_FILTER_TREE_QUERY_DATA,
+                impl_tuple_query_filter!(@with_tree $($rest),+)
             )
         )
     };
@@ -823,11 +816,8 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
 unsafe impl<T: Component> QueryFilter for Added<T> {
     const IS_ARCHETYPAL: bool = false;
 
-    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
-        this: WithId(Some(T::UNSTABLE_TYPE_ID)),
-        left: &None,
-        right: &None,
-    });
+    const WITH_FILTER_TREE_QUERY_DATA: ConstTree<WithId> =
+        &ConstTreeInner::Leaf(WithId(T::UNSTABLE_TYPE_ID));
 
     #[inline(always)]
     unsafe fn filter_fetch(
@@ -1056,11 +1046,8 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
 // SAFETY: WorldQuery impl performs only read access on ticks
 unsafe impl<T: Component> QueryFilter for Changed<T> {
     const IS_ARCHETYPAL: bool = false;
-    const WITH_FILTER_TREE_QUERY_DATA: Option<WithFilterTree> = Some(WithFilterTree {
-        this: WithId(Some(T::UNSTABLE_TYPE_ID)),
-        left: &None,
-        right: &None,
-    });
+    const WITH_FILTER_TREE_QUERY_DATA: ConstTree<WithId> =
+        &ConstTreeInner::Leaf(WithId(T::UNSTABLE_TYPE_ID));
     #[inline(always)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,

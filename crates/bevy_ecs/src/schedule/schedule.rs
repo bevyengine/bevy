@@ -352,7 +352,7 @@ impl Schedule {
                     };
                     let lhs_name = owo.lhs_name;
                     let rhs_name = owo.rhs_name;
-                    const_panic::concat_panic!(const_panic::FmtArg::DISPLAY; "\nInvalid System Queries, ", lhs_access_type," ", lhs_name, ", ", rhs_access_type," ", rhs_name);
+                    const_panic::concat_panic!(const_panic::FmtArg::DISPLAY; "\nInvalid System Queries, ", lhs_access_type," ", lhs_name, " conflicts with ", rhs_access_type," ", rhs_name, " in the same system\n");
                 }
             }
         };
