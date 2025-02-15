@@ -6,6 +6,10 @@
 //! window will be inserted as a pointer hit, listed behind all other pointer
 //! hits. This means that when the pointer isn't hovering any other entities,
 //! the picking events will be routed to the window.
+//!
+//! ## Implementation Notes
+//!
+//! - This backend does not provide `position` or `normal` in `HitData`.
 
 use core::f32;
 
