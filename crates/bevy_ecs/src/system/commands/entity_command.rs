@@ -13,6 +13,7 @@ use crate::{
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
     event::Event,
+    relationship::RelationshipInsertHookMode,
     result::Result,
     system::{command::HandleError, Command, IntoObserverSystem},
     world::{error::EntityFetchError, EntityWorldMut, FromWorld, World},
@@ -155,7 +156,12 @@ where
 pub fn insert(bundle: impl Bundle) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, InsertMode::Replace, caller);
+        entity.insert_with_caller(
+            bundle,
+            InsertMode::Replace,
+            caller,
+            RelationshipInsertHookMode::Run,
+        );
     }
 }
 
@@ -165,7 +171,12 @@ pub fn insert(bundle: impl Bundle) -> impl EntityCommand {
 pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, InsertMode::Keep, caller);
+        entity.insert_with_caller(
+            bundle,
+            InsertMode::Keep,
+            caller,
+            RelationshipInsertHookMode::Run,
+        );
     }
 }
 
@@ -178,7 +189,12 @@ pub fn insert_by_id<T: Send + 'static>(component_id: ComponentId, value: T) -> i
         // - `component_id` safety is ensured by the caller
         // - `ptr` is valid within the `make` block
         OwningPtr::make(value, |ptr| unsafe {
-            entity.insert_by_id_with_caller(component_id, ptr, caller);
+            entity.insert_by_id_with_caller(
+                component_id,
+                ptr,
+                caller,
+                RelationshipInsertHookMode::Run,
+            );
         });
     }
 }
@@ -190,7 +206,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller);
+        entity.insert_with_caller(value, mode, caller, RelationshipInsertHookMode::Run);
     }
 }
 

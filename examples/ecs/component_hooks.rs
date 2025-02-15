@@ -79,6 +79,7 @@ fn setup(world: &mut World) {
                  entity,
                  component_id,
                  caller,
+                 ..
              }| {
                 // You can access component data from within the hook
                 let value = world.get::<MyComponent>(entity).unwrap().0;
@@ -116,6 +117,7 @@ fn setup(world: &mut World) {
                  entity,
                  component_id,
                  caller,
+                 ..
              }| {
                 let value = world.get::<MyComponent>(entity).unwrap().0;
                 println!(
