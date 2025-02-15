@@ -157,7 +157,9 @@ pub fn propagate_parent_transforms(
 /// to the queue once it has propagated their [`GlobalTransform`].
 #[inline]
 fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
+    #[cfg(feature = "std")]
     let _span = bevy_log::info_span!("transform propagation worker").entered();
+
     let mut outbox = queue.local_queue.borrow_local_mut();
     loop {
         // Try to acquire a lock on the work queue in a tight loop. Profiling shows this is much
@@ -277,7 +279,8 @@ unsafe fn propagate_to_child_unchecked(
     // - it prevents parallelism, as all children must be iterated in series
     //
     // The only way I can see to make this faster when there are many leaf nodes is to speed up
-    // archetype checking to make the iterator skip leaf entities more quickly.
+    // archetype checking to make the iterator skip leaf entities more quickly, or encoding the
+    // hierarchy level as a component.
     for (child, transform, mut global_transform, _, child_of) in
         // Safety: traversing the entity tree from the roots, we assert that the childof and
         // children pointers match in both directions (see assert below) to ensure the hierarchy
@@ -296,7 +299,8 @@ unsafe fn propagate_to_child_unchecked(
 /// Compute leaf [`GlobalTransform`]s in parallel.
 ///
 /// This is run after [`propagate_parent_transforms`], to ensure the parents' [`GlobalTransform`]s
-/// have been computed. This makes computing leaves embarrassingly parallel.
+/// have been computed. This makes computing leaf nodes, even at different levels of the hierarchy,
+/// embarrassingly parallel.
 pub fn compute_transform_leaves(
     parents: Query<Ref<GlobalTransform>, With<Children>>,
     mut leaves: Query<(Ref<Transform>, &mut GlobalTransform, &ChildOf), Without<Children>>,
