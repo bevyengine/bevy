@@ -1514,36 +1514,6 @@ pub trait ComponentsWriter: ComponentsReader {
     fn register_non_send<T: Any>(&mut self) -> ComponentId;
 }
 
-/// This trait provides low level access to [`Component`] collections intended for use only within this module.
-trait ComponentsPrivateWriter {
-    /// Registers the components inherited from `required` for the given `requiree`,
-    /// returning the requirements in a list.
-    ///
-    /// # Safety
-    ///
-    /// The given component IDs `requiree` and `required` must be valid.
-    unsafe fn register_inherited_required_components(
-        &mut self,
-        requiree: ComponentId,
-        required: ComponentId,
-    ) -> Vec<(ComponentId, RequiredComponent)>;
-
-    /// # Safety
-    ///
-    /// The [`ComponentDescriptor`] must match the [`TypeId`]
-    unsafe fn get_or_register_resource_with(
-        &mut self,
-        type_id: TypeId,
-        func: impl FnOnce() -> ComponentDescriptor,
-    ) -> ComponentId;
-
-    fn register_component_internal<T: Component>(
-        &mut self,
-        storages: &mut Storages,
-        recursion_check_stack: &mut Vec<ComponentId>,
-    ) -> ComponentId;
-}
-
 /// This trait provides easily misused read only access to [`Component`] collections intended for use only within this crate.
 pub(crate) trait ComponentsInternalReader: ComponentsReader {
     /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
@@ -1556,7 +1526,11 @@ pub(crate) trait ComponentsInternalReader: ComponentsReader {
 /// This trait provides easily misused write access to [`Component`] collections intended for use only within this crate.
 #[expect(
     private_bounds,
-    reason = "This trait is internal, so there is not real cost for the private bounds. This allows the more complex parts of this trait to be implemented automatically."
+    reason = "
+        This trait is internal, so there is not real cost for the private bounds.
+        This allows the more complex parts of this trait to be implemented automatically.
+        Further, since any implementation of `ComponentsInternalWriter` would likely need to be in this file anyway, we aren't really giving anything up.
+    "
 )]
 pub(crate) trait ComponentsInternalWriter:
     ComponentsInternalReader + ComponentsPrivateWriter
@@ -1572,6 +1546,10 @@ pub(crate) trait ComponentsInternalWriter:
 
     /// Gets the [`RequiredByStagedMut`] for a component if it exists.
     fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByStagedMut>;
+
+    /// Registers a [`ComponentDescriptor`] returning a unique [`ComponentId`].
+    /// If this is called multiple times with the same arguments, it will produce different results.
+    fn register_descriptor(&mut self, descriptor: ComponentDescriptor) -> ComponentId;
 
     /// Registers the given component `R` and [required components] inherited from it as required by `T`.
     ///
@@ -1732,6 +1710,105 @@ pub(crate) trait ComponentsInternalWriter:
                 .unwrap()
                 .working
                 .insert(requiree);
+        }
+    }
+}
+
+/// This trait provides low level access to [`Component`] collections intended for use only within this module.
+trait ComponentsPrivateWriter {
+    /// Registers the components inherited from `required` for the given `requiree`,
+    /// returning the requirements in a list.
+    ///
+    /// # Safety
+    ///
+    /// The given component IDs `requiree` and `required` must be valid.
+    unsafe fn register_inherited_required_components(
+        &mut self,
+        requiree: ComponentId,
+        required: ComponentId,
+    ) -> Vec<(ComponentId, RequiredComponent)>;
+
+    /// # Safety
+    ///
+    /// The [`ComponentDescriptor`] must match the [`TypeId`]
+    unsafe fn get_or_register_resource_with(
+        &mut self,
+        type_id: TypeId,
+        func: impl FnOnce() -> ComponentDescriptor,
+    ) -> ComponentId;
+
+    fn register_component_internal<T: Component>(
+        &mut self,
+        storages: &mut Storages,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) -> ComponentId;
+}
+
+impl<C: ComponentsReader + ComponentsInternalWriter> ComponentsWriter for C {
+    fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+        self.register_component_internal::<T>(storages, &mut Vec::new())
+    }
+
+    fn register_component_with_descriptor(
+        &mut self,
+        storages: &mut Storages,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.register_descriptor(descriptor)
+    }
+
+    #[inline]
+    fn register_required_components_manual<T: Component, R: Component>(
+        &mut self,
+        storages: &mut Storages,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) {
+        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
+        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
+
+        // SAFETY: We just created the components.
+        unsafe {
+            self.register_required_components_manual_unchecked::<R>(
+                requiree,
+                required,
+                required_components,
+                constructor,
+                inheritance_depth,
+            );
+        }
+    }
+
+    #[inline]
+    fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
+        todo!()
+    }
+
+    fn register_resource<T: Resource>(&mut self) -> ComponentId {
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_resource::<T>()
+            })
+        }
+    }
+
+    #[inline]
+    fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        self.register_descriptor(descriptor)
+    }
+
+    fn register_non_send<T: Any>(&mut self) -> ComponentId {
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+            })
         }
     }
 }
