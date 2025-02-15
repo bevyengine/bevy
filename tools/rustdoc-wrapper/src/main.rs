@@ -13,17 +13,7 @@ use walkdir::WalkDir;
 
 fn main() {
     // Generate HTML as normal
-    let mut rustdoc = Command::new("rustdoc");
-    if let Ok(manifest_path) = std::env::var("SET_CARGO_MANIFEST_PATH") {
-        // Restore clobbered env var if invoked through `cargo run`.
-        // This is required by our derive macros.
-        rustdoc.env("CARGO_MANIFEST_PATH", manifest_path);
-        rustdoc.env(
-            "CARGO_MANIFEST_DIR",
-            std::env::var("SET_CARGO_MANIFEST_DIR").unwrap(),
-        );
-    }
-    assert!(rustdoc
+    assert!(Command::new("rustdoc")
         .args(std::env::args().skip(1))
         .status()
         .unwrap()
