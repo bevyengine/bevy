@@ -2231,6 +2231,7 @@ mod tests {
                     .configure_sets(Sets::A.after_ignore_deferred(insert_resource));
             });
         }
+
         #[test]
         fn set_to_system_before() {
             check_no_sync_edges(|schedule| {
