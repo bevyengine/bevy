@@ -293,7 +293,7 @@ macro_rules! impl_valid_system_params_for_fn {
     };
 }
 
-all_tuples!(impl_valid_system_params_for_fn, 1, 15, T);
+all_tuples!(impl_valid_system_params_for_fn, 1, 16, T);
 impl<Func, Out> ValidSystemParams<()> for Func
 where
     Func: Send + Sync + 'static,

@@ -217,92 +217,54 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
     let mut rng = rand::rng();
     let unstable_type_id: u128 = rng.random();
-    #[cfg(feature = "diagnostic_component_names")]
-    {
-        let struct_name_2 = struct_name.to_string();
-        // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
-        // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
-        TokenStream::from(quote! {
-            impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-                const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-                const UNSTABLE_TYPE_ID: u128 = #unstable_type_id;
-                const STRUCT_NAME: &'static str = #struct_name_2;
-                type Mutability = #mutable_type;
-                fn register_required_components(
-                    requiree: #bevy_ecs_path::component::ComponentId,
-                    components: &mut #bevy_ecs_path::component::Components,
-                    required_components: &mut #bevy_ecs_path::component::RequiredComponents,
-                    inheritance_depth: u16,
-                    recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
-                ) {
-                    #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
-                    let self_id = components.register_component::<Self>();
-                    recursion_check_stack.push(self_id);
-                    #(#register_required)*
-                    #(#register_recursive_requires)*
-                    recursion_check_stack.pop();
-                }
+    let struct_name_2 = struct_name.to_string();
+    let struct_name_code = if cfg!(feature ="diagnostic_component_names") { quote! {
+        const STRUCT_NAME: &'static str = #struct_name_2;
+    } }
+    else {
+        quote!{}
+    };
 
-                #on_add
-                #on_insert
-                #on_replace
-                #on_remove
-                #on_despawn
-
-                fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
-                    #clone_behavior
-                }
-
-                #visit_entities
+    // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
+    // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
+    TokenStream::from(quote! {
+        impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
+            const UNSTABLE_TYPE_ID: u128 = #unstable_type_id;
+            #struct_name_code
+            type Mutability = #mutable_type;
+            fn register_required_components(
+                requiree: #bevy_ecs_path::component::ComponentId,
+                components: &mut #bevy_ecs_path::component::Components,
+                required_components: &mut #bevy_ecs_path::component::RequiredComponents,
+                inheritance_depth: u16,
+                recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
+            ) {
+                #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
+                let self_id = components.register_component::<Self>();
+                recursion_check_stack.push(self_id);
+                #(#register_required)*
+                #(#register_recursive_requires)*
+                recursion_check_stack.pop();
             }
 
-            #relationship
+            #on_add
+            #on_insert
+            #on_replace
+            #on_remove
+            #on_despawn
 
-            #relationship_target
-        })
-    }
-    #[cfg(not(feature = "diagnostic_component_names"))]
-    {
-        // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
-        // level components are initialized first, giving them precedence over recursively defined constructors for the same component type
-        TokenStream::from(quote! {
-            impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-                const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
-                const UNSTABLE_TYPE_ID: u128 = #unstable_type_id;
-                type Mutability = #mutable_type;
-                fn register_required_components(
-                    requiree: #bevy_ecs_path::component::ComponentId,
-                    components: &mut #bevy_ecs_path::component::Components,
-                    required_components: &mut #bevy_ecs_path::component::RequiredComponents,
-                    inheritance_depth: u16,
-                    recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
-                ) {
-                    #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
-                    let self_id = components.register_component::<Self>();
-                    recursion_check_stack.push(self_id);
-                    #(#register_required)*
-                    #(#register_recursive_requires)*
-                    recursion_check_stack.pop();
-                }
-
-                #on_add
-                #on_insert
-                #on_replace
-                #on_remove
-                #on_despawn
-
-                fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
-                    #clone_behavior
-                }
-
-                #visit_entities
+            fn clone_behavior() -> #bevy_ecs_path::component::ComponentCloneBehavior {
+                #clone_behavior
             }
 
-            #relationship
+            #visit_entities
+        }
 
-            #relationship_target
-        })
-    }
+        #relationship
+
+        #relationship_target
+    })
 }
 
 fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
