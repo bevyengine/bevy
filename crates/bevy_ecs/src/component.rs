@@ -21,7 +21,7 @@ use bevy_platform_support::sync::Arc;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{staging::StagedChanges, TypeIdMap};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -1149,6 +1149,44 @@ pub struct Components {
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
     component_clone_handlers: ComponentCloneHandlers,
+}
+
+/// Stores metadata associated with each kind of [`Component`] in a given [`World`].
+#[derive(Debug, Default)]
+pub struct StagedComponents {
+    components: Vec<ComponentInfo>,
+    indices: TypeIdMap<ComponentId>,
+    resource_indices: TypeIdMap<ComponentId>,
+    /// If a component is staged, but it doesn't have a [`ComponentCloneFn`] here it is [`None`].
+    component_clone_handlers: HashMap<ComponentId, ComponentCloneFn>,
+}
+
+impl StagedChanges for StagedComponents {
+    type Cold = Components;
+
+    fn apply_staged(&mut self, storage: &mut Self::Cold) {
+        let earliest = storage.components.len();
+        let next = earliest + self.components.len();
+
+        storage.components.append(&mut self.components);
+        storage.indices.extend(self.indices.drain());
+        storage
+            .resource_indices
+            .extend(self.resource_indices.drain());
+
+        for id in earliest..next {
+            let id = ComponentId(id);
+            storage.component_clone_handlers.set_component_handler(
+                id,
+                ComponentCloneHandler(self.component_clone_handlers.get(&id).copied()),
+            );
+        }
+        self.component_clone_handlers.clear();
+    }
+
+    fn any_staged(&self) -> bool {
+        !self.components.is_empty()
+    }
 }
 
 /// The [`Deref`] trait ties the lifetime of the returned reference to the lifetime of the value itself.
