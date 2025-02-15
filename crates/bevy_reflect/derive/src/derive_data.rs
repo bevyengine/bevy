@@ -1018,7 +1018,7 @@ impl<'a> ReflectTypePath<'a> {
 
         match self {
             Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
-                env!("CARGO_CRATE_NAME")
+                option_env!("CARGO_CRATE_NAME").unwrap_or("")
             })),
             Self::External { .. } => unreachable!(),
             _ => None,
@@ -1042,7 +1042,7 @@ impl<'a> ReflectTypePath<'a> {
 
         match self {
             Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
-                env!("CARGO_PKG_VERSION")
+                option_env!("CARGO_PKG_VERSION").unwrap_or("")
             })),
             Self::External { .. } => unreachable!(),
             _ => None,
