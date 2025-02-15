@@ -2837,7 +2837,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_environment_map,
             mesh_view_bind_group,
             maybe_oit_layers_count_offset,
-        ): ROQueryItem<'w, Self::ViewQuery>,
+        ): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

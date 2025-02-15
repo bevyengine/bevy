@@ -38,6 +38,7 @@ impl ViewNode for DeferredGBufferPrepassNode {
         render_context: &mut RenderContext<'w>,
         (camera, extracted_view, view_depth_texture, view_prepass_textures): QueryItem<
             'w,
+            '_,
             Self::ViewQuery,
         >,
         world: &'w World,

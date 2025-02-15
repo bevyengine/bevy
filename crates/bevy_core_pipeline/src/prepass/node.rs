@@ -36,7 +36,7 @@ impl ViewNode for EarlyPrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        view_query: QueryItem<'w, Self::ViewQuery>,
+        view_query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         run_prepass(graph, render_context, view_query, world, "early prepass")
@@ -72,7 +72,7 @@ impl ViewNode for LatePrepassNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        query: QueryItem<'w, Self::ViewQuery>,
+        query: QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // We only need a late prepass if we have occlusion culling and indirect
@@ -110,7 +110,7 @@ fn run_prepass<'w>(
         view_prev_uniform_offset,
         _,
         _,
-    ): QueryItem<'w, <LatePrepassNode as ViewNode>::ViewQuery>,
+    ): QueryItem<'w, '_, <LatePrepassNode as ViewNode>::ViewQuery>,
     world: &'w World,
     label: &'static str,
 ) -> Result<(), NodeRunError> {
