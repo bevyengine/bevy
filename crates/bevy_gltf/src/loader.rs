@@ -170,7 +170,7 @@ pub struct GltfLoaderSettings {
     pub include_source: bool,
     /// If some, the loader will ignore the gltf sampler data and generate materials with provided `ImageSamplerDescriptor`.
     pub override_sampler: Option<ImageSamplerDescriptor>,
-    /// Anisotropic filtering level. Must be a power 1, 2, 4, 8 or 16.
+    /// Anisotropic filtering level. Allowed values: 1, 2, 4, 8 or 16.
     /// Is passed into `ImageSamplerDescriptor` when parsing gltf sampler data.
     pub anisotropy_clamp: u16,
 }
