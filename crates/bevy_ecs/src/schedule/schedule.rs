@@ -2160,6 +2160,22 @@ mod tests {
         assert_eq!(schedule.executable.systems.len(), 2);
     }
 
+    #[test]
+    fn adds_sync_point_before_exclusive_system_despite_ignore_deferred() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |world: &mut World| assert!(world.contains_resource::<Resource1>()),
+            )
+                .chain_ignore_deferred(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 3);
+    }
+
     mod no_sync_edges {
         use super::*;
 
@@ -2215,7 +2231,6 @@ mod tests {
                     .configure_sets(Sets::A.after_ignore_deferred(insert_resource));
             });
         }
-
         #[test]
         fn set_to_system_before() {
             check_no_sync_edges(|schedule| {

@@ -88,9 +88,11 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
             let add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
+                let target_system = graph.systems[target.index()].get().unwrap();
                 let add_sync_on_edge = add_sync_after
-                    && !is_apply_deferred(graph.systems[target.index()].get().unwrap())
-                    && !self.no_sync_edges.contains(&(*node, target));
+                    && !is_apply_deferred(target_system)
+                    && (target_system.is_exclusive()
+                        || !self.no_sync_edges.contains(&(*node, target)));
 
                 let weight = if add_sync_on_edge { 1 } else { 0 };
 
