@@ -2177,6 +2177,30 @@ mod tests {
         assert_eq!(schedule.executable.systems.len(), 4);
     }
 
+    fn insert_resource(mut commands: Commands) {
+        commands.insert_resource(Resource1);
+    }
+
+    fn another_with_deferred(_: Commands) {}
+
+    fn contains_resource(world: &mut World) {
+        assert!(world.contains_resource::<Resource1>());
+    }
+
+    #[test]
+    fn merges_sync_points_before_exclusive_system() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems((
+            insert_resource.before_ignore_deferred(contains_resource),
+            another_with_deferred.before_ignore_deferred(contains_resource),
+            contains_resource,
+        ));
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 4);
+    }
+
     mod no_sync_edges {
         use super::*;
 
