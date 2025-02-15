@@ -908,8 +908,8 @@ impl ComponentInfo {
 /// and must not be attempted.
 ///
 /// Given a type `T` which implements [`Component`], the `ComponentId` for `T` can be retrieved
-/// from a `World` using [`World::component_id()`] or via [`Components::component_id()`]. Access
-/// to the `ComponentId` for a [`Resource`] is available via [`Components::resource_id()`].
+/// from a `World` using [`World::component_id()`] or via [`ComponentsReader::component_id()`]. Access
+/// to the `ComponentId` for a [`Resource`] is available via [`ComponentsReader::resource_id()`].
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1305,7 +1305,6 @@ pub trait ComponentsReader {
 
     /// Returns true if this `id` is staged on this collection of [`Component`]s.
     /// If [`is_id_valid`](ComponentsReader::is_id_valid) is not true, this value is meanngless.
-    /// See also [`get`]
     fn is_id_staged(&self, id: ComponentId) -> bool;
 
     /// Gets the [`ComponentRegistrationStatus`] for a [`ComponentId`].
@@ -1321,7 +1320,7 @@ pub trait ComponentsReader {
         }
     }
 
-    /// Type-erased equivalent of [`Components::component_id()`].
+    /// Type-erased equivalent of [`ComponentsReader::component_id()`].
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId>;
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -1331,7 +1330,7 @@ pub trait ComponentsReader {
     /// instance.
     ///
     /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::register_component()`].
+    /// yet been initialized using [`ComponentsWriter::register_component()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -1348,15 +1347,15 @@ pub trait ComponentsReader {
     ///
     /// # See also
     ///
-    /// * [`Components::get_id()`]
-    /// * [`Components::resource_id()`]
+    /// * [`ComponentsReader::get_id()`]
+    /// * [`ComponentsReader::resource_id()`]
     /// * [`World::component_id()`]
     #[inline]
     fn component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::resource_id()`].
+    /// Type-erased equivalent of [`ComponentsReader::resource_id()`].
     fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId>;
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T`.
@@ -1366,7 +1365,7 @@ pub trait ComponentsReader {
     /// instance.
     ///
     /// Returns [`None`] if the `Resource` type has not
-    /// yet been initialized using [`Components::register_resource()`].
+    /// yet been initialized using [`ComponentsWriter::register_resource()`].
     ///
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -1383,8 +1382,8 @@ pub trait ComponentsReader {
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::get_resource_id()`]
+    /// * [`ComponentsReader::component_id()`]
+    /// * [`ComponentsReader::get_resource_id()`]
     #[inline]
     fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.get_resource_id(TypeId::of::<T>())
@@ -1399,8 +1398,8 @@ pub trait ComponentsWriter: ComponentsReader {
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component_with_descriptor()`]
+    /// * [`ComponentsReader::component_id()`]
+    /// * [`ComponentsWriter::register_component_with_descriptor()`]
     fn register_component<T: Component>(&mut self) -> ComponentId;
 
     /// Registers a component described by `descriptor`.
@@ -1412,8 +1411,8 @@ pub trait ComponentsWriter: ComponentsReader {
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component()`]
+    /// * [`ComponentsReader::component_id()`]
+    /// * [`ComponentsWriter::register_component()`]
     fn register_component_with_descriptor(
         &mut self,
         descriptor: ComponentDescriptor,
@@ -1453,8 +1452,8 @@ pub trait ComponentsWriter: ComponentsReader {
     ///
     /// # See also
     ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource_with_descriptor()`]
+    /// * [`ComponentsReader::resource_id()`]
+    /// * [`ComponentsWriter::register_resource_with_descriptor()`]
     fn register_resource<T: Resource>(&mut self) -> ComponentId;
 
     /// Registers a [`Resource`] described by `descriptor`.
@@ -1466,8 +1465,8 @@ pub trait ComponentsWriter: ComponentsReader {
     ///
     /// # See also
     ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource()`]
+    /// * [`ComponentsReader::resource_id()`]
+    /// * [`ComponentsWriter::register_resource()`]
     fn register_resource_with_descriptor(&mut self, descriptor: ComponentDescriptor)
         -> ComponentId;
 
