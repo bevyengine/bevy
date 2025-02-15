@@ -50,10 +50,12 @@ jobs:
       #  This does the following:
       #   - Replaces the docs icon with one that clearly denotes it's not the released package on crates.io
       #   - Adds a meta tag that forces Google not to index any page on the site.
+      # - compiles our rustdoc wrapper
       - name: Pre-docs-build
         run: |
           sed -i.bak "s/icon.png/icon-docs-dev.png/" src/lib.rs
           echo "<meta name=\"robots\" content=\"noindex\">" > header.html
+          cargo build --release --package rustdoc-wrapper
 
       - name: Build docs
         env:
@@ -74,7 +76,7 @@ jobs:
             --exclude build-wasm-example \
             --exclude build-templated-pages \
             --exclude example-showcase \
-            --config "build.rustdoc = \"tools/rustdoc-wrapper/rustdoc.sh\""
+            --config "build.rustdoc = \"target/release/rustdoc-wrapper\""
 
       #  This adds the following:
       #   - A top level redirect to the bevy crate documentation

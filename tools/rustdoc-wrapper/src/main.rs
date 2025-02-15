@@ -3,7 +3,7 @@ use std::{
     ffi::OsStr,
     fs::read_to_string,
     ops::Deref,
-    path::{Path, PathBuf},
+    path::Path,
     process::Command,
     sync::LazyLock,
 };
@@ -12,23 +12,19 @@ use nipper::Document;
 use walkdir::WalkDir;
 
 fn main() {
-    // Use workspace dir
-    let rustdoc_wrapper_dir = PathBuf::from(
-        std::env::var("CARGO_MANIFEST_DIR")
-            .expect("Please run via cargo or set CARGO_MANIFEST_DIR"),
-    );
-    let working_dir = rustdoc_wrapper_dir.join("../..").canonicalize().unwrap();
-    std::env::set_current_dir(working_dir).unwrap();
-
     // Generate HTML as normal
-    assert!(Command::new("rustdoc")
-        .args(std::env::args().skip(1))
-        // Restore clobbered env var.
+    let mut rustdoc = Command::new("rustdoc");
+    if let Ok(manifest_path) = std::env::var("SET_CARGO_MANIFEST_PATH") {
+        // Restore clobbered env var if invoked through `cargo run`.
         // This is required by our derive macros.
-        .env(
-            "CARGO_MANIFEST_PATH",
-            std::env::var("SET_CARGO_MANIFEST_PATH").unwrap()
-        )
+        rustdoc.env("CARGO_MANIFEST_PATH", manifest_path);
+        rustdoc.env(
+            "CARGO_MANIFEST_DIR",
+            std::env::var("SET_CARGO_MANIFEST_DIR").unwrap(),
+        );
+    }
+    assert!(rustdoc
+        .args(std::env::args().skip(1))
         .status()
         .unwrap()
         .success());
