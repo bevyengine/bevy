@@ -2167,13 +2167,14 @@ mod tests {
         schedule.add_systems(
             (
                 |mut commands: Commands| commands.insert_resource(Resource1),
+                || (),
                 |world: &mut World| assert!(world.contains_resource::<Resource1>()),
             )
                 .chain_ignore_deferred(),
         );
         schedule.run(&mut world);
 
-        assert_eq!(schedule.executable.systems.len(), 3);
+        assert_eq!(schedule.executable.systems.len(), 4);
     }
 
     mod no_sync_edges {
