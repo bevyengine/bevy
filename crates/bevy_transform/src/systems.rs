@@ -184,15 +184,45 @@ fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
         queue.busy_threads.fetch_add(1, Ordering::Relaxed);
         drop(rx); // Important: drop after atomic and before work starts.
 
-        for parent in tasks.drain(..) {
+        'task_loop: for mut parent in tasks.drain(..) {
             // SAFETY: Parent entities fed into this function are pulled from the work queue, which
             // is in turn fed from this function. The function will panic if cycles are found in the
             // hierarchy, which means we can be certain that the work queue itself contains unique
             // entities, making this safe to call.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             unsafe {
-                let (_, _, transform, children, _) = nodes.get_unchecked(parent).unwrap();
-                propagate_to_child_unchecked((parent, transform, children), nodes, &mut outbox);
+                let (_, _, mut parent_g_transform, mut children, _) =
+                    nodes.get_unchecked(parent).unwrap();
+
+                // Optimization: when there is a single child, we want to recurse the hierarchy
+                // sequentially until we find an entity with multiple children, at which point we
+                // continue with the parallel task generation. If we don't do this, long chains of
+                // single entities can become very slow, as they require starting a new task for
+                // each level of the hierarchy. When there are many levels, this overhead hurts.
+                while children.len() == 1 {
+                    let child = *children.first().expect("Length should equal 1");
+                    let Ok((_, child_transform, mut child_g_transform, grandchildren, child_of)) =
+                        nodes.get_unchecked(child)
+                    else {
+                        continue 'task_loop;
+                    };
+                    assert!(child_of.get() == parent); // Safety: ensure no hierarchy cycles
+                    if parent_g_transform.is_changed()
+                        || child_transform.is_changed()
+                        || child_g_transform.is_added()
+                    {
+                        *child_g_transform = parent_g_transform.mul_transform(*child_transform);
+                    }
+                    parent = child;
+                    children = grandchildren;
+                    parent_g_transform = child_g_transform;
+                }
+
+                propagate_to_child_unchecked(
+                    (parent, parent_g_transform, children),
+                    nodes,
+                    &mut outbox,
+                );
             }
             // Send chunks from inside the loop as well as at the end. This allows other workers to
             // pick up work while this task is still running. Only do this within the loop when the
