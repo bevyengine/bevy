@@ -1343,7 +1343,7 @@ pub trait ComponentsReader {
     ///
     /// let component_a_id = world.register_component::<ComponentA>();
     ///
-    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
+    /// assert_eq!(component_a_id, world.component_id::<ComponentA>().unwrap())
     /// ```
     ///
     /// # See also
@@ -1378,7 +1378,7 @@ pub trait ComponentsReader {
     ///
     /// let resource_a_id = world.init_resource::<ResourceA>();
     ///
-    /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
+    /// assert_eq!(resource_a_id, world.resource_id::<ResourceA>().unwrap())
     /// ```
     ///
     /// # See also
