@@ -36,8 +36,9 @@ use crate::{
     change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentCloneHandlersWriter, ComponentDescriptor, ComponentHooks, ComponentId,
-        ComponentInfo, ComponentTicks, Components, ComponentsReader, ComponentsWriter,
-        DerefByLifetime, Mutable, RequiredComponents, RequiredComponentsError, Tick,
+        ComponentInfo, ComponentTicks, Components, ComponentsInternalWriter, ComponentsReader,
+        ComponentsWriter, DerefByLifetime, Mutable, RequiredComponents, RequiredComponentsError,
+        Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     entity_disabling::{DefaultQueryFilters, Disabled},
