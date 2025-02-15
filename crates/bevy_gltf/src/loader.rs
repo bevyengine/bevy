@@ -172,7 +172,7 @@ pub struct GltfLoaderSettings {
     pub override_sampler: Option<ImageSamplerDescriptor>,
     /// Anisotropic filtering level. Must be a power 1, 2, 4, 8 or 16.
     /// Is passed into ImageSamplerDescriptor when parsing gltf sampler data.
-    pub anisotropy_clamp: u16
+    pub anisotropy_clamp: u16,
 }
 
 impl Default for GltfLoaderSettings {
@@ -1060,7 +1060,9 @@ async fn load_image<'a, 'b>(
     settings: &GltfLoaderSettings,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let sampler_descriptor = settings.override_sampler.clone()
+    let sampler_descriptor = settings
+        .override_sampler
+        .clone()
         .unwrap_or(texture_sampler(&gltf_texture, settings.anisotropy_clamp));
     #[cfg(all(debug_assertions, feature = "dds"))]
     let name = gltf_texture
@@ -1833,7 +1835,7 @@ fn texture_sampler(texture: &gltf::Texture, anisotropy_clamp: u16) -> ImageSampl
             })
             .or(Some(ImageSamplerDescriptor::default().mag_filter))
             // Enabling anisotropy with Nearest filters causes wgpu Validation Error
-            .filter(|_| anisotropy_clamp==1)
+            .filter(|_| anisotropy_clamp == 1)
             .unwrap_or(ImageFilterMode::Linear),
 
         min_filter: gltf_sampler
@@ -1847,7 +1849,7 @@ fn texture_sampler(texture: &gltf::Texture, anisotropy_clamp: u16) -> ImageSampl
                 | MinFilter::LinearMipmapLinear => ImageFilterMode::Linear,
             })
             .or(Some(ImageSamplerDescriptor::default().min_filter))
-            .filter(|_| anisotropy_clamp==1)
+            .filter(|_| anisotropy_clamp == 1)
             .unwrap_or(ImageFilterMode::Linear),
 
         mipmap_filter: gltf_sampler
@@ -1862,11 +1864,11 @@ fn texture_sampler(texture: &gltf::Texture, anisotropy_clamp: u16) -> ImageSampl
                 }
             })
             .or(Some(ImageSamplerDescriptor::default().mipmap_filter))
-            .filter(|_| anisotropy_clamp==1)
+            .filter(|_| anisotropy_clamp == 1)
             .unwrap_or(ImageFilterMode::Linear),
 
         anisotropy_clamp,
-        
+
         ..Default::default()
     }
 }
