@@ -17,12 +17,11 @@ use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
+    result::{Error, Result, SystemErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     system::ScheduleSystem,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-
-use crate as bevy_ecs;
 
 use super::__rust_begin_short_backtrace;
 
@@ -133,6 +132,7 @@ pub struct ExecutorState {
 struct Context<'scope, 'env, 'sys> {
     environment: &'env Environment<'env, 'sys>,
     scope: &'scope Scope<'scope, 'env, ()>,
+    error_handler: fn(Error, SystemErrorContext),
 }
 
 impl Default for MultiThreadedExecutor {
@@ -183,6 +183,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(Error, SystemErrorContext),
     ) {
         let state = self.state.get_mut().unwrap();
         // reset counts
@@ -222,7 +223,11 @@ impl SystemExecutor for MultiThreadedExecutor {
             false,
             thread_executor,
             |scope| {
-                let context = Context { environment, scope };
+                let context = Context {
+                    environment,
+                    scope,
+                    error_handler,
+                };
 
                 // The first tick won't need to process finished systems, but we still need to run the loop in
                 // tick_executor() in case a system completes while the first tick still holds the mutex.
@@ -603,17 +608,18 @@ impl ExecutorState {
                 // access the world data used by the system.
                 // - `update_archetype_component_access` has been called.
                 unsafe {
-                    // TODO: implement an error-handling API instead of panicking.
                     if let Err(err) = __rust_begin_short_backtrace::run_unsafe(
                         system,
                         context.environment.world_cell,
                     ) {
-                        panic!(
-                            "Encountered an error in system `{}`: {:?}",
-                            &*system.name(),
-                            err
+                        (context.error_handler)(
+                            err,
+                            SystemErrorContext {
+                                name: system.name(),
+                                last_run: system.get_last_run(),
+                            },
                         );
-                    };
+                    }
                 };
             }));
             context.system_completed(system_index, res, system);
@@ -657,14 +663,15 @@ impl ExecutorState {
                 // that no other systems currently have access to the world.
                 let world = unsafe { context.environment.world_cell.world_mut() };
                 let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-                    // TODO: implement an error-handling API instead of panicking.
                     if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
-                        panic!(
-                            "Encountered an error in system `{}`: {:?}",
-                            &*system.name(),
-                            err
+                        (context.error_handler)(
+                            err,
+                            SystemErrorContext {
+                                name: system.name(),
+                                last_run: system.get_last_run(),
+                            },
                         );
-                    };
+                    }
                 }));
                 context.system_completed(system_index, res, system);
             };
@@ -796,7 +803,6 @@ impl MainThreadExecutor {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         prelude::Resource,
         schedule::{ExecutorKind, IntoSystemConfigs, Schedule},
         system::Commands,

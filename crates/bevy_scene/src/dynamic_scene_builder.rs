@@ -351,6 +351,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// [`deny_resource`]: Self::deny_resource
     #[must_use]
     pub fn extract_resources(mut self) -> Self {
+        // Don't extract the DefaultQueryFilters resource
         let original_world_dqf_id = self
             .original_world
             .components()

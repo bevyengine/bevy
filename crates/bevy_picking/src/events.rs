@@ -40,6 +40,7 @@
 use core::{fmt::Debug, time::Duration};
 
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
+use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
 use bevy_platform_support::collections::HashMap;
 use bevy_platform_support::time::Instant;
@@ -72,7 +73,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
     pub event: E,
 }
 
-/// A traversal query (eg it implements [`Traversal`]) intended for use with [`Pointer`] events.
+/// A traversal query (i.e. it implements [`Traversal`]) intended for use with [`Pointer`] events.
 ///
 /// This will always traverse to the parent, if the entity being visited has one. Otherwise, it
 /// propagates to the pointer's window and stops there.
@@ -143,7 +144,7 @@ impl<E: Debug + Clone + Reflect> Pointer<E> {
     }
 }
 
-/// Fires when a pointer is canceled, and it's current interaction state is dropped.
+/// Fires when a pointer is canceled, and its current interaction state is dropped.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 pub struct Cancel {
     /// Information about the picking intersection.
@@ -285,6 +286,19 @@ pub struct DragEntry {
     pub latest_pos: Vec2,
 }
 
+/// Fires while a pointer is scrolling over the `target` entity.
+#[derive(Clone, PartialEq, Debug, Reflect)]
+pub struct Scroll {
+    /// The mouse scroll unit.
+    pub unit: MouseScrollUnit,
+    /// The horizontal scroll value.
+    pub x: f32,
+    /// The vertical scroll value.
+    pub y: f32,
+    /// Information about the picking intersection.
+    pub hit: HitData,
+}
+
 /// An entry in the cache that drives the `pointer_events` system, storing additional data
 /// about pointer button presses.
 #[derive(Debug, Clone, Default)]
@@ -346,6 +360,7 @@ pub struct PickingEventWriters<'w> {
     drag_leave_events: EventWriter<'w, Pointer<DragLeave>>,
     drag_over_events: EventWriter<'w, Pointer<DragOver>>,
     drag_start_events: EventWriter<'w, Pointer<DragStart>>,
+    scroll_events: EventWriter<'w, Pointer<Scroll>>,
     move_events: EventWriter<'w, Pointer<Move>>,
     out_events: EventWriter<'w, Pointer<Out>>,
     over_events: EventWriter<'w, Pointer<Over>>,
@@ -748,6 +763,28 @@ pub fn pointer_events(
                     );
                     commands.trigger_targets(move_event.clone(), hovered_entity);
                     event_writers.move_events.send(move_event);
+                }
+            }
+            PointerAction::Scroll { x, y, unit } => {
+                for (hovered_entity, hit) in hover_map
+                    .get(&pointer_id)
+                    .iter()
+                    .flat_map(|h| h.iter().map(|(entity, data)| (*entity, data.clone())))
+                {
+                    // Emit Scroll events to the entities we are hovering
+                    let scroll_event = Pointer::new(
+                        pointer_id,
+                        location.clone(),
+                        hovered_entity,
+                        Scroll {
+                            unit,
+                            x,
+                            y,
+                            hit: hit.clone(),
+                        },
+                    );
+                    commands.trigger_targets(scroll_event.clone(), hovered_entity);
+                    event_writers.scroll_events.send(scroll_event);
                 }
             }
             // Canceled

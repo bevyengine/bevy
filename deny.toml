@@ -3,10 +3,7 @@ all-features = true
 
 [advisories]
 version = 2
-ignore = [
-  # TODO: #16477 - Delete this once notify-types has been bumped.
-  "RUSTSEC-2024-0384",
-]
+ignore = []
 
 [licenses]
 version = 2
@@ -77,6 +74,9 @@ deny = [
   { name = "android-activity", deny-multiple-versions = true },
   { name = "glam", deny-multiple-versions = true },
   { name = "raw-window-handle", deny-multiple-versions = true },
+]
+skip = [
+  { name = "bevy_math", reason = "bevy_math has a path dev dependency on itself without a version" },
 ]
 
 [sources]

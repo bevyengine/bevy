@@ -2,11 +2,12 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     view::Visibility,
+    view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
@@ -322,6 +323,7 @@ impl From<Vec2> for ScrollPosition {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
+    ComputedNodeTarget,
     BackgroundColor,
     BorderColor,
     BorderRadius,
@@ -329,6 +331,7 @@ impl From<Vec2> for ScrollPosition {
     ScrollPosition,
     Transform,
     Visibility,
+    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
@@ -2760,5 +2763,62 @@ pub struct BoxShadowSamples(pub u32);
 impl Default for BoxShadowSamples {
     fn default() -> Self {
         Self(4)
+    }
+}
+
+/// Derived information about the camera target for this UI node.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default)]
+pub struct ComputedNodeTarget {
+    pub(crate) camera: Entity,
+    pub(crate) scale_factor: f32,
+    pub(crate) physical_size: UVec2,
+}
+
+impl Default for ComputedNodeTarget {
+    fn default() -> Self {
+        Self {
+            camera: Entity::PLACEHOLDER,
+            scale_factor: 1.,
+            physical_size: UVec2::ZERO,
+        }
+    }
+}
+
+impl ComputedNodeTarget {
+    pub fn camera(&self) -> Option<Entity> {
+        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
+    }
+
+    pub const fn scale_factor(&self) -> f32 {
+        self.scale_factor
+    }
+
+    pub const fn physical_size(&self) -> UVec2 {
+        self.physical_size
+    }
+
+    pub fn logical_size(&self) -> Vec2 {
+        self.physical_size.as_vec2() / self.scale_factor
+    }
+}
+
+/// Adds a shadow behind text
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+#[reflect(Component, Default, Debug)]
+pub struct TextShadow {
+    /// Shadow displacement in logical pixels
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for TextShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::splat(4.),
+            color: Color::linear_rgba(0., 0., 0., 0.75),
+        }
     }
 }

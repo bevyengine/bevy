@@ -63,10 +63,8 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // If we aren't using `multi_draw_indirect_count`, we have a 1:1 fixed
     // assignment of batches to slots in the indirect parameters buffer, so we
     // can just use the instance index as the index of our indirect parameters.
-    let early_instance_count =
-        atomicLoad(&indirect_parameters_metadata[instance_index].early_instance_count);
-    let late_instance_count =
-        atomicLoad(&indirect_parameters_metadata[instance_index].late_instance_count);
+    let early_instance_count = indirect_parameters_metadata[instance_index].early_instance_count;
+    let late_instance_count = indirect_parameters_metadata[instance_index].late_instance_count;
 
     // If in the early phase, we draw only the early meshes. If in the late
     // phase, we draw only the late meshes. If in the main phase, draw all the
