@@ -1,14 +1,10 @@
-use core::sync::atomic::{AtomicI32, Ordering};
-use std::sync::{
-    mpsc::{channel, Receiver, Sender},
-    Arc, Mutex,
-};
-
 use crate::components::{GlobalTransform, Transform};
-use alloc::vec::Vec;
-use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
-use bevy_tasks::{ComputeTaskPool, TaskPool};
-use bevy_utils::Parallel;
+use bevy_ecs::prelude::*;
+
+#[cfg(feature = "std")]
+pub use parallel::propagate_parent_transforms;
+#[cfg(not(feature = "std"))]
+pub use serial::propagate_parent_transforms;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
@@ -45,262 +41,11 @@ pub fn sync_simple_transforms(
     }
 }
 
-/// A queue shared between threads for transform propagation.
-pub struct WorkQueue {
-    /// A semaphore that tracks how many threads are busy doing work. Used to determine when there
-    /// is no more work to do.
-    busy_threads: AtomicI32,
-    sender: Sender<Vec<Entity>>,
-    receiver: Arc<Mutex<Receiver<Vec<Entity>>>>,
-    local_queue: Parallel<Vec<Entity>>,
-}
-impl Default for WorkQueue {
-    fn default() -> Self {
-        let (tx, rx) = channel();
-        Self {
-            busy_threads: AtomicI32::default(),
-            sender: tx,
-            receiver: Arc::new(Mutex::new(rx)),
-            local_queue: Default::default(),
-        }
-    }
-}
-impl WorkQueue {
-    const TASK_CHUNK_SIZE: usize = 1024;
-
-    #[inline]
-    fn send_batches_with(sender: &Sender<Vec<Entity>>, outbox: &mut Vec<Entity>) {
-        for chunk in outbox
-            .chunks(Self::TASK_CHUNK_SIZE)
-            .filter(|c| !c.is_empty())
-        {
-            sender.send(chunk.to_vec()).ok();
-        }
-        outbox.clear();
-    }
-
-    #[inline]
-    fn send_batches(&mut self) {
-        let Self {
-            sender,
-            local_queue,
-            ..
-        } = self;
-        // Iterate over the locals to send batched tasks, avoiding the need to drain the locals into
-        // a larger allocation.
-        local_queue
-            .iter_mut()
-            .for_each(|outbox| Self::send_batches_with(sender, outbox));
-    }
-}
-
-/// Alias for a large, repeatedly used query.
-type NodeQuery<'w, 's> = Query<
-    'w,
-    's,
-    (
-        Entity,
-        Ref<'static, Transform>,
-        Mut<'static, GlobalTransform>,
-        Read<Children>,
-        Read<ChildOf>,
-    ),
->;
-
-/// Computes the [`GlobalTransform`]s of non-leaf nodes in the entity hierarchy, propagating
-/// [`Transform`]s of parents to their children.
-pub fn propagate_parent_transforms(
-    mut queue: Local<WorkQueue>,
-    mut orphaned: RemovedComponents<ChildOf>,
-    mut orphans: Local<Vec<Entity>>,
-    mut roots: Query<(Entity, Ref<Transform>, &mut GlobalTransform, &Children), Without<ChildOf>>,
-    nodes: NodeQuery,
-) {
-    // Orphans
-    orphans.clear();
-    orphans.extend(orphaned.read());
-    orphans.sort_unstable();
-
-    // Process roots in parallel, seeding the work queue
-    roots.par_iter_mut().for_each_init(
-        || queue.local_queue.borrow_local_mut(),
-        |outbox, (parent, transform, mut parent_transform, children)| {
-            if transform.is_changed()
-                || parent_transform.is_added()
-                || orphans.binary_search(&parent).is_ok()
-            {
-                *parent_transform = GlobalTransform::from(*transform);
-            }
-
-            // SAFETY: the parent entities passed into this function are taken from iterating over
-            // the root entity query. Queries always iterate over unique entities, preventing
-            // mutable aliasing, and making this call safe.
-            #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-            unsafe {
-                propagate_to_child_unchecked((parent, parent_transform, children), &nodes, outbox);
-            }
-        },
-    );
-    // Send all tasks in thread local outboxes *after* roots are processed to reduce the total
-    // number of channel sends by avoiding sending partial batches.
-    queue.send_batches();
-
-    // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
-    let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
-    task_pool.scope(|s| {
-        (0..task_pool.thread_num())
-            .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
-    });
-}
-
-/// A parallel worker that will consume processed parent entities from the queue, and push children
-/// to the queue once it has propagated their [`GlobalTransform`].
-#[inline]
-fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
-    #[cfg(feature = "std")]
-    let _span = bevy_log::info_span!("transform propagation worker").entered();
-
-    let mut outbox = queue.local_queue.borrow_local_mut();
-    loop {
-        // Try to acquire a lock on the work queue in a tight loop. Profiling shows this is much
-        // more efficient than relying on `.lock()`, which causes gaps to form between tasks.
-        let Ok(rx) = queue.receiver.try_lock() else {
-            continue;
-        };
-        // If the queue is empty and no other threads are busy processing work, we can conclude
-        // there is no more work to do, and end the task by exiting the loop.
-        let Some(mut tasks) = rx.try_iter().next() else {
-            if queue.busy_threads.load(Ordering::Relaxed) == 0 {
-                break; // All work is complete, kill the worker
-            }
-            continue; // No work to do now, but another thread is busy creating more work.
-        };
-        if tasks.is_empty() {
-            continue; // This shouldn't happen, but if it does, we might as well stop early.
-        }
-
-        // At this point, we know there is work to do, so we increment the busy thread counter,
-        // and drop the mutex guard *after* we have incremented the counter. This ensures that
-        // if another thread is able to acquire a lock, the busy thread counter will already be
-        // incremented.
-        queue.busy_threads.fetch_add(1, Ordering::Relaxed);
-        drop(rx); // Important: drop after atomic and before work starts.
-
-        'task_loop: for mut parent in tasks.drain(..) {
-            // SAFETY: Parent entities fed into this function are pulled from the work queue, which
-            // is in turn fed from this function. The function will panic if cycles are found in the
-            // hierarchy, which means we can be certain that the work queue itself contains unique
-            // entities, making this safe to call.
-            #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-            unsafe {
-                let (_, _, mut parent_g_transform, mut children, _) =
-                    nodes.get_unchecked(parent).unwrap();
-
-                // Optimization: when there is a single child, we want to recurse the hierarchy
-                // sequentially until we find an entity with multiple children, at which point we
-                // continue with the parallel task generation. If we don't do this, long chains of
-                // single entities can become very slow, as they require starting a new task for
-                // each level of the hierarchy. When there are many levels, this overhead hurts.
-                while children.len() == 1 {
-                    let child = *children.first().expect("Length should equal 1");
-                    let Ok((_, child_transform, mut child_g_transform, grandchildren, child_of)) =
-                        nodes.get_unchecked(child)
-                    else {
-                        continue 'task_loop;
-                    };
-                    assert!(child_of.get() == parent); // Safety: ensure no hierarchy cycles
-                    if parent_g_transform.is_changed()
-                        || child_transform.is_changed()
-                        || child_g_transform.is_added()
-                    {
-                        *child_g_transform = parent_g_transform.mul_transform(*child_transform);
-                    }
-                    parent = child;
-                    children = grandchildren;
-                    parent_g_transform = child_g_transform;
-                }
-
-                propagate_to_child_unchecked(
-                    (parent, parent_g_transform, children),
-                    nodes,
-                    &mut outbox,
-                );
-            }
-            // Send chunks from inside the loop as well as at the end. This allows other workers to
-            // pick up work while this task is still running. Only do this within the loop when the
-            // outbox has grown large enough.
-            if outbox.len() >= WorkQueue::TASK_CHUNK_SIZE {
-                WorkQueue::send_batches_with(&queue.sender, &mut outbox);
-            }
-        }
-        WorkQueue::send_batches_with(&queue.sender, &mut outbox);
-        queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
-    }
-}
-
-/// Propagate transforms from `parent` to its non-leaf `children`, pushing updated child entities to
-/// the `outbox`. Propagation does not visit leaf nodes; instead, they are computed in
-/// [`compute_transform_leaves`], which can optimize much more efficiently.
-///
-/// # Safety
-///
-/// Callers must ensure that concurrent calls to this function are given unique `parent` entities.
-/// Calling this function concurrently with the same `parent` is unsafe. This function will validate
-/// that the entity hierarchy does not contain cycles to prevent mutable aliasing during
-/// propagation, but it is unable to verify that it isn't being used to mutably alias the same
-/// entity.
-///
-/// # Panics
-///
-/// Panics if the parent of a node is not the same as the supplied `parent`. This check can be used
-/// to call this function safely.
-///
-/// If this function is only called when traversing from ancestors to descendant, using the entities
-/// returned from te `outbox`, it can be used safely in parallel. This function will internally
-/// panic if a cycle is found in the hierarchy to prevent soundness issues.
-#[inline]
-#[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-unsafe fn propagate_to_child_unchecked(
-    (parent, parent_transform, children): (Entity, Mut<GlobalTransform>, &Children),
-    nodes: &NodeQuery,
-    outbox: &mut Vec<Entity>,
-) {
-    // Safety: `Children` is guaranteed to hold unique entities.
-    #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-    let children_iter = unsafe { UniqueEntityIter::from_iterator_unchecked(children.iter()) };
-    // Performance note: iter_many tests every child to see if it meets the query. For leaf nodes,
-    // this unfortunately means we have the pay the price of checking every child, even if it is a
-    // leaf node and is skipped.
-    //
-    // To ensure this is still the fastest design, I tried removing the second pass
-    // (`compute_transform_leaves`) and instead simply doing that here. However, that proved to be
-    // much slower than two pass for a few reasons:
-    // - it's less cache friendly and is outright slower than the tight loop in the second pass
-    // - it prevents parallelism, as all children must be iterated in series
-    //
-    // The only way I can see to make this faster when there are many leaf nodes is to speed up
-    // archetype checking to make the iterator skip leaf entities more quickly, or encoding the
-    // hierarchy level as a component.
-    for (child, transform, mut global_transform, _, child_of) in
-        // Safety: traversing the entity tree from the roots, we assert that the childof and
-        // children pointers match in both directions (see assert below) to ensure the hierarchy
-        // does not have any cycles. Because the hierarchy does not have cycles, we know we are
-        // visiting disjoint entities in parallel, which is safe.
-        unsafe { nodes.iter_many_unique_unsafe(children_iter) }
-    {
-        assert!(child_of.get() == parent);
-        if parent_transform.is_changed() || transform.is_changed() || global_transform.is_added() {
-            *global_transform = parent_transform.mul_transform(*transform);
-        }
-        outbox.push(child);
-    }
-}
-
 /// Compute leaf [`GlobalTransform`]s in parallel.
 ///
 /// This is run after [`propagate_parent_transforms`], to ensure the parents' [`GlobalTransform`]s
-/// have been computed. This makes computing leaf nodes, even at different levels of the hierarchy,
-/// embarrassingly parallel.
+/// have been computed. This makes computing leaf nodes at different levels of the hierarchy easy to
+/// parallelize.
 pub fn compute_transform_leaves(
     parents: Query<Ref<GlobalTransform>, With<Children>>,
     mut leaves: Query<(Ref<Transform>, &mut GlobalTransform, &ChildOf), Without<Children>>,
@@ -320,9 +65,462 @@ pub fn compute_transform_leaves(
         });
 }
 
+/// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
+#[cfg(not(feature = "std"))]
+mod serial {
+    use crate::prelude::*;
+    use alloc::vec::Vec;
+    use bevy_ecs::prelude::*;
+
+    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
+    /// component.
+    ///
+    /// Third party plugins should ensure that this is used in concert with
+    /// [`sync_simple_transforms`](super::sync_simple_transforms) and
+    /// [`compute_transform_leaves`](super::compute_transform_leaves).
+    pub fn propagate_parent_transforms(
+        mut root_query: Query<
+            (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
+            Without<ChildOf>,
+        >,
+        mut orphaned: RemovedComponents<ChildOf>,
+        transform_query: Query<
+            (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+            (With<ChildOf>, With<Children>),
+        >,
+        parent_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
+        mut orphaned_entities: Local<Vec<Entity>>,
+    ) {
+        orphaned_entities.clear();
+        orphaned_entities.extend(orphaned.read());
+        orphaned_entities.sort_unstable();
+        root_query.par_iter_mut().for_each(
+        |(entity, children, transform, mut global_transform)| {
+            let changed = transform.is_changed() || global_transform.is_added() || orphaned_entities.binary_search(&entity).is_ok();
+            if changed {
+                *global_transform = GlobalTransform::from(*transform);
+            }
+
+            for (child, actual_parent) in parent_query.iter_many(children) {
+                assert_eq!(
+                    actual_parent.get(), entity,
+                    "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+                );
+                // SAFETY:
+                // - `child` must have consistent parentage, or the above assertion would panic.
+                //   Since `child` is parented to a root entity, the entire hierarchy leading to it
+                //   is consistent.
+                // - We may operate as if all descendants are consistent, since
+                //   `propagate_recursive` will panic before continuing to propagate if it
+                //   encounters an entity with inconsistent parentage.
+                // - Since each root entity is unique and the hierarchy is consistent and
+                //   forest-like, other root entities' `propagate_recursive` calls will not conflict
+                //   with this one.
+                // - Since this is the only place where `transform_query` gets used, there will be
+                //   no conflicting fetches elsewhere.
+                #[expect(unsafe_code, reason = "`propagate_recursive()` is unsafe due to its use of `Query::get_unchecked()`.")]
+                unsafe {
+                    propagate_recursive(
+                        &global_transform,
+                        &transform_query,
+                        &parent_query,
+                        child,
+                        changed || actual_parent.is_changed(),
+                    );
+                }
+            }
+        },
+    );
+    }
+
+    /// Recursively propagates the transforms for `entity` and all of its descendants.
+    ///
+    /// # Panics
+    ///
+    /// If `entity`'s descendants have a malformed hierarchy, this function will panic occur before
+    /// propagating the transforms of any malformed entities and their descendants.
+    ///
+    /// # Safety
+    ///
+    /// - While this function is running, `transform_query` must not have any fetches for `entity`,
+    ///     nor any of its descendants.
+    /// - The caller must ensure that the hierarchy leading to `entity` is well-formed and must
+    ///     remain as a tree or a forest. Each entity must have at most one parent.
+    #[expect(
+        unsafe_code,
+        reason = "This function uses `Query::get_unchecked()`, which can result in multiple mutable references if the preconditions are not met."
+    )]
+    unsafe fn propagate_recursive(
+        parent: &GlobalTransform,
+        transform_query: &Query<
+            (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+            (With<ChildOf>, With<Children>),
+        >,
+        parent_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
+        entity: Entity,
+        mut changed: bool,
+    ) {
+        let (global_matrix, children) = {
+            let Ok((transform, mut global_transform, children)) =
+            // SAFETY: This call cannot create aliased mutable references.
+            //   - The top level iteration parallelizes on the roots of the hierarchy.
+            //   - The caller ensures that each child has one and only one unique parent throughout
+            //     the entire hierarchy.
+            //
+            // For example, consider the following malformed hierarchy:
+            //
+            //     A
+            //   /   \
+            //  B     C 
+            //   \   / 
+            //     D
+            //
+            // D has two parents, B and C. If the propagation passes through C, but the ChildOf
+            // component on D points to B, the above check will panic as the origin parent does
+            // match the recorded parent.
+            //
+            // Also consider the following case, where A and B are roots:
+            //
+            //  A       B 
+            //   \     / 
+            //    C   D 
+            //     \ / 
+            //      E
+            //
+            // Even if these A and B start two separate tasks running in parallel, one of them will
+            // panic before attempting to mutably access E.
+            (unsafe { transform_query.get_unchecked(entity) }) else {
+                return;
+            };
+
+            changed |= transform.is_changed() || global_transform.is_added();
+            if changed {
+                *global_transform = parent.mul_transform(*transform);
+            }
+            (global_transform, children)
+        };
+
+        let Some(children) = children else { return };
+        for (child, actual_parent) in parent_query.iter_many(children) {
+            assert_eq!(
+            actual_parent.get(), entity,
+            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+        );
+            // SAFETY: The caller guarantees that `transform_query` will not be fetched for any
+            // descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
+            //
+            // The above assertion ensures that each child has one and only one unique parent
+            // throughout the entire hierarchy.
+            unsafe {
+                propagate_recursive(
+                    global_matrix.as_ref(),
+                    transform_query,
+                    parent_query,
+                    child,
+                    changed || actual_parent.is_changed(),
+                );
+            }
+        }
+    }
+}
+
+/// Parallel hierarchy traversal with an optimized batching scheduler. Often 2-5 times faster than
+/// the serial version.
+///
+/// Relies on `std` until a `no_std` `mpsc` channel is available.
+#[cfg(feature = "std")]
+mod parallel {
+    use crate::prelude::*;
+    use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_utils::Parallel;
+    use core::sync::atomic::{AtomicI32, Ordering};
+    use std::{
+        sync::{
+            // TODO: this implementation could be used in no_std if there was a
+            mpsc::{Receiver, Sender},
+            Arc,
+            Mutex,
+        },
+        vec::Vec,
+    };
+
+    /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
+    /// component.
+    ///
+    /// Third party plugins should ensure that this is used in concert with
+    /// [`sync_simple_transforms`](super::sync_simple_transforms) and
+    /// [`compute_transform_leaves`](super::compute_transform_leaves).
+    pub fn propagate_parent_transforms(
+        mut queue: Local<WorkQueue>,
+        mut orphaned: RemovedComponents<ChildOf>,
+        mut orphans: Local<Vec<Entity>>,
+        mut roots: Query<
+            (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
+            Without<ChildOf>,
+        >,
+        nodes: NodeQuery,
+    ) {
+        // Orphans
+        orphans.clear();
+        orphans.extend(orphaned.read());
+        orphans.sort_unstable();
+
+        // Process roots in parallel, seeding the work queue
+        roots.par_iter_mut().for_each_init(
+            || queue.local_queue.borrow_local_mut(),
+            |outbox, (parent, transform, mut parent_transform, children)| {
+                if transform.is_changed()
+                    || parent_transform.is_added()
+                    || orphans.binary_search(&parent).is_ok()
+                {
+                    *parent_transform = GlobalTransform::from(*transform);
+                }
+
+                // SAFETY: the parent entities passed into this function are taken from iterating
+                // over the root entity query. Queries always iterate over unique entities,
+                // preventing mutable aliasing, and making this call safe.
+                #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+                unsafe {
+                    propagate_to_child_unchecked(
+                        (parent, parent_transform, children),
+                        &nodes,
+                        outbox,
+                    );
+                }
+            },
+        );
+        // Send all tasks in thread local outboxes *after* roots are processed to reduce the total
+        // number of channel sends by avoiding sending partial batches.
+        queue.send_batches();
+
+        // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
+        let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
+        task_pool.scope(|s| {
+            (0..task_pool.thread_num())
+                .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
+        });
+    }
+
+    /// Alias for a large, repeatedly used query. Queries for transform entities that have both a
+    /// parent and children, thus they are neither roots nor leaves.
+    type NodeQuery<'w, 's> = Query<
+        'w,
+        's,
+        (
+            Entity,
+            Ref<'static, Transform>,
+            Mut<'static, GlobalTransform>,
+            Read<Children>,
+            Read<ChildOf>,
+        ),
+    >;
+
+    /// A queue shared between threads for transform propagation.
+    pub struct WorkQueue {
+        /// A semaphore that tracks how many threads are busy doing work. Used to determine when
+        /// there is no more work to do.
+        pub(super) busy_threads: AtomicI32,
+        pub(super) sender: Sender<Vec<Entity>>,
+        pub(super) receiver: Arc<Mutex<Receiver<Vec<Entity>>>>,
+        pub(super) local_queue: Parallel<Vec<Entity>>,
+    }
+    impl Default for WorkQueue {
+        fn default() -> Self {
+            let (tx, rx) = std::sync::mpsc::channel();
+            Self {
+                busy_threads: AtomicI32::default(),
+                sender: tx,
+                receiver: Arc::new(Mutex::new(rx)),
+                local_queue: Default::default(),
+            }
+        }
+    }
+    impl WorkQueue {
+        const TASK_CHUNK_SIZE: usize = 1024;
+
+        #[inline]
+        fn send_batches_with(sender: &Sender<Vec<Entity>>, outbox: &mut Vec<Entity>) {
+            for chunk in outbox
+                .chunks(Self::TASK_CHUNK_SIZE)
+                .filter(|c| !c.is_empty())
+            {
+                sender.send(chunk.to_vec()).ok();
+            }
+            outbox.clear();
+        }
+
+        #[inline]
+        fn send_batches(&mut self) {
+            let Self {
+                sender,
+                local_queue,
+                ..
+            } = self;
+            // Iterate over the locals to send batched tasks, avoiding the need to drain the locals
+            // into a larger allocation.
+            local_queue
+                .iter_mut()
+                .for_each(|outbox| Self::send_batches_with(sender, outbox));
+        }
+    }
+
+    /// A parallel worker that will consume processed parent entities from the queue, and push
+    /// children to the queue once it has propagated their [`GlobalTransform`].
+    #[inline]
+    fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
+        #[cfg(feature = "std")]
+        let _span = bevy_log::info_span!("transform propagation worker").entered();
+
+        let mut outbox = queue.local_queue.borrow_local_mut();
+        loop {
+            // Try to acquire a lock on the work queue in a tight loop. Profiling shows this is much
+            // more efficient than relying on `.lock()`, which causes gaps to form between tasks.
+            let Ok(rx) = queue.receiver.try_lock() else {
+                continue;
+            };
+            // If the queue is empty and no other threads are busy processing work, we can conclude
+            // there is no more work to do, and end the task by exiting the loop.
+            let Some(mut tasks) = rx.try_iter().next() else {
+                if queue.busy_threads.load(Ordering::Relaxed) == 0 {
+                    break; // All work is complete, kill the worker
+                }
+                continue; // No work to do now, but another thread is busy creating more work.
+            };
+            if tasks.is_empty() {
+                continue; // This shouldn't happen, but if it does, we might as well stop early.
+            }
+
+            // At this point, we know there is work to do, so we increment the busy thread counter,
+            // and drop the mutex guard *after* we have incremented the counter. This ensures that
+            // if another thread is able to acquire a lock, the busy thread counter will already be
+            // incremented.
+            queue.busy_threads.fetch_add(1, Ordering::Relaxed);
+            drop(rx); // Important: drop after atomic and before work starts.
+
+            'task_loop: for mut parent in tasks.drain(..) {
+                // SAFETY: Parent entities fed into this function are pulled from the work queue,
+                // which is in turn fed from this function. The function will panic if cycles are
+                // found in the hierarchy, which means we can be certain that the work queue itself
+                // contains unique entities, making this safe to call.
+                #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+                unsafe {
+                    let (_, _, mut parent_g_transform, mut children, _) =
+                        nodes.get_unchecked(parent).unwrap();
+
+                    // Optimization: when there is a single child, we want to recurse the hierarchy
+                    // sequentially until we find an entity with multiple children, at which point
+                    // we continue with the parallel task generation. If we don't do this, long
+                    // chains of single entities can become very slow, as they require starting a
+                    // new task for each level of the hierarchy. When there are many levels, this
+                    // overhead hurts.
+                    while children.len() == 1 {
+                        let child = *children.first().expect("Length should equal 1");
+                        let Ok((
+                            _,
+                            child_transform,
+                            mut child_g_transform,
+                            grandchildren,
+                            child_of,
+                        )) = nodes.get_unchecked(child)
+                        else {
+                            continue 'task_loop;
+                        };
+                        assert!(child_of.get() == parent); // Safety: ensure no hierarchy cycles
+                        if parent_g_transform.is_changed()
+                            || child_transform.is_changed()
+                            || child_g_transform.is_added()
+                        {
+                            *child_g_transform = parent_g_transform.mul_transform(*child_transform);
+                        }
+                        parent = child;
+                        children = grandchildren;
+                        parent_g_transform = child_g_transform;
+                    }
+
+                    propagate_to_child_unchecked(
+                        (parent, parent_g_transform, children),
+                        nodes,
+                        &mut outbox,
+                    );
+                }
+                // Send chunks from inside the loop as well as at the end. This allows other workers
+                // to pick up work while this task is still running. Only do this within the loop
+                // when the outbox has grown large enough.
+                if outbox.len() >= WorkQueue::TASK_CHUNK_SIZE {
+                    WorkQueue::send_batches_with(&queue.sender, &mut outbox);
+                }
+            }
+            WorkQueue::send_batches_with(&queue.sender, &mut outbox);
+            queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
+        }
+    }
+
+    /// Propagate transforms from `parent` to its non-leaf `children`, pushing updated child
+    /// entities to the `outbox`. Propagation does not visit leaf nodes; instead, they are computed
+    /// in [`compute_transform_leaves`], which can optimize much more efficiently.
+    ///
+    /// # Safety
+    ///
+    /// Callers must ensure that concurrent calls to this function are given unique `parent`
+    /// entities. Calling this function concurrently with the same `parent` is unsafe. This function
+    /// will validate that the entity hierarchy does not contain cycles to prevent mutable aliasing
+    /// during propagation, but it is unable to verify that it isn't being used to mutably alias the
+    /// same entity.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the parent of a node is not the same as the supplied `parent`. This check can be
+    /// used to call this function safely.
+    ///
+    /// If this function is only called when traversing from ancestors to descendant, using the
+    /// entities returned from te `outbox`, it can be used safely in parallel. This function will
+    /// internally panic if a cycle is found in the hierarchy to prevent soundness issues.
+    #[inline]
+    #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+    unsafe fn propagate_to_child_unchecked(
+        (parent, parent_transform, children): (Entity, Mut<GlobalTransform>, &Children),
+        nodes: &NodeQuery,
+        outbox: &mut Vec<Entity>,
+    ) {
+        // Safety: `Children` is guaranteed to hold unique entities.
+        #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
+        let children_iter = unsafe { UniqueEntityIter::from_iterator_unchecked(children.iter()) };
+        // Performance note: iter_many tests every child to see if it meets the query. For leaf
+        // nodes, this unfortunately means we have the pay the price of checking every child, even
+        // if it is a leaf node and is skipped.
+        //
+        // To ensure this is still the fastest design, I tried removing the second pass
+        // (`compute_transform_leaves`) and instead simply doing that here. However, that proved to
+        // be much slower than two pass for a few reasons:
+        // - it's less cache friendly and is outright slower than the tight loop in the second pass
+        // - it prevents parallelism, as all children must be iterated in series
+        //
+        // The only way I can see to make this faster when there are many leaf nodes is to speed up
+        // archetype checking to make the iterator skip leaf entities more quickly, or encoding the
+        // hierarchy level as a component.
+        for (child, transform, mut global_transform, _, child_of) in
+            // Safety: traversing the entity tree from the roots, we assert that the childof and
+            // children pointers match in both directions (see assert below) to ensure the hierarchy
+            // does not have any cycles. Because the hierarchy does not have cycles, we know we are
+            // visiting disjoint entities in parallel, which is safe.
+            unsafe { nodes.iter_many_unique_unsafe(children_iter) }
+        {
+            assert!(child_of.get() == parent);
+            if parent_transform.is_changed()
+                || transform.is_changed()
+                || global_transform.is_added()
+            {
+                *global_transform = parent_transform.mul_transform(*transform);
+            }
+            outbox.push(child);
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
     use bevy_app::prelude::*;
     use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};
@@ -588,7 +786,8 @@ mod test {
             &**app.world().get::<Children>(child).unwrap(),
             &[grandchild]
         );
-        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to `Commands` delay
+        // Note that at this point, the `GlobalTransform`s will not have updated yet, due to
+        // `Commands` delay
         app.update();
 
         let mut state = app.world_mut().query::<&GlobalTransform>();
@@ -601,8 +800,8 @@ mod test {
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
         ComputeTaskPool::get_or_init(TaskPool::default);
-        // We cannot directly edit ChildOf and Children, so we use a temp world to break
-        // the hierarchy's invariants.
+        // We cannot directly edit ChildOf and Children, so we use a temp world to break the
+        // hierarchy's invariants.
         let mut temp = World::new();
         let mut app = App::new();
 
@@ -641,7 +840,8 @@ mod test {
                 unsafe_code,
                 reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
             )]
-            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
+            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
+            // cannot happen
             unsafe {
                 &mut *app
                     .world_mut()
@@ -649,7 +849,8 @@ mod test {
                     .get_mut_assume_mutable::<ChildOf>()
                     .unwrap()
             },
-            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
+            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
+            // cannot happen
             #[expect(
                 unsafe_code,
                 reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
