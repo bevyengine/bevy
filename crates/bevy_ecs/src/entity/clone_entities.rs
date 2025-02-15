@@ -7,7 +7,9 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
-use crate::component::{ComponentCloneBehavior, ComponentCloneFn, ComponentCloneHandlersReader, ComponentsReader, DerefByLifetime};
+use crate::component::{
+    ComponentCloneBehavior, ComponentCloneFn, ComponentsReader, DerefByLifetime,
+};
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::EntityMapper;
 use crate::system::Commands;
@@ -816,7 +818,7 @@ impl<'w> EntityClonerBuilder<'w> {
 mod tests {
     use super::ComponentCloneCtx;
     use crate::{
-        component::{Component, ComponentCloneBehavior, ComponentCloneHandler, ComponentCloneHandlersWriter, ComponentDescriptor, StorageType},
+        component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
         entity::{hash_map::EntityHashMap, Entity, EntityCloner},
         prelude::{ChildOf, Children, Resource},
         reflect::AppTypeRegistry,

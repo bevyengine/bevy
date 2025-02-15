@@ -1,7 +1,7 @@
 use crate::{
     archetype::ArchetypeComponentId,
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick, TickCells},
+    component::{ComponentId, ComponentTicks, Components, ComponentsReader, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
 };
 use alloc::string::String;

@@ -5,7 +5,9 @@ use crate::{
         DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, ComponentsReader, Mutable, StorageType,
+    },
     entity::{
         Entities, Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
         TrustedEntityBorrow,

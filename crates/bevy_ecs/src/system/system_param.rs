@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::{MaybeLocation, Ticks, TicksMut},
-    component::{ComponentId, ComponentTicks, Components, Tick},
+    component::{ComponentId, ComponentTicks, Components, ComponentsWriter, Tick},
     entity::Entities,
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryData, QueryFilter, QuerySingleError,
@@ -1993,7 +1993,7 @@ macro_rules! impl_system_param_tuple {
             reason = "Zero-length tuples won't use some of the parameters."
         )]
         $(#[$meta])*
-        // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
+        // SAFETY: implementers of each `SystemParam` in the tuple have validated their impls
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'w, 's> = ($($param::Item::<'w, 's>,)*);

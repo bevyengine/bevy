@@ -32,7 +32,6 @@ use core::{
     marker::PhantomData,
     mem::needs_drop,
     ops::Deref,
-    panic::Location,
 };
 use disqualified::ShortName;
 use smallvec::SmallVec;
@@ -1121,120 +1120,12 @@ impl ComponentCloneBehavior {
     /// Set clone handler based on `Reflect` trait.
     #[cfg(feature = "bevy_reflect")]
     pub fn reflect_handler() -> Self {
-        Self(Some(component_clone_via_reflect))
+        Self::Custom(component_clone_via_reflect)
     }
 
     /// Set a custom handler for the component.
     pub fn custom_handler(handler: ComponentCloneFn) -> Self {
-        Self(Some(handler))
-    }
-
-    /// Get [`ComponentCloneFn`] representing this handler or `None` if set to default handler.
-    pub fn get_handler(&self) -> Option<ComponentCloneFn> {
-        self.0
-    }
-}
-
-/// A registry of component clone handlers. Allows to set global default and per-component clone function for all components in the world.
-#[derive(Debug)]
-pub struct ComponentCloneHandlers {
-    handlers: Vec<Option<ComponentCloneFn>>,
-    default_handler: ComponentCloneFn,
-}
-
-/// A trait that allows reading a collection of [`ComponentCloneHandler`]s
-pub trait ComponentCloneHandlersReader {
-    /// Returns the currently registered default clone handler.
-    fn get_default_clone_handler(&self) -> ComponentCloneFn;
-
-    /// Returns the [`ComponentCloneHandler`] for this [`ComponentId`].
-    /// If no [`ComponentCloneFn`] is specified for this id, the inner value will be [`None`], and the default handler may be used.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    ///
-    /// See also [`get_clone_handler`](ComponentsReader::get_clone_handler).
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler;
-
-    /// Checks if the specified component has a registered [`ComponentCloneFn`]. If not, the component will use the default global handler.
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    #[inline]
-    fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
-        self.get_special_clone_handler(id).0.is_some()
-    }
-
-    /// Gets a handler to clone a component. This can be one of the following:
-    /// - Custom clone function for this specific component.
-    /// - Default global handler.
-    /// - A [`component_clone_ignore`] (no cloning).
-    ///
-    /// This will return an incorrect result if `id` did not come from the same world as `self`.
-    #[inline]
-    fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
-        match self.get_special_clone_handler(id).0 {
-            Some(handler) => handler,
-            None => self.get_default_clone_handler(),
-        }
-    }
-}
-
-/// A trait that allows writing a collection of [`ComponentCloneHandler`]s
-pub trait ComponentCloneHandlersWriter: ComponentCloneHandlersReader {
-    /// Sets the [`ComponentCloneHandler`] for the [`ComponentId`].
-    /// If the inner [`ComponentCloneFn`] is [`None`], the component will use the default handler.
-    fn set_clone_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler);
-
-    /// Sets the default [`ComponentCloneFn`] for this collection.
-    fn set_default_clone_handler(&mut self, handler: ComponentCloneFn);
-}
-
-impl ComponentCloneHandlersReader for ComponentCloneHandlers {
-    #[inline]
-    fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.default_handler
-    }
-
-    #[inline]
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
-        self.handlers
-            .get(id.0)
-            .copied()
-            .map(ComponentCloneHandler)
-            .unwrap_or(ComponentCloneHandler(None))
-    }
-}
-
-impl ComponentCloneHandlersWriter for ComponentCloneHandlers {
-    fn set_clone_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
-        if id.0 >= self.handlers.len() {
-            self.handlers.resize(id.0 + 1, None);
-        }
-        self.handlers[id.0] = handler.0;
-    }
-
-    fn set_default_clone_handler(&mut self, handler: ComponentCloneFn) {
-        self.default_handler = handler;
-    }
-}
-
-impl Default for ComponentCloneHandlers {
-    fn default() -> Self {
-        Self {
-            handlers: Default::default(),
-            #[cfg(feature = "bevy_reflect")]
-            default_handler: component_clone_via_reflect,
-            #[cfg(not(feature = "bevy_reflect"))]
-            default_handler: component_clone_ignore,
-    pub fn reflect() -> Self {
-        Self::Custom(component_clone_via_reflect)
-    }
-
-    /// Returns the "global default"
-    pub fn global_default_fn() -> ComponentCloneFn {
-        #[cfg(feature = "bevy_reflect")]
-        return component_clone_via_reflect;
-        #[cfg(not(feature = "bevy_reflect"))]
-        return component_clone_ignore;
+        Self::Custom(handler)
     }
 
     /// Resolves the [`ComponentCloneBehavior`] to a [`ComponentCloneFn`]. If [`ComponentCloneBehavior::Default`] is
@@ -1246,6 +1137,20 @@ impl Default for ComponentCloneHandlers {
             ComponentCloneBehavior::Custom(custom)
             | ComponentCloneBehavior::RelationshipTarget(custom) => *custom,
         }
+    }
+
+    /// Set clone handler based on `Reflect` trait.
+    #[cfg(feature = "bevy_reflect")]
+    pub fn reflect() -> Self {
+        Self::Custom(component_clone_via_reflect)
+    }
+
+    /// Returns the "global default"
+    pub fn global_default_fn() -> ComponentCloneFn {
+        #[cfg(feature = "bevy_reflect")]
+        return component_clone_via_reflect;
+        #[cfg(not(feature = "bevy_reflect"))]
+        return component_clone_ignore;
     }
 }
 
@@ -1263,7 +1168,6 @@ pub struct StagedComponents {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
-    component_clone_handlers: HashMap<ComponentId, ComponentCloneHandler>,
 }
 
 impl StagedChanges for StagedComponents {
@@ -1275,11 +1179,6 @@ impl StagedChanges for StagedComponents {
         storage
             .resource_indices
             .extend(self.resource_indices.drain());
-        for (id, handler) in self.component_clone_handlers.drain() {
-            storage
-                .component_clone_handlers
-                .set_clone_handler(id, handler);
-        }
     }
 
     fn any_staged(&self) -> bool {
@@ -1358,7 +1257,7 @@ pub enum ComponentRegistrationStatus {
 }
 
 /// A trait that allows the user to read into a collection of registered [`Component`]s.
-pub trait ComponentsReader: ComponentCloneHandlersReader {
+pub trait ComponentsReader {
     /// Returns the number of components registered with this instance.
     fn len(&self) -> usize;
 
@@ -1493,7 +1392,7 @@ pub trait ComponentsReader: ComponentCloneHandlersReader {
 }
 
 /// A trait that allows the user to read into a collection of registered Components.
-pub trait ComponentsWriter: ComponentsReader + ComponentCloneHandlersWriter {
+pub trait ComponentsWriter: ComponentsReader {
     /// Registers a [`Component`] of type `T` with this instance.
     /// If a component of this type has already been registered, this will return
     /// the ID of the pre-existing component.
@@ -1502,7 +1401,7 @@ pub trait ComponentsWriter: ComponentsReader + ComponentCloneHandlersWriter {
     ///
     /// * [`Components::component_id()`]
     /// * [`Components::register_component_with_descriptor()`]
-    fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId;
+    fn register_component<T: Component>(&mut self) -> ComponentId;
 
     /// Registers a component described by `descriptor`.
     ///
@@ -1517,7 +1416,6 @@ pub trait ComponentsWriter: ComponentsReader + ComponentCloneHandlersWriter {
     /// * [`Components::register_component()`]
     fn register_component_with_descriptor(
         &mut self,
-        storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId;
 
@@ -1543,7 +1441,6 @@ pub trait ComponentsWriter: ComponentsReader + ComponentCloneHandlersWriter {
     #[doc(hidden)]
     fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
-        storages: &mut Storages,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
@@ -1805,21 +1702,17 @@ trait ComponentsPrivateWriter {
 
     fn register_component_internal<T: Component>(
         &mut self,
-        storages: &mut Storages,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId;
 }
 
-impl<C: ComponentsReader + ComponentsInternalWriter + ComponentCloneHandlersWriter> ComponentsWriter
-    for C
-{
-    fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
-        self.register_component_internal::<T>(storages, &mut Vec::new())
+impl<C: ComponentsReader + ComponentsInternalWriter> ComponentsWriter for C {
+    fn register_component<T: Component>(&mut self) -> ComponentId {
+        self.register_component_internal::<T>(&mut Vec::new())
     }
 
     fn register_component_with_descriptor(
         &mut self,
-        storages: &mut Storages,
         descriptor: ComponentDescriptor,
     ) -> ComponentId {
         self.register_descriptor(descriptor)
@@ -1828,14 +1721,13 @@ impl<C: ComponentsReader + ComponentsInternalWriter + ComponentCloneHandlersWrit
     #[inline]
     fn register_required_components_manual<T: Component, R: Component>(
         &mut self,
-        storages: &mut Storages,
         required_components: &mut RequiredComponents,
         constructor: fn() -> R,
         inheritance_depth: u16,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) {
-        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
-        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
+        let requiree = self.register_component_internal::<T>(recursion_check_stack);
+        let required = self.register_component_internal::<R>(recursion_check_stack);
 
         // SAFETY: We just created the components.
         unsafe {
@@ -1873,22 +1765,6 @@ impl<C: ComponentsReader + ComponentsInternalWriter + ComponentCloneHandlersWrit
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
-    }
-}
-
-impl ComponentCloneHandlersReader for StagedRef<'_, StagedComponents> {
-    #[inline]
-    fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.cold.get_default_clone_handler()
-    }
-
-    #[inline]
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
-        self.staged
-            .component_clone_handlers
-            .get(&id)
-            .cloned()
-            .unwrap_or_else(|| self.cold.get_special_clone_handler(id))
     }
 }
 
@@ -1944,18 +1820,6 @@ impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
     }
 }
 
-impl ComponentCloneHandlersReader for Stager<'_, StagedComponents> {
-    #[inline]
-    fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.as_staged_ref().get_default_clone_handler()
-    }
-
-    #[inline]
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
-        self.as_staged_ref().get_special_clone_handler(id)
-    }
-}
-
 impl<'a> ComponentsReader for Stager<'a, StagedComponents> {
     #[inline]
     fn len(&self) -> usize {
@@ -2000,18 +1864,6 @@ impl<'a> ComponentsReader for Stager<'a, StagedComponents> {
     }
 }
 
-impl ComponentCloneHandlersReader for Components {
-    #[inline]
-    fn get_default_clone_handler(&self) -> ComponentCloneFn {
-        self.component_clone_handlers.get_default_clone_handler()
-    }
-
-    #[inline]
-    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
-        self.component_clone_handlers.get_special_clone_handler(id)
-    }
-}
-
 impl ComponentsReader for Components {
     #[inline]
     fn len(&self) -> usize {
@@ -2049,16 +1901,23 @@ impl ComponentsReader for Components {
     }
 }
 
-impl ComponentCloneHandlersWriter for Components {
+impl ComponentsInternalReader for Components {
     #[inline]
-    fn set_clone_handler(&mut self, id: ComponentId, handler: ComponentCloneHandler) {
-        self.component_clone_handlers.set_clone_handler(id, handler);
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef> {
+        self.components
+            .get(id.0)
+            .map(|info| RequiredComponentsStagedRef {
+                working: &info.required_components,
+                cold: None,
+            })
     }
 
     #[inline]
-    fn set_default_clone_handler(&mut self, handler: ComponentCloneFn) {
-        self.component_clone_handlers
-            .set_default_clone_handler(handler);
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef> {
+        self.components.get(id.0).map(|info| RequiredByStagedRef {
+            working: &info.required_by,
+            cold: None,
+        })
     }
 }
 
@@ -2136,7 +1995,6 @@ impl ComponentsPrivateWriter for Components {
 
     fn register_component_internal<T: Component>(
         &mut self,
-        storages: &mut Storages,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId {
         let type_id = TypeId::of::<T>();
@@ -2149,39 +2007,16 @@ impl ComponentsPrivateWriter for Components {
         T::register_required_components(
             id,
             self,
-            storages,
             &mut required_components,
             0,
             recursion_check_stack,
         );
         let info = &mut self.components[id.index()];
+        #[expect(deprecated, reason = "We still need to support this for now.")]
         T::register_component_hooks(&mut info.hooks);
         info.required_components = required_components;
-        let clone_handler = T::get_component_clone_handler();
-        self.component_clone_handlers
-            .set_clone_handler(id, clone_handler);
 
         id
-    }
-}
-
-impl ComponentsInternalReader for Components {
-    #[inline]
-    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef> {
-        self.components
-            .get(id.0)
-            .map(|info| RequiredComponentsStagedRef {
-                working: &info.required_components,
-                cold: None,
-            })
-    }
-
-    #[inline]
-    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef> {
-        self.components.get(id.0).map(|info| RequiredByStagedRef {
-            working: &info.required_by,
-            cold: None,
-        })
     }
 }
 

@@ -139,7 +139,10 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        component::{
+            require, Component, ComponentId, ComponentsReader, RequiredComponents,
+            RequiredComponentsError,
+        },
         entity::Entity,
         entity_disabling::DefaultQueryFilters,
         prelude::Or,

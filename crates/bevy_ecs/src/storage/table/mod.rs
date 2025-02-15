@@ -822,7 +822,9 @@ impl Drop for Table {
 mod tests {
     use crate::{
         change_detection::MaybeLocation,
-        component::{Component, Components, Tick},
+        component::{
+            Component, Components, ComponentsReader, ComponentsWriter, DerefByLifetime, Tick,
+        },
         entity::Entity,
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},

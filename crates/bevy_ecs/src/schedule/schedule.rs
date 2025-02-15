@@ -15,6 +15,7 @@ use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
+    ops::Deref,
 };
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;

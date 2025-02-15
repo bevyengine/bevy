@@ -508,7 +508,7 @@ impl BundleInfo {
         let mut required_components = RequiredComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
-            let info = unsafe { components.get_info_unchecked(component_id) };
+            let info = unsafe { &components.get_info_unchecked(component_id) };
             required_components.merge(info.required_components());
             storages.prepare_component(info);
         }
@@ -520,7 +520,7 @@ impl BundleInfo {
             .into_iter()
             .map(|(component_id, v)| {
                 // Safety: These ids came out of the passed `components`, so they must be valid.
-                let info = unsafe { components.get_info_unchecked(component_id) };
+                let info = unsafe { &components.get_info_unchecked(component_id) };
                 storages.prepare_component(info);
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
                 // components. This ordering is important!

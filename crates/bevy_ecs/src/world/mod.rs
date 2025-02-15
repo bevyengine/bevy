@@ -39,7 +39,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, Mutable, RequiredComponents, RequiredComponentsError, Tick,
+        Components, ComponentsInternalWriter, ComponentsReader, ComponentsWriter, DerefByLifetime,
+        Mutable, RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     entity_disabling::DefaultQueryFilters,
@@ -3270,7 +3271,7 @@ impl World {
                         .debug_checked_unwrap()
                 }
                 .deref_lifetime();
-                let (ptr, ticks, _caller) = data.get_with_ticks()?;
+                let (ptr, ticks, caller) = data.get_with_ticks()?;
 
                 // SAFETY:
                 // - We have exclusive access to the world, so no other code can be aliasing the `TickCells`
@@ -3604,7 +3605,10 @@ mod tests {
     use super::{FromWorld, World};
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
-        component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, ComponentsReader,
+            StorageType,
+        },
         entity::hash_set::EntityHashSet,
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,

@@ -2,7 +2,7 @@ use core::hint::black_box;
 
 use benches::bench;
 use bevy_ecs::bundle::Bundle;
-use bevy_ecs::component::{ComponentCloneHandler, ComponentCloneHandlersWriter};
+use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::entity::EntityCloner;
 use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::reflect::AppTypeRegistry;

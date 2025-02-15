@@ -19,6 +19,7 @@ use bevy::{
     prelude::*,
     ptr::{Aligned, OwningPtr},
 };
+use bevy_ecs::component::ComponentsReader;
 
 const PROMPT: &str = "
 Commands:
