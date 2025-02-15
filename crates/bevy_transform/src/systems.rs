@@ -236,6 +236,18 @@ unsafe fn propagate_to_child_unchecked(
     // Safety: `Children` is guaranteed to hold unique entities.
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
     let children_iter = unsafe { UniqueEntityIter::from_iterator_unchecked(children.iter()) };
+    // Performance note: iter_many tests every child to see if it meets the query. For leaf nodes,
+    // this unfortunately means we have the pay the price of checking every child, even if it is a
+    // leaf node and is skipped.
+    //
+    // To ensure this is still the fastest design, I tried removing the second pass
+    // (`compute_transform_leaves`) and instead simply doing that here. However, that proved to be
+    // much slower than two pass for a few reasons:
+    // - it's less cache friendly and is outright slower than the tight loop in the second pass
+    // - it prevents parallelism, as all children must be iterated in series
+    //
+    // The only way I can see to make this faster when there are many leaf nodes is to speed up
+    // archetype checking to make the iterator skip leaf entities more quickly.
     for (child, transform, mut global_transform, _, child_of) in
         // Safety: traversing the entity tree from the roots, we assert that the childof and
         // children pointers match in both directions (see assert below) to ensure the hierarchy
