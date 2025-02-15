@@ -1,3 +1,5 @@
+use alloc::sync::Arc;
+
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
@@ -41,7 +43,7 @@ impl RenderAsset for GpuImage {
 
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
-        image: Self::SourceAsset,
+        image: Arc<Self::SourceAsset>,
         _: AssetId<Self::SourceAsset>,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
@@ -57,14 +59,11 @@ impl RenderAsset for GpuImage {
             render_device.create_texture(&image.texture_descriptor)
         };
 
-        let texture_view = texture.create_view(
-            image
-                .texture_view_descriptor
-                .or_else(|| Some(TextureViewDescriptor::default()))
-                .as_ref()
-                .unwrap(),
-        );
-        let sampler = match image.sampler {
+        let texture_view = match image.texture_view_descriptor.as_ref() {
+            None => texture.create_view(&TextureViewDescriptor::default()),
+            Some(descriptor) => texture.create_view(descriptor),
+        };
+        let sampler = match &image.sampler {
             ImageSampler::Default => (***default_sampler).clone(),
             ImageSampler::Descriptor(descriptor) => {
                 render_device.create_sampler(&descriptor.as_wgpu())
