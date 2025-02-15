@@ -1077,6 +1077,7 @@ impl ComponentCloneHandlers {
     }
 
     /// Returns the currently registered default handler.
+    #[inline]
     pub fn get_default_handler(&self) -> ComponentCloneFn {
         self.default_handler
     }
@@ -1094,6 +1095,7 @@ impl ComponentCloneHandlers {
     /// Checks if the specified component is registered. If not, the component will use the default global handler.
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    #[inline]
     pub fn is_handler_registered(&self, id: ComponentId) -> bool {
         self.handlers.get(id.0).is_some_and(Option::is_some)
     }
@@ -1104,11 +1106,27 @@ impl ComponentCloneHandlers {
     /// - A [`component_clone_ignore`] (no cloning).
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    #[inline]
     pub fn get_handler(&self, id: ComponentId) -> ComponentCloneFn {
-        match self.handlers.get(id.0) {
-            Some(Some(handler)) => *handler,
-            Some(None) | None => self.default_handler,
+        match self.get_special_clone_handler(id).0 {
+            Some(handler) => handler,
+            None => self.default_handler,
         }
+    }
+
+    /// Returns the [`ComponentCloneHandler`] for this [`ComponentId`].
+    /// If no [`ComponentCloneFn`] is specified for this id, the inner value will be [`None`], and the default handler may be used.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    ///
+    /// See also [`get_clone_handler`](ComponentsReader::get_clone_handler).
+    #[inline]
+    pub fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+        self.handlers
+            .get(id.0)
+            .copied()
+            .map(ComponentCloneHandler)
+            .unwrap_or(ComponentCloneHandler(None))
     }
 }
 
@@ -1216,11 +1234,41 @@ pub trait ComponentsReader {
         id: ComponentId,
     ) -> impl DerefByLifetime<Target = ComponentInfo>;
 
-    /// Retrieves the [`ComponentCloneHandlers`]. Can be used to get clone functions for components.
-    fn get_component_clone_handlers(&self) -> &ComponentCloneHandlers;
-
     /// Returns true only if this `id` is valid on this collection of [`Component`]s
     fn is_id_valid(&self, id: ComponentId) -> bool;
+
+    /// Returns the currently registered default clone handler.
+    fn get_default_clone_handler(&self) -> ComponentCloneFn;
+
+    /// Returns the [`ComponentCloneHandler`] for this [`ComponentId`].
+    /// If no [`ComponentCloneFn`] is specified for this id, the inner value will be [`None`], and the default handler may be used.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    ///
+    /// See also [`get_clone_handler`](ComponentsReader::get_clone_handler).
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler;
+
+    /// Checks if the specified component has a registered [`ComponentCloneFn`]. If not, the component will use the default global handler.
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    #[inline]
+    fn is_clone_handler_registered(&self, id: ComponentId) -> bool {
+        self.get_special_clone_handler(id).0.is_some()
+    }
+
+    /// Gets a handler to clone a component. This can be one of the following:
+    /// - Custom clone function for this specific component.
+    /// - Default global handler.
+    /// - A [`component_clone_ignore`] (no cloning).
+    ///
+    /// This will return an incorrect result if `id` did not come from the same world as `self`.
+    #[inline]
+    fn get_clone_handler(&self, id: ComponentId) -> ComponentCloneFn {
+        match self.get_special_clone_handler(id).0 {
+            Some(handler) => handler,
+            None => self.get_default_clone_handler(),
+        }
+    }
 
     /// Type-erased equivalent of [`Components::component_id()`].
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId>;
@@ -1309,6 +1357,21 @@ impl ComponentsReader for Components {
     }
 
     #[inline]
+    fn is_id_valid(&self, id: ComponentId) -> bool {
+        self.components.len() > id.0
+    }
+
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.component_clone_handlers.get_default_handler()
+    }
+
+    #[inline]
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+        self.component_clone_handlers.get_special_clone_handler(id)
+    }
+
+    #[inline]
     fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).copied()
     }
@@ -1316,14 +1379,6 @@ impl ComponentsReader for Components {
     #[inline]
     fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices.get(&type_id).copied()
-    }
-
-    fn get_component_clone_handlers(&self) -> &ComponentCloneHandlers {
-        &self.component_clone_handlers
-    }
-
-    fn is_id_valid(&self, id: ComponentId) -> bool {
-        self.components.len() > id.0
     }
 }
 

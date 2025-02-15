@@ -311,12 +311,11 @@ impl EntityCloner {
                 continue;
             }
 
-            let global_handlers = components.get_component_clone_handlers();
             let handler = match self.clone_handlers_overrides.get(&component) {
                 Some(handler) => handler
                     .get_handler()
-                    .unwrap_or_else(|| global_handlers.get_default_handler()),
-                None => global_handlers.get_handler(component),
+                    .unwrap_or_else(|| components.get_default_clone_handler()),
+                None => components.get_clone_handler(component),
             };
 
             // SAFETY:
