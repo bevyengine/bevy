@@ -1003,7 +1003,7 @@ impl<'a> ReflectTypePath<'a> {
     ///
     /// Returns [`None`] if the type is [primitive] or [anonymous].
     ///
-    /// For non-customized [internal] paths this is created from `env!("CARGO_CRATE_NAME")`.
+    /// For non-customized [internal] paths this is created from `env!("CARGO_PKG_NAME")`.
     ///
     /// For `Option<PhantomData>`, this is `"core"`.
     ///
@@ -1018,7 +1018,7 @@ impl<'a> ReflectTypePath<'a> {
 
         match self {
             Self::Internal { .. } => Some(StringExpr::Borrowed(quote! {
-                option_env!("CARGO_CRATE_NAME").unwrap_or("")
+                option_env!("CARGO_PKG_NAME").unwrap_or("")
             })),
             Self::External { .. } => unreachable!(),
             _ => None,
