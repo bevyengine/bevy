@@ -816,7 +816,7 @@ impl Drop for Table {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::component::{ComponentsReader, DerefByLifetime};
+    use crate::component::{ComponentsReader, ComponentsWriter, DerefByLifetime};
     use crate::{
         component::{Component, Components, Tick},
         entity::Entity,

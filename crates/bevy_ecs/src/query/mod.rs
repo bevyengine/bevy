@@ -106,7 +106,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         archetype::Archetype,
-        component::{Component, ComponentId, Components, ComponentsReader, Tick},
+        component::{Component, ComponentId, Components, ComponentsReader, ComponentsWriter, Tick},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
         query::{
             ArchetypeFilter, FilteredAccess, Has, QueryCombinationIter, QueryData,

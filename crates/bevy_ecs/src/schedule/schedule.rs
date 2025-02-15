@@ -25,7 +25,9 @@ use tracing::info_span;
 
 use crate::{
     self as bevy_ecs,
-    component::{ComponentId, Components, ComponentsReader, DerefByLifetime, Tick},
+    component::{
+        ComponentId, Components, ComponentsReader, ComponentsWriter, DerefByLifetime, Tick,
+    },
     prelude::Component,
     resource::Resource,
     result::Result,

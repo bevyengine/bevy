@@ -218,7 +218,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             type Mutability = #mutable_type;
             fn register_required_components(
                 requiree: #bevy_ecs_path::component::ComponentId,
-                components: &mut #bevy_ecs_path::component::Components,
+                components: &mut impl #bevy_ecs_path::component::ComponentsWriter,
                 storages: &mut #bevy_ecs_path::storage::Storages,
                 required_components: &mut #bevy_ecs_path::component::RequiredComponents,
                 inheritance_depth: u16,

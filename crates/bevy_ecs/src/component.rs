@@ -407,7 +407,7 @@ pub trait Component: Send + Sync + 'static {
     /// Registers required components.
     fn register_required_components(
         _component_id: ComponentId,
-        _components: &mut Components,
+        _components: &mut impl ComponentsWriter,
         _storages: &mut Storages,
         _required_components: &mut RequiredComponents,
         _inheritance_depth: u16,
@@ -1340,6 +1340,97 @@ pub trait ComponentsReader {
     }
 }
 
+/// A trait that allows the user to read into a collection of registered Components.
+pub trait ComponentsWriter: ComponentsReader {
+    /// Registers a [`Component`] of type `T` with this instance.
+    /// If a component of this type has already been registered, this will return
+    /// the ID of the pre-existing component.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::register_component_with_descriptor()`]
+    fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId;
+
+    /// Registers a component described by `descriptor`.
+    ///
+    /// # Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
+    /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::component_id()`]
+    /// * [`Components::register_component()`]
+    fn register_component_with_descriptor(
+        &mut self,
+        storages: &mut Storages,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId;
+
+    // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
+    //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
+    //       which is private, and could be equally risky to expose to users.
+    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
+    /// and adds `T` to their lists of requirees.
+    ///
+    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
+    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
+    /// Lower depths are more specific requirements, and can override existing less specific registrations.
+    ///
+    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
+    /// own (indirect) required component.
+    ///
+    /// This method does *not* register any components as required by components that require `T`.
+    ///
+    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
+    /// or the equivalent method in `bevy_app::App`.
+    ///
+    /// [required component]: Component#required-components
+    #[doc(hidden)]
+    fn register_required_components_manual<T: Component, R: Component>(
+        &mut self,
+        storages: &mut Storages,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    );
+
+    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
+    fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers;
+
+    /// Registers a [`Resource`] of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
+    /// the ID of the pre-existing resource.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource_with_descriptor()`]
+    fn register_resource<T: Resource>(&mut self) -> ComponentId;
+
+    /// Registers a [`Resource`] described by `descriptor`.
+    ///
+    /// # Note
+    ///
+    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
+    /// will be created for each one.
+    ///
+    /// # See also
+    ///
+    /// * [`Components::resource_id()`]
+    /// * [`Components::register_resource()`]
+    fn register_resource_with_descriptor(&mut self, descriptor: ComponentDescriptor)
+        -> ComponentId;
+
+    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
+    /// If a resource of this type has already been registered, this will return
+    /// the ID of the pre-existing resource.
+    fn register_non_send<T: Any>(&mut self) -> ComponentId;
+}
+
 impl ComponentsReader for Components {
     #[inline]
     fn len(&self) -> usize {
@@ -1382,20 +1473,76 @@ impl ComponentsReader for Components {
     }
 }
 
-impl Components {
-    /// Registers a [`Component`] of type `T` with this instance.
-    /// If a component of this type has already been registered, this will return
-    /// the ID of the pre-existing component.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component_with_descriptor()`]
-    #[inline]
-    pub fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+impl ComponentsWriter for Components {
+    fn register_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         self.register_component_internal::<T>(storages, &mut Vec::new())
     }
 
+    fn register_component_with_descriptor(
+        &mut self,
+        storages: &mut Storages,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        Components::register_component_inner(&mut self.components, storages, descriptor)
+    }
+
+    #[inline]
+    fn register_required_components_manual<T: Component, R: Component>(
+        &mut self,
+        storages: &mut Storages,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) {
+        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
+        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
+
+        // SAFETY: We just created the components.
+        unsafe {
+            self.register_required_components_manual_unchecked::<R>(
+                requiree,
+                required,
+                required_components,
+                constructor,
+                inheritance_depth,
+            );
+        }
+    }
+
+    #[inline]
+    fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
+        &mut self.component_clone_handlers
+    }
+
+    fn register_resource<T: Resource>(&mut self) -> ComponentId {
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_resource::<T>()
+            })
+        }
+    }
+
+    #[inline]
+    fn register_resource_with_descriptor(
+        &mut self,
+        descriptor: ComponentDescriptor,
+    ) -> ComponentId {
+        Components::register_resource_inner(&mut self.components, descriptor)
+    }
+
+    fn register_non_send<T: Any>(&mut self) -> ComponentId {
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
+        unsafe {
+            self.get_or_register_resource_with(TypeId::of::<T>(), || {
+                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+            })
+        }
+    }
+}
+
+impl Components {
     #[inline]
     fn register_component_internal<T: Component>(
         &mut self,
@@ -1438,25 +1585,6 @@ impl Components {
                 .set_component_handler(id, clone_handler);
         }
         id
-    }
-
-    /// Registers a component described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::component_id()`]
-    /// * [`Components::register_component()`]
-    pub fn register_component_with_descriptor(
-        &mut self,
-        storages: &mut Storages,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        Components::register_component_inner(&mut self.components, storages, descriptor)
     }
 
     #[inline]
@@ -1645,49 +1773,6 @@ impl Components {
         inherited_requirements
     }
 
-    // NOTE: This should maybe be private, but it is currently public so that `bevy_ecs_macros` can use it.
-    //       We can't directly move this there either, because this uses `Components::get_required_by_mut`,
-    //       which is private, and could be equally risky to expose to users.
-    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
-    /// and adds `T` to their lists of requirees.
-    ///
-    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
-    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
-    /// Lower depths are more specific requirements, and can override existing less specific registrations.
-    ///
-    /// The `recursion_check_stack` allows checking whether this component tried to register itself as its
-    /// own (indirect) required component.
-    ///
-    /// This method does *not* register any components as required by components that require `T`.
-    ///
-    /// Only use this method if you know what you are doing. In most cases, you should instead use [`World::register_required_components`],
-    /// or the equivalent method in `bevy_app::App`.
-    ///
-    /// [required component]: Component#required-components
-    #[doc(hidden)]
-    pub fn register_required_components_manual<T: Component, R: Component>(
-        &mut self,
-        storages: &mut Storages,
-        required_components: &mut RequiredComponents,
-        constructor: fn() -> R,
-        inheritance_depth: u16,
-        recursion_check_stack: &mut Vec<ComponentId>,
-    ) {
-        let requiree = self.register_component_internal::<T>(storages, recursion_check_stack);
-        let required = self.register_component_internal::<R>(storages, recursion_check_stack);
-
-        // SAFETY: We just created the components.
-        unsafe {
-            self.register_required_components_manual_unchecked::<R>(
-                requiree,
-                required,
-                required_components,
-                constructor,
-                inheritance_depth,
-            );
-        }
-    }
-
     /// Registers the given component `R` and [required components] inherited from it as required by `T`,
     /// and adds `T` to their lists of requirees.
     ///
@@ -1759,60 +1844,6 @@ impl Components {
         self.components
             .get_mut(id.0)
             .map(|info| &mut info.required_by)
-    }
-
-    /// Retrieves a mutable reference to the [`ComponentCloneHandlers`]. Can be used to set and update clone functions for components.
-    pub fn get_component_clone_handlers_mut(&mut self) -> &mut ComponentCloneHandlers {
-        &mut self.component_clone_handlers
-    }
-
-    /// Registers a [`Resource`] of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource_with_descriptor()`]
-    #[inline]
-    pub fn register_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
-            })
-        }
-    }
-
-    /// Registers a [`Resource`] described by `descriptor`.
-    ///
-    /// # Note
-    ///
-    /// If this method is called multiple times with identical descriptors, a distinct [`ComponentId`]
-    /// will be created for each one.
-    ///
-    /// # See also
-    ///
-    /// * [`Components::resource_id()`]
-    /// * [`Components::register_resource()`]
-    pub fn register_resource_with_descriptor(
-        &mut self,
-        descriptor: ComponentDescriptor,
-    ) -> ComponentId {
-        Components::register_resource_inner(&mut self.components, descriptor)
-    }
-
-    /// Registers a [non-send resource](crate::system::NonSend) of type `T` with this instance.
-    /// If a resource of this type has already been registered, this will return
-    /// the ID of the pre-existing resource.
-    #[inline]
-    pub fn register_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_register_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
-            })
-        }
     }
 
     /// # Safety
@@ -2304,7 +2335,7 @@ impl RequiredComponents {
 // to reduce the amount of generated code.
 #[doc(hidden)]
 pub fn enforce_no_required_components_recursion(
-    components: &Components,
+    components: &impl ComponentsReader,
     recursion_check_stack: &[ComponentId],
 ) {
     if let Some((&requiree, check)) = recursion_check_stack.split_last() {
