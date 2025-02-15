@@ -103,6 +103,11 @@ impl<T: NoUninit> RawBufferVec<T> {
         self.values.append(&mut other.values);
     }
 
+    /// Returns the value at the given index.
+    pub fn get(&self, index: u32) -> Option<&T> {
+        self.values.get(index as usize)
+    }
+
     /// Sets the value at the given index.
     ///
     /// The index must be less than [`RawBufferVec::len`].

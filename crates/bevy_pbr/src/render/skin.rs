@@ -4,6 +4,7 @@ use std::sync::OnceLock;
 use bevy_asset::Assets;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
+use bevy_render::mesh::Mesh3d;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
@@ -25,7 +26,7 @@ use bevy_transform::prelude::GlobalTransform;
 pub const MAX_JOINTS: usize = 256;
 
 /// The location of the first joint matrix in the skin uniform buffer.
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct SkinIndex {
     /// The byte offset of the first joint matrix.
     pub byte_offset: u32,
@@ -230,5 +231,20 @@ pub fn no_automatic_skin_batching(
 
     for entity in &query {
         commands.entity(entity).try_insert(NoAutomaticBatching);
+    }
+}
+
+pub fn mark_meshes_as_changed_if_their_skins_changed(
+    mut skinned_meshes_query: Query<(&mut Mesh3d, &SkinnedMesh)>,
+    changed_joints_query: Query<Entity, Changed<GlobalTransform>>,
+) {
+    for (mut mesh, skinned_mesh) in &mut skinned_meshes_query {
+        if skinned_mesh
+            .joints
+            .iter()
+            .any(|&joint| changed_joints_query.contains(joint))
+        {
+            mesh.set_changed();
+        }
     }
 }
