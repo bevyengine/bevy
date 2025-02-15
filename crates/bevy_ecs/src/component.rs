@@ -36,6 +36,7 @@ use core::{
     panic::Location,
 };
 use disqualified::ShortName;
+use smallvec::SmallVec;
 use thiserror::Error;
 
 pub use bevy_ecs_macros::require;
@@ -1513,6 +1514,228 @@ pub trait ComponentsWriter: ComponentsReader {
     fn register_non_send<T: Any>(&mut self) -> ComponentId;
 }
 
+/// This trait provides low level access to [`Component`] collections intended for use only within this module.
+trait ComponentsPrivateWriter {
+    /// Registers the components inherited from `required` for the given `requiree`,
+    /// returning the requirements in a list.
+    ///
+    /// # Safety
+    ///
+    /// The given component IDs `requiree` and `required` must be valid.
+    unsafe fn register_inherited_required_components(
+        &mut self,
+        requiree: ComponentId,
+        required: ComponentId,
+    ) -> Vec<(ComponentId, RequiredComponent)>;
+
+    /// # Safety
+    ///
+    /// The [`ComponentDescriptor`] must match the [`TypeId`]
+    unsafe fn get_or_register_resource_with(
+        &mut self,
+        type_id: TypeId,
+        func: impl FnOnce() -> ComponentDescriptor,
+    ) -> ComponentId;
+
+    fn register_component_internal<T: Component>(
+        &mut self,
+        storages: &mut Storages,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) -> ComponentId;
+}
+
+/// This trait provides easily misused read only access to [`Component`] collections intended for use only within this crate.
+pub(crate) trait ComponentsInternalReader: ComponentsReader {
+    /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef>;
+
+    /// Gets the [`RequiredByStagedMut`] for a component if it exists.
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef>;
+}
+
+/// This trait provides easily misused write access to [`Component`] collections intended for use only within this crate.
+#[expect(
+    private_bounds,
+    reason = "This trait is internal, so there is not real cost for the private bounds. This allows the more complex parts of this trait to be implemented automatically."
+)]
+pub(crate) trait ComponentsInternalWriter:
+    ComponentsInternalReader + ComponentsPrivateWriter
+{
+    /// Gets the [`ComponentHooks`] for a component if it exists.
+    fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks>;
+
+    /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
+    fn get_required_components_mut(
+        &mut self,
+        id: ComponentId,
+    ) -> Option<RequiredComponentsStagedMut>;
+
+    /// Gets the [`RequiredByStagedMut`] for a component if it exists.
+    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByStagedMut>;
+
+    /// Registers the given component `R` and [required components] inherited from it as required by `T`.
+    ///
+    /// When `T` is added to an entity, `R` will also be added if it was not already provided.
+    /// The given `constructor` will be used for the creation of `R`.
+    ///
+    /// [required components]: Component#required-components
+    ///
+    /// # Safety
+    ///
+    /// The given component IDs `required` and `requiree` must be valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`RequiredComponentsError`] if the `required` component is already a directly required component for the `requiree`.
+    ///
+    /// Indirect requirements through other components are allowed. In those cases, the more specific
+    /// registration will be used.
+    unsafe fn register_required_components<R: Component>(
+        &mut self,
+        requiree: ComponentId,
+        required: ComponentId,
+        constructor: fn() -> R,
+    ) -> Result<(), RequiredComponentsError> {
+        // SAFETY: The caller ensures that the `requiree` is valid.
+        let required_components = unsafe {
+            self.get_required_components_mut(requiree)
+                .debug_checked_unwrap()
+        };
+
+        // Cannot directly require the same component twice.
+        if required_components
+            .get(required)
+            .is_some_and(|c| c.inheritance_depth == 0)
+        {
+            return Err(RequiredComponentsError::DuplicateRegistration(
+                requiree, required,
+            ));
+        }
+
+        // Register the required component for the requiree.
+        // This is a direct requirement with a depth of `0`.
+        required_components
+            .working
+            .register_by_id(required, constructor, 0);
+
+        // Add the requiree to the list of components that require the required component.
+        // SAFETY: The component is in the list of required components, so it must exist already.
+        let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
+        required_by.working.insert(requiree);
+
+        // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
+        let inherited_requirements =
+            unsafe { self.register_inherited_required_components(requiree, required) };
+
+        // Propagate the new required components up the chain to all components that require the requiree.
+        if let Some(required_by) = self.get_required_by(requiree).map(|required_by| {
+            required_by
+                .iter_ids()
+                .collect::<SmallVec<[ComponentId; 8]>>()
+        }) {
+            // `required` is now required by anything that `requiree` was required by.
+            self.get_required_by_mut(required)
+                .unwrap()
+                .working
+                .extend(required_by.iter().copied());
+            for &required_by_id in required_by.iter() {
+                // SAFETY: The component is in the list of required components, so it must exist already.
+                let required_components = unsafe {
+                    self.get_required_components_mut(required_by_id)
+                        .debug_checked_unwrap()
+                };
+
+                // Register the original required component in the "parent" of the requiree.
+                // The inheritance depth is 1 deeper than the `requiree` wrt `required_by_id`.
+                let depth = required_components.get(requiree).expect("requiree is required by required_by_id, so its required_components must include requiree").inheritance_depth;
+                required_components
+                    .working
+                    .register_by_id(required, constructor, depth + 1);
+
+                for (component_id, component) in inherited_requirements.iter() {
+                    // Register the required component.
+                    // The inheritance depth of inherited components is whatever the requiree's
+                    // depth is relative to `required_by_id`, plus the inheritance depth of the
+                    // inherited component relative to the requiree, plus 1 to account for the
+                    // requiree in between.
+                    // SAFETY: Component ID and constructor match the ones on the original requiree.
+                    //         The original requiree is responsible for making sure the registration is safe.
+                    unsafe {
+                        required_components.working.register_dynamic(
+                            *component_id,
+                            component.constructor.clone(),
+                            component.inheritance_depth + depth + 1,
+                        );
+                    };
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Registers the given component `R` and [required components] inherited from it as required by `T`,
+    /// and adds `T` to their lists of requirees.
+    ///
+    /// The given `inheritance_depth` determines how many levels of inheritance deep the requirement is.
+    /// A direct requirement has a depth of `0`, and each level of inheritance increases the depth by `1`.
+    /// Lower depths are more specific requirements, and can override existing less specific registrations.
+    ///
+    /// This method does *not* register any components as required by components that require `T`.
+    ///
+    /// [required component]: Component#required-components
+    ///
+    /// # Safety
+    ///
+    /// The given component IDs `required` and `requiree` must be valid.
+    unsafe fn register_required_components_manual_unchecked<R: Component>(
+        &mut self,
+        requiree: ComponentId,
+        required: ComponentId,
+        required_components: &mut RequiredComponents,
+        constructor: fn() -> R,
+        inheritance_depth: u16,
+    ) {
+        // Components cannot require themselves.
+        if required == requiree {
+            return;
+        }
+
+        // Register the required component `R` for the requiree.
+        required_components.register_by_id(required, constructor, inheritance_depth);
+
+        // Add the requiree to the list of components that require `R`.
+        // SAFETY: The caller ensures that the component ID is valid.
+        //         Assuming it is valid, the component is in the list of required components, so it must exist already.
+        let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
+        required_by.working.insert(requiree);
+
+        // Register the inherited required components for the requiree.
+        let required: Vec<(ComponentId, RequiredComponent)> = self
+            .get_info(required)
+            .unwrap()
+            .required_components()
+            .0
+            .iter()
+            .map(|(id, component)| (*id, component.clone()))
+            .collect();
+
+        for (id, component) in required {
+            // Register the inherited required components for the requiree.
+            // The inheritance depth is increased by `1` since this is a component required by the original required component.
+            required_components.register_dynamic(
+                id,
+                component.constructor.clone(),
+                component.inheritance_depth + 1,
+            );
+            self.get_required_by_mut(id)
+                .unwrap()
+                .working
+                .insert(requiree);
+        }
+    }
+}
+
 impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
     #[inline]
     fn len(&self) -> usize {
@@ -2082,6 +2305,90 @@ impl Components {
     /// Gets an iterator over all components registered with this instance.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
+    }
+}
+
+/// Allows modifying required components with potential staged changes.
+pub(crate) struct RequiredComponentsStagedMut<'a> {
+    working: &'a mut RequiredComponents,
+    cold: Option<&'a RequiredComponents>,
+}
+
+/// Allows viewing required components with potential staged changes.
+pub struct RequiredByStagedRef<'a> {
+    working: &'a HashSet<ComponentId>,
+    cold: Option<&'a HashSet<ComponentId>>,
+}
+
+/// Allows viewing required components with potential staged changes.
+pub struct RequiredComponentsStagedRef<'a> {
+    working: &'a RequiredComponents,
+    cold: Option<&'a RequiredComponents>,
+}
+
+/// Allows modifying required components with potential staged changes.
+pub(crate) struct RequiredByStagedMut<'a> {
+    working: &'a mut HashSet<ComponentId>,
+    #[expect(
+        unused,
+        reason = "Although we aren't using this now, it is useful to have."
+    )]
+    cold: Option<&'a HashSet<ComponentId>>,
+}
+
+impl<'a> RequiredComponentsStagedMut<'a> {
+    /// Gets the [`RequiredComponent`] for this id if it exists.
+    #[inline]
+    pub fn get(&self, id: ComponentId) -> Option<&RequiredComponent> {
+        self.working
+            .0
+            .get(&id)
+            .or_else(|| self.cold.and_then(|cold| cold.0.get(&id)))
+    }
+}
+
+impl<'a> RequiredComponentsStagedRef<'a> {
+    /// Iterates the required components
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &RequiredComponents> {
+        core::iter::once(self.working).chain(self.cold)
+    }
+
+    /// See [`RequiredComponents::iter_ids`]
+    #[inline]
+    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.iter().flat_map(RequiredComponents::iter_ids)
+    }
+
+    /// Merges these required components into the `other`.
+    #[inline]
+    pub fn merge_into(&self, other: &mut RequiredComponents) {
+        for c in self.iter() {
+            other.merge(c);
+        }
+    }
+
+    /// Gets the [`RequiredComponent`] for this id if it exists.
+    #[inline]
+    pub fn get(&self, id: ComponentId) -> Option<&RequiredComponent> {
+        self.working
+            .0
+            .get(&id)
+            .or_else(|| self.cold.and_then(|cold| cold.0.get(&id)))
+    }
+}
+
+impl<'a> RequiredByStagedRef<'a> {
+    /// Iterates the required components
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = &HashSet<ComponentId>> {
+        [self.working].into_iter().chain(self.cold)
+    }
+
+    /// See [`RequiredComponents::iter_ids`]
+    #[inline]
+    pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.iter().flat_map(|by| by.iter().copied())
     }
 }
 
