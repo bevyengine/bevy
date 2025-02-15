@@ -21,7 +21,10 @@ use bevy_platform_support::sync::Arc;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{staging::StagedChanges, TypeIdMap};
+use bevy_utils::{
+    staging::{MaybeStaged, StagedChanges, StagedRef},
+    TypeIdMap,
+};
 use core::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -1022,7 +1025,7 @@ impl ComponentDescriptor {
 pub type ComponentCloneFn = fn(&mut DeferredWorld, &mut ComponentCloneCtx);
 
 /// A struct instructing which clone handler to use when cloning a component.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ComponentCloneHandler(Option<ComponentCloneFn>);
 
 impl ComponentCloneHandler {
@@ -1157,31 +1160,23 @@ pub struct StagedComponents {
     components: Vec<ComponentInfo>,
     indices: TypeIdMap<ComponentId>,
     resource_indices: TypeIdMap<ComponentId>,
-    /// If a component is staged, but it doesn't have a [`ComponentCloneFn`] here it is [`None`].
-    component_clone_handlers: HashMap<ComponentId, ComponentCloneFn>,
+    component_clone_handlers: HashMap<ComponentId, ComponentCloneHandler>,
 }
 
 impl StagedChanges for StagedComponents {
     type Cold = Components;
 
     fn apply_staged(&mut self, storage: &mut Self::Cold) {
-        let earliest = storage.components.len();
-        let next = earliest + self.components.len();
-
         storage.components.append(&mut self.components);
         storage.indices.extend(self.indices.drain());
         storage
             .resource_indices
             .extend(self.resource_indices.drain());
-
-        for id in earliest..next {
-            let id = ComponentId(id);
-            storage.component_clone_handlers.set_component_handler(
-                id,
-                ComponentCloneHandler(self.component_clone_handlers.get(&id).copied()),
-            );
+        for (id, handler) in self.component_clone_handlers.drain() {
+            storage
+                .component_clone_handlers
+                .set_component_handler(id, handler);
         }
-        self.component_clone_handlers.clear();
     }
 
     fn any_staged(&self) -> bool {
@@ -1201,6 +1196,18 @@ impl<'a, T> DerefByLifetime<'a> for &'a T {
     #[inline]
     fn deref_lifetime(&self) -> &'a Self::Target {
         self
+    }
+}
+
+impl<'a, C: DerefByLifetime<'a>, S: DerefByLifetime<'a, Target = C::Target>> DerefByLifetime<'a>
+    for MaybeStaged<C, S>
+{
+    #[inline]
+    fn deref_lifetime(&self) -> &'a Self::Target {
+        match self {
+            MaybeStaged::Cold(c) => c.deref_lifetime(),
+            MaybeStaged::Staged(s) => s.deref_lifetime(),
+        }
     }
 }
 
@@ -1226,6 +1233,25 @@ impl<'a, T: DerefByLifetime<'a, Target = ComponentInfo>> DerefByLifetime<'a>
     fn deref_lifetime(&self) -> &'a Self::Target {
         self.0.deref_lifetime().name()
     }
+}
+
+/// Reports how "registered" a component is in a particular collection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ComponentRegistrationStatus {
+    /// The component is not registered at all.
+    Unregistered,
+    /// The component is fully registered in staged changes.
+    /// Reading it will:
+    /// - block other components from being registered.
+    /// - never block other components from being read.
+    /// - may lock to be read.
+    Staged,
+    /// The component is fully registered in cold storage.
+    /// Reading it will:
+    /// - never block other components from being registered.
+    /// - never block other components from being read.
+    /// - will *almost never lock to be read.
+    Cold,
 }
 
 /// A trait that allows the user to read into a collection of registered [`Component`]s.
@@ -1274,6 +1300,24 @@ pub trait ComponentsReader {
 
     /// Returns true only if this `id` is valid on this collection of [`Component`]s
     fn is_id_valid(&self, id: ComponentId) -> bool;
+
+    /// Returns true if this `id` is staged on this collection of [`Component`]s.
+    /// If [`is_id_valid`](ComponentsReader::is_id_valid) is not true, this value is meanngless.
+    /// See also [`get`]
+    fn is_id_staged(&self, id: ComponentId) -> bool;
+
+    /// Gets the [`ComponentRegistrationStatus`] for a [`ComponentId`].
+    /// See [`ComponentRegistrationStatus`] and its variants for more
+    #[inline]
+    fn get_registration_status(&self, id: ComponentId) -> ComponentRegistrationStatus {
+        if !self.is_id_valid(id) {
+            ComponentRegistrationStatus::Unregistered
+        } else if self.is_id_staged(id) {
+            ComponentRegistrationStatus::Staged
+        } else {
+            ComponentRegistrationStatus::Cold
+        }
+    }
 
     /// Returns the currently registered default clone handler.
     fn get_default_clone_handler(&self) -> ComponentCloneFn;
@@ -1469,6 +1513,72 @@ pub trait ComponentsWriter: ComponentsReader {
     fn register_non_send<T: Any>(&mut self) -> ComponentId;
 }
 
+impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.cold.len() + self.staged.components.len()
+    }
+
+    #[inline]
+    unsafe fn get_info_unchecked(
+        &self,
+        id: ComponentId,
+    ) -> impl DerefByLifetime<Target = ComponentInfo> {
+        debug_assert!(id.index() < self.len());
+        if self.is_id_staged(id) {
+            // SAFETY: The caller ensures `id` is valid.
+            MaybeStaged::Staged(unsafe {
+                self.staged.components.get_unchecked(id.0 - self.cold.len())
+            })
+        } else {
+            // SAFETY: The caller ensures `id` is valid.
+            MaybeStaged::Cold(unsafe { self.cold.get_info_unchecked(id) })
+        }
+    }
+
+    #[inline]
+    fn is_id_valid(&self, id: ComponentId) -> bool {
+        self.len() > id.0
+    }
+
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.cold.get_default_clone_handler()
+    }
+
+    #[inline]
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+        self.staged
+            .component_clone_handlers
+            .get(&id)
+            .cloned()
+            .unwrap_or_else(|| self.cold.get_special_clone_handler(id))
+    }
+
+    #[inline]
+    fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.staged
+            .indices
+            .get(&type_id)
+            .copied()
+            .or_else(|| self.cold.get_id(type_id))
+    }
+
+    #[inline]
+    fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.staged
+            .resource_indices
+            .get(&type_id)
+            .copied()
+            .or_else(|| self.cold.get_resource_id(type_id))
+    }
+
+    #[inline]
+    fn is_id_staged(&self, id: ComponentId) -> bool {
+        self.cold.len() > id.0
+    }
+}
+
 impl ComponentsReader for Components {
     #[inline]
     fn len(&self) -> usize {
@@ -1508,6 +1618,11 @@ impl ComponentsReader for Components {
     #[inline]
     fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_indices.get(&type_id).copied()
+    }
+
+    #[inline]
+    fn is_id_staged(&self, _id: ComponentId) -> bool {
+        false // this is cold storage, so nothing is staged.
     }
 }
 
