@@ -960,6 +960,17 @@ impl<T: StagedChanges> StagableWrites for ArcStageOnWrite<T> {
     }
 }
 
+impl<'a, T: StagedChanges> Stager<'a, T> {
+    /// Allows a user to view this as a [`Stager`].
+    #[inline]
+    pub fn as_staged_ref(&self) -> StagedRef<'_, T> {
+        StagedRef {
+            cold: self.cold,
+            staged: self.staged,
+        }
+    }
+}
+
 impl<'a, T: StagableWritesCore> StagerLocked<'a, T> {
     /// Allows a user to view this as a [`Stager`].
     #[inline]

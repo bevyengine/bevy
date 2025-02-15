@@ -22,7 +22,7 @@ use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{
-    staging::{MaybeStaged, StagedChanges, StagedRef},
+    staging::{MaybeStaged, StagedChanges, StagedRef, Stager},
     TypeIdMap,
 };
 use core::{
@@ -1576,6 +1576,60 @@ impl<'a> ComponentsReader for StagedRef<'a, StagedComponents> {
     #[inline]
     fn is_id_staged(&self, id: ComponentId) -> bool {
         self.cold.len() > id.0
+    }
+}
+
+impl<'a> ComponentsReader for Stager<'a, StagedComponents> {
+    #[inline]
+    fn len(&self) -> usize {
+        self.as_staged_ref().len()
+    }
+
+    #[inline]
+    unsafe fn get_info_unchecked(
+        &self,
+        id: ComponentId,
+    ) -> impl DerefByLifetime<Target = ComponentInfo> {
+        debug_assert!(id.index() < self.len());
+        if self.is_id_staged(id) {
+            // SAFETY: The caller ensures `id` is valid.
+            MaybeStaged::Staged(unsafe {
+                self.staged.components.get_unchecked(id.0 - self.cold.len())
+            })
+        } else {
+            // SAFETY: The caller ensures `id` is valid.
+            MaybeStaged::Cold(unsafe { self.cold.get_info_unchecked(id) })
+        }
+    }
+
+    #[inline]
+    fn is_id_valid(&self, id: ComponentId) -> bool {
+        self.as_staged_ref().is_id_valid(id)
+    }
+
+    #[inline]
+    fn get_default_clone_handler(&self) -> ComponentCloneFn {
+        self.as_staged_ref().get_default_clone_handler()
+    }
+
+    #[inline]
+    fn get_special_clone_handler(&self, id: ComponentId) -> ComponentCloneHandler {
+        self.as_staged_ref().get_special_clone_handler(id)
+    }
+
+    #[inline]
+    fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.as_staged_ref().get_id(type_id)
+    }
+
+    #[inline]
+    fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.as_staged_ref().get_resource_id(type_id)
+    }
+
+    #[inline]
+    fn is_id_staged(&self, id: ComponentId) -> bool {
+        self.as_staged_ref().is_id_staged(id)
     }
 }
 
