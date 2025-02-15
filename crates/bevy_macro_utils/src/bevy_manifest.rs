@@ -8,10 +8,16 @@ use cargo_manifest_proc_macros::{
 };
 use proc_macro::TokenStream;
 
+use crate::official_bevy_crates::OFFICIAL_BEVY_CRATES;
+
 struct BevyReExportingPolicy;
 
 impl CrateReExportingPolicy for BevyReExportingPolicy {
     fn get_re_exported_crate_path(&self, crate_name: &str) -> Option<PathPiece> {
+        if OFFICIAL_BEVY_CRATES.binary_search(&crate_name).is_err() {
+            return None;
+        }
+
         crate_name.strip_prefix("bevy_").map(|s| {
             let mut path = PathPiece::new();
             path.push(syn::parse_str::<syn::PathSegment>(s).unwrap());

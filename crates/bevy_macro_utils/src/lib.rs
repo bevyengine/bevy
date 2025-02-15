@@ -13,6 +13,7 @@ mod attrs;
 mod bevy_manifest;
 pub mod fq_std;
 mod label;
+mod official_bevy_crates;
 mod shape;
 mod symbol;
 
