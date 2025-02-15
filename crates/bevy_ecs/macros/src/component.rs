@@ -264,7 +264,7 @@ fn visit_entities(
     data: &Data,
     bevy_ecs_path: &Path,
     is_relationship: bool,
-    is_relatonship_target: bool,
+    is_relationship_target: bool,
 ) -> TokenStream2 {
     match data {
         Data::Struct(DataStruct { ref fields, .. }) => {
@@ -286,7 +286,7 @@ fn visit_entities(
                 }
                 Fields::Unnamed(fields) => {
                     for (index, field) in fields.unnamed.iter().enumerate() {
-                        if index == 0 && (is_relationship || is_relatonship_target) {
+                        if index == 0 && (is_relationship || is_relationship_target) {
                             visited_indices.push(Index::from(0));
                         } else if field
                             .attrs
