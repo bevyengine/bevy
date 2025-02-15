@@ -63,6 +63,7 @@ use crate::{
     component::{ComponentId, ComponentMutability},
     entity::{Entity, EntityMapper},
     prelude::Component,
+    relationship::RelationshipInsertHookMode,
     world::{
         unsafe_world_cell::UnsafeEntityCell, EntityMut, EntityWorldMut, FilteredEntityMut,
         FilteredEntityRef, World,
@@ -105,8 +106,13 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::apply()`].
     pub apply: fn(EntityMut, &dyn PartialReflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert_mapped()`].
-    pub apply_or_insert_mapped:
-        fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry, &mut dyn EntityMapper),
+    pub apply_or_insert_mapped: fn(
+        &mut EntityWorldMut,
+        &dyn PartialReflect,
+        &TypeRegistry,
+        &mut dyn EntityMapper,
+        RelationshipInsertHookMode,
+    ),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
@@ -174,8 +180,15 @@ impl ReflectComponent {
         component: &dyn PartialReflect,
         registry: &TypeRegistry,
         map: &mut dyn EntityMapper,
+        relationship_insert_hook_mode: RelationshipInsertHookMode,
     ) {
-        (self.0.apply_or_insert_mapped)(entity, component, registry, map);
+        (self.0.apply_or_insert_mapped)(
+            entity,
+            component,
+            registry,
+            map,
+            relationship_insert_hook_mode,
+        );
     }
 
     /// Removes this [`Component`] type from the entity. Does nothing if it doesn't exist.
@@ -320,31 +333,40 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 let mut component = unsafe { entity.get_mut_assume_mutable::<C>() }.unwrap();
                 component.apply(reflected_component);
             },
-            apply_or_insert_mapped: |entity, reflected_component, registry, mapper| {
-                // TODO: if we can externalize this impl to cut down on monomorphization that would be great
-                let map_fn = move |entity: &mut Entity| {
-                    *entity = mapper.get_mapped(*entity);
-                };
-                if C::Mutability::MUTABLE {
-                    // SAFETY: guard ensures `C` is a mutable component
-                    if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() } {
-                        component.apply(reflected_component.as_partial_reflect());
-                        C::visit_entities_mut(&mut component, map_fn);
+            apply_or_insert_mapped:
+                |entity, reflected_component, registry, mapper, relationship_insert_hook_mode| {
+                    let map_fn = map_function(mapper);
+                    if C::Mutability::MUTABLE {
+                        // SAFETY: guard ensures `C` is a mutable component
+                        if let Some(mut component) = unsafe { entity.get_mut_assume_mutable::<C>() }
+                        {
+                            component.apply(reflected_component.as_partial_reflect());
+                            C::visit_entities_mut(&mut component, map_fn);
+                        } else {
+                            let mut component = entity.world_scope(|world| {
+                                from_reflect_with_fallback::<C>(
+                                    reflected_component,
+                                    world,
+                                    registry,
+                                )
+                            });
+                            C::visit_entities_mut(&mut component, map_fn);
+                            entity.insert_with_relationship_insert_hook_mode(
+                                component,
+                                relationship_insert_hook_mode,
+                            );
+                        }
                     } else {
                         let mut component = entity.world_scope(|world| {
                             from_reflect_with_fallback::<C>(reflected_component, world, registry)
                         });
                         C::visit_entities_mut(&mut component, map_fn);
-                        entity.insert(component);
+                        entity.insert_with_relationship_insert_hook_mode(
+                            component,
+                            relationship_insert_hook_mode,
+                        );
                     }
-                } else {
-                    let mut component = entity.world_scope(|world| {
-                        from_reflect_with_fallback::<C>(reflected_component, world, registry)
-                    });
-                    C::visit_entities_mut(&mut component, map_fn);
-                    entity.insert(component);
-                }
-            },
+                },
             remove: |entity| {
                 entity.remove::<C>();
             },
@@ -395,5 +417,11 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
                 Component::visit_entities_mut(component, func);
             },
         })
+    }
+}
+
+fn map_function(mapper: &mut dyn EntityMapper) -> impl FnMut(&mut Entity) + '_ {
+    move |entity: &mut Entity| {
+        *entity = mapper.get_mapped(*entity);
     }
 }

@@ -7,6 +7,7 @@ use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity, SceneEntityMapper},
     entity_disabling::DefaultQueryFilters,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
+    relationship::RelationshipInsertHookMode,
     world::World,
 };
 use bevy_reflect::{PartialReflect, TypePath};
@@ -124,10 +125,8 @@ impl Scene {
                         .get_info(component_id)
                         .expect("component_ids in archetypes should have ComponentInfo");
 
-                    match component_info.clone_behavior() {
-                        ComponentCloneBehavior::Ignore
-                        | ComponentCloneBehavior::RelationshipTarget(_) => continue,
-                        _ => {}
+                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                        continue;
                     }
 
                     let registration = type_registry
@@ -157,6 +156,7 @@ impl Scene {
                             component.as_partial_reflect(),
                             &type_registry,
                             mapper,
+                            RelationshipInsertHookMode::Skip,
                         );
                     });
                 }
