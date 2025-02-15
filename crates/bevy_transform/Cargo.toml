@@ -33,7 +33,7 @@ approx = "0.5.1"
 [features]
 # Turning off default features leaves you with a barebones
 # definition of transform.
-default = ["std", "bevy-support", "bevy_reflect"]
+default = ["std", "bevy-support", "bevy_reflect", "async_executor"]
 
 # Functionality
 
@@ -54,6 +54,16 @@ bevy_reflect = [
   "bevy_ecs/bevy_reflect",
   "bevy_app/bevy_reflect",
 ]
+
+# Executor Backend
+
+## Uses `async-executor` as a task execution backend.
+## This backend is incompatible with `no_std` targets.
+async_executor = ["dep:bevy_tasks", "std", "bevy_tasks/async_executor"]
+
+## Uses `edge-executor` as a task execution backend.
+## Use this instead of `async-executor` if working on a `no_std` target.
+edge_executor = ["dep:bevy_tasks", "bevy_tasks/edge_executor"]
 
 # Platform Compatibility
 
