@@ -246,7 +246,7 @@ mod tests {
     }
 
     #[test]
-    fn should_merge_overloaed_into_single() {
+    fn should_merge_overload_into_single() {
         let mut func_a = DynamicFunctionInternal {
             functions: vec!['a', 'b'],
             info: FunctionInfo::new(SignatureInfo::anonymous().with_arg::<i8>("arg0"))

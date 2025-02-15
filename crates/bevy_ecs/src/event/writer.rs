@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use bevy_ecs::{
     event::{Event, EventId, Events, SendBatchIds},
     system::{ResMut, SystemParam},

@@ -98,7 +98,7 @@ fn fallback_image_new(
             RenderAssetUsages::RENDER_WORLD,
         )
     } else {
-        let mut image = Image::default();
+        let mut image = Image::default_uninit();
         image.texture_descriptor.dimension = TextureDimension::D2;
         image.texture_descriptor.size = extents;
         image.texture_descriptor.format = format;
@@ -114,7 +114,7 @@ fn fallback_image_new(
             render_queue,
             &image.texture_descriptor,
             TextureDataOrder::default(),
-            &image.data,
+            &image.data.expect("Image has no data"),
         )
     } else {
         render_device.create_texture(&image.texture_descriptor)
