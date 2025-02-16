@@ -18,8 +18,7 @@ use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
-use core::marker::PhantomData;
-use std::{any::Any, cell::RefCell};
+use core::{any::Any, cell::RefCell, marker::PhantomData};
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
