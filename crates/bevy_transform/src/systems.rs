@@ -465,19 +465,16 @@ mod parallel {
     /// # Safety
     ///
     /// Callers must ensure that concurrent calls to this function are given unique `parent`
-    /// entities. Calling this function concurrently with the same `parent` is unsafe. This function
-    /// will validate that the entity hierarchy does not contain cycles to prevent mutable aliasing
-    /// during propagation, but it is unable to verify that it isn't being used to mutably alias the
-    /// same entity.
+    /// entities. Calling this function concurrently with the same `parent` is unsound. This
+    /// function will validate that the entity hierarchy does not contain cycles to prevent mutable
+    /// aliasing during propagation, but it is unable to verify that it isn't being used to mutably
+    /// alias the same entity.
     ///
-    /// # Panics
+    /// ## Panics
     ///
-    /// Panics if the parent of a node is not the same as the supplied `parent`. This check can be
-    /// used to call this function safely.
-    ///
-    /// If this function is only called when traversing from ancestors to descendant, using the
-    /// entities returned from te `outbox`, it can be used safely in parallel. This function will
-    /// internally panic if a cycle is found in the hierarchy to prevent soundness issues.
+    /// Panics if the parent of a child node is not the same as the supplied `parent`. This
+    /// assertion ensures that the hierarchy is acyclic, which in turn ensures that if the caller is
+    /// following the supplied safety rules, multi-threaded propagation is sound.
     #[inline]
     #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
     unsafe fn propagate_to_child_unchecked(
