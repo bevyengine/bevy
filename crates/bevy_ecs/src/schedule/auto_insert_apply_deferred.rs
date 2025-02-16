@@ -94,16 +94,20 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
             }
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
-                let target_system = graph.systems[target.index()].get().unwrap();
-                let mut add_sync_on_edge = add_sync_after && !is_apply_deferred(target_system);
+                let mut add_sync_on_edge = add_sync_after;
                 let mut add_syncs_after_target = false;
 
-                if add_sync_on_edge
-                    && !target_system.is_exclusive()
-                    && self.no_sync_edges.contains(&(*node, target))
-                {
-                    add_sync_on_edge = false;
-                    add_syncs_after_target = true;
+                if add_sync_on_edge {
+                    let target_system = graph.systems[target.index()].get().unwrap();
+                    add_sync_on_edge &= !is_apply_deferred(target_system);
+
+                    if add_sync_on_edge
+                        && !target_system.is_exclusive()
+                        && self.no_sync_edges.contains(&(*node, target))
+                    {
+                        add_sync_on_edge = false;
+                        add_syncs_after_target = true;
+                    }
                 }
 
                 let (target_distance, target_pending_sync) = distances_and_pending_sync
