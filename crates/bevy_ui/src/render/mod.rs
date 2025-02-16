@@ -6,6 +6,7 @@ pub mod ui_texture_slice_pipeline;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
+mod linear_gradient;
 
 use crate::widget::ImageNode;
 use crate::{
@@ -109,6 +110,7 @@ pub enum RenderUiSystem {
     ExtractTextShadows,
     ExtractText,
     ExtractDebug,
+    ExtractLinearGradient,
 }
 
 pub fn build_ui_render(app: &mut App) {
@@ -861,7 +863,7 @@ pub fn extract_text_shadows(
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 transform: transform * Mat4::from_translation(position.extend(0.)),
                 rect,
-            });
+            });s
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture

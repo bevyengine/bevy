@@ -2822,3 +2822,14 @@ impl Default for TextShadow {
         }
     }
 }
+
+pub struct ColorStop {
+    pub color: Color,
+    pub stop: Val,
+}
+
+#[derive(Component)]
+pub struct LinearGradient {
+    pub angle: f32,
+    pub color_stops: Vec<ColorStop>,
+}
