@@ -1866,7 +1866,7 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
 
     #[inline]
     fn is_id_staged(&self, id: ComponentId) -> bool {
-        self.cold.len() >= id.0
+        self.cold.len() <= id.0
     }
 }
 
