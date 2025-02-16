@@ -2141,6 +2141,46 @@ mod tests {
     }
 
     #[test]
+    fn do_not_consider_ignore_deferred_before_exclusive_system() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // insert three command systems where only one sync point is added before the exclusive system
+        schedule.add_systems(
+            (
+                |_: Commands| {},
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |world: &mut World| assert!(world.contains_resource::<Resource1>()),
+                |_: Commands| {},
+            )
+                .chain_ignore_deferred(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 5);
+    }
+
+    #[test]
+    fn bubble_sync_point_through_ignore_deferred_nodes() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        // a sync point is added after nodes that suppress sync points and did not end with a command system
+        schedule.add_systems(
+            (
+                (
+                    |mut commands: Commands| commands.insert_resource(Resource1),
+                    || {},
+                )
+                    .chain_ignore_deferred(),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.run(&mut world);
+
+        assert_eq!(schedule.executable.systems.len(), 4);
+    }
+
+    #[test]
     fn disable_auto_sync_points() {
         let mut schedule = Schedule::default();
         schedule.set_build_settings(ScheduleBuildSettings {
