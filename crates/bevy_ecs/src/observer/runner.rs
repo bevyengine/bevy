@@ -6,6 +6,7 @@ use crate::{
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
+    result::{DefaultSystemErrorHandler, SystemErrorContext},
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
@@ -272,6 +273,7 @@ pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
+    error_handler: Option<fn(Error, SystemErrorContext)>,
 }
 
 impl Observer {
@@ -282,6 +284,7 @@ impl Observer {
             system: Box::new(IntoObserverSystem::into_system(system)),
             descriptor: Default::default(),
             hook_on_add: hook_on_add::<E, B, I::System>,
+            error_handler: None,
         }
     }
 
@@ -313,6 +316,14 @@ impl Observer {
     /// of the event passed into the observer system.
     pub unsafe fn with_event(mut self, event: ComponentId) -> Self {
         self.descriptor.events.push(event);
+        self
+    }
+
+    /// Set the error handler to use for this observer.
+    ///
+    /// See the [`result` module-level documentation](crate::result) for more information.
+    pub fn with_error_handler(mut self, error_handler: fn(Error, SystemErrorContext)) -> Self {
+        self.error_handler = Some(error_handler);
         self
     }
 
@@ -363,6 +374,15 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     }
     state.last_trigger_id = last_trigger;
 
+    // SAFETY: Observer was triggered so must have an `Observer` component.
+    let error_handler = unsafe {
+        observer_cell
+            .get::<Observer>()
+            .debug_checked_unwrap()
+            .error_handler
+            .debug_checked_unwrap()
+    };
+
     let trigger: Trigger<E, B> = Trigger::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
         unsafe { ptr.deref_mut() },
@@ -386,7 +406,15 @@ fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     unsafe {
         (*system).update_archetype_component_access(world);
         if (*system).validate_param_unsafe(world) {
-            (*system).run_unsafe(trigger, world);
+            if let Err(err) = (*system).run_unsafe(trigger, world) {
+                error_handler(
+                    err,
+                    SystemErrorContext {
+                        name: (*system).name(),
+                        last_run: (*system).get_last_run(),
+                    },
+                );
+            };
             (*system).queue_deferred(world.into_deferred());
         }
     }
@@ -416,10 +444,15 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             ..Default::default()
         };
 
+        let error_handler = world.get_resource_or_init::<DefaultSystemErrorHandler>().0;
+
         // Initialize System
         let system: *mut dyn ObserverSystem<E, B> =
             if let Some(mut observe) = world.get_mut::<Observer>(entity) {
                 descriptor.merge(&observe.descriptor);
+                if observe.error_handler.is_none() {
+                    observe.error_handler = Some(error_handler);
+                }
                 let system = observe.system.downcast_mut::<S>().unwrap();
                 &mut *system
             } else {
@@ -441,4 +474,45 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{event::Event, observer::Trigger};
+
+    #[derive(Event)]
+    struct TriggerEvent;
+
+    #[test]
+    #[should_panic(expected = "I failed!")]
+    fn test_fallible_observer() {
+        fn system(_: Trigger<TriggerEvent>) -> Result {
+            Err("I failed!".into())
+        }
+
+        let mut world = World::default();
+        world.add_observer(system);
+        Schedule::default().run(&mut world);
+        world.trigger(TriggerEvent);
+    }
+
+    #[test]
+    fn test_fallible_observer_ignored_errors() {
+        #[derive(Resource, Default)]
+        struct Ran(bool);
+
+        fn system(_: Trigger<TriggerEvent>, mut ran: ResMut<Ran>) -> Result {
+            ran.0 = true;
+            Err("I failed!".into())
+        }
+
+        let mut world = World::default();
+        world.init_resource::<Ran>();
+        let observer = Observer::new(system).with_error_handler(crate::result::ignore);
+        world.spawn(observer);
+        Schedule::default().run(&mut world);
+        world.trigger(TriggerEvent);
+        assert!(world.resource::<Ran>().0);
+    }
 }

@@ -102,6 +102,7 @@ use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
+use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
@@ -120,12 +121,21 @@ pub struct RenderPlugin {
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, Wasm, iOS, or without the `multi_threaded` feature.
     pub synchronous_pipeline_compilation: bool,
-    /// If true, this sets the `COPY_SRC` flag on indirect draw parameters so
-    /// that they can be read back to CPU.
-    ///
-    /// This is a debugging feature that may reduce performance. It primarily
-    /// exists for the `occlusion_culling` example.
-    pub allow_copies_from_indirect_parameters: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+}
+
+bitflags! {
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    #[derive(Clone, Copy, PartialEq, Default, Debug)]
+    pub struct RenderDebugFlags: u8 {
+        /// If true, this sets the `COPY_SRC` flag on indirect draw parameters
+        /// so that they can be read back to CPU.
+        ///
+        /// This is a debugging feature that may reduce performance. It
+        /// primarily exists for the `occlusion_culling` example.
+        const ALLOW_COPIES_FROM_INDIRECT_PARAMETERS = 1;
+    }
 }
 
 /// The systems sets of the default [`App`] rendering schedule.
@@ -146,6 +156,9 @@ pub enum RenderSet {
     Queue,
     /// A sub-set within [`Queue`](RenderSet::Queue) where mesh entity queue systems are executed. Ensures `prepare_assets::<RenderMesh>` is completed.
     QueueMeshes,
+    /// A sub-set within [`Queue`](RenderSet::Queue) where meshes that have
+    /// become invisible or changed phases are removed from the bins.
+    QueueSweep,
     // TODO: This could probably be moved in favor of a system ordering
     // abstraction in `Render` or `Queue`
     /// Sort the [`SortedRenderPhase`](render_phase::SortedRenderPhase)s and
@@ -156,6 +169,9 @@ pub enum RenderSet {
     Prepare,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for initializing buffers, textures and uniforms for use in bind groups.
     PrepareResources,
+    /// Collect phase buffers after
+    /// [`PrepareResources`](RenderSet::PrepareResources) has run.
+    PrepareResourcesCollectPhaseBuffers,
     /// Flush buffers after [`PrepareResources`](RenderSet::PrepareResources), but before [`PrepareBindGroups`](RenderSet::PrepareBindGroups).
     PrepareResourcesFlush,
     /// A sub-set within [`Prepare`](RenderSet::Prepare) for constructing bind groups, or other data that relies on render resources prepared in [`PrepareResources`](RenderSet::PrepareResources).
@@ -201,12 +217,18 @@ impl Render {
 
         schedule.configure_sets((ExtractCommands, PrepareAssets, PrepareMeshes, Prepare).chain());
         schedule.configure_sets(
-            QueueMeshes
+            (QueueMeshes, QueueSweep)
+                .chain()
                 .in_set(Queue)
                 .after(prepare_assets::<RenderMesh>),
         );
         schedule.configure_sets(
-            (PrepareResources, PrepareResourcesFlush, PrepareBindGroups)
+            (
+                PrepareResources,
+                PrepareResourcesCollectPhaseBuffers,
+                PrepareResourcesFlush,
+                PrepareBindGroups,
+            )
                 .chain()
                 .in_set(Prepare),
         );
@@ -376,7 +398,7 @@ impl Plugin for RenderPlugin {
             GlobalsPlugin,
             MorphPlugin,
             BatchingPlugin {
-                allow_copies_from_indirect_parameters: self.allow_copies_from_indirect_parameters,
+                debug_flags: self.debug_flags,
             },
             SyncWorldPlugin,
             StoragePlugin,

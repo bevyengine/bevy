@@ -43,11 +43,10 @@ struct PreprocessWorkItem {
     // The index of the `MeshInput` in the `current_input` buffer that we read
     // from.
     input_index: u32,
-    // The index of the `Mesh` in `output` that we write to.
-    output_index: u32,
-    // The index of the `IndirectParameters` in `indirect_parameters` that we
-    // write to.
-    indirect_parameters_index: u32,
+    // In direct mode, the index of the `Mesh` in `output` that we write to. In
+    // indirect mode, the index of the `IndirectParameters` in
+    // `indirect_parameters` that we write to.
+    output_or_indirect_parameters_index: u32,
 }
 
 // The parameters for the indirect compute dispatch for the late mesh
@@ -171,8 +170,11 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
     // Unpack the work item.
     let input_index = work_items[instance_index].input_index;
-    let output_index = work_items[instance_index].output_index;
-    let indirect_parameters_index = work_items[instance_index].indirect_parameters_index;
+#ifdef INDIRECT
+    let indirect_parameters_index = work_items[instance_index].output_or_indirect_parameters_index;
+#else   // INDIRECT
+    let mesh_output_index = work_items[instance_index].output_or_indirect_parameters_index;
+#endif  // INDIRECT
 
     // Unpack the input matrix.
     let world_from_local_affine_transpose = current_input[input_index].world_from_local;
@@ -289,8 +291,7 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
 
         // Enqueue a work item for the late prepass phase.
         late_preprocess_work_items[output_work_item_index].input_index = input_index;
-        late_preprocess_work_items[output_work_item_index].output_index = output_index;
-        late_preprocess_work_items[output_work_item_index].indirect_parameters_index =
+        late_preprocess_work_items[output_work_item_index].output_or_indirect_parameters_index =
             indirect_parameters_index;
 #endif  // EARLY_PHASE
         // This mesh is culled. Skip it.
@@ -328,8 +329,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
         indirect_parameters_metadata[indirect_parameters_index].base_output_index +
         batch_output_index;
 
-#else   // INDIRECT
-    let mesh_output_index = output_index;
 #endif  // INDIRECT
 
     // Write the output.
@@ -345,4 +344,5 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].previous_skin_index = current_input[input_index].previous_skin_index;
     output[mesh_output_index].material_and_lightmap_bind_group_slot =
         current_input[input_index].material_and_lightmap_bind_group_slot;
+    output[mesh_output_index].tag = current_input[input_index].tag;
 }

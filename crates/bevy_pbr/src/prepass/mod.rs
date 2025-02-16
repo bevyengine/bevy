@@ -19,7 +19,7 @@ use bevy_render::{
     renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 pub use prepass_bindings::*;
 
@@ -146,11 +146,19 @@ where
 /// Sets up the prepasses for a [`Material`].
 ///
 /// This depends on the [`PrepassPipelinePlugin`].
-pub struct PrepassPlugin<M: Material>(PhantomData<M>);
+pub struct PrepassPlugin<M: Material> {
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
+    pub phantom: PhantomData<M>,
+}
 
-impl<M: Material> Default for PrepassPlugin<M> {
-    fn default() -> Self {
-        Self(Default::default())
+impl<M: Material> PrepassPlugin<M> {
+    /// Creates a new [`PrepassPlugin`] with the given debug flags.
+    pub fn new(debug_flags: RenderDebugFlags) -> Self {
+        PrepassPlugin {
+            debug_flags,
+            phantom: PhantomData,
+        }
     }
 }
 
@@ -176,8 +184,10 @@ where
                     ),
                 )
                 .add_plugins((
-                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::default(),
-                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::default(),
+                    BinnedRenderPhasePlugin::<Opaque3dPrepass, MeshPipeline>::new(self.debug_flags),
+                    BinnedRenderPhasePlugin::<AlphaMask3dPrepass, MeshPipeline>::new(
+                        self.debug_flags,
+                    ),
                 ));
         }
 
@@ -1145,6 +1155,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
@@ -1169,6 +1180,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                                 asset_id: mesh_instance.mesh_asset_id.into(),
                             },
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
@@ -1195,6 +1207,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             batch_set_key,
                             bin_key,
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
@@ -1218,6 +1231,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                             batch_set_key,
                             bin_key,
                             (*render_entity, *visible_entity),
+                            mesh_instance.current_uniform_index,
                             BinnedRenderPhaseType::mesh(
                                 mesh_instance.should_batch(),
                                 &gpu_preprocessing_support,
@@ -1228,20 +1242,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 }
                 _ => {}
             }
-        }
-
-        // Remove invalid entities from the bins.
-        if let Some(phase) = opaque_phase {
-            phase.sweep_old_entities();
-        }
-        if let Some(phase) = alpha_mask_phase {
-            phase.sweep_old_entities();
-        }
-        if let Some(phase) = opaque_deferred_phase {
-            phase.sweep_old_entities();
-        }
-        if let Some(phase) = alpha_mask_deferred_phase {
-            phase.sweep_old_entities();
         }
     }
 }

@@ -277,7 +277,7 @@ trace_tracy_memory = [
 ]
 
 # Tracing support
-trace = ["bevy_internal/trace"]
+trace = ["bevy_internal/trace", "dep:tracing"]
 
 # Basis Universal compressed texture support
 basis-universal = ["bevy_internal/basis-universal"]
@@ -464,9 +464,6 @@ meshlet = ["bevy_internal/meshlet"]
 # Enables processing meshes into meshlet meshes for bevy_pbr
 meshlet_processor = ["bevy_internal/meshlet_processor"]
 
-# Enable support for the ios_simulator by downgrading some rendering capabilities
-ios_simulator = ["bevy_internal/ios_simulator"]
-
 # Enable built in global state machines
 bevy_state = ["bevy_internal/bevy_state"]
 
@@ -484,6 +481,7 @@ ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
+tracing = { version = "0.1", default-features = false, optional = true }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
@@ -517,6 +515,7 @@ http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
 accesskit = "0.17"
+nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 smol = "2"
@@ -2157,6 +2156,7 @@ wasm = false
 name = "fallible_systems"
 path = "examples/ecs/fallible_systems.rs"
 doc-scrape-examples = true
+required-features = ["bevy_mesh_picking_backend"]
 
 [package.metadata.example.fallible_systems]
 name = "Fallible Systems"
@@ -2726,6 +2726,18 @@ name = "Instancing"
 description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
 category = "Shaders"
 wasm = true
+
+[[example]]
+name = "custom_render_phase"
+path = "examples/shader/custom_render_phase.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_render_phase]
+name = "Custom Render Phase"
+description = "Shows how to make a complete render phase"
+category = "Shaders"
+wasm = true
+
 
 [[example]]
 name = "automatic_instancing"
@@ -3988,7 +4000,6 @@ name = "Sprite Picking"
 description = "Demonstrates picking sprites and sprite atlases"
 category = "Picking"
 wasm = true
-required-features = ["bevy_sprite_picking_backend"]
 
 [[example]]
 name = "debug_picking"
@@ -4088,7 +4099,15 @@ panic = "abort"
 # for details on why this is needed. Since dependencies don't expect to be built
 # with `--cfg docsrs` (and thus fail to compile) we use a different cfg.
 rustc-args = ["--cfg", "docsrs_dep"]
-rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+rustdoc-args = [
+  "-Zunstable-options",
+  "--generate-link-to-definition",
+  # Embed tags to the top of documentation pages for common Bevy traits
+  # that are implemented by the current type, like `Component` or `Resource`.
+  # This makes it easier to see at a glance what types are used for.
+  "--html-after-content",
+  "docs-rs/trait-tags.html",
+]
 all-features = true
 cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
 

@@ -29,19 +29,21 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
+use bevy_render::batching::gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
         IndirectBatchSet, IndirectParametersBuffers, IndirectParametersIndexed,
         IndirectParametersMetadata, IndirectParametersNonIndexed,
         LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
+        UntypedPhaseBatchedInstanceBuffers,
     },
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
-        BufferVec, CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
         DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec, Shader,
         ShaderStages, ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
         TextureSampleType, UninitBufferVec,
@@ -393,8 +395,22 @@ pub enum PhasePreprocessBindGroups {
 
 /// The bind groups for the compute shaders that reset indirect draw counts and
 /// build indirect parameters.
-#[derive(Resource)]
-pub struct BuildIndirectParametersBindGroups {
+///
+/// There's one set of bind group for each phase. Phases are keyed off their
+/// [`core::any::TypeId`].
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct BuildIndirectParametersBindGroups(pub TypeIdMap<PhaseBuildIndirectParametersBindGroups>);
+
+impl BuildIndirectParametersBindGroups {
+    /// Creates a new, empty [`BuildIndirectParametersBindGroups`] table.
+    pub fn new() -> BuildIndirectParametersBindGroups {
+        Self::default()
+    }
+}
+
+/// The per-phase set of bind groups for the compute shaders that reset indirect
+/// draw counts and build indirect parameters.
+pub struct PhaseBuildIndirectParametersBindGroups {
     /// The bind group for the `reset_indirect_batch_sets.wgsl` shader, for
     /// indexed meshes.
     reset_indexed_indirect_batch_sets: Option<BindGroup>,
@@ -470,9 +486,10 @@ impl Plugin for GpuMeshPreprocessPlugin {
                 (
                     prepare_preprocess_pipelines.in_set(RenderSet::Prepare),
                     prepare_preprocess_bind_groups
-                        .run_if(
-                            resource_exists::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>,
-                        )
+                        .run_if(resource_exists::<BatchedInstanceBuffers<
+                            MeshUniform,
+                            MeshInputUniform
+                        >>)
                         .in_set(RenderSet::PrepareBindGroups),
                     write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush),
                 ),
@@ -511,7 +528,7 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_render_graph_edge(
                 Core3d,
                 NodePbr::MainBuildIndirectParameters,
-                Node3d::DeferredPrepass
+                Node3d::DeferredPrepass,
             );
     }
 }
@@ -538,10 +555,8 @@ impl Node for EarlyGpuPreprocessNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Grab the [`BatchedInstanceBuffers`].
-        let BatchedInstanceBuffers {
-            work_item_buffers: ref index_buffers,
-            ..
-        } = world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
+        let batched_instance_buffers =
+            world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
 
         let pipeline_cache = world.resource::<PipelineCache>();
         let preprocess_pipelines = world.resource::<PreprocessPipelines>();
@@ -583,13 +598,6 @@ impl Node for EarlyGpuPreprocessNode {
                 continue;
             };
 
-            // Grab the work item buffers for this view.
-            let Some(phase_work_item_buffers) = index_buffers.get(&view.retained_view_entity)
-            else {
-                warn!("The preprocessing index buffer wasn't present");
-                continue;
-            };
-
             // Select the right pipeline, depending on whether GPU culling is in
             // use.
             let maybe_pipeline_id = if no_indirect_drawing {
@@ -620,7 +628,17 @@ impl Node for EarlyGpuPreprocessNode {
             compute_pass.set_pipeline(preprocess_pipeline);
 
             // Loop over each render phase.
-            for (phase_type_id, work_item_buffers) in phase_work_item_buffers {
+            for (phase_type_id, batched_phase_instance_buffers) in
+                &batched_instance_buffers.phase_instance_buffers
+            {
+                // Grab the work item buffers for this view.
+                let Some(work_item_buffers) = batched_phase_instance_buffers
+                    .work_item_buffers
+                    .get(&view.retained_view_entity)
+                else {
+                    continue;
+                };
+
                 // Fetch the bind group for the render phase.
                 let Some(phase_bind_groups) = bind_groups.get(phase_type_id) else {
                     continue;
@@ -775,12 +793,8 @@ impl Node for LateGpuPreprocessNode {
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Grab the [`BatchedInstanceBuffers`].
-        let BatchedInstanceBuffers {
-            ref work_item_buffers,
-            ref late_indexed_indirect_parameters_buffer,
-            ref late_non_indexed_indirect_parameters_buffer,
-            ..
-        } = world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
+        let batched_instance_buffers =
+            world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
 
         let pipeline_cache = world.resource::<PipelineCache>();
         let preprocess_pipelines = world.resource::<PreprocessPipelines>();
@@ -795,13 +809,6 @@ impl Node for LateGpuPreprocessNode {
 
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
-            // Grab the work item buffers for this view.
-            let Some(phase_work_item_buffers) = work_item_buffers.get(&view.retained_view_entity)
-            else {
-                warn!("The preprocessing index buffer wasn't present");
-                continue;
-            };
-
             let maybe_pipeline_id = preprocess_pipelines
                 .late_gpu_occlusion_culling_preprocess
                 .pipeline_id;
@@ -821,7 +828,25 @@ impl Node for LateGpuPreprocessNode {
 
             compute_pass.set_pipeline(preprocess_pipeline);
 
-            for (phase_type_id, work_item_buffers) in phase_work_item_buffers {
+            // Loop over each phase. Because we built the phases in parallel,
+            // each phase has a separate set of instance buffers.
+            for (phase_type_id, batched_phase_instance_buffers) in
+                &batched_instance_buffers.phase_instance_buffers
+            {
+                let UntypedPhaseBatchedInstanceBuffers {
+                    ref work_item_buffers,
+                    ref late_indexed_indirect_parameters_buffer,
+                    ref late_non_indexed_indirect_parameters_buffer,
+                    ..
+                } = *batched_phase_instance_buffers;
+
+                // Grab the work item buffers for this view.
+                let Some(phase_work_item_buffers) =
+                    work_item_buffers.get(&view.retained_view_entity)
+                else {
+                    continue;
+                };
+
                 let (
                     PreprocessWorkItemBuffers::Indirect {
                         gpu_occlusion_culling:
@@ -840,7 +865,7 @@ impl Node for LateGpuPreprocessNode {
                     Some(late_indexed_indirect_parameters_buffer),
                     Some(late_non_indexed_indirect_parameters_buffer),
                 ) = (
-                    work_item_buffers,
+                    phase_work_item_buffers,
                     bind_groups.get(phase_type_id),
                     late_indexed_indirect_parameters_buffer.buffer(),
                     late_non_indexed_indirect_parameters_buffer.buffer(),
@@ -1029,57 +1054,69 @@ fn run_build_indirect_parameters_node(
         return Ok(());
     };
 
-    // Build indexed indirect parameters.
-    if let (
-        Some(reset_indexed_indirect_batch_sets_bind_group),
-        Some(build_indirect_indexed_params_bind_group),
-    ) = (
-        &build_indirect_params_bind_groups.reset_indexed_indirect_batch_sets,
-        &build_indirect_params_bind_groups.build_indexed_indirect,
-    ) {
-        compute_pass.set_pipeline(reset_indirect_batch_sets_pipeline);
-        compute_pass.set_bind_group(0, reset_indexed_indirect_batch_sets_bind_group, &[]);
-        let workgroup_count = indirect_parameters_buffers
-            .batch_set_count(true)
-            .div_ceil(WORKGROUP_SIZE);
-        if workgroup_count > 0 {
-            compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+    // Loop over each phase. As each has as separate set of buffers, we need to
+    // build indirect parameters individually for each phase.
+    for (phase_type_id, phase_build_indirect_params_bind_groups) in
+        build_indirect_params_bind_groups.iter()
+    {
+        let Some(phase_indirect_parameters_buffers) =
+            indirect_parameters_buffers.get(phase_type_id)
+        else {
+            continue;
+        };
+
+        // Build indexed indirect parameters.
+        if let (
+            Some(reset_indexed_indirect_batch_sets_bind_group),
+            Some(build_indirect_indexed_params_bind_group),
+        ) = (
+            &phase_build_indirect_params_bind_groups.reset_indexed_indirect_batch_sets,
+            &phase_build_indirect_params_bind_groups.build_indexed_indirect,
+        ) {
+            compute_pass.set_pipeline(reset_indirect_batch_sets_pipeline);
+            compute_pass.set_bind_group(0, reset_indexed_indirect_batch_sets_bind_group, &[]);
+            let workgroup_count = phase_indirect_parameters_buffers
+                .batch_set_count(true)
+                .div_ceil(WORKGROUP_SIZE);
+            if workgroup_count > 0 {
+                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+            }
+
+            compute_pass.set_pipeline(build_indexed_indirect_params_pipeline);
+            compute_pass.set_bind_group(0, build_indirect_indexed_params_bind_group, &[]);
+            let workgroup_count = phase_indirect_parameters_buffers
+                .indexed_batch_count()
+                .div_ceil(WORKGROUP_SIZE);
+            if workgroup_count > 0 {
+                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+            }
         }
 
-        compute_pass.set_pipeline(build_indexed_indirect_params_pipeline);
-        compute_pass.set_bind_group(0, build_indirect_indexed_params_bind_group, &[]);
-        let workgroup_count = indirect_parameters_buffers
-            .indexed_batch_count()
-            .div_ceil(WORKGROUP_SIZE);
-        if workgroup_count > 0 {
-            compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
-        }
-    }
+        // Build non-indexed indirect parameters.
+        if let (
+            Some(reset_non_indexed_indirect_batch_sets_bind_group),
+            Some(build_indirect_non_indexed_params_bind_group),
+        ) = (
+            &phase_build_indirect_params_bind_groups.reset_non_indexed_indirect_batch_sets,
+            &phase_build_indirect_params_bind_groups.build_non_indexed_indirect,
+        ) {
+            compute_pass.set_pipeline(reset_indirect_batch_sets_pipeline);
+            compute_pass.set_bind_group(0, reset_non_indexed_indirect_batch_sets_bind_group, &[]);
+            let workgroup_count = phase_indirect_parameters_buffers
+                .batch_set_count(false)
+                .div_ceil(WORKGROUP_SIZE);
+            if workgroup_count > 0 {
+                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+            }
 
-    // Build non-indexed indirect parameters.
-    if let (
-        Some(reset_non_indexed_indirect_batch_sets_bind_group),
-        Some(build_indirect_non_indexed_params_bind_group),
-    ) = (
-        &build_indirect_params_bind_groups.reset_non_indexed_indirect_batch_sets,
-        &build_indirect_params_bind_groups.build_non_indexed_indirect,
-    ) {
-        compute_pass.set_pipeline(reset_indirect_batch_sets_pipeline);
-        compute_pass.set_bind_group(0, reset_non_indexed_indirect_batch_sets_bind_group, &[]);
-        let workgroup_count = indirect_parameters_buffers
-            .batch_set_count(false)
-            .div_ceil(WORKGROUP_SIZE);
-        if workgroup_count > 0 {
-            compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
-        }
-
-        compute_pass.set_pipeline(build_non_indexed_indirect_params_pipeline);
-        compute_pass.set_bind_group(0, build_indirect_non_indexed_params_bind_group, &[]);
-        let workgroup_count = indirect_parameters_buffers
-            .non_indexed_batch_count()
-            .div_ceil(WORKGROUP_SIZE);
-        if workgroup_count > 0 {
-            compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+            compute_pass.set_pipeline(build_non_indexed_indirect_params_pipeline);
+            compute_pass.set_bind_group(0, build_indirect_non_indexed_params_bind_group, &[]);
+            let workgroup_count = phase_indirect_parameters_buffers
+                .non_indexed_batch_count()
+                .div_ceil(WORKGROUP_SIZE);
+            if workgroup_count > 0 {
+                compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
+            }
         }
     }
 
@@ -1637,18 +1674,14 @@ pub fn prepare_preprocess_bind_groups(
 ) {
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
-        data_buffer: ref data_buffer_vec,
-        ref work_item_buffers,
         current_input_buffer: ref current_input_buffer_vec,
         previous_input_buffer: ref previous_input_buffer_vec,
-        ref late_indexed_indirect_parameters_buffer,
-        ref late_non_indexed_indirect_parameters_buffer,
+        ref phase_instance_buffers,
     } = batched_instance_buffers.into_inner();
 
-    let (Some(current_input_buffer), Some(previous_input_buffer), Some(data_buffer)) = (
+    let (Some(current_input_buffer), Some(previous_input_buffer)) = (
         current_input_buffer_vec.buffer().buffer(),
         previous_input_buffer_vec.buffer().buffer(),
-        data_buffer_vec.buffer(),
     ) else {
         return;
     };
@@ -1659,22 +1692,39 @@ pub fn prepare_preprocess_bind_groups(
 
     // Loop over each view.
     for (view_entity, view) in &views {
-        let Some(phase_work_item_buffers) = work_item_buffers.get(&view.retained_view_entity)
-        else {
-            continue;
-        };
-
         let mut bind_groups = TypeIdMap::default();
 
         // Loop over each phase.
-        for (&phase_id, work_item_buffers) in phase_work_item_buffers {
+        for (phase_type_id, phase_instance_buffers) in phase_instance_buffers {
+            let UntypedPhaseBatchedInstanceBuffers {
+                data_buffer: ref data_buffer_vec,
+                ref work_item_buffers,
+                ref late_indexed_indirect_parameters_buffer,
+                ref late_non_indexed_indirect_parameters_buffer,
+            } = *phase_instance_buffers;
+
+            let Some(data_buffer) = data_buffer_vec.buffer() else {
+                continue;
+            };
+
+            // Grab the indirect parameters buffers for this phase.
+            let Some(phase_indirect_parameters_buffers) =
+                indirect_parameters_buffers.get(phase_type_id)
+            else {
+                continue;
+            };
+
+            let Some(work_item_buffers) = work_item_buffers.get(&view.retained_view_entity) else {
+                continue;
+            };
+
             // Create the `PreprocessBindGroupBuilder`.
             let preprocess_bind_group_builder = PreprocessBindGroupBuilder {
                 view: view_entity,
                 late_indexed_indirect_parameters_buffer,
                 late_non_indexed_indirect_parameters_buffer,
                 render_device: &render_device,
-                indirect_parameters_buffers: &indirect_parameters_buffers,
+                phase_indirect_parameters_buffers,
                 mesh_culling_data_buffer: &mesh_culling_data_buffer,
                 view_uniforms: &view_uniforms,
                 previous_view_uniforms: &previous_view_uniforms,
@@ -1725,7 +1775,7 @@ pub fn prepare_preprocess_bind_groups(
             // Write that bind group in.
             if let Some(bind_group) = bind_group {
                 any_indirect = any_indirect || was_indirect;
-                bind_groups.insert(phase_id, bind_group);
+                bind_groups.insert(*phase_type_id, bind_group);
             }
         }
 
@@ -1764,7 +1814,7 @@ struct PreprocessBindGroupBuilder<'a> {
     /// The device.
     render_device: &'a RenderDevice,
     /// The buffers that store indirect draw parameters.
-    indirect_parameters_buffers: &'a IndirectParametersBuffers,
+    phase_indirect_parameters_buffers: &'a UntypedPhaseIndirectParametersBuffers,
     /// The GPU buffer that stores the information needed to cull each mesh.
     mesh_culling_data_buffer: &'a MeshCullingDataBuffer,
     /// The GPU buffer that stores information about the view.
@@ -1792,7 +1842,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// and GPU occlusion culling are both disabled.
     fn create_direct_preprocess_bind_groups(
         &self,
-        work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<PhasePreprocessBindGroups> {
         // Don't use `as_entire_binding()` here; the shader reads the array
         // length and the underlying buffer may be longer than the actual size
@@ -1828,8 +1878,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     fn create_indirect_occlusion_culling_preprocess_bind_groups(
         &self,
         view_depth_pyramids: &Query<(&ViewDepthPyramid, &PreviousViewUniformOffset)>,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
         gpu_occlusion_culling_work_item_buffers: &GpuOcclusionCullingWorkItemBuffers,
     ) -> Option<PhasePreprocessBindGroups> {
         let GpuOcclusionCullingWorkItemBuffers {
@@ -1876,7 +1926,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         &self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
         late_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
@@ -1884,7 +1934,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
         match (
-            self.indirect_parameters_buffers.indexed_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .indexed_metadata_buffer(),
             indexed_work_item_buffer.buffer(),
             late_indexed_work_item_buffer.buffer(),
             self.late_indexed_indirect_parameters_buffer.buffer(),
@@ -1967,7 +2018,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         &self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
         late_non_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
@@ -1975,7 +2026,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
         match (
-            self.indirect_parameters_buffers
+            self.phase_indirect_parameters_buffers
                 .non_indexed_metadata_buffer(),
             non_indexed_work_item_buffer.buffer(),
             late_non_indexed_work_item_buffer.buffer(),
@@ -2066,7 +2117,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
         match (
-            self.indirect_parameters_buffers.indexed_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .indexed_metadata_buffer(),
             late_indexed_work_item_buffer.buffer(),
             self.late_indexed_indirect_parameters_buffer.buffer(),
         ) {
@@ -2146,7 +2198,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         let previous_view_buffer = self.previous_view_uniforms.uniforms.buffer()?;
 
         match (
-            self.indirect_parameters_buffers
+            self.phase_indirect_parameters_buffers
                 .non_indexed_metadata_buffer(),
             late_non_indexed_work_item_buffer.buffer(),
             self.late_non_indexed_indirect_parameters_buffer.buffer(),
@@ -2218,8 +2270,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_preprocess_bind_groups(
         &self,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<PhasePreprocessBindGroups> {
         Some(PhasePreprocessBindGroups::IndirectFrustumCulling {
             indexed: self
@@ -2234,13 +2286,14 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// frustum culling is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_indexed_bind_group(
         &self,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
 
         match (
-            self.indirect_parameters_buffers.indexed_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .indexed_metadata_buffer(),
             indexed_work_item_buffer.buffer(),
         ) {
             (Some(indexed_metadata_buffer), Some(indexed_work_item_gpu_buffer)) => {
@@ -2287,13 +2340,13 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// GPU frustum culling is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_non_indexed_bind_group(
         &self,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
 
         match (
-            self.indirect_parameters_buffers
+            self.phase_indirect_parameters_buffers
                 .non_indexed_metadata_buffer(),
             non_indexed_work_item_buffer.buffer(),
         ) {
@@ -2346,121 +2399,134 @@ fn create_build_indirect_parameters_bind_groups(
     render_device: &RenderDevice,
     pipelines: &PreprocessPipelines,
     current_input_buffer: &Buffer,
-    indirect_parameters_buffer: &IndirectParametersBuffers,
+    indirect_parameters_buffers: &IndirectParametersBuffers,
 ) {
-    commands.insert_resource(BuildIndirectParametersBindGroups {
-        reset_indexed_indirect_batch_sets: match (
-            indirect_parameters_buffer.indexed_batch_sets_buffer(),
-        ) {
-            (Some(indexed_batch_sets_buffer),) => Some(
-                render_device.create_bind_group(
-                    "reset_indexed_indirect_batch_sets_bind_group",
-                    // The early bind group is good for the main phase and late
-                    // phase too. They bind the same buffers.
-                    &pipelines
-                        .early_phase
-                        .reset_indirect_batch_sets
-                        .bind_group_layout,
-                    &BindGroupEntries::sequential((indexed_batch_sets_buffer.as_entire_binding(),)),
-                ),
-            ),
-            _ => None,
-        },
+    let mut build_indirect_parameters_bind_groups = BuildIndirectParametersBindGroups::new();
 
-        reset_non_indexed_indirect_batch_sets: match (
-            indirect_parameters_buffer.non_indexed_batch_sets_buffer(),
-        ) {
-            (Some(non_indexed_batch_sets_buffer),) => Some(
-                render_device.create_bind_group(
-                    "reset_non_indexed_indirect_batch_sets_bind_group",
-                    // The early bind group is good for the main phase and late
-                    // phase too. They bind the same buffers.
-                    &pipelines
-                        .early_phase
-                        .reset_indirect_batch_sets
-                        .bind_group_layout,
-                    &BindGroupEntries::sequential((
-                        non_indexed_batch_sets_buffer.as_entire_binding(),
-                    )),
-                ),
-            ),
-            _ => None,
-        },
+    for (phase_type_id, phase_indirect_parameters_buffer) in indirect_parameters_buffers.iter() {
+        build_indirect_parameters_bind_groups.insert(
+            *phase_type_id,
+            PhaseBuildIndirectParametersBindGroups {
+                reset_indexed_indirect_batch_sets: match (
+                    phase_indirect_parameters_buffer.indexed_batch_sets_buffer(),
+                ) {
+                    (Some(indexed_batch_sets_buffer),) => Some(
+                        render_device.create_bind_group(
+                            "reset_indexed_indirect_batch_sets_bind_group",
+                            // The early bind group is good for the main phase and late
+                            // phase too. They bind the same buffers.
+                            &pipelines
+                                .early_phase
+                                .reset_indirect_batch_sets
+                                .bind_group_layout,
+                            &BindGroupEntries::sequential((
+                                indexed_batch_sets_buffer.as_entire_binding(),
+                            )),
+                        ),
+                    ),
+                    _ => None,
+                },
 
-        build_indexed_indirect: match (
-            indirect_parameters_buffer.indexed_metadata_buffer(),
-            indirect_parameters_buffer.indexed_data_buffer(),
-            indirect_parameters_buffer.indexed_batch_sets_buffer(),
-        ) {
-            (
-                Some(indexed_indirect_parameters_metadata_buffer),
-                Some(indexed_indirect_parameters_data_buffer),
-                Some(indexed_batch_sets_buffer),
-            ) => Some(
-                render_device.create_bind_group(
-                    "build_indexed_indirect_parameters_bind_group",
-                    // The frustum culling bind group is good for occlusion culling
-                    // too. They bind the same buffers.
-                    &pipelines
-                        .gpu_frustum_culling_build_indexed_indirect_params
-                        .bind_group_layout,
-                    &BindGroupEntries::sequential((
-                        current_input_buffer.as_entire_binding(),
-                        // Don't use `as_entire_binding` here; the shader reads
-                        // the length and `RawBufferVec` overallocates.
-                        BufferBinding {
-                            buffer: indexed_indirect_parameters_metadata_buffer,
-                            offset: 0,
-                            size: NonZeroU64::new(
-                                indirect_parameters_buffer.indexed_batch_count() as u64
-                                    * size_of::<IndirectParametersMetadata>() as u64,
-                            ),
-                        },
-                        indexed_batch_sets_buffer.as_entire_binding(),
-                        indexed_indirect_parameters_data_buffer.as_entire_binding(),
-                    )),
-                ),
-            ),
-            _ => None,
-        },
+                reset_non_indexed_indirect_batch_sets: match (
+                    phase_indirect_parameters_buffer.non_indexed_batch_sets_buffer(),
+                ) {
+                    (Some(non_indexed_batch_sets_buffer),) => Some(
+                        render_device.create_bind_group(
+                            "reset_non_indexed_indirect_batch_sets_bind_group",
+                            // The early bind group is good for the main phase and late
+                            // phase too. They bind the same buffers.
+                            &pipelines
+                                .early_phase
+                                .reset_indirect_batch_sets
+                                .bind_group_layout,
+                            &BindGroupEntries::sequential((
+                                non_indexed_batch_sets_buffer.as_entire_binding(),
+                            )),
+                        ),
+                    ),
+                    _ => None,
+                },
 
-        build_non_indexed_indirect: match (
-            indirect_parameters_buffer.non_indexed_metadata_buffer(),
-            indirect_parameters_buffer.non_indexed_data_buffer(),
-            indirect_parameters_buffer.non_indexed_batch_sets_buffer(),
-        ) {
-            (
-                Some(non_indexed_indirect_parameters_metadata_buffer),
-                Some(non_indexed_indirect_parameters_data_buffer),
-                Some(non_indexed_batch_sets_buffer),
-            ) => Some(
-                render_device.create_bind_group(
-                    "build_non_indexed_indirect_parameters_bind_group",
-                    // The frustum culling bind group is good for occlusion culling
-                    // too. They bind the same buffers.
-                    &pipelines
-                        .gpu_frustum_culling_build_non_indexed_indirect_params
-                        .bind_group_layout,
-                    &BindGroupEntries::sequential((
-                        current_input_buffer.as_entire_binding(),
-                        // Don't use `as_entire_binding` here; the shader reads
-                        // the length and `RawBufferVec` overallocates.
-                        BufferBinding {
-                            buffer: non_indexed_indirect_parameters_metadata_buffer,
-                            offset: 0,
-                            size: NonZeroU64::new(
-                                indirect_parameters_buffer.non_indexed_batch_count() as u64
-                                    * size_of::<IndirectParametersMetadata>() as u64,
-                            ),
-                        },
-                        non_indexed_batch_sets_buffer.as_entire_binding(),
-                        non_indexed_indirect_parameters_data_buffer.as_entire_binding(),
-                    )),
-                ),
-            ),
-            _ => None,
-        },
-    });
+                build_indexed_indirect: match (
+                    phase_indirect_parameters_buffer.indexed_metadata_buffer(),
+                    phase_indirect_parameters_buffer.indexed_data_buffer(),
+                    phase_indirect_parameters_buffer.indexed_batch_sets_buffer(),
+                ) {
+                    (
+                        Some(indexed_indirect_parameters_metadata_buffer),
+                        Some(indexed_indirect_parameters_data_buffer),
+                        Some(indexed_batch_sets_buffer),
+                    ) => Some(
+                        render_device.create_bind_group(
+                            "build_indexed_indirect_parameters_bind_group",
+                            // The frustum culling bind group is good for occlusion culling
+                            // too. They bind the same buffers.
+                            &pipelines
+                                .gpu_frustum_culling_build_indexed_indirect_params
+                                .bind_group_layout,
+                            &BindGroupEntries::sequential((
+                                current_input_buffer.as_entire_binding(),
+                                // Don't use `as_entire_binding` here; the shader reads
+                                // the length and `RawBufferVec` overallocates.
+                                BufferBinding {
+                                    buffer: indexed_indirect_parameters_metadata_buffer,
+                                    offset: 0,
+                                    size: NonZeroU64::new(
+                                        phase_indirect_parameters_buffer.indexed_batch_count()
+                                            as u64
+                                            * size_of::<IndirectParametersMetadata>() as u64,
+                                    ),
+                                },
+                                indexed_batch_sets_buffer.as_entire_binding(),
+                                indexed_indirect_parameters_data_buffer.as_entire_binding(),
+                            )),
+                        ),
+                    ),
+                    _ => None,
+                },
+
+                build_non_indexed_indirect: match (
+                    phase_indirect_parameters_buffer.non_indexed_metadata_buffer(),
+                    phase_indirect_parameters_buffer.non_indexed_data_buffer(),
+                    phase_indirect_parameters_buffer.non_indexed_batch_sets_buffer(),
+                ) {
+                    (
+                        Some(non_indexed_indirect_parameters_metadata_buffer),
+                        Some(non_indexed_indirect_parameters_data_buffer),
+                        Some(non_indexed_batch_sets_buffer),
+                    ) => Some(
+                        render_device.create_bind_group(
+                            "build_non_indexed_indirect_parameters_bind_group",
+                            // The frustum culling bind group is good for occlusion culling
+                            // too. They bind the same buffers.
+                            &pipelines
+                                .gpu_frustum_culling_build_non_indexed_indirect_params
+                                .bind_group_layout,
+                            &BindGroupEntries::sequential((
+                                current_input_buffer.as_entire_binding(),
+                                // Don't use `as_entire_binding` here; the shader reads
+                                // the length and `RawBufferVec` overallocates.
+                                BufferBinding {
+                                    buffer: non_indexed_indirect_parameters_metadata_buffer,
+                                    offset: 0,
+                                    size: NonZeroU64::new(
+                                        phase_indirect_parameters_buffer.non_indexed_batch_count()
+                                            as u64
+                                            * size_of::<IndirectParametersMetadata>() as u64,
+                                    ),
+                                },
+                                non_indexed_batch_sets_buffer.as_entire_binding(),
+                                non_indexed_indirect_parameters_data_buffer.as_entire_binding(),
+                            )),
+                        ),
+                    ),
+                    _ => None,
+                },
+            },
+        );
+    }
+
+    commands.insert_resource(build_indirect_parameters_bind_groups);
 }
 
 /// Writes the information needed to do GPU mesh culling to the GPU.

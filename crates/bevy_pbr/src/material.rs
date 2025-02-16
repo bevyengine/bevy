@@ -252,6 +252,8 @@ pub struct MaterialPlugin<M: Material> {
     pub prepass_enabled: bool,
     /// Controls if shadows are enabled for the Material.
     pub shadows_enabled: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
     pub _marker: PhantomData<M>,
 }
 
@@ -260,6 +262,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
         Self {
             prepass_enabled: true,
             shadows_enabled: true,
+            debug_flags: RenderDebugFlags::default(),
             _marker: Default::default(),
         }
     }
@@ -374,7 +377,7 @@ where
         }
 
         if self.prepass_enabled {
-            app.add_plugins(PrepassPlugin::<M>::default());
+            app.add_plugins(PrepassPlugin::<M>::new(self.debug_flags));
         }
     }
 
@@ -1002,6 +1005,7 @@ pub fn queue_material_meshes<M: Material>(
                         batch_set_key,
                         bin_key,
                         (*render_entity, *visible_entity),
+                        mesh_instance.current_uniform_index,
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
@@ -1025,6 +1029,7 @@ pub fn queue_material_meshes<M: Material>(
                         batch_set_key,
                         bin_key,
                         (*render_entity, *visible_entity),
+                        mesh_instance.current_uniform_index,
                         BinnedRenderPhaseType::mesh(
                             mesh_instance.should_batch(),
                             &gpu_preprocessing_support,
@@ -1047,10 +1052,6 @@ pub fn queue_material_meshes<M: Material>(
                 }
             }
         }
-
-        // Remove invalid entities from the bins.
-        opaque_phase.sweep_old_entities();
-        alpha_mask_phase.sweep_old_entities();
     }
 }
 

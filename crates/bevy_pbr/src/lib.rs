@@ -125,7 +125,7 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     texture::GpuImage,
     view::VisibilitySystems,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 
 use bevy_transform::TransformSystem;
@@ -182,6 +182,8 @@ pub struct PbrPlugin {
     /// This requires compute shader support and so will be forcibly disabled if
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
+    /// Debugging flags that can optionally be set when constructing the renderer.
+    pub debug_flags: RenderDebugFlags,
 }
 
 impl Default for PbrPlugin {
@@ -190,6 +192,7 @@ impl Default for PbrPlugin {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
+            debug_flags: RenderDebugFlags::default(),
         }
     }
 }
@@ -333,9 +336,11 @@ impl Plugin for PbrPlugin {
             .add_plugins((
                 MeshRenderPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
+                    debug_flags: self.debug_flags,
                 },
                 MaterialPlugin::<StandardMaterial> {
                     prepass_enabled: self.prepass_enabled,
+                    debug_flags: self.debug_flags,
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,

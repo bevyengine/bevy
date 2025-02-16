@@ -4,16 +4,16 @@ use bevy_ecs::{
     system::{ResMut, SystemParam, SystemParamItem},
 };
 use bytemuck::Pod;
+use gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
 use nonmax::NonMaxU32;
 
-use self::gpu_preprocessing::IndirectParametersBuffers;
-use crate::{render_phase::PhaseItemExtraIndex, sync_world::MainEntity};
 use crate::{
     render_phase::{
-        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, SortedPhaseItem,
-        SortedRenderPhase, ViewBinnedRenderPhases,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, InputUniformIndex,
+        PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase, ViewBinnedRenderPhases,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferable},
+    sync_world::MainEntity,
 };
 
 pub mod gpu_preprocessing;
@@ -132,12 +132,17 @@ pub trait GetFullBatchData: GetBatchData {
     ) -> Option<(NonMaxU32, Option<Self::CompareData>)>;
 
     /// Returns the index of the [`GetFullBatchData::BufferInputData`] that the
-    /// GPU preprocessing phase will use, for the binning path.
+    /// GPU preprocessing phase will use.
     ///
     /// We already inserted the [`GetFullBatchData::BufferInputData`] during the
     /// extraction phase before we got here, so this function shouldn't need to
-    /// look up any render data. If CPU instance buffer building is in use, this
-    /// function will never be called.
+    /// look up any render data.
+    ///
+    /// This function is currently only called for unbatchable entities when GPU
+    /// instance buffer building is in use. For batchable entities, the uniform
+    /// index is written during queuing (e.g. in `queue_material_meshes`). In
+    /// the case of CPU instance buffer building, the CPU writes the uniforms,
+    /// so there's no index to return.
     fn get_binned_index(
         param: &SystemParamItem<Self::Param>,
         query_item: MainEntity,
@@ -167,11 +172,11 @@ pub trait GetFullBatchData: GetBatchData {
     /// * `indirect_parameters_offset` is the index in that buffer at which to
     ///   write the metadata.
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: u32,
+        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
-        indirect_parameters_buffers: &mut IndirectParametersBuffers,
+        indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     );
 }
@@ -182,23 +187,9 @@ where
     BPI: BinnedPhaseItem,
 {
     for phase in phases.values_mut() {
-        phase.multidrawable_mesh_keys.clear();
-        phase
-            .multidrawable_mesh_keys
-            .extend(phase.multidrawable_mesh_values.keys().cloned());
-        phase.multidrawable_mesh_keys.sort_unstable();
-
-        phase.batchable_mesh_keys.clear();
-        phase
-            .batchable_mesh_keys
-            .extend(phase.batchable_mesh_values.keys().cloned());
-        phase.batchable_mesh_keys.sort_unstable();
-
-        phase.unbatchable_mesh_keys.clear();
-        phase
-            .unbatchable_mesh_keys
-            .extend(phase.unbatchable_mesh_values.keys().cloned());
-        phase.unbatchable_mesh_keys.sort_unstable();
+        phase.multidrawable_meshes.sort_unstable_keys();
+        phase.batchable_meshes.sort_unstable_keys();
+        phase.unbatchable_meshes.sort_unstable_keys();
     }
 }
 

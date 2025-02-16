@@ -95,6 +95,7 @@ impl AssetIndexAllocator {
 /// [`AssetPath`]: crate::AssetPath
 #[derive(Asset, TypePath)]
 pub struct LoadedUntypedAsset {
+    /// The handle to the loaded asset.
     #[dependency]
     pub handle: UntypedHandle,
 }
@@ -280,6 +281,8 @@ impl<A: Asset> DenseAssetStorage<A> {
 /// at compile time.
 ///
 /// This tracks (and queues) [`AssetEvent`] events whenever changes to the collection occur.
+/// To check whether the asset used by a given component has changed (due to a change in the handle or the underlying asset)
+/// use the [`AssetChanged`](crate::asset_changed::AssetChanged) query filter.
 #[derive(Resource)]
 pub struct Assets<A: Asset> {
     dense_storage: DenseAssetStorage<A>,
@@ -629,6 +632,7 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
     }
 }
 
+/// An error returned when an [`AssetIndex`] has an invalid generation.
 #[derive(Error, Debug)]
 #[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
 pub struct InvalidGenerationError {
