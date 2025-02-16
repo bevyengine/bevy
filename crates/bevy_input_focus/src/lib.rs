@@ -156,7 +156,7 @@ pub struct WindowTraversal {
 }
 
 impl<E: Event + Clone> Traversal<FocusedInput<E>> for WindowTraversal {
-    fn traverse(item: Self::Item<'_>, event: &FocusedInput<E>) -> Option<Entity> {
+    fn traverse(item: Self::Item<'_, '_>, event: &FocusedInput<E>) -> Option<Entity> {
         let WindowTraversalItem { parent, window } = item;
 
         // Send event to parent, if it has one.
