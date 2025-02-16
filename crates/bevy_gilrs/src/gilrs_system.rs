@@ -1,7 +1,10 @@
 use crate::{
     converter::{convert_axis, convert_button},
-    Gilrs, GilrsGamepads,
+    GilrsGamepads,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::Gilrs;
 
 #[cfg(target_arch = "wasm32")]
 use crate::GILRS;

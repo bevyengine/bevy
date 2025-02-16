@@ -14,6 +14,9 @@ mod converter;
 mod gilrs_system;
 mod rumble;
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_utils::synccell::SyncCell;
+
 #[cfg(target_arch = "wasm32")]
 use core::cell::RefCell;
 
@@ -22,7 +25,6 @@ use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_platform_support::collections::HashMap;
-use bevy_utils::synccell::SyncCell;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RunningRumbleEffects};

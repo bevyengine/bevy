@@ -1,5 +1,8 @@
 //! Handle user specified rumble request events.
-use crate::{Gilrs, GilrsGamepads};
+use crate::GilrsGamepads;
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::Gilrs;
 
 #[cfg(target_arch = "wasm32")]
 use crate::GILRS;
