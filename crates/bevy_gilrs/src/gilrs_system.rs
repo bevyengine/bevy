@@ -68,8 +68,8 @@ pub fn gilrs_event_system(
 ) {
     #[cfg(target_arch = "wasm32")]
     GILRS.with(|g| {
-        let g_ref = g.borrow();
-        let gilrs = g_ref.as_ref().expect("GILRS was not initialized");
+        let mut g_ref = g.borrow_mut();
+        let gilrs = g_ref.as_mut().expect("GILRS was not initialized");
         gilrs_event_system_inner(
             commands,
             gilrs,
