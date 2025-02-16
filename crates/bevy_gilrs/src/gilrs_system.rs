@@ -25,20 +25,10 @@ pub fn gilrs_event_startup_system(
     GILRS.with(|g| {
         let g_ref = g.borrow();
         let gilrs = g_ref.as_ref().expect("GILRS was not initialized");
-        gilrs_event_startup_system_inner(
-            commands,
-            gilrs,
-            gamepads,
-            events
-        );
+        gilrs_event_startup_system_inner(commands, gilrs, gamepads, events);
     });
     #[cfg(not(target_arch = "wasm32"))]
-    gilrs_event_startup_system_inner(
-        commands,
-        gilrs.0.get(),
-        gamepads,
-        events
-    );
+    gilrs_event_startup_system_inner(commands, gilrs.0.get(), gamepads, events);
 }
 
 fn gilrs_event_startup_system_inner(
@@ -84,7 +74,7 @@ pub fn gilrs_event_system(
             events,
             connection_events,
             button_events,
-            axis_event
+            axis_event,
         );
     });
     #[cfg(not(target_arch = "wasm32"))]
@@ -95,7 +85,7 @@ pub fn gilrs_event_system(
         events,
         connection_events,
         button_events,
-        axis_event
+        axis_event,
     );
 }
 

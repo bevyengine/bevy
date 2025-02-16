@@ -872,7 +872,11 @@ pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
         app.cleanup();
     }
 
-    let event_loop = EVENT_LOOP.take().expect("event loop was either never initialized or already taken after initialization").downcast::<EventLoop<T>>().expect("event loop passed into Winit needs to be of type `EventLoop<T: Event>`");
+    let event_loop = EVENT_LOOP
+        .take()
+        .expect("event loop was either never initialized or already taken after initialization")
+        .downcast::<EventLoop<T>>()
+        .expect("event loop passed into Winit needs to be of type `EventLoop<T: Event>`");
 
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));

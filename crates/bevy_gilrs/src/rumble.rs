@@ -140,22 +140,10 @@ pub(crate) fn play_gilrs_rumble(
     GILRS.with(|g| {
         let mut g_ref = g.borrow_mut();
         let gilrs = g_ref.as_mut().expect("GILRS was not initialized");
-        play_gilrs_rumble_inner(
-            time,
-            gilrs,
-            gamepads,
-            requests,
-            running_rumbles
-        );
+        play_gilrs_rumble_inner(time, gilrs, gamepads, requests, running_rumbles);
     });
     #[cfg(not(target_arch = "wasm32"))]
-    play_gilrs_rumble_inner(
-        time,
-        gilrs.0.get(),
-        gamepads,
-        requests,
-        running_rumbles
-    );
+    play_gilrs_rumble_inner(time, gilrs.0.get(), gamepads, requests, running_rumbles);
 }
 
 fn play_gilrs_rumble_inner(
