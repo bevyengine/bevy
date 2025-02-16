@@ -218,11 +218,12 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut rng = rand::rng();
     let unstable_type_id: u128 = rng.random();
     let struct_name_2 = struct_name.to_string();
-    let struct_name_code = if cfg!(feature ="diagnostic_component_names") { quote! {
-        const STRUCT_NAME: &'static str = #struct_name_2;
-    } }
-    else {
-        quote!{}
+    let struct_name_code = if cfg!(feature = "diagnostic_component_names") {
+        quote! {
+            const STRUCT_NAME: &'static str = #struct_name_2;
+        }
+    } else {
+        quote! {}
     };
 
     // This puts `register_required` before `register_recursive_requires` to ensure that the constructors of _all_ top
