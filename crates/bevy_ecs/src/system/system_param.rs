@@ -31,6 +31,9 @@ use core::{
 use disqualified::ShortName;
 
 use super::Populated;
+use crate::system::const_param_checking::{
+    ComponentAccess, ConstTree, ConstTreeInner, ConstTrees, WithId, WithoutId,
+};
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 /// A parameter that can be used in a [`System`](super::System).
@@ -192,6 +195,25 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of [`SystemParam::Item<'w, 's>`] as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
+    /// A compile-time representation of how this system parameter accesses components
+    /// Used for validating access patterns during const evaluation
+    const COMPONENT_ACCESS_TREE: ConstTree<ComponentAccess> = &ConstTreeInner::Empty;
+
+    /// A compile-time representation of With<T>, Added<T>, and Changed<T> filters for this parameter
+    /// Used for validating filter compatibility during const evaluation
+    const WITH_FILTER_TREE: ConstTree<WithId> = &ConstTreeInner::Empty;
+
+    /// A compile-time representation of Without<T> filters for this parameter
+    /// Used for validating filter compatibility during const evaluation
+    const WITHOUT_FILTER_TREE: ConstTree<WithoutId> = &ConstTreeInner::Empty;
+
+    /// A collection of the ConstTrees in the SystemParam
+    const CONST_TREES: ConstTrees = ConstTrees {
+        component_tree: Self::COMPONENT_ACCESS_TREE,
+        without_tree: Self::WITHOUT_FILTER_TREE,
+        with_tree: Self::WITH_FILTER_TREE,
+    };
+
     /// Registers any [`World`] access used by this [`SystemParam`]
     /// and creates a new instance of this param's [`State`](SystemParam::State).
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
@@ -308,6 +330,12 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Query<'_, '_, D, F> {
     type State = QueryState<D, F>;
     type Item<'w, 's> = Query<'w, 's, D, F>;
+
+    const COMPONENT_ACCESS_TREE: ConstTree<ComponentAccess> = D::COMPONENT_ACCESS_TREE_QUERY_DATA;
+
+    const WITH_FILTER_TREE: ConstTree<WithId> = F::WITH_FILTER_TREE_QUERY_DATA;
+
+    const WITHOUT_FILTER_TREE: ConstTree<WithoutId> = F::WITHOUT_FILTER_TREE_QUERY_DATA;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let state = QueryState::new_with_access(world, &mut system_meta.archetype_component_access);
