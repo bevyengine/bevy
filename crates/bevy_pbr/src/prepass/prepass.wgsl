@@ -96,11 +96,17 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
 #endif // VERTEX_UVS_B
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_NORMALS
+    var vertex_normal = vertex.normal;
+#else // VERTEX_NORMALS
+    var vertex_normal = vec3(0.0);
+#endif // VERTEX_NORMALS
+
 #ifdef SKINNED
-    out.world_normal = skinning::skin_normals(world_from_local, vertex.normal);
+    out.world_normal = skinning::skin_normals(world_from_local, vertex_normal);
 #else // SKINNED
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
-        vertex.normal,
+        vertex_normal,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
         vertex_no_morph.instance_index
