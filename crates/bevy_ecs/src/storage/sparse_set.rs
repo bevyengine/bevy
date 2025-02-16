@@ -722,10 +722,10 @@ mod tests {
         assert_eq!(sets.len(), 0);
         assert!(sets.is_empty());
 
-        init_component::<TestComponent1>(&mut sets, 1);
+        register_component::<TestComponent1>(&mut sets, 1);
         assert_eq!(sets.len(), 1);
 
-        init_component::<TestComponent2>(&mut sets, 2);
+        register_component::<TestComponent2>(&mut sets, 2);
         assert_eq!(sets.len(), 2);
 
         // check its shape by iter
@@ -739,7 +739,7 @@ mod tests {
             vec![(ComponentId::new(1), 0), (ComponentId::new(2), 0),]
         );
 
-        fn init_component<T: Component>(sets: &mut SparseSets, id: usize) {
+        fn register_component<T: Component>(sets: &mut SparseSets, id: usize) {
             let descriptor = ComponentDescriptor::new::<T>();
             let id = ComponentId::new(id);
             let info = ComponentInfo::new(id, descriptor);
