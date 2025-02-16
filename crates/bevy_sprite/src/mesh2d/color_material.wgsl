@@ -9,6 +9,7 @@
 
 struct ColorMaterial {
     color: vec4<f32>,
+    uv_transform: mat3x3<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -34,8 +35,10 @@ fn fragment(
     output_color = output_color * mesh.color;
 #endif
 
+    let uv = (material.uv_transform * vec3(mesh.uv, 1.0)).xy;
+
     if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
-        output_color = output_color * textureSample(texture, texture_sampler, mesh.uv);
+        output_color = output_color * textureSample(texture, texture_sampler, uv);
     }
 
     output_color = alpha_discard(material, output_color);
