@@ -56,6 +56,8 @@ mod winit_windows;
 thread_local! {
     /// Temporary storage of event loop to replace usage of `!Send` resources.
     /// This will be replaced with proper storage of `!Send` data after issue #17667 is complete.
+    ///
+    /// Here we use runtime type checking because generics cannot be used with `static`.
     pub static EVENT_LOOP: RefCell<Option<Box<dyn Any>>> = RefCell::new(None);
 }
 
@@ -150,10 +152,11 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             .build()
             .expect("Failed to build event loop");
 
-        EVENT_LOOP.set(Some(Box::new(event_loop)));
         // `winit`'s windows are bound to the event loop that created them, so the event loop must
-        // be inserted as a resource here to pass it onto the runner.
-        //app.insert_resource(event_loop);
+        // be set as a `thread_local!` here to pass it onto the runner.
+        //
+        // This a temporary solution to replace usage of `!Send` resources. See issue #17667 for more info.
+        EVENT_LOOP.set(Some(Box::new(event_loop)));
     }
 }
 
