@@ -1,6 +1,6 @@
 use crate::{
     change_detection::MaybeLocation,
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, ComponentsReader, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
@@ -760,7 +760,7 @@ impl Tables {
             .or_insert_with(|| {
                 let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
-                    table = table.add_column(components.get_info_unchecked(*component_id));
+                    table = table.add_column(&components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
                 (component_ids.into(), TableId::from_usize(tables.len() - 1))
@@ -822,7 +822,9 @@ impl Drop for Table {
 mod tests {
     use crate::{
         change_detection::MaybeLocation,
-        component::{Component, Components, Tick},
+        component::{
+            Component, Components, ComponentsReader, ComponentsWriter, DerefByLifetime, Tick,
+        },
         entity::Entity,
         ptr::OwningPtr,
         storage::{TableBuilder, TableId, TableRow, Tables},
@@ -850,7 +852,7 @@ mod tests {
         let component_id = components.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
-            .add_column(components.get_info(component_id).unwrap())
+            .add_column(components.get_info(component_id).unwrap().deref_lifetime())
             .build();
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {

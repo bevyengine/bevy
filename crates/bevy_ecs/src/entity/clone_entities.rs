@@ -7,7 +7,9 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
-use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
+use crate::component::{
+    ComponentCloneBehavior, ComponentCloneFn, ComponentsReader, DerefByLifetime,
+};
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::EntityMapper;
 use crate::system::Commands;
@@ -73,8 +75,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             target_component_written: false,
             bundle_scratch_allocator,
             components,
+            component_info: components.get_info_unchecked(component_id).deref_lifetime(),
             mapper,
-            component_info: components.get_info_unchecked(component_id),
             entity_cloner,
             type_registry,
         }
