@@ -1,8 +1,10 @@
 //! Handle user specified rumble request events.
 use crate::{Gilrs, GilrsGamepads};
-use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
+
 #[cfg(target_arch = "wasm32")]
-use bevy_ecs::system::NonSendMut;
+use crate::GILRS;
+
+use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_platform_support::collections::HashMap;
 use bevy_time::{Real, Time};
@@ -126,15 +128,43 @@ fn handle_rumble_request(
 
     Ok(())
 }
+
 pub(crate) fn play_gilrs_rumble(
     time: Res<Time<Real>>,
-    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    gamepads: Res<GilrsGamepads>,
+    requests: EventReader<GamepadRumbleRequest>,
+    running_rumbles: ResMut<RunningRumbleEffects>,
+) {
+    #[cfg(target_arch = "wasm32")]
+    GILRS.with(|g| {
+        let mut g_ref = g.borrow_mut();
+        let gilrs = g_ref.as_mut().expect("GILRS was not initialized");
+        play_gilrs_rumble_inner(
+            time,
+            gilrs,
+            gamepads,
+            requests,
+            running_rumbles
+        );
+    });
+    #[cfg(not(target_arch = "wasm32"))]
+    play_gilrs_rumble_inner(
+        time,
+        gilrs.0.get(),
+        gamepads,
+        requests,
+        running_rumbles
+    );
+}
+
+fn play_gilrs_rumble_inner(
+    time: Res<Time<Real>>,
+    gilrs: &mut gilrs::Gilrs,
     gamepads: Res<GilrsGamepads>,
     mut requests: EventReader<GamepadRumbleRequest>,
     mut running_rumbles: ResMut<RunningRumbleEffects>,
 ) {
-    let gilrs = gilrs.0.get();
     let current_time = time.elapsed();
     // Remove outdated rumble effects.
     for rumbles in running_rumbles.rumbles.values_mut() {
