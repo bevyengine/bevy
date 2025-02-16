@@ -93,6 +93,7 @@ use log::warn;
     reflect(Component, PartialEq, Debug, FromWorld)
 )]
 #[relationship(relationship_target = Children)]
+#[doc(alias = "IsChild", alias = "Parent")]
 pub struct ChildOf(pub Entity);
 
 impl ChildOf {
@@ -138,6 +139,7 @@ impl FromWorld for ChildOf {
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
+#[doc(alias = "IsParent")]
 pub struct Children(Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
