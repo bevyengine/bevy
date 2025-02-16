@@ -3,7 +3,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, weak_handle, Asset, AssetApp, Assets, Handle};
 use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
 use bevy_image::Image;
-use bevy_math::Vec4;
+use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 
@@ -45,6 +45,7 @@ impl Plugin for ColorMaterialPlugin {
 pub struct ColorMaterial {
     pub color: Color,
     pub alpha_mode: AlphaMode2d,
+    pub uv_transform: Affine2,
     #[texture(1)]
     #[sampler(2)]
     pub texture: Option<Handle<Image>>,
@@ -61,6 +62,7 @@ impl Default for ColorMaterial {
     fn default() -> Self {
         ColorMaterial {
             color: Color::WHITE,
+            uv_transform: Affine2::default(),
             texture: None,
             // TODO should probably default to AlphaMask once supported?
             alpha_mode: AlphaMode2d::Blend,
@@ -117,6 +119,7 @@ impl ColorMaterialFlags {
 #[derive(Clone, Default, ShaderType)]
 pub struct ColorMaterialUniform {
     pub color: Vec4,
+    pub uv_transform: Mat3,
     pub flags: u32,
     pub alpha_cutoff: f32,
 }
@@ -140,6 +143,7 @@ impl AsBindGroupShaderType<ColorMaterialUniform> for ColorMaterial {
         };
         ColorMaterialUniform {
             color: LinearRgba::from(self.color).to_f32_array().into(),
+            uv_transform: self.uv_transform.into(),
             flags: flags.bits(),
             alpha_cutoff,
         }
