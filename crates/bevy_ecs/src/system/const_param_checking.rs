@@ -23,11 +23,11 @@ pub struct SystemPanicMessage {
 #[derive(Copy, Clone, Debug)]
 pub struct ComponentAccess {
     /// Unique compile-time identifier for the component type
-    type_id: u128,
+    pub type_id: u128,
     /// The type of access (reference or mutable) to the component
-    access: AccessType,
+    pub access: AccessType,
     /// The component's name if available, used for error reporting
-    name: &'static str,
+    pub name: &'static str,
 }
 impl ComponentAccess {
     const fn conflicts(&self, rhs: &ComponentAccess) -> Option<SystemPanicMessage> {
