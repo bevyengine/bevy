@@ -1514,20 +1514,7 @@ pub(crate) trait ComponentsInternalReader: ComponentsReader {
 }
 
 /// This trait provides easily misused write access to [`Component`] collections intended for use only within this crate.
-#[expect(
-    private_bounds,
-    reason = "
-        This trait is internal, so there is not real cost for the private bounds.
-        This allows the more complex parts of this trait to be implemented automatically.
-        Further, since any implementation of `ComponentsInternalWriter` would likely need to be in this file anyway, we aren't really giving anything up.
-    "
-)]
-pub(crate) trait ComponentsInternalWriter:
-    ComponentsInternalReader + ComponentsPrivateWriter
-{
-    /// Gets the [`ComponentHooks`] for a component if it exists.
-    fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks>;
-
+pub(crate) trait ComponentsInternalWriter: ComponentsInternalReader {
     /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
     fn get_required_components_mut(
         &mut self,
@@ -1750,7 +1737,7 @@ pub(crate) trait ComponentsInternalWriter:
 }
 
 /// This trait provides low level access to [`Component`] collections intended for use only within this module.
-trait ComponentsPrivateWriter {
+trait ComponentsPrivateWriter: ComponentsInternalWriter {
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
@@ -1760,13 +1747,16 @@ trait ComponentsPrivateWriter {
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId;
 
+    /// Registers a [`Component`] or returns its [`ComponentId`] if it is already registered.
     fn register_component_internal<T: Component>(
         &mut self,
         recursion_check_stack: &mut Vec<ComponentId>,
     ) -> ComponentId;
 }
 
-impl<C: ComponentsReader + ComponentsInternalWriter> ComponentsWriter for C {
+impl<C: ComponentsReader + ComponentsInternalWriter + ComponentsPrivateWriter> ComponentsWriter
+    for C
+{
     fn register_component<T: Component>(&mut self) -> ComponentId {
         self.register_component_internal::<T>(&mut Vec::new())
     }
@@ -2165,11 +2155,6 @@ impl ComponentsPrivateWriter for Components {
 
 impl ComponentsInternalWriter for Components {
     #[inline]
-    fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
-        self.components.get_mut(id.0).map(|info| &mut info.hooks)
-    }
-
-    #[inline]
     fn get_required_components_mut(
         &mut self,
         id: ComponentId,
@@ -2201,7 +2186,140 @@ impl ComponentsInternalWriter for Components {
     }
 }
 
+impl ComponentsInternalWriter for Stager<'_, StagedComponents> {
+    fn get_required_components_mut(
+        &mut self,
+        id: ComponentId,
+    ) -> Option<RequiredComponentsStagedMut> {
+        if !self.is_id_valid(id) {
+            return None;
+        }
+
+        Some(if self.is_id_staged(id) {
+            // SAFETY: We just checked that it was valid and staged
+            let info = unsafe {
+                self.staged
+                    .components
+                    .get_mut(id.0 - self.cold.components.len())
+                    .debug_checked_unwrap()
+            };
+            RequiredComponentsStagedMut {
+                working: &mut info.required_components,
+                cold: None,
+            }
+        } else {
+            // SAFETY: We just checked that it was valid and cold
+            let cold = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
+            let additional = self
+                .staged
+                .additional_required_components
+                .entry(id)
+                .or_default();
+
+            RequiredComponentsStagedMut {
+                working: additional,
+                cold: Some(&cold.required_components),
+            }
+        })
+    }
+
+    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByStagedMut> {
+        if !self.is_id_valid(id) {
+            return None;
+        }
+
+        Some(if self.is_id_staged(id) {
+            // SAFETY: We just checked that it was valid and staged
+            let info = unsafe {
+                self.staged
+                    .components
+                    .get_mut(id.0 - self.cold.components.len())
+                    .debug_checked_unwrap()
+            };
+            RequiredByStagedMut {
+                working: &mut info.required_by,
+                cold: None,
+            }
+        } else {
+            // SAFETY: We just checked that it was valid and cold
+            let cold = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
+            let additional = self.staged.additional_required_by.entry(id).or_default();
+
+            RequiredByStagedMut {
+                working: additional,
+                cold: Some(&cold.required_by),
+            }
+        })
+    }
+
+    fn register_descriptor(&mut self, descriptor: ComponentDescriptor) -> ComponentId {
+        let component_id = ComponentId(self.len());
+        self.staged
+            .components
+            .push(ComponentInfo::new(component_id, descriptor));
+        component_id
+    }
+}
+
+impl ComponentsPrivateWriter for Stager<'_, StagedComponents> {
+    unsafe fn get_or_register_resource_with(
+        &mut self,
+        type_id: TypeId,
+        func: impl FnOnce() -> ComponentDescriptor,
+    ) -> ComponentId {
+        if let Some(id) = self
+            .cold
+            .resource_indices
+            .get(&type_id)
+            .or_else(|| self.staged.resource_indices.get(&type_id))
+        {
+            *id
+        } else {
+            let id = self.register_descriptor(func());
+            self.staged.resource_indices.insert(type_id, id);
+            id
+        }
+    }
+
+    fn register_component_internal<T: Component>(
+        &mut self,
+        recursion_check_stack: &mut Vec<ComponentId>,
+    ) -> ComponentId {
+        let type_id = TypeId::of::<T>();
+        if let Some(id) = self
+            .cold
+            .indices
+            .get(&type_id)
+            .or_else(|| self.staged.indices.get(&type_id))
+        {
+            return *id;
+        }
+        let id = self.register_descriptor(ComponentDescriptor::new::<T>());
+        self.staged.indices.insert(type_id, id);
+        let mut required_components = RequiredComponents::default();
+        T::register_required_components(
+            id,
+            self,
+            &mut required_components,
+            0,
+            recursion_check_stack,
+        );
+        let info = &mut self.staged.components[id.0 - self.cold.len()];
+        #[expect(deprecated, reason = "We still need to support this for now.")]
+        T::register_component_hooks(&mut info.hooks);
+        info.required_components = required_components;
+
+        id
+    }
+}
+
 impl Components {
+    /// Gets the [`ComponentHooks`] for a component if it exists.
+    #[inline]
+    pub(crate) fn get_hooks_mut(&mut self, id: ComponentId) -> Option<&mut ComponentHooks> {
+        self.components.get_mut(id.0).map(|info| &mut info.hooks)
+    }
+
     /// Gets an iterator over all components registered with this instance.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
