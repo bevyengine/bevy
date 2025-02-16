@@ -22,7 +22,9 @@ use core::slice;
 use disqualified::ShortName;
 use log::warn;
 
-/// A [`Relationship`](crate::relationship::Relationship) component that creates the canonical
+/// Stores the parent entity of the child entity with this component.
+///
+/// This is a [`Relationship`](crate::relationship::Relationship) component, and creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
 /// the [`Children`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
 ///
@@ -31,7 +33,6 @@ use log::warn;
 /// 1. Organizing entities in a scene
 /// 2. Propagating configuration or data inherited from a parent, such as "visibility" or "world-space global transforms".
 /// 3. Ensuring a hierarchy is despawned when an entity is despawned.
-/// 4.
 ///
 /// [`ChildOf`] contains a single "target" [`Entity`]. When [`ChildOf`] is inserted on a "source" entity,
 /// the "target" entity will automatically (and immediately, via a component hook) have a [`Children`]
@@ -121,11 +122,18 @@ impl FromWorld for ChildOf {
     }
 }
 
-/// A [`RelationshipTarget`](crate::relationship::RelationshipTarget) collection component that is populated
+/// Tracks which entities are children of this parent entity.
+///
+/// A [`RelationshipTarget`] collection component that is populated
 /// with entities that "target" this entity with the [`ChildOf`] [`Relationship`](crate::relationship::Relationship) component.
 ///
-/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for all full
+/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for the full
 /// description of this relationship and instructions on how to use it.
+///
+/// Like all [`RelationshipTarget`] components, this data should not be directly manipulated to avoid desynchronization.
+/// Instead, modify the [`ChildOf`] components on the "source" entities.
+///
+/// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
