@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId, ArchetypeGeneration, ArchetypeId},
     component::{ComponentId, Tick},
-    entity::{Entity, EntityBorrow, EntityDoesNotExistError, EntitySet},
+    entity::{Entity, EntityBorrow, EntitySet},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
     query::{Access, FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
