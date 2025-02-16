@@ -1032,8 +1032,6 @@ macro_rules! impl_system_function {
             for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
                 FnMut($(SystemParamItem<$param>),*) -> Out,
-
-
             Out: 'static,
 
         {

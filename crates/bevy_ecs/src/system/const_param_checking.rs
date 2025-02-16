@@ -1,8 +1,6 @@
 use bevy_ecs::component::Component;
 use bevy_ecs::system::SystemParam;
 use core::fmt::Debug;
-use core::panic::PanicMessage;
-use std::arch::x86_64::CpuidResult;
 use variadics_please::all_tuples;
 
 /// A message describing a system parameter validation error that occurred during const evaluation.
@@ -105,7 +103,6 @@ pub const fn check_system_parameters_for_conflicts(
         return Some(*panic_message);
     }
 
-
     // REGION: We check for any intersections between components we require and components we anti-require.
     if right.component_tree.intersects(left.without_tree) {
         return None;
@@ -129,6 +126,8 @@ impl ConstTreeInner<WithoutId> {
     }
 }
 impl ConstTreeInner<WithId> {
+    /// Simply combines together with trees, we do this in case later we wanna do some
+    /// error checking, like preventing multiple of the same filter.
     pub const fn combine(lhs: ConstTree<WithId>, rhs: ConstTree<WithId>) -> Self {
         Self::Node(lhs, rhs)
     }
@@ -153,6 +152,7 @@ impl ConstTreeInner<WithId> {
 }
 
 impl ConstTreeInner<ComponentAccess> {
+    /// Combines together two Component Access trees and looks for conflicts
     pub const fn combine(lhs: ConstTree<ComponentAccess>, rhs: ConstTree<ComponentAccess>) -> Self {
         if let Some(panic_message) = lhs.self_intersects(rhs) {
             return Self::PanicMessage(panic_message);

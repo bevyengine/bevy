@@ -207,6 +207,7 @@ pub unsafe trait SystemParam: Sized {
     /// Used for validating filter compatibility during const evaluation
     const WITHOUT_FILTER_TREE: ConstTree<WithoutId> = &ConstTreeInner::Empty;
 
+    /// A collection of the ConstTrees in the SystemParam
     const CONST_TREES: ConstTrees = ConstTrees {
         component_tree: Self::COMPONENT_ACCESS_TREE,
         without_tree: Self::WITHOUT_FILTER_TREE,
