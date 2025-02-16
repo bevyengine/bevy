@@ -1,7 +1,7 @@
 //! Example of loading an embedded asset.
 
-// An embedded asset is an asset included in the program's memory, in contrast to other assets that are normally loaded from disk to memory when needed.
-// An embedded asset can reduce loading times since assets are immediately available, rather than being on disk.
+//! An embedded asset is an asset included in the program's memory, in contrast to other assets that are normally loaded from disk to memory when needed.
+//! An embedded asset can reduce loading times since assets are immediately available, rather than being on disk.
 use bevy::{
     asset::{embedded_asset, io::AssetSourceId, AssetPath},
     prelude::*,
