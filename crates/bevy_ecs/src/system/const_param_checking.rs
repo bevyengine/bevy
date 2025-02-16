@@ -58,9 +58,12 @@ pub enum AccessType {
 }
 
 impl AccessType {
+    /// String representation of AccessType::Ref
     const REF_STR: &'static str = "&";
+    /// String representation of AccessType::Mut
     const MUT_STR: &'static str = "&mut";
-    fn as_str(&self) -> &'static str {
+    /// Converts to String representation of AccessType.
+    pub fn as_str(&self) -> &'static str {
         match self {
             AccessType::Ref => Self::REF_STR,
             AccessType::Mut => Self::MUT_STR,
@@ -75,21 +78,35 @@ pub struct WithoutId(pub u128);
 #[derive(Clone, Copy, Debug)]
 pub struct WithId(pub u128);
 
+/// An unordered tree created at compile time.
+/// The reason it's a tree instead of a list is because we are unable to construct an arbitrarily
+/// sized nil cons list in stable rust with the data we want.
 #[derive(Copy, Clone, Debug)]
 pub enum ConstTreeInner<T: Copy + Clone + Debug + 'static> {
+    /// The tree is empty
     Empty,
+    /// Leaf node
     Leaf(T),
+    /// Unordered list as a tree because we have no choice
     Node(ConstTree<T>, ConstTree<T>),
+    /// Panic message that gets bubbled up
     PanicMessage(SystemPanicMessage),
 }
+/// For cleaner code, the only version of a `ConstTreeInner<T>` that will ever actually exist
+/// will be a `&'static ConstTreeInner<T>`; so we give it an easy name.
 pub type ConstTree<T> = &'static ConstTreeInner<T>;
 
+/// A collection of all the ConstTrees in a system parameter.
 pub struct ConstTrees {
+    /// All `Component` accesses in queries.
     pub component_tree: ConstTree<ComponentAccess>,
+    /// All `Without<T>`
     pub without_tree: ConstTree<WithoutId>,
+    /// All `With<T>`/`Added<T>`/`Changed<T>`/`Option<T>` etc.
     pub with_tree: ConstTree<WithId>,
 }
 
+/// Checks a system parameter for a conflicts using recursive const data structures.
 pub const fn check_system_parameters_for_conflicts(
     left: ConstTrees,
     right: ConstTrees,
@@ -121,12 +138,14 @@ pub const fn check_system_parameters_for_conflicts(
     right.component_tree.self_intersects(left.component_tree)
 }
 impl ConstTreeInner<WithoutId> {
+    /// Simply combines with trees, we do this in case later we want to do some
+    /// error checking, like preventing multiple of the same filter.
     pub const fn combine(lhs: ConstTree<WithoutId>, rhs: ConstTree<WithoutId>) -> Self {
         Self::Node(lhs, rhs)
     }
 }
 impl ConstTreeInner<WithId> {
-    /// Simply combines together with trees, we do this in case later we wanna do some
+    /// Simply combines with trees, we do this in case later we want to do some
     /// error checking, like preventing multiple of the same filter.
     pub const fn combine(lhs: ConstTree<WithId>, rhs: ConstTree<WithId>) -> Self {
         Self::Node(lhs, rhs)
