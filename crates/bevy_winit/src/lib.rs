@@ -54,6 +54,8 @@ mod winit_monitors;
 mod winit_windows;
 
 thread_local! {
+    /// Temporary storage of event loop to replace usage of `!Send` resources.
+    /// This will be replaced with proper storage of `!Send` data after issue #17667 is complete.
     pub static EVENT_LOOP: RefCell<Option<Box<dyn Any>>> = RefCell::new(None);
 }
 
