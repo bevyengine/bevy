@@ -1714,9 +1714,9 @@ mod tests {
         fn raise_exits(mut exits: EventWriter<AppExit>) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
-            exits.send(AppExit::Success);
-            exits.send(AppExit::from_code(4));
-            exits.send(AppExit::from_code(73));
+            exits.write(AppExit::Success);
+            exits.write(AppExit::from_code(4));
+            exits.write(AppExit::from_code(73));
         }
 
         let exit = App::new().add_systems(Update, raise_exits).run();

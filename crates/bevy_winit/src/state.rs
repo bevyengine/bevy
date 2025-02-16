@@ -912,7 +912,7 @@ pub(crate) fn react_to_resize(
         .resolution
         .set_physical_resolution(size.width, size.height);
 
-    window_resized.send(WindowResized {
+    window_resized.write(WindowResized {
         window: window_entity,
         width: window.width(),
         height: window.height(),
@@ -928,7 +928,7 @@ pub(crate) fn react_to_scale_factor_change(
 ) {
     window.resolution.set_scale_factor(scale_factor as f32);
 
-    window_backend_scale_factor_changed.send(WindowBackendScaleFactorChanged {
+    window_backend_scale_factor_changed.write(WindowBackendScaleFactorChanged {
         window: window_entity,
         scale_factor,
     });
@@ -937,7 +937,7 @@ pub(crate) fn react_to_scale_factor_change(
     let scale_factor_override = window.resolution.scale_factor_override();
 
     if scale_factor_override.is_none() && !relative_eq!(scale_factor as f32, prior_factor) {
-        window_scale_factor_changed.send(WindowScaleFactorChanged {
+        window_scale_factor_changed.write(WindowScaleFactorChanged {
             window: window_entity,
             scale_factor,
         });
