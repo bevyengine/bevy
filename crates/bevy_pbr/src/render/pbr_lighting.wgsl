@@ -629,8 +629,8 @@ fn directional_light(
 
 #ifdef ATMOSPHERE
     let P = (*input).P;
-    let O = vec3(0.0, view_bindings::atmosphere_data.bottom_radius, 0.0);
-    let P_scaled = P * vec3(view_bindings::atmosphere_data.scene_units_to_m);
+    let O = vec3(0.0, view_bindings::atmosphere_data.atmosphere.bottom_radius, 0.0);
+    let P_scaled = P * vec3(view_bindings::atmosphere_data.settings.scene_units_to_m);
     let P_as = P_scaled + O;
     let r = length(P_as);
     let local_up = normalize(P_as);
@@ -658,8 +658,8 @@ fn sample_transmittance_lut(r: f32, mu: f32) -> vec3<f32> {
 }
 
 fn transmittance_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
-    let top_radius = view_bindings::atmosphere_data.top_radius;
-    let bottom_radius = view_bindings::atmosphere_data.bottom_radius;
+    let top_radius = view_bindings::atmosphere_data.atmosphere.top_radius;
+    let bottom_radius = view_bindings::atmosphere_data.atmosphere.bottom_radius;
     
     // Distance along a horizontal ray from the ground to the top atmosphere boundary
     let H = sqrt(top_radius * top_radius - bottom_radius * bottom_radius);
@@ -681,21 +681,21 @@ fn transmittance_lut_r_mu_to_uv(r: f32, mu: f32) -> vec2<f32> {
 }
 
 fn distance_to_top_atmosphere_boundary(r: f32, mu: f32) -> f32 {
-    let top_radius = view_bindings::atmosphere_data.top_radius;
+    let top_radius = view_bindings::atmosphere_data.atmosphere.top_radius;
     // ignore the case where r > atmosphere.top_radius
     let positive_discriminant = max(r * r * (mu * mu - 1.0) + top_radius * top_radius, 0.0);
     return max(-r * mu + sqrt(positive_discriminant), 0.0);
 }
 
 fn ray_intersects_ground(r: f32, mu: f32) -> bool {
-    let bottom_radius = view_bindings::atmosphere_data.bottom_radius;
+    let bottom_radius = view_bindings::atmosphere_data.atmosphere.bottom_radius;
     return mu < 0.0 && r * r * (mu * mu - 1.0) + bottom_radius * bottom_radius >= 0.0;
 }
 
 const SUN_ANGULAR_SIZE: f32 = 0.0174533;
 
 fn calculate_visible_sun_ratio(r: f32, mu: f32) -> f32 {
-    let bottom_radius = view_bindings::atmosphere_data.bottom_radius;
+    let bottom_radius = view_bindings::atmosphere_data.atmosphere.bottom_radius;
     // Calculate the angle between horizon and sun center
     // Invert the horizon angle calculation to fix shading direction
     let horizon_cos = -sqrt(1.0 - (bottom_radius * bottom_radius) / (r * r));

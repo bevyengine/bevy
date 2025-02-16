@@ -794,11 +794,13 @@ pub fn prepare_mesh_view_bind_groups(
             }
 
             if has_atmosphere {
-                if let Some(atmosphere_textures) = atmosphere_textures {
+                if let (Some(atmosphere_textures), Some(atmosphere_buffer_binding)) =
+                    (atmosphere_textures, atmosphere_buffer.buffer.binding())
+                {
                     entries = entries.extend_with_indices((
                         (37, &atmosphere_textures.transmittance_lut.default_view),
                         (38, &atmosphere_samplers.transmittance_lut),
-                        (39, atmosphere_buffer.buffer.as_entire_binding()),
+                        (39, atmosphere_buffer_binding),
                     ));
                 }
             }

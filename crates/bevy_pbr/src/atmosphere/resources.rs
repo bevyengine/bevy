@@ -13,12 +13,11 @@ use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::Camera,
     extract_component::ComponentUniforms,
-    render_resource::{binding_types::*, *},
+    render_resource::{binding_types::*, StorageBuffer, *},
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
-use bytemuck::{Pod, Zeroable};
 
 use crate::{GpuLights, LightMeta};
 
@@ -532,7 +531,7 @@ impl AtmosphereTransforms {
     }
 }
 
-#[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
+#[derive(ShaderType)]
 #[repr(C, align(16))]
 pub struct AtmosphereTransform {
     world_from_atmosphere: Mat4,
@@ -739,55 +738,54 @@ pub(super) fn prepare_atmosphere_bind_groups(
     }
 }
 
-#[derive(ShaderType, Pod, Zeroable, Clone, Copy)]
+#[derive(ShaderType)]
 #[repr(C)]
 pub(crate) struct PbrAtmosphereData {
-    pub bottom_radius: f32,
-    pub top_radius: f32,
-    pub scene_units_to_m: f32,
+    pub atmosphere: Atmosphere,
+    pub settings: AtmosphereSettings,
 }
 
 #[derive(Resource)]
 pub struct AtmosphereBuffer {
-    pub buffer: Buffer,
-    pub bind_group: Option<BindGroup>,
+    pub(crate) buffer: StorageBuffer<PbrAtmosphereData>,
 }
 
 impl FromWorld for AtmosphereBuffer {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Create buffer with enough space for the atmosphere data
-        let buffer = render_device.create_buffer(&BufferDescriptor {
-            label: Some("atmosphere_buffer"),
-            size: PbrAtmosphereData::min_size().get(),
-            usage: BufferUsages::STORAGE | BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+        let data = world
+            .query_filtered::<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>()
+            .iter(world)
+            .next()
+            .map_or_else(
+                || PbrAtmosphereData {
+                    atmosphere: Atmosphere::default(),
+                    settings: AtmosphereSettings::default(),
+                },
+                |(atmosphere, settings)| PbrAtmosphereData {
+                    atmosphere: *atmosphere,
+                    settings: *settings,
+                },
+            );
 
         Self {
-            buffer,
-            bind_group: None,
+            buffer: StorageBuffer::from(data),
         }
     }
 }
 
 pub(crate) fn prepare_atmosphere_buffer(
-    render_queue: Res<RenderQueue>,
-    atmosphere_buffer: Res<AtmosphereBuffer>,
-    atmosphere_entity: Query<(Entity, &Atmosphere, &AtmosphereSettings), With<Camera3d>>,
+    device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+    atmosphere_entity: Query<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>,
+    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
 ) {
-    let Ok((_, atmosphere, settings)) = atmosphere_entity.get_single() else {
+    let Ok((atmosphere, settings)) = atmosphere_entity.get_single() else {
         return;
     };
 
-    let data = PbrAtmosphereData {
-        bottom_radius: atmosphere.bottom_radius,
-        top_radius: atmosphere.top_radius,
-        scene_units_to_m: settings.scene_units_to_m,
-    };
-
-    // Write the data to the GPU buffer
-    let bytes = bytemuck::bytes_of(&data);
-    render_queue.write_buffer(&atmosphere_buffer.buffer, 0, bytes);
+    atmosphere_buffer.buffer.set(PbrAtmosphereData {
+        atmosphere: *atmosphere,
+        settings: *settings,
+    });
+    atmosphere_buffer.buffer.write_buffer(&device, &queue);
 }

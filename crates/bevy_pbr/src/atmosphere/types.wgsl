@@ -44,7 +44,6 @@ struct AtmosphereTransforms {
 }
 
 struct PbrAtmosphereData {
-    bottom_radius: f32,
-    top_radius: f32,
-    scene_units_to_m: f32,
+    atmosphere: Atmosphere,
+    settings: AtmosphereSettings,
 }
