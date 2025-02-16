@@ -1,11 +1,16 @@
 use crate::{
     converter::{convert_axis, convert_button},
-    Gilrs, GilrsGamepads,
+    GilrsGamepads,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use crate::Gilrs;
+
+#[cfg(target_arch = "wasm32")]
+use crate::GILRS;
+
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::prelude::Commands;
-#[cfg(target_arch = "wasm32")]
-use bevy_ecs::system::NonSendMut;
 use bevy_ecs::system::ResMut;
 use bevy_input::gamepad::{
     GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
@@ -14,13 +19,28 @@ use bevy_input::gamepad::{
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter};
 
 pub fn gilrs_event_startup_system(
-    mut commands: Commands,
-    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    commands: Commands,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    gamepads: ResMut<GilrsGamepads>,
+    events: EventWriter<GamepadConnectionEvent>,
+) {
+    #[cfg(target_arch = "wasm32")]
+    GILRS.with(|g| {
+        let g_ref = g.borrow();
+        let gilrs = g_ref.as_ref().expect("GILRS was not initialized");
+        gilrs_event_startup_system_inner(commands, gilrs, gamepads, events);
+    });
+    #[cfg(not(target_arch = "wasm32"))]
+    gilrs_event_startup_system_inner(commands, gilrs.0.get(), gamepads, events);
+}
+
+fn gilrs_event_startup_system_inner(
+    mut commands: Commands,
+    gilrs: &gilrs::Gilrs,
     mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<GamepadConnectionEvent>,
 ) {
-    for (id, gamepad) in gilrs.0.get().gamepads() {
+    for (id, gamepad) in gilrs.gamepads() {
         // Create entity and add to mapping
         let entity = commands.spawn_empty().id();
         gamepads.id_to_entity.insert(id, entity);
@@ -38,16 +58,49 @@ pub fn gilrs_event_startup_system(
 }
 
 pub fn gilrs_event_system(
-    mut commands: Commands,
-    #[cfg(target_arch = "wasm32")] mut gilrs: NonSendMut<Gilrs>,
+    commands: Commands,
     #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
+    gamepads: ResMut<GilrsGamepads>,
+    events: EventWriter<RawGamepadEvent>,
+    connection_events: EventWriter<GamepadConnectionEvent>,
+    button_events: EventWriter<RawGamepadButtonChangedEvent>,
+    axis_event: EventWriter<RawGamepadAxisChangedEvent>,
+) {
+    #[cfg(target_arch = "wasm32")]
+    GILRS.with(|g| {
+        let mut g_ref = g.borrow_mut();
+        let gilrs = g_ref.as_mut().expect("GILRS was not initialized");
+        gilrs_event_system_inner(
+            commands,
+            gilrs,
+            gamepads,
+            events,
+            connection_events,
+            button_events,
+            axis_event,
+        );
+    });
+    #[cfg(not(target_arch = "wasm32"))]
+    gilrs_event_system_inner(
+        commands,
+        gilrs.0.get(),
+        gamepads,
+        events,
+        connection_events,
+        button_events,
+        axis_event,
+    );
+}
+
+fn gilrs_event_system_inner(
+    mut commands: Commands,
+    gilrs: &mut gilrs::Gilrs,
     mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<RawGamepadEvent>,
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
     mut axis_event: EventWriter<RawGamepadAxisChangedEvent>,
 ) {
-    let gilrs = gilrs.0.get();
     while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
         gilrs.update(&gilrs_event);
         match gilrs_event.event {

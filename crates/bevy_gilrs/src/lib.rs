@@ -14,18 +14,31 @@ mod converter;
 mod gilrs_system;
 mod rumble;
 
+#[cfg(not(target_arch = "wasm32"))]
+use bevy_utils::synccell::SyncCell;
+
+#[cfg(target_arch = "wasm32")]
+use core::cell::RefCell;
+
 use bevy_app::{App, Plugin, PostUpdate, PreStartup, PreUpdate};
 use bevy_ecs::entity::hash_map::EntityHashMap;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystem;
 use bevy_platform_support::collections::HashMap;
-use bevy_utils::synccell::SyncCell;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 use tracing::error;
 
-#[cfg_attr(not(target_arch = "wasm32"), derive(Resource))]
+#[cfg(target_arch = "wasm32")]
+thread_local! {
+    /// Temporary storage of gilrs data to replace usage of `!Send` resources.
+    /// This will be replaced with proper storage of `!Send` data after issue #17667 is complete.
+    pub static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Resource)]
 pub(crate) struct Gilrs(pub SyncCell<gilrs::Gilrs>);
 
 /// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
@@ -66,7 +79,9 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 #[cfg(target_arch = "wasm32")]
-                app.insert_non_send_resource(Gilrs(SyncCell::new(gilrs)));
+                GILRS.with(|g| {
+                    g.replace(Some(gilrs));
+                });
                 #[cfg(not(target_arch = "wasm32"))]
                 app.insert_resource(Gilrs(SyncCell::new(gilrs)));
                 app.init_resource::<GilrsGamepads>();
