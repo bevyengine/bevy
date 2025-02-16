@@ -16,3 +16,7 @@ compile_fail_utils = { path = "../../../tools/compile_fail_utils" }
 [[test]]
 name = "ui"
 harness = false
+
+[[test]]
+name = "system_params"
+harness = false

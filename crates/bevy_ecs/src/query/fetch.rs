@@ -2272,6 +2272,8 @@ macro_rules! impl_anytuple_fetch {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
 
+            const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> = impl_tuple_query_data!(@tree $($name),*);
+
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 let ($($name,)*) = item;
                 ($(
@@ -2296,6 +2298,32 @@ macro_rules! impl_anytuple_fetch {
         $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
+    };
+
+    // Handle empty case
+    (@tree) => {
+        &ConstTreeInner::Empty
+    };
+    // Handle single item case
+    (@tree $t0:ident) => {
+        $t0::COMPONENT_ACCESS_TREE_QUERY_DATA
+    };
+    // Handle two item case
+    (@tree $t0:ident, $t1:ident) => {
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+        )
+    };
+    // Handle three or more items case
+    (@tree $t0:ident, $t1:ident, $($rest:ident),+) => {
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            &ConstTreeInner::<ComponentAccess>::combine(
+                $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+                impl_anytuple_fetch!(@tree $($rest),+)
+            )
+        )
     };
 }
 
