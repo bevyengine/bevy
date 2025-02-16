@@ -17,7 +17,6 @@ fn main() {
 
 struct EmbeddedAssetPlugin;
 
-// This plugin embeds the asset's binary into the program's memory at runtime.
 impl Plugin for EmbeddedAssetPlugin {
     fn build(&self, app: &mut App) {
         // We get to choose some prefix relative to the workspace root which
