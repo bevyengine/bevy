@@ -36,12 +36,11 @@ impl AutoInsertApplyDeferredPass {
         self.auto_sync_node_ids
             .get(&distance)
             .copied()
-            .or_else(|| {
+            .unwrap_or_else(|| {
                 let node_id = self.add_auto_sync(graph);
                 self.auto_sync_node_ids.insert(distance, node_id);
-                Some(node_id)
+                node_id
             })
-            .unwrap()
     }
     /// add an [`ApplyDeferred`] system with no config
     fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> NodeId {
@@ -82,33 +81,41 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> =
+        // if sync is suppressed for an edge, add it to edges past it if possible
+        let mut distances_and_pending_sync: HashMap<usize, (u32, bool)> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
         for node in &topo {
-            let add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
+            let (node_distance, mut add_sync_after) = distances_and_pending_sync
+                .get(&node.index())
+                .copied()
+                .unwrap_or_default();
+            if !add_sync_after {
+                add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
+            }
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
-                let add_sync_on_edge = add_sync_after
-                    && !is_apply_deferred(graph.systems[target.index()].get().unwrap())
-                    && !self.no_sync_edges.contains(&(*node, target));
+                let target_system = graph.systems[target.index()].get().unwrap();
+                let mut add_sync_on_edge = add_sync_after && !is_apply_deferred(target_system);
+                let mut add_syncs_after_target = false;
 
-                let weight = if add_sync_on_edge { 1 } else { 0 };
+                if add_sync_on_edge
+                    && !target_system.is_exclusive()
+                    && self.no_sync_edges.contains(&(*node, target))
+                {
+                    add_sync_on_edge = false;
+                    add_syncs_after_target = true;
+                }
 
-                let distance = distances
-                    .get(&target.index())
-                    .unwrap_or(&None)
-                    .or(Some(0))
-                    .map(|distance| {
-                        distance.max(
-                            distances.get(&node.index()).unwrap_or(&None).unwrap_or(0) + weight,
-                        )
-                    });
+                let (target_distance, target_pending_sync) = distances_and_pending_sync
+                    .entry(target.index())
+                    .or_default();
 
-                distances.insert(target.index(), distance);
+                let distance = node_distance + if add_sync_on_edge { 1 } else { 0 };
+                *target_distance = distance.max(*target_distance);
+                *target_pending_sync |= add_syncs_after_target;
 
                 if add_sync_on_edge {
-                    let sync_point =
-                        self.get_sync_point(graph, distances[&target.index()].unwrap());
+                    let sync_point = self.get_sync_point(graph, *target_distance);
                     sync_point_graph.add_edge(*node, sync_point);
                     sync_point_graph.add_edge(sync_point, target);
 
