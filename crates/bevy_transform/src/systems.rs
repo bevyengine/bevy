@@ -459,7 +459,8 @@ mod parallel {
 
     /// Propagate transforms from `parent` to its non-leaf `children`, pushing updated child
     /// entities to the `outbox`. Propagation does not visit leaf nodes; instead, they are computed
-    /// in [`compute_transform_leaves`], which can optimize much more efficiently.
+    /// in [`compute_transform_leaves`](super::compute_transform_leaves), which can optimize much
+    /// more efficiently.
     ///
     /// # Safety
     ///
@@ -499,7 +500,8 @@ mod parallel {
         //
         // The only way I can see to make this faster when there are many leaf nodes is to speed up
         // archetype checking to make the iterator skip leaf entities more quickly, or encoding the
-        // hierarchy level as a component.
+        // hierarchy level as a component. That, or use some kind of change detection to mark dirty
+        // subtrees when the transform is mutated.
         for (child, transform, mut global_transform, _, child_of) in
             // Safety: traversing the entity tree from the roots, we assert that the childof and
             // children pointers match in both directions (see assert below) to ensure the hierarchy
