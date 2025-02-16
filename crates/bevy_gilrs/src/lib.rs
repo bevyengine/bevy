@@ -30,10 +30,12 @@ use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
 use rumble::{play_gilrs_rumble, RunningRumbleEffects};
 use tracing::error;
 
-// Temporary replacement for storing gilrs data as a !Send resource.
-// Will be replaced with a long-term solution when issue #17667 is completed.
 #[cfg(target_arch = "wasm32")]
-thread_local!(pub static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) });
+thread_local! {
+    /// Temporary storage of gilrs data to replace usage of `!Send` resources.
+    /// This will be replaced with proper storage of `!Send` data after issue #17667 is complete.
+    pub static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
+}
 
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
