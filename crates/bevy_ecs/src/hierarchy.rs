@@ -97,7 +97,7 @@ use log::warn;
 pub struct ChildOf(pub Entity);
 
 impl ChildOf {
-    /// Returns the "target" entity.
+    /// Returns the parent entity, which is the "target" of this relationship.
     pub fn get(&self) -> Entity {
         self.0
     }
@@ -131,8 +131,14 @@ impl FromWorld for ChildOf {
 /// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for the full
 /// description of this relationship and instructions on how to use it.
 ///
+/// # Usage
+///
 /// Like all [`RelationshipTarget`] components, this data should not be directly manipulated to avoid desynchronization.
 /// Instead, modify the [`ChildOf`] components on the "source" entities.
+///
+/// To access the children of an entity, you can iterate over the [`Children`] component,
+/// using the [`IntoIterator`] trait.
+/// For more complex access patterns, see the [`RelationshipTarget`] trait.
 ///
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
