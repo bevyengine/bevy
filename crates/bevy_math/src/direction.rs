@@ -15,8 +15,10 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg(all(debug_assertions, feature = "std"))]
 use std::eprintln;
 
+use thiserror::Error;
+
 /// An error indicating that a direction is invalid.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Error)]
 pub enum InvalidDirectionError {
     /// The length of the direction vector is zero or very close to zero.
     Zero,
