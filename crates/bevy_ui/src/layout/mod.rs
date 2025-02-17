@@ -14,6 +14,7 @@ use bevy_ecs::{
 };
 
 use bevy_math::{Mat4, Vec2};
+use bevy_render::view::Visibility;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 use thiserror::Error;
@@ -182,6 +183,7 @@ with UI components as a child of an entity without UI components, your UI layout
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
+            true,
         );
     }
 
@@ -206,6 +208,7 @@ with UI components as a child of an entity without UI components, your UI layout
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        parent_is_visible: bool,
     ) {
         if let Ok((
             mut node,
@@ -242,6 +245,13 @@ with UI components as a child of an entity without UI components, your UI layout
                 node.unrounded_size = unrounded_size;
                 node.inverse_scale_factor = inverse_target_scale_factor;
             }
+
+            let is_visible = match style.visibility {
+                Visibility::Visible => true,
+                Visibility::Hidden => false,
+                Visibility::Inherited => parent_is_visible,
+            };
+            node.bypass_change_detection().is_visible = is_visible;
 
             let content_size = Vec2::new(layout.content_size.width, layout.content_size.height);
             node.bypass_change_detection().content_size = content_size;
@@ -345,6 +355,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    is_visible,
                 );
             }
         }
