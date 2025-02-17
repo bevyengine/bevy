@@ -153,7 +153,7 @@ mod tests {
         world::World,
     };
 
-    use super::{Node, UiChildren, UiNode, UiRootNodes};
+    use crate::{Node, UiChildren, UiNode, UiRootNodes};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
