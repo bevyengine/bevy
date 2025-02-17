@@ -289,6 +289,12 @@ mod parallel {
                         &nodes,
                         outbox,
                         &queue,
+                        // Need to revisit this single-max-depth by profiling more representative
+                        // scenes. It's possible that it is actually beneficial to go deep into the
+                        // hierarchy to build up a good task queue before starting the workers.
+                        // However, we avoid this for now to prevent cases where only a single
+                        // thread is going deep into the hierarchy while the others sit idle, which
+                        // is the problem that the tasks sharing workers already solve.
                         1,
                     );
                 }
@@ -318,6 +324,7 @@ mod parallel {
             // Try to acquire a lock on the work queue in a tight loop. Profiling shows this is much
             // more efficient than relying on `.lock()`, which causes gaps to form between tasks.
             let Ok(rx) = queue.receiver.try_lock() else {
+                core::hint::spin_loop(); // No apparent impact on profiles, but best practice.
                 continue;
             };
             // If the queue is empty and no other threads are busy processing work, we can conclude
@@ -330,6 +337,16 @@ mod parallel {
             };
             if tasks.is_empty() {
                 continue; // This shouldn't happen, but if it does, we might as well stop early.
+            }
+
+            // If the task queue is extremely short, it's worthwhile to gather a few more tasks to
+            // reduce the amount of thread synchronization needed once this very short task is
+            // complete.
+            while tasks.len() < WorkQueue::CHUNK_SIZE / 2 {
+                let Some(mut extra_task) = rx.try_iter().next() else {
+                    break;
+                };
+                tasks.append(&mut extra_task);
             }
 
             // At this point, we know there is work to do, so we increment the busy thread counter,
@@ -357,7 +374,7 @@ mod parallel {
                     );
                 }
             }
-            WorkQueue::send_batches_with(&queue.sender, &mut outbox, WorkQueue::CHUNK_SIZE);
+            WorkQueue::send_batches_with(&queue.sender, &mut outbox);
             queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
         }
     }
@@ -459,7 +476,7 @@ mod parallel {
                 // to pick up work while this task is still running. Only do this within the loop
                 // when the outbox has grown large enough.
                 if outbox.len() >= WorkQueue::CHUNK_SIZE {
-                    WorkQueue::send_batches_with(&queue.sender, outbox, WorkQueue::CHUNK_SIZE);
+                    WorkQueue::send_batches_with(&queue.sender, outbox);
                 }
                 continue;
             }
@@ -503,8 +520,11 @@ mod parallel {
         const CHUNK_SIZE: usize = 512;
 
         #[inline]
-        fn send_batches_with(sender: &Sender<Vec<Entity>>, outbox: &mut Vec<Entity>, size: usize) {
-            for chunk in outbox.chunks(size.max(1)).filter(|c| !c.is_empty()) {
+        fn send_batches_with(sender: &Sender<Vec<Entity>>, outbox: &mut Vec<Entity>) {
+            for chunk in outbox
+                .chunks(WorkQueue::CHUNK_SIZE)
+                .filter(|c| !c.is_empty())
+            {
                 sender.send(chunk.to_vec()).ok();
             }
             outbox.clear();
@@ -521,7 +541,7 @@ mod parallel {
             // into a larger allocation.
             local_queue
                 .iter_mut()
-                .for_each(|outbox| Self::send_batches_with(sender, outbox, WorkQueue::CHUNK_SIZE));
+                .for_each(|outbox| Self::send_batches_with(sender, outbox));
         }
     }
 }
