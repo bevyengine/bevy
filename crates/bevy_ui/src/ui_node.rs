@@ -118,7 +118,7 @@ impl ComputedNode {
         self.unrounded_size
     }
 
-    /// The calculate node size as width and height in physical pixels, accounting for a non-uniform window scale factor.
+    /// The calculated node size as width and height in physical pixels, accounting for a non-uniform window scale factor.
     ///
     #[inline]
     pub const fn logical_size(&self) -> Vec2 {
