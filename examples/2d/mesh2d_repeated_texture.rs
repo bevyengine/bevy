@@ -7,7 +7,9 @@ use bevy::{
     prelude::*,
 };
 
+/// How much to move some rectangles away from the center
 const RECTANGLE_OFFSET: f32 = 250.0;
+/// Length of the sides of the rectangle
 const RECTANGLE_SIDE: f32 = 200.;
 
 fn main() {
