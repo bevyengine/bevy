@@ -66,6 +66,7 @@ pub fn dds_buffer_to_image(
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3
+    // 1x1 textures should generally be interpreted as solid 2D
     } else if ((dds.get_width() > 1 || dds.get_height() > 1)
         && !(dds.get_width() > 1 && dds.get_height() > 1))
         && !image.is_compressed()
