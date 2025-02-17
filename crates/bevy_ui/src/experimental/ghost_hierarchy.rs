@@ -153,7 +153,7 @@ mod tests {
         world::World,
     };
 
-    use crate::{Node, UiChildren, UiNode, UiRootNodes};
+    use super::{Node, UiChildren, UiNode, UiRootNodes};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -218,7 +218,7 @@ mod tests {
         let (ui_children, a_query) = system_state.get(world);
 
         let result: Vec<_> = a_query
-            .iter_many(ui_children.iter_ui_children(n1))
+            .iter_many(ui_children.iter_actual_children(n1))
             .collect();
 
         assert_eq!([&A(5), &A(4), &A(8), &A(10)], result.as_slice());
