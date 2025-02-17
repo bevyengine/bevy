@@ -855,8 +855,7 @@ impl World {
         Ok(archetype
             .components()
             .filter_map(|id| self.components().get_info(id))
-            .map(|info| info.deref_lifetime())
-            .filter_map(|id| self.components().get_info(id)))
+            .map(|info| info.deref_lifetime()))
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
