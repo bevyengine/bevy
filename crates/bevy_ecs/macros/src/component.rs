@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Fields, Ident, Index, LitStr, Member,
-    Path, Result, Token, Visibility,
+    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Field, Fields, Ident, Index, LitStr,
+    Member, Path, Result, Token, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -651,25 +651,29 @@ fn derive_relationship(
     let Some(relationship) = &attrs.relationship else {
         return Ok(None);
     };
-    const RELATIONSHIP_FORMAT_MESSAGE: &str = "Relationship derives must be a tuple struct with the only element being an EntityTargets type (ex: ChildOf(Entity))";
-    if let Data::Struct(DataStruct {
-        fields: Fields::Unnamed(unnamed_fields),
+    let Data::Struct(DataStruct {
+        fields,
         struct_token,
         ..
     }) = &ast.data
-    {
-        if unnamed_fields.unnamed.len() != 1 {
-            return Err(syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE));
-        }
-        if unnamed_fields.unnamed.first().is_none() {
-            return Err(syn::Error::new(
-                struct_token.span(),
-                RELATIONSHIP_FORMAT_MESSAGE,
-            ));
-        }
-    } else {
-        return Err(syn::Error::new(ast.span(), RELATIONSHIP_FORMAT_MESSAGE));
+    else {
+        return Err(syn::Error::new(
+            ast.span(),
+            "Relationship can only be derived for structs.",
+        ));
     };
+    let field = relationship_field(fields, struct_token.span())?;
+
+    let relationship_member: Member = match field {
+        Some(field) => field.ident.clone().map_or(Member::from(0), Member::Named),
+        None => return Err(syn::Error::new(
+            fields.span(),
+            "Relationship can only be derived for structs with a single unnamed field or for structs where one field is annotated with #[relationship].",
+        )),
+    };
+    let members = fields
+        .members()
+        .filter(|member| member != &relationship_member);
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
@@ -682,12 +686,15 @@ fn derive_relationship(
 
             #[inline(always)]
             fn get(&self) -> #bevy_ecs_path::entity::Entity {
-                self.0
+                self.#relationship_member
             }
 
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
-                Self(entity)
+                Self {
+                    #(#members: Default::default(),),*
+                    #relationship_member: entity
+                }
             }
         }
     }))
@@ -702,30 +709,36 @@ fn derive_relationship_target(
         return Ok(None);
     };
 
-    const RELATIONSHIP_TARGET_FORMAT_MESSAGE: &str = "RelationshipTarget derives must be a tuple struct with the first element being a private RelationshipSourceCollection (ex: Children(Vec<Entity>))";
-    let collection = if let Data::Struct(DataStruct {
-        fields: Fields::Unnamed(unnamed_fields),
+    let Data::Struct(DataStruct {
+        fields,
         struct_token,
         ..
     }) = &ast.data
-    {
-        if let Some(first) = unnamed_fields.unnamed.first() {
-            if first.vis != Visibility::Inherited {
-                return Err(syn::Error::new(first.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
-            }
-            first.ty.clone()
-        } else {
-            return Err(syn::Error::new(
-                struct_token.span(),
-                RELATIONSHIP_TARGET_FORMAT_MESSAGE,
-            ));
-        }
-    } else {
+    else {
         return Err(syn::Error::new(
             ast.span(),
-            RELATIONSHIP_TARGET_FORMAT_MESSAGE,
+            "RelationshipTarget can only be derived for structs.",
         ));
     };
+    let field = relationship_field(fields, struct_token.span())?;
+
+    let field = match field {
+        Some(field) => field,
+        None => return Err(syn::Error::new(
+            fields.span(),
+            "RelationshipTarget can only be derived for structs with a single private unnamed field or for structs where one field is annotated with #[relationship] and is private.",
+        )),
+    };
+    if field.vis != Visibility::Inherited {
+        return Err(syn::Error::new(field.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
+    }
+    let collection = &field.ty;
+
+    let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+
+    let members = fields
+        .members()
+        .filter(|member| member != &relationship_member);
 
     let relationship = &relationship_target.relationship;
     let struct_name = &ast.ident;
@@ -739,18 +752,43 @@ fn derive_relationship_target(
 
             #[inline]
             fn collection(&self) -> &Self::Collection {
-                &self.0
+                &self.#relationship_member
             }
 
             #[inline]
             fn collection_mut_risky(&mut self) -> &mut Self::Collection {
-                &mut self.0
+                &mut self.#relationship_member
             }
 
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
-                Self(collection)
+                Self {
+                    #(#members: Default::default(),),*
+                    #relationship_member: collection
+                }
             }
         }
     }))
+}
+
+fn relationship_field(fields: &Fields, span: Span) -> Result<Option<&Field>> {
+    let field = match fields {
+        Fields::Named(fields) => fields.named.iter().find(|field| {
+            field
+                .attrs
+                .iter()
+                .any(|attr| attr.path().is_ident("relationship"))
+        }),
+        Fields::Unnamed(fields) => fields
+            .unnamed
+            .len()
+            .eq(&1)
+            .then(|| fields.unnamed.first())
+            .flatten(),
+        Fields::Unit => return Err(syn::Error::new(
+            span,
+            "Relationship and RelationshipTarget can only be derived for named or unnamed structs, not unit structs.",
+        )),
+    };
+    Ok(field)
 }
