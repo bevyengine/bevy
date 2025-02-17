@@ -66,10 +66,13 @@ pub fn dds_buffer_to_image(
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3
-    } else if image.is_compressed() || dds.get_height() > 1 {
-        TextureDimension::D2
-    } else {
+    } else if ((dds.get_width() > 1 || dds.get_height() > 1)
+        && !(dds.get_width() > 1 && dds.get_height() > 1))
+        && !image.is_compressed()
+    {
         TextureDimension::D1
+    } else {
+        TextureDimension::D2
     };
     if is_cubemap {
         let dimension = if image.texture_descriptor.size.depth_or_array_layers > 6 {
