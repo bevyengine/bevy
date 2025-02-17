@@ -53,7 +53,6 @@ pub struct NodeQuery {
     global_transform: &'static GlobalTransform,
     pickable: Option<&'static Pickable>,
     calculated_clip: Option<&'static CalculatedClip>,
-    inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedNodeTarget,
 }
 
@@ -123,11 +122,7 @@ pub fn ui_picking(
         };
 
         // Nodes that are not rendered should not be interactable
-        if node
-            .inherited_visibility
-            .map(|inherited_visibility| inherited_visibility.get())
-            != Some(true)
-        {
+        if !node.node.is_visible {
             continue;
         }
         let Some(camera_entity) = node.target_camera.camera() else {
