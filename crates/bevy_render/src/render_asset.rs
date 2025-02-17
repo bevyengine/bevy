@@ -443,7 +443,7 @@ impl RenderAssetBytesPerFrame {
 /// to become available.
 #[derive(Resource, Default)]
 pub struct RenderAssetBytesPerFrameLimiter {
-    /// Populated by [`RenderAssetBytesPerFrameLimit`] during extraction.
+    /// Populated by [`RenderAssetBytesPerFrame`] during extraction.
     pub max_bytes: Option<usize>,
     /// Bytes written this frame.
     pub bytes_written: AtomicUsize,
