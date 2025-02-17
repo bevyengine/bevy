@@ -2177,7 +2177,7 @@ mod tests {
 
         // This chain is configured to add a sync point before the last system, but that would not happen if only the
         // no-op system in `insert_resource_config` was evaluated as that one has no deferred parameters.
-        // So despite having no direct edge from the system that queues the command and the system that wants to read
+        // So despite having no direct edge from the system that queues the command to the system that attempts to read
         // the resource, a sync point needs to be added between the two tuple elements for the last system to not panic.
         schedule.add_systems((insert_resource_config, |_: Res<Resource1>| {}).chain());
         schedule.run(&mut world);
