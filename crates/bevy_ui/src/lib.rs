@@ -15,6 +15,7 @@ pub mod ui_material;
 pub mod update;
 pub mod widget;
 
+pub mod navigation;
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
 
@@ -35,6 +36,7 @@ pub use focus::*;
 pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
+pub use navigation::*;
 pub use render::*;
 pub use ui_material::*;
 pub use ui_node::*;

@@ -1,3 +1,4 @@
+use crate::navigation::UiNode;
 use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -334,7 +335,8 @@ impl From<Vec2> for ScrollPosition {
     FocusPolicy,
     ScrollPosition,
     GlobalTransform,
-    ZIndex
+    ZIndex,
+    UiNode
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
