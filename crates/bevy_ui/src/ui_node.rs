@@ -28,6 +28,10 @@ use tracing::warn;
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct ComputedNode {
+    /// True if the node is visible
+    ///
+    /// Automatically updated by [`super::layout::ui_layout_system`].
+    pub is_visible: bool,
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
@@ -331,7 +335,6 @@ impl From<Vec2> for ScrollPosition {
     ScrollPosition,
     Visibility,
     GlobalTransform,
-    VisibilityClass,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
