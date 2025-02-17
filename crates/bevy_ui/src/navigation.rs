@@ -7,7 +7,7 @@ use bevy_transform::prelude::Transform;
 
 /// Marker component for all entities in a UI hierarchy.
 ///
-/// The UI systems will traverse past nodes with `UiElement` and without a `Node` and treat their first `Node` descendants as direct children of their first `Node` ancestor.
+/// The UI systems will traverse past nodes with `UiNode` and without a `Node` and treat their first `Node` descendants as direct children of their first `Node` ancestor.
 ///
 /// Any components necessary for transform and visibility propagation will be added automatically.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
