@@ -1,5 +1,5 @@
 use bevy_ecs::{system::Commands, world::World};
-use bevy_utils::tracing::debug;
+use log::debug;
 
 use crate::state::{FreelyMutableState, NextState};
 

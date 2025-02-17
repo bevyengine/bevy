@@ -1,7 +1,14 @@
-use crate::{mesh::Mesh, view::Visibility};
-use bevy_asset::{AssetId, Handle};
+use crate::{
+    mesh::Mesh,
+    view::{self, Visibility, VisibilityClass},
+};
+use bevy_asset::{AsAssetId, AssetEvent, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{
+    change_detection::DetectChangesMut, component::Component, event::EventReader, prelude::require,
+    reflect::ReflectComponent, system::Query,
+};
+use bevy_platform_support::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
@@ -35,7 +42,8 @@ use derive_more::derive::From;
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(Transform, Visibility)]
+#[require(Transform, Visibility, VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<Mesh2d>)]
 pub struct Mesh2d(pub Handle<Mesh>);
 
 impl From<Mesh2d> for AssetId<Mesh> {
@@ -47,6 +55,14 @@ impl From<Mesh2d> for AssetId<Mesh> {
 impl From<&Mesh2d> for AssetId<Mesh> {
     fn from(mesh: &Mesh2d) -> Self {
         mesh.id()
+    }
+}
+
+impl AsAssetId for Mesh2d {
+    type Asset = Mesh;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
     }
 }
 
@@ -82,7 +98,8 @@ impl From<&Mesh2d> for AssetId<Mesh> {
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default)]
-#[require(Transform, Visibility)]
+#[require(Transform, Visibility, VisibilityClass)]
+#[component(on_add = view::add_visibility_class::<Mesh3d>)]
 pub struct Mesh3d(pub Handle<Mesh>);
 
 impl From<Mesh3d> for AssetId<Mesh> {
@@ -96,3 +113,45 @@ impl From<&Mesh3d> for AssetId<Mesh> {
         mesh.id()
     }
 }
+
+impl AsAssetId for Mesh3d {
+    type Asset = Mesh;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.id()
+    }
+}
+
+/// A system that marks a [`Mesh3d`] as changed if the associated [`Mesh`] asset
+/// has changed.
+///
+/// This is needed because the systems that extract meshes, such as
+/// `extract_meshes_for_gpu_building`, write some metadata about the mesh (like
+/// the location within each slab) into the GPU structures that they build that
+/// needs to be kept up to date if the contents of the mesh change.
+pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
+    mut meshes_3d: Query<&mut Mesh3d>,
+    mut mesh_asset_events: EventReader<AssetEvent<Mesh>>,
+) {
+    let mut changed_meshes: HashSet<AssetId<Mesh>, FixedHasher> = HashSet::default();
+    for mesh_asset_event in mesh_asset_events.read() {
+        if let AssetEvent::Modified { id } = mesh_asset_event {
+            changed_meshes.insert(*id);
+        }
+    }
+
+    if changed_meshes.is_empty() {
+        return;
+    }
+
+    for mut mesh_3d in &mut meshes_3d {
+        if changed_meshes.contains(&mesh_3d.0.id()) {
+            mesh_3d.set_changed();
+        }
+    }
+}
+
+/// A component that stores an arbitrary index used to identify the mesh instance when rendering.
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
+pub struct MeshTag(pub u32);

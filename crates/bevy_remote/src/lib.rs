@@ -133,7 +133,8 @@
 //!
 //! `params`:
 //! - `data`:
-//!   - `components` (optional): An array of [fully-qualified type names] of components to fetch.
+//!   - `components` (optional): An array of [fully-qualified type names] of components to fetch,
+//!     see _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!      reported as boolean values.
@@ -142,6 +143,8 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
+//!   - `strict` (optional): A flag to enable strict mode which will fail if any one of the
+//!     components is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
@@ -149,6 +152,8 @@
 //!   entity if the component is present.
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
+//!
+//!
 //!
 //! ### bevy/spawn
 //!
@@ -186,6 +191,19 @@
 //! `params`:
 //! - `entity`: The ID of the entity to insert components into.
 //! - `components`: A map associating each component's fully-qualified type name with its value.
+//!
+//! `result`: null.
+//!
+//! ### `bevy/mutate_component`
+//!
+//! Mutate a field in a component.
+//!
+//! `params`:
+//! - `entity`: The ID of the entity with the component to mutate.
+//! - `component`: The component's [fully-qualified type name].
+//! - `path`: The path of the field within the component. See
+//!   [`GetPath`](bevy_reflect::GetPath#syntax) for more information on formatting this string.
+//! - `value`: The value to insert at `path`.
 //!
 //! `result`: null.
 //!
@@ -305,11 +323,13 @@ use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
+    resource::Resource,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
-    system::{Commands, In, IntoSystem, ResMut, Resource, System, SystemId},
+    system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
-use bevy_utils::{prelude::default, HashMap};
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::RwLock;
@@ -403,6 +423,14 @@ impl Default for RemotePlugin {
             .with_method(
                 builtin_methods::BRP_LIST_METHOD,
                 builtin_methods::process_remote_list_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+                builtin_methods::export_registry_types,
+            )
+            .with_method(
+                builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
+                builtin_methods::process_remote_mutate_component_request,
             )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
@@ -560,6 +588,26 @@ pub struct RemoteWatchingRequests(Vec<(BrpMessage, RemoteWatchingMethodSystemId)
 ///         ]
 ///     }
 /// }
+/// ```
+/// Or, to list all the fully-qualified type paths in **your** project, pass Null to the
+/// `params`.
+/// ```json
+/// {
+///    "jsonrpc": "2.0",
+///    "method": "bevy/list",
+///    "id": 0,
+///    "params": null
+///}
+///```
+///
+/// In Rust:
+/// ```ignore
+///    let req = BrpRequest {
+///         jsonrpc: "2.0".to_string(),
+///         method: BRP_LIST_METHOD.to_string(), // All the methods have consts
+///         id: Some(ureq::json!(0)),
+///         params: None,
+///     };
 /// ```
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BrpRequest {
@@ -800,7 +848,7 @@ fn process_remote_requests(world: &mut World) {
 
         match handler {
             RemoteMethodSystemId::Instant(id) => {
-                let result = match world.run_system_with_input(id, message.params) {
+                let result = match world.run_system_with(id, message.params) {
                     Ok(result) => result,
                     Err(error) => {
                         let _ = message.sender.force_send(Err(BrpError {
@@ -850,7 +898,7 @@ fn process_single_ongoing_watching_request(
     system_id: &RemoteWatchingMethodSystemId,
 ) -> BrpResult<Option<Value>> {
     world
-        .run_system_with_input(*system_id, message.params.clone())
+        .run_system_with(*system_id, message.params.clone())
         .map_err(|error| BrpError {
             code: error_codes::INTERNAL_ERROR,
             message: format!("Failed to run method handler: {error}"),

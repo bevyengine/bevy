@@ -9,6 +9,24 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+
+# The jobs listed here are intentionally skipped when running on forks, for a number of reasons:
+#
+# * Scheduled workflows run on the base/default branch, with no way (currently) to change this. On
+#   forks, the base/default branch is usually kept in sync with the main Bevy repository, meaning
+#   that running this workflow on forks would just be a waste of resources.
+#
+# * Even if there was a way to change the branch that a scheduled workflow runs on, forks default
+#   to not having an issue tracker.
+#
+# * Even in the event that a fork's issue tracker is enabled, most users probably don't want to
+#   receive automated issues in the event of a compilation failure.
+#
+# Because of these reasons, this workflow is irrelevant for 99% of forks. Thus, the jobs here will
+# be skipped when running on any repository that isn't the main Bevy repository.
 
 jobs:
   test:
@@ -16,6 +34,8 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # Disable this job when running on a fork.
+    if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -26,11 +46,12 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
         env:
-          CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   lint:
     runs-on: ubuntu-latest
+    # Disable this job when running on a fork.
+    if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +69,8 @@ jobs:
 
   check-compiles:
     runs-on: ubuntu-latest
+    # Disable this job when running on a fork.
+    if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     needs: test
     steps:
@@ -65,8 +88,9 @@ jobs:
     needs: [test, lint, check-compiles]
     permissions:
       issues: write
+    # We disable this job on forks, because 
     # Use always() so the job doesn't get canceled if any other jobs fail
-    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    if: ${{ github.repository == 'bevyengine/bevy' && always() && contains(needs.*.result, 'failure') }}
     steps:
       - name: Create issue
         run: |

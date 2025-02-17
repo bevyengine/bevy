@@ -7,41 +7,29 @@ use crate::{
 use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::component::Component;
+use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
+    component::{require, Component},
     entity::Entity,
     prelude::{ReflectComponent, With},
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
-use bevy_image::Image;
+use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::Visibility;
+use bevy_render::view::{self, Visibility, VisibilityClass};
 use bevy_render::{
     primitives::Aabb,
     view::{NoFrustumCulling, ViewVisibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, SpriteSource, TextureAtlasLayout};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, Sprite};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window};
-
-/// [`Text2dBundle`] was removed in favor of required components.
-/// The core component is now [`Text2d`] which can contain a single text segment.
-/// Indexed access to segments can be done with the new [`Text2dReader`] and [`Text2dWriter`] system params.
-/// Additional segments can be added through children with [`TextSpan`](crate::text::TextSpan).
-/// Text configuration can be done with [`TextLayout`], [`TextFont`] and [`TextColor`],
-/// while sprite-related configuration uses [`TextBounds`] and [`Anchor`] components.
-#[deprecated(
-    since = "0.15.0",
-    note = "Text2dBundle has been migrated to required components. Follow the documentation for more information."
-)]
-pub struct Text2dBundle {}
 
 /// The top-level 2D text component.
 ///
@@ -61,7 +49,7 @@ pub struct Text2dBundle {}
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor};
+/// # use bevy_text::{Font, JustifyText, Text2d, TextLayout, TextFont, TextColor, TextSpan};
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -85,6 +73,12 @@ pub struct Text2dBundle {}
 ///     Text2d::new("hello world\nand bevy!"),
 ///     TextLayout::new_with_justify(JustifyText::Center)
 /// ));
+///
+/// // With spans
+/// world.spawn(Text2d::new("hello ")).with_children(|parent| {
+///     parent.spawn(TextSpan::new("world"));
+///     parent.spawn((TextSpan::new("!"), TextColor(BLUE.into())));
+/// });
 /// ```
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug)]
@@ -94,10 +88,11 @@ pub struct Text2dBundle {}
     TextColor,
     TextBounds,
     Anchor,
-    SpriteSource,
     Visibility,
+    VisibilityClass,
     Transform
 )]
+#[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
 
 impl Text2d {
@@ -149,6 +144,7 @@ pub fn extract_text2d_sprite(
             &ViewVisibility,
             &ComputedTextBlock,
             &TextLayoutInfo,
+            &TextBounds,
             &Anchor,
             &GlobalTransform,
         )>,
@@ -167,6 +163,7 @@ pub fn extract_text2d_sprite(
         view_visibility,
         computed_block,
         text_layout_info,
+        text_bounds,
         anchor,
         global_transform,
     ) in text2d_query.iter()
@@ -175,11 +172,14 @@ pub fn extract_text2d_sprite(
             continue;
         }
 
-        let text_anchor = -(anchor.as_vec() + 0.5);
-        let alignment_translation = text_layout_info.size * text_anchor;
-        let transform = *global_transform
-            * GlobalTransform::from_translation(alignment_translation.extend(0.))
-            * scaling;
+        let size = Vec2::new(
+            text_bounds.width.unwrap_or(text_layout_info.size.x),
+            text_bounds.height.unwrap_or(text_layout_info.size.y),
+        );
+        let bottom_left =
+            -(anchor.as_vec() + 0.5) * size + (size.y - text_layout_info.size.y) * Vec2::Y;
+        let transform =
+            *global_transform * GlobalTransform::from_translation(bottom_left.extend(0.)) * scaling;
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
         for PositionedGlyph {
@@ -219,6 +219,7 @@ pub fn extract_text2d_sprite(
                     flip_y: false,
                     anchor: Anchor::Center.as_vec(),
                     original_entity: Some(original_entity),
+                    scaling_mode: None,
                 },
             );
         }
@@ -232,11 +233,10 @@ pub fn extract_text2d_sprite(
 ///
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
-#[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
-    mut last_scale_factor: Local<f32>,
+    mut last_scale_factor: Local<Option<f32>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
-    mut queue: Local<HashSet<Entity>>,
+    mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -257,19 +257,21 @@ pub fn update_text2d_layout(
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .get_single()
+        .ok()
         .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
+        .or(*last_scale_factor)
+        .unwrap_or(1.);
 
     let inverse_scale_factor = scale_factor.recip();
 
-    let factor_changed = *last_scale_factor != scale_factor;
-    *last_scale_factor = scale_factor;
+    let factor_changed = *last_scale_factor != Some(scale_factor);
+    *last_scale_factor = Some(scale_factor);
 
     for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
         if factor_changed
             || computed.needs_rerender()
             || bounds.is_changed()
-            || queue.remove(&entity)
+            || (!queue.is_empty() && queue.remove(&entity))
         {
             let text_bounds = TextBounds {
                 width: if block.linebreak == LineBreak::NoWrap {
@@ -329,16 +331,27 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
     mut text_to_update_aabb: Query<
-        (Entity, &TextLayoutInfo, &Anchor, Option<&mut Aabb>),
+        (
+            Entity,
+            &TextLayoutInfo,
+            &Anchor,
+            &TextBounds,
+            Option<&mut Aabb>,
+        ),
         (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
     >,
 ) {
-    for (entity, layout_info, anchor, aabb) in &mut text_to_update_aabb {
-        // `Anchor::as_vec` gives us an offset relative to the text2d bounds, by negating it and scaling
-        // by the logical size we compensate the transform offset in local space to get the center.
-        let center = (-anchor.as_vec() * layout_info.size).extend(0.0).into();
-        // Distance in local space from the center to the x and y limits of the text2d bounds.
-        let half_extents = (layout_info.size / 2.0).extend(0.0).into();
+    for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
+        let size = Vec2::new(
+            text_bounds.width.unwrap_or(layout_info.size.x),
+            text_bounds.height.unwrap_or(layout_info.size.y),
+        );
+        let center = (-anchor.as_vec() * size + (size.y - layout_info.size.y) * Vec2::Y)
+            .extend(0.)
+            .into();
+
+        let half_extents = (0.5 * layout_info.size).extend(0.0).into();
+
         if let Some(mut aabb) = aabb {
             *aabb = Aabb {
                 center,

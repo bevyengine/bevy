@@ -10,7 +10,7 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
 };
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 const LUT_SIZE: usize = 256;
 
@@ -40,16 +40,16 @@ pub struct AutoExposureCompensationCurve {
 }
 
 /// Various errors that can occur when constructing an [`AutoExposureCompensationCurve`].
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum AutoExposureCompensationCurveError {
     /// The curve couldn't be built in the first place.
-    #[display("curve could not be constructed from the given data")]
+    #[error("curve could not be constructed from the given data")]
     InvalidCurve,
     /// A discontinuity was found in the curve.
-    #[display("discontinuity found between curve segments")]
+    #[error("discontinuity found between curve segments")]
     DiscontinuityFound,
     /// The curve is not monotonically increasing on the x-axis.
-    #[display("curve is not monotonically increasing on the x-axis")]
+    #[error("curve is not monotonically increasing on the x-axis")]
     NotMonotonic,
 }
 
@@ -136,7 +136,10 @@ impl AutoExposureCompensationCurve {
                 let lut_inv_range = 1.0 / (lut_end - lut_begin);
 
                 // Iterate over all LUT entries whose pixel centers fall within the current segment.
-                #[allow(clippy::needless_range_loop)]
+                #[expect(
+                    clippy::needless_range_loop,
+                    reason = "This for-loop also uses `i` to calculate a value `t`."
+                )]
                 for i in lut_begin.ceil() as usize..=lut_end.floor() as usize {
                     let t = (i as f32 - lut_begin) * lut_inv_range;
                     lut[i] = previous.y.lerp(current.y, t);
@@ -191,6 +194,7 @@ impl RenderAsset for GpuAutoExposureCompensationCurve {
 
     fn prepare_asset(
         source: Self::SourceAsset,
+        _: AssetId<Self::SourceAsset>,
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, bevy_render::render_asset::PrepareAssetError<Self::SourceAsset>> {
         let texture = render_device.create_texture_with_data(

@@ -1,24 +1,21 @@
+use crate::{
+    resource::Resource,
+    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
+    system::{IntoSystem, ResMut},
+};
+use alloc::vec::Vec;
+use bevy_platform_support::collections::HashMap;
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use fixedbitset::FixedBitSet;
-use std::collections::HashMap;
-
-use crate::{
-    schedule::{InternedScheduleLabel, NodeId, Schedule, ScheduleLabel},
-    system::{IntoSystem, ResMut, Resource},
-};
-use bevy_utils::{
-    tracing::{info, warn},
-    TypeIdMap,
-};
-use derive_more::derive::{Display, Error};
+use log::{info, warn};
+use thiserror::Error;
 
 #[cfg(not(feature = "bevy_debug_stepping"))]
-use bevy_utils::tracing::error;
+use log::error;
 
 #[cfg(test)]
-use bevy_utils::tracing::debug;
-
-use crate as bevy_ecs;
+use log::debug;
 
 #[derive(Debug, Default, PartialEq, Eq, Copy, Clone)]
 enum Action {
@@ -90,8 +87,8 @@ enum Update {
     ClearBehavior(InternedScheduleLabel, SystemIdentifier),
 }
 
-#[derive(Error, Display, Debug)]
-#[display("not available until all configured schedules have been run; try again next frame")]
+#[derive(Error, Debug)]
+#[error("not available until all configured schedules have been run; try again next frame")]
 pub struct NotReady;
 
 #[derive(Resource, Default)]
@@ -171,14 +168,8 @@ impl Stepping {
         if self.action == Action::RunAll {
             return None;
         }
-        let label = match self.schedule_order.get(self.cursor.schedule) {
-            None => return None,
-            Some(label) => label,
-        };
-        let state = match self.schedule_states.get(label) {
-            None => return None,
-            Some(state) => state,
-        };
+        let label = self.schedule_order.get(self.cursor.schedule)?;
+        let state = self.schedule_states.get(label)?;
         state
             .node_ids
             .get(self.cursor.system)
@@ -423,6 +414,10 @@ impl Stepping {
                     // transitions, and add debugging messages for permitted
                     // transitions.  Any action transition that falls through
                     // this match block will be performed.
+                    #[expect(
+                        clippy::match_same_arms,
+                        reason = "Readability would be negatively impacted by combining the `(Waiting, RunAll)` and `(Continue, RunAll)` match arms."
+                    )]
                     match (self.action, action) {
                         // ignore non-transition updates, and prevent a call to
                         // enable() from overwriting a step or continue call
@@ -831,8 +826,8 @@ impl ScheduleState {
 mod tests {
     use super::*;
     use crate::{prelude::*, schedule::ScheduleLabel};
-
-    pub use crate as bevy_ecs;
+    use alloc::{format, vec};
+    use std::println;
 
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     struct TestSchedule;

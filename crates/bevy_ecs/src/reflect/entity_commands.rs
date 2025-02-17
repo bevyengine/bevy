@@ -2,12 +2,12 @@ use crate::{
     entity::Entity,
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
-    system::{EntityCommands, Resource},
-    world::{Command, World},
+    resource::Resource,
+    system::EntityCommands,
+    world::{EntityWorldMut, World},
 };
-use alloc::borrow::Cow;
+use alloc::{borrow::Cow, boxed::Box};
 use bevy_reflect::{PartialReflect, TypeRegistry};
-use core::marker::PhantomData;
 
 /// An extension trait for [`EntityCommands`] for reflection related functions
 pub trait ReflectCommandExt {
@@ -170,48 +170,175 @@ pub trait ReflectCommandExt {
 
 impl ReflectCommandExt for EntityCommands<'_> {
     fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
-        self.commands.queue(InsertReflect {
-            entity: self.entity,
-            component,
-        });
-        self
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect(component);
+        })
     }
 
     fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
-        self.commands.queue(InsertReflectWithRegistry::<T> {
-            entity: self.entity,
-            _t: PhantomData,
-            component,
-        });
-        self
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.insert_reflect_with_registry::<T>(component);
+        })
     }
 
     fn remove_reflect(&mut self, component_type_path: impl Into<Cow<'static, str>>) -> &mut Self {
-        self.commands.queue(RemoveReflect {
-            entity: self.entity,
-            component_type_path: component_type_path.into(),
-        });
-        self
+        let component_type_path: Cow<'static, str> = component_type_path.into();
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect(component_type_path);
+        })
     }
 
     fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
-        component_type_name: impl Into<Cow<'static, str>>,
+        component_type_path: impl Into<Cow<'static, str>>,
     ) -> &mut Self {
-        self.commands.queue(RemoveReflectWithRegistry::<T> {
-            entity: self.entity,
-            _t: PhantomData,
-            component_type_name: component_type_name.into(),
+        let component_type_path: Cow<'static, str> = component_type_path.into();
+        self.queue(move |mut entity: EntityWorldMut| {
+            entity.remove_reflect_with_registry::<T>(component_type_path);
+        })
+    }
+}
+
+impl<'w> EntityWorldMut<'w> {
+    /// Adds the given boxed reflect component or bundle to the entity using the reflection data in
+    /// [`AppTypeRegistry`].
+    ///
+    /// This will overwrite any previous component(s) of the same type.
+    ///
+    /// # Panics
+    ///
+    /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If [`AppTypeRegistry`] does not have the reflection data for the given
+    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
+    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    ///
+    /// # Note
+    ///
+    /// Prefer to use the typed [`EntityWorldMut::insert`] if possible. Adding a reflected component
+    /// is much slower.
+    pub fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
+        self.assert_not_despawned();
+        let entity_id = self.id();
+        self.world_scope(|world| {
+            world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+                let type_registry = &registry.as_ref().read();
+                insert_reflect_with_registry_ref(world, entity_id, type_registry, component);
+            });
+            world.flush();
         });
+        self.update_location();
+        self
+    }
+
+    /// Same as [`insert_reflect`](EntityWorldMut::insert_reflect), but using
+    /// the `T` resource as type registry instead of [`AppTypeRegistry`].
+    ///
+    /// This will overwrite any previous component(s) of the same type.
+    ///
+    /// # Panics
+    ///
+    /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If the given [`Resource`] does not have the reflection data for the given
+    ///     [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
+    /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
+    /// - If the given [`Resource`] is not present in the [`World`].
+    pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+        &mut self,
+        component: Box<dyn PartialReflect>,
+    ) -> &mut Self {
+        self.assert_not_despawned();
+        let entity_id = self.id();
+        self.world_scope(|world| {
+            world.resource_scope(|world, registry: Mut<T>| {
+                let type_registry = registry.as_ref().as_ref();
+                insert_reflect_with_registry_ref(world, entity_id, type_registry, component);
+            });
+            world.flush();
+        });
+        self.update_location();
+        self
+    }
+
+    /// Removes from the entity the component or bundle with the given type name registered in [`AppTypeRegistry`].
+    ///
+    /// If the type is a bundle, it will remove any components in that bundle regardless if the entity
+    /// contains all the components.
+    ///
+    /// Does nothing if the type is a component and the entity does not have a component of the same type,
+    /// if the type is a bundle and the entity does not contain any of the components in the bundle,
+    /// or if [`AppTypeRegistry`] does not contain the reflection data for the given component.
+    ///
+    /// # Panics
+    ///
+    /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    ///
+    /// # Note
+    ///
+    /// Prefer to use the typed [`EntityCommands::remove`] if possible. Removing a reflected component
+    /// is much slower.
+    pub fn remove_reflect(&mut self, component_type_path: Cow<'static, str>) -> &mut Self {
+        self.assert_not_despawned();
+        let entity_id = self.id();
+        self.world_scope(|world| {
+            world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
+                let type_registry = &registry.as_ref().read();
+                remove_reflect_with_registry_ref(
+                    world,
+                    entity_id,
+                    type_registry,
+                    component_type_path,
+                );
+            });
+            world.flush();
+        });
+        self.update_location();
+        self
+    }
+
+    /// Same as [`remove_reflect`](EntityWorldMut::remove_reflect), but using
+    /// the `T` resource as type registry instead of `AppTypeRegistry`.
+    ///
+    /// If the given type is a bundle, it will remove any components in that bundle regardless if the entity
+    /// contains all the components.
+    ///
+    /// Does nothing if the type is a component and the entity does not have a component of the same type,
+    /// if the type is a bundle and the entity does not contain any of the components in the bundle,
+    /// or if [`AppTypeRegistry`] does not contain the reflection data for the given component.
+    ///
+    /// # Panics
+    ///
+    /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
+    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    pub fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
+        &mut self,
+        component_type_path: Cow<'static, str>,
+    ) -> &mut Self {
+        self.assert_not_despawned();
+        let entity_id = self.id();
+        self.world_scope(|world| {
+            world.resource_scope(|world, registry: Mut<T>| {
+                let type_registry = registry.as_ref().as_ref();
+                remove_reflect_with_registry_ref(
+                    world,
+                    entity_id,
+                    type_registry,
+                    component_type_path,
+                );
+            });
+            world.flush();
+        });
+        self.update_location();
         self
     }
 }
 
 /// Helper function to add a reflect component or bundle to a given entity
-fn insert_reflect(
+fn insert_reflect_with_registry_ref(
     world: &mut World,
     entity: Entity,
     type_registry: &TypeRegistry,
@@ -222,7 +349,8 @@ fn insert_reflect(
         .expect("component should represent a type.");
     let type_path = type_info.type_path();
     let Ok(mut entity) = world.get_entity_mut(entity) else {
-        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity:?} because it doesn't exist in this World. See: https://bevyengine.org/learn/errors/b0003");
+        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity}, which {}. See: https://bevyengine.org/learn/errors/b0003",
+        world.entities().entity_does_not_exist_error_details(entity));
     };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
         panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");
@@ -237,48 +365,8 @@ fn insert_reflect(
     }
 }
 
-/// A [`Command`] that adds the boxed reflect component or bundle to an entity using the data in
-/// [`AppTypeRegistry`].
-///
-/// See [`ReflectCommandExt::insert_reflect`] for details.
-pub struct InsertReflect {
-    /// The entity on which the component will be inserted.
-    pub entity: Entity,
-    /// The reflect [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle)
-    /// that will be added to the entity.
-    pub component: Box<dyn PartialReflect>,
-}
-
-impl Command for InsertReflect {
-    fn apply(self, world: &mut World) {
-        let registry = world.get_resource::<AppTypeRegistry>().unwrap().clone();
-        insert_reflect(world, self.entity, &registry.read(), self.component);
-    }
-}
-
-/// A [`Command`] that adds the boxed reflect component or bundle to an entity using the data in the provided
-/// [`Resource`] that implements [`AsRef<TypeRegistry>`].
-///
-/// See [`ReflectCommandExt::insert_reflect_with_registry`] for details.
-pub struct InsertReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
-    /// The entity on which the component will be inserted.
-    pub entity: Entity,
-    pub _t: PhantomData<T>,
-    /// The reflect [`Component`](crate::component::Component) that will be added to the entity.
-    pub component: Box<dyn PartialReflect>,
-}
-
-impl<T: Resource + AsRef<TypeRegistry>> Command for InsertReflectWithRegistry<T> {
-    fn apply(self, world: &mut World) {
-        world.resource_scope(|world, registry: Mut<T>| {
-            let registry: &TypeRegistry = registry.as_ref().as_ref();
-            insert_reflect(world, self.entity, registry, self.component);
-        });
-    }
-}
-
 /// Helper function to remove a reflect component or bundle from a given entity
-fn remove_reflect(
+fn remove_reflect_with_registry_ref(
     world: &mut World,
     entity: Entity,
     type_registry: &TypeRegistry,
@@ -297,58 +385,9 @@ fn remove_reflect(
     }
 }
 
-/// A [`Command`] that removes the component or bundle of the same type as the given type name from
-/// the provided entity.
-///
-/// See [`ReflectCommandExt::remove_reflect`] for details.
-pub struct RemoveReflect {
-    /// The entity from which the component will be removed.
-    pub entity: Entity,
-    /// The [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle)
-    /// type name that will be used to remove a component
-    /// of the same type from the entity.
-    pub component_type_path: Cow<'static, str>,
-}
-
-impl Command for RemoveReflect {
-    fn apply(self, world: &mut World) {
-        let registry = world.get_resource::<AppTypeRegistry>().unwrap().clone();
-        remove_reflect(
-            world,
-            self.entity,
-            &registry.read(),
-            self.component_type_path,
-        );
-    }
-}
-
-/// A [`Command`] that removes the component or bundle of the same type as the given type name from
-/// the provided entity using the provided [`Resource`] that implements [`AsRef<TypeRegistry>`].
-///
-/// See [`ReflectCommandExt::remove_reflect_with_registry`] for details.
-pub struct RemoveReflectWithRegistry<T: Resource + AsRef<TypeRegistry>> {
-    /// The entity from which the component will be removed.
-    pub entity: Entity,
-    pub _t: PhantomData<T>,
-    /// The [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle)
-    /// type name that will be used to remove a component
-    /// of the same type from the entity.
-    pub component_type_name: Cow<'static, str>,
-}
-
-impl<T: Resource + AsRef<TypeRegistry>> Command for RemoveReflectWithRegistry<T> {
-    fn apply(self, world: &mut World) {
-        world.resource_scope(|world, registry: Mut<T>| {
-            let registry: &TypeRegistry = registry.as_ref().as_ref();
-            remove_reflect(world, self.entity, registry, self.component_type_name);
-        });
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},
@@ -356,6 +395,7 @@ mod tests {
         system::{Commands, SystemState},
         world::World,
     };
+    use alloc::{borrow::ToOwned, boxed::Box};
     use bevy_ecs_macros::Resource;
     use bevy_reflect::{PartialReflect, Reflect, TypeRegistry};
 

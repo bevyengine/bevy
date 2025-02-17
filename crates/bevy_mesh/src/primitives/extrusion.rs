@@ -4,7 +4,7 @@ use bevy_math::{
 };
 
 use super::{MeshBuilder, Meshable};
-use crate::{Indices, Mesh, VertexAttributeValues};
+use crate::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 
 /// A type representing a segment of the perimeter of an extrudable mesh.
 pub enum PerimeterSegment {
@@ -72,7 +72,7 @@ impl PerimeterSegment {
 /// ## Warning
 ///
 /// By implementing this trait you guarantee that the `primitive_topology` of the mesh returned by
-/// this builder is [`PrimitiveTopology::TriangleList`](wgpu::PrimitiveTopology::TriangleList)
+/// this builder is [`PrimitiveTopology::TriangleList`]
 /// and that your mesh has a [`Mesh::ATTRIBUTE_POSITION`] attribute.
 pub trait Extrudable: MeshBuilder {
     /// A list of the indices each representing a part of the perimeter of the mesh.
@@ -198,7 +198,7 @@ where
             // By swapping the first and second indices of each triangle we invert the winding order thus making the mesh visible from the other side
             if let Some(indices) = back_face.indices_mut() {
                 match topology {
-                    wgpu::PrimitiveTopology::TriangleList => match indices {
+                    PrimitiveTopology::TriangleList => match indices {
                         Indices::U16(indices) => {
                             indices.chunks_exact_mut(3).for_each(|arr| arr.swap(1, 0));
                         }
@@ -216,7 +216,7 @@ where
 
         // An extrusion of depth 0 does not need a mantel
         if self.half_depth == 0. {
-            front_face.merge(&back_face);
+            front_face.merge(&back_face).unwrap();
             return front_face;
         }
 
@@ -401,18 +401,15 @@ where
                 }
             }
 
-            Mesh::new(
-                wgpu::PrimitiveTopology::TriangleList,
-                front_face.asset_usage,
-            )
-            .with_inserted_indices(Indices::U32(indices))
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+            Mesh::new(PrimitiveTopology::TriangleList, front_face.asset_usage)
+                .with_inserted_indices(Indices::U32(indices))
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         };
 
-        front_face.merge(&back_face);
-        front_face.merge(&mantel);
+        front_face.merge(&back_face).unwrap();
+        front_face.merge(&mantel).unwrap();
         front_face
     }
 }

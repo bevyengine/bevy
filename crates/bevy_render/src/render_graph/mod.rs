@@ -12,45 +12,40 @@ pub use graph::*;
 pub use node::*;
 pub use node_slot::*;
 
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
-#[derive(Error, Display, Debug, Eq, PartialEq)]
+#[derive(Error, Debug, Eq, PartialEq)]
 pub enum RenderGraphError {
-    #[display("node {_0:?} does not exist")]
-    #[error(ignore)]
+    #[error("node {0:?} does not exist")]
     InvalidNode(InternedRenderLabel),
-    #[display("output node slot does not exist")]
-    #[error(ignore)]
+    #[error("output node slot does not exist")]
     InvalidOutputNodeSlot(SlotLabel),
-    #[display("input node slot does not exist")]
-    #[error(ignore)]
+    #[error("input node slot does not exist")]
     InvalidInputNodeSlot(SlotLabel),
-    #[display("node does not match the given type")]
+    #[error("node does not match the given type")]
     WrongNodeType,
-    #[display("attempted to connect output slot {output_slot} from node {output_node:?} to incompatible input slot {input_slot} from node {input_node:?}")]
+    #[error("attempted to connect output slot {output_slot} from node {output_node:?} to incompatible input slot {input_slot} from node {input_node:?}")]
     MismatchedNodeSlots {
         output_node: InternedRenderLabel,
         output_slot: usize,
         input_node: InternedRenderLabel,
         input_slot: usize,
     },
-    #[display("attempted to add an edge that already exists")]
-    #[error(ignore)]
+    #[error("attempted to add an edge that already exists")]
     EdgeAlreadyExists(Edge),
-    #[display("attempted to remove an edge that does not exist")]
-    #[error(ignore)]
+    #[error("attempted to remove an edge that does not exist")]
     EdgeDoesNotExist(Edge),
-    #[display("node {node:?} has an unconnected input slot {input_slot}")]
+    #[error("node {node:?} has an unconnected input slot {input_slot}")]
     UnconnectedNodeInputSlot {
         node: InternedRenderLabel,
         input_slot: usize,
     },
-    #[display("node {node:?} has an unconnected output slot {output_slot}")]
+    #[error("node {node:?} has an unconnected output slot {output_slot}")]
     UnconnectedNodeOutputSlot {
         node: InternedRenderLabel,
         output_slot: usize,
     },
-    #[display("node {node:?} input slot {input_slot} already occupied by {occupied_by_node:?}")]
+    #[error("node {node:?} input slot {input_slot} already occupied by {occupied_by_node:?}")]
     NodeInputSlotAlreadyOccupied {
         node: InternedRenderLabel,
         input_slot: usize,

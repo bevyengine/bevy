@@ -57,11 +57,11 @@ impl VisitEntitiesMut for Entity {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
-        entity::{EntityHashMap, MapEntities, SceneEntityMapper},
+        entity::{hash_map::EntityHashMap, MapEntities, SceneEntityMapper},
         world::World,
     };
-    use bevy_utils::HashSet;
+    use alloc::{string::String, vec, vec::Vec};
+    use bevy_platform_support::collections::HashSet;
 
     use super::*;
 
@@ -70,7 +70,6 @@ mod tests {
         ordered: Vec<Entity>,
         unordered: HashSet<Entity>,
         single: Entity,
-        #[allow(dead_code)]
         #[visit_entities(ignore)]
         not_an_entity: String,
     }
@@ -113,7 +112,7 @@ mod tests {
         let mut entity_map = EntityHashMap::<Entity>::default();
         let mut remapped = Foo {
             ordered: vec![],
-            unordered: HashSet::new(),
+            unordered: HashSet::default(),
             single: Entity::PLACEHOLDER,
             not_an_entity: foo.not_an_entity.clone(),
         };

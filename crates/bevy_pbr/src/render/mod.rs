@@ -5,7 +5,7 @@ pub(crate) mod mesh;
 mod mesh_bindings;
 mod mesh_view_bindings;
 mod morph;
-mod skin;
+pub(crate) mod skin;
 
 pub use fog::*;
 pub use gpu_preprocess::*;

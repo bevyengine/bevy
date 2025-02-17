@@ -13,7 +13,7 @@ use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::{
+use wgpu_types::{
     AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
     TextureViewDimension,
 };
@@ -266,7 +266,7 @@ pub fn ktx2_buffer_to_image(
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = wgpu_data.into_iter().flatten().collect::<Vec<_>>();
+    image.data = Some(wgpu_data.into_iter().flatten().collect::<Vec<_>>());
     image.texture_descriptor.size = Extent3d {
         width,
         height,
@@ -1502,7 +1502,7 @@ mod tests {
 
     #[test]
     fn test_ktx_levels() {
-        // R8UnormSrgb textture with 4x4 pixels data and 3 levels of mipmaps
+        // R8UnormSrgb texture with 4x4 pixels data and 3 levels of mipmaps
         let buffer = vec![
             0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 10, 0x1a, 10, 0x0f, 0, 0, 0, 1,
             0, 0, 0, 4, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 3, 0, 0, 0, 0, 0,

@@ -1,7 +1,6 @@
 //! Alerting events when a component is removed from an entity.
 
 use crate::{
-    self as bevy_ecs,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
     event::{Event, EventCursor, EventId, EventIterator, EventIteratorWithId, Events},
@@ -134,7 +133,7 @@ impl RemovedComponentEvents {
 /// # #[derive(Component)]
 /// # struct MyComponent;
 /// fn react_on_removal(mut removed: RemovedComponents<MyComponent>) {
-///     removed.read().for_each(|removed_entity| println!("{:?}", removed_entity));
+///     removed.read().for_each(|removed_entity| println!("{}", removed_entity));
 /// }
 /// # bevy_ecs::system::assert_is_system(react_on_removal);
 /// ```
@@ -233,8 +232,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     /// Returns `true` if there are no events available to read.
     pub fn is_empty(&self) -> bool {
         self.events()
-            .map(|events| self.reader.is_empty(events))
-            .unwrap_or(true)
+            .is_none_or(|events| self.reader.is_empty(events))
     }
 
     /// Consumes all available events.

@@ -497,11 +497,12 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs; // required for derive macros
-    use crate::{component::Component, ptr::OwningPtr, world::World};
-
     use super::BlobVec;
-    use alloc::rc::Rc;
+    use crate::{component::Component, ptr::OwningPtr, world::World};
+    use alloc::{
+        rc::Rc,
+        string::{String, ToString},
+    };
     use core::{alloc::Layout, cell::RefCell};
 
     /// # Safety

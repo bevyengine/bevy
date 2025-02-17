@@ -1,19 +1,23 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to work with dynamic components"
+)]
 
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, ptr::NonNull};
+use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
         query::QueryData,
         world::FilteredEntityMut,
     },
     prelude::*,
     ptr::{Aligned, OwningPtr},
-    utils::HashMap,
 };
 
 const PROMPT: &str = "
@@ -91,6 +95,8 @@ fn main() {
                             StorageType::Table,
                             Layout::array::<u64>(size).unwrap(),
                             None,
+                            true,
+                            ComponentCloneBehavior::Default,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {
@@ -98,7 +104,7 @@ fn main() {
                     };
                     component_names.insert(name.to_string(), id);
                     component_info.insert(id, info.clone());
-                    println!("Component {} created with id: {:?}", name, id.index());
+                    println!("Component {} created with id: {}", name, id.index());
                 });
             }
             "s" => {
@@ -142,15 +148,13 @@ fn main() {
                     entity.insert_by_ids(&to_insert_ids, to_insert_ptr.into_iter());
                 }
 
-                println!("Entity spawned with id: {:?}", entity.id());
+                println!("Entity spawned with id: {}", entity.id());
             }
             "q" => {
                 let mut builder = QueryBuilder::<FilteredEntityMut>::new(&mut world);
                 parse_query(rest, &mut builder, &component_names);
                 let mut query = builder.build();
-
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
-                    #[allow(deprecated)]
                     let terms = filtered_entity
                         .access()
                         .component_reads_and_writes()
@@ -182,7 +186,7 @@ fn main() {
                         .collect::<Vec<_>>()
                         .join(", ");
 
-                    println!("{:?}: {}", filtered_entity.id(), terms);
+                    println!("{}: {}", filtered_entity.id(), terms);
                 });
             }
             _ => continue,

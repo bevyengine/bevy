@@ -4,7 +4,7 @@ use crate::{
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
     world::{FromWorld, World},
 };
-use core::sync::atomic::{AtomicUsize, Ordering};
+use bevy_platform_support::sync::atomic::{AtomicUsize, Ordering};
 
 use super::unsafe_world_cell::UnsafeWorldCell;
 
@@ -94,6 +94,7 @@ impl SparseSetIndex for WorldId {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::vec::Vec;
 
     #[test]
     fn world_ids_unique() {

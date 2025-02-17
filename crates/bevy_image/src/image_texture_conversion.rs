@@ -1,8 +1,8 @@
 use crate::{Image, TextureFormatPixelInfo};
 use bevy_asset::RenderAssetUsages;
-use derive_more::derive::{Display, Error};
 use image::{DynamicImage, ImageBuffer};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use thiserror::Error;
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
     /// Converts a [`DynamicImage`] to an [`Image`].
@@ -170,22 +170,26 @@ impl Image {
     ///
     /// To convert [`Image`] to a different format see: [`Image::convert`].
     pub fn try_into_dynamic(self) -> Result<DynamicImage, IntoDynamicImageError> {
+        let width = self.width();
+        let height = self.height();
+        let Some(data) = self.data else {
+            return Err(IntoDynamicImageError::UninitializedImage);
+        };
         match self.texture_descriptor.format {
-            TextureFormat::R8Unorm => ImageBuffer::from_raw(self.width(), self.height(), self.data)
-                .map(DynamicImage::ImageLuma8),
+            TextureFormat::R8Unorm => {
+                ImageBuffer::from_raw(width, height, data).map(DynamicImage::ImageLuma8)
+            }
             TextureFormat::Rg8Unorm => {
-                ImageBuffer::from_raw(self.width(), self.height(), self.data)
-                    .map(DynamicImage::ImageLumaA8)
+                ImageBuffer::from_raw(width, height, data).map(DynamicImage::ImageLumaA8)
             }
             TextureFormat::Rgba8UnormSrgb => {
-                ImageBuffer::from_raw(self.width(), self.height(), self.data)
-                    .map(DynamicImage::ImageRgba8)
+                ImageBuffer::from_raw(width, height, data).map(DynamicImage::ImageRgba8)
             }
             // This format is commonly used as the format for the swapchain texture
             // This conversion is added here to support screenshots
             TextureFormat::Bgra8UnormSrgb | TextureFormat::Bgra8Unorm => {
-                ImageBuffer::from_raw(self.width(), self.height(), {
-                    let mut data = self.data;
+                ImageBuffer::from_raw(width, height, {
+                    let mut data = data;
                     for bgra in data.chunks_exact_mut(4) {
                         bgra.swap(0, 2);
                     }
@@ -204,17 +208,19 @@ impl Image {
 
 /// Errors that occur while converting an [`Image`] into a [`DynamicImage`]
 #[non_exhaustive]
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum IntoDynamicImageError {
     /// Conversion into dynamic image not supported for source format.
-    #[display("Conversion into dynamic image not supported for {_0:?}.")]
-    #[error(ignore)]
+    #[error("Conversion into dynamic image not supported for {0:?}.")]
     UnsupportedFormat(TextureFormat),
 
     /// Encountered an unknown error during conversion.
-    #[display("Failed to convert into {_0:?}.")]
-    #[error(ignore)]
+    #[error("Failed to convert into {0:?}.")]
     UnknownConversionError(TextureFormat),
+
+    /// Tried to convert an image that has no texture data
+    #[error("Image has no texture data")]
+    UninitializedImage,
 }
 
 #[cfg(test)]
@@ -231,7 +237,7 @@ mod test {
 
         let image = Image::from_dynamic(initial.clone(), true, RenderAssetUsages::RENDER_WORLD);
 
-        // NOTE: Fails if `is_srbg = false` or the dynamic image is of the type rgb8.
+        // NOTE: Fails if `is_srgb = false` or the dynamic image is of the type rgb8.
         assert_eq!(initial, image.try_into_dynamic().unwrap());
     }
 }

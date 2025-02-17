@@ -309,9 +309,11 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
     let view_z = view_start_pos.z;
     let is_orthographic = view.clip_from_view[3].w == 1.0;
     let cluster_index = clustering::fragment_cluster_index(frag_coord.xy, view_z, is_orthographic);
-    let offset_and_counts = clustering::unpack_offset_and_counts(cluster_index);
-    let spot_light_start_index = offset_and_counts[0] + offset_and_counts[1];
-    for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
+    var clusterable_object_index_ranges =
+        clustering::unpack_clusterable_object_index_ranges(cluster_index);
+    for (var i: u32 = clusterable_object_index_ranges.first_point_light_index_offset;
+            i < clusterable_object_index_ranges.first_reflection_probe_index_offset;
+            i = i + 1u) {
         let light_id = clustering::get_clusterable_object_id(i);
         let light = &clusterable_objects.data[light_id];
         if (((*light).flags & POINT_LIGHT_FLAGS_VOLUMETRIC_BIT) == 0) {
@@ -340,7 +342,7 @@ fn fragment(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
             let distance_square = dot(light_to_frag, light_to_frag);
             let distance_atten = getDistanceAttenuation(distance_square, (*light).color_inverse_square_range.w);
             var local_light_attenuation = distance_atten;
-            if (i < spot_light_start_index) {
+            if (i < clusterable_object_index_ranges.first_spot_light_index_offset) {
                 var shadow: f32 = 1.0;
                 if (((*light).flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
                     shadow = fetch_point_shadow_without_normal(light_id, vec4(P_world, 1.0));

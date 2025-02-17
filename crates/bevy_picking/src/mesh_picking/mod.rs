@@ -1,12 +1,17 @@
 //! A [mesh ray casting](ray_cast) backend for [`bevy_picking`](crate).
 //!
 //! By default, all meshes are pickable. Picking can be disabled for individual entities
-//! by adding [`PickingBehavior::IGNORE`].
+//! by adding [`Pickable::IGNORE`].
 //!
 //! To make mesh picking entirely opt-in, set [`MeshPickingSettings::require_markers`]
 //! to `true` and add a [`RayCastPickable`] component to the desired camera and target entities.
 //!
 //! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
+//!
+//! ## Implementation Notes
+//!
+//! - The `position` reported in `HitData` is in world space. The `normal` is a vector pointing
+//!   away from the face, it is not guaranteed to be normalized for scaled meshes.
 
 pub mod ray_cast;
 
@@ -19,7 +24,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{MeshRayCast, RayCastSettings, RayCastVisibility, SimplifiedMesh};
+use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
 
 /// Runtime settings for the [`MeshPickingPlugin`].
 #[derive(Resource, Reflect)]
@@ -68,12 +73,11 @@ impl Plugin for MeshPickingPlugin {
 }
 
 /// Casts rays into the scene using [`MeshPickingSettings`] and sends [`PointerHits`] events.
-#[allow(clippy::too_many_arguments)]
 pub fn update_hits(
     backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,
     picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
-    pickables: Query<&PickingBehavior>,
+    pickables: Query<&Pickable>,
     marked_targets: Query<&RayCastPickable>,
     layers: Query<&RenderLayers>,
     mut ray_cast: MeshRayCast,
@@ -89,7 +93,7 @@ pub fn update_hits(
 
         let cam_layers = cam_layers.to_owned().unwrap_or_default();
 
-        let settings = RayCastSettings {
+        let settings = MeshRayCastSettings {
             visibility: backend_settings.ray_cast_visibility,
             filter: &|entity| {
                 let marker_requirement =
@@ -99,10 +103,7 @@ pub fn update_hits(
                 let entity_layers = layers.get(entity).cloned().unwrap_or_default();
                 let render_layers_match = cam_layers.intersects(&entity_layers);
 
-                let is_pickable = pickables
-                    .get(entity)
-                    .map(|p| p.is_hoverable)
-                    .unwrap_or(true);
+                let is_pickable = pickables.get(entity).ok().is_none_or(|p| p.is_hoverable);
 
                 marker_requirement && render_layers_match && is_pickable
             },

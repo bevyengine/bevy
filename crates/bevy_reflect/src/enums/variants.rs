@@ -2,11 +2,11 @@ use crate::{
     attributes::{impl_custom_attribute_methods, CustomAttributes},
     NamedField, UnnamedField,
 };
-use bevy_utils::HashMap;
+use alloc::boxed::Box;
+use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::sync::Arc;
 use core::slice::Iter;
-
-use alloc::sync::Arc;
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
 /// Describes the form of an enum variant.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
@@ -40,12 +40,12 @@ pub enum VariantType {
 }
 
 /// A [`VariantInfo`]-specific error.
-#[derive(Debug, Error, Display)]
+#[derive(Debug, Error)]
 pub enum VariantInfoError {
     /// Caused when a variant was expected to be of a certain [type], but was not.
     ///
     /// [type]: VariantType
-    #[display("variant type mismatch: expected {expected:?}, received {received:?}")]
+    #[error("variant type mismatch: expected {expected:?}, received {received:?}")]
     TypeMismatch {
         expected: VariantType,
         received: VariantType,
@@ -359,7 +359,6 @@ impl UnitVariantInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{Reflect, Typed};
 
     #[test]

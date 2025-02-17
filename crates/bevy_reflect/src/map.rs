@@ -1,14 +1,14 @@
 use core::fmt::{Debug, Formatter};
 
+use bevy_platform_support::collections::HashTable;
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::hashbrown::HashTable;
 
-use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, type_info::impl_type_methods, ApplyError, Generics, MaybeTyped,
-    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
-    TypePath,
+    generics::impl_generic_info_methods, type_info::impl_type_methods, ApplyError, Generics,
+    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
+use alloc::{boxed::Box, format, vec::Vec};
 
 /// A trait used to power [map-like] operations via [reflection].
 ///
@@ -30,7 +30,7 @@ use crate::{
 ///
 /// ```
 /// use bevy_reflect::{PartialReflect, Reflect, Map};
-/// use bevy_utils::HashMap;
+/// use std::collections::HashMap;
 ///
 ///
 /// let foo: &mut dyn Map = &mut HashMap::<u32, bool>::new();
@@ -42,7 +42,7 @@ use crate::{
 /// ```
 ///
 /// [`HashMap`]: std::collections::HashMap
-/// [`BTreeMap`]: std::collections::BTreeMap
+/// [`BTreeMap`]: alloc::collections::BTreeMap
 /// [map-like]: https://doc.rust-lang.org/book/ch08-03-hash-maps.html
 /// [reflection]: crate
 pub trait Map: PartialReflect {
@@ -568,7 +568,7 @@ pub fn map_partial_eq<M: Map + ?Sized>(a: &M, b: &dyn PartialReflect) -> Option<
 ///
 /// # Example
 /// ```
-/// # use bevy_utils::HashMap;
+/// # use std::collections::HashMap;
 /// use bevy_reflect::Reflect;
 ///
 /// let mut my_map = HashMap::new();
@@ -631,6 +631,10 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn PartialReflect) -> Result<(), Ap
 #[cfg(test)]
 mod tests {
     use super::{DynamicMap, Map};
+    use alloc::{
+        borrow::ToOwned,
+        string::{String, ToString},
+    };
 
     #[test]
     fn test_into_iter() {

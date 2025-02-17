@@ -41,7 +41,7 @@
 //!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
 //!     # use bevy_transform::components::Transform;
-//!     # use bevy_core::Name;
+//!     # use bevy_ecs::name::Name;
 //!     # use bevy_math::vec3;
 //!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
@@ -89,21 +89,20 @@ use core::{
     marker::PhantomData,
 };
 
-use bevy_ecs::component::Component;
-use bevy_math::curve::{
-    cores::{UnevenCore, UnevenCoreError},
-    iterable::IterableCurve,
-    Curve, Interval,
-};
-use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
-use bevy_render::mesh::morph::MorphWeights;
-
 use crate::{
     graph::AnimationNodeIndex,
     prelude::{Animatable, BlendInput},
     AnimationEntityMut, AnimationEvaluationError,
 };
-use bevy_utils::Hashed;
+use bevy_ecs::component::{Component, Mutable};
+use bevy_math::curve::{
+    cores::{UnevenCore, UnevenCoreError},
+    iterable::IterableCurve,
+    Curve, Interval,
+};
+use bevy_platform_support::hash::Hashed;
+use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
+use bevy_render::mesh::morph::MorphWeights;
 use downcast_rs::{impl_downcast, Downcast};
 
 /// A value on a component that Bevy can animate.
@@ -117,22 +116,27 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     # use bevy_animation::{prelude::AnimatableProperty, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_reflect::Reflect;
 ///     # use std::any::TypeId;
-///     # use bevy_render::camera::PerspectiveProjection;
+///     # use bevy_render::camera::{Projection, PerspectiveProjection};
 ///     #[derive(Reflect)]
 ///     struct FieldOfViewProperty;
 ///
 ///     impl AnimatableProperty for FieldOfViewProperty {
 ///         type Property = f32;
 ///         fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
-///            let component = entity
-///                .get_mut::<PerspectiveProjection>()
-///                .ok_or(
-///                     AnimationEvaluationError::ComponentNotPresent(
-///                         TypeId::of::<PerspectiveProjection>()
-///                    )
-///                 )?
+///             let component = entity
+///                 .get_mut::<Projection>()
+///                 .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+///                     Projection,
+///                 >(
+///                 )))?
 ///                 .into_inner();
-///             Ok(&mut component.fov)
+///             match component {
+///                 Projection::Perspective(perspective) => Ok(&mut perspective.fov),
+///                 _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+///                     PerspectiveProjection,
+///                 >(
+///                 ))),
+///             }
 ///         }
 ///
 ///         fn evaluator_id(&self) -> EvaluatorId {
@@ -144,9 +148,9 @@ use downcast_rs::{impl_downcast, Downcast};
 ///
 ///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
-///     # use bevy_core::Name;
+///     # use bevy_ecs::name::Name;
 ///     # use bevy_reflect::Reflect;
-///     # use bevy_render::camera::PerspectiveProjection;
+///     # use bevy_render::camera::{Projection, PerspectiveProjection};
 ///     # use std::any::TypeId;
 ///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 ///     # #[derive(Reflect, Clone)]
@@ -154,15 +158,20 @@ use downcast_rs::{impl_downcast, Downcast};
 ///     # impl AnimatableProperty for FieldOfViewProperty {
 ///     #    type Property = f32;
 ///     #    fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
-///     #       let component = entity
-///     #           .get_mut::<PerspectiveProjection>()
-///     #           .ok_or(
-///     #                AnimationEvaluationError::ComponentNotPresent(
-///     #                    TypeId::of::<PerspectiveProjection>()
-///     #               )
-///     #            )?
+///     #        let component = entity
+///     #            .get_mut::<Projection>()
+///     #            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+///     #                Projection,
+///     #            >(
+///     #            )))?
 ///     #            .into_inner();
-///     #        Ok(&mut component.fov)
+///     #        match component {
+///     #            Projection::Perspective(perspective) => Ok(&mut perspective.fov),
+///     #            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+///     #                PerspectiveProjection,
+///     #            >(
+///     #            ))),
+///     #        }
 ///     #    }
 ///     #    fn evaluator_id(&self) -> EvaluatorId {
 ///     #        EvaluatorId::Type(TypeId::of::<Self>())
@@ -221,7 +230,7 @@ pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
 
 impl<C, A, F> AnimatableProperty for AnimatedField<C, A, F>
 where
-    C: Component,
+    C: Component<Mutability = Mutable>,
     A: Animatable + Clone + Sync + Debug,
     F: Fn(&mut C) -> &mut A + Send + Sync + 'static,
 {
@@ -243,18 +252,26 @@ where
 
 impl<C: Typed, P, F: Fn(&mut C) -> &mut P + 'static> AnimatedField<C, P, F> {
     /// Creates a new instance of [`AnimatedField`]. This operates under the assumption that
-    /// `C` is a reflect-able struct with named fields, and that `field_name` is a valid field on that struct.
+    /// `C` is a reflect-able struct, and that `field_name` is a valid field on that struct.
     ///
     /// # Panics
-    /// If the type of `C` is not a struct with named fields or if the `field_name` does not exist.
+    /// If the type of `C` is not a struct or if the `field_name` does not exist.
     pub fn new_unchecked(field_name: &str, func: F) -> Self {
-        let TypeInfo::Struct(struct_info) = C::type_info() else {
+        let field_index;
+        if let TypeInfo::Struct(struct_info) = C::type_info() {
+            field_index = struct_info
+                .index_of(field_name)
+                .expect("Field name should exist");
+        } else if let TypeInfo::TupleStruct(struct_info) = C::type_info() {
+            field_index = field_name
+                .parse()
+                .expect("Field name should be a valid tuple index");
+            if field_index >= struct_info.field_len() {
+                panic!("Field name should be a valid tuple index");
+            }
+        } else {
             panic!("Only structs are supported in `AnimatedField::new_unchecked`")
-        };
-
-        let field_index = struct_info
-            .index_of(field_name)
-            .expect("Field name should exist");
+        }
 
         Self {
             func,
@@ -966,6 +983,7 @@ where
 ///
 /// ```
 /// # use bevy_animation::{animation_curves::AnimatedField, animated_field};
+/// # use bevy_color::Srgba;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_math::Vec3;
 /// # use bevy_reflect::Reflect;
@@ -975,12 +993,35 @@ where
 /// }
 ///
 /// let field = animated_field!(Transform::translation);
+///
+/// #[derive(Component, Reflect)]
+/// struct Color(Srgba);
+///
+/// let tuple_field = animated_field!(Color::0);
 /// ```
 #[macro_export]
 macro_rules! animated_field {
-    ($component:ident::$field:ident) => {
+    ($component:ident::$field:tt) => {
         AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
             &mut component.$field
         })
     };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_animated_field_tuple_struct_simple_uses() {
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct A(f32);
+        let _ = AnimatedField::new_unchecked("0", |a: &mut A| &mut a.0);
+
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct B(f32, f64, f32);
+        let _ = AnimatedField::new_unchecked("0", |b: &mut B| &mut b.0);
+        let _ = AnimatedField::new_unchecked("1", |b: &mut B| &mut b.1);
+        let _ = AnimatedField::new_unchecked("2", |b: &mut B| &mut b.2);
+    }
 }

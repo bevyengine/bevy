@@ -78,10 +78,9 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
             self.world()
                 .components()
                 .get_info(component_id)
-                .map_or(false, |info| info.storage_type() == StorageType::Table)
+                .is_some_and(|info| info.storage_type() == StorageType::Table)
         };
 
-        #[allow(deprecated)]
         let (mut component_reads_and_writes, component_reads_and_writes_inverted) =
             self.access.access().component_reads_and_writes();
         if component_reads_and_writes_inverted {
@@ -276,8 +275,8 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{prelude::*, world::FilteredEntityRef};
+    use std::dbg;
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);

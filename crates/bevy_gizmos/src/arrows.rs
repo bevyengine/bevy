@@ -1,9 +1,9 @@
-//! Additional [`Gizmos`] Functions -- Arrows
+//! Additional [`GizmoBuffer`] Functions -- Arrows
 //!
-//! Includes the implementation of [`Gizmos::arrow`] and [`Gizmos::arrow_2d`],
+//! Includes the implementation of [`GizmoBuffer::arrow`] and [`GizmoBuffer::arrow_2d`],
 //! and assorted support items.
 
-use crate::prelude::{GizmoConfigGroup, Gizmos};
+use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
     Color,
@@ -11,13 +11,13 @@ use bevy_color::{
 use bevy_math::{Quat, Vec2, Vec3, Vec3Swizzles};
 use bevy_transform::TransformPoint;
 
-/// A builder returned by [`Gizmos::arrow`] and [`Gizmos::arrow_2d`]
-pub struct ArrowBuilder<'a, 'w, 's, Config, Clear>
+/// A builder returned by [`GizmoBuffer::arrow`] and [`GizmoBuffer::arrow_2d`]
+pub struct ArrowBuilder<'a, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    gizmos: &'a mut Gizmos<'w, 's, Config, Clear>,
+    gizmos: &'a mut GizmoBuffer<Config, Clear>,
     start: Vec3,
     end: Vec3,
     color: Color,
@@ -25,7 +25,7 @@ where
     tip_length: f32,
 }
 
-impl<Config, Clear> ArrowBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> ArrowBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -58,12 +58,12 @@ where
     }
 }
 
-impl<Config, Clear> Drop for ArrowBuilder<'_, '_, '_, Config, Clear>
+impl<Config, Clear> Drop for ArrowBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
-    /// Draws the arrow, by drawing lines with the stored [`Gizmos`]
+    /// Draws the arrow, by drawing lines with the stored [`GizmoBuffer`]
     fn drop(&mut self) {
         if !self.gizmos.enabled {
             return;
@@ -101,7 +101,7 @@ where
     }
 }
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
@@ -125,7 +125,7 @@ where
         start: Vec3,
         end: Vec3,
         color: impl Into<Color>,
-    ) -> ArrowBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> ArrowBuilder<'_, Config, Clear> {
         let length = (end - start).length();
         ArrowBuilder {
             gizmos: self,
@@ -156,12 +156,12 @@ where
         start: Vec2,
         end: Vec2,
         color: impl Into<Color>,
-    ) -> ArrowBuilder<'_, 'w, 's, Config, Clear> {
+    ) -> ArrowBuilder<'_, Config, Clear> {
         self.arrow(start.extend(0.), end.extend(0.), color)
     }
 }
 
-impl<'w, 's, Config, Clear> Gizmos<'w, 's, Config, Clear>
+impl<Config, Clear> GizmoBuffer<Config, Clear>
 where
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,

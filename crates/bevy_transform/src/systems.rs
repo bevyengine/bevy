@@ -1,12 +1,6 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::{
-    change_detection::Ref,
-    prelude::{Changed, DetectChanges, Entity, Query, With, Without},
-    query::{Added, Or},
-    removal_detection::RemovedComponents,
-    system::{Local, ParamSet},
-};
-use bevy_hierarchy::{Children, Parent};
+use alloc::vec::Vec;
+use bevy_ecs::prelude::*;
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
@@ -17,13 +11,13 @@ pub fn sync_simple_transforms(
             (&Transform, &mut GlobalTransform),
             (
                 Or<(Changed<Transform>, Added<GlobalTransform>)>,
-                Without<Parent>,
+                Without<ChildOf>,
                 Without<Children>,
             ),
         >,
-        Query<(Ref<Transform>, &mut GlobalTransform), (Without<Parent>, Without<Children>)>,
+        Query<(Ref<Transform>, &mut GlobalTransform), (Without<ChildOf>, Without<Children>)>,
     )>,
-    mut orphaned: RemovedComponents<Parent>,
+    mut orphaned: RemovedComponents<ChildOf>,
 ) {
     // Update changed entities.
     query
@@ -49,11 +43,14 @@ pub fn sync_simple_transforms(
 pub fn propagate_transforms(
     mut root_query: Query<
         (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
-        Without<Parent>,
+        Without<ChildOf>,
     >,
-    mut orphaned: RemovedComponents<Parent>,
-    transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
-    parent_query: Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
+    mut orphaned: RemovedComponents<ChildOf>,
+    transform_query: Query<
+        (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
+        With<ChildOf>,
+    >,
+    parent_query: Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
     mut orphaned_entities: Local<Vec<Entity>>,
 ) {
     orphaned_entities.clear();
@@ -115,9 +112,9 @@ unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     transform_query: &Query<
         (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
-        With<Parent>,
+        With<ChildOf>,
     >,
-    parent_query: &Query<(Entity, Ref<Parent>), With<GlobalTransform>>,
+    parent_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
     entity: Entity,
     mut changed: bool,
 ) {
@@ -136,7 +133,7 @@ unsafe fn propagate_recursive(
             //   \   /
             //     D
             //
-            // D has two parents, B and C. If the propagation passes through C, but the Parent component on D points to B,
+            // D has two parents, B and C. If the propagation passes through C, but the ChildOf component on D points to B,
             // the above check will panic as the origin parent does match the recorded parent.
             //
             // Also consider the following case, where A and B are roots:
@@ -185,13 +182,13 @@ unsafe fn propagate_recursive(
 
 #[cfg(test)]
 mod test {
+    use alloc::vec;
     use bevy_app::prelude::*;
     use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::systems::*;
-    use bevy_hierarchy::{BuildChildren, ChildBuild};
 
     #[test]
     fn correct_parent_removed() {
@@ -209,8 +206,8 @@ mod test {
         let root = commands.spawn(offset_transform(3.3)).id();
         let parent = commands.spawn(offset_transform(4.4)).id();
         let child = commands.spawn(offset_transform(5.5)).id();
-        commands.entity(parent).set_parent(root);
-        commands.entity(child).set_parent(parent);
+        commands.entity(parent).insert(ChildOf(root));
+        commands.entity(child).insert(ChildOf(parent));
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -223,7 +220,7 @@ mod test {
         // Remove parent of `parent`
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
-        commands.entity(parent).remove_parent();
+        commands.entity(parent).remove::<ChildOf>();
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -236,7 +233,7 @@ mod test {
         // Remove parent of `child`
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
-        commands.entity(child).remove_parent();
+        commands.entity(child).remove::<ChildOf>();
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -337,7 +334,6 @@ mod test {
                 .get::<Children>(parent)
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             children,
         );
@@ -356,7 +352,6 @@ mod test {
                 .get::<Children>(parent)
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             vec![children[1]]
         );
@@ -366,7 +361,6 @@ mod test {
                 .get::<Children>(children[1])
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             vec![children[0]]
         );
@@ -380,7 +374,6 @@ mod test {
                 .get::<Children>(parent)
                 .unwrap()
                 .iter()
-                .cloned()
                 .collect::<Vec<_>>(),
             vec![children[1]]
         );
@@ -432,7 +425,7 @@ mod test {
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
         ComputeTaskPool::get_or_init(TaskPool::default);
-        // We cannot directly edit Parent and Children, so we use a temp world to break
+        // We cannot directly edit ChildOf and Children, so we use a temp world to break
         // the hierarchy's invariants.
         let mut temp = World::new();
         let mut app = App::new();
@@ -460,8 +453,29 @@ mod test {
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
         core::mem::swap(
-            &mut *app.world_mut().get_mut::<Parent>(child).unwrap(),
-            &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
+            #[expect(
+                unsafe_code,
+                reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
+            )]
+            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
+            unsafe {
+                &mut *app
+                    .world_mut()
+                    .entity_mut(child)
+                    .get_mut_assume_mutable::<ChildOf>()
+                    .unwrap()
+            },
+            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
+            #[expect(
+                unsafe_code,
+                reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
+            )]
+            unsafe {
+                &mut *temp
+                    .entity_mut(grandchild)
+                    .get_mut_assume_mutable::<ChildOf>()
+                    .unwrap()
+            },
         );
 
         app.update();
@@ -499,7 +513,7 @@ mod test {
             .abs_diff_eq(2. * translation, 0.1));
 
         // Reparent child
-        world.entity_mut(child).remove_parent();
+        world.entity_mut(child).remove::<ChildOf>();
         world.entity_mut(parent).add_child(child);
 
         // Run schedule to propagate transforms

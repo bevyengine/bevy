@@ -1,7 +1,7 @@
 //! This example illustrates how to load and play different soundtracks,
 //! transitioning between them as the game state changes.
 
-use bevy::prelude::*;
+use bevy::{audio::Volume, prelude::*};
 
 fn main() {
     App::new()
@@ -82,7 +82,7 @@ fn change_track(
                     AudioPlayer(soundtrack_player.track_list.first().unwrap().clone()),
                     PlaybackSettings {
                         mode: bevy::audio::PlaybackMode::Loop,
-                        volume: bevy::audio::Volume::ZERO,
+                        volume: Volume::SILENT,
                         ..default()
                     },
                     FadeIn,
@@ -93,7 +93,7 @@ fn change_track(
                     AudioPlayer(soundtrack_player.track_list.get(1).unwrap().clone()),
                     PlaybackSettings {
                         mode: bevy::audio::PlaybackMode::Loop,
-                        volume: bevy::audio::Volume::ZERO,
+                        volume: Volume::SILENT,
                         ..default()
                     },
                     FadeIn,
@@ -113,10 +113,11 @@ fn fade_in(
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeIn>>,
     time: Res<Time>,
 ) {
-    for (audio, entity) in audio_sink.iter_mut() {
-        audio.set_volume(audio.volume() + time.delta_secs() / FADE_TIME);
-        if audio.volume() >= 1.0 {
-            audio.set_volume(1.0);
+    for (mut audio, entity) in audio_sink.iter_mut() {
+        let current_volume = audio.volume();
+        audio.set_volume(current_volume + Volume::Linear(time.delta_secs() / FADE_TIME));
+        if audio.volume().to_linear() >= 1.0 {
+            audio.set_volume(Volume::Linear(1.0));
             commands.entity(entity).remove::<FadeIn>();
         }
     }
@@ -129,10 +130,11 @@ fn fade_out(
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeOut>>,
     time: Res<Time>,
 ) {
-    for (audio, entity) in audio_sink.iter_mut() {
-        audio.set_volume(audio.volume() - time.delta_secs() / FADE_TIME);
-        if audio.volume() <= 0.0 {
-            commands.entity(entity).despawn_recursive();
+    for (mut audio, entity) in audio_sink.iter_mut() {
+        let current_volume = audio.volume();
+        audio.set_volume(current_volume - Volume::Linear(time.delta_secs() / FADE_TIME));
+        if audio.volume().to_linear() <= 0.0 {
+            commands.entity(entity).despawn();
         }
     }
 }

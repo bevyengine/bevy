@@ -2,10 +2,11 @@ mod graph_runner;
 mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::tracing::{error, info, info_span, warn};
 pub use graph_runner::*;
 pub use render_device::*;
+use tracing::{error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -17,8 +18,8 @@ use crate::{
 };
 use alloc::sync::Arc;
 use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_platform_support::time::Instant;
 use bevy_time::TimeSender;
-use bevy_utils::Instant;
 use wgpu::{
     Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions,
@@ -35,6 +36,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     let render_adapter = world.resource::<RenderAdapter>();
 
     let res = RenderGraphRunner::run(
@@ -42,6 +44,7 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
         render_device.clone(), // TODO: is this clone really necessary?
         diagnostics_recorder,
         &render_queue.0,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         &render_adapter.0,
         world,
         |encoder| {
@@ -84,20 +87,18 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
 
         let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
-            if let Some(wrapped_texture) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = wrapped_texture.try_unwrap() {
-                    // TODO(clean): winit docs recommends calling pre_present_notify before this.
-                    // though `present()` doesn't present the frame, it schedules it to be presented
-                    // by wgpu.
-                    // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
-                    surface_texture.present();
-                }
+            if let Some(surface_texture) = window.swap_chain_texture.take() {
+                // TODO(clean): winit docs recommends calling pre_present_notify before this.
+                // though `present()` doesn't present the frame, it schedules it to be presented
+                // by wgpu.
+                // https://docs.rs/winit/0.29.9/wasm32-unknown-unknown/winit/window/struct.Window.html#method.pre_present_notify
+                surface_texture.present();
             }
         }
 
         #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
+        tracing::event!(
+            tracing::Level::INFO,
             message = "finished frame",
             tracy.frame_mark = true
         );
@@ -221,10 +222,8 @@ pub async fn initialize_renderer(
         // RAY_QUERY and RAY_TRACING_ACCELERATION STRUCTURE will sometimes cause DeviceLost failures on platforms
         // that report them as supported:
         // <https://github.com/gfx-rs/wgpu/issues/5488>
-        // WGPU also currently doesn't actually support these features yet, so we should disable
-        // them until they are safe to enable.
-        features -= wgpu::Features::RAY_QUERY;
-        features -= wgpu::Features::RAY_TRACING_ACCELERATION_STRUCTURE;
+        features -= wgpu::Features::EXPERIMENTAL_RAY_QUERY;
+        features -= wgpu::Features::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE;
 
         limits = adapter.limits();
     }
@@ -379,6 +378,7 @@ pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
+    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
     force_serial: bool,
     diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
 }
@@ -387,6 +387,7 @@ impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(
         render_device: RenderDevice,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         adapter_info: AdapterInfo,
         diagnostics_recorder: Option<DiagnosticsRecorder>,
     ) -> Self {
@@ -394,7 +395,10 @@ impl<'w> RenderContext<'w> {
         #[cfg(target_os = "windows")]
         let force_serial =
             adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(not(any(
+            target_os = "windows",
+            all(target_arch = "wasm32", target_feature = "atomics")
+        )))]
         let force_serial = {
             drop(adapter_info);
             false
@@ -404,6 +408,7 @@ impl<'w> RenderContext<'w> {
             render_device,
             command_encoder: None,
             command_buffer_queue: Vec::new(),
+            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
             force_serial,
             diagnostics_recorder: diagnostics_recorder.map(Arc::new),
         }

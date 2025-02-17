@@ -2,8 +2,9 @@
 
 use core::any::TypeId;
 
-use derive_more::derive::{Display, Error};
+use thiserror::Error;
 
+use alloc::string::{String, ToString};
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
 use crate::{prelude::*, world::ComponentId};
@@ -164,7 +165,7 @@ impl World {
         };
 
         // HACK: Only required for the `None`-case/`else`-branch, but it borrows `self`, which will
-        // already be mutablyy borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
+        // already be mutably borrowed by `self.get_mut_by_id()`, and I didn't find a way around it.
         let component_name = self
             .components()
             .get_name(component_id)
@@ -198,7 +199,7 @@ impl World {
 }
 
 /// The error type returned by [`World::get_reflect`] and [`World::get_reflect_mut`].
-#[derive(Error, Display, Debug)]
+#[derive(Error, Debug)]
 pub enum GetComponentReflectError {
     /// There is no [`ComponentId`] corresponding to the given [`TypeId`].
     ///
@@ -208,14 +209,11 @@ pub enum GetComponentReflectError {
     /// See the documentation for [`bevy_reflect`] for more information.
     ///
     /// [`App::register_type`]: ../../../bevy_app/struct.App.html#method.register_type
-    #[display(
-        "No `ComponentId` corresponding to {_0:?} found (did you call App::register_type()?)"
-    )]
-    #[error(ignore)]
+    #[error("No `ComponentId` corresponding to {0:?} found (did you call App::register_type()?)")]
     NoCorrespondingComponentId(TypeId),
 
     /// The given [`Entity`] does not have a [`Component`] corresponding to the given [`TypeId`].
-    #[display("The given `Entity` {entity:?} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
+    #[error("The given `Entity` {entity} does not have a `{component_name:?}` component ({component_id:?}, which corresponds to {type_id:?})")]
     EntityDoesNotHaveComponent {
         /// The given [`Entity`].
         entity: Entity,
@@ -229,7 +227,7 @@ pub enum GetComponentReflectError {
     },
 
     /// The [`World`] was missing the [`AppTypeRegistry`] resource.
-    #[display("The `World` was missing the `AppTypeRegistry` resource")]
+    #[error("The `World` was missing the `AppTypeRegistry` resource")]
     MissingAppTypeRegistry,
 
     /// The [`World`]'s [`TypeRegistry`] did not contain [`TypeData`] for [`ReflectFromPtr`] for the given [`TypeId`].
@@ -243,8 +241,7 @@ pub enum GetComponentReflectError {
     /// [`TypeRegistry`]: bevy_reflect::TypeRegistry
     /// [`ReflectFromPtr`]: bevy_reflect::ReflectFromPtr
     /// [`App::register_type`]: ../../../bevy_app/struct.App.html#method.register_type
-    #[display("The `World`'s `TypeRegistry` did not contain `TypeData` for `ReflectFromPtr` for the given {_0:?} (did you call `App::register_type()`?)")]
-    #[error(ignore)]
+    #[error("The `World`'s `TypeRegistry` did not contain `TypeData` for `ReflectFromPtr` for the given {0:?} (did you call `App::register_type()`?)")]
     MissingReflectFromPtrTypeData(TypeId),
 }
 
@@ -254,11 +251,7 @@ mod tests {
 
     use bevy_reflect::Reflect;
 
-    use crate::{
-        // For bevy_ecs_macros
-        self as bevy_ecs,
-        prelude::{AppTypeRegistry, Component, DetectChanges, World},
-    };
+    use crate::prelude::{AppTypeRegistry, Component, DetectChanges, World};
 
     #[derive(Component, Reflect)]
     struct RFoo(i32);

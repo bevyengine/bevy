@@ -9,8 +9,8 @@ use core::{
     hash::{Hash, Hasher},
 };
 use crossbeam_channel::{Receiver, Sender};
-use derive_more::derive::{Display, Error};
 use disqualified::ShortName;
+use thiserror::Error;
 use uuid::Uuid;
 
 /// Provides [`Handle`] and [`UntypedHandle`] _for a specific asset type_.
@@ -113,14 +113,21 @@ impl core::fmt::Debug for StrongHandle {
     }
 }
 
-/// A strong or weak handle to a specific [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
+/// A handle to a specific [`Asset`] of type `A`. Handles act as abstract "references" to
+/// assets, whose data are stored in the [`Assets<A>`](crate::prelude::Assets) resource,
+/// avoiding the need to store multiple copies of the same data.
+///
+/// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
 /// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
 /// nor will it keep assets alive.
+///
+/// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
+/// (by mutating the [`Assets`](crate::prelude::Assets) resource) will change the asset for all handles referencing it.
 ///
 /// [`Handle`] can be cloned. If a [`Handle::Strong`] is cloned, the referenced [`Asset`] will not be freed until _all_ instances
 /// of the [`Handle`] are dropped.
 ///
-/// [`Handle::Strong`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
+/// [`Handle::Strong`], via [`StrongHandle`] also provides access to useful [`Asset`] metadata, such as the [`AssetPath`] (if it exists).
 #[derive(Reflect)]
 #[reflect(Default, Debug, Hash, PartialEq)]
 pub enum Handle<A: Asset> {
@@ -143,6 +150,7 @@ impl<T: Asset> Clone for Handle<T> {
 
 impl<A: Asset> Handle<A> {
     /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
+    #[deprecated = "use the `weak_handle!` macro with a UUID string instead"]
     pub const fn weak_from_u128(value: u128) -> Self {
         Handle::Weak(AssetId::Uuid {
             uuid: Uuid::from_u128(value),
@@ -283,7 +291,9 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
 /// See [`Handle`] for more information.
 #[derive(Clone)]
 pub enum UntypedHandle {
+    /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
     Strong(Arc<StrongHandle>),
+    /// A weak handle, which does not keep the referenced [`Asset`] alive.
     Weak(UntypedAssetId),
 }
 
@@ -501,20 +511,46 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
     }
 }
 
+/// Creates a weak [`Handle`] from a string literal containing a UUID.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_asset::{Handle, weak_handle};
+/// # type Shader = ();
+/// const SHADER: Handle<Shader> = weak_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
+/// ```
+#[macro_export]
+macro_rules! weak_handle {
+    ($uuid:expr) => {{
+        $crate::Handle::Weak($crate::AssetId::Uuid {
+            uuid: $crate::uuid::uuid!($uuid),
+        })
+    }};
+}
+
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
-#[derive(Error, Display, Debug, PartialEq, Clone)]
+#[derive(Error, Debug, PartialEq, Clone)]
 #[non_exhaustive]
 pub enum UntypedAssetConversionError {
     /// Caused when trying to convert an [`UntypedHandle`] into a [`Handle`] of the wrong type.
-    #[display(
+    #[error(
         "This UntypedHandle is for {found:?} and cannot be converted into a Handle<{expected:?}>"
     )]
-    TypeIdMismatch { expected: TypeId, found: TypeId },
+    TypeIdMismatch {
+        /// The expected [`TypeId`] of the [`Handle`] being converted to.
+        expected: TypeId,
+        /// The [`TypeId`] of the [`UntypedHandle`] being converted from.
+        found: TypeId,
+    },
 }
 
 #[cfg(test)]
 mod tests {
+    use alloc::boxed::Box;
+    use bevy_platform_support::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
+    use core::hash::BuildHasher;
 
     use super::*;
 
@@ -525,9 +561,7 @@ mod tests {
 
     /// Simple utility to directly hash a value using a fixed hasher
     fn hash<T: Hash>(data: &T) -> u64 {
-        let mut hasher = bevy_utils::AHasher::default();
-        data.hash(&mut hasher);
-        hasher.finish()
+        FixedHasher.hash_one(data)
     }
 
     /// Typed and Untyped `Handles` should be equivalent to each other and themselves
@@ -551,8 +585,11 @@ mod tests {
     }
 
     /// Typed and Untyped `Handles` should be orderable amongst each other and themselves
-    #[allow(clippy::cmp_owned)]
     #[test]
+    #[expect(
+        clippy::cmp_owned,
+        reason = "This lints on the assertion that a typed handle converted to an untyped handle maintains its ordering compared to an untyped handle. While the conversion would normally be useless, we need to ensure that converted handles maintain their ordering, making the conversion necessary here."
+    )]
     fn ordering() {
         assert!(UUID_1 < UUID_2);
 

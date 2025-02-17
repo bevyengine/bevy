@@ -1,6 +1,6 @@
 use super::TaskPool;
+use bevy_platform_support::sync::OnceLock;
 use core::ops::Deref;
-use std::sync::OnceLock;
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
@@ -75,7 +75,7 @@ taskpool! {
     (IO_TASK_POOL, IoTaskPool)
 }
 
-/// A function used by `bevy_core` to tick the global tasks pools on the main thread.
+/// A function used by `bevy_app` to tick the global tasks pools on the main thread.
 /// This will run a maximum of 100 local tasks per executor per call to this function.
 ///
 /// # Warning

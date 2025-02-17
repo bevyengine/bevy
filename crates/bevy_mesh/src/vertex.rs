@@ -1,12 +1,12 @@
 use alloc::sync::Arc;
 use bevy_derive::EnumVariantMeta;
-use bevy_ecs::system::Resource;
+use bevy_ecs::resource::Resource;
 use bevy_math::Vec3;
-use bevy_utils::HashSet;
+use bevy_platform_support::collections::HashSet;
 use bytemuck::cast_slice;
 use core::hash::{Hash, Hasher};
-use derive_more::derive::{Display, Error};
-use wgpu::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
+use thiserror::Error;
+use wgpu_types::{BufferAddress, VertexAttribute, VertexFormat, VertexStepMode};
 
 #[derive(Debug, Clone, Copy)]
 pub struct MeshVertexAttribute {
@@ -108,8 +108,8 @@ impl MeshVertexBufferLayout {
     }
 }
 
-#[derive(Error, Display, Debug)]
-#[display("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
+#[derive(Error, Debug)]
+#[error("Mesh is missing requested attribute: {name} ({id:?}, pipeline type: {pipeline_type:?})")]
 pub struct MissingVertexAttributeError {
     pub pipeline_type: Option<&'static str>,
     id: MeshVertexAttributeId,
@@ -138,56 +138,31 @@ pub(crate) struct MeshAttributeData {
     pub(crate) values: VertexAttributeValues,
 }
 
-pub(crate) fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+/// Compute a vector whose direction is the normal of the triangle formed by
+/// points a, b, c, and whose magnitude is double the area of the triangle. This
+/// is useful for computing smooth normals where the contributing normals are
+/// proportionate to the areas of the triangles as [discussed
+/// here](https://iquilezles.org/articles/normals/).
+///
+/// Question: Why double the area? Because the area of a triangle _A_ is
+/// determined by this equation:
+///
+/// _A = |(b - a) x (c - a)| / 2_
+///
+/// By computing _2 A_ we avoid a division operation, and when calculating the
+/// the sum of these vectors which are then normalized, a constant multiple has
+/// no effect.
+#[inline]
+pub fn face_area_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
+    let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
+    (b - a).cross(c - a).into()
+}
+
+/// Compute the normal of a face made of three points: a, b, and c.
+#[inline]
+pub fn face_normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
     let (a, b, c) = (Vec3::from(a), Vec3::from(b), Vec3::from(c));
     (b - a).cross(c - a).normalize().into()
-}
-
-pub trait VertexFormatSize {
-    fn get_size(self) -> u64;
-}
-
-impl VertexFormatSize for VertexFormat {
-    #[allow(clippy::match_same_arms)]
-    fn get_size(self) -> u64 {
-        match self {
-            VertexFormat::Uint8x2 => 2,
-            VertexFormat::Uint8x4 => 4,
-            VertexFormat::Sint8x2 => 2,
-            VertexFormat::Sint8x4 => 4,
-            VertexFormat::Unorm8x2 => 2,
-            VertexFormat::Unorm8x4 => 4,
-            VertexFormat::Snorm8x2 => 2,
-            VertexFormat::Snorm8x4 => 4,
-            VertexFormat::Unorm10_10_10_2 => 4,
-            VertexFormat::Uint16x2 => 2 * 2,
-            VertexFormat::Uint16x4 => 2 * 4,
-            VertexFormat::Sint16x2 => 2 * 2,
-            VertexFormat::Sint16x4 => 2 * 4,
-            VertexFormat::Unorm16x2 => 2 * 2,
-            VertexFormat::Unorm16x4 => 2 * 4,
-            VertexFormat::Snorm16x2 => 2 * 2,
-            VertexFormat::Snorm16x4 => 2 * 4,
-            VertexFormat::Float16x2 => 2 * 2,
-            VertexFormat::Float16x4 => 2 * 4,
-            VertexFormat::Float32 => 4,
-            VertexFormat::Float32x2 => 4 * 2,
-            VertexFormat::Float32x3 => 4 * 3,
-            VertexFormat::Float32x4 => 4 * 4,
-            VertexFormat::Uint32 => 4,
-            VertexFormat::Uint32x2 => 4 * 2,
-            VertexFormat::Uint32x3 => 4 * 3,
-            VertexFormat::Uint32x4 => 4 * 4,
-            VertexFormat::Sint32 => 4,
-            VertexFormat::Sint32x2 => 4 * 2,
-            VertexFormat::Sint32x3 => 4 * 3,
-            VertexFormat::Sint32x4 => 4 * 4,
-            VertexFormat::Float64 => 8,
-            VertexFormat::Float64x2 => 8 * 2,
-            VertexFormat::Float64x3 => 8 * 3,
-            VertexFormat::Float64x4 => 8 * 4,
-        }
-    }
 }
 
 /// Contains an array where each entry describes a property of a single vertex.
@@ -227,7 +202,10 @@ pub enum VertexAttributeValues {
 impl VertexAttributeValues {
     /// Returns the number of vertices in this [`VertexAttributeValues`]. For a single
     /// mesh, all of the [`VertexAttributeValues`] must have the same length.
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub fn len(&self) -> usize {
         match self {
             VertexAttributeValues::Float32(values) => values.len(),
@@ -277,7 +255,10 @@ impl VertexAttributeValues {
     // TODO: add vertex format as parameter here and perform type conversions
     /// Flattens the [`VertexAttributeValues`] into a sequence of bytes. This is
     /// useful for serialization and sending to the GPU.
-    #[allow(clippy::match_same_arms)]
+    #[expect(
+        clippy::match_same_arms,
+        reason = "Although the `values` binding on some match arms may have matching types, each variant has different semantics; thus it's not guaranteed that they will use the same type forever."
+    )]
     pub fn get_bytes(&self) -> &[u8] {
         match self {
             VertexAttributeValues::Float32(values) => cast_slice(values),

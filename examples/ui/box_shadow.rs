@@ -35,7 +35,7 @@ fn setup(mut commands: Commands) {
     let args = Args::from_args(&[], &[]).unwrap();
 
     // ui camera
-    commands.spawn((Camera2d, UiBoxShadowSamples(args.samples)));
+    commands.spawn((Camera2d, BoxShadowSamples(args.samples)));
 
     commands
         .spawn((

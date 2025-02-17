@@ -1,26 +1,28 @@
 //! Light probes for baked global illumination.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::Component,
+    component::{require, Component},
     entity::Entity,
     query::With,
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoSystemConfigs,
-    system::{Commands, Local, Query, Res, ResMut, Resource},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, Shader, ShaderType, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
@@ -28,7 +30,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
-use bevy_utils::{tracing::error, HashMap};
+use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
@@ -41,7 +43,8 @@ use crate::{
 
 use self::irradiance_volume::IrradianceVolume;
 
-pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8954249792581071582);
+pub const LIGHT_PROBE_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("e80a2ae6-1c5a-4d9a-a852-d66ff0e6bf7f");
 
 pub mod environment_map;
 pub mod irradiance_volume;
@@ -125,6 +128,10 @@ struct RenderLightProbe {
     ///
     /// See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
+
+    /// Whether this light probe adds to the diffuse contribution of the
+    /// irradiance for meshes with lightmaps.
+    affects_lightmapped_mesh_diffuse: u32,
 }
 
 /// A per-view shader uniform that specifies all the light probes that the view
@@ -158,6 +165,12 @@ pub struct LightProbesUniform {
     ///
     /// See the comment in [`EnvironmentMapLight`] for details.
     intensity_for_view: f32,
+
+    /// Whether the environment map attached to the view affects the diffuse
+    /// lighting for lightmapped meshes.
+    ///
+    /// This will be 1 if the map does affect lightmapped meshes or 0 otherwise.
+    view_environment_map_affects_lightmapped_mesh_diffuse: u32,
 }
 
 /// A GPU buffer that stores information about all light probes.
@@ -174,7 +187,6 @@ pub struct ViewLightProbesUniformOffset(u32);
 /// This information is parameterized by the [`LightProbeComponent`] type. This
 /// will either be [`EnvironmentMapLight`] for reflection probes or
 /// [`IrradianceVolume`] for irradiance volumes.
-#[allow(dead_code)]
 struct LightProbeInfo<C>
 where
     C: LightProbeComponent,
@@ -190,6 +202,10 @@ where
     //
     // See the comment in [`EnvironmentMapLight`] for details.
     intensity: f32,
+
+    // Whether this light probe adds to the diffuse contribution of the
+    // irradiance for meshes with lightmaps.
+    affects_lightmapped_mesh_diffuse: bool,
 
     // The IDs of all assets associated with this light probe.
     //
@@ -278,6 +294,10 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     /// This is a scaling factor that will be multiplied by the value or values
     /// sampled from the texture.
     fn intensity(&self) -> f32;
+
+    /// Returns true if this light probe contributes diffuse lighting to meshes
+    /// with lightmaps or false otherwise.
+    fn affects_lightmapped_mesh_diffuse(&self) -> bool;
 
     /// Creates an instance of [`RenderViewLightProbes`] containing all the
     /// information needed to render this light probe.
@@ -537,6 +557,9 @@ fn upload_light_probes(
             intensity_for_view: render_view_environment_maps
                 .map(|maps| maps.view_light_probe_info.intensity)
                 .unwrap_or(1.0),
+            view_environment_map_affects_lightmapped_mesh_diffuse: render_view_environment_maps
+                .map(|maps| maps.view_light_probe_info.affects_lightmapped_mesh_diffuse as u32)
+                .unwrap_or(1),
         };
 
         // Add any environment maps that [`gather_light_probes`] found to the
@@ -576,6 +599,7 @@ impl Default for LightProbesUniform {
             view_cubemap_index: -1,
             smallest_specular_mip_level_for_view: 0,
             intensity_for_view: 1.0,
+            view_environment_map_affects_lightmapped_mesh_diffuse: 1,
         }
     }
 }
@@ -596,6 +620,7 @@ where
             light_from_world: light_probe_transform.compute_matrix().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
+            affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
         })
     }
 
@@ -631,7 +656,7 @@ where
     fn new() -> RenderViewLightProbes<C> {
         RenderViewLightProbes {
             binding_index_to_textures: vec![],
-            cubemap_to_binding_index: HashMap::new(),
+            cubemap_to_binding_index: HashMap::default(),
             render_light_probes: vec![],
             view_light_probe_info: C::ViewLightProbeInfo::default(),
         }
@@ -693,6 +718,8 @@ where
                 ],
                 texture_index: cubemap_index as i32,
                 intensity: light_probe.intensity,
+                affects_lightmapped_mesh_diffuse: light_probe.affects_lightmapped_mesh_diffuse
+                    as u32,
             });
         }
     }
@@ -707,6 +734,7 @@ where
             light_from_world: self.light_from_world,
             world_from_light: self.world_from_light,
             intensity: self.intensity,
+            affects_lightmapped_mesh_diffuse: self.affects_lightmapped_mesh_diffuse,
             asset_id: self.asset_id.clone(),
         }
     }
@@ -752,15 +780,20 @@ pub(crate) fn add_cubemap_texture_view<'a>(
 ///     enough texture bindings available in the fragment shader.
 ///
 /// 3. If binding arrays aren't supported on the hardware, then we obviously
-///     can't use them.
+///    can't use them. Adreno <= 610 claims to support bindless, but seems to be
+///    too buggy to be usable.
 ///
 /// 4. If binding arrays are supported on the hardware, but they can only be
 ///     accessed by uniform indices, that's not good enough, and we bail out.
 ///
 /// If binding arrays aren't usable, we disable reflection probes and limit the
 /// number of irradiance volumes in the scene to 1.
-pub(crate) fn binding_arrays_are_usable(render_device: &RenderDevice) -> bool {
+pub(crate) fn binding_arrays_are_usable(
+    render_device: &RenderDevice,
+    render_adapter: &RenderAdapter,
+) -> bool {
     !cfg!(feature = "shader_format_glsl")
+        && bevy_render::get_adreno_model(render_adapter).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32

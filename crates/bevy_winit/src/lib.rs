@@ -19,7 +19,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
 use core::marker::PhantomData;
-use winit::event_loop::EventLoop;
+use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
 use bevy_app::{App, Last, Plugin};
@@ -45,6 +45,8 @@ use crate::{
 pub mod accessibility;
 mod converters;
 pub mod cursor;
+#[cfg(feature = "custom_cursor")]
+mod custom_cursor;
 mod state;
 mod system;
 mod winit_config;
@@ -121,6 +123,7 @@ impl<T: Event> Plugin for WinitPlugin<T> {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
+            .add_event::<RawWinitWindowEvent>()
             .set_runner(winit_runner::<T>)
             .add_systems(
                 Last,
@@ -152,6 +155,21 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 #[derive(Debug, Default, Clone, Copy, Event, Reflect)]
 #[reflect(Debug, Default)]
 pub struct WakeUp;
+
+/// The original window event as produced by Winit. This is meant as an escape
+/// hatch for power users that wish to add custom Winit integrations.
+/// If you want to process events for your app or game, you should instead use
+/// `bevy::window::WindowEvent`, or one of its sub-events.
+///
+/// When you receive this event it has already been handled by Bevy's main loop.
+/// Sending these events will NOT cause them to be processed by Bevy.
+#[derive(Debug, Clone, Event)]
+pub struct RawWinitWindowEvent {
+    /// The window for which the event was fired.
+    pub window_id: WindowId,
+    /// The raw winit window event.
+    pub event: winit::event::WindowEvent,
+}
 
 /// A wrapper type around [`winit::event_loop::EventLoopProxy`] with the specific
 /// [`winit::event::Event::UserEvent`] used in the [`WinitPlugin`].

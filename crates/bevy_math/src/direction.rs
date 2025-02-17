@@ -8,8 +8,12 @@ use derive_more::derive::Into;
 
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
+
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
+#[cfg(all(debug_assertions, feature = "std"))]
+use std::eprintln;
 
 /// An error indicating that a direction is invalid.
 #[derive(Debug, PartialEq)]
@@ -55,34 +59,26 @@ impl core::fmt::Display for InvalidDirectionError {
 /// and similarly for the error.
 #[cfg(debug_assertions)]
 fn assert_is_normalized(message: &str, length_squared: f32) {
-    let length_error_squared = (length_squared - 1.0).abs();
+    use crate::ops;
+
+    let length_error_squared = ops::abs(length_squared - 1.0);
 
     // Panic for large error and warn for slight error.
     if length_error_squared > 2e-2 || length_error_squared.is_nan() {
         // Length error is approximately 1e-2 or more.
-        panic!("Error: {message} The length is {}.", length_squared.sqrt());
+        panic!(
+            "Error: {message} The length is {}.",
+            ops::sqrt(length_squared)
+        );
     } else if length_error_squared > 2e-4 {
         // Length error is approximately 1e-4 or more.
+        #[cfg(feature = "std")]
         eprintln!(
             "Warning: {message} The length is {}.",
-            length_squared.sqrt()
+            ops::sqrt(length_squared)
         );
     }
 }
-
-/// A normalized vector pointing in a direction in 2D space
-#[deprecated(
-    since = "0.14.0",
-    note = "`Direction2d` has been renamed. Please use `Dir2` instead."
-)]
-pub type Direction2d = Dir2;
-
-/// A normalized vector pointing in a direction in 3D space
-#[deprecated(
-    since = "0.14.0",
-    note = "`Direction3d` has been renamed. Please use `Dir3` instead."
-)]
-pub type Direction3d = Dir3;
 
 /// A normalized vector pointing in a direction in 2D space
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -202,9 +198,11 @@ impl Dir2 {
     /// let dir2 = Dir2::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result1, Dir2::from_xy(0.75_f32.sqrt(), 0.5).unwrap());
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir2::from_xy(0.5_f32.sqrt(), 0.5_f32.sqrt()).unwrap());
     /// ```
     #[inline]
@@ -461,6 +459,7 @@ impl Dir3 {
     /// let dir2 = Dir3::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
     ///     Dir3::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
@@ -468,6 +467,7 @@ impl Dir3 {
     /// );
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir3::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
@@ -720,6 +720,7 @@ impl Dir3A {
     /// let dir2 = Dir3A::Y;
     ///
     /// let result1 = dir1.slerp(dir2, 1.0 / 3.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(
     ///     result1,
     ///     Dir3A::from_xyz(0.75_f32.sqrt(), 0.5, 0.0).unwrap(),
@@ -727,6 +728,7 @@ impl Dir3A {
     /// );
     ///
     /// let result2 = dir1.slerp(dir2, 0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(result2, Dir3A::from_xyz(0.5_f32.sqrt(), 0.5_f32.sqrt(), 0.0).unwrap());
     /// ```
     #[inline]
@@ -854,6 +856,7 @@ impl approx::UlpsEq for Dir3A {
 }
 
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use crate::ops;
 
@@ -886,17 +889,17 @@ mod tests {
     fn dir2_slerp() {
         assert_relative_eq!(
             Dir2::X.slerp(Dir2::Y, 0.5),
-            Dir2::from_xy(0.5_f32.sqrt(), 0.5_f32.sqrt()).unwrap()
+            Dir2::from_xy(ops::sqrt(0.5_f32), ops::sqrt(0.5_f32)).unwrap()
         );
         assert_eq!(Dir2::Y.slerp(Dir2::X, 0.0), Dir2::Y);
         assert_relative_eq!(Dir2::X.slerp(Dir2::Y, 1.0), Dir2::Y);
         assert_relative_eq!(
             Dir2::Y.slerp(Dir2::X, 1.0 / 3.0),
-            Dir2::from_xy(0.5, 0.75_f32.sqrt()).unwrap()
+            Dir2::from_xy(0.5, ops::sqrt(0.75_f32)).unwrap()
         );
         assert_relative_eq!(
             Dir2::X.slerp(Dir2::Y, 2.0 / 3.0),
-            Dir2::from_xy(0.5, 0.75_f32.sqrt()).unwrap()
+            Dir2::from_xy(0.5, ops::sqrt(0.75_f32)).unwrap()
         );
     }
 
@@ -930,7 +933,7 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
@@ -967,18 +970,18 @@ mod tests {
     fn dir3_slerp() {
         assert_relative_eq!(
             Dir3::X.slerp(Dir3::Y, 0.5),
-            Dir3::from_xyz(0.5f32.sqrt(), 0.5f32.sqrt(), 0.0).unwrap()
+            Dir3::from_xyz(ops::sqrt(0.5f32), ops::sqrt(0.5f32), 0.0).unwrap()
         );
         assert_relative_eq!(Dir3::Y.slerp(Dir3::Z, 0.0), Dir3::Y);
         assert_relative_eq!(Dir3::Z.slerp(Dir3::X, 1.0), Dir3::X, epsilon = 0.000001);
         assert_relative_eq!(
             Dir3::X.slerp(Dir3::Z, 1.0 / 3.0),
-            Dir3::from_xyz(0.75f32.sqrt(), 0.0, 0.5).unwrap(),
+            Dir3::from_xyz(ops::sqrt(0.75f32), 0.0, 0.5).unwrap(),
             epsilon = 0.000001
         );
         assert_relative_eq!(
             Dir3::Z.slerp(Dir3::Y, 2.0 / 3.0),
-            Dir3::from_xyz(0.0, 0.75f32.sqrt(), 0.5).unwrap()
+            Dir3::from_xyz(0.0, ops::sqrt(0.75f32), 0.5).unwrap()
         );
     }
 
@@ -1001,7 +1004,7 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }
@@ -1038,18 +1041,18 @@ mod tests {
     fn dir3a_slerp() {
         assert_relative_eq!(
             Dir3A::X.slerp(Dir3A::Y, 0.5),
-            Dir3A::from_xyz(0.5f32.sqrt(), 0.5f32.sqrt(), 0.0).unwrap()
+            Dir3A::from_xyz(ops::sqrt(0.5f32), ops::sqrt(0.5f32), 0.0).unwrap()
         );
         assert_relative_eq!(Dir3A::Y.slerp(Dir3A::Z, 0.0), Dir3A::Y);
         assert_relative_eq!(Dir3A::Z.slerp(Dir3A::X, 1.0), Dir3A::X, epsilon = 0.000001);
         assert_relative_eq!(
             Dir3A::X.slerp(Dir3A::Z, 1.0 / 3.0),
-            Dir3A::from_xyz(0.75f32.sqrt(), 0.0, 0.5).unwrap(),
+            Dir3A::from_xyz(ops::sqrt(0.75f32), 0.0, 0.5).unwrap(),
             epsilon = 0.000001
         );
         assert_relative_eq!(
             Dir3A::Z.slerp(Dir3A::Y, 2.0 / 3.0),
-            Dir3A::from_xyz(0.0, 0.75f32.sqrt(), 0.5).unwrap()
+            Dir3A::from_xyz(0.0, ops::sqrt(0.75f32), 0.5).unwrap()
         );
     }
 
@@ -1072,7 +1075,7 @@ mod tests {
         // `dir_a` should've gotten denormalized, meanwhile `dir_b` should stay normalized.
         assert!(
             !dir_a.is_normalized(),
-            "Dernormalization doesn't work, test is faulty"
+            "Denormalization doesn't work, test is faulty"
         );
         assert!(dir_b.is_normalized(), "Renormalisation did not work.");
     }

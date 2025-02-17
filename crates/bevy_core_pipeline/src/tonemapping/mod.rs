@@ -1,6 +1,6 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -18,22 +18,23 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniform},
     Render, RenderApp, RenderSet,
 };
-#[cfg(not(feature = "tonemapping_luts"))]
-use bevy_utils::tracing::error;
 use bitflags::bitflags;
+#[cfg(not(feature = "tonemapping_luts"))]
+use tracing::error;
 
 mod node;
 
 use bevy_utils::default;
 pub use node::TonemappingNode;
 
-const TONEMAPPING_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(17015368199668024512);
+const TONEMAPPING_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("e239c010-c25c-42a1-b4e8-08818764d667");
 
 const TONEMAPPING_SHARED_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(2499430578245347910);
+    weak_handle!("61dbc544-4b30-4ca9-83bd-4751b5cfb1b1");
 
 const TONEMAPPING_LUT_BINDINGS_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(8392056472189465073);
+    weak_handle!("d50e3a70-c85e-4725-a81e-72fc83281145");
 
 /// 3D LUT (look up table) textures used for tonemapping
 #[derive(Resource, Clone, ExtractResource)]
@@ -431,8 +432,11 @@ pub fn get_lut_bind_group_layout_entries() -> [BindGroupLayoutEntryBuilder; 2] {
     ]
 }
 
-// allow(dead_code) so it doesn't complain when the tonemapping_luts feature is disabled
-#[allow(dead_code)]
+#[expect(clippy::allow_attributes, reason = "`dead_code` is not always linted.")]
+#[allow(
+    dead_code,
+    reason = "There is unused code when the `tonemapping_luts` feature is disabled."
+)]
 fn setup_tonemapping_lut_image(bytes: &[u8], image_type: ImageType) -> Image {
     let image_sampler = ImageSampler::Descriptor(bevy_image::ImageSamplerDescriptor {
         label: Some("Tonemapping LUT sampler".to_string()),
@@ -461,7 +465,7 @@ pub fn lut_placeholder() -> Image {
     let format = TextureFormat::Rgba8Unorm;
     let data = vec![255, 0, 255, 255];
     Image {
-        data,
+        data: Some(data),
         texture_descriptor: TextureDescriptor {
             size: Extent3d {
                 width: 1,

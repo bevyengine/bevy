@@ -1,8 +1,10 @@
-// Temporary workaround for impl_reflect!(Option/Result false-positive
-#![allow(unused_qualifications)]
+#![expect(
+    unused_qualifications,
+    reason = "Temporary workaround for impl_reflect!(Option/Result false-positive"
+)]
 
 use crate::{
-    self as bevy_reflect, impl_type_path, map_apply, map_partial_eq, map_try_apply,
+    impl_type_path, map_apply, map_partial_eq, map_try_apply,
     prelude::ReflectDefault,
     reflect::impl_full_reflect,
     set_apply, set_partial_eq, set_try_apply,
@@ -13,13 +15,22 @@ use crate::{
     ReflectFromReflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, ReflectSerialize, Set,
     SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration, TypeRegistry, Typed,
 };
-use alloc::{borrow::Cow, collections::VecDeque};
+use alloc::{
+    borrow::{Cow, ToOwned},
+    boxed::Box,
+    collections::VecDeque,
+    format,
+    vec::Vec,
+};
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
 use core::{
     any::Any,
     fmt,
     hash::{BuildHasher, Hash, Hasher},
+    panic::Location,
 };
+
+#[cfg(feature = "std")]
 use std::path::Path;
 
 impl_reflect_opaque!(bool(
@@ -89,6 +100,7 @@ impl_reflect_opaque!(::alloc::string::String(
     Deserialize,
     Default
 ));
+#[cfg(feature = "std")]
 impl_reflect_opaque!(::std::path::PathBuf(
     Debug,
     Hash,
@@ -106,7 +118,7 @@ impl_reflect_opaque!(::core::ops::RangeTo<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::ops::RangeToInclusive<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::ops::RangeFull());
 impl_reflect_opaque!(::core::ops::Bound<T: Clone + Send + Sync>());
-impl_reflect_opaque!(::bevy_utils::Duration(
+impl_reflect_opaque!(::core::time::Duration(
     Debug,
     Hash,
     PartialEq,
@@ -114,7 +126,9 @@ impl_reflect_opaque!(::bevy_utils::Duration(
     Deserialize,
     Default
 ));
-impl_reflect_opaque!(::bevy_utils::Instant(Debug, Hash, PartialEq));
+impl_reflect_opaque!(::bevy_platform_support::time::Instant(
+    Debug, Hash, PartialEq
+));
 impl_reflect_opaque!(::core::num::NonZeroI128(
     Debug,
     Hash,
@@ -201,11 +215,16 @@ impl_reflect_opaque!(::core::num::NonZeroI8(
 ));
 impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>());
+impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>);
+
+// We check despite `portable-atomic` being enabled, if the standard library `Arc` is
+// also available, and implement Reflect for it.
+#[cfg(all(feature = "portable-atomic", target_has_atomic = "ptr"))]
 impl_reflect_opaque!(::alloc::sync::Arc<T: Send + Sync + ?Sized>);
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
-#[cfg(any(unix, windows))]
+#[cfg(all(any(unix, windows), feature = "std"))]
 impl_reflect_opaque!(::std::ffi::OsString(
     Debug,
     Hash,
@@ -213,7 +232,7 @@ impl_reflect_opaque!(::std::ffi::OsString(
     Serialize,
     Deserialize
 ));
-#[cfg(not(any(unix, windows)))]
+#[cfg(all(not(any(unix, windows)), feature = "std"))]
 impl_reflect_opaque!(::std::ffi::OsString(Debug, Hash, PartialEq));
 impl_reflect_opaque!(::alloc::collections::BinaryHeap<T: Clone>);
 
@@ -225,7 +244,6 @@ macro_rules! impl_reflect_for_atomic {
             #[cfg(feature = "functions")]
             crate::func::macros::impl_function_traits!($ty);
 
-            #[allow(unused_mut)]
             impl GetTypeRegistration for $ty
             where
                 $ty: Any + Send + Sync,
@@ -235,8 +253,14 @@ macro_rules! impl_reflect_for_atomic {
                     registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
                     registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                     registration.insert::<ReflectDefault>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
-                    registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+
+                    // Serde only supports atomic types when the "std" feature is enabled
+                    #[cfg(feature = "std")]
+                    {
+                        registration.insert::<ReflectSerialize>(FromType::<Self>::from_type());
+                        registration.insert::<ReflectDeserialize>(FromType::<Self>::from_type());
+                    }
+
                     registration
                 }
             }
@@ -349,10 +373,12 @@ impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicUsize,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "64")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicI64,
     ::core::sync::atomic::Ordering::SeqCst
 );
+#[cfg(target_has_atomic = "64")]
 impl_reflect_for_atomic!(
     ::core::sync::atomic::AtomicU64,
     ::core::sync::atomic::Ordering::SeqCst
@@ -539,6 +565,7 @@ macro_rules! impl_reflect_for_veclike {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<$ty>();
                 registration.insert::<ReflectFromPtr>(FromType::<$ty>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<$ty>::from_type());
                 registration
             }
 
@@ -783,11 +810,12 @@ macro_rules! impl_reflect_for_hashmap {
         where
             K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
             V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
-            S: TypePath + BuildHasher + Send + Sync,
+            S: TypePath + BuildHasher + Send + Sync + Default,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
                 registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                 registration
             }
 
@@ -820,10 +848,14 @@ macro_rules! impl_reflect_for_hashmap {
     };
 }
 
+#[cfg(feature = "std")]
 impl_reflect_for_hashmap!(::std::collections::HashMap<K, V, S>);
+impl_type_path!(::core::hash::BuildHasherDefault<H>);
+#[cfg(feature = "std")]
 impl_type_path!(::std::collections::hash_map::RandomState);
+#[cfg(feature = "std")]
 impl_type_path!(::std::collections::HashMap<K, V, S>);
-#[cfg(feature = "functions")]
+#[cfg(all(feature = "functions", feature = "std"))]
 crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
@@ -832,11 +864,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashMap<K, V, S>;
     >
 );
 
-impl_reflect_for_hashmap!(bevy_utils::hashbrown::HashMap<K, V, S>);
-impl_type_path!(::bevy_utils::hashbrown::hash_map::DefaultHashBuilder);
-impl_type_path!(::bevy_utils::hashbrown::HashMap<K, V, S>);
+impl_reflect_for_hashmap!(bevy_platform_support::collections::HashMap<K, V, S>);
+impl_type_path!(::bevy_platform_support::collections::HashMap<K, V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashMap<K, V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashMap<K, V, S>;
     <
         K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
         V: FromReflect + MaybeTyped + TypePath + GetTypeRegistration,
@@ -900,7 +931,7 @@ macro_rules! impl_reflect_for_hashset {
                         from_reflect = V::from_reflect(value);
                         from_reflect.as_ref()
                     })
-                    .map_or(false, |value| self.remove(value))
+                    .is_some_and(|value| self.remove(value))
             }
 
             fn contains(&self, value: &dyn PartialReflect) -> bool {
@@ -911,7 +942,7 @@ macro_rules! impl_reflect_for_hashset {
                         from_reflect = V::from_reflect(value);
                         from_reflect.as_ref()
                     })
-                    .map_or(false, |value| self.contains(value))
+                    .is_some_and(|value| self.contains(value))
             }
         }
 
@@ -1005,11 +1036,12 @@ macro_rules! impl_reflect_for_hashset {
         impl<V, S> GetTypeRegistration for $ty
         where
             V: FromReflect + TypePath + GetTypeRegistration + Eq + Hash,
-            S: TypePath + BuildHasher + Send + Sync,
+            S: TypePath + BuildHasher + Send + Sync + Default,
         {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Self>();
                 registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+                registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
                 registration
             }
 
@@ -1046,12 +1078,14 @@ macro_rules! impl_reflect_for_hashset {
     };
 }
 
-impl_type_path!(::bevy_utils::NoOpHash);
-impl_type_path!(::bevy_utils::FixedState);
+impl_type_path!(::bevy_platform_support::hash::NoOpHash);
+impl_type_path!(::bevy_platform_support::hash::FixedHasher);
 
+#[cfg(feature = "std")]
 impl_reflect_for_hashset!(::std::collections::HashSet<V,S>);
+#[cfg(feature = "std")]
 impl_type_path!(::std::collections::HashSet<V, S>);
-#[cfg(feature = "functions")]
+#[cfg(all(feature = "functions", feature = "std"))]
 crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
@@ -1059,10 +1093,10 @@ crate::func::macros::impl_function_traits!(::std::collections::HashSet<V, S>;
     >
 );
 
-impl_reflect_for_hashset!(::bevy_utils::hashbrown::HashSet<V,S>);
-impl_type_path!(::bevy_utils::hashbrown::HashSet<V, S>);
+impl_reflect_for_hashset!(::bevy_platform_support::collections::HashSet<V,S>);
+impl_type_path!(::bevy_platform_support::collections::HashSet<V, S>);
 #[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(::bevy_utils::hashbrown::HashSet<V, S>;
+crate::func::macros::impl_function_traits!(::bevy_platform_support::collections::HashSet<V, S>;
     <
         V: Hash + Eq + FromReflect + TypePath + GetTypeRegistration,
         S: TypePath + BuildHasher + Default + Send + Sync
@@ -1269,6 +1303,7 @@ where
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
@@ -1633,6 +1668,7 @@ impl GetTypeRegistration for Cow<'static, str> {
         let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
         registration
     }
@@ -1970,6 +2006,7 @@ impl FromReflect for &'static str {
 #[cfg(feature = "functions")]
 crate::func::macros::impl_function_traits!(&'static str);
 
+#[cfg(feature = "std")]
 impl PartialReflect for &'static Path {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -2048,6 +2085,7 @@ impl PartialReflect for &'static Path {
     }
 }
 
+#[cfg(feature = "std")]
 impl Reflect for &'static Path {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -2079,6 +2117,7 @@ impl Reflect for &'static Path {
     }
 }
 
+#[cfg(feature = "std")]
 impl Typed for &'static Path {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -2086,23 +2125,27 @@ impl Typed for &'static Path {
     }
 }
 
+#[cfg(feature = "std")]
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
         registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
         registration
     }
 }
 
+#[cfg(feature = "std")]
 impl FromReflect for &'static Path {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
 
-#[cfg(feature = "functions")]
+#[cfg(all(feature = "functions", feature = "std"))]
 crate::func::macros::impl_function_traits!(&'static Path);
 
+#[cfg(feature = "std")]
 impl PartialReflect for Cow<'static, Path> {
     fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
         Some(<Self as Typed>::type_info())
@@ -2185,6 +2228,7 @@ impl PartialReflect for Cow<'static, Path> {
     }
 }
 
+#[cfg(feature = "std")]
 impl Reflect for Cow<'static, Path> {
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
@@ -2216,6 +2260,7 @@ impl Reflect for Cow<'static, Path> {
     }
 }
 
+#[cfg(feature = "std")]
 impl Typed for Cow<'static, Path> {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
@@ -2223,15 +2268,18 @@ impl Typed for Cow<'static, Path> {
     }
 }
 
+#[cfg(feature = "std")]
 impl_type_path!(::std::path::Path);
 impl_type_path!(::alloc::borrow::Cow<'a: 'static, T: ToOwned + ?Sized>);
 
+#[cfg(feature = "std")]
 impl FromReflect for Cow<'static, Path> {
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         Some(reflect.try_downcast_ref::<Self>()?.clone())
     }
 }
 
+#[cfg(feature = "std")]
 impl GetTypeRegistration for Cow<'static, Path> {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<Self>();
@@ -2243,18 +2291,166 @@ impl GetTypeRegistration for Cow<'static, Path> {
     }
 }
 
-#[cfg(feature = "functions")]
+#[cfg(all(feature = "functions", feature = "std"))]
 crate::func::macros::impl_function_traits!(Cow<'static, Path>);
+
+impl TypePath for &'static Location<'static> {
+    fn type_path() -> &'static str {
+        "core::panic::Location"
+    }
+
+    fn short_type_path() -> &'static str {
+        "Location"
+    }
+}
+
+impl PartialReflect for &'static Location<'static> {
+    fn get_represented_type_info(&self) -> Option<&'static TypeInfo> {
+        Some(<Self as Typed>::type_info())
+    }
+
+    #[inline]
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Ok(self)
+    }
+
+    fn try_as_reflect(&self) -> Option<&dyn Reflect> {
+        Some(self)
+    }
+
+    fn try_as_reflect_mut(&mut self) -> Option<&mut dyn Reflect> {
+        Some(self)
+    }
+
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::Opaque
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Opaque(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Opaque(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Opaque(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
+        Box::new(*self)
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = reflect_hasher();
+        Hash::hash(&Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            Some(PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+
+    fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
+        if let Some(value) = value.try_downcast_ref::<Self>() {
+            self.clone_from(value);
+            Ok(())
+        } else {
+            Err(ApplyError::MismatchedTypes {
+                from_type: value.reflect_type_path().into(),
+                to_type: <Self as DynamicTypePath>::reflect_type_path(self).into(),
+            })
+        }
+    }
+}
+
+impl Reflect for &'static Location<'static> {
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+}
+
+impl Typed for &'static Location<'static> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
+    }
+}
+
+impl GetTypeRegistration for &'static Location<'static> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration.insert::<ReflectFromReflect>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+impl FromReflect for &'static Location<'static> {
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
+        reflect.try_downcast_ref::<Self>().copied()
+    }
+}
+
+#[cfg(all(feature = "functions", feature = "std"))]
+crate::func::macros::impl_function_traits!(&'static Location<'static>);
 
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_reflect, Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize,
-        TypeInfo, TypeRegistry, Typed, VariantInfo, VariantType,
+        Enum, FromReflect, PartialReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry,
+        Typed, VariantInfo, VariantType,
     };
-    use alloc::collections::BTreeMap;
-    use bevy_utils::{Duration, HashMap, Instant};
-    use core::f32::consts::{PI, TAU};
+    use alloc::{collections::BTreeMap, string::String, vec};
+    use bevy_platform_support::collections::HashMap;
+    use bevy_platform_support::time::Instant;
+    use core::{
+        f32::consts::{PI, TAU},
+        time::Duration,
+    };
     use static_assertions::assert_impl_all;
     use std::path::Path;
 
@@ -2316,10 +2512,10 @@ mod tests {
 
     #[test]
     fn should_partial_eq_hash_map() {
-        let mut a = HashMap::new();
+        let mut a = <HashMap<_, _>>::default();
         a.insert(0usize, 1.23_f64);
         let b = a.clone();
-        let mut c = HashMap::new();
+        let mut c = <HashMap<_, _>>::default();
         c.insert(0usize, 3.21_f64);
 
         let a: &dyn PartialReflect = &a;

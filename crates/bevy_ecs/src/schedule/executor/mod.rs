@@ -1,19 +1,27 @@
+#[cfg(feature = "std")]
 mod multi_threaded;
 mod simple;
 mod single_threaded;
 
-pub use self::{
-    multi_threaded::{MainThreadExecutor, MultiThreadedExecutor},
-    simple::SimpleExecutor,
-    single_threaded::SingleThreadedExecutor,
-};
+use alloc::{borrow::Cow, vec, vec::Vec};
+use core::any::TypeId;
+
+pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
+
+#[cfg(feature = "std")]
+pub use self::multi_threaded::{MainThreadExecutor, MultiThreadedExecutor};
 
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule::{BoxedCondition, NodeId},
-    system::BoxedSystem,
-    world::World,
+    archetype::ArchetypeComponentId,
+    component::{ComponentId, Tick},
+    prelude::{IntoSystemSet, SystemSet},
+    query::Access,
+    result::{Error, Result, SystemErrorContext},
+    schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
+    system::{ScheduleSystem, System, SystemIn},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
@@ -25,6 +33,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         schedule: &mut SystemSchedule,
         world: &mut World,
         skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(Error, SystemErrorContext),
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
@@ -46,6 +55,7 @@ pub enum ExecutorKind {
     /// immediately after running each system.
     Simple,
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
+    #[cfg(feature = "std")]
     #[cfg_attr(all(not(target_arch = "wasm32"), feature = "multi_threaded"), default)]
     MultiThreaded,
 }
@@ -60,14 +70,22 @@ pub struct SystemSchedule {
     /// List of system node ids.
     pub(super) system_ids: Vec<NodeId>,
     /// Indexed by system node id.
-    pub(super) systems: Vec<BoxedSystem>,
+    pub(super) systems: Vec<ScheduleSystem>,
     /// Indexed by system node id.
     pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
     /// Indexed by system node id.
     /// Number of systems that the system immediately depends on.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     pub(super) system_dependencies: Vec<usize>,
     /// Indexed by system node id.
     /// List of systems that immediately depend on the system.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     pub(super) system_dependents: Vec<Vec<usize>>,
     /// Indexed by system node id.
     /// List of sets containing the system that have conditions
@@ -100,32 +118,139 @@ impl SystemSchedule {
     }
 }
 
-/// Instructs the executor to call [`System::apply_deferred`](crate::system::System::apply_deferred)
-/// on the systems that have run but not applied their [`Deferred`](crate::system::Deferred) system parameters
-/// (like [`Commands`](crate::prelude::Commands)) or other system buffers.
+/// See [`ApplyDeferred`].
+#[deprecated(
+    since = "0.16.0",
+    note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
+)]
+#[expect(
+    non_upper_case_globals,
+    reason = "This item is deprecated; as such, its previous name needs to stay."
+)]
+pub const apply_deferred: ApplyDeferred = ApplyDeferred;
+
+/// A special [`System`] that instructs the executor to call
+/// [`System::apply_deferred`] on the systems that have run but not applied
+/// their [`Deferred`] system parameters (like [`Commands`]) or other system buffers.
 ///
 /// ## Scheduling
 ///
-/// `apply_deferred` systems are scheduled *by default*
+/// `ApplyDeferred` systems are scheduled *by default*
 /// - later in the same schedule run (for example, if a system with `Commands` param
 ///   is scheduled in `Update`, all the changes will be visible in `PostUpdate`)
-/// - between systems with dependencies if the dependency
-///   [has deferred buffers](crate::system::System::has_deferred)
-///   (if system `bar` directly or indirectly depends on `foo`, and `foo` uses `Commands` param,
-///   changes to the world in `foo` will be visible in `bar`)
+/// - between systems with dependencies if the dependency [has deferred buffers]
+///   (if system `bar` directly or indirectly depends on `foo`, and `foo` uses
+///   `Commands` param, changes to the world in `foo` will be visible in `bar`)
 ///
 /// ## Notes
-/// - This function (currently) does nothing if it's called manually or wrapped inside a [`PipeSystem`](crate::system::PipeSystem).
-/// - Modifying a [`Schedule`](super::Schedule) may change the order buffers are applied.
+/// - This system (currently) does nothing if it's called manually or wrapped
+///   inside a [`PipeSystem`].
+/// - Modifying a [`Schedule`] may change the order buffers are applied.
+///
+/// [`System::apply_deferred`]: crate::system::System::apply_deferred
+/// [`Deferred`]: crate::system::Deferred
+/// [`Commands`]: crate::prelude::Commands
+/// [has deferred buffers]: crate::system::System::has_deferred
+/// [`PipeSystem`]: crate::system::PipeSystem
+/// [`Schedule`]: super::Schedule
 #[doc(alias = "apply_system_buffers")]
-#[allow(unused_variables)]
-pub fn apply_deferred(world: &mut World) {}
+pub struct ApplyDeferred;
 
-/// Returns `true` if the [`System`](crate::system::System) is an instance of [`apply_deferred`].
-pub(super) fn is_apply_deferred(system: &BoxedSystem) -> bool {
-    use crate::system::IntoSystem;
-    // deref to use `System::type_id` instead of `Any::type_id`
-    system.as_ref().type_id() == apply_deferred.system_type_id()
+/// Returns `true` if the [`System`] is an instance of [`ApplyDeferred`].
+pub(super) fn is_apply_deferred(system: &ScheduleSystem) -> bool {
+    system.type_id() == TypeId::of::<ApplyDeferred>()
+}
+
+impl System for ApplyDeferred {
+    type In = ();
+    type Out = Result<()>;
+
+    fn name(&self) -> Cow<'static, str> {
+        Cow::Borrowed("bevy_ecs::apply_deferred")
+    }
+
+    fn component_access(&self) -> &Access<ComponentId> {
+        // This system accesses no components.
+        const { &Access::new() }
+    }
+
+    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        // This system accesses no archetype components.
+        const { &Access::new() }
+    }
+
+    fn is_send(&self) -> bool {
+        // Although this system itself does nothing on its own, the system
+        // executor uses it to apply deferred commands. Commands must be allowed
+        // to access non-send resources, so this system must be non-send for
+        // scheduling purposes.
+        false
+    }
+
+    fn is_exclusive(&self) -> bool {
+        // This system is labeled exclusive because it is used by the system
+        // executor to find places where deferred commands should be applied,
+        // and commands can only be applied with exclusive access to the world.
+        true
+    }
+
+    fn has_deferred(&self) -> bool {
+        // This system itself doesn't have any commands to apply, but when it
+        // is pulled from the schedule to be ran, the executor will apply
+        // deferred commands from other systems.
+        false
+    }
+
+    unsafe fn run_unsafe(
+        &mut self,
+        _input: SystemIn<'_, Self>,
+        _world: UnsafeWorldCell,
+    ) -> Self::Out {
+        // This system does nothing on its own. The executor will apply deferred
+        // commands from other systems instead of running this system.
+        Ok(())
+    }
+
+    fn run(&mut self, _input: SystemIn<'_, Self>, _world: &mut World) -> Self::Out {
+        // This system does nothing on its own. The executor will apply deferred
+        // commands from other systems instead of running this system.
+        Ok(())
+    }
+
+    fn apply_deferred(&mut self, _world: &mut World) {}
+
+    fn queue_deferred(&mut self, _world: DeferredWorld) {}
+
+    unsafe fn validate_param_unsafe(&mut self, _world: UnsafeWorldCell) -> bool {
+        // This system is always valid to run because it doesn't do anything,
+        // and only used as a marker for the executor.
+        true
+    }
+
+    fn initialize(&mut self, _world: &mut World) {}
+
+    fn update_archetype_component_access(&mut self, _world: UnsafeWorldCell) {}
+
+    fn check_change_tick(&mut self, _change_tick: Tick) {}
+
+    fn default_system_sets(&self) -> Vec<InternedSystemSet> {
+        vec![SystemTypeSet::<Self>::new().intern()]
+    }
+
+    fn get_last_run(&self) -> Tick {
+        // This system is never run, so it has no last run tick.
+        Tick::MAX
+    }
+
+    fn set_last_run(&mut self, _last_run: Tick) {}
+}
+
+impl IntoSystemSet<()> for ApplyDeferred {
+    type Set = SystemTypeSet<Self>;
+
+    fn into_system_set(self) -> Self::Set {
+        SystemTypeSet::<Self>::new()
+    }
 }
 
 /// These functions hide the bottom of the callstack from `RUST_BACKTRACE=1` (assuming the default panic handler is used).
@@ -140,23 +265,26 @@ mod __rust_begin_short_backtrace {
     use core::hint::black_box;
 
     use crate::{
-        system::{ReadOnlySystem, System},
+        result::Result,
+        system::{ReadOnlySystem, ScheduleSystem},
         world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
     /// # Safety
     /// See `System::run_unsafe`.
     #[inline(never)]
-    pub(super) unsafe fn run_unsafe(
-        system: &mut dyn System<In = (), Out = ()>,
-        world: UnsafeWorldCell,
-    ) {
-        system.run_unsafe((), world);
+    pub(super) unsafe fn run_unsafe(system: &mut ScheduleSystem, world: UnsafeWorldCell) -> Result {
+        let result = system.run_unsafe((), world);
         black_box(());
+        result
     }
 
     /// # Safety
     /// See `ReadOnlySystem::run_unsafe`.
+    #[cfg_attr(
+        not(feature = "std"),
+        expect(dead_code, reason = "currently only used with the std feature")
+    )]
     #[inline(never)]
     pub(super) unsafe fn readonly_run_unsafe<O: 'static>(
         system: &mut dyn ReadOnlySystem<In = (), Out = O>,
@@ -166,9 +294,10 @@ mod __rust_begin_short_backtrace {
     }
 
     #[inline(never)]
-    pub(super) fn run(system: &mut dyn System<In = (), Out = ()>, world: &mut World) {
-        system.run((), world);
+    pub(super) fn run(system: &mut ScheduleSystem, world: &mut World) -> Result {
+        let result = system.run((), world);
         black_box(());
+        result
     }
 
     #[inline(never)]
@@ -183,10 +312,9 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
-        system::{Commands, In, IntoSystem, Res},
+        system::{Commands, Res, WithParamWarnPolicy},
         world::World,
     };
 
@@ -215,15 +343,11 @@ mod tests {
         schedule.set_executor_kind(executor);
         schedule.add_systems(
             (
-                // Combined systems get skipped together.
-                (|mut commands: Commands| {
-                    commands.insert_resource(R1);
-                })
-                .pipe(|_: In<()>, _: Res<R1>| {}),
                 // This system depends on a system that is always skipped.
-                |mut commands: Commands| {
+                (|mut commands: Commands| {
                     commands.insert_resource(R2);
-                },
+                })
+                .warn_param_missing(),
             )
                 .chain(),
         );
@@ -246,18 +370,20 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
         schedule.set_executor_kind(executor);
-        schedule.configure_sets(S1.run_if(|_: Res<R1>| true));
+        schedule.configure_sets(S1.run_if((|_: Res<R1>| true).warn_param_missing()));
         schedule.add_systems((
             // System gets skipped if system set run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R1);
             })
+            .warn_param_missing()
             .in_set(S1),
             // System gets skipped if run conditions fail validation.
             (|mut commands: Commands| {
                 commands.insert_resource(R2);
             })
-            .run_if(|_: Res<R2>| true),
+            .warn_param_missing()
+            .run_if((|_: Res<R2>| true).warn_param_missing()),
         ));
         schedule.run(&mut world);
         assert!(world.get_resource::<R1>().is_none());

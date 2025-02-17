@@ -11,14 +11,14 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World, WorldId},
 };
 
-use alloc::borrow::Cow;
-use bevy_utils::all_tuples;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Span};
+use tracing::{info_span, Span};
 
-use super::{In, IntoSystem, ReadOnlySystem, SystemParamBuilder};
+use super::{IntoSystem, ReadOnlySystem, SystemParamBuilder};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -60,7 +60,7 @@ impl SystemMeta {
             is_send: true,
             has_deferred: false,
             last_run: Tick::new(0),
-            param_warn_policy: ParamWarnPolicy::Once,
+            param_warn_policy: ParamWarnPolicy::Panic,
             #[cfg(feature = "trace")]
             system_span: info_span!("system", name = name),
             #[cfg(feature = "trace")]
@@ -110,7 +110,7 @@ impl SystemMeta {
     }
 
     /// Marks the system as having deferred buffers like [`Commands`](`super::Commands`)
-    /// This lets the scheduler insert [`apply_deferred`](`crate::prelude::apply_deferred`) systems automatically.
+    /// This lets the scheduler insert [`ApplyDeferred`](`crate::prelude::ApplyDeferred`) systems automatically.
     #[inline]
     pub fn set_has_deferred(&mut self) {
         self.has_deferred = true;
@@ -136,21 +136,73 @@ impl SystemMeta {
     {
         self.param_warn_policy.try_warn::<P>(&self.name);
     }
+
+    /// Archetype component access that is used to determine which systems can run in parallel with each other
+    /// in the multithreaded executor.
+    ///
+    /// We use an [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
+    /// for example if you have one system with `Query<&mut A, With<B>`, and one system with `Query<&mut A, Without<B>`,
+    /// they conflict if you just look at the [`ComponentId`];
+    /// but no archetype that matches the first query will match the second and vice versa,
+    /// which means there's no risk of conflict.
+    #[inline]
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    /// Returns a mutable reference to the [`Access`] for [`ArchetypeComponentId`].
+    /// This is used to determine which systems can run in parallel with each other
+    /// in the multithreaded executor.
+    ///
+    /// We use an [`ArchetypeComponentId`] as it is more precise than just checking [`ComponentId`]:
+    /// for example if you have one system with `Query<&mut A, With<B>`, and one system with `Query<&mut A, Without<B>`,
+    /// they conflict if you just look at the [`ComponentId`];
+    /// but no archetype that matches the first query will match the second and vice versa,
+    /// which means there's no risk of conflict.
+    ///
+    /// # Safety
+    ///
+    /// No access can be removed from the returned [`Access`].
+    #[inline]
+    pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
+        &mut self.archetype_component_access
+    }
+
+    /// Returns a reference to the [`FilteredAccessSet`] for [`ComponentId`].
+    /// Used to check if systems and/or system params have conflicting access.
+    #[inline]
+    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
+    }
+
+    /// Returns a mutable reference to the [`FilteredAccessSet`] for [`ComponentId`].
+    /// Used internally to statically check if systems have conflicting access.
+    ///
+    /// # Safety
+    ///
+    /// No access can be removed from the returned [`FilteredAccessSet`].
+    #[inline]
+    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
+        &mut self.component_access_set
+    }
 }
 
 /// State machine for emitting warnings when [system params are invalid](System::validate_param).
 #[derive(Clone, Copy)]
 pub enum ParamWarnPolicy {
+    /// Stop app with a panic.
+    Panic,
     /// No warning should ever be emitted.
     Never,
     /// The warning will be emitted once and status will update to [`Self::Never`].
-    Once,
+    Warn,
 }
 
 impl ParamWarnPolicy {
     /// Advances the warn policy after validation failed.
     #[inline]
     fn advance(&mut self) {
+        // Ignore `Panic` case, because it stops execution before this function gets called.
         *self = Self::Never;
     }
 
@@ -160,15 +212,21 @@ impl ParamWarnPolicy {
     where
         P: SystemParam,
     {
-        if matches!(self, Self::Never) {
-            return;
+        match self {
+            Self::Panic => panic!(
+                "{0} could not access system parameter {1}",
+                name,
+                disqualified::ShortName::of::<P>()
+            ),
+            Self::Warn => {
+                log::warn!(
+                    "{0} did not run because it requested inaccessible system parameter {1}",
+                    name,
+                    disqualified::ShortName::of::<P>()
+                );
+            }
+            Self::Never => {}
         }
-
-        bevy_utils::tracing::warn!(
-            "{0} did not run because it requested inaccessible system parameter {1}",
-            name,
-            disqualified::ShortName::of::<P>()
-        );
     }
 }
 
@@ -183,8 +241,13 @@ where
     /// Set warn policy.
     fn with_param_warn_policy(self, warn_policy: ParamWarnPolicy) -> FunctionSystem<M, F>;
 
-    /// Disable all param warnings.
-    fn never_param_warn(self) -> FunctionSystem<M, F> {
+    /// Warn and ignore systems with invalid parameters.
+    fn warn_param_missing(self) -> FunctionSystem<M, F> {
+        self.with_param_warn_policy(ParamWarnPolicy::Warn)
+    }
+
+    /// Silently ignore systems with invalid parameters.
+    fn ignore_param_missing(self) -> FunctionSystem<M, F> {
         self.with_param_warn_policy(ParamWarnPolicy::Never)
     }
 }
@@ -333,7 +396,7 @@ macro_rules! impl_build_system {
                 Input: SystemInput,
                 Out: 'static,
                 Marker,
-                F: FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out
+                F: FnMut(Input, $(SystemParamItem<$param>),*) -> Out
                     + SystemParamFunction<Marker, Param = ($($param,)*), In = Input, Out = Out>,
             >(
                 self,
@@ -409,6 +472,12 @@ impl<Param: SystemParam> SystemState<Param> {
     #[inline]
     pub fn meta(&self) -> &SystemMeta {
         &self.meta
+    }
+
+    /// Gets the metadata for this instance.
+    #[inline]
+    pub fn meta_mut(&mut self) -> &mut SystemMeta {
+        &mut self.meta
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
@@ -561,7 +630,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         unsafe { self.fetch(world, change_tick) }
     }
 
@@ -575,11 +644,30 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         let param =
             unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
         self.meta.last_run = change_tick;
         param
+    }
+
+    /// Returns a reference to the current system param states.
+    pub fn param_state(&self) -> &Param::State {
+        &self.param_state
+    }
+
+    /// Returns a mutable reference to the current system param states.
+    /// Marked as unsafe because modifying the system states may result in violation to certain
+    /// assumptions made by the [`SystemParam`]. Use with care.
+    ///
+    /// # Safety
+    /// Modifying the system param states may have unintended consequences.
+    /// The param state is generally considered to be owned by the [`SystemParam`]. Modifications
+    /// should respect any invariants as required by the [`SystemParam`].
+    /// For example, modifying the system state of [`ResMut`](crate::system::ResMut) without also
+    /// updating [`SystemMeta::component_access_set`] will obviously create issues.
+    pub unsafe fn param_state_mut(&mut self) -> &mut Param::State {
+        &mut self.param_state
     }
 }
 
@@ -593,7 +681,7 @@ impl<Param: SystemParam> FromWorld for SystemState<Param> {
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
 /// [`SystemParam`]s. The output of the system becomes the functions return type, while the input
-/// becomes the functions [`In`] tagged parameter or `()` if no such parameter exists.
+/// becomes the functions first parameter or `()` if no such parameter exists.
 ///
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
 ///
@@ -924,7 +1012,14 @@ pub struct HasSystemInput;
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
@@ -941,7 +1036,6 @@ macro_rules! impl_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut($($param,)*)->Out,
                     $($param: $param,)*
@@ -953,7 +1047,14 @@ macro_rules! impl_system_function {
             }
         }
 
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<In, Out, Func, $($param: SystemParam),*> SystemParamFunction<(HasSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,
@@ -968,7 +1069,6 @@ macro_rules! impl_system_function {
             type Param = ($($param,)*);
             #[inline]
             fn run(&mut self, input: In::Inner<'_>, param_value: SystemParamItem< ($($param,)*)>) -> Out {
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, $($param,)*)->Out,
                     input: In::Inner<'_>,
