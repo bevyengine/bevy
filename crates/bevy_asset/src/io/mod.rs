@@ -46,7 +46,8 @@ pub enum AssetReaderError {
     Io(Arc<std::io::Error>),
 
     /// The HTTP request completed but returned an unhandled [HTTP response status code](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status).
-    /// If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
+    /// - If the request returns a 404 error, expect [`AssetReaderError::NotFound`].
+    /// - If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
     #[error("Encountered HTTP status {0:?} when loading asset")]
     HttpError(u16),
 }

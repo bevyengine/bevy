@@ -455,6 +455,12 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+# Enables using assets from HTTP sources
+http_source = ["bevy_internal/http_source"]
+
+# Assets downloaded from HTTP sources are cached
+http_source_cache = ["bevy_internal/http_source_cache"]
+
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = ["bevy_internal/bevy_debug_stepping"]
 
@@ -522,7 +528,7 @@ accesskit = "0.17"
 smol = "2"
 smol-macros = "0.1"
 smol-hyper = "0.1"
-ureq = { version = "2.10.1", features = ["json"] }
+ureq = { version = "3", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen = { version = "0.2" }
@@ -1737,11 +1743,23 @@ path = "examples/asset/extra_source.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.extra_asset_source]
-name = "Extra asset source"
+name = "Extra Asset Source"
 description = "Load an asset from a non-standard asset source"
 category = "Assets"
 # Uses non-standard asset path
 wasm = false
+
+[[example]]
+name = "http_source"
+path = "examples/asset/http_source.rs"
+doc-scrape-examples = true
+required-features = ["http_source"]
+
+[package.metadata.example.http_source]
+name = "HTTP Asset Source"
+description = "Load an asset from a http source"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "hot_asset_reloading"
