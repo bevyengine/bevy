@@ -811,7 +811,7 @@ pub fn specialize_material_meshes<M: Material>(
         Res<ViewSortedRenderPhases<Transmissive3d>>,
         Res<ViewSortedRenderPhases<Transparent3d>>,
     ),
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
     entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
@@ -827,7 +827,7 @@ pub fn specialize_material_meshes<M: Material>(
     // pipeline IDs.
     let mut all_views = HashSet::new();
 
-    for (view_entity, view, visible_entities) in &views {
+    for (view, visible_entities) in &views {
         all_views.insert(view.retained_view_entity);
 
         if !transparent_render_phases.contains_key(&view.retained_view_entity)
@@ -838,11 +838,13 @@ pub fn specialize_material_meshes<M: Material>(
             continue;
         }
 
-        let Some(view_key) = view_key_cache.get(view_entity) else {
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
             continue;
         };
 
-        let view_tick = view_specialization_ticks.get(view_entity).unwrap();
+        let view_tick = view_specialization_ticks
+            .get(&view.retained_view_entity)
+            .unwrap();
         let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
             .entry(view.retained_view_entity)
             .or_default();
