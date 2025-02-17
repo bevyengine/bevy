@@ -722,13 +722,13 @@ fn derive_relationship_target(
     };
     let field = relationship_field(fields, struct_token.span())?;
 
-    let field = match field {
-        Some(field) => field,
-        None => return Err(syn::Error::new(
+    let Some(field) = field else {
+        return Err(syn::Error::new(
             fields.span(),
             "RelationshipTarget can only be derived for structs with a single private unnamed field or for structs where one field is annotated with #[relationship] and is private.",
-        )),
+        ))
     };
+
     if field.vis != Visibility::Inherited {
         return Err(syn::Error::new(field.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
     }
