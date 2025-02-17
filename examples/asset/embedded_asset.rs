@@ -1,7 +1,11 @@
 //! Example of loading an embedded asset.
 
 //! An embedded asset is an asset included in the program's memory, in contrast to other assets that are normally loaded from disk to memory when needed.
-//! An embedded asset can reduce loading times since assets are immediately available, rather than being on disk.
+//! The below example embeds the asset at program startup, unlike the common use case of embedding an asset at build time. Embedded an asset at program startup can be useful
+//! for things like loading screens, since it might be nice to display some art while other, non-embedded, assets are loading.
+
+//! Embedded assets are often created when the executable is being made. By embedding an asset at build time rather than runtime the program never needs to go to disk for the asset at all,
+//! since it is already located in the program's binary executable.
 use bevy::{
     asset::{embedded_asset, io::AssetSourceId, AssetPath},
     prelude::*,
@@ -28,10 +32,6 @@ impl Plugin for EmbeddedAssetPlugin {
     }
 }
 
-// This function loads the asset's binary from memory at runtime.
-// Whereas other asset data needs to be loaded from disk, this data is already in memory.
-// This means the asset can be loaded much quicker since it is faster for the processor to grab
-// memory already in use.
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
