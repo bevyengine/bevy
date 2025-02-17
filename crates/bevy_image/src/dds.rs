@@ -1,7 +1,6 @@
 //! [DirectDraw Surface](https://en.wikipedia.org/wiki/DirectDraw_Surface) functionality.
 
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
-use image::buffer::ConvertBuffer;
 use std::io::Cursor;
 use wgpu_types::{
     Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
@@ -95,22 +94,17 @@ pub fn dds_buffer_to_image(
         });
     }
 
+    // DDS mipmap layout is directly compatible with wgpu's layout (Slice -> Face -> Mip):
+    // https://learn.microsoft.com/fr-fr/windows/win32/direct3ddds/dx-graphics-dds-reference
     image.data = if let Some(transcode_format) = transcode_format {
         match transcode_format {
             TranscodeFormat::Rgb8 => {
-                let image: image::RgbaImage = image::RgbImage::from_vec(
-                    dds.get_width() * depth_or_array_layers,
-                    dds.get_height() * depth_or_array_layers,
-                    dds.data,
-                )
-                .ok_or_else(|| {
-                    TextureError::TranscodeError(format!(
-                        "failed to transcode from {:?} to {texture_format:?}",
-                        TranscodeFormat::Rgb8
-                    ))
-                })?
-                .convert();
-                Some(image.into_vec())
+                let data = dds
+                    .data
+                    .chunks_exact(3)
+                    .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
+                    .collect();
+                Some(data)
             }
             _ => {
                 return Err(TextureError::TranscodeError(format!(
