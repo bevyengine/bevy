@@ -3,61 +3,22 @@
 use bevy_ecs::{prelude::*, system::SystemParam};
 use smallvec::SmallVec;
 
-/// Allows a hierarchy of entities that all have a component implementing `GhostNode` to be flattened
-/// to just a tree of only the entities with an `Actual` component.
-pub trait GhostNode {
-    type Actual: Component;
-}
-
-/// System param that allows iteration of all actual root nodes.
-///
-/// An root node is either an `Actual` node without a [`ChildOf`], or with only ghost ancestor nodes.
-#[derive(SystemParam)]
-pub struct GhostRootNodes<'w, 's, G>
-where
-    G: GhostNode + Component,
-    <G as GhostNode>::Actual: Component,
-{
-    root_node_query: Query<'w, 's, Entity, (With<<G as GhostNode>::Actual>, Without<ChildOf>)>,
-    root_ghost_node_query:
-        Query<'w, 's, Entity, (With<G>, Without<<G as GhostNode>::Actual>, Without<ChildOf>)>,
-    all_nodes_query: Query<'w, 's, Entity, With<<G as GhostNode>::Actual>>,
-    ui_children: GhostChildren<'w, 's, G>,
-}
-
-impl<'w, 's, G> GhostRootNodes<'w, 's, G>
-where
-    G: GhostNode + Component,
-{
-    pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
-        self.root_node_query
-            .iter()
-            .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
-                self.all_nodes_query
-                    .iter_many(self.ui_children.iter_actual_children(root_ghost))
-            }))
-    }
-}
-
 /// System param that gives access to UI children utilities, skipping over non-actual nodes.
 #[derive(SystemParam)]
-pub struct GhostChildren<'w, 's, G>
+pub struct FlattenChildren<'w, 's, N>
 where
-    G: GhostNode + Component,
-    <G as GhostNode>::Actual: Component,
+    N: Component,
 {
-    actual_children_query:
-        Query<'w, 's, (Option<&'static Children>, Has<<G as GhostNode>::Actual>), With<G>>,
+    actual_children_query: Query<'w, 's, (Option<&'static Children>, Has<N>)>,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
-    ghost_nodes_query: Query<'w, 's, Entity, (With<G>, Without<<G as GhostNode>::Actual>)>,
+    ghost_nodes_query: Query<'w, 's, Entity, Without<N>>,
     parents_query: Query<'w, 's, &'static ChildOf>,
 }
 
-impl<'w, 's, G> GhostChildren<'w, 's, G>
+impl<'w, 's, N> FlattenChildren<'w, 's, N>
 where
-    G: GhostNode + Component,
-    <G as GhostNode>::Actual: Component,
+    N: Component,
 {
     /// Iterates the children of `entity`, skipping over non-actual nodes.
     ///
@@ -66,8 +27,8 @@ where
     /// # Performance
     ///
     /// This iterator allocates if the `entity` node has more than 8 children (including ghosts).
-    pub fn iter_actual_children(&'s self, entity: Entity) -> GhostChildrenIter<'w, 's, G> {
-        GhostChildrenIter {
+    pub fn iter_actual_children(&'s self, entity: Entity) -> FlattenChildrenIter<'w, 's, N> {
+        FlattenChildrenIter {
             stack: self
                 .actual_children_query
                 .get(entity)
@@ -115,19 +76,17 @@ where
     }
 }
 
-pub struct GhostChildrenIter<'w, 's, G>
+pub struct FlattenChildrenIter<'w, 's, N>
 where
-    G: GhostNode + Component,
-    <G as GhostNode>::Actual: Component,
+    N: Component,
 {
     stack: SmallVec<[Entity; 8]>,
-    query: &'s Query<'w, 's, (Option<&'static Children>, Has<G::Actual>), With<G>>,
+    query: &'s Query<'w, 's, (Option<&'static Children>, Has<N>)>,
 }
 
-impl<'w, 's, G> Iterator for GhostChildrenIter<'w, 's, G>
+impl<'w, 's, N> Iterator for FlattenChildrenIter<'w, 's, N>
 where
-    G: GhostNode + Component,
-    <G as GhostNode>::Actual: Component,
+    N: Component,
 {
     type Item = Entity;
     fn next(&mut self) -> Option<Self::Item> {

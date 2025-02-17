@@ -11,7 +11,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{hash_set::EntityHashSet, Entity},
     hierarchy::ChildOf,
-    query::{Changed, With},
+    query::Changed,
     system::{Commands, Local, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -138,7 +138,7 @@ pub fn update_ui_context_system(
     ui_root_nodes: UiRootNodes,
     mut computed_target_query: Query<&mut ComputedNodeTarget>,
     ui_children: UiChildren,
-    reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTarget>)>,
+    reparented_nodes: Query<(Entity, &ChildOf), Changed<ChildOf>>,
     mut visited: Local<EntityHashSet>,
 ) {
     visited.clear();
