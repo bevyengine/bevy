@@ -1,112 +1,89 @@
-//! This module contains [`UiElement`] and utilities to flatten the UI hierarchy, traversing past ghost nodes.
+//! This module contains utilities to flatten a hierarchy using ghost nodes, traversing past ghost nodes automatically.
 
-use crate::ui_node::ComputedNodeTarget;
-use crate::Node;
 use bevy_ecs::{prelude::*, system::SystemParam};
-
-use bevy_reflect::prelude::*;
-
-use bevy_render::view::Visibility;
-
-use bevy_transform::prelude::Transform;
 use smallvec::SmallVec;
 
-pub trait Ghost {
-    type Completion: Component;
+pub trait GhostNode {
+    type Actual: Component;
 }
 
-/// Marker component for all entities in a UI hierarchy.
+/// System param that allows iteration of all actual root nodes.
 ///
-/// The UI systems will traverse past nodes with `UiElement` and without a `Node` and treat their first `Node` descendants as direct children of their first `Node` ancestor.
-///
-/// Any components necessary for transform and visibility propagation will be added automatically.
-#[derive(Component, Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Component, Debug)]
-#[require(Visibility, Transform, ComputedNodeTarget)]
-pub struct UiElement;
-
-#[cfg(feature = "ghost_nodes")]
-impl Ghost for UiElement {
-    type Completion = Node;
-}
-
-/// System param that allows iteration of all UI root nodes.
-///
-/// A UI root node is either a [`Node`] without a [`ChildOf`], or with only [`UiElement`] ancestors.
+/// An root node is either an `Actual` node without a [`ChildOf`], or with only ghost ancestor nodes.
 #[derive(SystemParam)]
 pub struct GhostRootNodes<'w, 's, G>
 where
-    G: Ghost + Component,
-    <G as Ghost>::Completion: Component,
+    G: GhostNode + Component,
+    <G as GhostNode>::Actual: Component,
 {
-    root_node_query: Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>,
+    root_node_query: Query<'w, 's, Entity, (With<<G as GhostNode>::Actual>, Without<ChildOf>)>,
     root_ghost_node_query:
-        Query<'w, 's, Entity, (With<G>, Without<<G as Ghost>::Completion>, Without<ChildOf>)>,
-    all_nodes_query: Query<'w, 's, Entity, With<Node>>,
-    ui_children: UiChildren<'w, 's>,
+        Query<'w, 's, Entity, (With<G>, Without<<G as GhostNode>::Actual>, Without<ChildOf>)>,
+    all_nodes_query: Query<'w, 's, Entity, With<<G as GhostNode>::Actual>>,
+    ui_children: GhostChildren<'w, 's, G>,
 }
 
 impl<'w, 's, G> GhostRootNodes<'w, 's, G>
 where
-    G: Ghost + Component,
+    G: GhostNode + Component,
 {
     pub fn iter(&'s self) -> impl Iterator<Item = Entity> + 's {
         self.root_node_query
             .iter()
             .chain(self.root_ghost_node_query.iter().flat_map(|root_ghost| {
                 self.all_nodes_query
-                    .iter_many(self.ui_children.iter_ui_children(root_ghost))
+                    .iter_many(self.ui_children.iter_actual_children(root_ghost))
             }))
     }
 }
 
-/// System param that gives access to UI children utilities, skipping over [`UiElement`]'s without a [`Node`].
+/// System param that gives access to UI children utilities, skipping over [`UiNode`]'s without a [`Node`].
 #[derive(SystemParam)]
 pub struct GhostChildren<'w, 's, G>
 where
-    G: Ghost + Component,
-    <G as Ghost>::Completion: Component,
+    G: GhostNode + Component,
+    <G as GhostNode>::Actual: Component,
 {
-    ui_children_query:
-        Query<'w, 's, (Option<&'static Children>, Has<<G as Ghost>::Completion>), With<G>>,
+    actual_children_query:
+        Query<'w, 's, (Option<&'static Children>, Has<<G as GhostNode>::Actual>), With<G>>,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
-    ghost_nodes_query: Query<'w, 's, Entity, (With<G>, Without<<G as Ghost>::Completion>)>,
+    ghost_nodes_query: Query<'w, 's, Entity, (With<G>, Without<<G as GhostNode>::Actual>)>,
     parents_query: Query<'w, 's, &'static ChildOf>,
 }
 
 impl<'w, 's, G> GhostChildren<'w, 's, G>
 where
-    G: Ghost + Component,
-    <G as Ghost>::Completion: Component,
+    G: GhostNode + Component,
+    <G as GhostNode>::Actual: Component,
 {
-    /// Iterates the children of `entity`, skipping over [`UiElement`]'s without [`Node`].
+    /// Iterates the children of `entity`, skipping over [`UiNode`]'s without [`Node`].
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
     ///
     /// # Performance
     ///
     /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
-    pub fn iter_ui_children(&'s self, entity: Entity) -> GhostChildrenIter<'w, 's, G> {
+    pub fn iter_actual_children(&'s self, entity: Entity) -> GhostChildrenIter<'w, 's, G> {
         GhostChildrenIter {
             stack: self
-                .ui_children_query
+                .actual_children_query
                 .get(entity)
                 .map_or(SmallVec::new(), |(children, _)| {
                     children.into_iter().flatten().rev().copied().collect()
                 }),
-            query: &self.ui_children_query,
+            query: &self.actual_children_query,
         }
     }
 
-    /// Returns the UI parent of the provided entity, skipping over [`UiElement`]'s without [`Node`].
+    /// Returns the UI parent of the provided entity, skipping over [`UiNode`]'s without [`Node`].
     pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .iter_ancestors(entity)
             .find(|entity| !self.ghost_nodes_query.contains(*entity))
     }
 
-    /// Iterates the [`UiElement`]s between this entity and its UI children.
+    /// Iterates the [`UiNode`]s between this entity and its UI children.
     pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
         Box::new(
             self.children_query
@@ -130,55 +107,25 @@ where
                 .any(|entity| self.changed_children_query.contains(entity))
     }
 
-    /// Returns `true` if the given entity is either a [`Node`] or a [`UiElement`].
-    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
-        self.ui_children_query.contains(entity)
+    /// Returns `true` if the given entity is either a [`Node`] or a [`UiNode`].
+    pub fn is_actual_node(&'s self, entity: Entity) -> bool {
+        self.actual_children_query.contains(entity)
     }
 }
 
-#[cfg(not(feature = "ghost_nodes"))]
-impl<'w, 's> UiChildren<'w, 's> {
-    /// Iterates the children of `entity`.
-    pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
-        self.ui_children_query
-            .get(entity)
-            .ok()
-            .flatten()
-            .map(|children| children.as_ref())
-            .unwrap_or(&[])
-            .iter()
-            .copied()
-    }
-
-    /// Returns the UI parent of the provided entity.
-    pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
-        self.parents_query.get(entity).ok().map(|parent| parent.0)
-    }
-
-    /// Given an entity in the UI hierarchy, check if its set of children has changed, e.g if children has been added/removed or if the order has changed.
-    pub fn is_changed(&'s self, entity: Entity) -> bool {
-        self.changed_children_query.contains(entity)
-    }
-
-    /// Returns `true` if the given entity is either a [`Node`] or a [`UiElement`].
-    pub fn is_ui_node(&'s self, entity: Entity) -> bool {
-        self.ui_children_query.contains(entity)
-    }
-}
-
-pub struct GhostChildrenIter<'w, 's, F>
+pub struct GhostChildrenIter<'w, 's, G>
 where
-    F: Ghost + Component,
-    <F as Ghost>::Completion: Component,
+    G: GhostNode + Component,
+    <G as GhostNode>::Actual: Component,
 {
     stack: SmallVec<[Entity; 8]>,
-    query: &'s Query<'w, 's, (Option<&'static Children>, Has<F::Completion>), With<F>>,
+    query: &'s Query<'w, 's, (Option<&'static Children>, Has<G::Actual>), With<G>>,
 }
 
-impl<'w, 's, F> Iterator for GhostChildrenIter<'w, 's, F>
+impl<'w, 's, G> Iterator for GhostChildrenIter<'w, 's, G>
 where
-    F: Ghost + Component,
-    <F as Ghost>::Completion: Component,
+    G: GhostNode + Component,
+    <G as GhostNode>::Actual: Component,
 {
     type Item = Entity;
     fn next(&mut self) -> Option<Self::Item> {
@@ -196,24 +143,6 @@ where
     }
 }
 
-#[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>;
-
-#[cfg(feature = "ghost_nodes")]
-pub type UiRootNodes<'w, 's> = GhostRootNodes<'w, 's, UiElement>;
-
-#[cfg(not(feature = "ghost_nodes"))]
-/// System param that gives access to UI children utilities.
-#[derive(SystemParam)]
-pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
-    changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
-    parents_query: Query<'w, 's, &'static ChildOf>,
-}
-
-#[cfg(feature = "ghost_nodes")]
-pub type UiChildren<'w, 's> = GhostChildren<'w, 's, UiElement>;
-
 #[cfg(all(test, feature = "ghost_nodes"))]
 mod tests {
     use bevy_ecs::{
@@ -222,7 +151,7 @@ mod tests {
         world::World,
     };
 
-    use super::{Node, UiChildren, UiElement, UiRootNodes};
+    use super::{Node, UiChildren, UiNode, UiRootNodes};
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
@@ -237,15 +166,15 @@ mod tests {
             .with_children(|parent| {
                 parent.spawn((A(2), Node::default()));
                 parent
-                    .spawn((A(3), UiElement))
+                    .spawn((A(3), UiNode))
                     .with_child((A(4), Node::default()));
             });
 
         // Ghost root
-        world.spawn((A(5), UiElement)).with_children(|parent| {
+        world.spawn((A(5), UiNode)).with_children(|parent| {
             parent.spawn((A(6), Node::default()));
             parent
-                .spawn((A(7), UiElement))
+                .spawn((A(7), UiNode))
                 .with_child((A(8), Node::default()))
                 .with_child(A(9));
         });
@@ -263,15 +192,15 @@ mod tests {
         let world = &mut World::new();
 
         let n1 = world.spawn((A(1), Node::default())).id();
-        let n2 = world.spawn((A(2), UiElement)).id();
-        let n3 = world.spawn((A(3), UiElement)).id();
+        let n2 = world.spawn((A(2), UiNode)).id();
+        let n3 = world.spawn((A(3), UiNode)).id();
         let n4 = world.spawn((A(4), Node::default())).id();
         let n5 = world.spawn((A(5), Node::default())).id();
 
-        let n6 = world.spawn((A(6), UiElement)).id();
-        let n7 = world.spawn((A(7), UiElement)).id();
+        let n6 = world.spawn((A(6), UiNode)).id();
+        let n7 = world.spawn((A(7), UiNode)).id();
         let n8 = world.spawn((A(8), Node::default())).id();
-        let n9 = world.spawn((A(9), UiElement)).id();
+        let n9 = world.spawn((A(9), UiNode)).id();
         let n10 = world.spawn((A(10), Node::default())).id();
 
         let no_ui = world.spawn_empty().id();
