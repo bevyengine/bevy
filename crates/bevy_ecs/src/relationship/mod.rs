@@ -36,7 +36,7 @@ use log::warn;
 /// [`Relationship`] and [`RelationshipTarget`] should always be derived via the [`Component`] trait to ensure the hooks are set up properly.
 ///
 /// ## Derive
-/// 
+///
 /// [`Relationship`] and [`RelationshipTarget`] can only be derived for structs with a single unnamed field, single named field
 /// or for named structs where one field is annotated with `#[relationship]`.
 /// If there are additional fields, they must all implement [`Default`].
