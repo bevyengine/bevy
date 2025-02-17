@@ -4,7 +4,10 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_render::camera::{Camera, RenderTarget};
+use bevy_render::{
+    camera::{Camera, RenderTarget},
+    view::Visibility,
+};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::once;
@@ -234,6 +237,7 @@ impl ComputedNode {
 
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
+        is_visible: false,
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
@@ -621,6 +625,8 @@ pub struct Node {
 
     /// Rotate, scale, skew, or translate an element.
     pub transform: Transform,
+
+    pub visibility: Visibility,
 }
 
 impl Node {
@@ -665,6 +671,7 @@ impl Node {
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
         transform: Transform::IDENTITY,
+        visibility: Visibility::Inherited,
     };
 }
 
