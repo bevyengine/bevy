@@ -473,6 +473,9 @@ track_location = ["bevy_internal/track_location"]
 # Enable function reflection
 reflect_functions = ["bevy_internal/reflect_functions"]
 
+# Enable documentation reflection
+reflect_documentation = ["bevy_internal/reflect_documentation"]
+
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
