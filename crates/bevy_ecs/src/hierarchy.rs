@@ -22,7 +22,7 @@ use core::slice;
 use disqualified::ShortName;
 use log::warn;
 
-/// Stores the parent entity of the child entity with this component.
+/// Stores the parent entity of this child entity with this component.
 ///
 /// This is a [`Relationship`](crate::relationship::Relationship) component, and creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
