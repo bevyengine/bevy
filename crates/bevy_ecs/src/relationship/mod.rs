@@ -37,7 +37,7 @@ use log::warn;
 ///
 /// Relationship and RelationshipTarget can only be derived for structs with a single unnamed field
 /// or for structs where one field is annotated with #[relationship].
-/// RelationshipTarget also requires that the relationship field is private to prevent users from directly mutating it, 
+/// RelationshipTarget also requires that the relationship field is private to prevent users from directly mutating it,
 /// which could invalidate the correctness of relationships.
 /// ```
 /// # use bevy_ecs::component::Component;

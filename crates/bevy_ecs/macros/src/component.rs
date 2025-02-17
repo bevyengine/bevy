@@ -771,6 +771,7 @@ fn derive_relationship_target(
     }))
 }
 
+/// returns the field that has the attribute #[relationship] or if the fields are unnamed the only field.
 fn relationship_field(fields: &Fields, span: Span) -> Result<Option<&Field>> {
     let field = match fields {
         Fields::Named(fields) => fields.named.iter().find(|field| {
