@@ -110,7 +110,7 @@ where
     }
 
     /// Returns `true` if the given entity is an actual node.
-    pub fn is_actual_node(&'s self, entity: Entity) -> bool {
+    pub fn is_actual(&'s self, entity: Entity) -> bool {
         self.actual_children_query.contains(entity)
     }
 }
