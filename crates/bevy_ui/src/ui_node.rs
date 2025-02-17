@@ -1,3 +1,4 @@
+use crate::experimental::UiElement;
 use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -332,7 +333,8 @@ impl From<Vec2> for ScrollPosition {
     Transform,
     Visibility,
     VisibilityClass,
-    ZIndex
+    ZIndex,
+    UiElement
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
 #[cfg_attr(
