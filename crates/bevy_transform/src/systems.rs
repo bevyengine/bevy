@@ -399,11 +399,9 @@ mod parallel {
         // Create local mutable copies of the input variables, used for the optimization below.
         let (mut parent, mut p_global_transform, mut p_children) =
             (parent, p_global_transform, p_children);
-        let mut depth = 0;
 
         // See the optimization note at the end to understand why this loop is here.
-        loop {
-            depth += 1;
+        for depth in 1..=max_depth {
             // Safety: traversing the entity tree from the roots, we assert that the childof and
             // children pointers match in both directions (see assert below) to ensure the hierarchy
             // does not have any cycles. Because the hierarchy does not have cycles, we know we are
