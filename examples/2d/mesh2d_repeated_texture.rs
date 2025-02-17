@@ -25,6 +25,8 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    // #11111: We use a duplicated image so that it can be load with and without
+    // settings
     let image_with_default_sampler =
         asset_server.load("textures/fantasy_ui_borders/panel-border-010.png");
     let image_with_repeated_sampler = asset_server.load_with_settings(
