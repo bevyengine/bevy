@@ -4,11 +4,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    camera::{Camera, RenderTarget},
-    view::Visibility,
-    view::VisibilityClass,
-};
+use bevy_render::camera::{Camera, RenderTarget};
 use bevy_sprite::BorderRect;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::once;
@@ -333,7 +329,6 @@ impl From<Vec2> for ScrollPosition {
     BorderRadius,
     FocusPolicy,
     ScrollPosition,
-    Visibility,
     GlobalTransform,
     ZIndex
 )]
