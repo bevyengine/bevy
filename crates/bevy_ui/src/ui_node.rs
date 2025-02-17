@@ -618,6 +618,9 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+
+    /// Rotate, scale, skew, or translate the node and its content.
+    pub transform: Transform,
 }
 
 impl Node {
@@ -661,6 +664,7 @@ impl Node {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
+        transform: Transform::IDENTITY,
     };
 }
 
