@@ -13,7 +13,7 @@ use bevy_ecs::{
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use core::marker::PhantomData;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use thiserror::Error;
 use tracing::{debug, error};
 
@@ -438,7 +438,7 @@ impl RenderAssetBytesPerFrame {
     }
 }
 
-/// A render-world resource that faciliates limiting the data transferred from CPU to GPU
+/// A render-world resource that facilitates limiting the data transferred from CPU to GPU
 /// each frame, preventing choppy frames at the cost of waiting longer for GPU assets
 /// to become available.
 #[derive(Resource, Default)]
