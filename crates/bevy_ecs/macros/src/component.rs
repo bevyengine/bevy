@@ -726,7 +726,7 @@ fn derive_relationship_target(
         return Err(syn::Error::new(
             fields.span(),
             "RelationshipTarget can only be derived for structs with a single private unnamed field or for structs where one field is annotated with #[relationship] and is private.",
-        ))
+        ));
     };
 
     if field.vis != Visibility::Inherited {
