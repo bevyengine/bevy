@@ -3,6 +3,8 @@
 use bevy_ecs::{prelude::*, system::SystemParam};
 use smallvec::SmallVec;
 
+/// Allows a hierarchy of entities that all have a component implementing `GhostNode` to be flattened
+/// to just a tree of only the entities with an `Actual` component.
 pub trait GhostNode {
     type Actual: Component;
 }
@@ -37,7 +39,7 @@ where
     }
 }
 
-/// System param that gives access to UI children utilities, skipping over [`UiNode`]'s without a [`Node`].
+/// System param that gives access to UI children utilities, skipping over non-actual nodes.
 #[derive(SystemParam)]
 pub struct GhostChildren<'w, 's, G>
 where
@@ -57,13 +59,13 @@ where
     G: GhostNode + Component,
     <G as GhostNode>::Actual: Component,
 {
-    /// Iterates the children of `entity`, skipping over [`UiNode`]'s without [`Node`].
+    /// Iterates the children of `entity`, skipping over non-actual nodes.
     ///
     /// Traverses the hierarchy depth-first to ensure child order.
     ///
     /// # Performance
     ///
-    /// This iterator allocates if the `entity` node has more than 8 children (including ghost nodes).
+    /// This iterator allocates if the `entity` node has more than 8 children (including ghosts).
     pub fn iter_actual_children(&'s self, entity: Entity) -> GhostChildrenIter<'w, 's, G> {
         GhostChildrenIter {
             stack: self
@@ -76,14 +78,14 @@ where
         }
     }
 
-    /// Returns the UI parent of the provided entity, skipping over [`UiNode`]'s without [`Node`].
+    /// Returns the UI parent of the provided entity,  skipping over non-actual nodes.
     pub fn get_parent(&'s self, entity: Entity) -> Option<Entity> {
         self.parents_query
             .iter_ancestors(entity)
             .find(|entity| !self.ghost_nodes_query.contains(*entity))
     }
 
-    /// Iterates the [`UiNode`]s between this entity and its UI children.
+    /// Iterates the ghosts between this entity and its actual children.
     pub fn iter_ghost_nodes(&'s self, entity: Entity) -> Box<dyn Iterator<Item = Entity> + 's> {
         Box::new(
             self.children_query
@@ -107,7 +109,7 @@ where
                 .any(|entity| self.changed_children_query.contains(entity))
     }
 
-    /// Returns `true` if the given entity is either a [`Node`] or a [`UiNode`].
+    /// Returns `true` if the given entity is an actual node.
     pub fn is_actual_node(&'s self, entity: Entity) -> bool {
         self.actual_children_query.contains(entity)
     }
