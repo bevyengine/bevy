@@ -30,7 +30,7 @@ use crate::{
         PhaseItemBatchSetKey as _, PhaseItemExtraIndex, SortedPhaseItem, SortedRenderPhase,
         UnbatchableBinnedEntityIndices, ViewBinnedRenderPhases, ViewSortedRenderPhases,
     },
-    render_resource::{Buffer, BufferVec, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
+    render_resource::{Buffer, GpuArrayBufferable, RawBufferVec, UninitBufferVec},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
     Render, RenderApp, RenderDebugFlags, RenderSet,
@@ -389,7 +389,7 @@ pub enum PreprocessWorkItemBuffers {
     ///
     /// Because we don't have to separate indexed from non-indexed meshes in
     /// direct mode, we only have a single buffer here.
-    Direct(BufferVec<PreprocessWorkItem>),
+    Direct(RawBufferVec<PreprocessWorkItem>),
 
     /// The buffer of work items we use if we are using indirect drawing.
     ///
@@ -398,9 +398,9 @@ pub enum PreprocessWorkItemBuffers {
     /// different sizes.
     Indirect {
         /// The buffer of work items corresponding to indexed meshes.
-        indexed: BufferVec<PreprocessWorkItem>,
+        indexed: RawBufferVec<PreprocessWorkItem>,
         /// The buffer of work items corresponding to non-indexed meshes.
-        non_indexed: BufferVec<PreprocessWorkItem>,
+        non_indexed: RawBufferVec<PreprocessWorkItem>,
         /// The work item buffers we use when GPU occlusion culling is in use.
         gpu_occlusion_culling: Option<GpuOcclusionCullingWorkItemBuffers>,
     },
@@ -483,13 +483,13 @@ where
         Entry::Occupied(occupied_entry) => occupied_entry.into_mut(),
         Entry::Vacant(vacant_entry) => {
             if no_indirect_drawing {
-                vacant_entry.insert(PreprocessWorkItemBuffers::Direct(BufferVec::new(
+                vacant_entry.insert(PreprocessWorkItemBuffers::Direct(RawBufferVec::new(
                     BufferUsages::STORAGE,
                 )))
             } else {
                 vacant_entry.insert(PreprocessWorkItemBuffers::Indirect {
-                    indexed: BufferVec::new(BufferUsages::STORAGE),
-                    non_indexed: BufferVec::new(BufferUsages::STORAGE),
+                    indexed: RawBufferVec::new(BufferUsages::STORAGE),
+                    non_indexed: RawBufferVec::new(BufferUsages::STORAGE),
                     // We fill this in below if `enable_gpu_occlusion_culling`
                     // is set.
                     gpu_occlusion_culling: None,
@@ -1129,8 +1129,9 @@ where
 
     /// Clears out the buffers in preparation for a new frame.
     pub fn clear(&mut self) {
-        // TODO: Don't do this.
-        self.phase_instance_buffers.clear();
+        for phase_instance_buffer in self.phase_instance_buffers.values_mut() {
+            phase_instance_buffer.clear();
+        }
     }
 }
 
@@ -1260,6 +1261,8 @@ pub fn clear_batched_gpu_instance_buffers<GFBD>(
 ) where
     GFBD: GetFullBatchData,
 {
+    // Don't clear the entire table, because that would delete the buffers, and
+    // we want to reuse those allocations.
     if let Some(mut gpu_batched_instance_buffers) = gpu_batched_instance_buffers {
         gpu_batched_instance_buffers.clear();
     }

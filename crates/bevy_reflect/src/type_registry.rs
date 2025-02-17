@@ -165,6 +165,43 @@ impl TypeRegistry {
         }
     }
 
+    /// Attempts to register the referenced type `T` if it has not yet been registered.
+    ///
+    /// See [`register`] for more details.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{Reflect, TypeRegistry};
+    /// # use core::any::TypeId;
+    /// #
+    /// # let mut type_registry = TypeRegistry::default();
+    /// #
+    /// #[derive(Reflect)]
+    /// struct Foo {
+    ///   bar: Bar,
+    /// }
+    ///
+    /// #[derive(Reflect)]
+    /// struct Bar;
+    ///
+    /// let foo = Foo { bar: Bar };
+    ///
+    /// // Equivalent to `type_registry.register::<Foo>()`
+    /// type_registry.register_by_val(&foo);
+    ///
+    /// assert!(type_registry.contains(TypeId::of::<Foo>()));
+    /// assert!(type_registry.contains(TypeId::of::<Bar>()));
+    /// ```
+    ///
+    /// [`register`]: Self::register
+    pub fn register_by_val<T>(&mut self, _: &T)
+    where
+        T: GetTypeRegistration,
+    {
+        self.register::<T>();
+    }
+
     /// Attempts to register the type described by `registration`.
     ///
     /// If the registration for the type already exists, it will not be registered again.
