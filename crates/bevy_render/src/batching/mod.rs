@@ -148,8 +148,9 @@ pub trait GetFullBatchData: GetBatchData {
         query_item: MainEntity,
     ) -> Option<NonMaxU32>;
 
-    /// Writes the [`gpu_preprocessing::IndirectParametersMetadata`] necessary
-    /// to draw this batch into the given metadata buffer at the given index.
+    /// Writes the [`gpu_preprocessing::IndirectParametersGpuMetadata`]
+    /// necessary to draw this batch into the given metadata buffer at the given
+    /// index.
     ///
     /// This is only used if GPU culling is enabled (which requires GPU
     /// preprocessing).

@@ -150,7 +150,7 @@ pub struct LateGpuPreprocessNode {
 ///
 /// This node runs a compute shader on the output of the
 /// [`EarlyGpuPreprocessNode`] in order to transform the
-/// [`IndirectParametersMetadata`] into properly-formatted
+/// [`IndirectParametersGpuMetadata`] into properly-formatted
 /// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct EarlyPrepassBuildIndirectParametersNode {
     view_query: QueryState<
@@ -170,7 +170,7 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
 ///
 /// This node runs a compute shader on the output of the
 /// [`LateGpuPreprocessNode`] in order to transform the
-/// [`IndirectParametersMetadata`] into properly-formatted
+/// [`IndirectParametersGpuMetadata`] into properly-formatted
 /// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct LatePrepassBuildIndirectParametersNode {
     view_query: QueryState<
@@ -191,7 +191,7 @@ pub struct LatePrepassBuildIndirectParametersNode {
 ///
 /// This node runs a compute shader on the output of the
 /// [`EarlyGpuPreprocessNode`] and [`LateGpuPreprocessNode`] in order to
-/// transform the [`IndirectParametersMetadata`] into properly-formatted
+/// transform the [`IndirectParametersGpuMetadata`] into properly-formatted
 /// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct MainBuildIndirectParametersNode {
     view_query: QueryState<

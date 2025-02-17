@@ -624,10 +624,10 @@ pub struct PreprocessWorkItem {
     pub input_index: u32,
 
     /// In direct mode, the index of the mesh uniform; in indirect mode, the
-    /// index of the [`IndirectParametersMetadata`].
+    /// index of the [`IndirectParametersGpuMetadata`].
     ///
     /// In indirect mode, this is the index of the
-    /// [`IndirectParametersMetadata`] in the
+    /// [`IndirectParametersGpuMetadata`] in the
     /// `IndirectParametersBuffers::indexed_metadata` or
     /// `IndirectParametersBuffers::non_indexed_metadata`.
     pub output_or_indirect_parameters_index: u32,
@@ -690,8 +690,8 @@ pub struct IndirectParametersCpuMetadata {
     ///
     /// A *batch set* is a set of meshes that may be multi-drawn together.
     /// Multiple batches (and therefore multiple instances of
-    /// [`IndirectParametersMetadata`] structures) can be part of the same batch
-    /// set.
+    /// [`IndirectParametersGpuMetadata`] structures) can be part of the same
+    /// batch set.
     pub batch_set_index: u32,
 }
 
@@ -761,7 +761,7 @@ pub struct IndirectBatchSet {
 /// (`multi_draw_indirect`, `multi_draw_indirect_count`) use to draw the scene.
 ///
 /// In addition to the indirect draw buffers themselves, this structure contains
-/// the buffers that store [`IndirectParametersMetadata`], which are the
+/// the buffers that store [`IndirectParametersGpuMetadata`], which are the
 /// structures that culling writes to so that the indirect parameter building
 /// pass can determine how many meshes are actually to be drawn.
 ///
