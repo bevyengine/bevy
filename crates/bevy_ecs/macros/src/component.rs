@@ -731,6 +731,7 @@ fn derive_relationship(
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self {
                     #(#members: core::default::Default::default(),),*
+                    #(#members: core::default::Default::default(),),*
                     #relationship_member: entity
                 }
             }
