@@ -121,10 +121,8 @@ impl ComputedNode {
     /// The calculated node size as width and height in physical pixels, accounting for a non-uniform window scale factor.
     ///
     #[inline]
-    pub const fn logical_size(&self) -> Vec2 {
-        let s = self.size();
-        let scale_fac = self.inverse_scale_factor();
-        s * scale_fac
+    pub fn logical_size(&self) -> Vec2 {
+        self.size() * self.inverse_scale_factor()
     }
 
     /// Returns the thickness of the UI node's outline in physical pixels.
