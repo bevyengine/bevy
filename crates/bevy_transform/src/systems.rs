@@ -340,23 +340,12 @@ mod parallel {
             drop(rx); // Important: drop after atomic and before work starts.
 
             for parent in tasks.drain(..) {
-                // SAFETY: Parent entities fed into this function are pulled from the work queue,
-                // which is in turn fed from this function. The function will panic if cycles are
-                // found in the hierarchy, which means we can be certain that the work queue itself
-                // contains unique entities, making this safe to call.
-                #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
-                let (_, (_, p_global_transform), (p_children, _)) =
-                    unsafe { nodes.get_unchecked(parent).unwrap() };
-
-                // SAFETY: At the top level, we are currently iterating through a subtree of the
-                // hierarchy, guaranteeing unique access. We currently only have unsafe exclusive
-                // access to parent data. This unsafe call is accessing the children of this parent,
-                // and makes an assertion to validate that the parent and child agree they share the
-                // same relation. These two facts guarantee that the child we are accessing with
-                // unsafe is not already borrowed in this or any other transform propagation worker
-                // thread.
+                // SAFETY: each task pushed to the worker queue represents an unprocessed subtree of
+                // the hierarchy, guaranteeing unique access.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
+                    let (_, (_, p_global_transform), (p_children, _)) =
+                        nodes.get_unchecked(parent).unwrap();
                     propagate_descendants_unchecked(
                         parent,
                         p_global_transform,
@@ -366,7 +355,7 @@ mod parallel {
                         queue,
                         10_000,
                     );
-                };
+                }
             }
             WorkQueue::send_batches_with(&queue.sender, &mut outbox, WorkQueue::CHUNK_SIZE);
             queue.busy_threads.fetch_add(-1, Ordering::Relaxed);
@@ -496,10 +485,10 @@ mod parallel {
     pub struct WorkQueue {
         /// A semaphore that tracks how many threads are busy doing work. Used to determine when
         /// there is no more work to do.
-        pub(super) busy_threads: AtomicI32,
-        pub(super) sender: Sender<Vec<Entity>>,
-        pub(super) receiver: Arc<Mutex<Receiver<Vec<Entity>>>>,
-        pub(super) local_queue: Parallel<Vec<Entity>>,
+        busy_threads: AtomicI32,
+        sender: Sender<Vec<Entity>>,
+        receiver: Arc<Mutex<Receiver<Vec<Entity>>>>,
+        local_queue: Parallel<Vec<Entity>>,
     }
     impl Default for WorkQueue {
         fn default() -> Self {
