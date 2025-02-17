@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
-    ecs::{component::Mutable, hierarchy::ChildSpawnerCommands},
+    ecs::hierarchy::ChildSpawnerCommands,
     prelude::*,
     winit::WinitSettings,
 };
@@ -20,7 +20,7 @@ fn main() {
             Update,
             (
                 buttons_handler::<Display>,
-                buttons_handler::<Visibility>,
+                buttons_handler::<Node>,
                 text_hover,
             ),
         )
@@ -43,34 +43,40 @@ impl<T> Target<T> {
 }
 
 trait TargetUpdate {
-    type TargetComponent: Component<Mutability = Mutable>;
     const NAME: &'static str;
-    fn update_target(&self, target: &mut Self::TargetComponent) -> String;
+    fn update_target(&self, target: &mut Node) -> String;
+    fn format_label(&self, target: &Node) -> String;
 }
 
 impl TargetUpdate for Target<Display> {
-    type TargetComponent = Node;
     const NAME: &'static str = "Display";
-    fn update_target(&self, node: &mut Self::TargetComponent) -> String {
+    fn update_target(&self, node: &mut Node) -> String {
         node.display = match node.display {
             Display::Flex => Display::None,
             Display::None => Display::Flex,
             Display::Block | Display::Grid => unreachable!(),
         };
-        format!("{}::{:?} ", Self::NAME, node.display)
+        self.format_label(node)
+    }
+
+    fn format_label(&self, node: &Node) -> String {
+        format!("{}::{:?}", Self::NAME, node.display)
     }
 }
 
-impl TargetUpdate for Target<Visibility> {
-    type TargetComponent = Visibility;
+impl TargetUpdate for Target<Node> {
     const NAME: &'static str = "Visibility";
-    fn update_target(&self, visibility: &mut Self::TargetComponent) -> String {
-        *visibility = match *visibility {
+    fn update_target(&self, node: &mut Node) -> String {
+        node.visibility = match node.visibility {
             Visibility::Inherited => Visibility::Visible,
             Visibility::Visible => Visibility::Hidden,
             Visibility::Hidden => Visibility::Inherited,
         };
-        format!("{}::{visibility:?}", Self::NAME)
+        self.format_label(node)
+    }
+
+    fn format_label(&self, node: &Node) -> String {
+        format!("{}::{:?}", Self::NAME, node.visibility)
     }
 }
 
@@ -268,7 +274,7 @@ fn spawn_right_panel(
 ) {
     let spawn_buttons = |parent: &mut ChildSpawnerCommands, target_id| {
         spawn_button::<Display>(parent, text_font.clone(), target_id);
-        spawn_button::<Visibility>(parent, text_font.clone(), target_id);
+        spawn_button::<Node>(parent, text_font.clone(), target_id);
     };
     parent
         .spawn((
@@ -381,6 +387,8 @@ where
     T: Default + std::fmt::Debug + Send + Sync + 'static,
     Target<T>: TargetUpdate,
 {
+    let target = Target::<T>::new(target);
+    let label = target.format_label(&Node::default());
     parent
         .spawn((
             Button,
@@ -390,11 +398,11 @@ where
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.5)),
-            Target::<T>::new(target),
+            target,
         ))
         .with_children(|builder| {
             builder.spawn((
-                Text(format!("{}::{:?}", Target::<T>::NAME, T::default())),
+                Text(label),
                 text_font,
                 TextLayout::new_with_justify(JustifyText::Center),
             ));
@@ -402,7 +410,7 @@ where
 }
 
 fn buttons_handler<T>(
-    mut left_panel_query: Query<&mut <Target<T> as TargetUpdate>::TargetComponent>,
+    mut left_panel_query: Query<&mut Node>,
     mut visibility_button_query: Query<(&Target<T>, &Interaction, &Children), Changed<Interaction>>,
     mut text_query: Query<(&mut Text, &mut TextColor)>,
 ) where
