@@ -122,7 +122,7 @@ impl ComputedNode {
     ///
     #[inline]
     pub const fn logical_size(&self) -> Vec2 {
-        self.size * self.inverse_scale_factor
+        self.size() * self.inverse_scale_factor()
     }
 
     /// Returns the thickness of the UI node's outline in physical pixels.
