@@ -2144,40 +2144,45 @@ mod tests {
     fn do_not_consider_ignore_deferred_before_exclusive_system() {
         let mut schedule = Schedule::default();
         let mut world = World::default();
-        // insert three command systems where only one sync point is added before the exclusive system
+        // chain_ignore_deferred adds no sync points usually but an exception is made for exclusive system
         schedule.add_systems(
             (
                 |_: Commands| {},
+                // no sync point here because following system is not exclusive
                 |mut commands: Commands| commands.insert_resource(Resource1),
+                // sync point here because following system is exclusive which expects to see all commands to that point
                 |world: &mut World| assert!(world.contains_resource::<Resource1>()),
+                // no sync point here because following system is not exclusive
                 |_: Commands| {},
             )
                 .chain_ignore_deferred(),
         );
         schedule.run(&mut world);
 
-        assert_eq!(schedule.executable.systems.len(), 5);
+        assert_eq!(schedule.executable.systems.len(), 5); // 4 systems + 1 sync point
     }
 
     #[test]
-    fn bubble_sync_point_through_ignore_deferred_nodes() {
+    fn bubble_sync_point_through_ignore_deferred_node() {
         let mut schedule = Schedule::default();
         let mut world = World::default();
-        // a sync point is added after nodes that suppress sync points and did not end with a command system
-        schedule.add_systems(
-            (
-                (
-                    |mut commands: Commands| commands.insert_resource(Resource1),
-                    || {},
-                )
-                    .chain_ignore_deferred(),
-                |_: Res<Resource1>| {},
-            )
-                .chain(),
-        );
+
+        // This chain queues a command in the first system while the following system has no deferred parameters.
+        // As the chain is configured to not add sync points, the commands will not be applied inside the chain.
+        let insert_resource_config = (
+            |mut commands: Commands| commands.insert_resource(Resource1),
+            || {},
+        )
+            .chain_ignore_deferred();
+
+        // This chain is configured to add a sync point before the last system, but that would not happen if only the
+        // no-op system in `insert_resource_config` was evaluated as that one has no deferred parameters.
+        // So despite having no direct edge from the system that queues the command and the system that wants to read
+        // the resource, a sync point needs to be added between the two tuple elements for the last system to not panic.
+        schedule.add_systems((insert_resource_config, |_: Res<Resource1>| {}).chain());
         schedule.run(&mut world);
 
-        assert_eq!(schedule.executable.systems.len(), 4);
+        assert_eq!(schedule.executable.systems.len(), 4); // 3 systems + 1 sync point
     }
 
     #[test]

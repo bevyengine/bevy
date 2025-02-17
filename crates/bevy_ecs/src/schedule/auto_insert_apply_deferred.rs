@@ -81,7 +81,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        // if sync is suppressed for an edge, add it to edges past it if possible
+        // if a sync point is suppressed for an edge, add it to edges past it if possible
         let mut distances_and_pending_sync: HashMap<usize, (u32, bool)> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
         for node in &topo {
