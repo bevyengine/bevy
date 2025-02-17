@@ -61,7 +61,6 @@ pub fn extract_debug_overlay(
         Query<(
             Entity,
             &ComputedNode,
-            &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
             &ComputedNodeTarget,
@@ -76,7 +75,7 @@ pub fn extract_debug_overlay(
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, visibility, maybe_clip, transform, computed_target) in &uinode_query {
-        if !debug_options.show_hidden && !visibility.get() {
+        if !debug_options.show_hidden && !uinode.is_visible {
             continue;
         }
 
