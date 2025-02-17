@@ -12,6 +12,13 @@ pub type UiChildren<'w, 's> = FlattenChildren<'w, 's, Node>;
 
 mod tests {
     use bevy_ecs::prelude::Component;
+    use bevy_ecs::system::Query;
+    use bevy_ecs::system::SystemState;
+    use bevy_ecs::world::World;
+
+    use crate::Node;
+    use crate::UiChildren;
+    use crate::UiRootNodes;
 
     #[derive(Component, PartialEq, Debug)]
     struct A(usize);
