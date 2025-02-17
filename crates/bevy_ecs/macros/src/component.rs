@@ -692,7 +692,7 @@ fn derive_relationship(
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self {
-                    #(#members: Default::default(),),*
+                    #(#members: core::default::Default::default(),),*
                     #relationship_member: entity
                 }
             }
@@ -763,7 +763,7 @@ fn derive_relationship_target(
             #[inline]
             fn from_collection_risky(collection: Self::Collection) -> Self {
                 Self {
-                    #(#members: Default::default(),),*
+                    #(#members: core::default::Default::default(),),*
                     #relationship_member: collection
                 }
             }
@@ -771,9 +771,11 @@ fn derive_relationship_target(
     }))
 }
 
-/// returns the field that has the attribute #[relationship] or if the fields are unnamed the only field.
+/// Returns the field with the `#[relationship]` attribute, the only field if unnamed,
+/// or the only field in a [`Fields::Named`] with one field, otherwise None.
 fn relationship_field(fields: &Fields, span: Span) -> Result<Option<&Field>> {
     let field = match fields {
+        Fields::Named(fields) if fields.named.len() == 1 => fields.named.first(),
         Fields::Named(fields) => fields.named.iter().find(|field| {
             field
                 .attrs
