@@ -33,7 +33,7 @@ dds = [
   "bevy_image/dds",
   "bevy_render/dds",
   "bevy_core_pipeline/dds",
-  "bevy_gltf/dds",
+  "bevy_gltf?/dds",
 ]
 exr = ["bevy_image/exr", "bevy_render/exr"]
 hdr = ["bevy_image/hdr", "bevy_render/hdr"]

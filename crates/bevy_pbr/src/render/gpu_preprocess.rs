@@ -43,7 +43,7 @@ use bevy_render::{
     render_resource::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
-        BufferVec, CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
+        CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
         DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec, Shader,
         ShaderStages, ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
         TextureSampleType, UninitBufferVec,
@@ -1842,7 +1842,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// and GPU occlusion culling are both disabled.
     fn create_direct_preprocess_bind_groups(
         &self,
-        work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<PhasePreprocessBindGroups> {
         // Don't use `as_entire_binding()` here; the shader reads the array
         // length and the underlying buffer may be longer than the actual size
@@ -1878,8 +1878,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     fn create_indirect_occlusion_culling_preprocess_bind_groups(
         &self,
         view_depth_pyramids: &Query<(&ViewDepthPyramid, &PreviousViewUniformOffset)>,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
         gpu_occlusion_culling_work_item_buffers: &GpuOcclusionCullingWorkItemBuffers,
     ) -> Option<PhasePreprocessBindGroups> {
         let GpuOcclusionCullingWorkItemBuffers {
@@ -1926,7 +1926,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         &self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
         late_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
@@ -2018,7 +2018,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
         &self,
         view_depth_pyramid: &ViewDepthPyramid,
         previous_view_uniform_offset: &PreviousViewUniformOffset,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
         late_non_indexed_work_item_buffer: &UninitBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
@@ -2270,8 +2270,8 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_preprocess_bind_groups(
         &self,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<PhasePreprocessBindGroups> {
         Some(PhasePreprocessBindGroups::IndirectFrustumCulling {
             indexed: self
@@ -2286,7 +2286,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// frustum culling is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_indexed_bind_group(
         &self,
-        indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;
@@ -2340,7 +2340,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
     /// GPU frustum culling is enabled, but GPU occlusion culling is disabled.
     fn create_indirect_frustum_culling_non_indexed_bind_group(
         &self,
-        non_indexed_work_item_buffer: &BufferVec<PreprocessWorkItem>,
+        non_indexed_work_item_buffer: &RawBufferVec<PreprocessWorkItem>,
     ) -> Option<BindGroup> {
         let mesh_culling_data_buffer = self.mesh_culling_data_buffer.buffer()?;
         let view_uniforms_binding = self.view_uniforms.uniforms.binding()?;

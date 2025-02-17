@@ -43,7 +43,7 @@ use bevy::{
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
             DrawFunctions, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, SetItemPipeline,
-            SortedPhaseItem, ViewSortedRenderPhases,
+            SortedPhaseItem, SortedRenderPhasePlugin, ViewSortedRenderPhases,
         },
         render_resource::{
             CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
@@ -54,7 +54,7 @@ use bevy::{
         renderer::RenderContext,
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
     },
 };
 use nonmax::NonMaxU32;
@@ -113,7 +113,10 @@ struct DrawStencil;
 struct MeshStencilPhasePlugin;
 impl Plugin for MeshStencilPhasePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins((ExtractComponentPlugin::<DrawStencil>::default(),));
+        app.add_plugins((
+            ExtractComponentPlugin::<DrawStencil>::default(),
+            SortedRenderPhasePlugin::<Stencil3d, MeshPipeline>::new(RenderDebugFlags::default()),
+        ));
         // We need to get the render app from the main app
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
