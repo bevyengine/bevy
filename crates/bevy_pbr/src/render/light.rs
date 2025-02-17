@@ -14,6 +14,7 @@ use bevy_ecs::{
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -1613,9 +1614,16 @@ pub struct LightSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedShadowMaterialPipelineCache<M> {
-    // (view_light_entity, visible_entity) -> (tick, pipeline_id)
+    // view light entity -> view pipeline cache
     #[deref]
-    map: HashMap<(RetainedViewEntity, MainEntity), (Tick, CachedRenderPipelineId)>,
+    map: HashMap<RetainedViewEntity, SpecializedShadowMaterialViewPipelineCache<M>>,
+    marker: PhantomData<M>,
+}
+
+#[derive(Deref, DerefMut)]
+pub struct SpecializedShadowMaterialViewPipelineCache<M> {
+    #[deref]
+    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
     marker: PhantomData<M>,
 }
 
@@ -1623,6 +1631,15 @@ impl<M> Default for SpecializedShadowMaterialPipelineCache<M> {
     fn default() -> Self {
         Self {
             map: HashMap::default(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<M> Default for SpecializedShadowMaterialViewPipelineCache<M> {
+    fn default() -> Self {
+        Self {
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
@@ -1702,6 +1719,10 @@ pub fn specialize_shadows<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
+    // Record the retained IDs of all shadow views so that we can expire old
+    // pipeline IDs.
+    let mut all_shadow_views = HashSet::new();
+
     for (entity, view_lights) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
@@ -1709,6 +1730,9 @@ pub fn specialize_shadows<M: Material>(
             else {
                 continue;
             };
+
+            all_shadow_views.insert(extracted_view_light.retained_view_entity);
+
             if !shadow_render_phases.contains_key(&extracted_view_light.retained_view_entity) {
                 continue;
             }
@@ -1744,13 +1768,17 @@ pub fn specialize_shadows<M: Material>(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
 
+            let view_tick = light_specialization_ticks
+                .get(&extracted_view_light.retained_view_entity)
+                .unwrap();
+            let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
+                .entry(extracted_view_light.retained_view_entity)
+                .or_default();
+
             for (_, visible_entity) in visible_entities.iter().copied() {
-                let view_tick = light_specialization_ticks
-                    .get(&extracted_view_light.retained_view_entity)
-                    .unwrap();
                 let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
-                let last_specialized_tick = specialized_material_pipeline_cache
-                    .get(&(extracted_view_light.retained_view_entity, visible_entity))
+                let last_specialized_tick = view_specialized_material_pipeline_cache
+                    .get(&visible_entity)
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                     view_tick.is_newer_than(tick, ticks.this_run())
@@ -1829,13 +1857,14 @@ pub fn specialize_shadows<M: Material>(
                     }
                 };
 
-                specialized_material_pipeline_cache.insert(
-                    (extracted_view_light.retained_view_entity, visible_entity),
-                    (ticks.this_run(), pipeline_id),
-                );
+                view_specialized_material_pipeline_cache
+                    .insert(visible_entity, (ticks.this_run(), pipeline_id));
             }
         }
     }
+
+    // Delete specialized pipelines belonging to views that have expired.
+    specialized_material_pipeline_cache.retain(|view, _| all_shadow_views.contains(view));
 }
 
 /// For each shadow cascade, iterates over all the meshes "visible" from it and
@@ -1875,6 +1904,12 @@ pub fn queue_shadows<M: Material>(
                 continue;
             };
 
+            let Some(view_specialized_material_pipeline_cache) =
+                specialized_material_pipeline_cache.get(&extracted_view_light.retained_view_entity)
+            else {
+                continue;
+            };
+
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,
@@ -1900,8 +1935,8 @@ pub fn queue_shadows<M: Material>(
             };
 
             for (entity, main_entity) in visible_entities.iter().copied() {
-                let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
-                    .get(&(extracted_view_light.retained_view_entity, main_entity))
+                let Some((current_change_tick, pipeline_id)) =
+                    view_specialized_material_pipeline_cache.get(&main_entity)
                 else {
                     continue;
                 };
