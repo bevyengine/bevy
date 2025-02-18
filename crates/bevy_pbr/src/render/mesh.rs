@@ -37,8 +37,8 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     texture::DefaultImageSampler,
     view::{
-        self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, ViewTarget,
-        ViewUniformOffset, ViewVisibility, VisibilityRange,
+        self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
+        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
     },
     Extract,
 };
@@ -317,16 +317,15 @@ impl Plugin for MeshRenderPlugin {
 }
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewKeyCache(MainEntityHashMap<MeshPipelineKey>);
+pub struct ViewKeyCache(HashMap<RetainedViewEntity, MeshPipelineKey>);
 
 #[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
-pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
+pub struct ViewSpecializationTicks(HashMap<RetainedViewEntity, Tick>);
 
 pub fn check_views_need_specialization(
     mut view_key_cache: ResMut<ViewKeyCache>,
     mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
     mut views: Query<(
-        &MainEntity,
         &ExtractedView,
         &Msaa,
         Option<&Tonemapping>,
@@ -352,7 +351,6 @@ pub fn check_views_need_specialization(
     ticks: SystemChangeTick,
 ) {
     for (
-        view_entity,
         view,
         msaa,
         tonemapping,
@@ -444,11 +442,11 @@ pub fn check_views_need_specialization(
             );
         }
         if !view_key_cache
-            .get_mut(view_entity)
+            .get_mut(&view.retained_view_entity)
             .is_some_and(|current_key| *current_key == view_key)
         {
-            view_key_cache.insert(*view_entity, view_key);
-            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+            view_key_cache.insert(view.retained_view_entity, view_key);
+            view_specialization_ticks.insert(view.retained_view_entity, ticks.this_run());
         }
     }
 }
