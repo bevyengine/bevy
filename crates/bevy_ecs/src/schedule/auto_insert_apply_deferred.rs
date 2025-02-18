@@ -99,7 +99,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
                 if add_sync_on_edge {
                     let target_system = graph.systems[target.index()].get().unwrap();
-                    add_sync_on_edge &= !is_apply_deferred(target_system);
+                    add_sync_on_edge = !is_apply_deferred(target_system);
 
                     if add_sync_on_edge
                         && !target_system.is_exclusive()
