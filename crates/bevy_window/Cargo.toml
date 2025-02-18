@@ -60,6 +60,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
+bevy_state = { path = "../bevy_state", version = "0.16.0-dev", default-features = false }
 
 # other
 serde = { version = "1.0", features = [
