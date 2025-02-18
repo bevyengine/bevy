@@ -1,4 +1,4 @@
-//! Extentions traits for [`gltf::json`] types
+//! Extension traits for [`gltf::json`] types
 
 pub mod extras;
 #[cfg(any(
