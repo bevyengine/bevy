@@ -3129,7 +3129,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         indirect_parameters_buffer.get(&TypeId::of::<P>())
                     else {
                         warn!(
-                            "Not rendering mesh because indexed indirect parameters buffer \
+                            "Not rendering mesh because non-indexed indirect parameters buffer \
                                  wasn't present for this phase",
                         );
                         return RenderCommandResult::Skip;
