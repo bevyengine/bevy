@@ -2,19 +2,23 @@
 //! This example shows how to configure it to repeat the image instead.
 
 use bevy::{
+    audio::AudioPlugin,
     image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
     math::Affine2,
     prelude::*,
+    sprite::Anchor,
 };
 
 /// How much to move some rectangles away from the center
 const RECTANGLE_OFFSET: f32 = 250.0;
 /// Length of the sides of the rectangle
 const RECTANGLE_SIDE: f32 = 200.;
+/// How much to move the label away from the rectangle
+const LABEL_OFFSET: f32 = 25.;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.build().disable::<AudioPlugin>())
         .add_systems(Startup, setup)
         .run();
 }
@@ -82,6 +86,23 @@ fn setup(
             ..default()
         })),
         Transform::from_xyz(RECTANGLE_OFFSET, 0.0, 0.0),
+    ));
+
+    // labels
+    commands.spawn((
+        Text2d::new("Control"),
+        Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+        Anchor::Center,
+    ));
+    commands.spawn((
+        Text2d::new("Repeat On"),
+        Transform::from_xyz(-RECTANGLE_OFFSET, (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+        Anchor::Center,
+    ));
+    commands.spawn((
+        Text2d::new("Repeat Off"),
+        Transform::from_xyz(RECTANGLE_OFFSET, (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+        Anchor::Center,
     ));
 
     // camera
