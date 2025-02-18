@@ -1,0 +1,5 @@
+error[E0499]: cannot borrow `lens` as mutable more than once at a time
+  --> tests/ui\query_lens_lifetime_safety.rs:18:39
+   |
+17 |             let mut data: Mut<Foo> = lens.query().get_inner(e).unwrap();
+   |                                      ---- first mutable borrow occurs here
