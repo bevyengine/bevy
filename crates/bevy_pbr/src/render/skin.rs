@@ -280,7 +280,7 @@ pub fn extract_skins(
     skinned_meshes: Extract<Query<(Entity, &SkinnedMesh)>>,
     changed_skinned_meshes: Extract<
         Query<
-            (Entity, Ref<ViewVisibility>, Ref<SkinnedMesh>),
+            (Entity, &ViewVisibility, &SkinnedMesh),
             Or<(
                 Changed<ViewVisibility>,
                 Changed<SkinnedMesh>,
@@ -335,7 +335,7 @@ pub fn extract_skins(
 fn add_or_delete_skins(
     skin_uniforms: &mut SkinUniforms,
     changed_skinned_meshes: &Query<
-        (Entity, Ref<ViewVisibility>, Ref<SkinnedMesh>),
+        (Entity, &ViewVisibility, &SkinnedMesh),
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
@@ -362,7 +362,7 @@ fn add_or_delete_skins(
         // Initialize the skin.
         add_skin(
             skinned_mesh_entity,
-            &skinned_mesh,
+            skinned_mesh,
             skin_uniforms,
             skinned_mesh_inverse_bindposes,
             joints,
@@ -376,7 +376,7 @@ fn extract_joints(
     skin_uniforms: &mut SkinUniforms,
     skinned_meshes: &Query<(Entity, &SkinnedMesh)>,
     changed_skinned_meshes: &Query<
-        (Entity, Ref<ViewVisibility>, Ref<SkinnedMesh>),
+        (Entity, &ViewVisibility, &SkinnedMesh),
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
@@ -447,7 +447,7 @@ fn extract_joints_for_skin(
     skin: &SkinnedMesh,
     skin_uniforms: &mut SkinUniforms,
     changed_skinned_meshes: &Query<
-        (Entity, Ref<ViewVisibility>, Ref<SkinnedMesh>),
+        (Entity, &ViewVisibility, &SkinnedMesh),
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
