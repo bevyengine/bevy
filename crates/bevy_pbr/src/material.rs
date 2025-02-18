@@ -28,6 +28,7 @@ use bevy_ecs::{
     },
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
@@ -825,7 +826,7 @@ pub fn specialize_material_meshes<M: Material>(
 {
     // Record the retained IDs of all shadow views so that we can expire old
     // pipeline IDs.
-    let mut all_views = HashSet::new();
+    let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
 
     for (view, visible_entities) in &views {
         all_views.insert(view.retained_view_entity);

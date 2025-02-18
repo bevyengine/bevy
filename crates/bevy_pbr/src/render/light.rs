@@ -14,6 +14,7 @@ use bevy_ecs::{
 };
 use bevy_math::{ops, Mat4, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::hash::FixedHasher;
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
@@ -1721,7 +1722,7 @@ pub fn specialize_shadows<M: Material>(
 {
     // Record the retained IDs of all shadow views so that we can expire old
     // pipeline IDs.
-    let mut all_shadow_views = HashSet::new();
+    let mut all_shadow_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
 
     for (entity, view_lights) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
