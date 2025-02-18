@@ -118,7 +118,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     *target_pending_sync = true;
                     continue;
                 }
-                
+
                 // add sync point at this edge, target distance may increase
                 *target_distance = (node_distance + 1).max(*target_distance);
 
