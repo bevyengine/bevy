@@ -44,8 +44,8 @@ pub fn sync_simple_transforms(
 /// Compute leaf [`GlobalTransform`]s in parallel.
 ///
 /// This is run after [`propagate_parent_transforms`], to ensure the parents' [`GlobalTransform`]s
-/// have been computed. This makes computing leaf nodes at different levels of the hierarchy easy to
-/// parallelize.
+/// have been computed. This makes computing leaf nodes at different levels of the hierarchy much
+/// more cache friendly, because data can be iterated over densely from the same archetype.
 pub fn compute_transform_leaves(
     parents: Query<Ref<GlobalTransform>, With<Children>>,
     mut leaves: Query<(Ref<Transform>, &mut GlobalTransform, &ChildOf), Without<Children>>,
@@ -65,6 +65,20 @@ pub fn compute_transform_leaves(
         });
 }
 
+// TODO: This serial implementation isn't actually serial, it parallelizes across the roots.
+// Additionally, this couples "no_std" with "single_threaded" when these two features should be
+// independent.
+//
+// What we want to do in a future refactor is take the current "single threaded" implementation, and
+// actually make it single threaded. This will remove any overhead associated with working on a task
+// pool when you only have a single thread, and will have the benefit of removing the need for any
+// unsafe. We would then make the multithreaded implementation work across std and no_std, but this
+// is blocked a no_std compatible Channel, which is why this TODO is not yet implemented.
+//
+// This complexity might also not be needed. If the multithreaded implementation on a single thread
+// is as fast as the single threaded implementation, we could simply remove the entire serial
+// module, and make the multithreaded module no_std compatible.
+//
 /// Serial hierarchy traversal. Useful in `no_std` or single threaded contexts.
 #[cfg(not(feature = "std"))]
 mod serial {
@@ -224,10 +238,10 @@ mod serial {
     }
 }
 
-/// Parallel hierarchy traversal with an optimized batching scheduler. Often 2-5 times faster than
+// TODO: Relies on `std` until a `no_std` `mpsc` channel is available.
+//
+/// Parallel hierarchy traversal with a batched work sharing scheduler. Often 2-5 times faster than
 /// the serial version.
-///
-/// Relies on `std` until a `no_std` `mpsc` channel is available.
 #[cfg(feature = "std")]
 mod parallel {
     use crate::prelude::*;
@@ -235,12 +249,11 @@ mod parallel {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
+    // TODO: this implementation could be used in no_std if there are equivalents of these.
     use std::{
         sync::{
-            // TODO: this implementation could be used in no_std if there was a
             mpsc::{Receiver, Sender},
-            Arc,
-            Mutex,
+            Arc, Mutex,
         },
         vec::Vec,
     };
@@ -384,10 +397,9 @@ mod parallel {
     /// in [`compute_transform_leaves`](super::compute_transform_leaves), which can optimize much
     /// more efficiently.
     ///
-    /// If this `parent` only has a single non-leaf child, instead of pushing it to the outbox, this
-    /// function will continue propagating transforms to descendents until it finds an entity with
-    /// multiple non-leaf children, which it will propagate transforms to, then push them to the
-    /// `outbox`.
+    /// This function will continue propagating transforms to descendents in a depth-first
+    /// traversal, while simultaneously pushing unvisited branches to the outbox, for other threads
+    /// to take when idle.
     ///
     /// # Safety
     ///
@@ -413,7 +425,7 @@ mod parallel {
         queue: &WorkQueue,
         max_depth: usize,
     ) {
-        // Create local mutable copies of the input variables, used for the optimization below.
+        // Create mutable copies of the input variables, used for iterative depth-first traversal.
         let (mut parent, mut p_global_transform, mut p_children) =
             (parent, p_global_transform, p_children);
 
@@ -472,9 +484,8 @@ mod parallel {
                 (parent, p_global_transform, p_children) = last_child;
                 outbox.pop();
 
-                // Send chunks from inside the loop as well as at the end. This allows other workers
-                // to pick up work while this task is still running. Only do this within the loop
-                // when the outbox has grown large enough.
+                // Send chunks during traversal. This allows sharing tasks with other threads before
+                // fully completing the traversal.
                 if outbox.len() >= WorkQueue::CHUNK_SIZE {
                     WorkQueue::send_batches_with(&queue.sender, outbox);
                 }
