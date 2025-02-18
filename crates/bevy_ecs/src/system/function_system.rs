@@ -418,11 +418,11 @@ impl<Param: SystemParam> SystemState<Param> {
     ///   world data in `archetype_component_access`.
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
     pub unsafe fn validate_param(
-        state: &Self,
+        state: &mut Self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Delegated to existing `SystemParam` implementations.
-        unsafe { Param::validate_param(&state.param_state, &state.meta, world) }
+        unsafe { Param::validate_param(&mut state.param_state, &state.meta, world) }
     }
 
     /// Returns `true` if `world_id` matches the [`World`] that was used to call [`SystemState::new`].
@@ -759,7 +759,7 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        let param_state = &self.state.as_ref().expect(Self::ERROR_UNINITIALIZED).param;
+        let param_state = &mut self.state.as_mut().expect(Self::ERROR_UNINITIALIZED).param;
         // SAFETY:
         // - The caller has invoked `update_archetype_component_access`, which will panic
         //   if the world does not match.

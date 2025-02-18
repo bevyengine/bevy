@@ -298,7 +298,7 @@ pub unsafe trait SystemParam: Sized {
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
     )]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -451,7 +451,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -518,7 +518,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -730,7 +730,7 @@ macro_rules! impl_param_set {
 
             #[inline]
             unsafe fn validate_param<'w, 's>(
-                state: &'s Self::State,
+                state: &'s mut Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell<'w>,
             ) -> Result<(), SystemParamValidationError> {
@@ -808,7 +808,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 
     #[inline]
     unsafe fn validate_param(
-        &component_id: &Self::State,
+        &mut component_id: &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -889,7 +889,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 
     #[inline]
     unsafe fn validate_param(
-        &component_id: &Self::State,
+        &mut component_id: &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -1458,7 +1458,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
     #[inline]
     unsafe fn validate_param(
-        &component_id: &Self::State,
+        &mut component_id: &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -1539,7 +1539,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
 
     #[inline]
     unsafe fn validate_param(
-        &component_id: &Self::State,
+        &mut component_id: &mut Self::State,
         _system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -1869,7 +1869,7 @@ unsafe impl<T: SystemParam> SystemParam for When<T> {
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -1924,7 +1924,7 @@ unsafe impl<T: SystemParam> SystemParam for Vec<T> {
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -2112,7 +2112,7 @@ macro_rules! impl_system_param_tuple {
 
             #[inline]
             unsafe fn validate_param(
-                state: &Self::State,
+                state: &mut Self::State,
                 system_meta: &SystemMeta,
                 world: UnsafeWorldCell,
             ) -> Result<(), SystemParamValidationError> {
@@ -2284,7 +2284,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
@@ -2534,7 +2534,7 @@ trait DynParamState: Sync + Send {
     /// # Safety
     /// Refer to [`SystemParam::validate_param`].
     unsafe fn validate_param(
-        &self,
+        &mut self,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError>;
@@ -2562,11 +2562,11 @@ impl<T: SystemParam + 'static> DynParamState for ParamState<T> {
     }
 
     unsafe fn validate_param(
-        &self,
+        &mut self,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        T::validate_param(&self.0, system_meta, world)
+        T::validate_param(&mut self.0, system_meta, world)
     }
 }
 
@@ -2582,7 +2582,7 @@ unsafe impl SystemParam for DynSystemParam<'_, '_> {
 
     #[inline]
     unsafe fn validate_param(
-        state: &Self::State,
+        state: &mut Self::State,
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {

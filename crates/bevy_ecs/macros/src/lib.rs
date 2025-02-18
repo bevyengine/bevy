@@ -446,7 +446,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 #[inline]
                 unsafe fn validate_param<'w, 's>(
-                    state: &'s Self::State,
+                    state: &'s mut Self::State,
                     _system_meta: &#path::system::SystemMeta,
                     _world: #path::world::unsafe_world_cell::UnsafeWorldCell<'w>,
                 ) -> Result<(), #path::system::SystemParamValidationError> {
