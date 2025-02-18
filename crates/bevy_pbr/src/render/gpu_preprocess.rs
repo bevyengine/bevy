@@ -704,12 +704,10 @@ impl Node for EarlyGpuPreprocessNode {
                     continue;
                 };
 
-                // If we're drawing indirectly, make sure the mesh preprocessing
-                // shader has access to the view info it needs to do culling.
-                let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
-                if !no_indirect_drawing {
-                    dynamic_offsets.push(view_uniform_offset.offset);
-                }
+                // Make sure the mesh preprocessing shader has access to the
+                // view info it needs to do culling and motion vector
+                // computation.
+                let dynamic_offsets = [view_uniform_offset.offset];
 
                 // Are we drawing directly or indirectly?
                 match *phase_bind_groups {
@@ -1416,6 +1414,11 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
     DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::COMPUTE,
         (
+            // `view`
+            (
+                0,
+                uniform_buffer::<ViewUniform>(/* has_dynamic_offset= */ true),
+            ),
             // `current_input`
             (3, storage_buffer_read_only::<MeshInputUniform>(false)),
             // `previous_input`
@@ -1470,11 +1473,6 @@ fn gpu_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
         (
             9,
             storage_buffer_read_only::<MeshCullingData>(/* has_dynamic_offset= */ false),
-        ),
-        // `view`
-        (
-            0,
-            uniform_buffer::<ViewUniform>(/* has_dynamic_offset= */ true),
         ),
     ))
 }
@@ -1930,6 +1928,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 "preprocess_direct_bind_group",
                 &self.pipelines.direct_preprocess.bind_group_layout,
                 &BindGroupEntries::with_indices((
+                    (0, self.view_uniforms.uniforms.binding()?),
                     (3, self.current_input_buffer.as_entire_binding()),
                     (4, self.previous_input_buffer.as_entire_binding()),
                     (
