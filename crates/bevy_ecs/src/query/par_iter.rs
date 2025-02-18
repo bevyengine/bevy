@@ -5,7 +5,7 @@ use crate::{
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
-use super::{QueryData, QueryFilter, QueryItem, QueryState, ReadOnlyQueryData};
+use super::{QueryData, QueryItem, QueryStateBorrow, ReadOnlyQueryData};
 
 use alloc::vec::Vec;
 
@@ -13,15 +13,15 @@ use alloc::vec::Vec;
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::par_iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::par_iter_mut) methods.
-pub struct QueryParIter<'w, 's, D: QueryData, F: QueryFilter> {
+pub struct QueryParIter<'w, S: QueryStateBorrow> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: S,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
+impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>> QueryParIter<'w, S> {
     /// Changes the batching strategy used when iterating.
     ///
     /// For more information on how this affects the resultant iteration, see
@@ -94,6 +94,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             // at the same time.
             unsafe {
                 self.state
+                    .borrow()
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                     .into_iter()
                     .fold(init, func);
@@ -107,6 +108,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
+                        .borrow()
                         .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                         .into_iter()
                         .fold(init, func);
@@ -116,7 +118,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.par_fold_init_unchecked_manual(
+                    self.state.borrow().par_fold_init_unchecked_manual(
                         init,
                         self.world,
                         batch_size,
@@ -132,8 +134,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     fn get_batch_size(&self, thread_count: usize) -> usize {
         let max_items = || {
-            let id_iter = self.state.matched_storage_ids.iter();
-            if self.state.is_dense {
+            let id_iter = self.state.storage_ids();
+            if self.state.borrow().is_dense {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter
@@ -160,17 +162,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
 ///
 /// [`Entity`]: crate::entity::Entity
 /// [`Query::par_iter_many`]: crate::system::Query::par_iter_many
-pub struct QueryParManyIter<'w, 's, D: QueryData, F: QueryFilter, E: EntityBorrow> {
+pub struct QueryParManyIter<'w, S: QueryStateBorrow, E: EntityBorrow> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: S,
     pub(crate) entity_list: Vec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
-    QueryParManyIter<'w, 's, D, F, E>
+impl<'w, D: ReadOnlyQueryData, S: QueryStateBorrow<Data = D>, E: EntityBorrow + Sync>
+    QueryParManyIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -264,6 +266,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
             // at the same time.
             unsafe {
                 self.state
+                    .borrow()
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                     .iter_many_inner(&self.entity_list)
                     .fold(init, func);
@@ -277,6 +280,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
+                        .borrow()
                         .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                         .iter_many_inner(&self.entity_list)
                         .fold(init, func);
@@ -286,7 +290,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.par_many_fold_init_unchecked_manual(
+                    self.state.borrow().par_many_fold_init_unchecked_manual(
                         init,
                         self.world,
                         &self.entity_list,
@@ -314,23 +318,17 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityBorrow + Sync>
 /// [`EntitySet`]: crate::entity::EntitySet
 /// [`Query::par_iter_many_unique`]: crate::system::Query::par_iter_many_unique
 /// [`Query::par_iter_many_unique_mut`]: crate::system::Query::par_iter_many_unique_mut
-pub struct QueryParManyUniqueIter<
-    'w,
-    's,
-    D: QueryData,
-    F: QueryFilter,
-    E: TrustedEntityBorrow + Sync,
-> {
+pub struct QueryParManyUniqueIter<'w, S: QueryStateBorrow, E: TrustedEntityBorrow + Sync> {
     pub(crate) world: UnsafeWorldCell<'w>,
-    pub(crate) state: &'s QueryState<D, F>,
+    pub(crate) state: S,
     pub(crate) entity_list: UniqueEntityVec<E>,
     pub(crate) last_run: Tick,
     pub(crate) this_run: Tick,
     pub(crate) batching_strategy: BatchingStrategy,
 }
 
-impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
-    QueryParManyUniqueIter<'w, 's, D, F, E>
+impl<'w, D: QueryData, S: QueryStateBorrow<Data = D>, E: TrustedEntityBorrow + Sync>
+    QueryParManyUniqueIter<'w, S, E>
 {
     /// Changes the batching strategy used when iterating.
     ///
@@ -424,6 +422,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
             // at the same time.
             unsafe {
                 self.state
+                    .borrow()
                     .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                     .iter_many_unique_inner(self.entity_list)
                     .fold(init, func);
@@ -437,6 +436,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
                 // SAFETY: See the safety comment above.
                 unsafe {
                     self.state
+                        .borrow()
                         .query_unchecked_manual_with_ticks(self.world, self.last_run, self.this_run)
                         .iter_many_unique_inner(self.entity_list)
                         .fold(init, func);
@@ -446,15 +446,17 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: TrustedEntityBorrow + Sync>
                 let batch_size = self.get_batch_size(thread_count).max(1);
                 // SAFETY: See the safety comment above.
                 unsafe {
-                    self.state.par_many_unique_fold_init_unchecked_manual(
-                        init,
-                        self.world,
-                        &self.entity_list,
-                        batch_size,
-                        func,
-                        self.last_run,
-                        self.this_run,
-                    );
+                    self.state
+                        .borrow()
+                        .par_many_unique_fold_init_unchecked_manual(
+                            init,
+                            self.world,
+                            &self.entity_list,
+                            batch_size,
+                            func,
+                            self.last_run,
+                            self.this_run,
+                        );
                 }
             }
         }
