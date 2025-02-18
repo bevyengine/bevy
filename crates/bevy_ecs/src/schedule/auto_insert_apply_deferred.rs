@@ -23,22 +23,23 @@ use super::{
 pub struct AutoInsertApplyDeferredPass {
     /// Dependency edges that will **not** automatically insert an instance of `ApplyDeferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
-    auto_sync_node_ids: HashMap<u32, NodeId>,
+    auto_sync_node_ids: Vec<NodeId>,
 }
 
 /// If added to a dependency edge, the edge will not be considered for auto sync point insertions.
 pub struct IgnoreDeferred;
 
 impl AutoInsertApplyDeferredPass {
-    /// Returns the `NodeId` of the cached auto sync point. Will create
-    /// a new one if needed.
-    fn get_sync_point(&mut self, graph: &mut ScheduleGraph, distance: u32) -> NodeId {
+    /// Returns the `NodeId` of the cached auto sync point. Will create a new one if needed.
+    ///
+    /// Is expected to be called with an index not larger than the amount of cached sync points so far.
+    fn get_sync_point(&mut self, graph: &mut ScheduleGraph, index: usize) -> NodeId {
         self.auto_sync_node_ids
-            .get(&distance)
+            .get(index)
             .copied()
             .unwrap_or_else(|| {
                 let node_id = self.add_auto_sync(graph);
-                self.auto_sync_node_ids.insert(distance, node_id);
+                self.auto_sync_node_ids.push(node_id);
                 node_id
             })
     }
@@ -108,8 +109,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
                 let target_system = graph.systems[target.index()].get().unwrap();
 
-                // if target system is `ApplyDeferred` there is no point in adding another sync point
                 if is_apply_deferred(target_system) {
+                    // if target system is `ApplyDeferred` there is no point in adding another sync point
                     continue;
                 }
 
@@ -122,7 +123,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 // add sync point at this edge, target distance may increase
                 *target_distance = (node_distance + 1).max(*target_distance);
 
-                let sync_point = self.get_sync_point(graph, *target_distance);
+                let sync_point = self.get_sync_point(graph, *target_distance as usize - 1);
                 sync_point_graph.add_edge(*node, sync_point);
                 sync_point_graph.add_edge(sync_point, target);
 
