@@ -209,14 +209,22 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 #endif
 
-    // Look up the previous model matrix.
+    // See whether the `MeshInputUniform` was updated on this frame. If it
+    // wasn't, then we know the transforms of this mesh must be identical to
+    // those on the previous frame, and therefore we don't need to access the
+    // `previous_input_index` (in fact, we can't; that index are only valid for
+    // one frame and will be invalid).
+    let timestamp = current_input[input_index].timestamp;
+    let mesh_changed_this_frame = timestamp == view.frame_count;
+
+    // Look up the previous model matrix, if it could have been.
     let previous_input_index = current_input[input_index].previous_input_index;
     var previous_world_from_local_affine_transpose: mat3x4<f32>;
-    if (previous_input_index == 0xffffffff) {
-        previous_world_from_local_affine_transpose = world_from_local_affine_transpose;
-    } else {
+    if (mesh_changed_this_frame && previous_input_index != 0xffffffffu) {
         previous_world_from_local_affine_transpose =
             previous_input[previous_input_index].world_from_local;
+    } else {
+        previous_world_from_local_affine_transpose = world_from_local_affine_transpose;
     }
     let previous_world_from_local =
         maths::affine3_to_square(previous_world_from_local_affine_transpose);

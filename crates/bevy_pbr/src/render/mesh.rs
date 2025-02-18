@@ -8,6 +8,7 @@ use bevy_core_pipeline::{
     prepass::MotionVectorPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
+use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -551,12 +552,18 @@ pub struct MeshInputUniform {
     /// Low 16 bits: index of the material inside the bind group data.
     /// High 16 bits: index of the lightmap in the binding array.
     pub material_and_lightmap_bind_group_slot: u32,
+    /// The number of the frame on which this [`MeshInputUniform`] was built.
+    ///
+    /// This is used to validate the previous transform and skin. If this
+    /// [`MeshInputUniform`] wasn't updated on this frame, then we know that
+    /// neither this mesh's transform nor that of its joints have been updated
+    /// on this frame, and therefore the transforms of both this mesh and its
+    /// joints must be identical to those for the previous frame.
+    pub timestamp: u32,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
     /// Padding.
-    pub pad_a: u32,
-    /// Padding.
-    pub pad_b: u32,
+    pub pad: u32,
 }
 
 /// Information about each mesh instance needed to cull it on GPU.
@@ -1117,6 +1124,7 @@ impl RenderMeshInstanceGpuBuilder {
         render_material_bindings: &RenderMaterialBindings,
         render_lightmaps: &RenderLightmaps,
         skin_uniforms: &SkinUniforms,
+        timestamp: FrameCount,
     ) -> u32 {
         let (first_vertex_index, vertex_count) =
             match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
@@ -1164,6 +1172,7 @@ impl RenderMeshInstanceGpuBuilder {
             lightmap_uv_rect: self.lightmap_uv_rect,
             flags: self.mesh_flags.bits(),
             previous_input_index: u32::MAX,
+            timestamp: timestamp.0,
             first_vertex_index,
             first_index_index,
             index_count: if mesh_is_indexed {
@@ -1176,8 +1185,7 @@ impl RenderMeshInstanceGpuBuilder {
                 self.shared.material_bindings_index.slot,
             ) | ((lightmap_slot as u32) << 16),
             tag: self.shared.tag,
-            pad_a: 0,
-            pad_b: 0,
+            pad: 0,
         };
 
         // Did the last frame contain this entity as well?
@@ -1607,6 +1615,7 @@ pub fn collect_meshes_for_gpu_building(
     render_material_bindings: Res<RenderMaterialBindings>,
     render_lightmaps: Res<RenderLightmaps>,
     skin_uniforms: Res<SkinUniforms>,
+    frame_count: Res<FrameCount>,
 ) {
     let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
         render_mesh_instances.into_inner()
@@ -1646,6 +1655,7 @@ pub fn collect_meshes_for_gpu_building(
                         &render_material_bindings,
                         &render_lightmaps,
                         &skin_uniforms,
+                        *frame_count,
                     );
                 }
 
@@ -1673,6 +1683,7 @@ pub fn collect_meshes_for_gpu_building(
                         &render_material_bindings,
                         &render_lightmaps,
                         &skin_uniforms,
+                        *frame_count,
                     );
                     mesh_culling_builder
                         .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
