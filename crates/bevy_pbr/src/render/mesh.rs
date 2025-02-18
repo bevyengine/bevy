@@ -2762,7 +2762,7 @@ fn prepare_mesh_bind_groups_for_phase(
                     let prev_skin = &skins_uniform.prev_buffer;
                     MeshBindGroupPair {
                         motion_vectors: layouts.morphed_skinned_motion(
-                            &render_device,
+                            render_device,
                             &model,
                             skin,
                             weights,
@@ -2771,7 +2771,7 @@ fn prepare_mesh_bind_groups_for_phase(
                             prev_weights,
                         ),
                         no_motion_vectors: layouts.morphed_skinned(
-                            &render_device,
+                            render_device,
                             &model,
                             skin,
                             weights,
@@ -2787,12 +2787,7 @@ fn prepare_mesh_bind_groups_for_phase(
                             targets,
                             prev_weights,
                         ),
-                        no_motion_vectors: layouts.morphed(
-                            render_device,
-                            &model,
-                            weights,
-                            targets,
-                        ),
+                        no_motion_vectors: layouts.morphed(render_device, &model, weights, targets),
                     }
                 };
                 groups.morph_targets.insert(id, bind_group_pair);
