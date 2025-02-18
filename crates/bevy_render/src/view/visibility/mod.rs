@@ -326,7 +326,7 @@ pub enum VisibilitySystems {
     /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
     /// Label for the [`mark_newly_hidden_entities_invisible`] system, which
-    /// sets [`ViewVisibility`] to [`ViewVisiblity::HIDDEN`] for entities that
+    /// sets [`ViewVisibility`] to [`ViewVisibility::HIDDEN`] for entities that
     /// no view has marked as visible.
     MarkNewlyHiddenEntitiesInvisible,
 }
