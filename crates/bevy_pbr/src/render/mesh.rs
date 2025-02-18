@@ -20,7 +20,7 @@ use bevy_render::{
     batching::{
         gpu_preprocessing::{
             self, GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
-            IndirectParametersIndexed, IndirectParametersMetadata, IndirectParametersNonIndexed,
+            IndirectParametersCpuMetadata, IndirectParametersIndexed, IndirectParametersNonIndexed,
             InstanceInputUniformBuffer, UntypedPhaseIndirectParametersBuffers,
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
@@ -1965,30 +1965,28 @@ impl GetFullBatchData for MeshPipeline {
     }
 
     fn write_batch_indirect_parameters_metadata(
-        mesh_index: InputUniformIndex,
         indexed: bool,
         base_output_index: u32,
         batch_set_index: Option<NonMaxU32>,
         phase_indirect_parameters_buffers: &mut UntypedPhaseIndirectParametersBuffers,
         indirect_parameters_offset: u32,
     ) {
-        let indirect_parameters = IndirectParametersMetadata {
-            mesh_index: *mesh_index,
+        let indirect_parameters = IndirectParametersCpuMetadata {
             base_output_index,
             batch_set_index: match batch_set_index {
                 Some(batch_set_index) => u32::from(batch_set_index),
                 None => !0,
             },
-            early_instance_count: 0,
-            late_instance_count: 0,
         };
 
         if indexed {
             phase_indirect_parameters_buffers
-                .set_indexed(indirect_parameters_offset, indirect_parameters);
+                .indexed
+                .set(indirect_parameters_offset, indirect_parameters);
         } else {
             phase_indirect_parameters_buffers
-                .set_non_indexed(indirect_parameters_offset, indirect_parameters);
+                .non_indexed
+                .set(indirect_parameters_offset, indirect_parameters);
         }
     }
 }
@@ -3086,8 +3084,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                             return RenderCommandResult::Skip;
                         };
                         let (Some(indirect_parameters_buffer), Some(batch_sets_buffer)) = (
-                            phase_indirect_parameters_buffers.indexed_data_buffer(),
-                            phase_indirect_parameters_buffers.indexed_batch_sets_buffer(),
+                            phase_indirect_parameters_buffers.indexed.data_buffer(),
+                            phase_indirect_parameters_buffers
+                                .indexed
+                                .batch_sets_buffer(),
                         ) else {
                             warn!(
                                 "Not rendering mesh because indexed indirect parameters buffer \
@@ -3152,8 +3152,10 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         return RenderCommandResult::Skip;
                     };
                     let (Some(indirect_parameters_buffer), Some(batch_sets_buffer)) = (
-                        phase_indirect_parameters_buffers.non_indexed_data_buffer(),
-                        phase_indirect_parameters_buffers.non_indexed_batch_sets_buffer(),
+                        phase_indirect_parameters_buffers.non_indexed.data_buffer(),
+                        phase_indirect_parameters_buffers
+                            .non_indexed
+                            .batch_sets_buffer(),
                     ) else {
                         warn!(
                             "Not rendering mesh because non-indexed indirect parameters buffer \
