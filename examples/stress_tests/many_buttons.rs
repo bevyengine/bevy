@@ -55,7 +55,7 @@ struct Args {
     #[argh(switch)]
     no_camera: bool,
 
-    /// a layout with a seperate camera for each button
+    /// a layout with a separate camera for each button
     #[argh(switch)]
     many_cameras: bool,
 }
