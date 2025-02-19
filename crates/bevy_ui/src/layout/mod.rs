@@ -262,7 +262,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
                     match outline.width {
-                        Val::Px(w) => Val::Px(w / scale_factor),
+                        Val::Px(w) => Val::Px(w * scale_factor),
                         width => width,
                     }
                     .resolve(node.size().x, viewport_size)
@@ -273,7 +273,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 };
 
                 node.outline_offset = match outline.offset {
-                    Val::Px(offset) => Val::Px(offset / scale_factor),
+                    Val::Px(offset) => Val::Px(offset * scale_factor),
                     offset => offset,
                 }
                 .resolve(node.size().x, viewport_size)
