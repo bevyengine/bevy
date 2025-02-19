@@ -340,8 +340,8 @@ fn queue_text(
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {
-            text_layout_info.size.x = text_layout_info.size.x / scale_factor;
-            text_layout_info.size.y = text_layout_info.size.y / scale_factor;
+            text_layout_info.size.x /= scale_factor;
+            text_layout_info.size.y /= scale_factor;
             text_flags.needs_recompute = false;
         }
     }
