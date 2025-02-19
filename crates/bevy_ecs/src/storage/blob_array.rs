@@ -256,7 +256,7 @@ impl BlobArray {
         new_capacity: NonZeroUsize,
     ) {
         #[cfg(debug_assertions)]
-        debug_assert_eq!(self.capacity, current_capacity.into());
+        debug_assert_eq!(self.capacity, usize::from(current_capacity));
         if !self.is_zst() {
             // SAFETY: `new_capacity` can't overflow usize
             let new_layout =
