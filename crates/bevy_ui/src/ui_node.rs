@@ -2768,8 +2768,8 @@ pub struct ComputedNodeTarget {
     /// The local scale factor for this UI node derived from `UiScale` and the render target's scale factor.
     /// Set to `1.` if no camera target found.
     ///
-    /// To transform cordinates from logical to physical space you multiply them by the scale factor,
-    /// and to transfrom coordinates from physical to logical space you divide them by the scale factor.
+    /// To transform coordinates from logical to physical space you multiply them by the scale factor,
+    /// and to transform coordinates from physical to logical space you divide them by the scale factor.
     ///
     /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub(crate) scale_factor: f32,
@@ -2803,8 +2803,8 @@ impl ComputedNodeTarget {
     /// The local scale factor for this UI node derived from `UiScale` and the render target's scale factor.
     /// Returns `1.` if no camera target found.
     ///
-    /// To transform cordinates from logical to physical space you multiply them by the scale factor,
-    /// and to transfrom coordinates from physical to logical space you divide them by the scale factor.
+    /// To transform coordinates from logical to physical space you multiply them by the scale factor,
+    /// and to transform coordinates from physical to logical space you divide them by the scale factor.
     ///
     /// Automatically updated by [`super::update::compute_node_targets_system`].
     pub const fn scale_factor(&self) -> f32 {
