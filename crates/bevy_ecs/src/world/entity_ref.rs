@@ -5900,4 +5900,42 @@ mod tests {
 
         assert_eq!(archetype_pointer_before, archetype_pointer_after);
     }
+
+    #[test]
+    fn bundle_remove_only_triggers_for_present_components() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component)]
+        struct B;
+
+        #[derive(Resource, PartialEq, Eq, Debug)]
+        struct Tracker {
+            a: bool,
+            b: bool,
+        }
+
+        world.insert_resource(Tracker { a: false, b: false });
+        let entity = world.spawn(A).id();
+
+        world.add_observer(|_: Trigger<OnRemove, A>, mut tracker: ResMut<Tracker>| {
+            tracker.a = true;
+        });
+        world.add_observer(|_: Trigger<OnRemove, B>, mut tracker: ResMut<Tracker>| {
+            tracker.b = true;
+        });
+
+        world.entity_mut(entity).remove::<(A, B)>();
+
+        assert_eq!(
+            world.resource::<Tracker>(),
+            &Tracker {
+                a: true,
+                // The entity didn't have a B component, so it should not have been triggered.
+                b: false,
+            }
+        );
+    }
 }
