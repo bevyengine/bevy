@@ -34,9 +34,8 @@ impl Plugin for TransformPlugin {
         .add_systems(
             PostStartup,
             ((
-                sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
+                (compute_transform_leaves, sync_simple_transforms),
             )
                 .chain()
                 .in_set(PropagateTransformsSet),),
@@ -48,9 +47,8 @@ impl Plugin for TransformPlugin {
         .add_systems(
             PostUpdate,
             ((
-                sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
+                (compute_transform_leaves, sync_simple_transforms),
             )
                 .chain()
                 .in_set(PropagateTransformsSet),),

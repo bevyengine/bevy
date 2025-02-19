@@ -383,6 +383,10 @@ mod parallel {
                         nodes,
                         &mut outbox,
                         queue,
+                        // Only affects performance. Trees deeper than this will still be fully
+                        // propagated, but the work will be broken into multiple tasks. This number
+                        // was chosen to be larger than any reasonable tree depth, while not being
+                        // so large the function could hang on a deep hierarchy.
                         10_000,
                     );
                 }
@@ -473,7 +477,7 @@ mod parallel {
             );
             outbox.extend(new_children);
 
-            if depth >= max_depth {
+            if depth >= max_depth || last_child.is_none() {
                 break; // Don't remove anything from the outbox or send any chunks, just exit.
             }
 
@@ -489,9 +493,7 @@ mod parallel {
                 if outbox.len() >= WorkQueue::CHUNK_SIZE {
                     WorkQueue::send_batches_with(&queue.sender, outbox);
                 }
-                continue;
             }
-            break;
         }
     }
 
