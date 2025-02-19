@@ -101,11 +101,7 @@ impl RenderDevice {
     ) -> wgpu::ShaderModule {
         #[cfg(feature = "spirv_shader_passthrough")]
         match &desc.source {
-            wgpu::ShaderSource::SpirV(_source)
-                if self
-                    .features()
-                    .contains(wgpu::Features::SPIRV_SHADER_PASSTHROUGH) =>
-            panic!("no safety checks are performed for spirv shaders. use `create_shader_module` instead"),
+            wgpu::ShaderSource::SpirV(_source) => panic!("no safety checks are performed for spirv shaders. use `create_shader_module` instead"),
             _ => self.device.create_shader_module(desc),
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]
