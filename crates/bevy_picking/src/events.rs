@@ -549,6 +549,7 @@ pub fn pointer_events(
         pointer_id,
         location,
         action,
+        ..
     } in input_events.read().cloned()
     {
         match action {
