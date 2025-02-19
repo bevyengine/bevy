@@ -209,10 +209,13 @@ fn setup_scene_after_load(
         // Spawn a default light if the scene does not have one
         if !scene_handle.has_light || args.add_light == Some(true) {
             info!("Spawning a directional light");
-            commands.spawn((
+            let mut light = commands.spawn((
                 DirectionalLight::default(),
                 Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
             ));
+            if args.occlusion_culling == Some(true) {
+                light.insert(OcclusionCulling);
+            }
 
             scene_handle.has_light = true;
         }
