@@ -96,14 +96,12 @@ fn main() {
         });
     }
 
-    if args.grid {
+    if args.many_cameras {
+        app.add_systems(Startup, setup_many_cameras);
+    } else if args.grid {
         app.add_systems(Startup, setup_grid);
     } else {
-        if args.many_cameras {
-            app.add_systems(Startup, setup_many_cameras);
-        } else {
-            app.add_systems(Startup, setup_flex);
-        }
+        app.add_systems(Startup, setup_flex);
     }
 
     if args.relayout {
