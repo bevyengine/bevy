@@ -381,7 +381,7 @@ mod tests {
         let mut world = World::new();
         let root = world.spawn_empty().id();
         let child1 = world.spawn(ChildOf { parent: root }).id();
-        let grandchild = world.spawn(ChildOf { parent: root }).id();
+        let grandchild = world.spawn(ChildOf { parent: child1 }).id();
         let child2 = world.spawn(ChildOf { parent: root }).id();
 
         // Spawn
