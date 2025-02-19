@@ -180,7 +180,7 @@ with UI components as a child of an entity without UI components, your UI layout
             computed_target.scale_factor,
             Vec2::ZERO,
             Vec2::ZERO,
-            // mark all `ComputedNode`s as changed if the root's `ComputedNodeTarget` changed
+            // Call `set_changed` on every descendent's `ComputedNode` if a root node's `ComputedNodeTarget` is changed
             computed_target.is_changed(),
         );
     }
