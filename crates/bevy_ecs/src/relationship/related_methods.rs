@@ -259,7 +259,7 @@ mod tests {
         let mut world = World::new();
 
         let a = world.spawn_empty().id();
-        let b = world.spawn(ChildOf {parent: a}).id();
+        let b = world.spawn(ChildOf { parent: a }).id();
         let c = world.spawn(ChildOf { parent: a }).id();
         let d = world.spawn(ChildOf { parent: b }).id();
 

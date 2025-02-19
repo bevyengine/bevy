@@ -380,9 +380,9 @@ mod tests {
     fn hierarchy() {
         let mut world = World::new();
         let root = world.spawn_empty().id();
-        let child1 = world.spawn(ChildOf {parent: root}).id();
-        let grandchild = world.spawn(ChildOf {parent: root}).id();
-        let child2 = world.spawn(ChildOf {parent: root}).id();
+        let child1 = world.spawn(ChildOf { parent: root }).id();
+        let grandchild = world.spawn(ChildOf { parent: root }).id();
+        let child2 = world.spawn(ChildOf { parent: root }).id();
 
         // Spawn
         let hierarchy = get_hierarchy(&world, root);
@@ -403,7 +403,7 @@ mod tests {
         assert_eq!(hierarchy, Node::new_with(root, vec![Node::new(child2)]));
 
         // Insert
-        world.entity_mut(child1).insert(ChildOf {parent: root});
+        world.entity_mut(child1).insert(ChildOf { parent: root });
         let hierarchy = get_hierarchy(&world, root);
         assert_eq!(
             hierarchy,
@@ -474,7 +474,7 @@ mod tests {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
         world.entity_mut(parent).despawn();
-        let id = world.spawn(ChildOf {parent}).id();
+        let id = world.spawn(ChildOf { parent }).id();
         assert!(
             world.entity(id).get::<ChildOf>().is_none(),
             "invalid ChildOf relationships should self-remove"
@@ -485,8 +485,8 @@ mod tests {
     fn reinsert_same_parent() {
         let mut world = World::new();
         let parent = world.spawn_empty().id();
-        let id = world.spawn(ChildOf {parent}).id();
-        world.entity_mut(id).insert(ChildOf {parent});
+        let id = world.spawn(ChildOf { parent }).id();
+        world.entity_mut(id).insert(ChildOf { parent });
         assert_eq!(
             Some(&ChildOf { parent }),
             world.entity(id).get::<ChildOf>(),
