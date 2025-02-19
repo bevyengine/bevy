@@ -786,7 +786,7 @@ mod test {
             .entity_mut(parent2)
             .insert(Visibility::Visible);
         // Simulate a change in the parent component
-        app.world_mut().entity_mut(child2).insert(ChildOf(parent2)); // example of changing parent
+        app.world_mut().entity_mut(child2).insert(ChildOf { parent: parent2 }); // example of changing parent
 
         // Run the system again to propagate changes
         app.update();
