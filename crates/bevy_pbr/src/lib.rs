@@ -105,6 +105,7 @@ pub mod graph {
         EarlyPrepassBuildIndirectParameters,
         LatePrepassBuildIndirectParameters,
         MainBuildIndirectParameters,
+        ClearIndirectParametersMetadata,
     }
 }
 
@@ -428,7 +429,8 @@ impl Plugin for PbrPlugin {
                         // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                         // because that resets entity `ViewVisibility` for the first view
                         // which would override any results from this otherwise
-                        .after(VisibilitySystems::CheckVisibility),
+                        .after(VisibilitySystems::CheckVisibility)
+                        .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
                 ),
             );
 

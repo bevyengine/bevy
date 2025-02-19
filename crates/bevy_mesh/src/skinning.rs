@@ -1,4 +1,4 @@
-use bevy_asset::{Asset, Handle};
+use bevy_asset::{AsAssetId, Asset, AssetId, Handle};
 use bevy_ecs::{component::Component, entity::Entity, prelude::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::prelude::*;
@@ -10,6 +10,16 @@ pub struct SkinnedMesh {
     pub inverse_bindposes: Handle<SkinnedMeshInverseBindposes>,
     #[entities]
     pub joints: Vec<Entity>,
+}
+
+impl AsAssetId for SkinnedMesh {
+    type Asset = SkinnedMeshInverseBindposes;
+
+    // We implement this so that `AssetChanged` will work to pick up any changes
+    // to `SkinnedMeshInverseBindposes`.
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.inverse_bindposes.id()
+    }
 }
 
 #[derive(Asset, TypePath, Debug)]
