@@ -263,11 +263,7 @@ impl TextPipeline {
         let buffer = &mut computed.buffer;
         let box_size = buffer_dimensions(buffer);
 
-        let mut byte_index = 0;
-
         let result = buffer.layout_runs().try_for_each(|run| {
-            byte_index = 0;
-
             let result = run
                 .glyphs
                 .iter()
