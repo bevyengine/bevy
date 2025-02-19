@@ -260,6 +260,15 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
         Data::Struct(DataStruct { ref fields, .. }) => {
             let mut visited_fields = Vec::new();
             let mut visited_indices = Vec::new();
+
+            if is_relationship {
+                if let Some(field) = relationship_field(fields, fields.span()).ok().flatten() {
+                    match field.ident {
+                        Some(ref ident) => visited_fields.push(ident.clone()),
+                        None => visited_indices.push(Index::from(0)),
+                    }
+                }
+            }
             match fields {
                 Fields::Named(fields) => {
                     for field in &fields.named {
@@ -276,9 +285,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 }
                 Fields::Unnamed(fields) => {
                     for (index, field) in fields.unnamed.iter().enumerate() {
-                        if index == 0 && is_relationship {
-                            visited_indices.push(Index::from(0));
-                        } else if field
+                        if field
                             .attrs
                             .iter()
                             .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
@@ -289,7 +296,6 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 }
                 Fields::Unit => {}
             }
-
             if visited_fields.is_empty() && visited_indices.is_empty() {
                 TokenStream2::new()
             } else {
