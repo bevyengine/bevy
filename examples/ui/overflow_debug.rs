@@ -233,13 +233,13 @@ fn update_animation(
 
 fn update_transform<T: UpdateTransform + Component>(
     animation: Res<AnimationState>,
-    mut containers: Query<(&mut Transform, &mut Node, &ComputedNode, &T)>,
+    mut containers: Query<(&mut Transform, &mut Node, &ComputedNodeTarget, &T)>,
 ) {
-    for (mut transform, mut node, computed_node, update_transform) in &mut containers {
+    for (mut transform, mut node, target, update_transform) in &mut containers {
         update_transform.update(animation.t, &mut transform);
 
-        node.left = Val::Px(transform.translation.x * computed_node.inverse_scale_factor());
-        node.top = Val::Px(transform.translation.y * computed_node.inverse_scale_factor());
+        node.left = Val::Px(transform.translation.x / target.scale_factor());
+        node.top = Val::Px(transform.translation.y / target.scale_factor());
     }
 }
 

@@ -281,16 +281,16 @@ pub struct UiCameraMapper<'w, 's> {
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
     pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
-        let camera_entity = computed_target.camera;
-        if self.camera_entity != camera_entity {
-            let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
-                return None;
-            };
-            self.render_entity = new_render_camera_entity;
-            self.camera_entity = camera_entity;
-        }
-
-        Some(self.render_entity)
+        computed_target.camera().and_then(|camera| {
+            if self.camera_entity != camera {
+                let Ok(new_render_camera_entity) = self.mapping.get(camera) else {
+                    return None;
+                };
+                self.render_entity = new_render_camera_entity;
+                self.camera_entity = camera;
+            }
+            Some(self.render_entity)
+        })
     }
 
     pub fn current_camera(&self) -> Entity {
@@ -800,6 +800,7 @@ pub fn extract_text_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -817,6 +818,7 @@ pub fn extract_text_shadows(
     for (
         entity,
         uinode,
+        target,
         global_transform,
         inherited_visibility,
         clip,
@@ -840,7 +842,7 @@ pub fn extract_text_shadows(
 
         let transform = global_transform.affine()
             * Mat4::from_translation(
-                (-0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor()).extend(0.),
+                (-0.5 * uinode.size() + shadow.offset * target.scale_factor()).extend(0.),
             );
 
         for (
