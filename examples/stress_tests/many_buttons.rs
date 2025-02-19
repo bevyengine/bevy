@@ -55,7 +55,7 @@ struct Args {
     #[argh(switch)]
     no_camera: bool,
 
-    /// spawn a new camera for each row
+    /// a layout with a seperate camera for each button
     #[argh(switch)]
     many_cameras: bool,
 }
@@ -337,45 +337,44 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
     for column in 0..args.buttons {
-        let camera = commands
-            .spawn((
-                Camera2d,
-                Camera {
-                    order: column as isize + 1,
-                    ..Default::default()
-                },
-            ))
-            .id();
-        commands
-            .spawn((
-                Node {
-                    display: if args.display_none {
-                        Display::None
-                    } else {
-                        Display::Flex
-                    },
-                    flex_direction: FlexDirection::Column,
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-                UiTargetCamera(camera),
-            ))
-            .with_children(|commands| {
-                commands
-                    .spawn(Node {
-                        position_type: PositionType::Absolute,
-                        top: Val::Vh(column as f32 * 100. / buttons_f),
-                        left: Val::ZERO,
+        for row in 0..args.buttons {
+            let color = as_rainbow(row % column.max(1));
+            let border_color = Color::WHITE.with_alpha(0.5).into();
+            let camera = commands
+                .spawn((
+                    Camera2d,
+                    Camera {
+                        order: (column * args.buttons + row) as isize + 1,
                         ..Default::default()
-                    })
-                    .with_children(|commands| {
-                        for row in 0..args.buttons {
-                            let color = as_rainbow(row % column.max(1));
-                            let border_color = Color::WHITE.with_alpha(0.5).into();
-
+                    },
+                ))
+                .id();
+            commands
+                .spawn((
+                    Node {
+                        display: if args.display_none {
+                            Display::None
+                        } else {
+                            Display::Flex
+                        },
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        ..default()
+                    },
+                    UiTargetCamera(camera),
+                ))
+                .with_children(|commands| {
+                    commands
+                        .spawn(Node {
+                            position_type: PositionType::Absolute,
+                            top: Val::Vh(column as f32 * 100. / buttons_f),
+                            left: Val::Vw(row as f32 * 100. / buttons_f),
+                            ..Default::default()
+                        })
+                        .with_children(|commands| {
                             spawn_button(
                                 commands,
                                 color,
@@ -390,8 +389,8 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                                     .filter(|_| (column + row) % args.image_freq == 0)
                                     .cloned(),
                             );
-                        }
-                    });
-            });
+                        });
+                });
+        }
     }
 }
