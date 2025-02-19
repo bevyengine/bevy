@@ -104,7 +104,7 @@ pub fn extract_debug_overlay(
                 transform: transform.compute_matrix(),
                 flip_x: false,
                 flip_y: false,
-                border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
+                border: BorderRect::all(debug_options.line_width * computed_target.scale_factor),
                 border_radius: uinode.border_radius(),
                 node_type: NodeType::Border,
             },
