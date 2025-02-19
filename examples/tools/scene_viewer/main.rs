@@ -49,6 +49,9 @@ struct Args {
     /// enable deferred shading
     #[argh(switch)]
     deferred: Option<bool>,
+    /// spawn a light even if the scene already has one
+    #[argh(switch)]
+    add_light: Option<bool>,
 }
 
 fn main() {
@@ -204,7 +207,7 @@ fn setup_scene_after_load(
         }
 
         // Spawn a default light if the scene does not have one
-        if !scene_handle.has_light {
+        if !scene_handle.has_light || args.add_light == Some(true) {
             info!("Spawning a directional light");
             commands.spawn((
                 DirectionalLight::default(),

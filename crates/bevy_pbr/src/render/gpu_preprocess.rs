@@ -13,10 +13,7 @@ use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     experimental::mip_generation::ViewDepthPyramid,
-    prepass::{
-        DeferredPrepass, DepthPrepass, PreviousViewData, PreviousViewUniformOffset,
-        PreviousViewUniforms,
-    },
+    prepass::{DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -140,7 +137,6 @@ pub struct LateGpuPreprocessNode {
             Without<NoIndirectDrawing>,
             With<OcclusionCulling>,
             With<DepthPrepass>,
-            Without<DeferredPrepass>,
         ),
     >,
 }
@@ -159,7 +155,6 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
-            Without<DeferredPrepass>,
         ),
     >,
 }
@@ -180,7 +175,6 @@ pub struct LatePrepassBuildIndirectParametersNode {
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
             With<OcclusionCulling>,
-            Without<DeferredPrepass>,
         ),
     >,
 }
@@ -527,21 +521,18 @@ impl Plugin for GpuMeshPreprocessPlugin {
                     NodePbr::EarlyGpuPreprocess,
                     NodePbr::EarlyPrepassBuildIndirectParameters,
                     Node3d::EarlyPrepass,
+                    Node3d::EarlyDeferredPrepass,
                     Node3d::EarlyDownsampleDepth,
                     NodePbr::LateGpuPreprocess,
                     NodePbr::LatePrepassBuildIndirectParameters,
                     Node3d::LatePrepass,
+                    Node3d::LateDeferredPrepass,
                     NodePbr::MainBuildIndirectParameters,
                     // Shadows don't currently support occlusion culling, so we
                     // treat shadows as effectively the main phase for our
                     // purposes.
                     NodePbr::ShadowPass,
                 ),
-            )
-            .add_render_graph_edge(
-                Core3d,
-                NodePbr::MainBuildIndirectParameters,
-                Node3d::DeferredPrepass,
             );
     }
 }
