@@ -406,9 +406,7 @@ where
     /// Creates a new [`MaterialBindGroupAllocator`] managing the data for a
     /// single material.
     fn new(render_device: &RenderDevice) -> MaterialBindGroupAllocator<M> {
-        if M::bindless_slot_count()
-            .is_some_and(|bindless_slot_count| bindless_slot_count.resolve() > 1)
-        {
+        if material_uses_bindless_resources::<M>(render_device) {
             MaterialBindGroupAllocator::Bindless(Box::new(MaterialBindGroupBindlessAllocator::new(
                 render_device,
             )))
@@ -1435,7 +1433,9 @@ pub fn material_uses_bindless_resources<M>(render_device: &RenderDevice) -> bool
 where
     M: Material,
 {
-    M::bindless_slot_count().is_some() && M::bindless_supported(render_device)
+    M::bindless_slot_count().is_some_and(|bindless_slot_count| {
+        M::bindless_supported(render_device) && bindless_slot_count.resolve() > 1
+    })
 }
 
 impl<M> MaterialBindlessSlab<M>

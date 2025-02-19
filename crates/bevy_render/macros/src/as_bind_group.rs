@@ -141,6 +141,22 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 }});
 
                 // Push the binding layout. This depends on whether we're bindless or not.
+
+                non_bindless_binding_layouts.push(quote!{
+                    #bind_group_layout_entries.push(
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #render_path::render_resource::ShaderStages::all(),
+                            ty: #render_path::render_resource::BindingType::Buffer {
+                                ty: #uniform_binding_type,
+                                has_dynamic_offset: false,
+                                min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                            },
+                            count: None,
+                        }
+                    );
+                });
+
                 match binding_array_binding {
                     None => {
                         if attr_bindless_count.is_some() {
@@ -150,21 +166,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                  object is bindless",
                             ));
                         }
-
-                        non_bindless_binding_layouts.push(quote!{
-                            #bind_group_layout_entries.push(
-                                #render_path::render_resource::BindGroupLayoutEntry {
-                                    binding: #binding_index,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
-                                    ty: #render_path::render_resource::BindingType::Buffer {
-                                        ty: #uniform_binding_type,
-                                        has_dynamic_offset: false,
-                                        min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
-                                    },
-                                    count: None,
-                                }
-                            );
-                        });
                     }
                     Some(binding_array_binding) => {
                         if attr_bindless_count.is_none() {
