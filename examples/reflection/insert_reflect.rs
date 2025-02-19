@@ -89,12 +89,12 @@ fn setup(type_registry: Res<AppTypeRegistry>, mut commands: Commands) {
 
 /// Ensure that the `Component`s were correctly applied to the correct Entities.
 fn check_components(foos: Query<(Entity, &Name, &Foo)>) {
-    for (entity, name, foo) in foos {
-        info!("Found Entity@{entity:?} [{name}] with component: {foo:?}");
+    for (entity, name, component) in foos {
+        info!("Found Entity@{entity:?} [{name}] with component: {component:?}");
         match name.to_string().as_ref() {
             "Json Entity" => {
                 assert_eq!(
-                    foo,
+                    component,
                     &Foo {
                         a: 6,
                         nested: Bar {
@@ -106,7 +106,7 @@ fn check_components(foos: Query<(Entity, &Name, &Foo)>) {
             }
             "Ron Entity" => {
                 assert_eq!(
-                    foo,
+                    component,
                     &Foo {
                         a: 42,
                         nested: Bar {
