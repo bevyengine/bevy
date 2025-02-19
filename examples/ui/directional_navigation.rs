@@ -17,7 +17,7 @@ use bevy::{
     math::{CompassOctant, FloatOrd},
     picking::{
         backend::HitData,
-        pointer::{Location, PointerId},
+        pointer::{Location, PointerId, PointerKind},
     },
     platform_support::collections::{HashMap, HashSet},
     prelude::*,
@@ -383,8 +383,10 @@ fn interact_with_focused_button(
             commands.trigger_targets(
                 Pointer::<Click> {
                     target: focused_entity,
-                    // We're pretending that we're a mouse
-                    pointer_id: PointerId::Mouse,
+                    pointer_id: PointerId {
+                        id: 0,
+                        kind: PointerKind::Virtual,
+                    },
                     // This field isn't used, so we're just setting it to a placeholder value
                     pointer_location: Location {
                         target: NormalizedRenderTarget::Image(
