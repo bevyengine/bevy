@@ -389,17 +389,17 @@ pub fn extract_uinode_images(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
             &ImageNode,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, target, transform, inherited_visibility, clip, image) in &uinode_query {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -410,7 +410,7 @@ pub fn extract_uinode_images(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
@@ -473,10 +473,10 @@ pub fn extract_uinode_borders(
             Entity,
             &Node,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -489,10 +489,10 @@ pub fn extract_uinode_borders(
         entity,
         node,
         computed_node,
+        target,
         global_transform,
         inherited_visibility,
         maybe_clip,
-        camera,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
@@ -501,7 +501,7 @@ pub fn extract_uinode_borders(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
