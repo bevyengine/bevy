@@ -1949,7 +1949,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     /// # world.spawn((A(10), B(5)));
     /// #
     /// fn reusable_function(lens: &mut QueryLens<&A>) {
-    ///     assert_eq!(lens.query().single().unwrap().0, 10);
+    ///     assert_eq!(lens.single().unwrap().0, 10);
     /// }
     ///
     /// // We can use the function in a system that takes the exact query.
@@ -2108,7 +2108,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     /// # world.spawn((A(10), B(5)));
     /// #
     /// fn reusable_function(mut lens: QueryLens<&A>) {
-    ///     assert_eq!(lens.query().single().unwrap().0, 10);
+    ///     assert_eq!(lens.single().unwrap().0, 10);
     /// }
     ///
     /// // We can use the function in a system that takes the exact query.
@@ -2184,12 +2184,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
             .state
             .borrow()
             .transmute_filtered::<NewD, NewF>(self.world);
-        QueryLens {
-            world: self.world,
-            state,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
+        // SAFETY:
+        // - This is memory safe because the original query had compatible access and was consumed.
+        // - The world matches because it was the same one used to construct self.
+        unsafe { Query::new(self.world, state, self.last_run, self.this_run) }
     }
 
     /// Gets a [`QueryLens`] with the same accesses as the existing query
@@ -2238,12 +2236,12 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
     ///     mut enemies: Query<&Enemy>
     /// ) {
     ///     let mut players_transforms: QueryLens<(&Transform, &Player)> = transforms.join(&mut players);
-    ///     for (transform, player) in &players_transforms.query() {
+    ///     for (transform, player) in &players_transforms {
     ///         // do something with a and b
     ///     }
     ///
     ///     let mut enemies_transforms: QueryLens<(&Transform, &Enemy)> = transforms.join(&mut enemies);
-    ///     for (transform, enemy) in &enemies_transforms.query() {
+    ///     for (transform, enemy) in &enemies_transforms {
     ///         // do something with a and b
     ///     }
     /// }
@@ -2338,12 +2336,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, S: QueryStateBorrow<Data = D, Filter 
             .state
             .borrow()
             .join_filtered::<OtherD, OtherF, NewD, NewF>(self.world, other.state);
-        QueryLens {
-            world: self.world,
-            state,
-            last_run: self.last_run,
-            this_run: self.this_run,
-        }
+        // SAFETY:
+        // - This is memory safe because the original query had compatible access and was consumed.
+        // - The world matches because it was the same one used to construct self.
+        unsafe { Query::new(self.world, state, self.last_run, self.this_run) }
     }
 }
 
@@ -2414,26 +2410,19 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter> Query<'w, 's, D, F> {
     }
 }
 
-/// Type returned from [`Query::transmute_lens`] containing the new [`QueryState`].
+/// A [`Query`] with an owned [`QueryState`].
 ///
-/// Call [`query`](QueryLens::query) or [`into`](Into::into) to construct the resulting [`Query`]
-pub struct QueryLens<'w, Q: QueryData, F: QueryFilter = ()> {
-    world: UnsafeWorldCell<'w>,
-    state: QueryState<Q, F>,
-    last_run: Tick,
-    this_run: Tick,
-}
+/// This is returned from methods like [`Query::transmute_lens`] that construct a fresh [`QueryState`].
+pub type QueryLens<'w, Q, F = ()> = Query<'w, 'w, Q, F, QueryState<Q, F>>;
 
 impl<'w, Q: QueryData, F: QueryFilter> QueryLens<'w, Q, F> {
     /// Create a [`Query`] from the underlying [`QueryState`].
+    #[deprecated(
+        since = "0.16.0",
+        note = "This can usually be removed, since `QueryLens` supports all methods from `Query`. If you need to consume the resulting `Query`, call `reborrow()` instead."
+    )]
     pub fn query(&mut self) -> Query<'_, '_, Q, F> {
-        Query {
-            world: self.world,
-            state: &self.state,
-            last_run: self.last_run,
-            this_run: self.this_run,
-            marker: PhantomData,
-        }
+        self.reborrow()
     }
 }
 
@@ -2456,7 +2445,7 @@ impl<'w, 's, Q: QueryData, F: QueryFilter> From<&'s mut QueryLens<'w, Q, F>>
     for Query<'s, 's, Q, F>
 {
     fn from(value: &'s mut QueryLens<'w, Q, F>) -> Query<'s, 's, Q, F> {
-        value.query()
+        value.reborrow()
     }
 }
 

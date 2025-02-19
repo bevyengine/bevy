@@ -2156,7 +2156,7 @@ mod tests {
             .run_system_once(|query: Query<&mut A>| {
                 let mut readonly = query.as_readonly();
                 let mut lens: QueryLens<&mut A> = readonly.transmute_lens();
-                bad(lens.query(), query.as_readonly());
+                bad(lens.reborrow(), query.as_readonly());
             })
             .unwrap();
     }
@@ -2291,7 +2291,7 @@ mod tests {
             .run_system_once(|query_a: Query<&mut A>, mut query_b: Query<&mut B>| {
                 let mut readonly = query_a.as_readonly();
                 let mut lens: QueryLens<(&mut A, &mut B)> = readonly.join(&mut query_b);
-                bad(lens.query(), query_a.as_readonly());
+                bad(lens.reborrow(), query_a.as_readonly());
             })
             .unwrap();
     }
