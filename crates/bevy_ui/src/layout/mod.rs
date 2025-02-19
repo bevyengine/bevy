@@ -180,6 +180,8 @@ with UI components as a child of an entity without UI components, your UI layout
             computed_target.scale_factor,
             Vec2::ZERO,
             Vec2::ZERO,
+            // mark all `ComputedNode`s as changed if the root's `ComputedNodeTarget` changed
+            computed_target.is_changed(),
         );
     }
 
@@ -203,6 +205,7 @@ with UI components as a child of an entity without UI components, your UI layout
         scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
+        set_changed: bool,
     ) {
         if let Ok((
             mut node,
@@ -214,6 +217,10 @@ with UI components as a child of an entity without UI components, your UI layout
             maybe_scroll_position,
         )) = node_transform_query.get_mut(entity)
         {
+            if set_changed {
+                node.set_changed();
+            }
+
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
@@ -326,6 +333,7 @@ with UI components as a child of an entity without UI components, your UI layout
                     scale_factor,
                     layout_size,
                     physical_scroll_position,
+                    set_changed,
                 );
             }
         }
