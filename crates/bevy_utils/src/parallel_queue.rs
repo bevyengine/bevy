@@ -21,6 +21,16 @@ impl<T: Send> Parallel<T> {
         self.locals.clear();
     }
 
+    /// Retrieves the thread-local value for the current thread and runs `f` on it.
+    ///
+    /// If there is no thread-local value, it will be initialized to the result
+    /// of `create`.
+    pub fn scope_or<R>(&self, create: impl FnOnce() -> T, f: impl FnOnce(&mut T) -> R) -> R {
+        let mut cell = self.locals.get_or(|| RefCell::new(create())).borrow_mut();
+        let ret = f(cell.deref_mut());
+        ret
+    }
+
     /// Mutably borrows the thread-local value.
     ///
     /// If there is no thread-local value, it will be initialized to the result
