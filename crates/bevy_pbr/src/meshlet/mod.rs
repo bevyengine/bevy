@@ -258,8 +258,6 @@ impl Plugin for MeshletPlugin {
                     NodeMeshlet::Prepass,
                     //
                     NodeMeshlet::DeferredPrepass,
-                    Node3d::DeferredPrepass,
-                    Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     //
                     Node3d::StartMainPass,
