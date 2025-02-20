@@ -21,10 +21,13 @@ use thiserror::Error;
 #[derive(Debug, PartialEq, Error)]
 pub enum InvalidDirectionError {
     /// The length of the direction vector is zero or very close to zero.
+    #[error("The length of the direction vector is zero or very close to zero")]
     Zero,
     /// The length of the direction vector is `std::f32::INFINITY`.
+    #[error("The length of the direction vector is `std::f32::INFINITY`")]
     Infinite,
     /// The length of the direction vector is `NaN`.
+    #[error("The length of the direction vector is `NaN`")]
     NaN,
 }
 
@@ -40,15 +43,6 @@ impl InvalidDirectionError {
             // If the direction is invalid but neither NaN nor infinite, it must be zero
             InvalidDirectionError::Zero
         }
-    }
-}
-
-impl core::fmt::Display for InvalidDirectionError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(
-            f,
-            "Direction can not be zero (or very close to zero), or non-finite."
-        )
     }
 }
 
