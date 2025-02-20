@@ -1,9 +1,7 @@
-mod animation_context;
 mod data_uri;
 mod extensions;
 mod gltf_ext;
 mod image_or_path;
-mod morph_target_names;
 mod primitive_morph_attributes_iter;
 
 use std::{io::Error, path::Path};
@@ -66,7 +64,6 @@ use crate::{
 };
 
 use self::{
-    animation_context::AnimationContext,
     data_uri::DataUri,
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
@@ -78,7 +75,6 @@ use self::{
         DocumentExt, GltfExt,
     },
     image_or_path::ImageOrPath,
-    morph_target_names::MorphTargetNames,
     primitive_morph_attributes_iter::PrimitiveMorphAttributesIter,
 };
 
@@ -1596,6 +1592,24 @@ async fn load_buffers(
     }
 
     Ok(buffer_data)
+}
+
+/// A helper structure for `load_node` that contains information about the
+/// nearest ancestor animation root.
+#[cfg(feature = "bevy_animation")]
+#[derive(Clone)]
+struct AnimationContext {
+    /// The nearest ancestor animation root.
+    pub root: Entity,
+    /// The path to the animation root. This is used for constructing the
+    /// animation target UUIDs.
+    pub path: SmallVec<[Name; 8]>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MorphTargetNames {
+    pub target_names: Vec<String>,
 }
 
 #[cfg(test)]
