@@ -1,3 +1,5 @@
+mod extensions;
+
 use std::{io::Error, path::Path};
 
 #[cfg(feature = "bevy_animation")]
@@ -38,6 +40,7 @@ use bevy_scene::Scene;
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 
+use extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -65,7 +68,6 @@ use crate::{
     helper_types::{
         AnimationContext, DataUri, ImageOrPath, MorphTargetNames, PrimitiveMorphAttributesIter,
     },
-    khr::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     vertex_attributes::convert_attribute,
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
     GltfNode, GltfSceneExtras, GltfSkin,
