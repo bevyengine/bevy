@@ -6,6 +6,7 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
+use crate::system::const_param_checking::constime;
 
 /// Types that can be used as parameters in a [`Query`].
 /// Types that implement this should also implement either [`QueryData`] or [`QueryFilter`]
@@ -46,6 +47,8 @@ pub unsafe trait WorldQuery {
     /// so it is best to move as much data / computation here as possible to reduce the cost of
     /// constructing [`Self::Fetch`](WorldQuery::Fetch).
     type State: Send + Sync + Sized;
+
+    const FILTERED_ACCESS: &'static constime::FilteredAccess = &constime::FilteredAccess::Empty;
 
     /// This function manually implements subtyping for the query fetches.
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort>;

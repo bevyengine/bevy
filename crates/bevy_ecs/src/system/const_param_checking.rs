@@ -2,6 +2,7 @@ use bevy_ecs::component::Component;
 use bevy_ecs::system::SystemParam;
 use core::fmt::Debug;
 use variadics_please::all_tuples;
+use bevy_ecs::query::QueryFilter;
 
 /// A message describing a system parameter validation error that occurred during const evaluation.
 /// Contains information about the conflicting parameter access types and their names for
@@ -319,4 +320,109 @@ where
     for<'a> &'a mut Func: FnMut() -> Out + FnMut() -> Out,
 {
     const SYSTEM_PARAMS_COMPILE_ERROR: Option<SystemPanicMessage> = None;
+}
+
+
+pub mod constime {
+    use variadics_please::all_tuples;
+    use bevy_ecs::prelude::Component;
+    use bevy_ecs::query::QueryFilter;
+
+    #[derive(Copy, Clone, Debug)]
+    pub struct ComponentInfo {
+        /// Unique compile-time identifier for the component type
+        pub type_id: u128,
+        /// The component's name if available, used for error reporting
+        pub name: &'static str,
+    }
+
+    pub enum FilteredAccess {
+        Empty,
+        Leaf(&'static FilteredAccess),
+        Node(&'static FilteredAccess, &'static FilteredAccess),
+        ComponentReadAndWrites(ComponentInfo),
+        ComponentWrites(ComponentInfo),
+        ResourceReadsAndWrites(ComponentInfo),
+        ResourceWriter(ComponentInfo),
+        ComponentReadAndWritesInverted,
+        ComponentWritesInverted,
+        ReadsAllResources,
+        WritesAllResources,
+        With(ComponentInfo),
+        Without(ComponentInfo),
+    }
+
+    pub trait FilteredAccessHolder {
+        const FILTERED_ACCESS: &'static FilteredAccess;
+    }
+    impl<T: Component> FilteredAccessHolder for bevy_ecs::query::With<T> {
+        const FILTERED_ACCESS: &'static FilteredAccess = &FilteredAccess::With(ComponentInfo {
+            type_id: T::UNSTABLE_TYPE_ID,
+            name: T::STRUCT_NAME,
+        });
+    }
+
+    impl<T: Component> FilteredAccessHolder for bevy_ecs::query::Without<T> {
+        const FILTERED_ACCESS: &'static FilteredAccess = &FilteredAccess::Without(ComponentInfo {
+            type_id: T::UNSTABLE_TYPE_ID,
+            name: T::STRUCT_NAME,
+        });
+    }
+
+    impl<'__w, T: Component> FilteredAccessHolder for &'__w mut T {
+        const FILTERED_ACCESS: &'static FilteredAccess = &FilteredAccess::Node(
+            &FilteredAccess::ComponentReadAndWrites(ComponentInfo {
+                type_id: T::UNSTABLE_TYPE_ID,
+                name: T::STRUCT_NAME,
+            }),
+            &FilteredAccess::ComponentWrites(ComponentInfo {
+                type_id: T::UNSTABLE_TYPE_ID,
+                name: T::STRUCT_NAME,
+            })
+        );
+    }
+
+    impl<T: Component> FilteredAccessHolder for &T {
+        const FILTERED_ACCESS: &'static FilteredAccess = &FilteredAccess::ComponentReadAndWrites(ComponentInfo {
+            type_id: T::UNSTABLE_TYPE_ID,
+            name: T::STRUCT_NAME,
+        });
+    }
+    macro_rules! impl_or_query_filter {
+        ($(#[$meta:meta])* $($filter: ident),*) => {
+            $(#[$meta])*
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is a tuple-related macro; as such the lints below may not always apply."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "The names of some variables are provided by the macro's caller, not by us."
+            )]
+            #[allow(
+                unused_variables,
+                reason = "Zero-length tuples won't use any of the parameters."
+            )]
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
+            impl<$($filter: QueryFilter,)*> FilteredAccessHolder for bevy_ecs::prelude::Or<($($filter,)*)> {
+                const FILTERED_ACCESS: &'static FilteredAccess = impl_or_query_filter!(@tree $($filter,)*);
+            }
+        };
+
+            // Base case
+        (@tree) => {
+            &FilteredAccess::Empty
+        };
+        // Inductive case
+        (@tree $t0:ident, $($rest:ident,)*) => {
+            &FilteredAccess::Node(
+                $t0::FILTERED_ACCESS,
+                bevy_ecs::prelude::Or::<($($rest,)*)>::FILTERED_ACCESS,
+            )
+        };
+    }
+    all_tuples!(impl_or_query_filter, 0, 15, T);
 }

@@ -1,4 +1,4 @@
-use crate::system::const_param_checking::{ConstTree, ConstTreeInner, WithId, WithoutId};
+use crate::system::const_param_checking::{constime, ConstTree, ConstTreeInner, WithId, WithoutId};
 use crate::{
     archetype::Archetype,
     component::{Component, ComponentId, Components, StorageType, Tick},
@@ -11,6 +11,7 @@ use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
 use bevy_ecs::system::const_param_checking::{AccessType, ComponentAccess};
+use crate::system::const_param_checking::constime::FilteredAccessHolder;
 
 /// Types that filter the results of a [`Query`].
 ///
@@ -161,6 +162,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     type Fetch<'w> = ();
     type State = ComponentId;
 
+    const FILTERED_ACCESS: &'static constime::FilteredAccess = <Self as FilteredAccessHolder>::FILTERED_ACCESS;
+
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
     #[inline]
@@ -263,6 +266,7 @@ pub struct Without<T>(PhantomData<T>);
 unsafe impl<T: Component> WorldQuery for Without<T> {
     type Fetch<'w> = ();
     type State = ComponentId;
+    const FILTERED_ACCESS: &'static constime::FilteredAccess = <Self as FilteredAccessHolder>::FILTERED_ACCESS;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 

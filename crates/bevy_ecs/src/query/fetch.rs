@@ -18,6 +18,8 @@ use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
 use variadics_please::all_tuples;
+use bevy_ecs::system::const_param_checking::constime;
+use bevy_ecs::system::const_param_checking::constime::FilteredAccessHolder;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -1123,6 +1125,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
 
+    const FILTERED_ACCESS: &'static constime::FilteredAccess = <Self as FilteredAccessHolder>::FILTERED_ACCESS;
+
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
     }
@@ -1488,6 +1492,8 @@ impl<T: Component> Copy for WriteFetch<'_, T> {}
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
+
+    const FILTERED_ACCESS: &'static constime::FilteredAccess = <Self as FilteredAccessHolder>::FILTERED_ACCESS;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
