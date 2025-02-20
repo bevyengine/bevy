@@ -628,7 +628,10 @@ pub fn prepare_volumetric_fog_pipelines(
     >,
     meshes: Res<RenderAssets<RenderMesh>>,
 ) {
-    let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
+    let Some(plane_mesh) = meshes.get(&PLANE_MESH) else {
+        // There's an off chance that the mesh won't be prepared yet if `RenderAssetBytesPerFrame` limiting is in use.
+        return;
+    };
 
     for (
         entity,
