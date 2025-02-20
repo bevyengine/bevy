@@ -80,7 +80,7 @@ fn setup(
             color: BLUE.with_alpha(0.7).into(),
             alpha_mode: AlphaMode2d::Blend,
             texture: Some(texture_handle.clone()),
-            ..Default::default()
+            ..default()
         })),
         Transform::from_xyz(300.0, 0.0, 1.0),
     ));
