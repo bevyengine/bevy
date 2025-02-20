@@ -1,4 +1,4 @@
-//! A shader that uses the GLSL shading language.
+//! A shader that uses the WESL shading language.
 
 use bevy::{
     asset::{load_internal_asset, weak_handle},
