@@ -8,6 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
+    bundle::NoBundleEffect,
     component::Component,
     prelude::*,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
@@ -53,7 +54,7 @@ pub trait ExtractComponent: Component {
     ///
     /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
     /// such as tuples of components as output.
-    type Out: Bundle;
+    type Out: Bundle<Effect: NoBundleEffect>;
 
     // TODO: https://github.com/rust-lang/rust/issues/29661
     // type Out: Component = Self;

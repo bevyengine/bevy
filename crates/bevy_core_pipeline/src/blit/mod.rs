@@ -1,5 +1,5 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{
@@ -12,7 +12,7 @@ use bevy_render::{
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
-pub const BLIT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2312396983770133547);
+pub const BLIT_SHADER_HANDLE: Handle<Shader> = weak_handle!("59be3075-c34e-43e7-bf24-c8fe21a0192e");
 
 /// Adds support for specialized "blit pipelines", which can be used to write one texture to another.
 pub struct BlitPlugin;

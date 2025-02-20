@@ -194,7 +194,7 @@ where
             // be called in parallel. Since mutable access to `world` only exists within
             // the scope of either closure, we can be sure they will never alias one another.
             |input| self.a.run(input, unsafe { world.world_mut() }),
-            #[allow(clippy::undocumented_unsafe_blocks)]
+            // SAFETY: See the above safety comment.
             |input| self.b.run(input, unsafe { world.world_mut() }),
         )
     }

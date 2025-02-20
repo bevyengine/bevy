@@ -6,8 +6,9 @@ use core::{
 use std::thread::{self, ThreadId};
 
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
-use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_utils::Instant;
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::{Res, ResMut};
+use bevy_platform_support::time::Instant;
 use std::sync::Mutex;
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, CommandEncoder, ComputePass, Features, MapMode,
@@ -298,7 +299,7 @@ impl FrameData {
             .open_spans
             .iter()
             .filter(|v| v.thread_id == thread_id)
-            .last();
+            .next_back();
 
         let path_range = match &parent {
             Some(parent) if parent.path_range.end == self.path_components.len() => {
@@ -335,7 +336,7 @@ impl FrameData {
         let (index, _) = iter
             .enumerate()
             .filter(|(_, v)| v.thread_id == thread_id)
-            .last()
+            .next_back()
             .unwrap();
 
         let span = self.open_spans.swap_remove(index);

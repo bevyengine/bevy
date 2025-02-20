@@ -18,7 +18,7 @@ use crate::{
     component::{ComponentId, Tick},
     prelude::{IntoSystemSet, SystemSet},
     query::Access,
-    result::Result,
+    result::{Error, Result, SystemErrorContext},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
@@ -33,6 +33,7 @@ pub(super) trait SystemExecutor: Send + Sync {
         schedule: &mut SystemSchedule,
         world: &mut World,
         skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(Error, SystemErrorContext),
     );
     fn set_apply_final_deferred(&mut self, value: bool);
 }
@@ -122,7 +123,10 @@ impl SystemSchedule {
     since = "0.16.0",
     note = "Use `ApplyDeferred` instead. This was previously a function but is now a marker struct System."
 )]
-#[expect(non_upper_case_globals)]
+#[expect(
+    non_upper_case_globals,
+    reason = "This item is deprecated; as such, its previous name needs to stay."
+)]
 pub const apply_deferred: ApplyDeferred = ApplyDeferred;
 
 /// A special [`System`] that instructs the executor to call
@@ -308,7 +312,6 @@ mod __rust_begin_short_backtrace {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         prelude::{IntoSystemConfigs, IntoSystemSetConfigs, Resource, Schedule, SystemSet},
         schedule::ExecutorKind,
         system::{Commands, Res, WithParamWarnPolicy},

@@ -14,6 +14,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
   # If nightly is breaking CI, modify this variable to target a specific nightly version.
   NIGHTLY_TOOLCHAIN: nightly
 
@@ -80,7 +83,7 @@ jobs:
   run-examples-linux-vulkan:
     # also run when pushed to main to update reference screenshots
     if: ${{ github.event_name != 'pull_request' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +93,7 @@ jobs:
       - name: Install additional Linux dependencies for Vulkan
         run: |
           sudo add-apt-repository ppa:kisak/turtle -y
-          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+          sudo apt-get install --no-install-recommends libxkbcommon-x11-0 xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
       - uses: actions/cache@v4
         with:
           path: |
@@ -158,7 +161,7 @@ jobs:
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "statically-linked-dxc,bevy_ci_testing,trace,trace_chrome"
             sleep 10
             if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
               mkdir screenshots-$example_name
@@ -183,9 +186,20 @@ jobs:
           name: example-run-windows
           path: example-run/
 
+  compare-windows-screenshots:
+    name: Compare Windows screenshots
+    needs: [run-examples-on-windows-dx12]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-windows
+      os: windows
+    secrets: inherit
+
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -210,7 +224,7 @@ jobs:
           sudo apt-get update -y -qq
           sudo add-apt-repository ppa:kisak/turtle -y
           sudo apt-get update
-          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+          sudo apt install -y xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 
       - name: Install wasm-bindgen
         run: cargo install --force wasm-bindgen-cli
@@ -256,7 +270,6 @@ jobs:
       - name: Build
         run: cargo build -p ${{ matrix.crate }} --no-default-features
         env:
-          CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   build-without-default-features-status:

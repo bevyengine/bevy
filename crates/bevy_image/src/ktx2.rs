@@ -13,9 +13,9 @@ use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::TextureViewDescriptor;
 use wgpu_types::{
-    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDimension,
+    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
+    TextureViewDimension,
 };
 
 use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
@@ -266,7 +266,7 @@ pub fn ktx2_buffer_to_image(
     // error cases have been handled
     let mut image = Image::default();
     image.texture_descriptor.format = texture_format;
-    image.data = wgpu_data.into_iter().flatten().collect::<Vec<_>>();
+    image.data = Some(wgpu_data.into_iter().flatten().collect::<Vec<_>>());
     image.texture_descriptor.size = Extent3d {
         width,
         height,

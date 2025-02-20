@@ -42,6 +42,7 @@ std = [
   "bevy_reflect?/std",
   "serde?/std",
   "raw-window-handle/std",
+  "bevy_platform_support/std",
 ]
 
 ## Uses the `libm` maths library instead of the one provided in `std` and `core`.
@@ -58,6 +59,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-featu
   "smol_str",
 ], optional = true }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features = false }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
 # other
 serde = { version = "1.0", features = [
@@ -69,9 +71,6 @@ raw-window-handle = { version = "0.6", features = [
 ], default-features = false }
 smol_str = { version = "0.2", default-features = false }
 log = { version = "0.4", default-features = false }
-spin = { version = "0.9.8", default-features = false, features = [
-  "spin_mutex",
-] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android-activity = "0.6"

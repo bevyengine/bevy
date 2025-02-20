@@ -17,8 +17,8 @@ use bevy::{
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d,
-            ImageCopyBuffer, ImageDataLayout, Maintain, MapMode, TextureDimension, TextureFormat,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
+            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
             TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -372,9 +372,9 @@ impl render_graph::Node for ImageCopyDriver {
 
             encoder.copy_texture_to_buffer(
                 src_image.texture.as_image_copy(),
-                ImageCopyBuffer {
+                TexelCopyBufferInfo {
                     buffer: &image_copier.buffer,
-                    layout: ImageDataLayout {
+                    layout: TexelCopyBufferLayout {
                         offset: 0,
                         bytes_per_row: Some(
                             std::num::NonZero::<u32>::new(padded_bytes_per_row as u32)
@@ -499,15 +499,17 @@ fn update(
                         * img_bytes.texture_descriptor.format.pixel_size();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
                     if row_bytes == aligned_row_bytes {
-                        img_bytes.data.clone_from(&image_data);
+                        img_bytes.data.as_mut().unwrap().clone_from(&image_data);
                     } else {
                         // shrink data to original image size
-                        img_bytes.data = image_data
-                            .chunks(aligned_row_bytes)
-                            .take(img_bytes.height() as usize)
-                            .flat_map(|row| &row[..row_bytes.min(row.len())])
-                            .cloned()
-                            .collect();
+                        img_bytes.data = Some(
+                            image_data
+                                .chunks(aligned_row_bytes)
+                                .take(img_bytes.height() as usize)
+                                .flat_map(|row| &row[..row_bytes.min(row.len())])
+                                .cloned()
+                                .collect(),
+                        );
                     }
 
                     // Create RGBA Image Buffer

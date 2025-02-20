@@ -4,7 +4,6 @@
 }
 
 @group(2) @binding(0) var<storage, read> colors: array<vec4<f32>, 5>;
-@group(2) @binding(1) var<uniform> color_id: u32;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,
@@ -20,11 +19,12 @@ struct VertexOutput {
 @vertex
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
+    let tag = mesh_functions::get_tag(vertex.instance_index);
     var world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
     out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4(vertex.position, 1.0));
     out.clip_position = position_world_to_clip(out.world_position.xyz);
 
-    out.color = colors[color_id];
+    out.color = colors[tag];
     return out;
 }
 

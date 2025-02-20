@@ -2,17 +2,21 @@ use crate::{
     loader::{AssetLoader, ErasedAssetLoader},
     path::AssetPath,
 };
-use alloc::sync::Arc;
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
-#[cfg(feature = "trace")]
-use bevy_tasks::ConditionalSendFuture;
+use bevy_platform_support::collections::HashMap;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{HashMap, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use thiserror::Error;
 use tracing::warn;
+
 #[cfg(feature = "trace")]
-use tracing::{info_span, instrument::Instrument};
+use {
+    alloc::string::ToString,
+    bevy_tasks::ConditionalSendFuture,
+    tracing::{info_span, instrument::Instrument},
+};
 
 #[derive(Default)]
 pub(crate) struct AssetLoaders {
@@ -338,6 +342,7 @@ impl<T: AssetLoader> AssetLoader for InstrumentedAssetLoader<T> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::{format, string::String};
     use core::marker::PhantomData;
     use std::{
         path::Path,
@@ -347,7 +352,7 @@ mod tests {
     use bevy_reflect::TypePath;
     use bevy_tasks::block_on;
 
-    use crate::{self as bevy_asset, Asset};
+    use crate::Asset;
 
     use super::*;
 

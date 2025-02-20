@@ -1,6 +1,6 @@
 //! Shows text rendering with moving, rotating and scaling text.
 //!
-//! Note that this uses [`Text2dBundle`] to display text alongside your other entities in a 2D scene.
+//! Note that this uses [`Text2d`] to display text alongside your other entities in a 2D scene.
 //!
 //! For an example on how to render text as part of a user interface, independent from the world
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
@@ -41,7 +41,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     };
     let text_justification = JustifyText::Center;
-    // 2d camera
     commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((
@@ -75,7 +74,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let box_position = Vec2::new(0.0, -250.0);
     commands
         .spawn((
-            Sprite::from_color(Color::srgb(0.25, 0.25, 0.75), box_size),
+            Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
             Transform::from_translation(box_position.extend(0.0)),
         ))
         .with_children(|builder| {
@@ -85,7 +84,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextLayout::new(JustifyText::Left, LineBreak::WordBoundary),
                 // Wrap text in the rectangle
                 TextBounds::from(box_size),
-                // ensure the text is drawn on top of the box
+                // Ensure the text is drawn on top of the box
                 Transform::from_translation(Vec3::Z),
             ));
         });
@@ -94,7 +93,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let other_box_position = Vec2::new(320.0, -250.0);
     commands
         .spawn((
-            Sprite::from_color(Color::srgb(0.20, 0.3, 0.70), other_box_size),
+            Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), other_box_size),
             Transform::from_translation(other_box_position.extend(0.0)),
         ))
         .with_children(|builder| {
@@ -104,7 +103,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextLayout::new(JustifyText::Left, LineBreak::AnyCharacter),
                 // Wrap text in the rectangle
                 TextBounds::from(other_box_size),
-                // ensure the text is drawn on top of the box
+                // Ensure the text is drawn on top of the box
                 Transform::from_translation(Vec3::Z),
             ));
         });
@@ -119,20 +118,40 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
     ));
 
-    for (text_anchor, color) in [
-        (Anchor::TopLeft, Color::Srgba(RED)),
-        (Anchor::TopRight, Color::Srgba(LIME)),
-        (Anchor::BottomRight, Color::Srgba(BLUE)),
-        (Anchor::BottomLeft, Color::Srgba(YELLOW)),
-    ] {
-        commands.spawn((
-            Text2d::new(format!(" Anchor::{text_anchor:?} ")),
-            slightly_smaller_text_font.clone(),
-            TextColor(color),
+    commands
+        .spawn((
+            Sprite {
+                color: Color::Srgba(LIGHT_CYAN),
+                custom_size: Some(Vec2::new(10., 10.)),
+                ..Default::default()
+            },
             Transform::from_translation(250. * Vec3::Y),
-            text_anchor,
-        ));
-    }
+        ))
+        .with_children(|commands| {
+            for (text_anchor, color) in [
+                (Anchor::TopLeft, Color::Srgba(LIGHT_SALMON)),
+                (Anchor::TopRight, Color::Srgba(LIGHT_GREEN)),
+                (Anchor::BottomRight, Color::Srgba(LIGHT_BLUE)),
+                (Anchor::BottomLeft, Color::Srgba(LIGHT_YELLOW)),
+            ] {
+                commands
+                    .spawn((
+                        Text2d::new(" Anchor".to_string()),
+                        slightly_smaller_text_font.clone(),
+                        text_anchor,
+                    ))
+                    .with_child((
+                        TextSpan("::".to_string()),
+                        slightly_smaller_text_font.clone(),
+                        TextColor(LIGHT_GREY.into()),
+                    ))
+                    .with_child((
+                        TextSpan(format!("{text_anchor:?} ")),
+                        slightly_smaller_text_font.clone(),
+                        TextColor(color),
+                    ));
+            }
+        });
 }
 
 fn animate_translation(

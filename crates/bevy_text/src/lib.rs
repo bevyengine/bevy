@@ -28,11 +28,6 @@
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 
 extern crate alloc;
 
@@ -72,9 +67,9 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, Animation};
-use bevy_asset::AssetApp;
 #[cfg(feature = "default_font")]
 use bevy_asset::{load_internal_binary_asset, Handle};
+use bevy_asset::{AssetApp, AssetEvents};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::CameraUpdateSystem, view::VisibilitySystems, ExtractSchedule, RenderApp,
@@ -129,7 +124,7 @@ impl Plugin for TextPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    remove_dropped_font_atlas_sets,
+                    remove_dropped_font_atlas_sets.before(AssetEvents),
                     detect_text_needs_rerender::<Text2d>,
                     update_text2d_layout
                         // Potential conflict: `Assets<Image>`

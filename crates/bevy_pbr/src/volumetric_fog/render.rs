@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{AssetId, Handle};
+use bevy_asset::{weak_handle, AssetId, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -13,7 +13,8 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, QueryItem, With},
-    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut, Resource},
+    resource::Resource,
+    system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::{BevyDefault, Image};
@@ -77,21 +78,22 @@ bitflags! {
 }
 
 /// The volumetric fog shader.
-pub const VOLUMETRIC_FOG_HANDLE: Handle<Shader> = Handle::weak_from_u128(17400058287583986650);
+pub const VOLUMETRIC_FOG_HANDLE: Handle<Shader> =
+    weak_handle!("481f474c-2024-44bb-8f79-f7c05ced95ea");
 
 /// The plane mesh, which is used to render a fog volume that the camera is
 /// inside.
 ///
 /// This mesh is simply stretched to the size of the framebuffer, as when the
 /// camera is inside a fog volume it's essentially a full-screen effect.
-pub const PLANE_MESH: Handle<Mesh> = Handle::weak_from_u128(435245126479971076);
+pub const PLANE_MESH: Handle<Mesh> = weak_handle!("92523617-c708-4fd0-b42f-ceb4300c930b");
 
 /// The cube mesh, which is used to render a fog volume that the camera is
 /// outside.
 ///
 /// Note that only the front faces of this cuboid will be rasterized in
 /// hardware. The back faces will be calculated in the shader via raytracing.
-pub const CUBE_MESH: Handle<Mesh> = Handle::weak_from_u128(5023959819001661507);
+pub const CUBE_MESH: Handle<Mesh> = weak_handle!("4a1dd661-2d91-4377-a17a-a914e21e277e");
 
 /// The total number of bind group layouts.
 ///

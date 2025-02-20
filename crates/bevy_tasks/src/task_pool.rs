@@ -6,14 +6,9 @@ use std::{
 };
 
 use crate::executor::FallibleTask;
+use bevy_platform_support::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
-
-#[cfg(feature = "portable-atomic")]
-use portable_atomic_util::Arc;
-
-#[cfg(not(feature = "portable-atomic"))]
-use alloc::sync::Arc;
 
 use crate::{
     block_on,

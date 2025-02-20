@@ -89,21 +89,20 @@ use core::{
     marker::PhantomData,
 };
 
+use crate::{
+    graph::AnimationNodeIndex,
+    prelude::{Animatable, BlendInput},
+    AnimationEntityMut, AnimationEvaluationError,
+};
 use bevy_ecs::component::{Component, Mutable};
 use bevy_math::curve::{
     cores::{UnevenCore, UnevenCoreError},
     iterable::IterableCurve,
     Curve, Interval,
 };
+use bevy_platform_support::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
 use bevy_render::mesh::morph::MorphWeights;
-
-use crate::{
-    graph::AnimationNodeIndex,
-    prelude::{Animatable, BlendInput},
-    AnimationEntityMut, AnimationEvaluationError,
-};
-use bevy_utils::Hashed;
 use downcast_rs::{impl_downcast, Downcast};
 
 /// A value on a component that Bevy can animate.

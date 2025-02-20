@@ -2,7 +2,8 @@ use crate::{
     entity::Entity,
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
-    system::{EntityCommands, Resource},
+    resource::Resource,
+    system::EntityCommands,
     world::{EntityWorldMut, World},
 };
 use alloc::{borrow::Cow, boxed::Box};
@@ -387,7 +388,6 @@ fn remove_reflect_with_registry_ref(
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         bundle::Bundle,
         component::Component,
         prelude::{AppTypeRegistry, ReflectComponent},

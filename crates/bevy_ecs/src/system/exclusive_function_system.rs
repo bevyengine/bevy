@@ -219,7 +219,14 @@ pub struct HasExclusiveSystemInput;
 
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
@@ -248,7 +255,14 @@ macro_rules! impl_exclusive_system_function {
             }
         }
 
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<In, Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(HasExclusiveSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,

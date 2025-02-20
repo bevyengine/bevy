@@ -176,12 +176,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
         &path,
         &struct_name,
         &visibility,
-        &item_struct_name,
         &fetch_struct_name,
         &field_types,
         &user_impl_generics,
         &user_impl_generics_with_world,
-        &field_idents,
         &user_ty_generics,
         &user_ty_generics_with_world,
         &named_field_idents,
@@ -213,12 +211,10 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             &path,
             &read_only_struct_name,
             &visibility,
-            &read_only_item_struct_name,
             &read_only_fetch_struct_name,
             &read_only_field_types,
             &user_impl_generics,
             &user_impl_generics_with_world,
-            &field_idents,
             &user_ty_generics,
             &user_ty_generics_with_world,
             &named_field_idents,
@@ -259,6 +255,29 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
+                    type Item<'__w> = #read_only_item_struct_name #user_ty_generics_with_world;
+
+                    fn shrink<'__wlong: '__wshort, '__wshort>(
+                        item: Self::Item<'__wlong>
+                    ) -> Self::Item<'__wshort> {
+                        #read_only_item_struct_name {
+                            #(
+                                #field_idents: <#read_only_field_types>::shrink(item.#field_idents),
+                            )*
+                        }
+                    }
+
+                    /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                    #[inline(always)]
+                    unsafe fn fetch<'__w>(
+                        _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                        _entity: #path::entity::Entity,
+                        _table_row: #path::storage::TableRow,
+                    ) -> Self::Item<'__w> {
+                        Self::Item {
+                            #(#field_idents: <#read_only_field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                        }
+                    }
                 }
             }
         } else {
@@ -270,6 +289,29 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
+                type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
+
+                fn shrink<'__wlong: '__wshort, '__wshort>(
+                    item: Self::Item<'__wlong>
+                ) -> Self::Item<'__wshort> {
+                    #item_struct_name {
+                        #(
+                            #field_idents: <#field_types>::shrink(item.#field_idents),
+                        )*
+                    }
+                }
+
+                /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                #[inline(always)]
+                unsafe fn fetch<'__w>(
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                    _entity: #path::entity::Entity,
+                    _table_row: #path::storage::TableRow,
+                ) -> Self::Item<'__w> {
+                    Self::Item {
+                        #(#field_idents: <#field_types>::fetch(&mut _fetch.#named_field_idents, _entity, _table_row),)*
+                    }
+                }
             }
 
             #read_only_data_impl

@@ -5,17 +5,12 @@
 
 use alloc::sync::Arc;
 use bevy_ecs::prelude::Component;
+use bevy_platform_support::sync::Mutex;
 use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
 };
-
-#[cfg(feature = "std")]
-use std::sync::Mutex;
-
-#[cfg(not(feature = "std"))]
-use spin::mutex::Mutex;
 
 /// A wrapper over a window.
 ///

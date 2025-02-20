@@ -10,7 +10,7 @@
 // Source code base on SSRT3 implementation
 // https://github.com/cdrinmatane/SSRT3
 
-#import bevy_pbr::ssao_utils::fast_acos
+#import bevy_render::maths::fast_acos
 
 #import bevy_render::{
     view::View,

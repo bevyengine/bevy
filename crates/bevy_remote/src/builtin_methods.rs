@@ -7,20 +7,20 @@ use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
     event::EventCursor,
+    hierarchy::ChildOf,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
-use bevy_hierarchy::BuildChildren as _;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{ReflectSerializer, TypedReflectDeserializer},
-    NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize, TypeInfo,
-    TypeRegistration, TypeRegistry, VariantInfo,
+    GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize,
+    TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
-use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
@@ -49,6 +49,9 @@ pub const BRP_REPARENT_METHOD: &str = "bevy/reparent";
 
 /// The method path for a `bevy/list` request.
 pub const BRP_LIST_METHOD: &str = "bevy/list";
+
+/// The method path for a `bevy/mutate_component` request.
+pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/mutate_component";
 
 /// The method path for a `bevy/get+watch` request.
 pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
@@ -195,6 +198,28 @@ pub struct BrpReparentParams {
 pub struct BrpListParams {
     /// The entity to query.
     pub entity: Entity,
+}
+
+/// `bevy/mutate_component`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpMutateParams {
+    /// The entity of the component to mutate.
+    pub entity: Entity,
+
+    /// The [full path] of the component to mutate.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub component: String,
+
+    /// The [path] of the field within the component.
+    ///
+    /// [path]: bevy_reflect::GetPath
+    pub path: String,
+
+    /// The value to insert at `path`.
+    pub value: Value,
 }
 
 /// Describes the data that is to be fetched in a query.
@@ -694,6 +719,70 @@ pub fn process_remote_insert_request(
     Ok(Value::Null)
 }
 
+/// Handles a `bevy/mutate_component` request coming from a client.
+///
+/// This method allows you to mutate a single field inside an Entity's
+/// component.
+pub fn process_remote_mutate_component_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpMutateParams {
+        entity,
+        component,
+        path,
+        value,
+    } = parse_some(params)?;
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let type_registry = app_type_registry.read();
+
+    // Get the fully-qualified type names of the component to be mutated.
+    let component_type: &TypeRegistration = type_registry
+        .get_with_type_path(&component)
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component type: `{}`", component))
+        })?;
+
+    // Get the reflected representation of the component.
+    let mut reflected = component_type
+        .data::<ReflectComponent>()
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Component `{}` isn't registered.", component))
+        })?
+        .reflect_mut(world.entity_mut(entity))
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Cannot reflect component `{}`", component))
+        })?;
+
+    // Get the type of the field in the component that is to be
+    // mutated.
+    let value_type: &TypeRegistration = type_registry
+        .get_with_type_path(
+            reflected
+                .reflect_path(path.as_str())
+                .map_err(BrpError::component_error)?
+                .reflect_type_path(),
+        )
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component field type: `{}`", component))
+        })?;
+
+    // Get the reflected representation of the value to be inserted
+    // into the component.
+    let value: Box<dyn PartialReflect> = TypedReflectDeserializer::new(value_type, &type_registry)
+        .deserialize(&value)
+        .map_err(BrpError::component_error)?;
+
+    // Apply the mutation.
+    reflected
+        .reflect_path_mut(path.as_str())
+        .map_err(BrpError::component_error)?
+        .try_apply(value.as_ref())
+        .map_err(BrpError::component_error)?;
+
+    Ok(Value::Null)
+}
+
 /// Handles a `bevy/remove` request (remove components) coming from a client.
 pub fn process_remote_remove_request(
     In(params): In<Option<Value>>,
@@ -752,7 +841,7 @@ pub fn process_remote_reparent_request(
     // If `None`, remove the entities' parents.
     else {
         for entity in entities {
-            get_entity_mut(world, entity)?.remove_parent();
+            get_entity_mut(world, entity)?.remove::<ChildOf>();
         }
     }
 
@@ -897,7 +986,7 @@ fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
     let short_path = binding.short_path();
     let type_path = binding.path();
     let mut typed_schema = JsonSchemaBevyType {
-        reflect_types: get_registrered_reflect_types(reg),
+        reflect_types: get_registered_reflect_types(reg),
         short_path: short_path.to_owned(),
         type_path: type_path.to_owned(),
         crate_name: binding.crate_name().map(str::to_owned),
@@ -1022,7 +1111,7 @@ fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
     (t.type_path().to_owned(), typed_schema)
 }
 
-fn get_registrered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
+fn get_registered_reflect_types(reg: &TypeRegistration) -> Vec<String> {
     // Vec could be moved to allow registering more types by game maker.
     let registered_reflect_types: [(TypeId, &str); 5] = [
         { (TypeId::of::<ReflectComponent>(), "Component") },
@@ -1423,7 +1512,7 @@ mod tests {
         );
     }
     use super::*;
-    use bevy_ecs::{component::Component, system::Resource};
+    use bevy_ecs::{component::Component, resource::Resource};
     use bevy_reflect::Reflect;
 
     #[test]

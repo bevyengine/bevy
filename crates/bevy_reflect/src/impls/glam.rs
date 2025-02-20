@@ -1,4 +1,3 @@
-use crate as bevy_reflect;
 use crate::{std_traits::ReflectDefault, ReflectDeserialize, ReflectSerialize};
 use assert_type_match::assert_type_match;
 use bevy_reflect_derive::{impl_reflect, impl_reflect_opaque};
@@ -43,6 +42,66 @@ impl_reflect!(
         y: i32,
         z: i32,
         w: i32,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct I8Vec2 {
+        x: i8,
+        y: i8,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct I8Vec3 {
+        x: i8,
+        y: i8,
+        z: i8,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct I8Vec4 {
+        x: i8,
+        y: i8,
+        z: i8,
+        w: i8,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct I16Vec2 {
+        x: i16,
+        y: i16,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct I16Vec3 {
+        x: i16,
+        y: i16,
+        z: i16,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct I16Vec4 {
+        x: i16,
+        y: i16,
+        z: i16,
+        w: i16,
     }
 );
 
@@ -101,6 +160,62 @@ impl_reflect!(
         y: u32,
         z: u32,
         w: u32,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct U8Vec2 {
+        x: u8,
+        y: u8,
+    }
+);
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct U8Vec3 {
+        x: u8,
+        y: u8,
+        z: u8,
+    }
+);
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct U8Vec4 {
+        x: u8,
+        y: u8,
+        z: u8,
+        w: u8,
+    }
+);
+
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct U16Vec2 {
+        x: u16,
+        y: u16,
+    }
+);
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct U16Vec3 {
+        x: u16,
+        y: u16,
+        z: u16,
+    }
+);
+impl_reflect!(
+    #[reflect(Debug, Hash, PartialEq, Default, Deserialize, Serialize)]
+    #[type_path = "glam"]
+    struct U16Vec4 {
+        x: u16,
+        y: u16,
+        z: u16,
+        w: u16,
     }
 );
 

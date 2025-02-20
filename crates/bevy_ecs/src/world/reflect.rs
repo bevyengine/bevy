@@ -251,11 +251,7 @@ mod tests {
 
     use bevy_reflect::Reflect;
 
-    use crate::{
-        // For bevy_ecs_macros
-        self as bevy_ecs,
-        prelude::{AppTypeRegistry, Component, DetectChanges, World},
-    };
+    use crate::prelude::{AppTypeRegistry, Component, DetectChanges, World};
 
     #[derive(Component, Reflect)]
     struct RFoo(i32);

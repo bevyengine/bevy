@@ -589,6 +589,7 @@ impl UlpsEq for Isometry3d {
 }
 
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use super::*;
     use crate::{vec2, vec3, vec3a};

@@ -1,20 +1,22 @@
 use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, RenderMaterialInstances, RenderMeshMaterialIds,
+    PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
+    RenderMeshMaterialIds,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
-    entity::{Entities, Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entities, Entity},
     event::EventReader,
     query::Has,
-    system::{Local, Query, Res, ResMut, Resource, SystemState},
+    resource::Resource,
+    system::{Local, Query, Res, ResMut, SystemState},
 };
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{HashMap, HashSet};
 use core::ops::{DerefMut, Range};
 
 /// Manages data for each entity with a [`MeshletMesh`].
@@ -89,6 +91,7 @@ impl InstanceManager {
         previous_transform: Option<&PreviousGlobalTransform>,
         render_layers: Option<&RenderLayers>,
         mesh_material_ids: &RenderMeshMaterialIds,
+        render_material_bindings: &RenderMaterialBindings,
         not_shadow_receiver: bool,
         not_shadow_caster: bool,
     ) {
@@ -109,15 +112,11 @@ impl InstanceManager {
             flags: flags.bits(),
         };
 
-        let Some(mesh_material_asset_id) = mesh_material_ids.mesh_to_material.get(&instance) else {
-            return;
-        };
-        let Some(mesh_material_binding_id) = mesh_material_ids
-            .material_to_binding
-            .get(mesh_material_asset_id)
-        else {
-            return;
-        };
+        let mesh_material = mesh_material_ids.mesh_material(instance);
+        let mesh_material_binding_id = render_material_bindings
+            .get(&mesh_material)
+            .cloned()
+            .unwrap_or_default();
 
         let mesh_uniform = MeshUniform::new(
             &transforms,
@@ -189,6 +188,7 @@ pub fn extract_meshlet_mesh_entities(
     // TODO: Replace main_world and system_state when Extract<ResMut<Assets<MeshletMesh>>> is possible
     mut main_world: ResMut<MainWorld>,
     mesh_material_ids: Res<RenderMeshMaterialIds>,
+    render_material_bindings: Res<RenderMaterialBindings>,
     mut system_state: Local<
         Option<
             SystemState<(
@@ -258,6 +258,7 @@ pub fn extract_meshlet_mesh_entities(
             previous_transform,
             render_layers,
             &mesh_material_ids,
+            &render_material_bindings,
             not_shadow_receiver,
             not_shadow_caster,
         );

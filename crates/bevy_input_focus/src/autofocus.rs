@@ -1,10 +1,11 @@
 //! Contains the [`AutoFocus`] component and related machinery.
 
-use bevy_ecs::{component::ComponentId, prelude::*, world::DeferredWorld};
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
+use bevy_ecs::{component::HookContext, prelude::*, world::DeferredWorld};
 
 use crate::InputFocus;
+
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::{prelude::*, Reflect};
 
 /// Indicates that this widget should automatically receive [`InputFocus`].
 ///
@@ -22,7 +23,7 @@ use crate::InputFocus;
 #[component(on_add = on_auto_focus_added)]
 pub struct AutoFocus;
 
-fn on_auto_focus_added(mut world: DeferredWorld, entity: Entity, _: ComponentId) {
+fn on_auto_focus_added(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
     if let Some(mut input_focus) = world.get_resource_mut::<InputFocus>() {
         input_focus.set(entity);
     }

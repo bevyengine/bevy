@@ -216,7 +216,7 @@ where
 
         // An extrusion of depth 0 does not need a mantel
         if self.half_depth == 0. {
-            front_face.merge(&back_face);
+            front_face.merge(&back_face).unwrap();
             return front_face;
         }
 
@@ -408,8 +408,8 @@ where
                 .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
         };
 
-        front_face.merge(&back_face);
-        front_face.merge(&mantel);
+        front_face.merge(&back_face).unwrap();
+        front_face.merge(&mantel).unwrap();
         front_face
     }
 }

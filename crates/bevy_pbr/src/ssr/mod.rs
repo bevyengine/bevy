@@ -1,7 +1,7 @@
 //! Screen space reflections implemented via raymarching.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
@@ -16,8 +16,9 @@ use bevy_ecs::{
     entity::Entity,
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{lifetimeless::Read, Commands, Query, Res, ResMut, Resource},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -48,8 +49,8 @@ use crate::{
     ViewLightsUniformOffset,
 };
 
-const SSR_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10438925299917978850);
-const RAYMARCH_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(8517409683450840946);
+const SSR_SHADER_HANDLE: Handle<Shader> = weak_handle!("0b559df2-0d61-4f53-bf62-aea16cf32787");
+const RAYMARCH_SHADER_HANDLE: Handle<Shader> = weak_handle!("798cc6fc-6072-4b6c-ab4f-83905fa4a19e");
 
 /// Enables screen-space reflections for a camera.
 ///

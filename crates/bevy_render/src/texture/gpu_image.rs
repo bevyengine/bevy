@@ -36,7 +36,7 @@ impl RenderAsset for GpuImage {
 
     #[inline]
     fn byte_len(image: &Self::SourceAsset) -> Option<usize> {
-        Some(image.data.len())
+        image.data.as_ref().map(Vec::len)
     }
 
     /// Converts the extracted image into a [`GpuImage`].
@@ -45,13 +45,17 @@ impl RenderAsset for GpuImage {
         _: AssetId<Self::SourceAsset>,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        let texture = render_device.create_texture_with_data(
-            render_queue,
-            &image.texture_descriptor,
-            // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
-            wgpu::util::TextureDataOrder::default(),
-            &image.data,
-        );
+        let texture = if let Some(ref data) = image.data {
+            render_device.create_texture_with_data(
+                render_queue,
+                &image.texture_descriptor,
+                // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
+                wgpu::util::TextureDataOrder::default(),
+                data,
+            )
+        } else {
+            render_device.create_texture(&image.texture_descriptor)
+        };
 
         let texture_view = texture.create_view(
             image

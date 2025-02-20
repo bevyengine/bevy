@@ -1,6 +1,6 @@
 //! A trait for components that let you traverse the ECS.
 
-use crate::{entity::Entity, query::ReadOnlyQueryData};
+use crate::{entity::Entity, query::ReadOnlyQueryData, relationship::Relationship};
 
 /// A component that can point to another entity, and which can be used to define a path through the ECS.
 ///
@@ -28,5 +28,18 @@ pub trait Traversal<D: ?Sized>: ReadOnlyQueryData {
 impl<D> Traversal<D> for () {
     fn traverse(_: Self::Item<'_>, _data: &D) -> Option<Entity> {
         None
+    }
+}
+
+/// This provides generalized hierarchy traversal for use in [event propagation].
+///
+/// # Warning
+///
+/// Traversing in a loop could result in infinite loops for relationship graphs with loops.
+///
+/// [event propagation]: crate::observer::Trigger::propagate
+impl<R: Relationship, D> Traversal<D> for &R {
+    fn traverse(item: Self::Item<'_>, _data: &D) -> Option<Entity> {
+        Some(item.get())
     }
 }

@@ -7,8 +7,13 @@
 //! to `true` and add [`MeshPickingCamera`] and [`Pickable`] components to the desired camera and
 //! target entities.
 //!
-//! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system
+//! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system 
 //! parameter.
+//!
+//! ## Implementation Notes
+//!
+//! - The `position` reported in `HitData` is in world space. The `normal` is a vector pointing
+//!   away from the face, it is not guaranteed to be normalized for scaled meshes.
 
 pub mod ray_cast;
 

@@ -5,12 +5,15 @@ use crate::{
         RenderPipelineDescriptor,
     },
 };
-use bevy_ecs::system::Resource;
-use bevy_utils::{
-    default,
-    hashbrown::hash_map::{RawEntryMut, VacantEntry},
-    Entry, FixedHasher, HashMap,
+use bevy_ecs::resource::Resource;
+use bevy_platform_support::{
+    collections::{
+        hash_map::{Entry, RawEntryMut, VacantEntry},
+        HashMap,
+    },
+    hash::FixedHasher,
 };
+use bevy_utils::default;
 use core::{fmt::Debug, hash::Hash};
 use thiserror::Error;
 use tracing::error;

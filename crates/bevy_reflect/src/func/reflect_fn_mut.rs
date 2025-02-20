@@ -50,7 +50,7 @@ use crate::{
 ///   list.insert(index, value);
 /// };
 ///
-/// let args = ArgList::new().push_owned(1_usize).push_owned(2_i32);
+/// let args = ArgList::new().with_owned(1_usize).with_owned(2_i32);
 ///
 /// insert.reflect_call_mut(args).unwrap();
 /// assert_eq!(list, vec![1, 2, 3]);

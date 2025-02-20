@@ -113,7 +113,7 @@ fn menu(
 }
 
 fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn_recursive();
+    commands.entity(menu_data.button_entity).despawn();
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {

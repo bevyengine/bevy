@@ -1,11 +1,9 @@
-use crate as bevy_ecs;
 use alloc::vec::Vec;
 use bevy_ecs::{
+    change_detection::MaybeLocation,
     event::{Event, EventCursor, EventId, EventInstance},
-    system::Resource,
+    resource::Resource,
 };
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     marker::PhantomData,
     ops::{Deref, DerefMut},
@@ -124,21 +122,12 @@ impl<E: Event> Events<E> {
     /// This method returns the [ID](`EventId`) of the sent `event`.
     #[track_caller]
     pub fn send(&mut self, event: E) -> EventId<E> {
-        self.send_with_caller(
-            event,
-            #[cfg(feature = "track_location")]
-            Location::caller(),
-        )
+        self.send_with_caller(event, MaybeLocation::caller())
     }
 
-    pub(crate) fn send_with_caller(
-        &mut self,
-        event: E,
-        #[cfg(feature = "track_location")] caller: &'static Location<'static>,
-    ) -> EventId<E> {
+    pub(crate) fn send_with_caller(&mut self, event: E, caller: MaybeLocation) -> EventId<E> {
         let event_id = EventId {
             id: self.event_count,
-            #[cfg(feature = "track_location")]
             caller,
             _marker: PhantomData,
         };
@@ -308,8 +297,7 @@ impl<E: Event> Extend<E> for Events<E> {
         let events = iter.into_iter().map(|event| {
             let event_id = EventId {
                 id: event_count,
-                #[cfg(feature = "track_location")]
-                caller: Location::caller(),
+                caller: MaybeLocation::caller(),
                 _marker: PhantomData,
             };
             event_count += 1;
@@ -379,8 +367,7 @@ impl<E: Event> Iterator for SendBatchIds<E> {
 
         let result = Some(EventId {
             id: self.last_count,
-            #[cfg(feature = "track_location")]
-            caller: Location::caller(),
+            caller: MaybeLocation::caller(),
             _marker: PhantomData,
         });
 
@@ -398,7 +385,7 @@ impl<E: Event> ExactSizeIterator for SendBatchIds<E> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{self as bevy_ecs, event::Events};
+    use crate::event::Events;
     use bevy_ecs_macros::Event;
 
     #[test]

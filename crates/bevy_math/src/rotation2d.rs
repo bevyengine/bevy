@@ -30,9 +30,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// assert_eq!(rotation2.as_radians(), PI / 4.0);
 ///
 /// // "Add" rotations together using `*`
+/// #[cfg(feature = "approx")]
 /// assert_relative_eq!(rotation1 * rotation2, Rot2::degrees(135.0));
 ///
 /// // Rotate vectors
+/// #[cfg(feature = "approx")]
 /// assert_relative_eq!(rotation1 * Vec2::X, Vec2::Y);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -116,9 +118,11 @@ impl Rot2 {
     ///
     /// let rot1 = Rot2::radians(3.0 * FRAC_PI_2);
     /// let rot2 = Rot2::radians(-FRAC_PI_2);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1, rot2);
     ///
     /// let rot3 = Rot2::radians(PI);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1 * rot1, rot3);
     /// ```
     #[inline]
@@ -141,9 +145,11 @@ impl Rot2 {
     ///
     /// let rot1 = Rot2::degrees(270.0);
     /// let rot2 = Rot2::degrees(-90.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1, rot2);
     ///
     /// let rot3 = Rot2::degrees(180.0);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1 * rot1, rot3);
     /// ```
     #[inline]
@@ -165,9 +171,11 @@ impl Rot2 {
     ///
     /// let rot1 = Rot2::turn_fraction(0.75);
     /// let rot2 = Rot2::turn_fraction(-0.25);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1, rot2);
     ///
     /// let rot3 = Rot2::turn_fraction(0.5);
+    /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1 * rot1, rot3);
     /// ```
     #[inline]

@@ -6,6 +6,7 @@ use crate::io::{
     PathStream, Reader, Writer,
 };
 
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use core::{pin::Pin, task::Poll};
 use std::{
     fs::{read_dir, File},

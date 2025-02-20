@@ -38,10 +38,9 @@ struct MyProcGenImage(Handle<Image>);
 struct SeededRng(ChaCha8Rng);
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    // spawn a camera
     commands.spawn(Camera2d);
 
-    // create an image that we are going to draw into
+    // Create an image that we are going to draw into
     let mut image = Image::new_fill(
         // 2D image of size 256x256
         Extent3d {
@@ -57,8 +56,8 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
     );
 
-    // to make it extra fancy, we can set the Alpha of each pixel
-    // so that it fades out in a circular fashion
+    // To make it extra fancy, we can set the Alpha of each pixel,
+    // so that it fades out in a circular fashion.
     for y in 0..IMAGE_HEIGHT {
         for x in 0..IMAGE_WIDTH {
             let center = Vec2::new(IMAGE_WIDTH as f32 / 2.0, IMAGE_HEIGHT as f32 / 2.0);
@@ -66,22 +65,22 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
             let r = Vec2::new(x as f32, y as f32).distance(center);
             let a = 1.0 - (r / max_radius).clamp(0.0, 1.0);
 
-            // here we will set the A value by accessing the raw data bytes
+            // Here we will set the A value by accessing the raw data bytes.
             // (it is the 4th byte of each pixel, as per our `TextureFormat`)
 
-            // find our pixel by its coordinates
+            // Find our pixel by its coordinates
             let pixel_bytes = image.pixel_bytes_mut(UVec3::new(x, y, 0)).unwrap();
-            // convert our f32 to u8
+            // Convert our f32 to u8
             pixel_bytes[3] = (a * u8::MAX as f32) as u8;
         }
     }
 
-    // add it to Bevy's assets, so it can be used for rendering
+    // Add it to Bevy's assets, so it can be used for rendering
     // this will give us a handle we can use
     // (to display it in a sprite, or as part of UI, etc.)
     let handle = images.add(image);
 
-    // create a sprite entity using our image
+    // Create a sprite entity using our image
     commands.spawn(Sprite::from_image(handle.clone()));
     commands.insert_resource(MyProcGenImage(handle));
 
@@ -95,7 +94,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
 fn draw(
     my_handle: Res<MyProcGenImage>,
     mut images: ResMut<Assets<Image>>,
-    // used to keep track of where we are
+    // Used to keep track of where we are
     mut i: Local<u32>,
     mut draw_color: Local<Color>,
     mut seeded_rng: ResMut<SeededRng>,

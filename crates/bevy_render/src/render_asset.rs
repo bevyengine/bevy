@@ -10,8 +10,8 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem, SystemState},
     world::{FromWorld, Mut},
 };
+use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render_macros::ExtractResource;
-use bevy_utils::{HashMap, HashSet};
 use core::marker::PhantomData;
 use thiserror::Error;
 use tracing::{debug, error};

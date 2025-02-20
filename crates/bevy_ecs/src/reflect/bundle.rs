@@ -8,6 +8,8 @@ use alloc::boxed::Box;
 use core::any::{Any, TypeId};
 
 use crate::{
+    bundle::BundleFromComponents,
+    entity::EntityMapper,
     prelude::Bundle,
     world::{EntityMut, EntityWorldMut},
 };
@@ -33,8 +35,9 @@ pub struct ReflectBundleFns {
     pub insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
     /// Function pointer implementing [`ReflectBundle::apply`].
     pub apply: fn(EntityMut, &dyn PartialReflect, &TypeRegistry),
-    /// Function pointer implementing [`ReflectBundle::apply_or_insert`].
-    pub apply_or_insert: fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry),
+    /// Function pointer implementing [`ReflectBundle::apply_or_insert_mapped`].
+    pub apply_or_insert_mapped:
+        fn(&mut EntityWorldMut, &dyn PartialReflect, &TypeRegistry, &mut dyn EntityMapper),
     /// Function pointer implementing [`ReflectBundle::remove`].
     pub remove: fn(&mut EntityWorldMut),
     /// Function pointer implementing [`ReflectBundle::take`].
@@ -47,7 +50,7 @@ impl ReflectBundleFns {
     ///
     /// This is useful if you want to start with the default implementation before overriding some
     /// of the functions to create a custom implementation.
-    pub fn new<T: Bundle + FromReflect + TypePath>() -> Self {
+    pub fn new<T: Bundle + FromReflect + TypePath + BundleFromComponents>() -> Self {
         <ReflectBundle as FromType<T>>::from_type().0
     }
 }
@@ -78,13 +81,14 @@ impl ReflectBundle {
     }
 
     /// Uses reflection to set the value of this [`Bundle`] type in the entity to the given value or insert a new one if it does not exist.
-    pub fn apply_or_insert(
+    pub fn apply_or_insert_mapped(
         &self,
         entity: &mut EntityWorldMut,
         bundle: &dyn PartialReflect,
         registry: &TypeRegistry,
+        mapper: &mut dyn EntityMapper,
     ) {
-        (self.0.apply_or_insert)(entity, bundle, registry);
+        (self.0.apply_or_insert_mapped)(entity, bundle, registry, mapper);
     }
 
     /// Removes this [`Bundle`] type from the entity. Does nothing if it doesn't exist.
@@ -136,7 +140,7 @@ impl ReflectBundle {
     }
 }
 
-impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
+impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for ReflectBundle {
     fn from_type() -> Self {
         ReflectBundle(ReflectBundleFns {
             insert: |entity, reflected_bundle, registry| {
@@ -166,19 +170,24 @@ impl<B: Bundle + Reflect + TypePath> FromType<B> for ReflectBundle {
                     }
                 }
             },
-            apply_or_insert: |entity, reflected_bundle, registry| {
+            apply_or_insert_mapped: |entity, reflected_bundle, registry, mapper| {
                 if let Some(reflect_component) =
                     registry.get_type_data::<ReflectComponent>(TypeId::of::<B>())
                 {
-                    reflect_component.apply_or_insert(entity, reflected_bundle, registry);
+                    reflect_component.apply_or_insert_mapped(
+                        entity,
+                        reflected_bundle,
+                        registry,
+                        mapper,
+                    );
                 } else {
                     match reflected_bundle.reflect_ref() {
-                        ReflectRef::Struct(bundle) => bundle
-                            .iter_fields()
-                            .for_each(|field| apply_or_insert_field(entity, field, registry)),
-                        ReflectRef::Tuple(bundle) => bundle
-                            .iter_fields()
-                            .for_each(|field| apply_or_insert_field(entity, field, registry)),
+                        ReflectRef::Struct(bundle) => bundle.iter_fields().for_each(|field| {
+                            apply_or_insert_field_mapped(entity, field, registry, mapper);
+                        }),
+                        ReflectRef::Tuple(bundle) => bundle.iter_fields().for_each(|field| {
+                            apply_or_insert_field_mapped(entity, field, registry, mapper);
+                        }),
                         _ => panic!(
                             "expected bundle `{}` to be a named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
@@ -218,10 +227,11 @@ fn apply_field(entity: &mut EntityMut, field: &dyn PartialReflect, registry: &Ty
     }
 }
 
-fn apply_or_insert_field(
+fn apply_or_insert_field_mapped(
     entity: &mut EntityWorldMut,
     field: &dyn PartialReflect,
     registry: &TypeRegistry,
+    mapper: &mut dyn EntityMapper,
 ) {
     let Some(type_id) = field.try_as_reflect().map(Any::type_id) else {
         panic!(
@@ -231,9 +241,9 @@ fn apply_or_insert_field(
     };
 
     if let Some(reflect_component) = registry.get_type_data::<ReflectComponent>(type_id) {
-        reflect_component.apply_or_insert(entity, field, registry);
+        reflect_component.apply_or_insert_mapped(entity, field, registry, mapper);
     } else if let Some(reflect_bundle) = registry.get_type_data::<ReflectBundle>(type_id) {
-        reflect_bundle.apply_or_insert(entity, field, registry);
+        reflect_bundle.apply_or_insert_mapped(entity, field, registry, mapper);
     } else {
         let is_component = entity.world().components().get_id(type_id).is_some();
 

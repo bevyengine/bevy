@@ -7,7 +7,7 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{
     component::{require, Component},
     query::With,
@@ -108,7 +108,7 @@ impl Default for MotionBlur {
 }
 
 pub const MOTION_BLUR_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(987457899187986082347921);
+    weak_handle!("d9ca74af-fa0a-4f11-b0f2-19613b618b93");
 
 /// Adds support for per-object motion blur to the app. See [`MotionBlur`] for details.
 pub struct MotionBlurPlugin;

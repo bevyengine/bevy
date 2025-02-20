@@ -13,7 +13,7 @@ use bevy_render::{
     camera::Camera,
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
-    renderer::RenderDevice,
+    renderer::{RenderAdapter, RenderDevice},
     view::{RenderLayers, ViewVisibility},
 };
 use bevy_transform::components::GlobalTransform;
@@ -21,9 +21,11 @@ use bevy_utils::prelude::default;
 use tracing::warn;
 
 use crate::{
-    prelude::EnvironmentMapLight, ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight,
-    GlobalVisibleClusterableObjects, LightProbe, PointLight, SpotLight, ViewClusterBindings,
-    VisibleClusterableObjects, VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    decal::{self, clustered::ClusteredDecal},
+    prelude::EnvironmentMapLight,
+    ClusterConfig, ClusterFarZMode, Clusters, ExtractedPointLight, GlobalVisibleClusterableObjects,
+    LightProbe, PointLight, SpotLight, ViewClusterBindings, VisibleClusterableObjects,
+    VolumetricLight, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
     MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS,
 };
 
@@ -37,6 +39,8 @@ const VEC2_HALF_NEGATIVE_Y: Vec2 = Vec2::new(0.5, -0.5);
 #[derive(Clone, Debug)]
 pub(crate) struct ClusterableObjectAssignmentData {
     entity: Entity,
+    // TODO: We currently ignore the scale on the transform. This is confusing.
+    // Replace with an `Isometry3d`.
     transform: GlobalTransform,
     range: f32,
     object_type: ClusterableObjectType,
@@ -90,6 +94,9 @@ pub(crate) enum ClusterableObjectType {
 
     /// Marks that the clusterable object is an irradiance volume.
     IrradianceVolume,
+
+    /// Marks that the clusterable object is a decal.
+    Decal,
 }
 
 impl ClusterableObjectType {
@@ -113,6 +120,7 @@ impl ClusterableObjectType {
             } => (1, !shadows_enabled, !volumetric),
             ClusterableObjectType::ReflectionProbe => (2, false, false),
             ClusterableObjectType::IrradianceVolume => (3, false, false),
+            ClusterableObjectType::Decal => (4, false, false),
         }
     }
 
@@ -168,12 +176,13 @@ pub(crate) fn assign_objects_to_clusters(
         (Entity, &GlobalTransform, Has<EnvironmentMapLight>),
         With<LightProbe>,
     >,
+    decals_query: Query<(Entity, &GlobalTransform), With<ClusteredDecal>>,
     mut clusterable_objects: Local<Vec<ClusterableObjectAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,
-    render_device: Option<Res<RenderDevice>>,
+    (render_device, render_adapter): (Option<Res<RenderDevice>>, Option<Res<RenderAdapter>>),
 ) {
-    let Some(render_device) = render_device else {
+    let (Some(render_device), Some(render_adapter)) = (render_device, render_adapter) else {
         return;
     };
 
@@ -247,6 +256,19 @@ pub(crate) fn assign_objects_to_clusters(
                 render_layers: RenderLayers::default(),
             },
         ));
+    }
+
+    // Add decals if the current platform supports them.
+    if decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
+        clusterable_objects.extend(decals_query.iter().map(|(entity, transform)| {
+            ClusterableObjectAssignmentData {
+                entity,
+                transform: *transform,
+                range: transform.scale().length(),
+                object_type: ClusterableObjectType::Decal,
+                render_layers: RenderLayers::default(),
+            }
+        }));
     }
 
     if clusterable_objects.len() > MAX_UNIFORM_BUFFER_CLUSTERABLE_OBJECTS
@@ -608,6 +630,10 @@ pub(crate) fn assign_objects_to_clusters(
                             angle_cos,
                         ))
                     }
+                    ClusterableObjectType::Decal => {
+                        // TODO: cull via a frustum
+                        None
+                    }
                     ClusterableObjectType::PointLight { .. }
                     | ClusterableObjectType::ReflectionProbe
                     | ClusterableObjectType::IrradianceVolume => None,
@@ -815,6 +841,21 @@ pub(crate) fn assign_objects_to_clusters(
                                     clusters.clusterable_objects[cluster_index]
                                         .counts
                                         .irradiance_volumes += 1;
+                                    cluster_index += clusters.dimensions.z as usize;
+                                }
+                            }
+
+                            ClusterableObjectType::Decal { .. } => {
+                                // Decals currently affect all clusters in their
+                                // bounding sphere.
+                                //
+                                // TODO: Cull more aggressively based on the
+                                // decal's OBB.
+                                for _ in min_x..=max_x {
+                                    clusters.clusterable_objects[cluster_index]
+                                        .entities
+                                        .push(clusterable_object.entity);
+                                    clusters.clusterable_objects[cluster_index].counts.decals += 1;
                                     cluster_index += clusters.dimensions.z as usize;
                                 }
                             }

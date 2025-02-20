@@ -8,15 +8,73 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "accessibility", "a11y"]
 
+[features]
+default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
+
+# Functionality
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = [
+  "dep:bevy_reflect",
+  "bevy_app/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_input_focus/bevy_reflect",
+]
+
+## Adds serialization support through `serde`.
+serialize = [
+  "dep:serde",
+  "bevy_ecs/serialize",
+  "bevy_input_focus/serialize",
+  "accesskit/serde",
+]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "bevy_app/std",
+  "bevy_ecs/std",
+  "bevy_reflect/std",
+  "bevy_input_focus/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_app/critical-section",
+  "bevy_ecs/critical-section",
+  "bevy_reflect?/critical-section",
+  "bevy_input_focus/critical-section",
+]
+
+## `portable-atomic` provides additional platform support for atomic types and
+## operations, even on targets without native support. 
+portable-atomic = [
+  "bevy_app/portable-atomic",
+  "bevy_ecs/portable-atomic",
+  "bevy_reflect?/portable-atomic",
+  "bevy_input_focus/portable-atomic",
+]
+
+## Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_input_focus/libm"]
+
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false }
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev" }
-bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, optional = true }
+bevy_input_focus = { path = "../bevy_input_focus", version = "0.16.0-dev", default-features = false }
 
-accesskit = "0.17"
+# other
+accesskit = { version = "0.17", default-features = false }
+serde = { version = "1", default-features = false, features = [
+  "alloc",
+], optional = true }
 
 [lints]
 workspace = true

@@ -1,7 +1,4 @@
 use bevy_ecs::prelude::*;
-use bevy_hierarchy::despawn_with_children_recursive;
-use bevy_hierarchy::BuildChildren;
-use bevy_hierarchy::ChildBuild;
 use criterion::Criterion;
 use glam::*;
 
@@ -29,7 +26,7 @@ pub fn world_despawn_recursive(criterion: &mut Criterion) {
         group.bench_function(format!("{}_entities", entity_count), |bencher| {
             bencher.iter(|| {
                 ents.iter().for_each(|e| {
-                    despawn_with_children_recursive(&mut world, *e, true);
+                    world.entity_mut(*e).despawn();
                 });
             });
         });

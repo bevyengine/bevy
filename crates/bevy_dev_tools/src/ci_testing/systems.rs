@@ -28,6 +28,16 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                     .observe(save_to_disk(path));
                 info!("Took a screenshot at frame {}.", *current_frame);
             }
+            CiTestingEvent::NamedScreenshot(name) => {
+                let path = format!("./screenshot-{}.png", name);
+                world
+                    .spawn(Screenshot::primary_window())
+                    .observe(save_to_disk(path));
+                info!(
+                    "Took a screenshot at frame {} for {}.",
+                    *current_frame, name
+                );
+            }
             // Custom events are forwarded to the world.
             CiTestingEvent::Custom(event_string) => {
                 world.send_event(CiTestingCustomEvent(event_string));

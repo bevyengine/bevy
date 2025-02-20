@@ -6,15 +6,16 @@ use super::{
 use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
 use bevy_ecs::{
-    system::{Res, ResMut, Resource},
+    resource::Resource,
+    system::{Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 use bevy_render::{
     render_resource::BufferAddress,
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_utils::HashMap;
 use core::ops::Range;
 
 /// Manages uploading [`MeshletMesh`] asset data to the GPU.

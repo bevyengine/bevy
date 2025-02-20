@@ -13,8 +13,9 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
+    resource::Resource,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
@@ -369,6 +370,7 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
 
@@ -390,6 +392,7 @@ fn queue_line_gizmos_3d(
                     distance: 0.,
                     batch_range: 0..1,
                     extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
                 });
             }
         }
@@ -484,6 +487,7 @@ fn queue_line_joint_gizmos_3d(
                 distance: 0.,
                 batch_range: 0..1,
                 extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

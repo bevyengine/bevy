@@ -1,9 +1,4 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#![warn(
-    clippy::allow_attributes,
-    clippy::allow_attributes_without_reason,
-    reason = "See #17111; To be removed once all crates are in-line with these attributes"
-)]
 #![doc(
     html_logo_url = "https://bevyengine.org/assets/icon.png",
     html_favicon_url = "https://bevyengine.org/assets/icon.png"
@@ -67,7 +62,7 @@ use tracing_subscriber::{
 };
 #[cfg(feature = "tracing-chrome")]
 use {
-    bevy_ecs::system::Resource,
+    bevy_ecs::resource::Resource,
     bevy_utils::synccell::SyncCell,
     tracing_subscriber::fmt::{format::DefaultFields, FormattedFields},
 };

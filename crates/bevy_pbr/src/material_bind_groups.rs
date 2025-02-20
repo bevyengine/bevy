@@ -7,9 +7,10 @@
 use crate::Material;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    system::Resource,
+    resource::Resource,
     world::{FromWorld, World},
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_resource::{
@@ -21,7 +22,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
 };
-use bevy_utils::{default, HashMap};
+use bevy_utils::default;
 use core::{any, iter, marker::PhantomData, num::NonZero};
 use tracing::error;
 

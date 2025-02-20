@@ -14,9 +14,9 @@ fn main() {
         .add_systems(
             Update,
             (
-                // press the right arrow key to animate the right sprite
+                // Press the right arrow key to animate the right sprite
                 trigger_animation::<RightSprite>.run_if(input_just_pressed(KeyCode::ArrowRight)),
-                // press the left arrow key to animate the left sprite
+                // Press the left arrow key to animate the left sprite
                 trigger_animation::<LeftSprite>.run_if(input_just_pressed(KeyCode::ArrowLeft)),
             ),
         )
@@ -25,7 +25,7 @@ fn main() {
 
 // This system runs when the user clicks the left arrow key or right arrow key
 fn trigger_animation<S: Component>(mut animation: Single<&mut AnimationConfig, With<S>>) {
-    // we create a new timer when the animation is triggered
+    // We create a new timer when the animation is triggered
     animation.frame_timer = AnimationConfig::timer_from_fps(animation.fps);
 }
 
@@ -56,7 +56,7 @@ impl AnimationConfig {
 // `last_sprite_index` (both defined in `AnimationConfig`).
 fn execute_animations(time: Res<Time>, mut query: Query<(&mut AnimationConfig, &mut Sprite)>) {
     for (mut config, mut sprite) in &mut query {
-        // we track how long the current sprite has been displayed for
+        // We track how long the current sprite has been displayed for
         config.frame_timer.tick(time.delta());
 
         // If it has been displayed for the user-defined amount of time (fps)...
@@ -89,17 +89,28 @@ fn setup(
 ) {
     commands.spawn(Camera2d);
 
-    // load the sprite sheet using the `AssetServer`
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Left Arrow: Animate Left Sprite\nRight Arrow: Animate Right Sprite"),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
+
+    // Load the sprite sheet using the `AssetServer`
     let texture = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
 
-    // the sprite sheet has 7 sprites arranged in a row, and they are all 24px x 24px
+    // The sprite sheet has 7 sprites arranged in a row, and they are all 24px x 24px
     let layout = TextureAtlasLayout::from_grid(UVec2::splat(24), 7, 1, None, None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
-    // the first (left-hand) sprite runs at 10 FPS
+    // The first (left-hand) sprite runs at 10 FPS
     let animation_config_1 = AnimationConfig::new(1, 6, 10);
 
-    // create the first (left-hand) sprite
+    // Create the first (left-hand) sprite
     commands.spawn((
         Sprite {
             image: texture.clone(),
@@ -109,15 +120,15 @@ fn setup(
             }),
             ..default()
         },
-        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-50.0, 0.0, 0.0)),
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(-70.0, 0.0, 0.0)),
         LeftSprite,
         animation_config_1,
     ));
 
-    // the second (right-hand) sprite runs at 20 FPS
+    // The second (right-hand) sprite runs at 20 FPS
     let animation_config_2 = AnimationConfig::new(1, 6, 20);
 
-    // create the second (right-hand) sprite
+    // Create the second (right-hand) sprite
     commands.spawn((
         Sprite {
             image: texture.clone(),
@@ -127,19 +138,8 @@ fn setup(
             }),
             ..Default::default()
         },
-        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(50.0, 0.0, 0.0)),
+        Transform::from_scale(Vec3::splat(6.0)).with_translation(Vec3::new(70.0, 0.0, 0.0)),
         RightSprite,
         animation_config_2,
-    ));
-
-    // create a minimal UI explaining how to interact with the example
-    commands.spawn((
-        Text::new("Left Arrow Key: Animate Left Sprite\nRight Arrow Key: Animate Right Sprite"),
-        Node {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        },
     ));
 }

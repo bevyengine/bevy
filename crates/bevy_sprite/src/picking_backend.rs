@@ -1,6 +1,11 @@
 //! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
+//!
+//! ## Implementation Notes
+//!
+//! - The `position` reported in `HitData` in in world space, and the `normal` is a normalized
+//!   vector provided by the target's `GlobalTransform::back()`.
 
 use crate::Sprite;
 use bevy_app::prelude::*;

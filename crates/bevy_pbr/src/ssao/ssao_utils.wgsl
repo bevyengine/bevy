@@ -11,14 +11,3 @@ fn ssao_multibounce(visibility: f32, base_color: vec3<f32>) -> vec3<f32> {
     let x = vec3<f32>(visibility);
     return max(x, ((x * a + b) * x + c) * x);
 }
-
-fn fast_sqrt(x: f32) -> f32 {
-    return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
-}
-
-fn fast_acos(in_x: f32) -> f32 {
-    let x = abs(in_x);
-    var res = -0.156583 * x + HALF_PI;
-    res *= fast_sqrt(1.0 - x);
-    return select(PI - res, res, in_x >= 0.0);
-}

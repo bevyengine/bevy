@@ -112,6 +112,8 @@ pub struct TransparentUi {
     pub draw_function: DrawFunctionId,
     pub batch_range: Range<u32>,
     pub extra_index: PhaseItemExtraIndex,
+    pub index: usize,
+    pub indexed: bool,
 }
 
 impl PhaseItem for TransparentUi {
@@ -161,6 +163,11 @@ impl SortedPhaseItem for TransparentUi {
     #[inline]
     fn sort(items: &mut [Self]) {
         items.sort_by_key(SortedPhaseItem::sort_key);
+    }
+
+    #[inline]
+    fn indexed(&self) -> bool {
+        self.indexed
     }
 }
 

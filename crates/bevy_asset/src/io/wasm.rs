@@ -1,6 +1,7 @@
 use crate::io::{
     get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
+use alloc::{borrow::ToOwned, boxed::Box, format};
 use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
 use tracing::error;

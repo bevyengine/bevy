@@ -1,13 +1,15 @@
 use alloc::{boxed::Box, format, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
+use bevy_platform_support::collections::{
+    hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable,
+};
 use bevy_reflect_derive::impl_type_path;
-use bevy_utils::hashbrown::{hash_table::OccupiedEntry as HashTableOccupiedEntry, HashTable};
 
 use crate::{
-    self as bevy_reflect, generics::impl_generic_info_methods, hash_error,
-    type_info::impl_type_methods, ApplyError, Generics, PartialReflect, Reflect, ReflectKind,
-    ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    generics::impl_generic_info_methods, hash_error, type_info::impl_type_methods, ApplyError,
+    Generics, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 
 /// A trait used to power [set-like] operations via [reflection].
@@ -375,7 +377,7 @@ impl<T: Reflect> FromIterator<T> for DynamicSet {
 
 impl IntoIterator for DynamicSet {
     type Item = Box<dyn PartialReflect>;
-    type IntoIter = bevy_utils::hashbrown::hash_table::IntoIter<Self::Item>;
+    type IntoIter = bevy_platform_support::collections::hash_table::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.hash_table.into_iter()
@@ -385,7 +387,7 @@ impl IntoIterator for DynamicSet {
 impl<'a> IntoIterator for &'a DynamicSet {
     type Item = &'a dyn PartialReflect;
     type IntoIter = core::iter::Map<
-        bevy_utils::hashbrown::hash_table::Iter<'a, Box<dyn PartialReflect>>,
+        bevy_platform_support::collections::hash_table::Iter<'a, Box<dyn PartialReflect>>,
         fn(&'a Box<dyn PartialReflect>) -> Self::Item,
     >;
 

@@ -380,7 +380,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn toggle_debug_overlay(
     input: Res<ButtonInput<KeyCode>>,
     mut debug_options: ResMut<UiDebugOptions>,
-    mut root_node_query: Query<&mut Visibility, (With<Node>, Without<Parent>)>,
+    mut root_node_query: Query<&mut Visibility, (With<Node>, Without<ChildOf>)>,
 ) {
     info_once!("The debug outlines are enabled, press Space to turn them on/off");
     if input.just_pressed(KeyCode::Space) {

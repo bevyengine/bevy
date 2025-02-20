@@ -14,7 +14,7 @@
 //!     between components (like hierarchies or parent-child links) and need to maintain correctness.
 
 use bevy::{
-    ecs::component::{ComponentHooks, Mutable, StorageType},
+    ecs::component::{ComponentHook, HookContext, Mutable, StorageType},
     prelude::*,
 };
 use std::collections::HashMap;
@@ -33,9 +33,11 @@ impl Component for MyComponent {
     type Mutability = Mutable;
 
     /// Hooks can also be registered during component initialization by
-    /// implementing `register_component_hooks`
-    fn register_component_hooks(_hooks: &mut ComponentHooks) {
-        // Register hooks...
+    /// implementing the associated method
+    fn on_add() -> Option<ComponentHook> {
+        // We don't have an `on_add` hook so we'll just return None.
+        // Note that this is the default behavior when not implementing a hook.
+        None
     }
 }
 
@@ -63,43 +65,69 @@ fn setup(world: &mut World) {
     world
         .register_component_hooks::<MyComponent>()
         // There are 4 component lifecycle hooks: `on_add`, `on_insert`, `on_replace` and `on_remove`
-        // A hook has 3 arguments:
+        // A hook has 2 arguments:
         // - a `DeferredWorld`, this allows access to resource and component data as well as `Commands`
-        // - the entity that triggered the hook
-        // - the component id of the triggering component, this is mostly used for dynamic components
+        // - a `HookContext`, this provides access to the following contextual information:
+        //   - the entity that triggered the hook
+        //   - the component id of the triggering component, this is mostly used for dynamic components
+        //   - the location of the code that caused the hook to trigger
         //
         // `on_add` will trigger when a component is inserted onto an entity without it
-        .on_add(|mut world, entity, component_id| {
-            // You can access component data from within the hook
-            let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!("Component: {component_id:?} added to: {entity} with value {value:?}");
-            // Or access resources
-            world
-                .resource_mut::<MyComponentIndex>()
-                .insert(value, entity);
-            // Or send events
-            world.send_event(MyEvent);
-        })
+        .on_add(
+            |mut world,
+             HookContext {
+                 entity,
+                 component_id,
+                 caller,
+             }| {
+                // You can access component data from within the hook
+                let value = world.get::<MyComponent>(entity).unwrap().0;
+                println!(
+                    "{component_id:?} added to {entity} with value {value:?}{}",
+                    caller
+                        .map(|location| format!("due to {location}"))
+                        .unwrap_or_default()
+                );
+                // Or access resources
+                world
+                    .resource_mut::<MyComponentIndex>()
+                    .insert(value, entity);
+                // Or send events
+                world.send_event(MyEvent);
+            },
+        )
         // `on_insert` will trigger when a component is inserted onto an entity,
         // regardless of whether or not it already had it and after `on_add` if it ran
-        .on_insert(|world, _, _| {
+        .on_insert(|world, _| {
             println!("Current Index: {:?}", world.resource::<MyComponentIndex>());
         })
         // `on_replace` will trigger when a component is inserted onto an entity that already had it,
         // and runs before the value is replaced.
         // Also triggers when a component is removed from an entity, and runs before `on_remove`
-        .on_replace(|mut world, entity, _| {
-            let value = world.get::<MyComponent>(entity).unwrap().0;
+        .on_replace(|mut world, context| {
+            let value = world.get::<MyComponent>(context.entity).unwrap().0;
             world.resource_mut::<MyComponentIndex>().remove(&value);
         })
         // `on_remove` will trigger when a component is removed from an entity,
         // since it runs before the component is removed you can still access the component data
-        .on_remove(|mut world, entity, component_id| {
-            let value = world.get::<MyComponent>(entity).unwrap().0;
-            println!("Component: {component_id:?} removed from: {entity} with value {value:?}");
-            // You can also issue commands through `.commands()`
-            world.commands().entity(entity).despawn();
-        });
+        .on_remove(
+            |mut world,
+             HookContext {
+                 entity,
+                 component_id,
+                 caller,
+             }| {
+                let value = world.get::<MyComponent>(entity).unwrap().0;
+                println!(
+                    "{component_id:?} removed from {entity} with value {value:?}{}",
+                    caller
+                        .map(|location| format!("due to {location}"))
+                        .unwrap_or_default()
+                );
+                // You can also issue commands through `.commands()`
+                world.commands().entity(entity).despawn();
+            },
+        );
 }
 
 fn trigger_hooks(
