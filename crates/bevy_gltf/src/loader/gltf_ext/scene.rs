@@ -2,8 +2,9 @@ use bevy_ecs::name::Name;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::Transform;
 
+use gltf::scene::Node;
+
 use fixedbitset::FixedBitSet;
-use gltf::Node;
 use itertools::Itertools;
 
 #[cfg(feature = "bevy_animation")]

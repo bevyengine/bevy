@@ -6,7 +6,7 @@ use serde_json::Value;
 
 #[cfg(feature = "pbr_anisotropy_texture")]
 use {
-    crate::ext::{json::info::InfoExt, material::MaterialExt},
+    crate::loader::gltf_ext::{material::MaterialExt, texture::InfoExt},
     bevy_asset::Handle,
     bevy_image::Image,
     bevy_pbr::UvChannel,

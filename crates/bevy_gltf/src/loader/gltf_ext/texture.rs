@@ -1,16 +1,20 @@
-pub mod transform;
-pub mod wrapping_mode;
-
 use bevy_asset::{Handle, LoadContext};
-use bevy_image::{Image, ImageFilterMode, ImageSamplerDescriptor};
+use bevy_image::{Image, ImageAddressMode, ImageFilterMode, ImageSamplerDescriptor};
+use bevy_math::Affine2;
+
 use gltf::{
     image::Source,
-    texture::{MagFilter, MinFilter},
+    texture::{MagFilter, MinFilter, Texture, TextureTransform, WrappingMode},
 };
 
-use crate::{loader::data_uri::DataUri, GltfAssetLabel};
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures",
+    feature = "pbr_specular_textures"
+))]
+use gltf::{json::texture::Info, Document};
 
-use wrapping_mode::WrappingModeExt;
+use crate::{loader::data_uri::DataUri, GltfAssetLabel};
 
 pub trait TextureExt {
     fn handle(&self, load_context: &mut LoadContext) -> Handle<Image>;
@@ -18,7 +22,24 @@ pub trait TextureExt {
     fn texture_sampler(&self) -> ImageSamplerDescriptor;
 }
 
-impl TextureExt for gltf::Texture<'_> {
+pub trait WrappingModeExt {
+    fn address_mode(&self) -> ImageAddressMode;
+}
+
+pub trait TextureTransformExt {
+    fn to_affine2(self) -> Affine2;
+}
+
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures",
+    feature = "pbr_specular_textures"
+))]
+pub trait InfoExt {
+    fn texture_handle(&self, document: &Document, load_context: &mut LoadContext) -> Handle<Image>;
+}
+
+impl TextureExt for Texture<'_> {
     fn handle(&self, load_context: &mut LoadContext) -> Handle<Image> {
         match self.source().source() {
             Source::View { .. } => {
@@ -83,5 +104,46 @@ impl TextureExt for gltf::Texture<'_> {
 
             ..Default::default()
         }
+    }
+}
+
+impl WrappingModeExt for WrappingMode {
+    /// Maps the texture address mode from glTF to wgpu.
+    fn address_mode(&self) -> ImageAddressMode {
+        match self {
+            WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
+            WrappingMode::Repeat => ImageAddressMode::Repeat,
+            WrappingMode::MirroredRepeat => ImageAddressMode::MirrorRepeat,
+        }
+    }
+}
+
+impl TextureTransformExt for TextureTransform<'_> {
+    fn to_affine2(self) -> Affine2 {
+        Affine2::from_scale_angle_translation(
+            self.scale().into(),
+            -self.rotation(),
+            self.offset().into(),
+        )
+    }
+}
+
+#[cfg(any(
+    feature = "pbr_anisotropy_texture",
+    feature = "pbr_multi_layer_material_textures",
+    feature = "pbr_specular_textures"
+))]
+impl InfoExt for Info {
+    /// Given a [`Info`], returns the handle of the texture that this
+    /// refers to.
+    ///
+    /// This is a low-level function only used when the [`gltf`] crate has no support
+    /// for an extension, forcing us to parse its texture references manually.
+    fn texture_handle(&self, document: &Document, load_context: &mut LoadContext) -> Handle<Image> {
+        let texture = document
+            .textures()
+            .nth(self.index.value())
+            .expect("Texture info references a nonexistent texture");
+        texture.handle(load_context)
     }
 }

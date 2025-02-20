@@ -1,6 +1,7 @@
 mod animation_context;
-pub(super) mod data_uri;
+mod data_uri;
 mod extensions;
+mod gltf_ext;
 mod image_or_path;
 mod morph_target_names;
 mod primitive_morph_attributes_iter;
@@ -60,24 +61,22 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    ext::{
-        document::DocumentExt,
-        gltf::GltfExt,
-        json::extras::ExtrasExt,
-        material::MaterialExt,
-        mesh::{mode::ModeExt, MeshExt},
-        node::NodeExt,
-        texture::{transform::TextureTransformExt, TextureExt},
-    },
-    vertex_attributes::convert_attribute,
-    Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfNode, GltfSceneExtras, GltfSkin,
+    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
+    GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 use self::{
     animation_context::AnimationContext,
     data_uri::DataUri,
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
+    gltf_ext::{
+        extras::ExtrasExt,
+        material::MaterialExt,
+        mesh::{MeshExt, ModeExt},
+        scene::NodeExt,
+        texture::{TextureExt, TextureTransformExt},
+        DocumentExt, GltfExt,
+    },
     image_or_path::ImageOrPath,
     morph_target_names::MorphTargetNames,
     primitive_morph_attributes_iter::PrimitiveMorphAttributesIter,

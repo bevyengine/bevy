@@ -6,14 +6,14 @@ use gltf::{json::texture::Info, Material};
 
 use serde_json::value;
 
-use super::texture::transform::TextureTransformExt;
+use super::texture::TextureTransformExt;
 
 #[cfg(any(
     feature = "pbr_specular_textures",
     feature = "pbr_multi_layer_material_textures"
 ))]
 use {
-    super::json::info::InfoExt,
+    super::texture::InfoExt,
     bevy_asset::{Handle, LoadContext},
     bevy_image::Image,
     gltf::Document,
