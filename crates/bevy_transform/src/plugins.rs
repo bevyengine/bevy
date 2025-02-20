@@ -49,7 +49,7 @@ impl Plugin for TransformPlugin {
             PostUpdate,
             (
                 propagate_parent_transforms,
-                (compute_transform_leaves, sync_simple_transforms)
+                (compute_transform_leaves, sync_simple_transforms) // TODO: Adjust the internal parallel queries to make these parallel systems more efficiently share and fill CPU time.
                     .ambiguous_with(TransformSystem::TransformPropagate),
             )
                 .chain()
