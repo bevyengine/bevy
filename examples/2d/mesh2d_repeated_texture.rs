@@ -6,7 +6,6 @@ use bevy::{
     image::{ImageAddressMode, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor},
     math::Affine2,
     prelude::*,
-    sprite::Anchor,
 };
 
 /// How much to move some rectangles away from the center
@@ -76,7 +75,6 @@ fn setup(
         Children::spawn(Spawn((
             Text2d::new("Repeat On"),
             Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-            Anchor::Center,
         ))),
     ));
 
@@ -98,7 +96,6 @@ fn setup(
         Children::spawn(Spawn((
             Text2d::new("Repeat Off"),
             Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-            Anchor::Center,
         ))),
     ));
 
