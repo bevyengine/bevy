@@ -13,7 +13,7 @@ const RECTANGLE_OFFSET: f32 = 250.0;
 /// Length of the sides of the rectangle
 const RECTANGLE_SIDE: f32 = 200.;
 /// How much to move the label away from the rectangle
-const LABEL_OFFSET: f32 = 25.;
+const LABEL_OFFSET: f32 = (RECTANGLE_SIDE / 2.) + 25.;
 
 fn main() {
     App::new()
@@ -57,7 +57,7 @@ fn setup(
         Transform::from_translation(Vec3::ZERO),
         children!((
             Text2d::new("Control"),
-            Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+            Transform::from_xyz(0., LABEL_OFFSET, 0.),
         )),
     ));
 
@@ -74,7 +74,7 @@ fn setup(
         Transform::from_xyz(-RECTANGLE_OFFSET, 0.0, 0.0),
         children!((
             Text2d::new("Repeat On"),
-            Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+            Transform::from_xyz(0., LABEL_OFFSET, 0.),
         )),
     ));
 
@@ -95,7 +95,7 @@ fn setup(
         Transform::from_xyz(RECTANGLE_OFFSET, 0.0, 0.0),
         children!((
             Text2d::new("Repeat Off"),
-            Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+            Transform::from_xyz(0., LABEL_OFFSET, 0.),
         )),
     ));
 
