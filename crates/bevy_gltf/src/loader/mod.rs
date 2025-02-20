@@ -1,4 +1,9 @@
+mod animation_context;
+pub(super) mod data_uri;
 mod extensions;
+mod image_or_path;
+mod morph_target_names;
+mod primitive_morph_attributes_iter;
 
 use std::{io::Error, path::Path};
 
@@ -40,7 +45,6 @@ use bevy_scene::Scene;
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 
-use extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension};
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -65,12 +69,18 @@ use crate::{
         node::NodeExt,
         texture::{transform::TextureTransformExt, TextureExt},
     },
-    helper_types::{
-        AnimationContext, DataUri, ImageOrPath, MorphTargetNames, PrimitiveMorphAttributesIter,
-    },
     vertex_attributes::convert_attribute,
     Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
     GltfNode, GltfSceneExtras, GltfSkin,
+};
+
+use self::{
+    animation_context::AnimationContext,
+    data_uri::DataUri,
+    extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
+    image_or_path::ImageOrPath,
+    morph_target_names::MorphTargetNames,
+    primitive_morph_attributes_iter::PrimitiveMorphAttributesIter,
 };
 
 /// An error that occurs when loading a glTF file.

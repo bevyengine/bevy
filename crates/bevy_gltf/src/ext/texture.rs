@@ -8,7 +8,7 @@ use gltf::{
     texture::{MagFilter, MinFilter},
 };
 
-use crate::{helper_types::DataUri, GltfAssetLabel};
+use crate::{loader::data_uri::DataUri, GltfAssetLabel};
 
 use wrapping_mode::WrappingModeExt;
 
