@@ -1,9 +1,12 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, ecs::prelude::*, input::prelude::*, log::prelude::*, math::prelude::*,
-    reflect::prelude::*, time::prelude::*, transform::prelude::*, utils::prelude::*,
-    DefaultPlugins, MinimalPlugins,
+    app::prelude::*, ecs::prelude::*, input::prelude::*, math::prelude::*, reflect::prelude::*,
+    time::prelude::*, transform::prelude::*, utils::prelude::*, DefaultPlugins, MinimalPlugins,
 };
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_log")]
+pub use crate::log::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_window")]
