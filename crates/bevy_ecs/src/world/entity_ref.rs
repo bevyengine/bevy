@@ -2653,34 +2653,29 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     bundle_info: &BundleInfo,
     caller: MaybeLocation,
 ) {
+    let bundle_components_in_archetype = || {
+        bundle_info
+            .iter_explicit_components()
+            .filter(|component_id| archetype.contains(*component_id))
+    };
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
             entity,
-            bundle_info.iter_explicit_components(),
+            bundle_components_in_archetype(),
             caller,
         );
     }
-    deferred_world.trigger_on_replace(
-        archetype,
-        entity,
-        bundle_info.iter_explicit_components(),
-        caller,
-    );
+    deferred_world.trigger_on_replace(archetype, entity, bundle_components_in_archetype(), caller);
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(
             ON_REMOVE,
             entity,
-            bundle_info.iter_explicit_components(),
+            bundle_components_in_archetype(),
             caller,
         );
     }
-    deferred_world.trigger_on_remove(
-        archetype,
-        entity,
-        bundle_info.iter_explicit_components(),
-        caller,
-    );
+    deferred_world.trigger_on_remove(archetype, entity, bundle_components_in_archetype(), caller);
 }
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
