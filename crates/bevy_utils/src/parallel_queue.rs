@@ -20,6 +20,17 @@ impl<T: Send> Parallel<T> {
     pub fn clear(&mut self) {
         self.locals.clear();
     }
+
+    /// Mutably borrows the thread-local value.
+    ///
+    /// If there is no thread-local value, it will be initialized to the result
+    /// of `create`.
+    pub fn borrow_local_mut_or(
+        &self,
+        create: impl FnOnce() -> T,
+    ) -> impl DerefMut<Target = T> + '_ {
+        self.locals.get_or(|| RefCell::new(create())).borrow_mut()
+    }
 }
 
 impl<T: Default + Send> Parallel<T> {
