@@ -56,6 +56,10 @@ fn setup(
             ..default()
         })),
         Transform::from_translation(Vec3::ZERO),
+        Children::spawn(Spawn((
+            Text2d::new("Control"),
+            Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+        ))),
     ));
 
     // left rectangle with repeated texture
@@ -69,9 +73,14 @@ fn setup(
             ..default()
         })),
         Transform::from_xyz(-RECTANGLE_OFFSET, 0.0, 0.0),
+        Children::spawn(Spawn((
+            Text2d::new("Repeat On"),
+            Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+            Anchor::Center,
+        ))),
     ));
 
-    // right rectangle with scaled texture, because with default sampler
+    // right rectangle with scaled texture, but with default sampler.
     commands.spawn((
         Mesh2d(meshes.add(Rectangle::new(RECTANGLE_SIDE, RECTANGLE_SIDE))),
         MeshMaterial2d(materials.add(ColorMaterial {
@@ -86,23 +95,11 @@ fn setup(
             ..default()
         })),
         Transform::from_xyz(RECTANGLE_OFFSET, 0.0, 0.0),
-    ));
-
-    // labels
-    commands.spawn((
-        Text2d::new("Control"),
-        Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-        Anchor::Center,
-    ));
-    commands.spawn((
-        Text2d::new("Repeat On"),
-        Transform::from_xyz(-RECTANGLE_OFFSET, (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-        Anchor::Center,
-    ));
-    commands.spawn((
-        Text2d::new("Repeat Off"),
-        Transform::from_xyz(RECTANGLE_OFFSET, (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-        Anchor::Center,
+        Children::spawn(Spawn((
+            Text2d::new("Repeat Off"),
+            Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
+            Anchor::Center,
+        ))),
     ));
 
     // camera
