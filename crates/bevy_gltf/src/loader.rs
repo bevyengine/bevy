@@ -60,8 +60,6 @@ use crate::{
         material::MaterialExt,
         mesh::{mode::ModeExt, MeshExt},
         node::NodeExt,
-        scene::SceneExt,
-        skin::SkinExt,
         texture::{transform::TextureTransformExt, TextureExt},
     },
     helper_types::{
@@ -722,7 +720,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 .collect();
 
             load_context.add_labeled_asset(
-                gltf_skin.inverse_bind_matrices_label().to_string(),
+                GltfAssetLabel::from((&gltf_skin, true)).to_string(),
                 SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
             )
         })
@@ -769,7 +767,8 @@ async fn load_gltf<'a, 'b, 'c>(
                 skin.extras().as_gltf_extras(),
             );
 
-            let handle = load_context.add_labeled_asset(skin.label().to_string(), gltf_skin);
+            let handle = load_context
+                .add_labeled_asset(GltfAssetLabel::from((&skin, false)).to_string(), gltf_skin);
 
             skins.push(handle.clone());
             if let Some(name) = skin.name() {
@@ -890,8 +889,8 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world));
-        let scene_handle =
-            load_context.add_loaded_labeled_asset(scene.label().to_string(), loaded_scene);
+        let scene_handle = load_context
+            .add_loaded_labeled_asset(GltfAssetLabel::from(&scene).to_string(), loaded_scene);
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.into(), scene_handle.clone());
@@ -1001,7 +1000,7 @@ fn load_material(
     document: &Document,
     is_scale_inverted: bool,
 ) -> Handle<StandardMaterial> {
-    let material_label = material.label(is_scale_inverted);
+    let material_label = GltfAssetLabel::from((material, is_scale_inverted));
     load_context.labeled_asset_scope(material_label.to_string(), |load_context| {
         let pbr = material.pbr_metallic_roughness();
 
@@ -1352,7 +1351,8 @@ fn load_node(
                 // append primitives
                 for primitive in mesh.primitives() {
                     let material = primitive.material();
-                    let material_label = material.label(is_scale_inverted).to_string();
+                    let material_label =
+                        GltfAssetLabel::from((&material, is_scale_inverted)).to_string();
 
                     // This will make sure we load the default material now since it would not have been
                     // added when iterating over all the gltf materials (since the default material is

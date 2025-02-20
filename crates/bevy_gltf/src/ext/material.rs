@@ -6,8 +6,6 @@ use gltf::{json::texture::Info, Material};
 
 use serde_json::value;
 
-use crate::GltfAssetLabel;
-
 use super::texture::transform::TextureTransformExt;
 
 #[cfg(any(
@@ -47,8 +45,6 @@ pub trait MaterialExt {
     ) -> Option<usize>;
 
     fn needs_tangents(&self) -> bool;
-
-    fn label(&self, inverted: bool) -> GltfAssetLabel;
 
     fn warn_on_differing_texture_transforms(
         &self,
@@ -152,18 +148,6 @@ impl MaterialExt for Material<'_> {
         .into_iter()
         .reduce(|a, b| a || b)
         .unwrap_or(false)
-    }
-
-    /// Returns the label for the `material`.
-    fn label(&self, is_scale_inverted: bool) -> GltfAssetLabel {
-        if let Some(index) = self.index() {
-            GltfAssetLabel::Material {
-                index,
-                is_scale_inverted,
-            }
-        } else {
-            GltfAssetLabel::DefaultMaterial
-        }
     }
 
     fn warn_on_differing_texture_transforms(

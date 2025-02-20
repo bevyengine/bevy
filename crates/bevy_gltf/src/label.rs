@@ -125,3 +125,41 @@ impl GltfAssetLabel {
         path.into().with_label(self.to_string())
     }
 }
+
+impl From<(&gltf::Material<'_>, bool)> for GltfAssetLabel {
+    /// Returns the label for the `material`.
+    fn from((material, is_scale_inverted): (&gltf::Material, bool)) -> Self {
+        if let Some(index) = material.index() {
+            GltfAssetLabel::Material {
+                index,
+                is_scale_inverted,
+            }
+        } else {
+            GltfAssetLabel::DefaultMaterial
+        }
+    }
+}
+
+impl From<&gltf::Scene<'_>> for GltfAssetLabel {
+    /// Returns the label for the `scene`.
+    fn from(scene: &gltf::Scene) -> Self {
+        GltfAssetLabel::Scene(scene.index())
+    }
+}
+
+impl From<(&gltf::Skin<'_>, bool)> for GltfAssetLabel {
+    /// Return the label for the `skin` as [`GltfAssetLabel::Skin`] or [`GltfAssetLabel::InverseBindMatrices`].
+    fn from((skin, as_inverse_bind_matrices): (&gltf::Skin, bool)) -> GltfAssetLabel {
+        if as_inverse_bind_matrices {
+            GltfAssetLabel::InverseBindMatrices(skin.index())
+        } else {
+            GltfAssetLabel::Skin(skin.index())
+        }
+    }
+}
+
+impl From<&gltf::Texture<'_>> for GltfAssetLabel {
+    fn from(texture: &gltf::Texture) -> GltfAssetLabel {
+        GltfAssetLabel::Texture(texture.index())
+    }
+}

@@ -16,21 +16,21 @@ pub trait TextureExt {
     fn handle(&self, load_context: &mut LoadContext) -> Handle<Image>;
 
     fn texture_sampler(&self) -> ImageSamplerDescriptor;
-
-    fn label(&self) -> GltfAssetLabel;
 }
 
 impl TextureExt for gltf::Texture<'_> {
     fn handle(&self, load_context: &mut LoadContext) -> Handle<Image> {
         match self.source().source() {
-            Source::View { .. } => load_context.get_label_handle(self.label().to_string()),
+            Source::View { .. } => {
+                load_context.get_label_handle(GltfAssetLabel::from(self).to_string())
+            }
             Source::Uri { uri, .. } => {
                 let uri = percent_encoding::percent_decode_str(uri)
                     .decode_utf8()
                     .unwrap();
                 let uri = uri.as_ref();
                 if let Ok(_data_uri) = DataUri::parse(uri) {
-                    load_context.get_label_handle(self.label().to_string())
+                    load_context.get_label_handle(GltfAssetLabel::from(self).to_string())
                 } else {
                     let parent = load_context.path().parent().unwrap();
                     let image_path = parent.join(uri);
@@ -83,9 +83,5 @@ impl TextureExt for gltf::Texture<'_> {
 
             ..Default::default()
         }
-    }
-
-    fn label(&self) -> GltfAssetLabel {
-        GltfAssetLabel::Texture(self.index())
     }
 }
