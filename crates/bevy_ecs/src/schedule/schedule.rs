@@ -2167,20 +2167,29 @@ mod tests {
         let mut schedule = Schedule::default();
         let mut world = World::default();
 
-        // This chain queues a command in the first system while the following system has no deferred parameters.
-        // As the chain is configured to not add sync points, the command will not be applied inside the chain.
         let insert_resource_config = (
+            // the first system has deferred commands
             |mut commands: Commands| commands.insert_resource(Resource1),
+            // the second system has no deferred commands
             || {},
         )
+            // the first two systems are chained without a sync point in between
             .chain_ignore_deferred();
 
-        // This chain is configured to add a sync point before the last system, but that would not happen if only the
-        // no-op system in `insert_resource_config` was evaluated as that one has no deferred parameters.
-        // So despite having no direct edge from the system that queues the command to the system that attempts to read
-        // the resource, a sync point is still added between the two tuple elements by the command system's has_deferred
-        // bubbling up to the no-op system.
-        schedule.add_systems((insert_resource_config, |_: Res<Resource1>| {}).chain());
+        schedule.add_systems(
+            (
+                insert_resource_config,
+                // the third system would panic if the command of the first system was not applied
+                |_: Res<Resource1>| {},
+            )
+                // the third system is chained after the first two, possibly with a sync point in between
+                .chain(),
+        );
+
+        // To add a sync point between the second and third system despite the second having no commands,
+        // the first system has to signal the second system that there are unapplied commands.
+        // With that the second system will add a sync point after it so the third system will find the resource.
+
         schedule.run(&mut world);
 
         assert_eq!(schedule.executable.systems.len(), 4); // 3 systems + 1 sync point

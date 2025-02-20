@@ -23,25 +23,25 @@ use super::{
 pub struct AutoInsertApplyDeferredPass {
     /// Dependency edges that will **not** automatically insert an instance of `ApplyDeferred` on the edge.
     no_sync_edges: BTreeSet<(NodeId, NodeId)>,
-    auto_sync_node_ids: Vec<NodeId>,
+    auto_sync_node_ids: HashMap<u32, NodeId>,
 }
 
 /// If added to a dependency edge, the edge will not be considered for auto sync point insertions.
 pub struct IgnoreDeferred;
 
 impl AutoInsertApplyDeferredPass {
-    /// Returns the `NodeId` of the cached auto sync point. Will create a new one if needed.
-    ///
-    /// Is expected to be called with an index not larger than the amount of cached sync points so far.
-    fn get_sync_point(&mut self, graph: &mut ScheduleGraph, index: usize) -> NodeId {
+    /// Returns the `NodeId` of the cached auto sync point. Will create
+    /// a new one if needed.
+    fn get_sync_point(&mut self, graph: &mut ScheduleGraph, distance: u32) -> NodeId {
         self.auto_sync_node_ids
-            .get(index)
+            .get(&distance)
             .copied()
-            .unwrap_or_else(|| {
+            .or_else(|| {
                 let node_id = self.add_auto_sync(graph);
-                self.auto_sync_node_ids.push(node_id);
-                node_id
+                self.auto_sync_node_ids.insert(distance, node_id);
+                Some(node_id)
             })
+            .unwrap()
     }
     /// add an [`ApplyDeferred`] system with no config
     fn add_auto_sync(&mut self, graph: &mut ScheduleGraph) -> NodeId {
@@ -115,7 +115,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 }
 
                 if !target_system.is_exclusive() && self.no_sync_edges.contains(&(*node, target)) {
-                    // add sync point on a later edge
+                    // `node` has deferred commands to apply, but this edge is a no sync edge
+                    // Mark the `target` node as 'delaying' those commands to a future edge
                     *target_pending_sync = true;
                     continue;
                 }
@@ -123,7 +124,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 // add sync point at this edge, target distance may increase
                 *target_distance = (node_distance + 1).max(*target_distance);
 
-                let sync_point = self.get_sync_point(graph, *target_distance as usize - 1);
+                let sync_point = self.get_sync_point(graph, *target_distance);
                 sync_point_graph.add_edge(*node, sync_point);
                 sync_point_graph.add_edge(sync_point, target);
 
