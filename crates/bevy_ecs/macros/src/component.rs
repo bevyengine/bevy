@@ -262,11 +262,14 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
             let mut visited_indices = Vec::new();
 
             if is_relationship {
-                if let Some(field) = relationship_field(fields, fields.span()).ok().flatten() {
-                    match field.ident {
-                        Some(ref ident) => visited_fields.push(ident.clone()),
-                        None => visited_indices.push(Index::from(0)),
-                    }
+                let field = match relationship_field(fields, "VisitEntities", fields.span()) {
+                    Ok(f) => f,
+                    Err(e) => return e.to_compile_error(),
+                };
+
+                match field.ident {
+                    Some(ref ident) => visited_fields.push(ident.clone()),
+                    None => visited_indices.push(Index::from(0)),
                 }
             }
             match fields {
@@ -668,15 +671,10 @@ fn derive_relationship(
             "Relationship can only be derived for structs.",
         ));
     };
-    let field = relationship_field(fields, struct_token.span())?;
+    let field = relationship_field(fields, "Relationship", struct_token.span())?;
 
-    let relationship_member: Member = match field {
-        Some(field) => field.ident.clone().map_or(Member::from(0), Member::Named),
-        None => return Err(syn::Error::new(
-            fields.span(),
-            "Relationship can only be derived for structs with a single unnamed field or for structs where one field is annotated with #[relationship].",
-        )),
-    };
+    let relationship_member: Member = field.ident.clone().map_or(Member::from(0), Member::Named);
+
     let members = fields
         .members()
         .filter(|member| member != &relationship_member);
@@ -726,14 +724,7 @@ fn derive_relationship_target(
             "RelationshipTarget can only be derived for structs.",
         ));
     };
-    let field = relationship_field(fields, struct_token.span())?;
-
-    let Some(field) = field else {
-        return Err(syn::Error::new(
-            fields.span(),
-            "RelationshipTarget can only be derived for structs with a single private unnamed field or for structs where one field is annotated with #[relationship] and is private.",
-        ));
-    };
+    let field = relationship_field(fields, "RelationshipTarget", struct_token.span())?;
 
     if field.vis != Visibility::Inherited {
         return Err(syn::Error::new(field.span(), "The collection in RelationshipTarget must be private to prevent users from directly mutating it, which could invalidate the correctness of relationships."));
@@ -778,26 +769,36 @@ fn derive_relationship_target(
 }
 
 /// Returns the field with the `#[relationship]` attribute, the only field if unnamed,
-/// or the only field in a [`Fields::Named`] with one field, otherwise None.
-fn relationship_field(fields: &Fields, span: Span) -> Result<Option<&Field>> {
-    let field = match fields {
-        Fields::Named(fields) if fields.named.len() == 1 => fields.named.first(),
+/// or the only field in a [`Fields::Named`] with one field, otherwise `Err`.
+fn relationship_field<'a>(
+    fields: &'a Fields,
+    derive: &'static str,
+    span: Span,
+) -> Result<&'a Field> {
+    match fields {
+        Fields::Named(fields) if fields.named.len() == 1 => Ok(fields.named.first().unwrap()),
         Fields::Named(fields) => fields.named.iter().find(|field| {
             field
                 .attrs
                 .iter()
                 .any(|attr| attr.path().is_ident("relationship"))
-        }),
+        }).ok_or(syn::Error::new(
+            span,
+            format!("{derive} derive expected named structs with a single field or with a field annotated with #[relationship].")
+        )),
         Fields::Unnamed(fields) => fields
             .unnamed
             .len()
             .eq(&1)
             .then(|| fields.unnamed.first())
-            .flatten(),
-        Fields::Unit => return Err(syn::Error::new(
+            .flatten()
+            .ok_or(syn::Error::new(
+                span,
+                format!("{derive} derive expected unnamed structs with one field."),
+            )),
+        Fields::Unit => Err(syn::Error::new(
             span,
-            "Relationship and RelationshipTarget can only be derived for named or unnamed structs, not unit structs.",
+            format!("{derive} derive expected named or unnamed struct, found unit struct."),
         )),
-    };
-    Ok(field)
+    }
 }
