@@ -5,7 +5,6 @@ use thread_local::ThreadLocal;
 /// A cohesive set of thread-local values of a given type.
 ///
 /// Mutable references can be fetched if `T: Default` via [`Parallel::scope`].
-#[derive(Default)]
 pub struct Parallel<T: Send> {
     locals: ThreadLocal<RefCell<T>>,
 }
@@ -72,6 +71,15 @@ impl<T: Send> Parallel<Vec<T>> {
         out.reserve(size);
         for queue in self.locals.iter_mut() {
             out.append(queue.get_mut());
+        }
+    }
+}
+
+// `Default` is manually implemented to avoid the `T: Default` bound.
+impl<T: Send> Default for Parallel<T> {
+    fn default() -> Self {
+        Self {
+            locals: ThreadLocal::default(),
         }
     }
 }
