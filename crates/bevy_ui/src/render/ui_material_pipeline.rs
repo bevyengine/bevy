@@ -374,7 +374,6 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &ComputedNode,
             &GlobalTransform,
             &MaterialNode<M>,
-            &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
         )>,
@@ -383,11 +382,9 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, computed_node, transform, handle, inherited_visibility, clip, camera) in
-        uinode_query.iter()
-    {
+    for (entity, computed_node, transform, handle, clip, camera) in uinode_query.iter() {
         // skip invisible nodes
-        if !inherited_visibility.get() || computed_node.is_empty() {
+        if !computed_node.is_visible || computed_node.is_empty() {
             continue;
         }
 

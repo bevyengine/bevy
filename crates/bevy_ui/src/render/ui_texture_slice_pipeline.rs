@@ -254,7 +254,6 @@ pub fn extract_ui_texture_slices(
             Entity,
             &ComputedNode,
             &GlobalTransform,
-            &InheritedVisibility,
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
             &ImageNode,
@@ -264,9 +263,9 @@ pub fn extract_ui_texture_slices(
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, transform, clip, camera, image) in &slicers_query {
         // Skip invisible images
-        if !inherited_visibility.get()
+        if !uinode.is_visible
             || image.color.is_fully_transparent()
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
