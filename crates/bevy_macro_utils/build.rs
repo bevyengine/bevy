@@ -12,11 +12,18 @@ fn regenerate_official_crates_rs() -> std::io::Result<()> {
 
     if parent_name != "crates" {
         // we are being built as a dependency pulled from crates.io so we can't generate the official crates list
+
+        // there is no need to rerun the build script
+        println!("cargo:rerun-if-changed=build.rs");
         return Ok(());
     }
 
     // we are building bevy from its real repository and are not a dependency
     // so we can list the directory to get all official bevy crates
+
+    // we need to rerun the build script if the list of official bevy crates changes
+    println!("cargo:rerun-if-changed=../");
+
     let mut official_bevy_crates = std::fs::read_dir(parent)?
         .filter_map(|entry| {
             let entry = entry.unwrap();
