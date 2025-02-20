@@ -1,18 +1,17 @@
 //! A shader that uses the GLSL shading language.
 
-use bevy::asset::load_internal_asset;
-use bevy::pbr::{MaterialPipeline, MaterialPipelineKey};
 use bevy::{
+    asset::{load_internal_asset, weak_handle},
+    pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
     render::{
         mesh::MeshVertexBufferLayoutRef,
-        render_resource::{AsBindGroup, ShaderRef},
+        render_resource::{
+            AsBindGroup, RenderPipelineDescriptor, ShaderDefVal, ShaderRef,
+            SpecializedMeshPipelineError,
+        },
     },
-};
-use bevy_asset::weak_handle;
-use bevy_render::render_resource::{
-    RenderPipelineDescriptor, ShaderDefVal, SpecializedMeshPipelineError,
 };
 
 /// This example uses shader source files from the assets subdirectory
