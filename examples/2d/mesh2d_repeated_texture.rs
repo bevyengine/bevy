@@ -55,10 +55,10 @@ fn setup(
             ..default()
         })),
         Transform::from_translation(Vec3::ZERO),
-        Children::spawn(Spawn((
+        children!((
             Text2d::new("Control"),
             Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-        ))),
+        )),
     ));
 
     // left rectangle with repeated texture
@@ -72,10 +72,10 @@ fn setup(
             ..default()
         })),
         Transform::from_xyz(-RECTANGLE_OFFSET, 0.0, 0.0),
-        Children::spawn(Spawn((
+        children!((
             Text2d::new("Repeat On"),
             Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-        ))),
+        )),
     ));
 
     // right rectangle with scaled texture, but with default sampler.
@@ -93,10 +93,10 @@ fn setup(
             ..default()
         })),
         Transform::from_xyz(RECTANGLE_OFFSET, 0.0, 0.0),
-        Children::spawn(Spawn((
+        children!((
             Text2d::new("Repeat Off"),
             Transform::from_xyz(0., (RECTANGLE_SIDE / 2.) + LABEL_OFFSET, 0.),
-        ))),
+        )),
     ));
 
     // camera
