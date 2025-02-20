@@ -33,12 +33,13 @@ impl Plugin for TransformPlugin {
         // add transform systems to startup so the first update is "correct"
         .add_systems(
             PostStartup,
-            ((
+            (
                 propagate_parent_transforms,
-                (compute_transform_leaves, sync_simple_transforms),
+                (compute_transform_leaves, sync_simple_transforms)
+                    .ambiguous_with(TransformSystem::TransformPropagate),
             )
                 .chain()
-                .in_set(PropagateTransformsSet),),
+                .in_set(PropagateTransformsSet),
         )
         .configure_sets(
             PostUpdate,
@@ -46,12 +47,13 @@ impl Plugin for TransformPlugin {
         )
         .add_systems(
             PostUpdate,
-            ((
+            (
                 propagate_parent_transforms,
-                (compute_transform_leaves, sync_simple_transforms),
+                (compute_transform_leaves, sync_simple_transforms)
+                    .ambiguous_with(TransformSystem::TransformPropagate),
             )
                 .chain()
-                .in_set(PropagateTransformsSet),),
+                .in_set(PropagateTransformsSet),
         );
     }
 }

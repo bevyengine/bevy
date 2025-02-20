@@ -185,8 +185,8 @@ mod serial {
             //
             //     A
             //   /   \
-            //  B     C 
-            //   \   / 
+            //  B     C
+            //   \   /
             //     D
             //
             // D has two parents, B and C. If the propagation passes through C, but the ChildOf
@@ -195,10 +195,10 @@ mod serial {
             //
             // Also consider the following case, where A and B are roots:
             //
-            //  A       B 
-            //   \     / 
-            //    C   D 
-            //     \ / 
+            //  A       B
+            //   \     /
+            //    C   D
+            //     \ /
             //      E
             //
             // Even if these A and B start two separate tasks running in parallel, one of them will
@@ -320,8 +320,9 @@ mod parallel {
         // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
         let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
         task_pool.scope(|s| {
-            (0..task_pool.thread_num())
+            (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
                 .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
+            propagation_worker(&queue, &nodes);
         });
     }
 
@@ -401,7 +402,7 @@ mod parallel {
     /// in [`compute_transform_leaves`](super::compute_transform_leaves), which can optimize much
     /// more efficiently.
     ///
-    /// This function will continue propagating transforms to descendents in a depth-first
+    /// This function will continue propagating transforms to descendants in a depth-first
     /// traversal, while simultaneously pushing unvisited branches to the outbox, for other threads
     /// to take when idle.
     ///
@@ -464,7 +465,7 @@ mod parallel {
             let mut last_child = None;
             let new_children = children_iter.map(
                 |(child, (transform, mut global_transform), (children, child_of))| {
-                    assert!(child_of.get() == parent);
+                    assert_eq!(child_of.get(), parent);
                     if p_global_transform.is_changed()
                         || transform.is_changed()
                         || global_transform.is_added()
