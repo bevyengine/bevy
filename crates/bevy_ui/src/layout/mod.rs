@@ -1,5 +1,5 @@
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
+    navigation::{UiChildren, UiRootNodes},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition, Val,
 };
@@ -132,7 +132,7 @@ pub fn ui_layout_system(
                 // Note: This does not cover the case where a parent's Node component was removed.
                 // Users are responsible for fixing hierarchies if they do that (it is not recommended).
                 // Detecting it here would be a permanent perf burden on the hot path.
-                if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                if parent.is_changed() && !ui_children.is_actual(parent.get()) {
                     warn!(
                         "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, your UI layout may be broken."
@@ -141,7 +141,7 @@ with UI components as a child of an entity without UI components, your UI layout
             }
 
             if ui_children.is_changed(entity) {
-                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+                ui_surface.update_children(entity, ui_children.iter_actual_children(entity));
             }
         });
 
@@ -155,7 +155,7 @@ with UI components as a child of an entity without UI components, your UI layout
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
         if ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            ui_surface.update_children(entity, ui_children.iter_actual_children(entity));
         }
     });
 
@@ -324,7 +324,7 @@ with UI components as a child of an entity without UI components, your UI layout
             let physical_scroll_position =
                 (clamped_scroll_position / inverse_target_scale_factor).round();
 
-            for child_uinode in ui_children.iter_ui_children(entity) {
+            for child_uinode in ui_children.iter_actual_children(entity) {
                 update_uinode_geometry_recursive(
                     commands,
                     child_uinode,

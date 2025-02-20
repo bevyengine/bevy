@@ -4,7 +4,7 @@ use bevy_ecs::prelude::*;
 use bevy_platform_support::collections::HashSet;
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
+    navigation::{UiChildren, UiRootNodes},
     ComputedNode, GlobalZIndex, ZIndex,
 };
 
@@ -109,7 +109,7 @@ fn update_uistack_recursive(
     let mut child_buffer = cache.pop();
     child_buffer.extend(
         ui_children
-            .iter_ui_children(node_entity)
+            .iter_actual_children(node_entity)
             .filter_map(|child_entity| {
                 zindex_query
                     .get(child_entity)

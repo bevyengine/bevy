@@ -1,7 +1,7 @@
 //! This module contains systems that update the UI when something changes
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
+    navigation::{UiChildren, UiRootNodes},
     CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
     UiTargetCamera,
 };
@@ -125,7 +125,7 @@ fn update_clipping(
         Some(maybe_inherited_clip.map_or(clip_rect, |c| c.intersect(clip_rect)))
     };
 
-    for child in ui_children.iter_ui_children(entity) {
+    for child in ui_children.iter_actual_children(entity) {
         update_clipping(commands, ui_children, node_query, child, children_clip);
     }
 }
@@ -206,7 +206,7 @@ fn update_contexts_recursively(
         .map(|mut computed_target| computed_target.set_if_neq(inherited_computed_target))
         .unwrap_or(false)
     {
-        for child in ui_children.iter_ui_children(entity) {
+        for child in ui_children.iter_actual_children(entity) {
             update_contexts_recursively(
                 child,
                 inherited_computed_target,
