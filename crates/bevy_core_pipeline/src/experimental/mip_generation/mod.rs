@@ -46,7 +46,7 @@ use crate::{
         graph::{Core3d, Node3d},
         prepare_core_3d_depth_textures,
     },
-    prepass::{DeferredPrepass, DepthPrepass},
+    prepass::DepthPrepass,
 };
 
 /// Identifies the `downsample_depth.wgsl` shader.
@@ -93,9 +93,10 @@ impl Plugin for MipGenerationPlugin {
                 Core3d,
                 (
                     Node3d::EarlyPrepass,
+                    Node3d::EarlyDeferredPrepass,
                     Node3d::EarlyDownsampleDepth,
                     Node3d::LatePrepass,
-                    Node3d::DeferredPrepass,
+                    Node3d::LateDeferredPrepass,
                 ),
             )
             .add_render_graph_edges(
@@ -651,7 +652,6 @@ fn prepare_view_depth_pyramids(
             With<OcclusionCulling>,
             Without<NoIndirectDrawing>,
             With<DepthPrepass>,
-            Without<DeferredPrepass>,
         ),
     >,
 ) {
