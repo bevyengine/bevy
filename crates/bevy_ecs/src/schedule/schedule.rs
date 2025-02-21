@@ -941,7 +941,7 @@ impl ScheduleGraph {
         }
     }
 
-    /// Add a [`SystemConfig`] to the graph, including its dependencies and conditions.
+    /// Add a [`NodeConfig`] to the graph, including its dependencies and conditions.
     fn add_system_inner(
         &mut self,
         config: NodeConfig<ScheduleSystem>,

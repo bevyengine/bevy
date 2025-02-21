@@ -632,12 +632,12 @@ impl<S: SystemSet> IntoNodeConfigs<InternedSystemSet, ()> for S {
 }
 
 #[doc(hidden)]
-pub struct SystemConfigTupleMarker;
+pub struct NodeConfigTupleMarker;
 
 macro_rules! impl_system_collection {
     ($(#[$meta:meta])* $(($param: ident, $sys: ident)),*) => {
         $(#[$meta])*
-        impl<$($param, $sys),*> IntoNodeConfigs<ScheduleSystem, (SystemConfigTupleMarker, $($param,)*)> for ($($sys,)*)
+        impl<$($param, $sys),*> IntoNodeConfigs<ScheduleSystem, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
         where
             $($sys: IntoNodeConfigs<ScheduleSystem, $param>),*
         {
