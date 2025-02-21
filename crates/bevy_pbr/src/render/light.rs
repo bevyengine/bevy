@@ -1555,13 +1555,13 @@ pub fn prepare_lights(
 
                 // If this light is using occlusion culling, add the appropriate components.
                 if light.occlusion_culling {
-                    commands
-                        .entity(view_light_entity)
-                        .insert(OcclusionCulling)
-                        .insert(OcclusionCullingSubview {
+                    commands.entity(view_light_entity).insert((
+                        OcclusionCulling,
+                        OcclusionCullingSubview {
                             depth_texture_view,
                             depth_texture_size: directional_light_shadow_map.size as u32,
-                        });
+                        },
+                    ));
                     view_occlusion_culling_lights.push(view_light_entity);
                 }
 
