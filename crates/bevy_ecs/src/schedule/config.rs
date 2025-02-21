@@ -38,9 +38,12 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
 
 /// Stores data to differentiate different Node types
 pub trait NodeType {
+    /// Used in NodeConfig
     type Metadata;
+    /// Used in NodeConfigs
     type GroupMetadata;
 
+    /// Initialize NodeConfig from NodeType
     fn config(self) -> NodeConfig<Self>
     where
         Self: Sized;
@@ -54,7 +57,6 @@ impl NodeType for ScheduleSystem {
         let sets = self.default_system_sets().into_iter().collect();
         NodeConfig {
             node: self,
-            // need to define metadata value
             metadata: GraphInfo {
                 hierarchy: sets,
                 ..Default::default()
@@ -99,6 +101,7 @@ pub enum NodeConfigs<T: NodeType> {
         configs: Vec<NodeConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
+        /// Metadata for NodeConfigs
         metadata: T::GroupMetadata,
         /// See [`Chain`] for usage.
         chained: Chain,
