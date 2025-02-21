@@ -37,9 +37,9 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
 
-    let camera_outside = false; //length(world_pos) >= atmosphere.top_radius;
+    let camera_outside = in.uv.x > 0.0; //length(world_pos) >= atmosphere.top_radius;
 
-    let raymarch_steps = 8.0;
+    let raymarch_steps = 256.0;
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;

@@ -5,7 +5,7 @@
         functions::{
             view_radius, max_atmosphere_distance, direction_atmosphere_to_world,
             sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
-            raymarch_atmosphere, get_view_position
+            raymarch_atmosphere, get_view_position, view_radius_constant
         },
     }
 }
@@ -23,8 +23,9 @@
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = vec2<f32>(idx.xy) / vec2<f32>(settings.sky_view_lut_size);
 
-    let world_pos = get_view_position();
-    let r = length(world_pos);
+    // let world_pos = vec3<f32>(0.0, 0.0, 0.0); // get_view_position();
+    let r = view_radius_constant();
+    let world_pos = vec3<f32>(0.0, r, 0.0);
     let up = normalize(world_pos);
     var zenith_azimuth = sky_view_lut_uv_to_zenith_azimuth(r, uv);
 

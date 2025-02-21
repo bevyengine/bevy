@@ -38,6 +38,7 @@ fn setup_camera_fog(mut commands: Commands) {
             hdr: true,
             ..default()
         },
+        Msaa::Off,
         initial_transform.clone(),
         CameraOrbit {
             target_transform: initial_transform,
@@ -50,14 +51,14 @@ fn setup_camera_fog(mut commands: Commands) {
         // Most usages of this feature will not need to adjust this.
         AtmosphereSettings {
             aerial_view_lut_max_distance: 3.2e5,
-            scene_units_to_m: 1e+4,
+            scene_units_to_m: 5e+3,
             ..Default::default()
         },
         // The directional light illuminance  used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 15.0 },
+        Exposure { ev100: 13.0 },
         // Tonemapper chosen just because it looked good with the scene, any
         // tonemapper would be fine :)
         Tonemapping::AcesFitted,
@@ -153,16 +154,26 @@ fn setup_terrain_scene(
         Transform::from_xyz(0.0, 5.0, 0.0),
     ));
 
+    // ground plane
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d {
+            normal: Dir3::Y,
+            half_size: Vec2::splat(10.0),
+            ..default()
+        })),
+        MeshMaterial3d(materials.add(StandardMaterial { ..default() })),
+    ));
+
     // Terrain
-    // commands.spawn((
-    //     Terrain,
-    //     SceneRoot(
-    //         asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
-    //     ),
-    //     Transform::from_xyz(-1.0, 0.0, -0.5)
-    //         .with_scale(Vec3::splat(0.5))
-    //         .with_rotation(Quat::from_rotation_y(PI / 2.0)),
-    // ));
+    commands.spawn((
+        Terrain,
+        SceneRoot(
+            asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
+        ),
+        Transform::from_xyz(-1.0, 0.0, -0.5)
+            .with_scale(Vec3::splat(0.5))
+            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+    ));
 }
 
 fn dynamic_scene(mut suns: Query<&mut Transform, With<DirectionalLight>>, time: Res<Time>) {

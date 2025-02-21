@@ -14,6 +14,9 @@
         ray_intersects_ground, distance_to_top_atmosphere_boundary, 
         distance_to_bottom_atmosphere_boundary
     },
+    shadows::{
+        get_shadow
+    }
 }
 
 // NOTE FOR CONVENTIONS: 
@@ -243,7 +246,9 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
-fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
+fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, world_pos: vec3<f32>) -> vec3<f32> {
+    let local_r = length(world_pos);
+    let local_up = normalize(world_pos);
     var inscattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
@@ -263,8 +268,11 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
         let transmittance_to_light = sample_transmittance_lut(local_r, mu_light);
         let shadow_factor = transmittance_to_light * f32(!ray_intersects_ground(local_r, mu_light));
 
+        // sample shadow map
+        let shadow_map_factor = get_shadow(light_i, world_pos, ray_dir);
+
         // Transmittance from scattering event to light source
-        let scattering_factor = shadow_factor * scattering_coeff;
+        let scattering_factor = shadow_factor * scattering_coeff * shadow_map_factor;
 
         // Additive factor from the multiscattering LUT
         let psi_ms = sample_multiscattering_lut(local_r, mu_light);
@@ -309,6 +317,10 @@ fn get_view_position() -> vec3<f32> {
     let origin = vec3(0.0, atmosphere.bottom_radius, 0.0);
     let world_pos = view.world_position * settings.scene_units_to_m + origin;
     return world_pos;
+}
+
+fn view_radius_constant() -> f32 {
+    return view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
 }
 
 /// Assuming y=0 is the planet ground, returns the view radius in meters
@@ -427,7 +439,11 @@ fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
     
     var segment: RaymarchSegment;
     
-    if r < atmosphere.top_radius {
+    if r < atmosphere.bottom_radius {
+        // Inside planet - start from bottom of atmosphere
+        segment.start = ground_intersections.y; // Use second intersection point with ground
+        segment.end = atmosphere_intersections.y;
+    } else if r < atmosphere.top_radius {
         // Inside atmosphere
         segment.start = 0.0;
         segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));
@@ -494,8 +510,7 @@ fn raymarch_atmosphere(
         let inscattering = sample_local_inscattering(
             local_atmosphere,
             ray_dir,
-            local_r,
-            local_up
+            sample_pos
         );
 
         let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;

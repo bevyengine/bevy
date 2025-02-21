@@ -19,7 +19,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
 
-use crate::{GpuLights, LightMeta};
+use crate::{GpuLights, LightMeta, ShadowSamplers, ViewShadowBindings};
 
 use super::{shaders, Atmosphere, AtmosphereSettings};
 
@@ -101,6 +101,12 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
+                    (
+                        // directional shadow texture
+                        14,
+                        texture_2d_array(TextureSampleType::Depth),
+                    ),
+                    (15, sampler(SamplerBindingType::Comparison)),
                 ),
             ),
         );
@@ -127,6 +133,12 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
+                    (
+                        // directional shadow texture
+                        14,
+                        texture_2d_array(TextureSampleType::Depth),
+                    ),
+                    (15, sampler(SamplerBindingType::Comparison)),
                 ),
             ),
         );
@@ -170,6 +182,12 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         13,
                         texture_2d(TextureSampleType::Depth),
                     ),
+                    (
+                        // directional shadow texture
+                        14,
+                        texture_2d_array(TextureSampleType::Depth),
+                    ),
+                    (15, sampler(SamplerBindingType::Comparison)),
                 ),
             ),
         );
@@ -201,6 +219,12 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         13,
                         texture_2d_multisampled(TextureSampleType::Depth),
                     ),
+                    (
+                        // directional shadow texture
+                        14,
+                        texture_2d_array(TextureSampleType::Depth),
+                    ),
+                    (15, sampler(SamplerBindingType::Comparison)),
                 ),
             ),
         );
@@ -569,19 +593,23 @@ pub(super) fn prepare_atmosphere_transforms(
 
     for (entity, view) in &views {
         let world_from_view = view.world_from_view.compute_matrix();
-        let camera_z = world_from_view.z_axis.truncate();
-        let camera_y = world_from_view.y_axis.truncate();
-        let atmo_z = camera_z
-            .with_y(0.0)
-            .try_normalize()
-            .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
+        let camera_pos = world_from_view.w_axis.truncate();
+
+        // Keep a fixed atmosphere space orientation (Y up)
         let atmo_y = Vec3::Y;
+        let camera_z = world_from_view.z_axis.truncate();
+
+        // Project camera's forward onto the horizontal plane
+        let forward = (camera_z - camera_z.dot(atmo_y) * atmo_y).normalize();
+        let atmo_z = forward;
         let atmo_x = atmo_y.cross(atmo_z).normalize();
+
+        // Create transform with fixed orientation but offset position
         let world_from_atmosphere = Mat4::from_cols(
             atmo_x.extend(0.0),
             atmo_y.extend(0.0),
             atmo_z.extend(0.0),
-            world_from_view.w_axis,
+            camera_pos.extend(1.0),
         );
 
         let atmosphere_from_world = world_from_atmosphere.inverse();
@@ -606,7 +634,13 @@ pub(crate) struct AtmosphereBindGroups {
 
 pub(super) fn prepare_atmosphere_bind_groups(
     views: Query<
-        (Entity, &AtmosphereTextures, &ViewDepthTexture, &Msaa),
+        (
+            Entity,
+            &AtmosphereTextures,
+            &ViewDepthTexture,
+            &ViewShadowBindings,
+            &Msaa,
+        ),
         (With<Camera3d>, With<Atmosphere>),
     >,
     render_device: Res<RenderDevice>,
@@ -618,7 +652,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     atmosphere_transforms: Res<AtmosphereTransforms>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
     settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
-
+    shadow_samplers: Res<ShadowSamplers>,
     mut commands: Commands,
 ) {
     if views.iter().len() == 0 {
@@ -648,7 +682,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .binding()
         .expect("Failed to prepare atmosphere bind groups. Lights uniform buffer missing");
 
-    for (entity, textures, view_depth_texture, msaa) in &views {
+    for (entity, textures, view_depth_texture, shadow_bindings, msaa) in &views {
         let transmittance_lut = render_device.create_bind_group(
             "transmittance_lut_bind_group",
             &layouts.transmittance_lut,
@@ -685,6 +719,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (7, &textures.multiscattering_lut.default_view),
                 (8, &samplers.multiscattering_lut),
                 (13, &textures.sky_view_lut.default_view),
+                (14, &shadow_bindings.directional_light_depth_texture_view),
+                (15, &shadow_samplers.directional_light_comparison_sampler),
             )),
         );
 
@@ -702,6 +738,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (7, &textures.multiscattering_lut.default_view),
                 (8, &samplers.multiscattering_lut),
                 (13, &textures.aerial_view_lut.default_view),
+                (14, &shadow_bindings.directional_light_depth_texture_view),
+                (15, &shadow_samplers.directional_light_comparison_sampler),
             )),
         );
 
@@ -727,6 +765,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (11, &textures.aerial_view_lut.default_view),
                 (12, &samplers.aerial_view_lut),
                 (13, view_depth_texture.view()),
+                (14, &shadow_bindings.directional_light_depth_texture_view),
+                (15, &shadow_samplers.directional_light_comparison_sampler),
             )),
         );
 

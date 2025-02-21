@@ -92,6 +92,7 @@ mod shaders {
     pub const AERIAL_VIEW_LUT: Handle<Shader> =
         weak_handle!("a3daf030-4b64-49ae-a6a7-354489597cbe");
     pub const RENDER_SKY: Handle<Shader> = weak_handle!("09422f46-d0f7-41c1-be24-121c17d6e834");
+    pub const SHADOWS: Handle<Shader> = weak_handle!("da0da888-9626-48e5-b1fa-305fac2da8b8");
 }
 
 #[doc(hidden)]
@@ -144,6 +145,8 @@ impl Plugin for AtmospherePlugin {
             "render_sky.wgsl",
             Shader::from_wgsl
         );
+
+        load_internal_asset!(app, shaders::SHADOWS, "shadows.wgsl", Shader::from_wgsl);
 
         app.register_type::<Atmosphere>()
             .register_type::<AtmosphereSettings>()
