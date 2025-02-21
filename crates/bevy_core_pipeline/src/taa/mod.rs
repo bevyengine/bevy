@@ -11,7 +11,7 @@ use bevy_ecs::{
     prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     resource::Resource,
-    schedule::IntoSystemConfigs,
+    schedule::IntoNodeConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };

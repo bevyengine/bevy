@@ -10,7 +10,7 @@ use bevy_core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT};
 use bevy_ecs::{
     prelude::Entity,
     resource::Resource,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
+    schedule::IntoNodeConfigs,
     system::{Query, Res, ResMut},
     world::{FromWorld, World},
 };

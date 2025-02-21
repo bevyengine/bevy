@@ -279,14 +279,14 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
 /// # Examples
 ///
 /// ```
-/// # use bevy_ecs::schedule::IntoSystemConfigs;
+/// # use bevy_ecs::schedule::IntoNodeConfigs;
 /// # struct AppMock;
 /// # struct Update;
 /// # impl AppMock {
 /// #     pub fn add_systems<M>(
 /// #         &mut self,
 /// #         schedule: Update,
-/// #         systems: impl IntoSystemConfigs<M>,
+/// #         systems: impl IntoNodeConfigs<M>,
 /// #    ) -> &mut Self { self }
 /// # }
 /// # let mut app = AppMock;
@@ -396,7 +396,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     /// Each individual condition will be evaluated at most once (per schedule run),
     /// right before the corresponding system prepares to run.
     ///
-    /// This is equivalent to calling [`run_if`](IntoSystemConfigs::run_if) on each individual
+    /// This is equivalent to calling [`run_if`](IntoNodeConfigs::run_if) on each individual
     /// system, as shown below:
     ///
     /// ```
@@ -453,7 +453,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     /// is upheld after the first system has run. You need to make sure that no other systems that
     /// could invalidate the condition are scheduled inbetween the first and last run system.
     ///
-    /// Use [`distributive_run_if`](IntoSystemConfigs::distributive_run_if) if you want the
+    /// Use [`distributive_run_if`](IntoNodeConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
     fn run_if<M>(self, condition: impl Condition<M>) -> NodeConfigs<T>
     where
@@ -585,7 +585,7 @@ impl<T: NodeType<Metadata = GraphInfo>> IntoNodeConfigs<T, ()> for NodeConfigs<T
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
+/// Marker component to allow for conflicting implementations of [`IntoNodeConfigs`]
 #[doc(hidden)]
 pub struct Infallible;
 
@@ -599,7 +599,7 @@ where
     }
 }
 
-/// Marker component to allow for conflicting implementations of [`IntoSystemConfigs`]
+/// Marker component to allow for conflicting implementations of [`IntoNodeConfigs`]
 #[doc(hidden)]
 pub struct Fallible;
 
@@ -616,6 +616,12 @@ where
 impl IntoNodeConfigs<ScheduleSystem, ()> for BoxedSystem<(), Result> {
     fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
         NodeConfigs::NodeConfig(ScheduleSystem::config(self))
+    }
+}
+
+impl<S: SystemSet> IntoNodeConfigs<InternedSystemSet, ()> for S {
+    fn into_configs(self) -> NodeConfigs<InternedSystemSet> {
+        NodeConfigs::NodeConfig(InternedSystemSet::config(self.intern()))
     }
 }
 

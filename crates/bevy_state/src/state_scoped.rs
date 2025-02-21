@@ -44,7 +44,7 @@ use crate::state::{StateTransitionEvent, States};
 /// # impl AppMock {
 /// #     fn init_state<S>(&mut self) {}
 /// #     fn enable_state_scoped_entities<S>(&mut self) {}
-/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoSystemConfigs<M>) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoNodeConfigs<M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;

@@ -16,7 +16,7 @@ use bevy_ecs::{
     prelude::{resource_exists, Without},
     query::{QueryItem, With},
     resource::Resource,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoNodeConfigs as _,
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
