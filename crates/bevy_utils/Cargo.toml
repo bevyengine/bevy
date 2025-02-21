@@ -30,10 +30,6 @@ alloc = ["bevy_platform_support/alloc"]
 ## on all platforms, including `no_std`.
 critical-section = ["bevy_platform_support/critical-section"]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = ["bevy_platform_support/portable-atomic"]
-
 [dependencies]
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
 
