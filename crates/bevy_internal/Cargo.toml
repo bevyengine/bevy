@@ -369,7 +369,7 @@ bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-d
 ] }
 bevy_ptr = { path = "../bevy_ptr", version = "0.16.0-dev", default-features = false }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", default-features = false, features = [
-  "bevy",
+  "smallvec",
 ] }
 bevy_time = { path = "../bevy_time", version = "0.16.0-dev", default-features = false, features = [
   "bevy_reflect",
