@@ -253,7 +253,7 @@ impl Plugin for MeshletPlugin {
                 Core3d,
                 (
                     NodeMeshlet::VisibilityBufferRasterPass,
-                    NodePbr::ShadowPass,
+                    NodePbr::EarlyShadowPass,
                     //
                     NodeMeshlet::Prepass,
                     //
