@@ -281,16 +281,16 @@ pub struct UiCameraMapper<'w, 's> {
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
     pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
-        let camera_entity = computed_target.camera;
-        if self.camera_entity != camera_entity {
-            let Ok(new_render_camera_entity) = self.mapping.get(camera_entity) else {
-                return None;
-            };
-            self.render_entity = new_render_camera_entity;
-            self.camera_entity = camera_entity;
-        }
-
-        Some(self.render_entity)
+        computed_target.camera().and_then(|camera| {
+            if self.camera_entity != camera {
+                let Ok(new_render_camera_entity) = self.mapping.get(camera) else {
+                    return None;
+                };
+                self.render_entity = new_render_camera_entity;
+                self.camera_entity = camera;
+            }
+            Some(self.render_entity)
+        })
     }
 
     pub fn current_camera(&self) -> Entity {
@@ -389,17 +389,17 @@ pub fn extract_uinode_images(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
             &ImageNode,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, target, transform, inherited_visibility, clip, image) in &uinode_query {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -410,7 +410,7 @@ pub fn extract_uinode_images(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
@@ -473,10 +473,10 @@ pub fn extract_uinode_borders(
             Entity,
             &Node,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -489,10 +489,10 @@ pub fn extract_uinode_borders(
         entity,
         node,
         computed_node,
+        target,
         global_transform,
         inherited_visibility,
         maybe_clip,
-        camera,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
@@ -501,7 +501,7 @@ pub fn extract_uinode_borders(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
@@ -800,6 +800,7 @@ pub fn extract_text_shadows(
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -817,6 +818,7 @@ pub fn extract_text_shadows(
     for (
         entity,
         uinode,
+        target,
         global_transform,
         inherited_visibility,
         clip,
@@ -840,7 +842,7 @@ pub fn extract_text_shadows(
 
         let transform = global_transform.affine()
             * Mat4::from_translation(
-                (-0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor()).extend(0.),
+                (-0.5 * uinode.size() + shadow.offset * target.scale_factor()).extend(0.),
             );
 
         for (
