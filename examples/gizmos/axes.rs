@@ -147,22 +147,22 @@ fn random_transform(rng: &mut impl Rng) -> Transform {
 }
 
 fn random_translation(rng: &mut impl Rng) -> Vec3 {
-    let x = rng.gen::<f32>() * (TRANSLATION_BOUND_UPPER_X - TRANSLATION_BOUND_LOWER_X)
+    let x = rng.r#gen::<f32>() * (TRANSLATION_BOUND_UPPER_X - TRANSLATION_BOUND_LOWER_X)
         + TRANSLATION_BOUND_LOWER_X;
-    let y = rng.gen::<f32>() * (TRANSLATION_BOUND_UPPER_Y - TRANSLATION_BOUND_LOWER_Y)
+    let y = rng.r#gen::<f32>() * (TRANSLATION_BOUND_UPPER_Y - TRANSLATION_BOUND_LOWER_Y)
         + TRANSLATION_BOUND_LOWER_Y;
-    let z = rng.gen::<f32>() * (TRANSLATION_BOUND_UPPER_Z - TRANSLATION_BOUND_LOWER_Z)
+    let z = rng.r#gen::<f32>() * (TRANSLATION_BOUND_UPPER_Z - TRANSLATION_BOUND_LOWER_Z)
         + TRANSLATION_BOUND_LOWER_Z;
 
     Vec3::new(x, y, z)
 }
 
 fn random_scale(rng: &mut impl Rng) -> Vec3 {
-    let x_factor_log = rng.gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
+    let x_factor_log = rng.r#gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
         + SCALING_BOUND_LOWER_LOG;
-    let y_factor_log = rng.gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
+    let y_factor_log = rng.r#gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
         + SCALING_BOUND_LOWER_LOG;
-    let z_factor_log = rng.gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
+    let z_factor_log = rng.r#gen::<f32>() * (SCALING_BOUND_UPPER_LOG - SCALING_BOUND_LOWER_LOG)
         + SCALING_BOUND_LOWER_LOG;
 
     Vec3::new(
@@ -186,14 +186,14 @@ fn elerp(v1: Vec3, v2: Vec3, t: f32) -> Vec3 {
 
 fn random_rotation(rng: &mut impl Rng) -> Quat {
     let dir = random_direction(rng);
-    let angle = rng.gen::<f32>() * 2. * PI;
+    let angle = rng.r#gen::<f32>() * 2. * PI;
 
     Quat::from_axis_angle(dir, angle)
 }
 
 fn random_direction(rng: &mut impl Rng) -> Vec3 {
-    let height = rng.gen::<f32>() * 2. - 1.;
-    let theta = rng.gen::<f32>() * 2. * PI;
+    let height = rng.r#gen::<f32>() * 2. - 1.;
+    let theta = rng.r#gen::<f32>() * 2. * PI;
 
     build_direction(height, theta)
 }
