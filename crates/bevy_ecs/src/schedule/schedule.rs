@@ -173,7 +173,7 @@ impl Schedules {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
+        systems: impl IntoNodeConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
         self.entry(schedule).add_systems(systems);
 
@@ -182,10 +182,10 @@ impl Schedules {
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
-    pub fn configure_sets(
+    pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoSystemSetConfigs,
+        sets: impl IntoNodeConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.entry(schedule).configure_sets(sets);
 
@@ -334,7 +334,10 @@ impl Schedule {
     }
 
     /// Add a collection of systems to the schedule.
-    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
+    pub fn add_systems<M>(
+        &mut self,
+        systems: impl IntoNodeConfigs<ScheduleSystem, M>,
+    ) -> &mut Self {
         self.graph.process_configs(systems.into_configs(), false);
         self
     }
@@ -372,7 +375,10 @@ impl Schedule {
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
     #[track_caller]
-    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
+    pub fn configure_sets<Marker>(
+        &mut self,
+        sets: impl IntoNodeConfigs<InternedSystemSet, Marker>,
+    ) -> &mut Self {
         self.graph.configure_sets(sets);
         self
     }
@@ -805,7 +811,7 @@ impl ScheduleGraph {
         &self.conflicting_systems
     }
 
-    fn process_config<T: ProcessNodeConfig>(
+    fn process_config<T: ProcessNodeConfig + NodeType>(
         &mut self,
         config: NodeConfig<T>,
         collect_nodes: bool,
@@ -819,7 +825,7 @@ impl ScheduleGraph {
         }
     }
 
-    fn apply_collective_conditions<T: ProcessNodeConfig>(
+    fn apply_collective_conditions<T: ProcessNodeConfig + NodeType<Metadata = GraphInfo>>(
         &mut self,
         configs: &mut [NodeConfigs<T>],
         collective_conditions: Vec<BoxedCondition>,
@@ -834,7 +840,7 @@ impl ScheduleGraph {
                 for config in configs.iter_mut() {
                     config.in_set_inner(set.intern());
                 }
-                let mut set_config = SystemSetConfig::new(set.intern());
+                let mut set_config = InternedSystemSet::config(set.intern());
                 set_config.conditions.extend(collective_conditions);
                 self.configure_set_inner(set_config).unwrap();
             }
@@ -850,7 +856,7 @@ impl ScheduleGraph {
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
-    fn process_configs<T: ProcessNodeConfig>(
+    fn process_configs<T: ProcessNodeConfig + NodeType<Metadata = GraphInfo>>(
         &mut self,
         configs: NodeConfigs<T>,
         collect_nodes: bool,
@@ -858,6 +864,7 @@ impl ScheduleGraph {
         match configs {
             NodeConfigs::NodeConfig(config) => self.process_config(config, collect_nodes),
             NodeConfigs::Configs {
+                metadata,
                 mut configs,
                 collective_conditions,
                 chained,
@@ -935,11 +942,14 @@ impl ScheduleGraph {
     }
 
     /// Add a [`SystemConfig`] to the graph, including its dependencies and conditions.
-    fn add_system_inner(&mut self, config: SystemConfig) -> Result<NodeId, ScheduleBuildError> {
+    fn add_system_inner(
+        &mut self,
+        config: NodeConfig<ScheduleSystem>,
+    ) -> Result<NodeId, ScheduleBuildError> {
         let id = NodeId::System(self.systems.len());
 
         // graph updates are immediate
-        self.update_graphs(id, config.graph_info)?;
+        self.update_graphs(id, config.metadata)?;
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, 0));
@@ -950,15 +960,18 @@ impl ScheduleGraph {
     }
 
     #[track_caller]
-    fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
+    fn configure_sets<Marker>(&mut self, sets: impl IntoNodeConfigs<InternedSystemSet, Marker>) {
         self.process_configs(sets.into_configs(), false);
     }
 
     /// Add a single `SystemSetConfig` to the graph, including its dependencies and conditions.
-    fn configure_set_inner(&mut self, set: SystemSetConfig) -> Result<NodeId, ScheduleBuildError> {
-        let SystemSetConfig {
+    fn configure_set_inner(
+        &mut self,
+        set: NodeConfig<InternedSystemSet>,
+    ) -> Result<NodeId, ScheduleBuildError> {
+        let NodeConfig {
             node: set,
-            graph_info,
+            metadata,
             mut conditions,
         } = set;
 
@@ -968,7 +981,7 @@ impl ScheduleGraph {
         };
 
         // graph updates are immediate
-        self.update_graphs(id, graph_info)?;
+        self.update_graphs(id, metadata)?;
 
         // system init has to be deferred (need `&mut World`)
         let system_set_conditions = &mut self.system_set_conditions[id.index()];
@@ -1537,7 +1550,9 @@ struct ProcessConfigsResult {
 /// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
 trait ProcessNodeConfig: Sized {
     /// Process a single [`NodeConfig`].
-    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId
+    where
+        Self: NodeType;
 }
 
 impl ProcessNodeConfig for ScheduleSystem {
@@ -2037,10 +2052,7 @@ mod tests {
 
     use crate::{
         prelude::{Res, Resource},
-        schedule::{
-            tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
-            ScheduleBuildSettings, SystemSet,
-        },
+        schedule::{tests::ResMut, IntoNodeConfigs, Schedule, ScheduleBuildSettings, SystemSet},
         system::Commands,
         world::World,
     };

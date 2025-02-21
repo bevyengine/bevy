@@ -92,8 +92,8 @@ pub mod prelude {
         resource::Resource,
         result::{Error, Result},
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
-            IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
+            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoNodeConfigs,
+            IntoSystemSet, Schedule, Schedules, SystemSet,
         },
         spawn::{Spawn, SpawnRelated},
         system::{
