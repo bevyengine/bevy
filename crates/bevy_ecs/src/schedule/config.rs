@@ -43,7 +43,7 @@ pub trait NodeType {
     /// Used in `NodeConfigs`
     type GroupMetadata;
 
-    /// Initialize `NodeConfig` from NodeType
+    /// Initialize `NodeConfig` from `NodeType``
     fn config(self) -> NodeConfig<Self>
     where
         Self: Sized;
@@ -281,6 +281,7 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
 ///
 /// ```
 /// # use bevy_ecs::schedule::IntoNodeConfigs;
+/// # use bevy_ecs::system::ScheduleSystem;
 /// # struct AppMock;
 /// # struct Update;
 /// # impl AppMock {
