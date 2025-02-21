@@ -6,8 +6,8 @@ use serde_json::Value;
 
 #[cfg(feature = "pbr_multi_layer_material_textures")]
 use {
-    crate::loader::gltf_ext::material::MaterialExt, bevy_asset::Handle, bevy_image::Image,
-    bevy_pbr::UvChannel,
+    crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
+    bevy_image::Image, bevy_pbr::UvChannel,
 };
 
 /// Parsed data from the `KHR_materials_clearcoat` extension.
@@ -52,7 +52,8 @@ impl ClearcoatExtension {
             .as_object()?;
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_channel, clearcoat_texture) = material.parse_material_extension_texture(
+        let (clearcoat_channel, clearcoat_texture) = parse_material_extension_texture(
+            material,
             load_context,
             document,
             extension,
@@ -61,8 +62,9 @@ impl ClearcoatExtension {
         );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_roughness_channel, clearcoat_roughness_texture) = material
-            .parse_material_extension_texture(
+        let (clearcoat_roughness_channel, clearcoat_roughness_texture) =
+            parse_material_extension_texture(
+                material,
                 load_context,
                 document,
                 extension,
@@ -71,14 +73,14 @@ impl ClearcoatExtension {
             );
 
         #[cfg(feature = "pbr_multi_layer_material_textures")]
-        let (clearcoat_normal_channel, clearcoat_normal_texture) = material
-            .parse_material_extension_texture(
-                load_context,
-                document,
-                extension,
-                "clearcoatNormalTexture",
-                "clearcoat normal",
-            );
+        let (clearcoat_normal_channel, clearcoat_normal_texture) = parse_material_extension_texture(
+            material,
+            load_context,
+            document,
+            extension,
+            "clearcoatNormalTexture",
+            "clearcoat normal",
+        );
 
         Some(ClearcoatExtension {
             clearcoat_factor: extension.get("clearcoatFactor").and_then(Value::as_f64),

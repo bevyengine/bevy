@@ -67,12 +67,17 @@ use self::{
     data_uri::DataUri,
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
-        extras::ExtrasExt,
-        material::MaterialExt,
-        mesh::{MeshExt, ModeExt},
-        scene::NodeExt,
-        texture::{TextureExt, TextureTransformExt},
-        DocumentExt, GltfExt,
+        check_for_cycles,
+        extras::as_gltf_extras,
+        get_linear_textures,
+        material::{
+            alpha_mode, material_label, needs_tangents, uv_channel,
+            warn_on_differing_texture_transforms,
+        },
+        mesh::{primitive_name, primitive_topology},
+        scene::{collect_path, node_name, node_transform, scene_label},
+        skin::{inverse_bind_matrices_label, skin_label},
+        texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
     image_or_path::ImageOrPath,
     primitive_morph_attributes_iter::PrimitiveMorphAttributesIter,
@@ -231,7 +236,7 @@ async fn load_gltf<'a, 'b, 'c>(
         .to_string();
     let buffer_data = load_buffers(&gltf, load_context).await?;
 
-    let linear_textures = gltf.get_linear_textures();
+    let linear_textures = get_linear_textures(&gltf.document);
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
@@ -239,7 +244,7 @@ async fn load_gltf<'a, 'b, 'c>(
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 let root_index = node.index();
-                node.collect_path(&[], &mut paths, root_index, &mut HashSet::default());
+                collect_path(&node, &[], &mut paths, root_index, &mut HashSet::default());
             }
         }
         paths
@@ -587,7 +592,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 mesh: gltf_mesh.index(),
                 primitive: primitive.index(),
             };
-            let primitive_topology = primitive.mode().primitive_topology()?;
+            let primitive_topology = primitive_topology(primitive.mode())?;
 
             let mut mesh = Mesh::new(primitive_topology, settings.load_meshes);
 
@@ -674,7 +679,7 @@ async fn load_gltf<'a, 'b, 'c>(
             {
                 mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
             } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
-                && primitive.material().needs_tangents()
+                && needs_tangents(&primitive.material())
             {
                 tracing::debug!(
                     "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
@@ -701,13 +706,12 @@ async fn load_gltf<'a, 'b, 'c>(
                     .material()
                     .index()
                     .and_then(|i| materials.get(i).cloned()),
-                primitive.extras().as_gltf_extras(),
-                primitive.material().extras().as_gltf_extras(),
+                as_gltf_extras(primitive.extras()),
+                as_gltf_extras(primitive.material().extras()),
             ));
         }
 
-        let mesh =
-            super::GltfMesh::new(&gltf_mesh, primitives, gltf_mesh.extras().as_gltf_extras());
+        let mesh = super::GltfMesh::new(&gltf_mesh, primitives, as_gltf_extras(gltf_mesh.extras()));
 
         let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
         if let Some(name) = gltf_mesh.name() {
@@ -727,7 +731,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 .collect();
 
             load_context.add_labeled_asset(
-                GltfAssetLabel::from((&gltf_skin, true)).to_string(),
+                inverse_bind_matrices_label(&gltf_skin).to_string(),
                 SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
             )
         })
@@ -746,7 +750,7 @@ async fn load_gltf<'a, 'b, 'c>(
     }
 
     // Then check for cycles.
-    gltf.check_for_cycles()?;
+    check_for_cycles(&gltf)?;
 
     // Now populate the nodes.
     for node in gltf.nodes() {
@@ -771,11 +775,10 @@ async fn load_gltf<'a, 'b, 'c>(
                 &skin,
                 joints,
                 skinned_mesh_inverse_bindposes[skin.index()].clone(),
-                skin.extras().as_gltf_extras(),
+                as_gltf_extras(skin.extras()),
             );
 
-            let handle = load_context
-                .add_labeled_asset(GltfAssetLabel::from((&skin, false)).to_string(), gltf_skin);
+            let handle = load_context.add_labeled_asset(skin_label(&skin).to_string(), gltf_skin);
 
             skins.push(handle.clone());
             if let Some(name) = skin.name() {
@@ -799,9 +802,9 @@ async fn load_gltf<'a, 'b, 'c>(
             &node,
             children,
             mesh,
-            node.node_transform(),
+            node_transform(&node),
             skin,
-            node.extras().as_gltf_extras(),
+            as_gltf_extras(node.extras()),
         );
 
         #[cfg(feature = "bevy_animation")]
@@ -896,8 +899,8 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world));
-        let scene_handle = load_context
-            .add_loaded_labeled_asset(GltfAssetLabel::from(&scene).to_string(), loaded_scene);
+        let scene_handle =
+            load_context.add_loaded_labeled_asset(scene_label(&scene).to_string(), loaded_scene);
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.into(), scene_handle.clone());
@@ -942,7 +945,7 @@ async fn load_image<'a, 'b>(
     render_asset_usages: RenderAssetUsages,
 ) -> Result<ImageOrPath, GltfError> {
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
-    let sampler_descriptor = gltf_texture.texture_sampler();
+    let sampler_descriptor = texture_sampler(&gltf_texture);
     #[cfg(all(debug_assertions, feature = "dds"))]
     let name = gltf_texture
         .name()
@@ -1007,7 +1010,7 @@ fn load_material(
     document: &Document,
     is_scale_inverted: bool,
 ) -> Handle<StandardMaterial> {
-    let material_label = GltfAssetLabel::from((material, is_scale_inverted));
+    let material_label = material_label(material, is_scale_inverted);
     load_context.labeled_asset_scope(material_label.to_string(), |load_context| {
         let pbr = material.pbr_metallic_roughness();
 
@@ -1015,61 +1018,59 @@ fn load_material(
         let color = pbr.base_color_factor();
         let base_color_channel = pbr
             .base_color_texture()
-            .map(|info| material.uv_channel("base color", info.tex_coord()))
+            .map(|info| uv_channel(material, "base color", info.tex_coord()))
             .unwrap_or_default();
         let base_color_texture = pbr
             .base_color_texture()
-            .map(|info| info.texture().handle(load_context));
+            .map(|info| texture_handle(&info.texture(), load_context));
 
         let uv_transform = pbr
             .base_color_texture()
-            .and_then(|info| {
-                info.texture_transform()
-                    .map(TextureTransformExt::to_affine2)
-            })
+            .and_then(|info| info.texture_transform().map(texture_transform_to_affine2))
             .unwrap_or_default();
 
         let normal_map_channel = material
             .normal_texture()
-            .map(|info| material.uv_channel("normal map", info.tex_coord()))
+            .map(|info| uv_channel(material, "normal map", info.tex_coord()))
             .unwrap_or_default();
         let normal_map_texture: Option<Handle<Image>> =
             material.normal_texture().map(|normal_texture| {
                 // TODO: handle normal_texture.scale
-                normal_texture.texture().handle(load_context)
+                texture_handle(&normal_texture.texture(), load_context)
             });
 
         let metallic_roughness_channel = pbr
             .metallic_roughness_texture()
-            .map(|info| material.uv_channel("metallic/roughness", info.tex_coord()))
+            .map(|info| uv_channel(material, "metallic/roughness", info.tex_coord()))
             .unwrap_or_default();
         let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
-            material.warn_on_differing_texture_transforms(
+            warn_on_differing_texture_transforms(
+                material,
                 &info,
                 uv_transform,
                 "metallic/roughness",
             );
-            info.texture().handle(load_context)
+            texture_handle(&info.texture(), load_context)
         });
 
         let occlusion_channel = material
             .occlusion_texture()
-            .map(|info| material.uv_channel("occlusion", info.tex_coord()))
+            .map(|info| uv_channel(material, "occlusion", info.tex_coord()))
             .unwrap_or_default();
         let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            occlusion_texture.texture().handle(load_context)
+            texture_handle(&occlusion_texture.texture(), load_context)
         });
 
         let emissive = material.emissive_factor();
         let emissive_channel = material
             .emissive_texture()
-            .map(|info| material.uv_channel("emissive", info.tex_coord()))
+            .map(|info| uv_channel(material, "emissive", info.tex_coord()))
             .unwrap_or_default();
         let emissive_texture = material.emissive_texture().map(|info| {
             // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            material.warn_on_differing_texture_transforms(&info, uv_transform, "emissive");
-            info.texture().handle(load_context)
+            warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
+            texture_handle(&info.texture(), load_context)
         });
 
         #[cfg(feature = "pbr_transmission_textures")]
@@ -1079,12 +1080,12 @@ fn load_material(
                 .map_or((0.0, UvChannel::Uv0, None), |transmission| {
                     let specular_transmission_channel = transmission
                         .transmission_texture()
-                        .map(|info| material.uv_channel("specular/transmission", info.tex_coord()))
+                        .map(|info| uv_channel(material, "specular/transmission", info.tex_coord()))
                         .unwrap_or_default();
                     let transmission_texture: Option<Handle<Image>> = transmission
                         .transmission_texture()
                         .map(|transmission_texture| {
-                            transmission_texture.texture().handle(load_context)
+                            texture_handle(&transmission_texture.texture(), load_context)
                         });
 
                     (
@@ -1111,11 +1112,12 @@ fn load_material(
             |volume| {
                 let thickness_channel = volume
                     .thickness_texture()
-                    .map(|info| material.uv_channel("thickness", info.tex_coord()))
+                    .map(|info| uv_channel(material, "thickness", info.tex_coord()))
                     .unwrap_or_default();
-                let thickness_texture: Option<Handle<Image>> = volume
-                    .thickness_texture()
-                    .map(|thickness_texture| thickness_texture.texture().handle(load_context));
+                let thickness_texture: Option<Handle<Image>> =
+                    volume.thickness_texture().map(|thickness_texture| {
+                        texture_handle(&thickness_texture.texture(), load_context)
+                    });
 
                 (
                     volume.thickness_factor(),
@@ -1198,7 +1200,7 @@ fn load_material(
                 attenuation_color[2],
             ),
             unlit: material.unlit(),
-            alpha_mode: MaterialExt::alpha_mode(material),
+            alpha_mode: alpha_mode(material),
             uv_transform,
             clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
             clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
@@ -1261,7 +1263,7 @@ fn load_node(
     document: &Document,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = gltf_node.node_transform();
+    let transform = node_transform(gltf_node);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1272,7 +1274,7 @@ fn load_node(
     let is_scale_inverted = world_transform.scale.is_negative_bitmask().count_ones() & 1 == 1;
     let mut node = child_spawner.spawn((transform, Visibility::default()));
 
-    let name = gltf_node.node_name();
+    let name = node_name(gltf_node);
     node.insert(name.clone());
 
     #[cfg(feature = "bevy_animation")]
@@ -1358,8 +1360,7 @@ fn load_node(
                 // append primitives
                 for primitive in mesh.primitives() {
                     let material = primitive.material();
-                    let material_label =
-                        GltfAssetLabel::from((&material, is_scale_inverted)).to_string();
+                    let material_label = material_label(&material, is_scale_inverted).to_string();
 
                     // This will make sure we load the default material now since it would not have been
                     // added when iterating over all the gltf materials (since the default material is
@@ -1431,7 +1432,7 @@ fn load_node(
                         mesh_entity.insert(GltfMaterialName(String::from(name)));
                     }
 
-                    mesh_entity.insert(Name::new(mesh.primitive_name(&primitive)));
+                    mesh_entity.insert(Name::new(primitive_name(&mesh, &primitive)));
                     // Mark for adding skinned mesh
                     if let Some(skin) = gltf_node.skin() {
                         entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());

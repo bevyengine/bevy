@@ -6,7 +6,7 @@ use serde_json::Value;
 
 #[cfg(feature = "pbr_anisotropy_texture")]
 use {
-    crate::loader::gltf_ext::{material::MaterialExt, texture::InfoExt},
+    crate::loader::gltf_ext::{material::uv_channel, texture::texture_handle_from_info},
     bevy_asset::Handle,
     bevy_image::Image,
     bevy_pbr::UvChannel,
@@ -53,8 +53,8 @@ impl AnisotropyExtension {
             .and_then(|value| value::from_value::<Info>(value.clone()).ok())
             .map(|json_info| {
                 (
-                    material.uv_channel("anisotropy", json_info.tex_coord),
-                    json_info.texture_handle(document, load_context),
+                    uv_channel(material, "anisotropy", json_info.tex_coord),
+                    texture_handle_from_info(&json_info, document, load_context),
                 )
             })
             .unzip();

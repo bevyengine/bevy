@@ -6,8 +6,8 @@ use serde_json::Value;
 
 #[cfg(feature = "pbr_specular_textures")]
 use {
-    crate::loader::gltf_ext::material::MaterialExt, bevy_asset::Handle, bevy_image::Image,
-    bevy_pbr::UvChannel,
+    crate::loader::gltf_ext::material::parse_material_extension_texture, bevy_asset::Handle,
+    bevy_image::Image, bevy_pbr::UvChannel,
 };
 
 /// Parsed data from the `KHR_materials_specular` extension.
@@ -52,7 +52,8 @@ impl SpecularExtension {
             .as_object()?;
 
         #[cfg(feature = "pbr_specular_textures")]
-        let (_specular_channel, _specular_texture) = material.parse_material_extension_texture(
+        let (_specular_channel, _specular_texture) = parse_material_extension_texture(
+            material,
             _load_context,
             _document,
             extension,
@@ -61,14 +62,14 @@ impl SpecularExtension {
         );
 
         #[cfg(feature = "pbr_specular_textures")]
-        let (_specular_color_channel, _specular_color_texture) = material
-            .parse_material_extension_texture(
-                _load_context,
-                _document,
-                extension,
-                "specularColorTexture",
-                "specular color",
-            );
+        let (_specular_color_channel, _specular_color_texture) = parse_material_extension_texture(
+            material,
+            _load_context,
+            _document,
+            extension,
+            "specularColorTexture",
+            "specular color",
+        );
 
         Some(SpecularExtension {
             specular_factor: extension.get("specularFactor").and_then(Value::as_f64),
