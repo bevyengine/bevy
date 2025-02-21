@@ -1,3 +1,6 @@
+use crate::system::const_param_checking::{
+    AccessTreeContainer, ComponentAccess, ConstTree, ConstTreeInner,
+};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundle,
@@ -15,6 +18,8 @@ use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use core::{cell::UnsafeCell, marker::PhantomData, panic::Location};
 use smallvec::SmallVec;
 use variadics_please::all_tuples;
+use bevy_ecs::system::const_param_checking::constime;
+use bevy_ecs::system::const_param_checking::constime::FilteredAccessHolder;
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -283,6 +288,15 @@ pub unsafe trait QueryData: WorldQuery {
     /// This will be the data retrieved by the query,
     /// and is visible to the end user when calling e.g. `Query<Self>::get`.
     type Item<'a>;
+
+    /// A compile-time representation of how this query accesses components.
+    /// Used to validate query compatibility and detect conflicting access patterns
+    /// during const evaluation.
+    /// By default it implements an Ignore, and can be overrided by implementations such as
+    /// impl<T: Component> or impl<T0: QueryData, T1: QueryData>
+    /// There we recursively build up this component access tree, checking for intra-query
+    /// errors along the way.
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> = &ConstTreeInner::Empty;
 
     /// This function manually implements subtyping for the query items.
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort>;
@@ -1111,6 +1125,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     type Fetch<'w> = ReadFetch<'w, T>;
     type State = ComponentId;
 
+    const FILTERED_ACCESS: &'static constime::FilteredAccess = <Self as FilteredAccessHolder>::FILTERED_ACCESS;
+
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
     }
@@ -1203,9 +1219,15 @@ unsafe impl<T: Component> WorldQuery for &T {
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
-unsafe impl<T: Component> QueryData for &T {
+unsafe impl<T: Component> QueryData for &T
+where
+    for<'a> &'a T: AccessTreeContainer,
+{
     type ReadOnly = Self;
     type Item<'w> = &'w T;
+
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> =
+        Self::COMPONENT_ACCESS_TREE;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: &'wlong T) -> &'wshort T {
         item
@@ -1471,6 +1493,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
     type State = ComponentId;
 
+    const FILTERED_ACCESS: &'static constime::FilteredAccess = <Self as FilteredAccessHolder>::FILTERED_ACCESS;
+
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
     }
@@ -1568,9 +1592,15 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for &'__w mut T
+where
+    for<'a> &'a mut T: AccessTreeContainer,
+{
     type ReadOnly = &'__w T;
     type Item<'w> = Mut<'w, T>;
+
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> =
+        Self::COMPONENT_ACCESS_TREE;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
         item
@@ -1710,7 +1740,10 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
 }
 
 // SAFETY: access of `Ref<T>` is a subset of `Mut<T>`
-unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T> {
+unsafe impl<'__w, T: Component<Mutability = Mutable>> QueryData for Mut<'__w, T>
+where
+    for<'a> &'a mut T: AccessTreeContainer,
+{
     type ReadOnly = Ref<'__w, T>;
     type Item<'w> = Mut<'w, T>;
 
@@ -1840,6 +1873,9 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
 unsafe impl<T: QueryData> QueryData for Option<T> {
     type ReadOnly = Option<T::ReadOnly>;
     type Item<'w> = Option<T::Item<'w>>;
+
+    const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> =
+        T::COMPONENT_ACCESS_TREE_QUERY_DATA;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         item.map(T::shrink)
@@ -2052,6 +2088,8 @@ macro_rules! impl_tuple_query_data {
             type ReadOnly = ($($name::ReadOnly,)*);
             type Item<'w> = ($($name::Item<'w>,)*);
 
+            const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> = impl_tuple_query_data!(@tree $($name),*);
+
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 let ($($name,)*) = item;
                 ($(
@@ -2075,6 +2113,32 @@ macro_rules! impl_tuple_query_data {
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
+    };
+
+    // Handle empty case
+    (@tree) => {
+        &ConstTreeInner::Empty
+    };
+    // Handle single item case
+    (@tree $t0:ident) => {
+        $t0::COMPONENT_ACCESS_TREE_QUERY_DATA
+    };
+    // Handle two item case
+    (@tree $t0:ident, $t1:ident) => {
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+        )
+    };
+    // Handle three or more items case
+    (@tree $t0:ident, $t1:ident, $($rest:ident),+) => {
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            &ConstTreeInner::<ComponentAccess>::combine(
+                $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+                impl_tuple_query_data!(@tree $($rest),+)
+            )
+        )
     };
 }
 
@@ -2214,6 +2278,8 @@ macro_rules! impl_anytuple_fetch {
             type ReadOnly = AnyOf<($($name::ReadOnly,)*)>;
             type Item<'w> = ($(Option<$name::Item<'w>>,)*);
 
+            const COMPONENT_ACCESS_TREE_QUERY_DATA: ConstTree<ComponentAccess> = impl_tuple_query_data!(@tree $($name),*);
+
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
                 let ($($name,)*) = item;
                 ($(
@@ -2238,6 +2304,32 @@ macro_rules! impl_anytuple_fetch {
         $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for AnyOf<($($name,)*)> {}
+    };
+
+    // Handle empty case
+    (@tree) => {
+        &ConstTreeInner::Empty
+    };
+    // Handle single item case
+    (@tree $t0:ident) => {
+        $t0::COMPONENT_ACCESS_TREE_QUERY_DATA
+    };
+    // Handle two item case
+    (@tree $t0:ident, $t1:ident) => {
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+        )
+    };
+    // Handle three or more items case
+    (@tree $t0:ident, $t1:ident, $($rest:ident),+) => {
+        &ConstTreeInner::<ComponentAccess>::combine(
+            $t0::COMPONENT_ACCESS_TREE_QUERY_DATA,
+            &ConstTreeInner::<ComponentAccess>::combine(
+                $t1::COMPONENT_ACCESS_TREE_QUERY_DATA,
+                impl_anytuple_fetch!(@tree $($rest),+)
+            )
+        )
     };
 }
 

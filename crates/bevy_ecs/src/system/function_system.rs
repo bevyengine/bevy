@@ -749,6 +749,8 @@ where
     Marker: 'static,
     F: SystemParamFunction<Marker>,
 {
+    const INTO_SYSTEM_PANIC_CHECKER: Option<SystemPanicMessage> =
+        F::SYSTEM_PARAM_FUNCTION_PANIC_CHECKER;
     type System = FunctionSystem<Marker, F>;
     fn into_system(func: Self) -> Self::System {
         FunctionSystem {
@@ -990,6 +992,10 @@ where
     label = "invalid system"
 )]
 pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
+    /// Compile-time error checker for system parameter functions
+    /// Contains validation results from checking parameter compatibility
+    const SYSTEM_PARAM_FUNCTION_PANIC_CHECKER: Option<SystemPanicMessage> = None;
+
     /// The input type of this system. See [`System::In`].
     type In: SystemInput;
     /// The return type of this system. See [`System::Out`].
@@ -1009,7 +1015,7 @@ pub trait SystemParamFunction<Marker>: Send + Sync + 'static {
 /// A marker type used to distinguish function systems with and without input.
 #[doc(hidden)]
 pub struct HasSystemInput;
-
+use crate::system::const_param_checking::{SystemPanicMessage, ValidSystemParams};
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[expect(
@@ -1022,12 +1028,15 @@ macro_rules! impl_system_function {
         )]
         impl<Out, Func, $($param: SystemParam),*> SystemParamFunction<fn($($param,)*) -> Out> for Func
         where
-            Func: Send + Sync + 'static,
+            Func: Send + Sync + 'static + ValidSystemParams<($($param,)*)>,
             for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
                 FnMut($(SystemParamItem<$param>),*) -> Out,
-            Out: 'static
+            Out: 'static,
+
         {
+            const SYSTEM_PARAM_FUNCTION_PANIC_CHECKER: Option<SystemPanicMessage> = Func::SYSTEM_PARAMS_COMPILE_ERROR;
+
             type In = ();
             type Out = Out;
             type Param = ($($param,)*);
@@ -1043,6 +1052,7 @@ macro_rules! impl_system_function {
                     f($($param,)*)
                 }
                 let ($($param,)*) = param_value;
+                //let _ = Func::SYSTEM_PARAMS_COMPILE_ERROR;
                 call_inner(self, $($param),*)
             }
         }
