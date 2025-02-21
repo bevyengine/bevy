@@ -2653,34 +2653,29 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     bundle_info: &BundleInfo,
     caller: MaybeLocation,
 ) {
+    let bundle_components_in_archetype = || {
+        bundle_info
+            .iter_explicit_components()
+            .filter(|component_id| archetype.contains(*component_id))
+    };
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
             entity,
-            bundle_info.iter_explicit_components(),
+            bundle_components_in_archetype(),
             caller,
         );
     }
-    deferred_world.trigger_on_replace(
-        archetype,
-        entity,
-        bundle_info.iter_explicit_components(),
-        caller,
-    );
+    deferred_world.trigger_on_replace(archetype, entity, bundle_components_in_archetype(), caller);
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(
             ON_REMOVE,
             entity,
-            bundle_info.iter_explicit_components(),
+            bundle_components_in_archetype(),
             caller,
         );
     }
-    deferred_world.trigger_on_remove(
-        archetype,
-        entity,
-        bundle_info.iter_explicit_components(),
-        caller,
-    );
+    deferred_world.trigger_on_remove(archetype, entity, bundle_components_in_archetype(), caller);
 }
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
@@ -5899,5 +5894,43 @@ mod tests {
         assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 2);
 
         assert_eq!(archetype_pointer_before, archetype_pointer_after);
+    }
+
+    #[test]
+    fn bundle_remove_only_triggers_for_present_components() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component)]
+        struct B;
+
+        #[derive(Resource, PartialEq, Eq, Debug)]
+        struct Tracker {
+            a: bool,
+            b: bool,
+        }
+
+        world.insert_resource(Tracker { a: false, b: false });
+        let entity = world.spawn(A).id();
+
+        world.add_observer(|_: Trigger<OnRemove, A>, mut tracker: ResMut<Tracker>| {
+            tracker.a = true;
+        });
+        world.add_observer(|_: Trigger<OnRemove, B>, mut tracker: ResMut<Tracker>| {
+            tracker.b = true;
+        });
+
+        world.entity_mut(entity).remove::<(A, B)>();
+
+        assert_eq!(
+            world.resource::<Tracker>(),
+            &Tracker {
+                a: true,
+                // The entity didn't have a B component, so it should not have been triggered.
+                b: false,
+            }
+        );
     }
 }
