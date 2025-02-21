@@ -86,6 +86,16 @@ impl ComputedTextBlock {
     pub fn needs_rerender(&self) -> bool {
         self.needs_rerender
     }
+    /// Accesses the underlying buffer which can be used for `cosmic-text` APIs such as accessing layout information
+    /// or calculating a cursor position.
+    ///
+    /// Mutable access is not offered because changes would be overwritten during the automated layout calculation.
+    /// If you want to control the buffer contents manually or use the `cosmic-text`
+    /// editor, then you need to not use `TextLayout` and instead manually implement the conversion to
+    /// `TextLayoutInfo`.
+    pub fn buffer(&self) -> &CosmicBuffer {
+        &self.buffer
+    }
 }
 
 impl Default for ComputedTextBlock {
@@ -158,7 +168,10 @@ impl TextLayout {
     }
 }
 
-/// A span of UI text in a tree of spans under an entity with [`TextLayout`] and `Text` or `Text2d`.
+/// A span of text in a tree of spans.
+///
+/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
+/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
 ///
 /// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
 ///
@@ -173,6 +186,8 @@ impl TextLayout {
 /// # let mut world = World::default();
 /// #
 /// world.spawn((
+///     // `Text` or `Text2d` are needed, and will provide default instances
+///     // of the following components.
 ///     TextLayout::default(),
 ///     TextFont {
 ///         font: font_handle.clone().into(),
@@ -182,6 +197,7 @@ impl TextLayout {
 ///     TextColor(BLUE.into()),
 /// ))
 /// .with_child((
+///     // Children must be `TextSpan`, not `Text` or `Text2d`.
 ///     TextSpan::new("Hello!"),
 ///     TextFont {
 ///         font: font_handle.into(),
@@ -368,8 +384,8 @@ impl Default for LineHeight {
 }
 
 /// The color of the text for this section.
-#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect)]
-#[reflect(Component, Default, Debug)]
+#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct TextColor(pub Color);
 
 impl Default for TextColor {

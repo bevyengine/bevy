@@ -1,7 +1,8 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
@@ -45,7 +46,7 @@ use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
 
 /// The matrix that converts from the RGB to the LMS color space.
 ///
@@ -185,6 +186,16 @@ impl Msaa {
     #[inline]
     pub fn samples(&self) -> u32 {
         *self as u32
+    }
+
+    pub fn from_samples(samples: u32) -> Self {
+        match samples {
+            1 => Msaa::Off,
+            2 => Msaa::Sample2,
+            4 => Msaa::Sample4,
+            8 => Msaa::Sample8,
+            _ => panic!("Unsupported MSAA sample count: {}", samples),
+        }
     }
 }
 
@@ -558,6 +569,7 @@ pub struct ViewUniform {
     pub frustum: [Vec4; 6],
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
+    pub frame_count: u32,
 }
 
 #[derive(Resource)]
@@ -879,6 +891,7 @@ pub fn prepare_view_uniforms(
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
+    frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -932,6 +945,7 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+                frame_count: frame_count.0,
             }),
         };
 

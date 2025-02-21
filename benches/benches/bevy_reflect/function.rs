@@ -65,7 +65,7 @@ fn call(c: &mut Criterion) {
         .bench_function("function", |b| {
             let add = add.into_function();
             b.iter_batched(
-                || ArgList::new().push_owned(75_i32).push_owned(25_i32),
+                || ArgList::new().with_owned(75_i32).with_owned(25_i32),
                 |args| add.call(args),
                 BatchSize::SmallInput,
             );
@@ -74,7 +74,7 @@ fn call(c: &mut Criterion) {
             let capture = 25;
             let add = (|a: i32| a + capture).into_function();
             b.iter_batched(
-                || ArgList::new().push_owned(75_i32),
+                || ArgList::new().with_owned(75_i32),
                 |args| add.call(args),
                 BatchSize::SmallInput,
             );
@@ -83,7 +83,7 @@ fn call(c: &mut Criterion) {
             let mut capture = 25;
             let mut add = (|a: i32| capture += a).into_function_mut();
             b.iter_batched(
-                || ArgList::new().push_owned(75_i32),
+                || ArgList::new().with_owned(75_i32),
                 |args| add.call(args),
                 BatchSize::SmallInput,
             );
@@ -246,7 +246,7 @@ fn call_overload(c: &mut Criterion) {
                 || {
                     (
                         simple::<i8>.into_function().with_overload(simple::<i16>),
-                        ArgList::new().push_owned(75_i8).push_owned(25_i8),
+                        ArgList::new().with_owned(75_i8).with_owned(25_i8),
                     )
                 },
                 |(func, args)| func.call(args),
@@ -263,16 +263,16 @@ fn call_overload(c: &mut Criterion) {
                                 complex::<i16, i32, i64, i128, u8, u16, u32, u64, u128, i8>,
                             ),
                         ArgList::new()
-                            .push_owned(1_i8)
-                            .push_owned(2_i16)
-                            .push_owned(3_i32)
-                            .push_owned(4_i64)
-                            .push_owned(5_i128)
-                            .push_owned(6_u8)
-                            .push_owned(7_u16)
-                            .push_owned(8_u32)
-                            .push_owned(9_u64)
-                            .push_owned(10_u128),
+                            .with_owned(1_i8)
+                            .with_owned(2_i16)
+                            .with_owned(3_i32)
+                            .with_owned(4_i64)
+                            .with_owned(5_i128)
+                            .with_owned(6_u8)
+                            .with_owned(7_u16)
+                            .with_owned(8_u32)
+                            .with_owned(9_u64)
+                            .with_owned(10_u128),
                     )
                 },
                 |(func, args)| func.call(args),
@@ -288,7 +288,7 @@ fn call_overload(c: &mut Criterion) {
                             .with_overload(simple::<i16>)
                             .with_overload(simple::<i32>)
                             .with_overload(simple::<i64>),
-                        ArgList::new().push_owned(75_i32).push_owned(25_i32),
+                        ArgList::new().with_owned(75_i32).with_owned(25_i32),
                     )
                 },
                 |(func, args)| func.call(args),
@@ -311,16 +311,16 @@ fn call_overload(c: &mut Criterion) {
                                 complex::<i64, i128, u8, u16, u32, u64, u128, i8, i16, i32>,
                             ),
                         ArgList::new()
-                            .push_owned(1_i32)
-                            .push_owned(2_i64)
-                            .push_owned(3_i128)
-                            .push_owned(4_u8)
-                            .push_owned(5_u16)
-                            .push_owned(6_u32)
-                            .push_owned(7_u64)
-                            .push_owned(8_u128)
-                            .push_owned(9_i8)
-                            .push_owned(10_i16),
+                            .with_owned(1_i32)
+                            .with_owned(2_i64)
+                            .with_owned(3_i128)
+                            .with_owned(4_u8)
+                            .with_owned(5_u16)
+                            .with_owned(6_u32)
+                            .with_owned(7_u64)
+                            .with_owned(8_u128)
+                            .with_owned(9_i8)
+                            .with_owned(10_i16),
                     )
                 },
                 |(func, args)| func.call(args),
@@ -342,7 +342,7 @@ fn call_overload(c: &mut Criterion) {
                             .with_overload(simple::<u32>)
                             .with_overload(simple::<u64>)
                             .with_overload(simple::<u128>),
-                        ArgList::new().push_owned(75_u8).push_owned(25_u8),
+                        ArgList::new().with_owned(75_u8).with_owned(25_u8),
                     )
                 },
                 |(func, args)| func.call(args),
@@ -383,16 +383,16 @@ fn call_overload(c: &mut Criterion) {
                                 complex::<u128, i8, i16, i32, i64, i128, u8, u16, u32, u64>,
                             ),
                         ArgList::new()
-                            .push_owned(1_u8)
-                            .push_owned(2_u16)
-                            .push_owned(3_u32)
-                            .push_owned(4_u64)
-                            .push_owned(5_u128)
-                            .push_owned(6_i8)
-                            .push_owned(7_i16)
-                            .push_owned(8_i32)
-                            .push_owned(9_i64)
-                            .push_owned(10_i128),
+                            .with_owned(1_u8)
+                            .with_owned(2_u16)
+                            .with_owned(3_u32)
+                            .with_owned(4_u64)
+                            .with_owned(5_u128)
+                            .with_owned(6_i8)
+                            .with_owned(7_i16)
+                            .with_owned(8_i32)
+                            .with_owned(9_i64)
+                            .with_owned(10_i128),
                     )
                 },
                 |(func, args)| func.call(args),
