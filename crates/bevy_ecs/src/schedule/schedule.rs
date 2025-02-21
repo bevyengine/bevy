@@ -2107,6 +2107,90 @@ mod tests {
     }
 
     #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred.run_if(|| false), || {}).chain());
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
+    }
+
+    #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point_condition_on_chain() {
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred, || {}).chain().run_if(|| false));
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
+    }
+
+    #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point_condition_on_system_set() {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set;
+
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.configure_sets(Set.run_if(|| false));
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred.in_set(Set), || {}).chain());
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
+    }
+
+    #[test]
+    fn conditional_explicit_sync_point_not_used_as_auto_sync_point_condition_on_nested_system_set()
+    {
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set1;
+        #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+        struct Set2;
+
+        let mut schedule = Schedule::default();
+        let mut world = World::default();
+        schedule.configure_sets(Set2.run_if(|| false));
+        schedule.configure_sets(Set1.in_set(Set2));
+        schedule.add_systems(
+            (
+                |mut commands: Commands| commands.insert_resource(Resource1),
+                |_: Res<Resource1>| {},
+            )
+                .chain(),
+        );
+        schedule.add_systems((|| {}, ApplyDeferred, || {}).chain().in_set(Set1));
+        schedule.run(&mut world);
+
+        // A sync point was inserted, since the explicit sync point is not always run.
+        assert_eq!(schedule.executable.systems.len(), 6);
+    }
+
+    #[test]
     fn merges_sync_points_into_one() {
         let mut schedule = Schedule::default();
         let mut world = World::default();
