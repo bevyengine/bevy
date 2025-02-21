@@ -142,6 +142,7 @@ macro_rules! define_label {
             }
         }
 
+        #[diagnostic::do_not_recommend]
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
             $($interned_extra_methods_impl)*
