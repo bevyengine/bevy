@@ -881,12 +881,6 @@ impl ComponentInfo {
     pub fn hooks(&self) -> &ComponentHooks {
         &self.hooks
     }
-
-    /// Retrieves the [`RequiredComponents`] collection, which contains all required components (and their constructors)
-    /// needed by this component. This includes _recursive_ required components.
-    pub fn required_components(&self) -> &RequiredComponents {
-        &self.required_components
-    }
 }
 
 /// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
@@ -1503,10 +1497,6 @@ pub trait ComponentsWriter: ComponentsReader {
 /// This trait provides easily misused read only access to [`Component`] collections intended for use only within this crate.
 pub(crate) trait ComponentsInternalReader: ComponentsReader {
     /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
-    #[expect(
-        unused,
-        reason = "Although this is not used now, it is nice to have for parity."
-    )]
     fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef>;
 
     /// Gets the [`RequiredByStagedMut`] for a component if it exists.
@@ -1581,11 +1571,13 @@ pub(crate) trait ComponentsInternalWriter: ComponentsInternalReader {
         // Get required components inherited from the `required` component.
         let inherited_requirements: Vec<(ComponentId, RequiredComponent)> = {
             // SAFETY: The caller ensures that the `required` component is valid.
-            let required_component_info = unsafe { self.get_info(required).debug_checked_unwrap() };
+            let required_component_info = unsafe {
+                self.get_required_components(required)
+                    .debug_checked_unwrap()
+            };
             required_component_info
-                .required_components()
-                .0
                 .iter()
+                .flat_map(|requirements| requirements.0.iter())
                 .map(|(component_id, required_component)| {
                     (
                         *component_id,
@@ -1710,13 +1702,15 @@ pub(crate) trait ComponentsInternalWriter: ComponentsInternalReader {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.working.insert(requiree);
 
+        // SAFETY: The caller ensures that the component ID is valid.
+        let requirements = unsafe {
+            self.get_required_components(required)
+                .debug_checked_unwrap()
+        };
         // Register the inherited required components for the requiree.
-        let required: Vec<(ComponentId, RequiredComponent)> = self
-            .get_info(required)
-            .unwrap()
-            .required_components()
-            .0
+        let required: Vec<(ComponentId, RequiredComponent)> = requirements
             .iter()
+            .flat_map(|requirements| requirements.0.iter())
             .map(|(id, component)| (*id, component.clone()))
             .collect();
 

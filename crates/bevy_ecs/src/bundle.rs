@@ -11,8 +11,9 @@ use crate::{
     },
     change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, ComponentsReader, ComponentsWriter, DerefByLifetime,
-        RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
+        Component, ComponentId, Components, ComponentsInternalReader, ComponentsReader,
+        ComponentsWriter, DerefByLifetime, RequiredComponentConstructor, RequiredComponents,
+        StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -509,8 +510,14 @@ impl BundleInfo {
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { &components.get_info_unchecked(component_id) };
-            required_components.merge(info.required_components());
             storages.prepare_component(info);
+            // SAFETY: caller has verified that all ids are valid
+            let required = unsafe {
+                &components
+                    .get_required_components(component_id)
+                    .debug_checked_unwrap()
+            };
+            required.merge_into(&mut required_components);
         }
         required_components.remove_explicit_components(&component_ids);
 

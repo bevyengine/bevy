@@ -39,8 +39,9 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, ComponentsInternalWriter, ComponentsReader, ComponentsWriter, DerefByLifetime,
-        Mutable, RequiredComponents, RequiredComponentsError, Tick,
+        Components, ComponentsInternalReader, ComponentsInternalWriter, ComponentsReader,
+        ComponentsWriter, DerefByLifetime, Mutable, RequiredComponentsError,
+        RequiredComponentsStagedRef, Tick,
     },
     entity::{
         AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
@@ -508,16 +509,17 @@ impl World {
     }
 
     /// Retrieves the [required components](RequiredComponents) for the given component type, if it exists.
-    pub fn get_required_components<C: Component>(&self) -> Option<&RequiredComponents> {
+    pub fn get_required_components<C: Component>(&self) -> Option<RequiredComponentsStagedRef> {
         let id = self.components().component_id::<C>()?;
-        let component_info = self.components().get_info(id)?.deref_lifetime();
-        Some(component_info.required_components())
+        self.get_required_components_by_id(id)
     }
 
     /// Retrieves the [required components](RequiredComponents) for the component of the given [`ComponentId`], if it exists.
-    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<&RequiredComponents> {
-        let component_info = self.components().get_info(id)?.deref_lifetime();
-        Some(component_info.required_components())
+    pub fn get_required_components_by_id(
+        &self,
+        id: ComponentId,
+    ) -> Option<RequiredComponentsStagedRef> {
+        self.components().get_required_components(id)
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.

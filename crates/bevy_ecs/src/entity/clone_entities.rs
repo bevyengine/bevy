@@ -8,7 +8,8 @@ use core::{any::TypeId, ptr::NonNull};
 use alloc::boxed::Box;
 
 use crate::component::{
-    ComponentCloneBehavior, ComponentCloneFn, ComponentsReader, DerefByLifetime,
+    ComponentCloneBehavior, ComponentCloneFn, ComponentsInternalReader, ComponentsReader,
+    DerefByLifetime,
 };
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::EntityMapper;
@@ -781,8 +782,8 @@ impl<'w> EntityClonerBuilder<'w> {
             self.entity_cloner.filter.remove(&id);
         }
         if self.attach_required_components {
-            if let Some(info) = self.world.components().get_info(id) {
-                for required_id in info.required_components().iter_ids() {
+            if let Some(info) = self.world.components().get_required_components(id) {
+                for required_id in info.iter_ids() {
                     if self.entity_cloner.filter_allows_components {
                         self.entity_cloner.filter.insert(required_id);
                     } else {
@@ -801,8 +802,8 @@ impl<'w> EntityClonerBuilder<'w> {
             self.entity_cloner.filter.insert(id);
         }
         if self.attach_required_components {
-            if let Some(info) = self.world.components().get_info(id) {
-                for required_id in info.required_components().iter_ids() {
+            if let Some(info) = self.world.components().get_required_components(id) {
+                for required_id in info.iter_ids() {
                     if self.entity_cloner.filter_allows_components {
                         self.entity_cloner.filter.remove(&required_id);
                     } else {
