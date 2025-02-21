@@ -8,7 +8,7 @@
 }
 
 #ifdef BINDLESS
-#import bevy_pbr::pbr_bindings::material_bindings
+#import bevy_pbr::pbr_bindings::material_indices
 #endif  // BINDLESS
 
 fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
@@ -24,8 +24,8 @@ fn sample_depth_map(uv: vec2<f32>, material_bind_group_slot: u32) -> f32 {
     // See https://stackoverflow.com/questions/56581141/direct3d11-gradient-instruction-used-in-a-loop-with-varying-iteration-forcing
     return textureSampleLevel(
 #ifdef BINDLESS
-        bindless_textures_2d[material_bindings[material_bind_group_slot].depth_map_texture],
-        bindless_samplers_filtering[material_bindings[material_bind_group_slot].depth_map_sampler],
+        bindless_textures_2d[material_indices[material_bind_group_slot].depth_map_texture],
+        bindless_samplers_filtering[material_indices[material_bind_group_slot].depth_map_sampler],
 #else   // BINDLESS
         depth_map_texture,
         depth_map_sampler,

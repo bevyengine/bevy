@@ -283,12 +283,13 @@ impl Deref for BindGroup {
 ///   table.
 ///
 ///   For example, suppose that the material slot is stored in a variable named
-///   `slot`, the bindless index table is named `materials`, and that the first
-///   field (index 0) of the bindless index table type is named `material`. Then
-///   specifying `#[uniform(0, StandardMaterialUniform, binding_array(10)]` will
-///   create a binding array buffer declared in the shader as `var<storage>
-///   material: binding_array<StandardMaterialUniform>` and accessible as
-///   `material[materials[slot].material]`.
+///   `slot`, the bindless index table is named `material_indices`, and that the
+///   first field (index 0) of the bindless index table type is named
+///   `material`. Then specifying `#[uniform(0, StandardMaterialUniform,
+///   binding_array(10)]` will create a binding array buffer declared in the
+///   shader as `var<storage> material_array:
+///   binding_array<StandardMaterialUniform>` and accessible as
+///   `material_array[material_indices[slot].material]`.
 ///
 /// ## `bind_group_data(DataType)`
 ///
@@ -336,6 +337,38 @@ impl Deref for BindGroup {
 ///   overhead.
 /// * See the `shaders/shader_material_bindless` example for an example of
 ///   how to use bindless mode.
+/// * The following diagram illustrates how bindless mode works using a subset
+///   of `StandardMaterial`:
+///
+/// ```text
+///      Shader Bindings                          Sampler Binding Array
+///     +----+-----------------------------+     +-----------+-----------+-----+
+/// +---|  0 | material_indices            |  +->| sampler 0 | sampler 1 | ... |
+/// |   +----+-----------------------------+  |  +-----------+-----------+-----+
+/// |   |  1 | bindless_samplers_filtering +--+        ^
+/// |   +----+-----------------------------+           +-------------------------------+
+/// |   | .. |            ...              |                                           |
+/// |   +----+-----------------------------+      Texture Binding Array                |
+/// |   |  5 | bindless_textures_2d        +--+  +-----------+-----------+-----+       |
+/// |   +----+-----------------------------+  +->| texture 0 | texture 1 | ... |       |
+/// |   | .. |            ...              |     +-----------+-----------+-----+       |
+/// |   +----+-----------------------------+           ^                               |
+/// |   + 10 | material_array              +--+        +---------------------------+   |
+/// |   +----+-----------------------------+  |                                    |   |
+/// |                                         |   Buffer Binding Array             |   |
+/// |                                         |  +----------+----------+-----+     |   |
+/// |                                         +->| buffer 0 | buffer 1 | ... |     |   |
+/// |    Material Bindless Indices               +----------+----------+-----+     |   |
+/// |   +----+-----------------------------+          ^                            |   |
+/// +-->|  0 | material                    +----------+                            |   |
+///     +----+-----------------------------+                                       |   |
+///     |  1 | base_color_texture          +---------------------------------------+   |
+///     +----+-----------------------------+                                           |
+///     |  2 | base_color_sampler          +-------------------------------------------+
+///     +----+-----------------------------+
+///     | .. |            ...              |
+///     +----+-----------------------------+
+/// ```
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:

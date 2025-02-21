@@ -29,7 +29,7 @@
 #endif
 
 #ifdef BINDLESS
-#import bevy_pbr::pbr_bindings::material_bindings
+#import bevy_pbr::pbr_bindings::material_indices
 #endif  // BINDLESS
 
 // prepare a basic PbrInput from the vertex stage output, mesh binding and view binding
@@ -82,10 +82,10 @@ fn pbr_input_from_standard_material(
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-    let flags = pbr_bindings::material[material_bindings[slot].material].flags;
-    let base_color = pbr_bindings::material[material_bindings[slot].material].base_color;
+    let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
+    let base_color = pbr_bindings::material_array[material_indices[slot].material].base_color;
     let deferred_lighting_pass_id =
-        pbr_bindings::material[material_bindings[slot].material].deferred_lighting_pass_id;
+        pbr_bindings::material_array[material_indices[slot].material].deferred_lighting_pass_id;
 #else   // BINDLESS
     let flags = pbr_bindings::material.flags;
     let base_color = pbr_bindings::material.base_color;
@@ -115,7 +115,7 @@ fn pbr_input_from_standard_material(
 #ifdef VERTEX_UVS
 
 #ifdef BINDLESS
-    let uv_transform = pbr_bindings::material[material_bindings[slot].material].uv_transform;
+    let uv_transform = pbr_bindings::material_array[material_indices[slot].material].uv_transform;
 #else   // BINDLESS
     let uv_transform = pbr_bindings::material.uv_transform;
 #endif  // BINDLESS
@@ -144,9 +144,9 @@ fn pbr_input_from_standard_material(
         // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         uv = parallaxed_uv(
 #ifdef BINDLESS
-            pbr_bindings::material[material_bindings[slot].material].parallax_depth_scale,
-            pbr_bindings::material[material_bindings[slot].material].max_parallax_layer_count,
-            pbr_bindings::material[material_bindings[slot].material].max_relief_mapping_search_steps,
+            pbr_bindings::material_array[material_indices[slot].material].parallax_depth_scale,
+            pbr_bindings::material_array[material_indices[slot].material].max_parallax_layer_count,
+            pbr_bindings::material_array[material_indices[slot].material].max_relief_mapping_search_steps,
 #else   // BINDLESS
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -165,9 +165,9 @@ fn pbr_input_from_standard_material(
         // TODO: Transforming UVs mean we need to apply derivative chain rule for meshlet mesh material pass
         uv_b = parallaxed_uv(
 #ifdef BINDLESS
-            pbr_bindings::material[material_bindings[slot].material].parallax_depth_scale,
-            pbr_bindings::material[material_bindings[slot].material].max_parallax_layer_count,
-            pbr_bindings::material[material_bindings[slot].material].max_relief_mapping_search_steps,
+            pbr_bindings::material_array[material_indices[slot].material].parallax_depth_scale,
+            pbr_bindings::material_array[material_indices[slot].material].max_parallax_layer_count,
+            pbr_bindings::material_array[material_indices[slot].material].max_relief_mapping_search_steps,
 #else   // BINDLESS
             pbr_bindings::material.parallax_depth_scale,
             pbr_bindings::material.max_parallax_layer_count,
@@ -194,8 +194,8 @@ fn pbr_input_from_standard_material(
             textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                bindless_textures_2d[material_bindings[slot].base_color_texture],
-                bindless_samplers_filtering[material_bindings[slot].base_color_sampler],
+                bindless_textures_2d[material_indices[slot].base_color_texture],
+                bindless_samplers_filtering[material_indices[slot].base_color_sampler],
 #else   // BINDLESS
                 pbr_bindings::base_color_texture,
                 pbr_bindings::base_color_sampler,
@@ -221,7 +221,7 @@ fn pbr_input_from_standard_material(
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_ALPHA_TO_COVERAGE {
 
 #ifdef BINDLESS
-        let alpha_cutoff = pbr_bindings::material[material_bindings[slot].material].alpha_cutoff;
+        let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
         let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif  // BINDLESS
@@ -239,13 +239,13 @@ fn pbr_input_from_standard_material(
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if ((flags & pbr_types::STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
 #ifdef BINDLESS
-        pbr_input.material.ior = pbr_bindings::material[material_bindings[slot].material].ior;
+        pbr_input.material.ior = pbr_bindings::material_array[material_indices[slot].material].ior;
         pbr_input.material.attenuation_color =
-                pbr_bindings::material[material_bindings[slot].material].attenuation_color;
+                pbr_bindings::material_array[material_indices[slot].material].attenuation_color;
         pbr_input.material.attenuation_distance =
-                pbr_bindings::material[material_bindings[slot].material].attenuation_distance;
+                pbr_bindings::material_array[material_indices[slot].material].attenuation_distance;
         pbr_input.material.alpha_cutoff =
-                pbr_bindings::material[material_bindings[slot].material].alpha_cutoff;
+                pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
         pbr_input.material.ior = pbr_bindings::material.ior;
         pbr_input.material.attenuation_color = pbr_bindings::material.attenuation_color;
@@ -256,7 +256,7 @@ fn pbr_input_from_standard_material(
         // reflectance
 #ifdef BINDLESS
         pbr_input.material.reflectance =
-                pbr_bindings::material[material_bindings[slot].material].reflectance;
+                pbr_bindings::material_array[material_indices[slot].material].reflectance;
 #else   // BINDLESS
         pbr_input.material.reflectance = pbr_bindings::material.reflectance;
 #endif  // BINDLESS
@@ -273,8 +273,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                bindless_textures_2d[material_bindings[slot].specular_texture],
-                bindless_samplers_filtering[material_bindings[slot].specular_sampler],
+                bindless_textures_2d[material_indices[slot].specular_texture],
+                bindless_samplers_filtering[material_indices[slot].specular_sampler],
 #else   // BINDLESS
                 pbr_bindings::specular_texture,
                 pbr_bindings::specular_sampler,
@@ -305,8 +305,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                bindless_textures_2d[material_bindings[slot].specular_tint_texture],
-                bindless_samplers_filtering[material_bindings[slot].specular_tint_sampler],
+                bindless_textures_2d[material_indices[slot].specular_tint_texture],
+                bindless_samplers_filtering[material_indices[slot].specular_tint_sampler],
 #else   // BINDLESS
                 pbr_bindings::specular_tint_texture,
                 pbr_bindings::specular_tint_sampler,
@@ -331,7 +331,7 @@ fn pbr_input_from_standard_material(
 
         // emissive
 #ifdef BINDLESS
-        var emissive: vec4<f32> = pbr_bindings::material[material_bindings[slot].material].emissive;
+        var emissive: vec4<f32> = pbr_bindings::material_array[material_indices[slot].material].emissive;
 #else   // BINDLESS
         var emissive: vec4<f32> = pbr_bindings::material.emissive;
 #endif  // BINDLESS
@@ -345,8 +345,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].emissive_texture],
-                    bindless_samplers_filtering[material_bindings[slot].emissive_sampler],
+                    bindless_textures_2d[material_indices[slot].emissive_texture],
+                    bindless_samplers_filtering[material_indices[slot].emissive_sampler],
 #else   // BINDLESS
                     pbr_bindings::emissive_texture,
                     pbr_bindings::emissive_sampler,
@@ -370,8 +370,8 @@ fn pbr_input_from_standard_material(
 
         // metallic and perceptual roughness
 #ifdef BINDLESS
-        var metallic: f32 = pbr_bindings::material[material_bindings[slot].material].metallic;
-        var perceptual_roughness: f32 = pbr_bindings::material[material_bindings[slot].material].perceptual_roughness;
+        var metallic: f32 = pbr_bindings::material_array[material_indices[slot].material].metallic;
+        var perceptual_roughness: f32 = pbr_bindings::material_array[material_indices[slot].material].perceptual_roughness;
 #else   // BINDLESS
         var metallic: f32 = pbr_bindings::material.metallic;
         var perceptual_roughness: f32 = pbr_bindings::material.perceptual_roughness;
@@ -387,8 +387,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].metallic_roughness_texture],
-                    bindless_samplers_filtering[material_bindings[slot].metallic_roughness_sampler],
+                    bindless_textures_2d[material_indices[slot].metallic_roughness_texture],
+                    bindless_samplers_filtering[material_indices[slot].metallic_roughness_sampler],
 #else   // BINDLESS
                     pbr_bindings::metallic_roughness_texture,
                     pbr_bindings::metallic_roughness_sampler,
@@ -416,7 +416,7 @@ fn pbr_input_from_standard_material(
         // Clearcoat factor
 #ifdef BINDLESS
         pbr_input.material.clearcoat =
-                pbr_bindings::material[material_bindings[slot].material].clearcoat;
+                pbr_bindings::material_array[material_indices[slot].material].clearcoat;
 #else   // BINDLESS
         pbr_input.material.clearcoat = pbr_bindings::material.clearcoat;
 #endif  // BINDLESS
@@ -431,8 +431,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].clearcoat_texture],
-                    bindless_samplers_filtering[material_bindings[slot].clearcoat_sampler],
+                    bindless_textures_2d[material_indices[slot].clearcoat_texture],
+                    bindless_samplers_filtering[material_indices[slot].clearcoat_sampler],
 #else   // BINDLESS
                     pbr_bindings::clearcoat_texture,
                     pbr_bindings::clearcoat_sampler,
@@ -456,7 +456,7 @@ fn pbr_input_from_standard_material(
         // Clearcoat roughness
 #ifdef BINDLESS
         pbr_input.material.clearcoat_perceptual_roughness =
-            pbr_bindings::material[material_bindings[slot].material].clearcoat_perceptual_roughness;
+            pbr_bindings::material_array[material_indices[slot].material].clearcoat_perceptual_roughness;
 #else   // BINDLESS
         pbr_input.material.clearcoat_perceptual_roughness =
             pbr_bindings::material.clearcoat_perceptual_roughness;
@@ -472,8 +472,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].clearcoat_roughness_texture],
-                    bindless_samplers_filtering[material_bindings[slot].clearcoat_roughness_sampler],
+                    bindless_textures_2d[material_indices[slot].clearcoat_roughness_texture],
+                    bindless_samplers_filtering[material_indices[slot].clearcoat_roughness_sampler],
 #else   // BINDLESS
                     pbr_bindings::clearcoat_roughness_texture,
                     pbr_bindings::clearcoat_roughness_sampler,
@@ -495,7 +495,7 @@ fn pbr_input_from_standard_material(
 #endif  // VERTEX_UVS
 
 #ifdef BINDLESS
-        var specular_transmission: f32 = pbr_bindings::material[slot].specular_transmission;
+        var specular_transmission: f32 = pbr_bindings::material_array[slot].specular_transmission;
 #else   // BINDLESS
         var specular_transmission: f32 = pbr_bindings::material.specular_transmission;
 #endif  // BINDLESS
@@ -511,10 +511,10 @@ fn pbr_input_from_standard_material(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
                     bindless_textures_2d[
-                        material_bindings[slot].specular_transmission_texture
+                        material_indices[slot].specular_transmission_texture
                     ],
                     bindless_samplers_filtering[
-                        material_bindings[slot].specular_transmission_sampler
+                        material_indices[slot].specular_transmission_sampler
                     ],
 #else   // BINDLESS
                     pbr_bindings::specular_transmission_texture,
@@ -538,7 +538,7 @@ fn pbr_input_from_standard_material(
         pbr_input.material.specular_transmission = specular_transmission;
 
 #ifdef BINDLESS
-        var thickness: f32 = pbr_bindings::material[material_bindings[slot].material].thickness;
+        var thickness: f32 = pbr_bindings::material_array[material_indices[slot].material].thickness;
 #else   // BINDLESS
         var thickness: f32 = pbr_bindings::material.thickness;
 #endif  // BINDLESS
@@ -553,8 +553,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].thickness_texture],
-                    bindless_samplers_filtering[material_bindings[slot].thickness_sampler],
+                    bindless_textures_2d[material_indices[slot].thickness_texture],
+                    bindless_samplers_filtering[material_indices[slot].thickness_sampler],
 #else   // BINDLESS
                     pbr_bindings::thickness_texture,
                     pbr_bindings::thickness_sampler,
@@ -585,7 +585,7 @@ fn pbr_input_from_standard_material(
 
 #ifdef BINDLESS
         var diffuse_transmission =
-                pbr_bindings::material[material_bindings[slot].material].diffuse_transmission;
+                pbr_bindings::material_array[material_indices[slot].material].diffuse_transmission;
 #else   // BINDLESS
         var diffuse_transmission = pbr_bindings::material.diffuse_transmission;
 #endif  // BINDLESS
@@ -600,8 +600,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].diffuse_transmission_texture],
-                    bindless_samplers_filtering[material_bindings[slot].diffuse_transmission_sampler],
+                    bindless_textures_2d[material_indices[slot].diffuse_transmission_texture],
+                    bindless_samplers_filtering[material_indices[slot].diffuse_transmission_sampler],
 #else   // BINDLESS
                     pbr_bindings::diffuse_transmission_texture,
                     pbr_bindings::diffuse_transmission_sampler,
@@ -634,8 +634,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].occlusion_texture],
-                    bindless_samplers_filtering[material_bindings[slot].occlusion_sampler],
+                    bindless_textures_2d[material_indices[slot].occlusion_texture],
+                    bindless_samplers_filtering[material_indices[slot].occlusion_sampler],
 #else   // BINDLESS
                     pbr_bindings::occlusion_texture,
                     pbr_bindings::occlusion_sampler,
@@ -685,8 +685,8 @@ fn pbr_input_from_standard_material(
             textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                bindless_textures_2d[material_bindings[slot].normal_map_texture],
-                bindless_samplers_filtering[material_bindings[slot].normal_map_sampler],
+                bindless_textures_2d[material_indices[slot].normal_map_texture],
+                bindless_samplers_filtering[material_indices[slot].normal_map_sampler],
 #else   // BINDLESS
                 pbr_bindings::normal_map_texture,
                 pbr_bindings::normal_map_sampler,
@@ -723,8 +723,8 @@ fn pbr_input_from_standard_material(
             textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                bindless_textures_2d[material_bindings[slot].clearcoat_normal_texture],
-                bindless_samplers_filtering[material_bindings[slot].clearcoat_normal_sampler],
+                bindless_textures_2d[material_indices[slot].clearcoat_normal_texture],
+                bindless_samplers_filtering[material_indices[slot].clearcoat_normal_sampler],
 #else   // BINDLESS
                 pbr_bindings::clearcoat_normal_texture,
                 pbr_bindings::clearcoat_normal_sampler,
@@ -767,9 +767,9 @@ fn pbr_input_from_standard_material(
 
 #ifdef BINDLESS
         var anisotropy_strength =
-                pbr_bindings::material[material_bindings[slot].material].anisotropy_strength;
+                pbr_bindings::material_array[material_indices[slot].material].anisotropy_strength;
         var anisotropy_direction =
-                pbr_bindings::material[material_bindings[slot].material].anisotropy_rotation;
+                pbr_bindings::material_array[material_indices[slot].material].anisotropy_rotation;
 #else   // BINDLESS
         var anisotropy_strength = pbr_bindings::material.anisotropy_strength;
         var anisotropy_direction = pbr_bindings::material.anisotropy_rotation;
@@ -784,8 +784,8 @@ fn pbr_input_from_standard_material(
                 textureSampleBias(
 #endif  // MESHLET_MESH_MATERIAL_PASS
 #ifdef BINDLESS
-                    bindless_textures_2d[material_bindings[slot].anisotropy_texture],
-                    bindless_samplers_filtering[material_bindings[slot].anisotropy_sampler],
+                    bindless_textures_2d[material_indices[slot].anisotropy_texture],
+                    bindless_samplers_filtering[material_indices[slot].anisotropy_sampler],
 #else   // BINDLESS
                     pbr_bindings::anisotropy_texture,
                     pbr_bindings::anisotropy_sampler,
@@ -829,7 +829,7 @@ fn pbr_input_from_standard_material(
 
 #ifdef BINDLESS
         let lightmap_exposure =
-                pbr_bindings::material[material_bindings[slot].material].lightmap_exposure;
+                pbr_bindings::material_array[material_indices[slot].material].lightmap_exposure;
 #else   // BINDLESS
         let lightmap_exposure = pbr_bindings::material.lightmap_exposure;
 #endif  // BINDLESS

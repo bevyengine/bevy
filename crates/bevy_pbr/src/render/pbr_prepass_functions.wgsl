@@ -12,7 +12,7 @@
 }
 
 #ifdef BINDLESS
-#import bevy_pbr::pbr_bindings::material_bindings
+#import bevy_pbr::pbr_bindings::material_indices
 #endif  // BINDLESS
 
 // Cutoff used for the premultiplied alpha modes BLEND, ADD, and ALPHA_TO_COVERAGE.
@@ -24,7 +24,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
 #ifdef MAY_DISCARD
 #ifdef BINDLESS
     let slot = mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu;
-    var output_color: vec4<f32> = pbr_bindings::material[material_bindings[slot].material].base_color;
+    var output_color: vec4<f32> = pbr_bindings::material_array[material_indices[slot].material].base_color;
 #else   // BINDLESS
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
 #endif  // BINDLESS
@@ -37,8 +37,8 @@ fn prepass_alpha_discard(in: VertexOutput) {
 #endif  // STANDARD_MATERIAL_BASE_COLOR_UV_B
 
 #ifdef BINDLESS
-    let uv_transform = pbr_bindings::material[material_bindings[slot].material].uv_transform;
-    let flags = pbr_bindings::material[material_bindings[slot].material].flags;
+    let uv_transform = pbr_bindings::material_array[material_indices[slot].material].uv_transform;
+    let flags = pbr_bindings::material_array[material_indices[slot].material].flags;
 #else   // BINDLESS
     let uv_transform = pbr_bindings::material.uv_transform;
     let flags = pbr_bindings::material.flags;
@@ -48,8 +48,8 @@ fn prepass_alpha_discard(in: VertexOutput) {
     if (flags & pbr_types::STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
         output_color = output_color * textureSampleBias(
 #ifdef BINDLESS
-            bindless_textures_2d[material_bindings[slot].base_color_texture],
-            bindless_samplers_filtering[material_bindings[slot].base_color_sampler],
+            bindless_textures_2d[material_indices[slot].base_color_texture],
+            bindless_samplers_filtering[material_indices[slot].base_color_sampler],
 #else   // BINDLESS
             pbr_bindings::base_color_texture,
             pbr_bindings::base_color_sampler,
@@ -63,7 +63,7 @@ fn prepass_alpha_discard(in: VertexOutput) {
     let alpha_mode = flags & pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if alpha_mode == pbr_types::STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK {
 #ifdef BINDLESS
-        let alpha_cutoff = pbr_bindings::material[material_bindings[slot].material].alpha_cutoff;
+        let alpha_cutoff = pbr_bindings::material_array[material_indices[slot].material].alpha_cutoff;
 #else   // BINDLESS
         let alpha_cutoff = pbr_bindings::material.alpha_cutoff;
 #endif  // BINDLESS

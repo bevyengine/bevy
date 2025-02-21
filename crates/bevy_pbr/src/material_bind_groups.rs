@@ -106,7 +106,7 @@ where
     /// pipeline specialization purposes.
     extra_data: Vec<Option<M::Data>>,
 
-    /// A free list of slot IDs.
+    /// A list of free slot IDs.
     free_slots: Vec<MaterialBindGroupSlot>,
     /// The total number of materials currently allocated in this slab.
     live_allocation_count: u32,
@@ -146,7 +146,7 @@ where
     ///
     /// This is essentially the inverse mapping of [`Self::bindings`].
     resource_to_slot: HashMap<BindingResourceId, u32>,
-    /// A free list of slots in [`Self::bindings`] that contain no binding.
+    /// A list of free slots in [`Self::bindings`] that contain no binding.
     free_slots: Vec<u32>,
     /// The number of allocated objects in this binding array.
     len: u32,
@@ -181,8 +181,8 @@ where
     /// To prepare the bind groups, call
     /// [`MaterialBindGroupAllocator::prepare_bind_groups`].
     to_prepare: HashSet<MaterialBindGroupIndex>,
-    /// A free list of bind group indices.
-    free_list: Vec<MaterialBindGroupIndex>,
+    /// A list of free bind group indices.
+    free_indices: Vec<MaterialBindGroupIndex>,
     phantom: PhantomData<M>,
 }
 
@@ -1550,7 +1550,7 @@ where
         MaterialBindGroupNonBindlessAllocator {
             bind_groups: vec![],
             to_prepare: HashSet::default(),
-            free_list: vec![],
+            free_indices: vec![],
             phantom: PhantomData,
         }
     }
@@ -1565,7 +1565,7 @@ where
         bind_group: MaterialNonBindlessAllocatedBindGroup<M>,
     ) -> MaterialBindingId {
         let group_id = self
-            .free_list
+            .free_indices
             .pop()
             .unwrap_or(MaterialBindGroupIndex(self.bind_groups.len() as u32));
         if self.bind_groups.len() < *group_id as usize + 1 {
@@ -1618,7 +1618,7 @@ where
         debug_assert!(self.bind_groups[*binding_id.group as usize].is_none());
         self.bind_groups[*binding_id.group as usize] = None;
         self.to_prepare.remove(&binding_id.group);
-        self.free_list.push(binding_id.group);
+        self.free_indices.push(binding_id.group);
     }
 
     /// Returns a wrapper around the bind group with the given index.

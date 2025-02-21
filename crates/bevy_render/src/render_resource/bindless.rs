@@ -257,7 +257,7 @@ impl BindlessSlabResourceLimit {
 impl BindlessResourceType {
     /// Returns the binding number for the common array of this resource type.
     ///
-    /// For example, if you pass `BindlessResousrceType::Texture2d`, this will
+    /// For example, if you pass `BindlessResourceType::Texture2d`, this will
     /// return 5, in order to match the `@group(2) @binding(5) var
     /// bindless_textures_2d: binding_array<texture_2d<f32>>` declaration in
     /// `bindless.wgsl`.

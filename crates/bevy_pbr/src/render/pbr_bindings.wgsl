@@ -45,7 +45,7 @@ struct StandardMaterialBindings {
 #endif  // PBR_SPECULAR_TEXTURES_SUPPORTED
 }
 
-@group(2) @binding(0) var<storage> material_bindings: array<StandardMaterialBindings>;
+@group(2) @binding(0) var<storage> material_indices: array<StandardMaterialBindings>;
 @group(2) @binding(10) var<storage> material: binding_array<StandardMaterial>;
 
 #else   // BINDLESS
