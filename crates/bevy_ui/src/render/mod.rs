@@ -9,7 +9,7 @@ mod debug_overlay;
 
 use crate::widget::{ImageNode, TextCursor, TextCursorWidth};
 use crate::{
-    BackgroundColor, BorderColor, BorderRadius, BoxShadowSamples, CalculatedClip, ComputedNode,
+    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
     ComputedNodeTarget, DefaultUiCamera, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
     UiTargetCamera,
 };
@@ -52,7 +52,7 @@ pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_text::{ComputedTextBlock, GlyphAtlasInfo, PositionedGlyph, TextColor, TextLayoutInfo};
+use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};

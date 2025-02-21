@@ -4,7 +4,7 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    color::palettes::css::{GOLD, RED},
+    color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
     ui::widget::{TextCursor, TextCursorWidth},
@@ -43,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             index: 5,
             color: Color::WHITE,
             width: TextCursorWidth::Px(4.),
-            radius: 1.,
+            radius: 2.,
         },
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
