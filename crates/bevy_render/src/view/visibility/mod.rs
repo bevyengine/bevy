@@ -3,8 +3,8 @@ mod render_layers;
 
 use core::any::TypeId;
 
-use bevy_ecs::component::ComponentId;
-use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::component::HookContext;
+use bevy_ecs::entity::hash_set::EntityHashSet;
 use bevy_ecs::world::DeferredWorld;
 use derive_more::derive::{Deref, DerefMut};
 pub use range::*;
@@ -37,7 +37,7 @@ use crate::{
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(InheritedVisibility, ViewVisibility)]
 pub enum Visibility {
-    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
+    /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
     ///
     /// A root-level entity that is set to `Inherited` will be visible.
     #[default]
@@ -47,7 +47,7 @@ pub enum Visibility {
     /// An entity with `Visibility::Visible` will be unconditionally visible.
     ///
     /// Note that an entity with `Visibility::Visible` will be visible regardless of whether the
-    /// [`Parent`] entity is hidden.
+    /// [`ChildOf`] target entity is hidden.
     Visible,
 }
 
@@ -316,7 +316,7 @@ pub enum VisibilitySystems {
     /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
     UpdateFrusta,
     /// Label for the system propagating the [`InheritedVisibility`] in a
-    /// [`Parent`] / [`Children`] hierarchy.
+    /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
     /// of each entity and the [`VisibleEntities`] of each view.\
@@ -325,6 +325,10 @@ pub enum VisibilitySystems {
     /// the order of systems within this set is irrelevant, as [`check_visibility`]
     /// assumes that its operations are irreversible during the frame.
     CheckVisibility,
+    /// Label for the `mark_newly_hidden_entities_invisible` system, which sets
+    /// [`ViewVisibility`] to [`ViewVisibility::HIDDEN`] for entities that no
+    /// view has marked as visible.
+    MarkNewlyHiddenEntitiesInvisible,
 }
 
 pub struct VisibilityPlugin;
@@ -340,6 +344,10 @@ impl Plugin for VisibilityPlugin {
                     .before(CheckVisibility)
                     .after(TransformSystem::TransformPropagate),
             )
+            .configure_sets(
+                PostUpdate,
+                MarkNewlyHiddenEntitiesInvisible.after(CheckVisibility),
+            )
             .init_resource::<PreviousVisibleEntities>()
             .add_systems(
                 PostUpdate,
@@ -348,6 +356,7 @@ impl Plugin for VisibilityPlugin {
                     (visibility_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
                     check_visibility.in_set(CheckVisibility),
+                    mark_newly_hidden_entities_invisible.in_set(MarkNewlyHiddenEntitiesInvisible),
                 ),
             );
     }
@@ -387,10 +396,10 @@ pub fn update_frusta(
 
 fn visibility_propagate_system(
     changed: Query<
-        (Entity, &Visibility, Option<&Parent>, Option<&Children>),
+        (Entity, &Visibility, Option<&ChildOf>, Option<&Children>),
         (
             With<InheritedVisibility>,
-            Or<(Changed<Visibility>, Changed<Parent>)>,
+            Or<(Changed<Visibility>, Changed<ChildOf>)>,
         ),
     >,
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
@@ -456,6 +465,10 @@ fn propagate_recursive(
 }
 
 /// Stores all entities that were visible in the previous frame.
+///
+/// As systems that check visibility judge entities visible, they remove them
+/// from this set. Afterward, the `mark_newly_hidden_entities_invisible` system
+/// runs and marks every mesh still remaining in this set as hidden.
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct PreviousVisibleEntities(EntityHashSet);
 
@@ -607,13 +620,23 @@ pub fn check_visibility(
             }
         }
     }
+}
 
-    // Now whatever previous visible entities are left are entities that were
+/// Marks any entities that weren't judged visible this frame as invisible.
+///
+/// As visibility-determining systems run, they remove entities that they judge
+/// visible from [`PreviousVisibleEntities`]. At the end of visibility
+/// determination, all entities that remain in [`PreviousVisibleEntities`] must
+/// be invisible. This system goes through those entities and marks them newly
+/// invisible (which sets the change flag for them).
+fn mark_newly_hidden_entities_invisible(
+    mut view_visibilities: Query<&mut ViewVisibility>,
+    mut previous_visible_entities: ResMut<PreviousVisibleEntities>,
+) {
+    // Whatever previous visible entities are left are entities that were
     // visible last frame but just became invisible.
     for entity in previous_visible_entities.drain() {
-        if let Ok((_, _, mut view_visibility, _, _, _, _, _, _)) =
-            visible_aabb_query.get_mut(entity)
-        {
+        if let Ok(mut view_visibility) = view_visibilities.get_mut(entity) {
             *view_visibility = ViewVisibility::HIDDEN;
         }
     }
@@ -632,8 +655,10 @@ pub fn check_visibility(
 ///     ...
 /// }
 /// ```
-pub fn add_visibility_class<C>(mut world: DeferredWorld<'_>, entity: Entity, _: ComponentId)
-where
+pub fn add_visibility_class<C>(
+    mut world: DeferredWorld<'_>,
+    HookContext { entity, .. }: HookContext,
+) where
     C: 'static,
 {
     if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
@@ -761,7 +786,7 @@ mod test {
             .entity_mut(parent2)
             .insert(Visibility::Visible);
         // Simulate a change in the parent component
-        app.world_mut().entity_mut(child2).insert(Parent(parent2)); // example of changing parent
+        app.world_mut().entity_mut(child2).insert(ChildOf(parent2)); // example of changing parent
 
         // Run the system again to propagate changes
         app.update();

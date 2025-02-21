@@ -1,7 +1,7 @@
 //! System parameter for computing up-to-date [`GlobalTransform`]s.
 
 use bevy_ecs::{
-    hierarchy::Parent,
+    hierarchy::ChildOf,
     prelude::Entity,
     query::QueryEntityError,
     system::{Query, SystemParam},
@@ -18,7 +18,7 @@ use crate::components::{GlobalTransform, Transform};
 /// the last time the transform propagation systems ran.
 #[derive(SystemParam)]
 pub struct TransformHelper<'w, 's> {
-    parent_query: Query<'w, 's, &'static Parent>,
+    parent_query: Query<'w, 's, &'static ChildOf>,
     transform_query: Query<'w, 's, &'static Transform>,
 }
 
@@ -52,11 +52,11 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::NoSuchEntity(entity, _) => {
+        QueryEntityError::EntityDoesNotExist(error) => {
             if ancestor {
-                MalformedHierarchy(entity)
+                MalformedHierarchy(error.entity)
             } else {
-                NoSuchEntity(entity)
+                NoSuchEntity(error.entity)
             }
         }
         QueryEntityError::AliasedMutability(_) => unreachable!(),
@@ -84,7 +84,7 @@ mod tests {
     use core::f32::consts::TAU;
 
     use bevy_app::App;
-    use bevy_ecs::{hierarchy::Parent, system::SystemState};
+    use bevy_ecs::{hierarchy::ChildOf, system::SystemState};
     use bevy_math::{Quat, Vec3};
 
     use crate::{
@@ -124,7 +124,7 @@ mod tests {
             let mut e = app.world_mut().spawn(transform);
 
             if let Some(entity) = entity {
-                e.insert(Parent(entity));
+                e.insert(ChildOf(entity));
             }
 
             entity = Some(e.id());

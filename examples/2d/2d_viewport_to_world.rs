@@ -12,9 +12,13 @@ fn main() {
 
 fn draw_cursor(
     camera_query: Single<(&Camera, &GlobalTransform)>,
-    window: Single<&Window>,
+    window: Query<&Window>,
     mut gizmos: Gizmos,
 ) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     let (camera, camera_transform) = *camera_query;
 
     let Some(cursor_position) = window.cursor_position() else {
@@ -31,4 +35,15 @@ fn draw_cursor(
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
+
+    // Create a minimal UI explaining how to interact with the example
+    commands.spawn((
+        Text::new("Move the mouse to see the circle follow your cursor."),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }

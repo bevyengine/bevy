@@ -4,17 +4,16 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
-#[cfg(feature = "track_location")]
-use core::panic::Location;
-
 use crate::{
-    bundle::{Bundle, InsertMode},
+    bundle::{Bundle, InsertMode, NoBundleEffect},
+    change_detection::MaybeLocation,
     entity::Entity,
     event::{Event, Events},
     observer::TriggerTargets,
+    resource::Resource,
     result::{Error, Result},
     schedule::ScheduleLabel,
-    system::{error_handler, IntoSystem, Resource, SystemId, SystemInput},
+    system::{error_handler, IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 
@@ -110,61 +109,30 @@ impl<C: Command> HandleError for C {
 pub fn spawn_batch<I>(bundles_iter: I) -> impl Command
 where
     I: IntoIterator + Send + Sync + 'static,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        SpawnBatchIter::new(
-            world,
-            bundles_iter.into_iter(),
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        SpawnBatchIter::new(world, bundles_iter.into_iter(), caller);
     }
 }
 
 /// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will panic.
+///
+/// If any entities do not exist in the world, this command will return a
+/// [`TryInsertBatchError`](crate::world::error::TryInsertBatchError).
 ///
 /// This is more efficient than inserting the bundles individually.
 #[track_caller]
-pub fn insert_batch<I, B>(batch: I, mode: InsertMode) -> impl Command
+pub fn insert_batch<I, B>(batch: I, insert_mode: InsertMode) -> impl Command<Result>
 where
     I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-    B: Bundle,
+    B: Bundle<Effect: NoBundleEffect>,
 {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |world: &mut World| {
-        world.insert_batch_with_caller(
-            batch,
-            mode,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
-    }
-}
-
-/// A [`Command`] that consumes an iterator to add a series of [`Bundles`](Bundle) to a set of entities.
-/// If any entities do not exist in the world, this command will ignore them.
-///
-/// This is more efficient than inserting the bundles individually.
-#[track_caller]
-pub fn try_insert_batch<I, B>(batch: I, mode: InsertMode) -> impl Command
-where
-    I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-    B: Bundle,
-{
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
-    move |world: &mut World| {
-        world.try_insert_batch_with_caller(
-            batch,
-            mode,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+    let caller = MaybeLocation::caller();
+    move |world: &mut World| -> Result {
+        world.try_insert_batch_with_caller(batch, insert_mode, caller)?;
+        Ok(())
     }
 }
 
@@ -180,14 +148,9 @@ pub fn init_resource<R: Resource + FromWorld>() -> impl Command {
 /// A [`Command`] that inserts a [`Resource`] into the world.
 #[track_caller]
 pub fn insert_resource<R: Resource>(resource: R) -> impl Command {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.insert_resource_with_caller(
-            resource,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        world.insert_resource_with_caller(resource, caller);
     }
 }
 
@@ -283,9 +246,11 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
 }
 
 /// A [`Command`] that sends a global [`Trigger`](crate::observer::Trigger) without any targets.
+#[track_caller]
 pub fn trigger(event: impl Event) -> impl Command {
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger(event);
+        world.trigger_with_caller(event, caller);
     }
 }
 
@@ -294,22 +259,18 @@ pub fn trigger_targets(
     event: impl Event,
     targets: impl TriggerTargets + Send + Sync + 'static,
 ) -> impl Command {
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_targets(event, targets);
+        world.trigger_targets_with_caller(event, targets, caller);
     }
 }
 
 /// A [`Command`] that sends an arbitrary [`Event`].
 #[track_caller]
 pub fn send_event<E: Event>(event: E) -> impl Command {
-    #[cfg(feature = "track_location")]
-    let caller = Location::caller();
+    let caller = MaybeLocation::caller();
     move |world: &mut World| {
         let mut events = world.resource_mut::<Events<E>>();
-        events.send_with_caller(
-            event,
-            #[cfg(feature = "track_location")]
-            caller,
-        );
+        events.send_with_caller(event, caller);
     }
 }

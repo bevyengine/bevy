@@ -7,20 +7,20 @@ use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
     event::EventCursor,
-    hierarchy::Parent,
+    hierarchy::ChildOf,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     removal_detection::RemovedComponentEntity,
     system::{In, Local},
     world::{EntityRef, EntityWorldMut, FilteredEntityRef, World},
 };
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{ReflectSerializer, TypedReflectDeserializer},
     GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize,
     TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
-use bevy_utils::HashMap;
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 
@@ -841,7 +841,7 @@ pub fn process_remote_reparent_request(
     // If `None`, remove the entities' parents.
     else {
         for entity in entities {
-            get_entity_mut(world, entity)?.remove::<Parent>();
+            get_entity_mut(world, entity)?.remove::<ChildOf>();
         }
     }
 
@@ -1512,7 +1512,7 @@ mod tests {
         );
     }
     use super::*;
-    use bevy_ecs::{component::Component, system::Resource};
+    use bevy_ecs::{component::Component, resource::Resource};
     use bevy_reflect::Reflect;
 
     #[test]

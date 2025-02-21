@@ -5,6 +5,7 @@ use variadics_please::all_tuples;
 use crate::{
     prelude::QueryBuilder,
     query::{QueryData, QueryFilter, QueryState},
+    resource::Resource,
     system::{
         DynSystemParam, DynSystemParamState, Local, ParamSet, Query, SystemMeta, SystemParam,
     },
@@ -15,7 +16,7 @@ use crate::{
 };
 use core::fmt::Debug;
 
-use super::{init_query_param, Res, ResMut, Resource, SystemState};
+use super::{init_query_param, Res, ResMut, SystemState};
 
 /// A builder that can create a [`SystemParam`].
 ///
@@ -711,13 +712,14 @@ unsafe impl<'w, 's, T: FnOnce(&mut FilteredResourcesMutBuilder)>
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
         entity::Entities,
         prelude::{Component, Query},
+        reflect::ReflectResource,
         system::{Local, RunSystemOnce},
     };
     use alloc::vec;
+    use bevy_reflect::{FromType, Reflect, ReflectRef};
 
     use super::*;
 
@@ -730,8 +732,11 @@ mod tests {
     #[derive(Component)]
     struct C;
 
-    #[derive(Resource, Default)]
-    struct R;
+    #[derive(Resource, Default, Reflect)]
+    #[reflect(Resource)]
+    struct R {
+        foo: usize,
+    }
 
     fn local_system(local: Local<u64>) -> u64 {
         *local
@@ -1070,5 +1075,32 @@ mod tests {
         )
             .build_state(&mut world)
             .build_system(|_r: ResMut<R>, _fr: FilteredResourcesMut| {});
+    }
+
+    #[test]
+    fn filtered_resource_reflect() {
+        let mut world = World::new();
+        world.insert_resource(R { foo: 7 });
+
+        let system = (FilteredResourcesParamBuilder::new(|builder| {
+            builder.add_read::<R>();
+        }),)
+            .build_state(&mut world)
+            .build_system(|res: FilteredResources| {
+                let reflect_resource = <ReflectResource as FromType<R>>::from_type();
+                let ReflectRef::Struct(reflect_struct) =
+                    reflect_resource.reflect(res).unwrap().reflect_ref()
+                else {
+                    panic!()
+                };
+                *reflect_struct
+                    .field("foo")
+                    .unwrap()
+                    .try_downcast_ref::<usize>()
+                    .unwrap()
+            });
+
+        let output = world.run_system_once(system).unwrap();
+        assert_eq!(output, 7);
     }
 }

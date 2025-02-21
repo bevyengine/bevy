@@ -9,10 +9,11 @@
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
 use bevy_ecs::prelude::*;
+use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::{Camera, NormalizedRenderTarget};
-use bevy_utils::HashMap;
 use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
@@ -250,6 +251,15 @@ pub enum PointerAction {
     Move {
         /// How much the pointer moved from the previous position.
         delta: Vec2,
+    },
+    /// Scroll the pointer
+    Scroll {
+        /// The mouse scroll unit.
+        unit: MouseScrollUnit,
+        /// The horizontal scroll value.
+        x: f32,
+        /// The vertical scroll value.
+        y: f32,
     },
     /// Cancel the pointer. Often used for touch events.
     Cancel,

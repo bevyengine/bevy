@@ -149,6 +149,9 @@
 extern crate alloc;
 extern crate std;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_asset;
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -202,6 +205,7 @@ pub use server::*;
 
 /// Rusty Object Notation, a crate used to serialize and deserialize bevy assets.
 pub use ron;
+pub use uuid;
 
 use crate::{
     io::{embedded::EmbeddedAssetRegistry, AssetSourceBuilder, AssetSourceBuilders, AssetSourceId},
@@ -212,15 +216,15 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use bevy_app::{App, Last, Plugin, PreUpdate};
+use bevy_app::{App, Plugin, PostUpdate, PreUpdate};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet},
     world::FromWorld,
 };
+use bevy_platform_support::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use bevy_utils::HashSet;
 use core::any::TypeId;
 use tracing::error;
 
@@ -580,7 +584,7 @@ impl AssetApp for App {
             .add_event::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
-                Last,
+                PostUpdate,
                 Assets::<A>::asset_events
                     .run_if(Assets::<A>::asset_events_condition)
                     .in_set(AssetEvents),
@@ -626,7 +630,6 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{
@@ -653,8 +656,8 @@ mod tests {
         schedule::{LogLevel, ScheduleBuildSettings},
     };
     use bevy_log::LogPlugin;
+    use bevy_platform_support::collections::HashMap;
     use bevy_reflect::TypePath;
-    use bevy_utils::HashMap;
     use core::time::Duration;
     use serde::{Deserialize, Serialize};
     use std::path::Path;
@@ -722,7 +725,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get();
+                let cool = loaded.get_asset().get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {

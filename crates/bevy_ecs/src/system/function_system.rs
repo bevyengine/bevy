@@ -630,7 +630,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         unsafe { self.fetch(world, change_tick) }
     }
 
@@ -644,7 +644,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> SystemParamItem<'w, 's, Param> {
-        // SAFETY: The invariants are uphold by the caller.
+        // SAFETY: The invariants are upheld by the caller.
         let param =
             unsafe { Param::get_param(&mut self.param_state, &self.meta, world, change_tick) };
         self.meta.last_run = change_tick;

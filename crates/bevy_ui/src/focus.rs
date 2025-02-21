@@ -1,6 +1,4 @@
-use crate::{
-    CalculatedClip, ComputedNode, DefaultUiCamera, ResolvedBorderRadius, UiStack, UiTargetCamera,
-};
+use crate::{CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius, UiStack};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{Entity, EntityBorrow},
@@ -11,10 +9,10 @@ use bevy_ecs::{
 };
 use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::ViewVisibility};
+use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -28,9 +26,9 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// Updated in [`ui_focus_system`].
 ///
-/// If a UI node has both [`Interaction`] and [`ViewVisibility`] components,
+/// If a UI node has both [`Interaction`] and [`InheritedVisibility`] components,
 /// [`Interaction`] will always be [`Interaction::None`]
-/// when [`ViewVisibility::get()`] is false.
+/// when [`InheritedVisibility::get()`] is false.
 /// This ensures that hidden UI nodes are not interactable,
 /// and do not end up stuck in an active state if hidden at the wrong time.
 ///
@@ -140,17 +138,16 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
-    view_visibility: Option<&'static ViewVisibility>,
-    target_camera: Option<&'static UiTargetCamera>,
+    inherited_visibility: Option<&'static InheritedVisibility>,
+    target_camera: &'static ComputedNodeTarget,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
 ///
-/// Entities with a hidden [`ViewVisibility`] are always treated as released.
+/// Entities with a hidden [`InheritedVisibility`] are always treated as released.
 pub fn ui_focus_system(
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,
-    default_ui_camera: DefaultUiCamera,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<&Window>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
@@ -212,8 +209,6 @@ pub fn ui_focus_system(
         })
         .collect();
 
-    let default_camera_entity = default_ui_camera.get();
-
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
@@ -227,9 +222,9 @@ pub fn ui_focus_system(
                 return None;
             };
 
-            let view_visibility = node.view_visibility?;
+            let inherited_visibility = node.inherited_visibility?;
             // Nodes that are not rendered should not be interactable
-            if !view_visibility.get() {
+            if !inherited_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
                 if let Some(mut interaction) = node.interaction {
                     // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
@@ -237,10 +232,7 @@ pub fn ui_focus_system(
                 }
                 return None;
             }
-            let camera_entity = node
-                .target_camera
-                .map(UiTargetCamera::entity)
-                .or(default_camera_entity)?;
+            let camera_entity = node.target_camera.camera()?;
 
             let node_rect = Rect::from_center_size(
                 node.global_transform.translation().truncate(),

@@ -56,10 +56,9 @@ use self::{
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::graph::NodePbr;
-use crate::PreviousGlobalTransform;
+use crate::{graph::NodePbr, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, AssetApp, AssetId, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
@@ -86,9 +85,10 @@ use bevy_transform::components::Transform;
 use derive_more::From;
 use tracing::error;
 
-const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(1325134235233421);
+const MESHLET_BINDINGS_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("d90ac78c-500f-48aa-b488-cc98eb3f6314");
 const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(3325134235233421);
+    weak_handle!("db8d9001-6ca7-4d00-968a-d5f5b96b89c3");
 
 /// Provides a plugin for rendering large amounts of high-poly 3d meshes using an efficient GPU-driven method. See also [`MeshletMesh`].
 ///
@@ -106,9 +106,9 @@ const MESHLET_MESH_MATERIAL_SHADER_HANDLE: Handle<Shader> =
 /// * Requires preprocessing meshes. See [`MeshletMesh`] for details.
 /// * Limitations on the kinds of materials you can use. See [`MeshletMesh`] for details.
 ///
-/// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX`].
+/// This plugin requires a fairly recent GPU that supports [`WgpuFeatures::TEXTURE_INT64_ATOMIC`].
 ///
-/// This plugin currently works only on the Vulkan backend.
+/// This plugin currently works only on the Vulkan and Metal backends.
 ///
 /// This plugin is not compatible with [`Msaa`]. Any camera rendering a [`MeshletMesh`] must have
 /// [`Msaa`] set to [`Msaa::Off`].
@@ -133,7 +133,8 @@ pub struct MeshletPlugin {
 impl MeshletPlugin {
     /// [`WgpuFeatures`] required for this plugin to function.
     pub fn required_wgpu_features() -> WgpuFeatures {
-        WgpuFeatures::SHADER_INT64_ATOMIC_MIN_MAX
+        WgpuFeatures::TEXTURE_INT64_ATOMIC
+            | WgpuFeatures::TEXTURE_ATOMIC
             | WgpuFeatures::SHADER_INT64
             | WgpuFeatures::SUBGROUP
             | WgpuFeatures::DEPTH_CLIP_CONTROL
@@ -151,6 +152,12 @@ impl Plugin for MeshletPlugin {
             std::process::exit(1);
         }
 
+        load_internal_asset!(
+            app,
+            MESHLET_CLEAR_VISIBILITY_BUFFER_SHADER_HANDLE,
+            "clear_visibility_buffer.wgsl",
+            Shader::from_wgsl
+        );
         load_internal_asset!(
             app,
             MESHLET_BINDINGS_SHADER_HANDLE,
@@ -173,12 +180,6 @@ impl Plugin for MeshletPlugin {
             app,
             MESHLET_CULLING_SHADER_HANDLE,
             "cull_clusters.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESHLET_DOWNSAMPLE_DEPTH_SHADER_HANDLE,
-            "downsample_depth.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -252,14 +253,11 @@ impl Plugin for MeshletPlugin {
                 Core3d,
                 (
                     NodeMeshlet::VisibilityBufferRasterPass,
-                    NodePbr::ShadowPass,
+                    NodePbr::EarlyShadowPass,
                     //
                     NodeMeshlet::Prepass,
-                    Node3d::Prepass,
                     //
                     NodeMeshlet::DeferredPrepass,
-                    Node3d::DeferredPrepass,
-                    Node3d::CopyDeferredLightingId,
                     Node3d::EndPrepasses,
                     //
                     Node3d::StartMainPass,

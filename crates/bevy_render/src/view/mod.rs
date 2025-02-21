@@ -1,7 +1,8 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
@@ -10,6 +11,7 @@ use crate::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
     },
+    experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     prelude::Shader,
     primitives::Frustum,
@@ -31,10 +33,10 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_platform_support::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{hashbrown::hash_map::Entry, HashMap};
 use core::{
     ops::Range,
     sync::atomic::{AtomicUsize, Ordering},
@@ -44,7 +46,7 @@ use wgpu::{
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
+pub const VIEW_TYPE_HANDLE: Handle<Shader> = weak_handle!("7234423c-38bb-411c-acec-f67730f6db5b");
 
 /// The matrix that converts from the RGB to the LMS color space.
 ///
@@ -109,9 +111,11 @@ impl Plugin for ViewPlugin {
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()
+            .register_type::<OcclusionCulling>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Msaa>::default(),
+                ExtractComponentPlugin::<OcclusionCulling>::default(),
                 VisibilityPlugin,
                 VisibilityRangePlugin,
             ));
@@ -182,6 +186,16 @@ impl Msaa {
     #[inline]
     pub fn samples(&self) -> u32 {
         *self as u32
+    }
+
+    pub fn from_samples(samples: u32) -> Self {
+        match samples {
+            1 => Msaa::Off,
+            2 => Msaa::Sample2,
+            4 => Msaa::Sample4,
+            8 => Msaa::Sample8,
+            _ => panic!("Unsupported MSAA sample count: {}", samples),
+        }
     }
 }
 
@@ -555,6 +569,7 @@ pub struct ViewUniform {
     pub frustum: [Vec4; 6],
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
+    pub frame_count: u32,
 }
 
 #[derive(Resource)]
@@ -876,6 +891,7 @@ pub fn prepare_view_uniforms(
         Option<&TemporalJitter>,
         Option<&MipBias>,
     )>,
+    frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -929,6 +945,7 @@ pub fn prepare_view_uniforms(
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+                frame_count: frame_count.0,
             }),
         };
 

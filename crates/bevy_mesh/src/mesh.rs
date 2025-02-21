@@ -6,7 +6,6 @@ use super::{
     GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
     MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
     MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
-    VertexFormatSize,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
@@ -14,6 +13,7 @@ use bevy_image::Image;
 use bevy_math::{primitives::Triangle3d, *};
 use bevy_reflect::Reflect;
 use bytemuck::cast_slice;
+use thiserror::Error;
 use tracing::warn;
 use wgpu_types::{VertexAttribute, VertexFormat, VertexStepMode};
 
@@ -280,13 +280,22 @@ impl Mesh {
         self.attributes.contains_key(&id.into())
     }
 
-    /// Retrieves the data currently set to the vertex attribute with the specified `name`.
+    /// Retrieves the data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
     #[inline]
     pub fn attribute(
         &self,
         id: impl Into<MeshVertexAttributeId>,
     ) -> Option<&VertexAttributeValues> {
         self.attributes.get(&id.into()).map(|data| &data.values)
+    }
+
+    /// Retrieves the full data currently set to the vertex attribute with the specified [`MeshVertexAttributeId`].
+    #[inline]
+    pub(crate) fn attribute_data(
+        &self,
+        id: impl Into<MeshVertexAttributeId>,
+    ) -> Option<&MeshAttributeData> {
+        self.attributes.get(&id.into())
     }
 
     /// Retrieves the data currently set to the vertex attribute with the specified `name` mutably.
@@ -369,7 +378,7 @@ impl Mesh {
     pub fn get_vertex_size(&self) -> u64 {
         self.attributes
             .values()
-            .map(|data| data.attribute.format.get_size())
+            .map(|data| data.attribute.format.size())
             .sum()
     }
 
@@ -404,7 +413,7 @@ impl Mesh {
                 format: data.attribute.format,
                 shader_location: index as u32,
             });
-            accumulated_offset += data.attribute.format.get_size();
+            accumulated_offset += data.attribute.format.size();
         }
 
         let layout = MeshVertexBufferLayout {
@@ -472,7 +481,7 @@ impl Mesh {
         // bundle into interleaved buffers
         let mut attribute_offset = 0;
         for attribute_data in self.attributes.values() {
-            let attribute_size = attribute_data.attribute.format.get_size() as usize;
+            let attribute_size = attribute_data.attribute.format.size() as usize;
             let attributes_bytes = attribute_data.values.get_bytes();
             for (vertex_index, attribute_bytes) in attributes_bytes
                 .chunks_exact(attribute_size)
@@ -788,11 +797,11 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the vertex attribute values of `other` are incompatible with `self`.
+    /// Returns [`Err(MergeMeshError)`](MergeMeshError) if the vertex attribute values of `other` are incompatible with `self`.
     /// For example, [`VertexAttributeValues::Float32`] is incompatible with [`VertexAttributeValues::Float32x3`].
-    pub fn merge(&mut self, other: &Mesh) {
+    pub fn merge(&mut self, other: &Mesh) -> Result<(), MergeMeshError> {
         use VertexAttributeValues::*;
 
         // The indices of `other` should start after the last vertex of `self`.
@@ -800,7 +809,6 @@ impl Mesh {
 
         // Extend attributes of `self` with attributes of `other`.
         for (attribute, values) in self.attributes_mut() {
-            let enum_variant_name = values.enum_variant_name();
             if let Some(other_values) = other.attribute(attribute.id) {
                 #[expect(
                     clippy::match_same_arms,
@@ -835,11 +843,14 @@ impl Mesh {
                     (Snorm8x4(vec1), Snorm8x4(vec2)) => vec1.extend(vec2),
                     (Uint8x4(vec1), Uint8x4(vec2)) => vec1.extend(vec2),
                     (Unorm8x4(vec1), Unorm8x4(vec2)) => vec1.extend(vec2),
-                    _ => panic!(
-                        "Incompatible vertex attribute types {} and {}",
-                        enum_variant_name,
-                        other_values.enum_variant_name()
-                    ),
+                    _ => {
+                        return Err(MergeMeshError {
+                            self_attribute: *attribute,
+                            other_attribute: other
+                                .attribute_data(attribute.id)
+                                .map(|data| data.attribute),
+                        })
+                    }
                 }
             }
         }
@@ -848,6 +859,7 @@ impl Mesh {
         if let (Some(indices), Some(other_indices)) = (self.indices_mut(), other.indices()) {
             indices.extend(other_indices.iter().map(|i| (i + index_offset) as u32));
         }
+        Ok(())
     }
 
     /// Transforms the vertex positions, normals, and tangents of the mesh by the given [`Transform`].
@@ -1211,6 +1223,14 @@ impl core::ops::Mul<Mesh> for Transform {
     fn mul(self, rhs: Mesh) -> Self::Output {
         rhs.transformed_by(self)
     }
+}
+
+/// Error that can occur when calling [`Mesh::merge`].
+#[derive(Error, Debug, Clone)]
+#[error("Incompatible vertex attribute types {} and {}", self_attribute.name, other_attribute.map(|a| a.name).unwrap_or("None"))]
+pub struct MergeMeshError {
+    pub self_attribute: MeshVertexAttribute,
+    pub other_attribute: Option<MeshVertexAttribute>,
 }
 
 #[cfg(test)]

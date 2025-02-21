@@ -1,11 +1,11 @@
 use crate::{
     io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetLoader,
-    ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
+    CompleteErasedLoadedAsset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
 };
 use alloc::boxed::Box;
 use atomicow::CowArc;
+use bevy_platform_support::collections::HashMap;
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use bevy_utils::HashMap;
 use core::{borrow::Borrow, hash::Hash, ops::Deref};
 use serde::{Deserialize, Serialize};
 
@@ -44,7 +44,7 @@ pub trait ErasedAssetSaver: Send + Sync + 'static {
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
-        asset: &'a ErasedLoadedAsset,
+        complete_asset: &'a CompleteErasedLoadedAsset,
         settings: &'a dyn Settings,
     ) -> BoxedFuture<'a, Result<(), Box<dyn core::error::Error + Send + Sync + 'static>>>;
 
@@ -56,14 +56,14 @@ impl<S: AssetSaver> ErasedAssetSaver for S {
     fn save<'a>(
         &'a self,
         writer: &'a mut Writer,
-        asset: &'a ErasedLoadedAsset,
+        complete_asset: &'a CompleteErasedLoadedAsset,
         settings: &'a dyn Settings,
     ) -> BoxedFuture<'a, Result<(), Box<dyn core::error::Error + Send + Sync + 'static>>> {
         Box::pin(async move {
             let settings = settings
                 .downcast_ref::<S::Settings>()
                 .expect("AssetLoader settings should match the loader type");
-            let saved_asset = SavedAsset::<S::Asset>::from_loaded(asset).unwrap();
+            let saved_asset = SavedAsset::<S::Asset>::from_loaded(complete_asset).unwrap();
             if let Err(err) = self.save(writer, saved_asset, settings).await {
                 return Err(err.into());
             }
@@ -91,11 +91,11 @@ impl<'a, A: Asset> Deref for SavedAsset<'a, A> {
 
 impl<'a, A: Asset> SavedAsset<'a, A> {
     /// Creates a new [`SavedAsset`] from `asset` if its internal value matches `A`.
-    pub fn from_loaded(asset: &'a ErasedLoadedAsset) -> Option<Self> {
-        let value = asset.value.downcast_ref::<A>()?;
+    pub fn from_loaded(complete_asset: &'a CompleteErasedLoadedAsset) -> Option<Self> {
+        let value = complete_asset.asset.value.downcast_ref::<A>()?;
         Some(SavedAsset {
             value,
-            labeled_assets: &asset.labeled_assets,
+            labeled_assets: &complete_asset.labeled_assets,
         })
     }
 
@@ -114,17 +114,13 @@ impl<'a, A: Asset> SavedAsset<'a, A> {
     }
 
     /// Returns the labeled asset, if it exists and matches this type.
-    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<SavedAsset<B>>
+    pub fn get_labeled<B: Asset, Q>(&self, label: &Q) -> Option<&B>
     where
         CowArc<'static, str>: Borrow<Q>,
         Q: ?Sized + Hash + Eq,
     {
         let labeled = self.labeled_assets.get(label)?;
-        let value = labeled.asset.value.downcast_ref::<B>()?;
-        Some(SavedAsset {
-            value,
-            labeled_assets: &labeled.asset.labeled_assets,
-        })
+        labeled.asset.value.downcast_ref::<B>()
     }
 
     /// Returns the type-erased labeled asset, if it exists and matches this type.

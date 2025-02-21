@@ -6,16 +6,15 @@ use crate::{
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
+use bevy_platform_support::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::HashMap;
 pub use column::*;
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 use core::{
     alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
+    panic::Location,
 };
 mod column;
 
@@ -390,14 +389,15 @@ impl Table {
     }
 
     /// Fetches the calling locations that last changed the each component
-    #[cfg(feature = "track_location")]
     pub fn get_changed_by_slice_for(
         &self,
         component_id: ComponentId,
-    ) -> Option<&[UnsafeCell<&'static Location<'static>>]> {
-        self.get_column(component_id)
-            // SAFETY: `self.len()` is guaranteed to be the len of the locations array
-            .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
+    ) -> MaybeLocation<Option<&[UnsafeCell<&'static Location<'static>>]>> {
+        MaybeLocation::new_with_flattened(|| {
+            self.get_column(component_id)
+                // SAFETY: `self.len()` is guaranteed to be the len of the locations array
+                .map(|col| unsafe { col.get_changed_by_slice(self.entity_count()) })
+        })
     }
 
     /// Get the specific [`change tick`](Tick) of the component matching `component_id` in `row`.
@@ -433,20 +433,22 @@ impl Table {
     }
 
     /// Get the specific calling location that changed the component matching `component_id` in `row`
-    #[cfg(feature = "track_location")]
     pub fn get_changed_by(
         &self,
         component_id: ComponentId,
         row: TableRow,
-    ) -> Option<&UnsafeCell<&'static Location<'static>>> {
-        (row.as_usize() < self.entity_count()).then_some(
-            // SAFETY: `row.as_usize()` < `len`
-            unsafe {
-                self.get_column(component_id)?
-                    .changed_by
-                    .get_unchecked(row.as_usize())
-            },
-        )
+    ) -> MaybeLocation<Option<&UnsafeCell<&'static Location<'static>>>> {
+        MaybeLocation::new_with_flattened(|| {
+            (row.as_usize() < self.entity_count()).then_some(
+                // SAFETY: `row.as_usize()` < `len`
+                unsafe {
+                    self.get_column(component_id)?
+                        .changed_by
+                        .as_ref()
+                        .map(|changed_by| changed_by.get_unchecked(row.as_usize()))
+                },
+            )
+        })
     }
 
     /// Get the [`ComponentTicks`] of the component matching `component_id` in `row`.
@@ -571,9 +573,12 @@ impl Table {
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
             col.changed_ticks
                 .initialize_unchecked(len, UnsafeCell::new(Tick::new(0)));
-            #[cfg(feature = "track_location")]
             col.changed_by
-                .initialize_unchecked(len, UnsafeCell::new(Location::caller()));
+                .as_mut()
+                .zip(MaybeLocation::caller())
+                .map(|(changed_by, caller)| {
+                    changed_by.initialize_unchecked(len, UnsafeCell::new(caller));
+                });
         }
         TableRow::from_usize(len)
     }
@@ -815,17 +820,14 @@ impl Drop for Table {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{
+        change_detection::MaybeLocation,
         component::{Component, Components, Tick},
         entity::Entity,
         ptr::OwningPtr,
-        storage::{Storages, TableBuilder, TableId, TableRow, Tables},
+        storage::{TableBuilder, TableId, TableRow, Tables},
     };
     use alloc::vec::Vec;
-
-    #[cfg(feature = "track_location")]
-    use core::panic::Location;
 
     #[derive(Component)]
     struct W<T>(T);
@@ -845,8 +847,7 @@ mod tests {
     #[test]
     fn table() {
         let mut components = Components::default();
-        let mut storages = Storages::default();
-        let component_id = components.register_component::<W<TableRow>>(&mut storages);
+        let component_id = components.register_component::<W<TableRow>>();
         let columns = &[component_id];
         let mut table = TableBuilder::with_capacity(0, columns.len())
             .add_column(components.get_info(component_id).unwrap())
@@ -862,8 +863,7 @@ mod tests {
                         row,
                         value_ptr,
                         Tick::new(0),
-                        #[cfg(feature = "track_location")]
-                        Location::caller(),
+                        MaybeLocation::caller(),
                     );
                 });
             };

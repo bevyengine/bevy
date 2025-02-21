@@ -50,6 +50,10 @@ struct Args {
     /// set the root node to display none, removing all nodes from the layout.
     #[argh(switch)]
     display_none: bool,
+
+    /// spawn the layout without a camera
+    #[argh(switch)]
+    no_camera: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -82,9 +86,11 @@ fn main() {
     })
     .add_systems(Update, (button_system, set_text_colors_changed));
 
-    app.add_systems(Startup, |mut commands: Commands| {
-        commands.spawn(Camera2d);
-    });
+    if !args.no_camera {
+        app.add_systems(Startup, |mut commands: Commands| {
+            commands.spawn(Camera2d);
+        });
+    }
 
     if args.grid {
         app.add_systems(Startup, setup_grid);
@@ -283,18 +289,28 @@ fn spawn_button(
 
     if spawn_text {
         builder.with_children(|parent| {
-            parent.spawn((
-                Text(format!("{column}, {row}")),
-                TextFont {
-                    font_size: FONT_SIZE,
-                    ..default()
-                },
-                TextColor(Color::srgb(0.2, 0.2, 0.2)),
-            ));
+            // These labels are split to stress test multi-span text
+            parent
+                .spawn((
+                    Text(format!("{column}, ")),
+                    TextFont {
+                        font_size: FONT_SIZE,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.5, 0.2, 0.2)),
+                ))
+                .with_child((
+                    TextSpan(format!("{row}")),
+                    TextFont {
+                        font_size: FONT_SIZE,
+                        ..default()
+                    },
+                    TextColor(Color::srgb(0.2, 0.2, 0.5)),
+                ));
         });
     }
 }
 
-fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<Parent>)>) {
+fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<ChildOf>)>) {
     commands.entity(*root_node).despawn();
 }

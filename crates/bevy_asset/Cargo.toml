@@ -22,15 +22,19 @@ trace = []
 bevy_app = { path = "../bevy_app", version = "0.16.0-dev" }
 bevy_asset_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.16.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.16.0-dev", features = [
   "uuid",
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev" }
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+  "std",
+] }
 
 stackfuture = "0.3"
 atomicow = "1.0"
-async-broadcast = "0.5"
+async-broadcast = "0.7.2"
 async-fs = "2.0"
 async-lock = "3.0"
 bitflags = { version = "2.3", features = ["serde"] }
@@ -46,7 +50,7 @@ ron = "0.8"
 serde = { version = "1", features = ["derive"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
-uuid = { version = "1.0", features = ["v4"] }
+uuid = { version = "1.13.1", features = ["v4"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
@@ -61,12 +65,10 @@ web-sys = { version = "0.3", features = [
 ] }
 wasm-bindgen-futures = "0.4"
 js-sys = "0.3"
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-notify-debouncer-full = { version = "0.4.0", optional = true }
-
-[dev-dependencies]
-bevy_log = { path = "../bevy_log", version = "0.16.0-dev" }
+notify-debouncer-full = { version = "0.5.0", optional = true }
 
 [lints]
 workspace = true

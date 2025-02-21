@@ -3,20 +3,21 @@
 mod entity_observer;
 mod runner;
 
-pub use entity_observer::{CloneEntityWithObserversExt, ObservedBy};
+pub use entity_observer::ObservedBy;
 pub use runner::*;
 
 use crate::{
     archetype::ArchetypeFlags,
+    change_detection::MaybeLocation,
     component::ComponentId,
-    entity::EntityHashMap,
+    entity::hash_map::EntityHashMap,
     prelude::*,
     system::IntoObserverSystem,
     world::{DeferredWorld, *},
 };
 use alloc::vec::Vec;
+use bevy_platform_support::collections::HashMap;
 use bevy_ptr::Ptr;
-use bevy_utils::HashMap;
 use core::{
     fmt::Debug,
     marker::PhantomData,
@@ -137,6 +138,11 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// [`propagate`]: Trigger::propagate
     pub fn get_propagate(&self) -> bool {
         *self.propagate
+    }
+
+    /// Returns the source code location that triggered this observer.
+    pub fn caller(&self) -> MaybeLocation {
+        self.trigger.caller
     }
 }
 
@@ -298,6 +304,21 @@ impl ObserverDescriptor {
             .extend(descriptor.components.iter().copied());
         self.entities.extend(descriptor.entities.iter().copied());
     }
+
+    /// Returns the `events` that the observer is watching.
+    pub fn events(&self) -> &[ComponentId] {
+        &self.events
+    }
+
+    /// Returns the `components` that the observer is watching.
+    pub fn components(&self) -> &[ComponentId] {
+        &self.components
+    }
+
+    /// Returns the `entities` that the observer is watching.
+    pub fn entities(&self) -> &[Entity] {
+        &self.entities
+    }
 }
 
 /// Event trigger metadata for a given [`Observer`],
@@ -311,6 +332,8 @@ pub struct ObserverTrigger {
     components: SmallVec<[ComponentId; 2]>,
     /// The entity the trigger targeted.
     pub target: Entity,
+    /// The location of the source code that triggered the obserer.
+    pub caller: MaybeLocation,
 }
 
 impl ObserverTrigger {
@@ -387,6 +410,7 @@ impl Observers {
         components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut T,
         propagate: &mut bool,
+        caller: MaybeLocation,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
         let (mut world, observers) = unsafe {
@@ -411,6 +435,7 @@ impl Observers {
                     event_type,
                     components: components.clone().collect(),
                     target,
+                    caller,
                 },
                 data.into(),
                 propagate,
@@ -532,16 +557,24 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
-    pub fn trigger<E: Event>(&mut self, mut event: E) {
+    #[track_caller]
+    pub fn trigger<E: Event>(&mut self, event: E) {
+        self.trigger_with_caller(event, MaybeLocation::caller());
+    }
+
+    pub(crate) fn trigger_with_caller<E: Event>(&mut self, mut event: E, caller: MaybeLocation) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, ()) };
+        unsafe {
+            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, (), caller);
+        }
     }
 
     /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
     ///
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
+    #[track_caller]
     pub fn trigger_ref<E: Event>(&mut self, event: &mut E) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
@@ -553,10 +586,22 @@ impl World {
     /// While event types commonly implement [`Copy`],
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
-    pub fn trigger_targets<E: Event>(&mut self, mut event: E, targets: impl TriggerTargets) {
+    #[track_caller]
+    pub fn trigger_targets<E: Event>(&mut self, event: E, targets: impl TriggerTargets) {
+        self.trigger_targets_with_caller(event, targets, MaybeLocation::caller());
+    }
+
+    pub(crate) fn trigger_targets_with_caller<E: Event>(
+        &mut self,
+        mut event: E,
+        targets: impl TriggerTargets,
+        caller: MaybeLocation,
+    ) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
-        unsafe { self.trigger_targets_dynamic_ref(event_id, &mut event, targets) };
+        unsafe {
+            self.trigger_targets_dynamic_ref_with_caller(event_id, &mut event, targets, caller);
+        }
     }
 
     /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
@@ -564,6 +609,7 @@ impl World {
     ///
     /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
+    #[track_caller]
     pub fn trigger_targets_ref<E: Event>(&mut self, event: &mut E, targets: impl TriggerTargets) {
         let event_id = E::register_component_id(self);
         // SAFETY: We just registered `event_id` with the type of `event`
@@ -579,6 +625,7 @@ impl World {
     /// # Safety
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    #[track_caller]
     pub unsafe fn trigger_targets_dynamic<E: Event, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
@@ -600,11 +647,30 @@ impl World {
     /// # Safety
     ///
     /// Caller must ensure that `event_data` is accessible as the type represented by `event_id`.
+    #[track_caller]
     pub unsafe fn trigger_targets_dynamic_ref<E: Event, Targets: TriggerTargets>(
         &mut self,
         event_id: ComponentId,
         event_data: &mut E,
         targets: Targets,
+    ) {
+        self.trigger_targets_dynamic_ref_with_caller(
+            event_id,
+            event_data,
+            targets,
+            MaybeLocation::caller(),
+        );
+    }
+
+    /// # Safety
+    ///
+    /// See `trigger_targets_dynamic_ref`
+    unsafe fn trigger_targets_dynamic_ref_with_caller<E: Event, Targets: TriggerTargets>(
+        &mut self,
+        event_id: ComponentId,
+        event_data: &mut E,
+        targets: Targets,
+        caller: MaybeLocation,
     ) {
         let mut world = DeferredWorld::from(self);
         if targets.entities().is_empty() {
@@ -616,6 +682,7 @@ impl World {
                     targets.components(),
                     event_data,
                     false,
+                    caller,
                 );
             };
         } else {
@@ -628,6 +695,7 @@ impl World {
                         targets.components(),
                         event_data,
                         E::AUTO_PROPAGATE,
+                        caller,
                     );
                 };
             }
@@ -757,12 +825,12 @@ impl World {
 mod tests {
     use alloc::{vec, vec::Vec};
 
+    use bevy_platform_support::collections::HashMap;
     use bevy_ptr::OwningPtr;
-    use bevy_utils::HashMap;
 
-    use crate as bevy_ecs;
     use crate::component::ComponentId;
     use crate::{
+        change_detection::MaybeLocation,
         observer::{Observer, ObserverDescriptor, ObserverState, OnReplace},
         prelude::*,
         traversal::Traversal,
@@ -800,9 +868,9 @@ mod tests {
     }
 
     #[derive(Component)]
-    struct Parent(Entity);
+    struct ChildOf(Entity);
 
-    impl<D> Traversal<D> for &'_ Parent {
+    impl<D> Traversal<D> for &'_ ChildOf {
         fn traverse(item: Self::Item<'_>, _: &D) -> Option<Entity> {
             Some(item.0)
         }
@@ -812,7 +880,7 @@ mod tests {
     struct EventPropagating;
 
     impl Event for EventPropagating {
-        type Traversal = &'static Parent;
+        type Traversal = &'static ChildOf;
 
         const AUTO_PROPAGATE: bool = true;
     }
@@ -1198,7 +1266,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
@@ -1225,7 +1293,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
@@ -1255,7 +1323,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
             })
@@ -1285,7 +1353,7 @@ mod tests {
             .id();
 
         let child = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(
                 |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child");
@@ -1315,14 +1383,14 @@ mod tests {
             .id();
 
         let child_a = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_a");
             })
             .id();
 
         let child_b = world
-            .spawn(Parent(parent))
+            .spawn(ChildOf(parent))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_b");
             })
@@ -1372,7 +1440,7 @@ mod tests {
             .id();
 
         let child_a = world
-            .spawn(Parent(parent_a))
+            .spawn(ChildOf(parent_a))
             .observe(
                 |mut trigger: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                     res.observed("child_a");
@@ -1389,7 +1457,7 @@ mod tests {
             .id();
 
         let child_b = world
-            .spawn(Parent(parent_b))
+            .spawn(ChildOf(parent_b))
             .observe(|_: Trigger<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child_b");
             })
@@ -1416,8 +1484,8 @@ mod tests {
         });
 
         let grandparent = world.spawn_empty().id();
-        let parent = world.spawn(Parent(grandparent)).id();
-        let child = world.spawn(Parent(parent)).id();
+        let parent = world.spawn(ChildOf(grandparent)).id();
+        let child = world.spawn(ChildOf(parent)).id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
@@ -1441,8 +1509,8 @@ mod tests {
         );
 
         let grandparent = world.spawn(A).id();
-        let parent = world.spawn(Parent(grandparent)).id();
-        let child = world.spawn((A, Parent(parent))).id();
+        let parent = world.spawn(ChildOf(grandparent)).id();
+        let child = world.spawn((A, ChildOf(parent))).id();
 
         // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
         // and therefore does not automatically flush.
@@ -1509,6 +1577,38 @@ mod tests {
         world.flush();
 
         assert!(world.get_resource::<ResA>().is_some());
+    }
+
+    #[test]
+    #[track_caller]
+    fn observer_caller_location_event() {
+        #[derive(Event)]
+        struct EventA;
+
+        let caller = MaybeLocation::caller();
+        let mut world = World::new();
+        world.add_observer(move |trigger: Trigger<EventA>| {
+            assert_eq!(trigger.caller(), caller);
+        });
+        world.trigger(EventA);
+    }
+
+    #[test]
+    #[track_caller]
+    fn observer_caller_location_command_archetype_move() {
+        #[derive(Component)]
+        struct Component;
+
+        let caller = MaybeLocation::caller();
+        let mut world = World::new();
+        world.add_observer(move |trigger: Trigger<OnAdd, Component>| {
+            assert_eq!(trigger.caller(), caller);
+        });
+        world.add_observer(move |trigger: Trigger<OnRemove, Component>| {
+            assert_eq!(trigger.caller(), caller);
+        });
+        world.commands().spawn(Component).clear();
+        world.flush();
     }
 
     #[test]

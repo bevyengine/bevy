@@ -252,10 +252,14 @@ fn gravity(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collisions(
-    window: Single<&Window>,
+    window: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
     mut rng: ResMut<SharedRng>,
 ) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     let window_size = window.size();
 
     let collision_area = Aabb2d::new(Vec2::ZERO, (window_size - SPRITE_SIZE) / 2.);

@@ -13,13 +13,13 @@ use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
+    result::{Error, SystemErrorContext},
     schedule::{ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, SystemId, SystemInput},
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::HashMap;
 use core::{fmt::Debug, num::NonZero, panic::AssertUnwindSafe};
 use log::debug;
-use thiserror::Error;
 
 #[cfg(feature = "trace")]
 use tracing::info_span;
@@ -32,6 +32,9 @@ use std::{
 
 bevy_ecs::define_label!(
     /// A strongly-typed class of labels used to identify an [`App`].
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(AppLabel)]`"
+    )]
     AppLabel,
     APP_LABEL_INTERNER
 );
@@ -41,7 +44,7 @@ pub use bevy_ecs::label::DynEq;
 /// A shorthand for `Interned<dyn AppLabel>`.
 pub type InternedAppLabel = Interned<dyn AppLabel>;
 
-#[derive(Debug, Error)]
+#[derive(Debug, thiserror::Error)]
 pub(crate) enum AppError {
     #[error("duplicate plugin {plugin_name:?}")]
     DuplicatePlugin { plugin_name: String },
@@ -109,7 +112,7 @@ impl Default for App {
             app.insert_resource(AppTypeRegistry::new_with_derived_types());
 
             app.register_type::<Name>();
-            app.register_type::<Parent>();
+            app.register_type::<ChildOf>();
             app.register_type::<Children>();
         }
 
@@ -1036,6 +1039,17 @@ impl App {
             .try_register_required_components_with::<T, R>(constructor)
     }
 
+    /// Registers a component type as "disabling",
+    /// using [default query filters](bevy_ecs::entity_disabling::DefaultQueryFilters) to exclude entities with the component from queries.
+    ///
+    /// # Warning
+    ///
+    /// As discussed in the [module docs](bevy_ecs::entity_disabling), this can have performance implications,
+    /// as well as create interoperability issues, and should be used with caution.
+    pub fn register_disabling_component<C: Component>(&mut self) {
+        self.world_mut().register_disabling_component::<C>();
+    }
+
     /// Returns a reference to the main [`SubApp`]'s [`World`]. This is the same as calling
     /// [`app.main().world()`].
     ///
@@ -1265,6 +1279,18 @@ impl App {
         self
     }
 
+    /// Set the global system error handler to use for systems that return a [`Result`].
+    ///
+    /// See the [`bevy_ecs::result` module-level documentation](../../bevy_ecs/result/index.html)
+    /// for more information.
+    pub fn set_system_error_handler(
+        &mut self,
+        error_handler: fn(Error, SystemErrorContext),
+    ) -> &mut Self {
+        self.main_mut().set_system_error_handler(error_handler);
+        self
+    }
+
     /// Attempts to determine if an [`AppExit`] was raised since the last update.
     ///
     /// Will attempt to return the first [`Error`](AppExit::Error) it encounters.
@@ -1396,7 +1422,6 @@ impl AppExit {
 }
 
 impl From<u8> for AppExit {
-    #[must_use]
     fn from(value: u8) -> Self {
         Self::from_code(value)
     }
@@ -1425,8 +1450,9 @@ mod tests {
         event::{Event, EventWriter, Events},
         query::With,
         removal_detection::RemovedComponents,
+        resource::Resource,
         schedule::{IntoSystemConfigs, ScheduleLabel},
-        system::{Commands, Query, Resource},
+        system::{Commands, Query},
         world::{FromWorld, World},
     };
 
@@ -1533,7 +1559,6 @@ mod tests {
     #[test]
     fn test_derive_app_label() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct UnitLabel;
@@ -1665,7 +1690,6 @@ mod tests {
     #[test]
     fn test_extract_sees_changes() {
         use super::AppLabel;
-        use crate::{self as bevy_app};
 
         #[derive(AppLabel, Clone, Copy, Hash, PartialEq, Eq, Debug)]
         struct MySubApp;

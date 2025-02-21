@@ -2,7 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{pbr::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceReady};
 
 // An example asset that contains a mesh and animation.
 const GLTF_PATH: &str = "models/animated/Fox.glb";
@@ -17,62 +17,80 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
-        .add_systems(Update, play_animation_once_loaded)
         .run();
 }
 
-#[derive(Resource)]
-struct Animations {
+// A component that stores a reference to an animation we want to play. This is
+// created when we start loading the mesh (see `setup_mesh_and_animation`) and
+// read when the mesh has spawned (see `play_animation_once_loaded`).
+#[derive(Component)]
+struct AnimationToPlay {
     graph_handle: Handle<AnimationGraph>,
     index: AnimationNodeIndex,
 }
 
-// Create an animation graph and start loading the mesh and animation.
 fn setup_mesh_and_animation(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
 ) {
-    // Build an animation graph containing a single animation.
+    // Create an animation graph containing a single animation. We want the "run"
+    // animation from our example asset, which has an index of two.
     let (graph, index) = AnimationGraph::from_clip(
-        // We want the "run" animation from our example asset, which has an
-        // index of two.
         asset_server.load(GltfAssetLabel::Animation(2).from_asset(GLTF_PATH)),
     );
 
-    // Keep our animation graph in a Resource so that it can be added to the
-    // correct entity once the scene loads.
+    // Store the animation graph as an asset.
     let graph_handle = graphs.add(graph);
-    commands.insert_resource(Animations {
+
+    // Create a component that stores a reference to our animation.
+    let animation_to_play = AnimationToPlay {
         graph_handle,
         index,
-    });
+    };
 
-    // Tell the engine to start loading our mesh and animation, and then spawn
-    // them as a scene when ready.
-    commands.spawn(SceneRoot(
-        asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)),
-    ));
+    // Start loading the asset as a scene and store a reference to it in a
+    // SceneRoot component. This component will automatically spawn a scene
+    // containing our mesh once it has loaded.
+    let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
+
+    // Spawn an entity with our components, and connect it to an observer that
+    // will trigger when the scene is loaded and spawned.
+    commands
+        .spawn((animation_to_play, mesh_scene))
+        .observe(play_animation_when_ready);
 }
 
-// Detect that the scene is loaded and spawned, then play the animation.
-fn play_animation_once_loaded(
+fn play_animation_when_ready(
+    trigger: Trigger<SceneInstanceReady>,
     mut commands: Commands,
-    animations: Res<Animations>,
-    mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
+    children: Query<&Children>,
+    animations_to_play: Query<&AnimationToPlay>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    for (entity, mut player) in &mut players {
-        // Start the animation player and tell it to repeat forever.
-        //
-        // If you want to try stopping and switching animations, see the
-        // `animated_mesh_control.rs` example.
-        player.play(animations.index).repeat();
+    // The entity we spawned in `setup_mesh_and_animation` is the trigger's target.
+    // Start by finding the AnimationToPlay component we added to that entity.
+    if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
+        // The SceneRoot component will have spawned the scene as a hierarchy
+        // of entities parented to our entity. Since the asset contained a skinned
+        // mesh and animations, it will also have spawned an animation player
+        // component. Search our entity's descendants to find the animation player.
+        for child in children.iter_descendants(trigger.target()) {
+            if let Ok(mut player) = players.get_mut(child) {
+                // Tell the animation player to start the animation and keep
+                // repeating it.
+                //
+                // If you want to try stopping and switching animations, see the
+                // `animated_mesh_control.rs` example.
+                player.play(animation_to_play.index).repeat();
 
-        // Insert the animation graph with our selected animation. This
-        // connects the animation player to the mesh.
-        commands
-            .entity(entity)
-            .insert(AnimationGraphHandle(animations.graph_handle.clone()));
+                // Add the animation graph. This only needs to be done once to
+                // connect the animation player to the mesh.
+                commands
+                    .entity(child)
+                    .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
+            }
+        }
     }
 }
 

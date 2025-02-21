@@ -1,8 +1,13 @@
-use alloc::{vec, vec::Vec};
-use core::fmt::Debug;
+use alloc::{boxed::Box, vec, vec::Vec};
+use core::{
+    any::{Any, TypeId},
+    fmt::Debug,
+};
 use smallvec::SmallVec;
 
-use bevy_utils::{HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_utils::TypeIdMap;
+
 use fixedbitset::FixedBitSet;
 
 use crate::schedule::set::*;
@@ -21,22 +26,26 @@ pub(crate) enum DependencyKind {
     Before,
     /// A node that should be succeeded.
     After,
-    /// A node that should be preceded and will **not** automatically insert an instance of `ApplyDeferred` on the edge.
-    BeforeNoSync,
-    /// A node that should be succeeded and will **not** automatically insert an instance of `ApplyDeferred` on the edge.
-    AfterNoSync,
 }
 
 /// An edge to be added to the dependency graph.
-#[derive(Clone)]
 pub(crate) struct Dependency {
     pub(crate) kind: DependencyKind,
     pub(crate) set: InternedSystemSet,
+    pub(crate) options: TypeIdMap<Box<dyn Any>>,
 }
 
 impl Dependency {
     pub fn new(kind: DependencyKind, set: InternedSystemSet) -> Self {
-        Self { kind, set }
+        Self {
+            kind,
+            set,
+            options: Default::default(),
+        }
+    }
+    pub fn add_config<T: 'static>(mut self, option: T) -> Self {
+        self.options.insert(TypeId::of::<T>(), Box::new(option));
+        self
     }
 }
 
@@ -52,7 +61,7 @@ pub(crate) enum Ambiguity {
 }
 
 /// Metadata about how the node fits in the schedule graph
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub(crate) struct GraphInfo {
     /// the sets that the node belongs to (hierarchy)
     pub(crate) hierarchy: Vec<InternedSystemSet>,
