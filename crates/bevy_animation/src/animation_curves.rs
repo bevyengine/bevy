@@ -90,20 +90,20 @@ use core::{
 };
 
 use crate::{
+    AnimationEntityMut, AnimationEvaluationError,
     graph::AnimationNodeIndex,
     prelude::{Animatable, BlendInput},
-    AnimationEntityMut, AnimationEvaluationError,
 };
 use bevy_ecs::component::{Component, Mutable};
 use bevy_math::curve::{
+    Curve, Interval,
     cores::{UnevenCore, UnevenCoreError},
     iterable::IterableCurve,
-    Curve, Interval,
 };
 use bevy_platform_support::hash::Hashed;
 use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
 use bevy_render::mesh::morph::MorphWeights;
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 
 /// A value on a component that Bevy can animate.
 ///

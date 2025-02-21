@@ -32,17 +32,18 @@ use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::entity::EntityHash;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform_support::collections::{HashMap, hash_map::Entry};
 use bevy_utils::default;
 pub use draw::*;
 pub use draw_state::*;
-use encase::{internal::WriteInto, ShaderSize};
+use encase::{ShaderSize, internal::WriteInto};
 use fixedbitset::{Block, FixedBitSet};
 use indexmap::IndexMap;
 use nonmax::NonMaxU32;
 pub use rangefinder::*;
 use wgpu::Features;
 
+use crate::RenderDebugFlags;
 use crate::batching::gpu_preprocessing::{
     GpuPreprocessingMode, GpuPreprocessingSupport, PhaseBatchedInstanceBuffers,
     PhaseIndirectParametersBuffers,
@@ -50,20 +51,18 @@ use crate::batching::gpu_preprocessing::{
 use crate::renderer::RenderDevice;
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::view::RetainedViewEntity;
-use crate::RenderDebugFlags;
 use crate::{
+    Render, RenderApp, RenderSet,
     batching::{
-        self,
+        self, GetFullBatchData,
         gpu_preprocessing::{self, BatchedInstanceBuffers},
         no_gpu_preprocessing::{self, BatchedInstanceBuffer},
-        GetFullBatchData,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
-    Render, RenderApp, RenderSet,
 };
 use bevy_ecs::{
     prelude::*,
-    system::{lifetimeless::SRes, SystemParamItem},
+    system::{SystemParamItem, lifetimeless::SRes},
 };
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;

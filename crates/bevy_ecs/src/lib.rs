@@ -72,7 +72,7 @@ pub mod prelude {
         bundle::Bundle,
         change_detection::{DetectChanges, DetectChangesMut, Mut, Ref},
         children,
-        component::{require, Component},
+        component::{Component, require},
         entity::{Entity, EntityBorrow, EntityMapper},
         event::{Event, EventMutator, EventReader, EventWriter, Events},
         hierarchy::{ChildOf, ChildSpawner, ChildSpawnerCommands, Children},
@@ -85,8 +85,8 @@ pub mod prelude {
         resource::Resource,
         result::{Error, Result},
         schedule::{
-            apply_deferred, common_conditions::*, ApplyDeferred, Condition, IntoSystemConfigs,
-            IntoSystemSet, IntoSystemSetConfigs, Schedule, Schedules, SystemSet,
+            ApplyDeferred, Condition, IntoSystemConfigs, IntoSystemSet, IntoSystemSetConfigs,
+            Schedule, Schedules, SystemSet, apply_deferred, common_conditions::*,
         },
         spawn::{Spawn, SpawnRelated},
         system::{
@@ -132,7 +132,7 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        component::{Component, ComponentId, RequiredComponents, RequiredComponentsError, require},
         entity::Entity,
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
@@ -910,15 +910,19 @@ mod tests {
             1
         );
         assert!(world.query::<&A>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<A>>()
-            .get(&world, a)
-            .is_ok());
+        assert!(
+            world
+                .query_filtered::<(), Added<A>>()
+                .get(&world, a)
+                .is_ok()
+        );
         assert!(world.query::<&A>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<A>>()
-            .get(&world, a)
-            .is_ok());
+        assert!(
+            world
+                .query_filtered::<(), Added<A>>()
+                .get(&world, a)
+                .is_ok()
+        );
 
         world.clear_trackers();
 
@@ -933,15 +937,19 @@ mod tests {
             0
         );
         assert!(world.query::<&A>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<A>>()
-            .get(&world, a)
-            .is_err());
+        assert!(
+            world
+                .query_filtered::<(), Added<A>>()
+                .get(&world, a)
+                .is_err()
+        );
         assert!(world.query::<&A>().get(&world, a).is_ok());
-        assert!(world
-            .query_filtered::<(), Added<A>>()
-            .get(&world, a)
-            .is_err());
+        assert!(
+            world
+                .query_filtered::<(), Added<A>>()
+                .get(&world, a)
+                .is_err()
+        );
     }
 
     #[test]
@@ -1114,7 +1122,11 @@ mod tests {
         // ensure changing an entity's archetypes also moves its changed state
         world.entity_mut(e1).insert(C);
 
-        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), [e3, e1].into_iter().collect::<HashSet<_>>(), "changed entities list should not change (although the order will due to archetype moves)");
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            [e3, e1].into_iter().collect::<HashSet<_>>(),
+            "changed entities list should not change (although the order will due to archetype moves)"
+        );
 
         // spawning a new SparseStored entity should not change existing changed state
         world.entity_mut(e1).insert(SparseStored(0));
@@ -1824,7 +1836,11 @@ mod tests {
 
         assert_eq!(
             component_values,
-            [(Some(&A(0)), &B(1), &C), (Some(&A(0)), &B(2), &C), (None, &B(3), &C)],
+            [
+                (Some(&A(0)), &B(1), &C),
+                (Some(&A(0)), &B(2), &C),
+                (None, &B(3), &C)
+            ],
             "all entities should have had their B component replaced, received C component, and had their A component (or lack thereof) unchanged"
         );
     }
@@ -2482,8 +2498,8 @@ mod tests {
     }
 
     #[test]
-    fn runtime_required_components_deep_require_does_not_override_shallow_require_deep_subtree_after_shallow(
-    ) {
+    fn runtime_required_components_deep_require_does_not_override_shallow_require_deep_subtree_after_shallow()
+     {
         #[derive(Component)]
         struct A;
         #[derive(Component, Default)]

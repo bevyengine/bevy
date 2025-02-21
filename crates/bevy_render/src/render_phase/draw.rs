@@ -333,11 +333,11 @@ where
             Ok(view) => view,
             Err(err) => match err {
                 QueryEntityError::EntityDoesNotExist(_) => {
-                    return Err(DrawError::ViewEntityNotFound)
+                    return Err(DrawError::ViewEntityNotFound);
                 }
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
-                    return Err(DrawError::InvalidViewQuery)
+                    return Err(DrawError::InvalidViewQuery);
                 }
             },
         };

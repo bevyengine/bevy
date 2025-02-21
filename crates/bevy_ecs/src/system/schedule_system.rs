@@ -5,8 +5,8 @@ use crate::{
     component::{ComponentId, Tick},
     query::Access,
     result::Result,
-    system::{input::SystemIn, BoxedSystem, System},
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
+    system::{BoxedSystem, System, input::SystemIn},
+    world::{DeferredWorld, World, unsafe_world_cell::UnsafeWorldCell},
 };
 
 use super::IntoSystem;

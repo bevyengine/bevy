@@ -8,11 +8,11 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Query, Res},
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_time::Time;
 use core::time::Duration;
 
-use crate::{graph::AnimationNodeIndex, ActiveAnimation, AnimationPlayer};
+use crate::{ActiveAnimation, AnimationPlayer, graph::AnimationNodeIndex};
 
 /// Manages fade-out of animation blend factors, allowing for smooth transitions
 /// between animations.

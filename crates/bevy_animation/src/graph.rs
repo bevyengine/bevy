@@ -7,7 +7,7 @@ use core::{
 use std::io::{self, Write};
 
 use bevy_asset::{
-    io::Reader, Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext,
+    Asset, AssetEvent, AssetId, AssetLoader, AssetPath, Assets, Handle, LoadContext, io::Reader,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -18,11 +18,11 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_platform_support::collections::HashMap;
-use bevy_reflect::{prelude::ReflectDefault, Reflect, ReflectSerialize};
+use bevy_reflect::{Reflect, ReflectSerialize, prelude::ReflectDefault};
 use derive_more::derive::From;
 use petgraph::{
-    graph::{DiGraph, NodeIndex},
     Direction,
+    graph::{DiGraph, NodeIndex},
 };
 use ron::de::SpannedError;
 use serde::{Deserialize, Serialize};

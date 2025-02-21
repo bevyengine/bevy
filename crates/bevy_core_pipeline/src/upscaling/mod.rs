@@ -3,10 +3,10 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_platform_support::collections::HashSet;
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     camera::{CameraOutputMode, ExtractedCamera},
     render_resource::*,
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
 };
 
 mod node;

@@ -46,7 +46,7 @@ use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, Refl
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_opaque::ReflectOpaqueDef;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 use type_path::NamedTypePathDef;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";

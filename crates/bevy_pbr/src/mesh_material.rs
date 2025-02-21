@@ -2,7 +2,7 @@ use crate::Material;
 use bevy_asset::{AsAssetId, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use derive_more::derive::From;
 
 /// A [material](Material) used for rendering a [`Mesh3d`].

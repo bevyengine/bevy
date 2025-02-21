@@ -48,13 +48,14 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphApp, ViewNodeRunner},
     render_phase::{
-        sort_phase_system, BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId,
-        DrawFunctions, PhaseItem, PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases,
-        ViewSortedRenderPhases,
+        BinnedPhaseItem, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        PhaseItemExtraIndex, SortedPhaseItem, ViewBinnedRenderPhases, ViewSortedRenderPhases,
+        sort_phase_system,
     },
     render_resource::{
         BindGroupId, CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension,
@@ -64,7 +65,6 @@ use bevy_render::{
     sync_world::MainEntity,
     texture::TextureCache,
     view::{Msaa, ViewDepthTexture},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 use self::graph::{Core2d, Node2d};

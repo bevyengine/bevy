@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, Tick},
     query::Access,
     resource::Resource,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{World, unsafe_world_cell::UnsafeWorldCell},
 };
 use bevy_ptr::{Ptr, UnsafeCellDeref};
 

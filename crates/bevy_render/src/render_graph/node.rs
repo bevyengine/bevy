@@ -14,7 +14,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use core::fmt::Debug;
-use downcast_rs::{impl_downcast, Downcast};
+use downcast_rs::{Downcast, impl_downcast};
 use thiserror::Error;
 use variadics_please::all_tuples_with_size;
 

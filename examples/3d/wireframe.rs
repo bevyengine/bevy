@@ -13,9 +13,9 @@ use bevy::{
     pbr::wireframe::{NoWireframe, Wireframe, WireframeColor, WireframeConfig, WireframePlugin},
     prelude::*,
     render::{
+        RenderPlugin,
         render_resource::WgpuFeatures,
         settings::{RenderCreation, WgpuSettings},
-        RenderPlugin,
     },
 };
 

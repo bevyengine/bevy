@@ -11,11 +11,11 @@ use bevy_render::{
 use crate::ViewLightsUniformOffset;
 
 use super::{
+    Atmosphere, AtmosphereSettings,
     resources::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
         RenderSkyPipelineId,
     },
-    Atmosphere, AtmosphereSettings,
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]

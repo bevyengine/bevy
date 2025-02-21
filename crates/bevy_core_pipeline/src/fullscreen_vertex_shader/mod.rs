@@ -1,4 +1,4 @@
-use bevy_asset::{weak_handle, Handle};
+use bevy_asset::{Handle, weak_handle};
 use bevy_render::{prelude::Shader, render_resource::VertexState};
 
 pub const FULLSCREEN_SHADER_HANDLE: Handle<Shader> =

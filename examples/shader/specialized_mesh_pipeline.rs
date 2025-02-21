@@ -7,7 +7,7 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
-    core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
+    core_pipeline::core_3d::{CORE_3D_DEPTH_FORMAT, Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey},
     ecs::{component::Tick, system::StaticSystemParam},
     math::{vec3, vec4},
     pbr::{
@@ -16,12 +16,13 @@ use bevy::{
     },
     prelude::*,
     render::{
+        Render, RenderApp, RenderSet,
         batching::{
+            GetBatchData, GetFullBatchData,
             gpu_preprocessing::{
                 self, PhaseBatchedInstanceBuffers, PhaseIndirectParametersBuffers,
                 PreprocessWorkItem, UntypedPhaseBatchedInstanceBuffers,
             },
-            GetBatchData, GetFullBatchData,
         },
         experimental::occlusion_culling::OcclusionCulling,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -39,7 +40,6 @@ use bevy::{
         },
         view::NoIndirectDrawing,
         view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
-        Render, RenderApp, RenderSet,
     },
 };
 

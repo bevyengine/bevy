@@ -36,11 +36,11 @@ pub use button_input::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        Axis, ButtonInput,
         gamepad::{Gamepad, GamepadAxis, GamepadButton, GamepadSettings},
         keyboard::KeyCode,
         mouse::MouseButton,
         touch::{TouchInput, Touches},
-        Axis, ButtonInput,
     };
 }
 
@@ -49,22 +49,22 @@ use bevy_ecs::prelude::*;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use gestures::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardFocusLost, KeyboardInput};
+use keyboard::{KeyCode, KeyboardFocusLost, KeyboardInput, keyboard_input_system};
 use mouse::{
-    accumulate_mouse_motion_system, accumulate_mouse_scroll_system, mouse_button_input_system,
     AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButton, MouseButtonInput, MouseMotion,
-    MouseWheel,
+    MouseWheel, accumulate_mouse_motion_system, accumulate_mouse_scroll_system,
+    mouse_button_input_system,
 };
-use touch::{touch_screen_input_system, TouchInput, Touches};
+use touch::{TouchInput, Touches, touch_screen_input_system};
 
 #[cfg(feature = "bevy_reflect")]
 use gamepad::Gamepad;
 use gamepad::{
-    gamepad_connection_system, gamepad_event_processing_system, GamepadAxis,
-    GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
+    GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
     GamepadButtonStateChangedEvent, GamepadConnection, GamepadConnectionEvent, GamepadEvent,
     GamepadInput, GamepadRumbleRequest, GamepadSettings, RawGamepadAxisChangedEvent,
-    RawGamepadButtonChangedEvent, RawGamepadEvent,
+    RawGamepadButtonChangedEvent, RawGamepadEvent, gamepad_connection_system,
+    gamepad_event_processing_system,
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]

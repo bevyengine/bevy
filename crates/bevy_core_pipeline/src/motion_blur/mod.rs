@@ -7,20 +7,20 @@ use crate::{
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::{
-    component::{require, Component},
+    component::{Component, require},
     query::With,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, ShaderType, SpecializedRenderPipelines},
-    Render, RenderApp, RenderSet,
 };
 
 pub mod node;

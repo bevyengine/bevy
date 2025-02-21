@@ -279,7 +279,7 @@ mod render_entities_world_query_impls {
         entity::Entity,
         query::{FilteredAccess, QueryData, ReadOnlyQueryData, WorldQuery},
         storage::{Table, TableRow},
-        world::{unsafe_world_cell::UnsafeWorldCell, World},
+        world::{World, unsafe_world_cell::UnsafeWorldCell},
     };
 
     /// SAFETY: defers completely to `&RenderEntity` implementation,
@@ -492,8 +492,8 @@ mod tests {
     };
 
     use super::{
-        entity_sync_system, EntityRecord, MainEntity, PendingSyncEntity, RenderEntity,
-        SyncToRenderWorld,
+        EntityRecord, MainEntity, PendingSyncEntity, RenderEntity, SyncToRenderWorld,
+        entity_sync_system,
     };
 
     #[derive(Component)]

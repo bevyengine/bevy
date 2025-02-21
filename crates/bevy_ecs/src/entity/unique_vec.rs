@@ -17,8 +17,8 @@ use alloc::{
 };
 
 use super::{
-    unique_slice, EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
-    UniqueEntitySlice,
+    EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter, UniqueEntitySlice,
+    unique_slice,
 };
 
 /// A `Vec` that contains only unique entities.

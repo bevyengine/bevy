@@ -5,7 +5,7 @@
 use crate::{
     Alpha, ColorToComponents, Gray, Hue, Lcha, LinearRgba, Mix, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{ops, Vec3, Vec4};
+use bevy_math::{Vec3, Vec4, ops};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 

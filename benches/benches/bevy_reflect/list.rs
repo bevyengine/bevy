@@ -3,8 +3,8 @@ use core::{hint::black_box, iter, time::Duration};
 use benches::bench;
 use bevy_reflect::{DynamicList, List};
 use criterion::{
-    criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
-    Criterion, PlotConfiguration, Throughput,
+    AxisScale, BatchSize, BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, Throughput,
+    criterion_group, measurement::Measurement,
 };
 
 criterion_group!(

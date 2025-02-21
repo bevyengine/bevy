@@ -1,7 +1,7 @@
 use crate::{Image, TextureAtlasLayout, TextureFormatPixelInfo as _};
 use bevy_asset::RenderAssetUsages;
 use bevy_math::{URect, UVec2};
-use guillotiere::{size2, Allocation, AtlasAllocator};
+use guillotiere::{Allocation, AtlasAllocator, size2};
 use thiserror::Error;
 use tracing::error;
 
@@ -63,7 +63,9 @@ impl DynamicTextureAtlasBuilder {
         ));
         if let Some(allocation) = allocation {
             assert!(
-                atlas_texture.asset_usage.contains(RenderAssetUsages::MAIN_WORLD),
+                atlas_texture
+                    .asset_usage
+                    .contains(RenderAssetUsages::MAIN_WORLD),
                 "The atlas_texture image must have the RenderAssetUsages::MAIN_WORLD usage flag set"
             );
 

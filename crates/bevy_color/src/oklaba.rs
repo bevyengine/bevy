@@ -1,8 +1,8 @@
 use crate::{
-    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
-    Gray, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba, StandardColor, Xyza,
+    Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, Lcha, LinearRgba, Luminance, Mix, Srgba,
+    StandardColor, Xyza, color_difference::EuclideanDistance, impl_componentwise_vector_space,
 };
-use bevy_math::{ops, FloatPow, Vec3, Vec4};
+use bevy_math::{FloatPow, Vec3, Vec4, ops};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 

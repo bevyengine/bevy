@@ -1,7 +1,7 @@
 use crate::{
+    Render, RenderApp, RenderSet,
     render_resource::{GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{

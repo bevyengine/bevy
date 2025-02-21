@@ -1,14 +1,14 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     extract_component::ExtractComponentPlugin,
     render_resource::{DynamicUniformBuffer, Shader, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
-    Render, RenderApp, RenderSet,
 };
 
 use crate::{DistanceFog, FogFalloff};

@@ -1,6 +1,6 @@
-use crate::ui_node::ComputedNodeTarget;
 use crate::CalculatedClip;
 use crate::ComputedNode;
+use crate::ui_node::ComputedNodeTarget;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -11,9 +11,9 @@ use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_math::Rect;
 use bevy_math::Vec2;
+use bevy_render::Extract;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::view::InheritedVisibility;
-use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
 

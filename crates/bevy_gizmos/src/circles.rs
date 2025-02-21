@@ -5,7 +5,7 @@
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
-use bevy_math::{ops, Isometry2d, Isometry3d, Quat, Vec2, Vec3};
+use bevy_math::{Isometry2d, Isometry3d, Quat, Vec2, Vec3, ops};
 use core::f32::consts::TAU;
 
 pub(crate) const DEFAULT_CIRCLE_RESOLUTION: u32 = 32;

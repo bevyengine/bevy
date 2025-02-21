@@ -57,7 +57,7 @@ impl VisitEntitiesMut for Entity {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{hash_map::EntityHashMap, MapEntities, SceneEntityMapper},
+        entity::{MapEntities, SceneEntityMapper, hash_map::EntityHashMap},
         world::World,
     };
     use alloc::{string::String, vec, vec::Vec};

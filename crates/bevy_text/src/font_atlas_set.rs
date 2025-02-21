@@ -9,7 +9,7 @@ use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
 
-use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
+use crate::{Font, FontAtlas, FontSmoothing, GlyphAtlasInfo, error::TextError};
 
 /// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]

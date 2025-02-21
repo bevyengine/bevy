@@ -113,7 +113,7 @@ pub fn basis_buffer_to_image(
         basis_texture_type => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
                 "{basis_texture_type:?}",
-            )))
+            )));
         }
     };
     image.data = Some(transcoded);

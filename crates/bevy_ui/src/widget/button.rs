@@ -1,9 +1,9 @@
 use crate::{FocusPolicy, Interaction, Node};
 use bevy_ecs::{
-    prelude::{require, Component},
+    prelude::{Component, require},
     reflect::ReflectComponent,
 };
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 
 /// Marker struct for buttons
 #[derive(Component, Debug, Default, Clone, Copy, PartialEq, Eq, Reflect)]

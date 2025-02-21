@@ -1,7 +1,7 @@
 use bevy_render::{
     render_resource::{
         BindingResource, Buffer, BufferAddress, BufferDescriptor, BufferUsages,
-        CommandEncoderDescriptor, COPY_BUFFER_ALIGNMENT,
+        COPY_BUFFER_ALIGNMENT, CommandEncoderDescriptor,
     },
     renderer::{RenderDevice, RenderQueue},
 };

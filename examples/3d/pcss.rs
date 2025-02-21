@@ -4,9 +4,9 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::{
+        Skybox,
         experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
         prepass::{DepthPrepass, MotionVectorPrepass},
-        Skybox,
     },
     math::vec3,
     pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},

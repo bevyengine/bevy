@@ -1,9 +1,9 @@
 use crate::{
-    func::{
-        args::{ArgCount, ArgList},
-        DynamicFunction, FunctionInfo, FunctionResult,
-    },
     PartialReflect,
+    func::{
+        DynamicFunction, FunctionInfo, FunctionResult,
+        args::{ArgCount, ArgList},
+    },
 };
 use alloc::borrow::Cow;
 use core::fmt::Debug;

@@ -2,8 +2,8 @@
 
 use bevy::{
     asset::{
-        io::{Reader, VecReader},
         AssetLoader, CompleteErasedLoadedAsset, LoadContext, LoadDirectError,
+        io::{Reader, VecReader},
     },
     prelude::*,
     reflect::TypePath,

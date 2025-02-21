@@ -105,9 +105,9 @@ use bevy_asset::{Asset, AssetApp, AssetPath, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_image::CompressedImageFormats;
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{Reflect, TypePath, std_traits::ReflectDefault};
 use bevy_render::{
-    mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute},
+    mesh::{Mesh, MeshVertexAttribute, skinning::SkinnedMeshInverseBindposes},
     renderer::RenderDevice,
 };
 use bevy_scene::Scene;

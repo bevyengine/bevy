@@ -8,8 +8,8 @@ use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     input::mouse::AccumulatedMouseMotion,
     pbr::{
-        decal::{self, clustered::ClusteredDecal},
         ExtendedMaterial, MaterialExtension,
+        decal::{self, clustered::ClusteredDecal},
     },
     prelude::*,
     render::{
@@ -21,8 +21,8 @@ use bevy::{
 };
 use ops::{acos, cos, sin};
 use widgets::{
-    WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
-    BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
+    BUTTON_BORDER, BUTTON_BORDER_COLOR, BUTTON_BORDER_RADIUS_SIZE, BUTTON_PADDING,
+    WidgetClickEvent, WidgetClickSender,
 };
 
 #[path = "../helpers/widgets.rs"]

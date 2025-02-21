@@ -11,7 +11,7 @@ use alloc::{
     vec::Vec,
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::{TypeIdMap, default};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
@@ -35,8 +35,8 @@ use crate::{
 };
 
 use crate::{query::AccessConflicts, storage::SparseSetIndex};
-pub use stepping::Stepping;
 use Direction::{Incoming, Outgoing};
+pub use stepping::Stepping;
 
 /// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s excluding the current running [`Schedule`].
 #[derive(Default, Resource)]
@@ -1855,9 +1855,9 @@ impl ScheduleGraph {
         let n_ambiguities = ambiguities.len();
 
         let mut message = format!(
-                "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
+            "{n_ambiguities} pairs of systems with conflicting data access have indeterminate execution order. \
                 Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
-            );
+        );
 
         for (name_a, name_b, conflicts) in self.conflicts_to_string(ambiguities, components) {
             writeln!(message, " -- {name_a} and {name_b}").unwrap();
@@ -1942,13 +1942,19 @@ pub enum ScheduleBuildError {
     #[error("System dependencies contain cycle(s).\n{0}")]
     DependencyCycle(String),
     /// Tried to order a system (set) relative to a system set it belongs to.
-    #[error("`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    #[error(
+        "`{0}` and `{1}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to."
+    )]
     CrossDependency(String, String),
     /// Tried to order system sets that share systems.
-    #[error("`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems.")]
+    #[error(
+        "`{0}` and `{1}` have a `before`-`after` relationship (which may be transitive) but share systems."
+    )]
     SetsHaveOrderButIntersect(String, String),
     /// Tried to order a system (set) relative to all instances of some system function.
-    #[error("Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
+    #[error(
+        "Tried to order against `{0}` in a schedule that has more than one `{0}` instance. `{0}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction."
+    )]
     SystemTypeSetAmbiguity(String),
     /// Systems with conflicting access have indeterminate run order.
     ///
@@ -2038,8 +2044,8 @@ mod tests {
     use crate::{
         prelude::{Res, Resource},
         schedule::{
-            tests::ResMut, IntoSystemConfigs, IntoSystemSetConfigs, Schedule,
-            ScheduleBuildSettings, SystemSet,
+            IntoSystemConfigs, IntoSystemSetConfigs, Schedule, ScheduleBuildSettings, SystemSet,
+            tests::ResMut,
         },
         system::Commands,
         world::World,
@@ -2064,9 +2070,11 @@ mod tests {
 
         schedule.configure_sets(Set.run_if(|| false));
         schedule.add_systems(
-            (|| -> () { panic!("This system must not run"); })
-                .ambiguous_with(|| ())
-                .in_set(Set),
+            (|| -> () {
+                panic!("This system must not run");
+            })
+            .ambiguous_with(|| ())
+            .in_set(Set),
         );
         schedule.run(&mut world);
     }

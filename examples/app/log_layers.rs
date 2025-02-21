@@ -2,9 +2,9 @@
 
 use bevy::{
     log::{
+        BoxedLayer,
         tracing::{self, Subscriber},
         tracing_subscriber::Layer,
-        BoxedLayer,
     },
     prelude::*,
 };

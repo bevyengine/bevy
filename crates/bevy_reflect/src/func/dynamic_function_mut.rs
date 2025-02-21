@@ -3,9 +3,9 @@ use bevy_platform_support::sync::Arc;
 use core::fmt::{Debug, Formatter};
 
 use crate::func::{
+    DynamicFunction, FunctionInfo, FunctionOverloadError, FunctionResult, IntoFunctionMut,
     args::{ArgCount, ArgList},
     dynamic_function_internal::DynamicFunctionInternal,
-    DynamicFunction, FunctionInfo, FunctionOverloadError, FunctionResult, IntoFunctionMut,
 };
 
 /// A [`Box`] containing a callback to a reflected function.

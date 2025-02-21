@@ -4,8 +4,8 @@ use benches::bench;
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{DynamicMap, Map};
 use criterion::{
-    criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
-    Criterion, PlotConfiguration, Throughput,
+    AxisScale, BatchSize, BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, Throughput,
+    criterion_group, measurement::Measurement,
 };
 
 criterion_group!(

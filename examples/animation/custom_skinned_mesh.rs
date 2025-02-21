@@ -8,8 +8,8 @@ use bevy::{
     prelude::*,
     render::{
         mesh::{
-            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
             Indices, PrimitiveTopology, VertexAttributeValues,
+            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         },
         render_asset::RenderAssetUsages,
     },

@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 // Using crossbeam_channel instead of std as std `Receiver` is `!Sync`
-use crossbeam_channel::{bounded, Receiver};
+use crossbeam_channel::{Receiver, bounded};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

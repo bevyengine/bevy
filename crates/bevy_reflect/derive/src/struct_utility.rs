@@ -1,4 +1,4 @@
-use crate::{derive_data::StructField, ReflectStruct};
+use crate::{ReflectStruct, derive_data::StructField};
 use quote::quote;
 
 /// A helper struct for creating remote-aware field accessors.

@@ -1,13 +1,13 @@
 use super::RenderQueue;
+use crate::WgpuWrapper;
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
-use crate::WgpuWrapper;
 use bevy_ecs::resource::Resource;
 use wgpu::{
-    util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, MaintainResult,
+    BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
+    BufferAsyncError, BufferBindingType, MaintainResult, util::DeviceExt,
 };
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
@@ -101,7 +101,9 @@ impl RenderDevice {
     ) -> wgpu::ShaderModule {
         #[cfg(feature = "spirv_shader_passthrough")]
         match &desc.source {
-            wgpu::ShaderSource::SpirV(_source) => panic!("no safety checks are performed for spirv shaders. use `create_shader_module` instead"),
+            wgpu::ShaderSource::SpirV(_source) => panic!(
+                "no safety checks are performed for spirv shaders. use `create_shader_module` instead"
+            ),
             _ => self.device.create_shader_module(desc),
         }
         #[cfg(not(feature = "spirv_shader_passthrough"))]

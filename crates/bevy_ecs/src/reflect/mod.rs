@@ -7,8 +7,8 @@ use core::{
 
 use crate::{resource::Resource, world::World};
 use bevy_reflect::{
-    std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath,
-    TypeRegistry, TypeRegistryArc,
+    PartialReflect, Reflect, ReflectFromReflect, TypePath, TypeRegistry, TypeRegistryArc,
+    std_traits::ReflectDefault,
 };
 
 mod bundle;

@@ -3,7 +3,7 @@ use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use bevy_platform_support::collections::HashMap;
 use core::{pin::Pin, task::Poll};
 use futures_io::AsyncRead;
-use futures_lite::{ready, Stream};
+use futures_lite::{Stream, ready};
 use parking_lot::RwLock;
 use std::path::{Path, PathBuf};
 

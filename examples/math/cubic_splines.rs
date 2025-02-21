@@ -5,7 +5,7 @@ use bevy::{
     color::*,
     ecs::system::Commands,
     gizmos::gizmos::Gizmos,
-    input::{mouse::MouseButtonInput, ButtonState},
+    input::{ButtonState, mouse::MouseButtonInput},
     math::{cubic_splines::*, vec2},
     prelude::*,
 };

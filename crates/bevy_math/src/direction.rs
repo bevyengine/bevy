@@ -1,6 +1,6 @@
 use crate::{
-    primitives::{Primitive2d, Primitive3d},
     Quat, Rot2, Vec2, Vec3, Vec3A,
+    primitives::{Primitive2d, Primitive3d},
 };
 
 use core::f32::consts::FRAC_1_SQRT_2;

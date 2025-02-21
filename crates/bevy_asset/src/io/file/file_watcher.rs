@@ -6,13 +6,11 @@ use alloc::borrow::ToOwned;
 use core::time::Duration;
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
-    new_debouncer,
+    DebounceEventResult, Debouncer, RecommendedCache, new_debouncer,
     notify::{
-        self,
+        self, RecommendedWatcher, RecursiveMode,
         event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
-        RecommendedWatcher, RecursiveMode,
     },
-    DebounceEventResult, Debouncer, RecommendedCache,
 };
 use std::path::{Path, PathBuf};
 use tracing::error;
@@ -190,13 +188,13 @@ pub(crate) fn new_asset_event_debouncer(
                                         }
                                         (true, false) => {
                                             error!(
-                                            "Asset metafile {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
-                                        );
+                                                "Asset metafile {old_path:?} was changed to asset file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
+                                            );
                                         }
                                         (false, true) => {
                                             error!(
-                                            "Asset file {old_path:?} was changed to meta file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
-                                        );
+                                                "Asset file {old_path:?} was changed to meta file {new_path:?}, which is not supported. Try restarting your app to see if configuration is still valid"
+                                            );
                                         }
                                     }
                                 }

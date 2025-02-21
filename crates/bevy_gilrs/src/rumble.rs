@@ -9,8 +9,8 @@ use bevy_time::{Real, Time};
 use bevy_utils::synccell::SyncCell;
 use core::time::Duration;
 use gilrs::{
-    ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
     GamepadId,
+    ff::{self, BaseEffect, BaseEffectType, Repeat, Replay},
 };
 use thiserror::Error;
 use tracing::{debug, warn};
@@ -155,7 +155,7 @@ pub(crate) fn play_gilrs_rumble(
                     debug!("Tried to rumble {gamepad:?}, but it doesn't support force feedback");
                 } else {
                     warn!(
-                    "Tried to handle rumble request for {gamepad:?} but an error occurred: {err}"
+                        "Tried to handle rumble request for {gamepad:?} but an error occurred: {err}"
                     );
                 }
             }

@@ -4,10 +4,10 @@ use crate::{
     query::Access,
     schedule::{InternedSystemSet, SystemSet},
     system::{
-        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem,
-        System, SystemIn, SystemInput, SystemMeta,
+        ExclusiveSystemParam, ExclusiveSystemParamItem, IntoSystem, System, SystemIn, SystemInput,
+        SystemMeta, check_system_change_tick,
     },
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{World, unsafe_world_cell::UnsafeWorldCell},
 };
 
 use alloc::{borrow::Cow, vec, vec::Vec};

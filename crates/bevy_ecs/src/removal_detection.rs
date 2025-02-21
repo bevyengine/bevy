@@ -7,7 +7,7 @@ use crate::{
     prelude::Local,
     storage::SparseSet,
     system::{ReadOnlySystemParam, SystemMeta, SystemParam},
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{World, unsafe_world_cell::UnsafeWorldCell},
 };
 
 use derive_more::derive::Into;

@@ -3,7 +3,7 @@ use crate::{
     renderer::RenderDevice,
 };
 use bevy_ecs::{prelude::ResMut, resource::Resource};
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform_support::collections::{HashMap, hash_map::Entry};
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
 /// The internal representation of a [`CachedTexture`] used to track whether it was recently used

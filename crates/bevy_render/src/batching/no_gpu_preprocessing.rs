@@ -4,7 +4,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::Entity;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Res, ResMut, StaticSystemParam};
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use tracing::error;
 use wgpu::BindingResource;
 

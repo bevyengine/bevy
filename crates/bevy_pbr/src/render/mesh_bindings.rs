@@ -7,7 +7,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice},
 };
 
-use crate::{binding_arrays_are_usable, render::skin::MAX_JOINTS, LightmapSlab};
+use crate::{LightmapSlab, binding_arrays_are_usable, render::skin::MAX_JOINTS};
 
 const MORPH_WEIGHT_SIZE: usize = size_of::<f32>();
 
@@ -26,15 +26,15 @@ mod layout_entry {
     use core::num::NonZeroU32;
 
     use super::{JOINT_BUFFER_SIZE, MORPH_BUFFER_SIZE};
-    use crate::{render::skin, MeshUniform, LIGHTMAPS_PER_SLAB};
+    use crate::{LIGHTMAPS_PER_SLAB, MeshUniform, render::skin};
     use bevy_render::{
         render_resource::{
+            BindGroupLayoutEntryBuilder, BufferSize, GpuArrayBuffer, SamplerBindingType,
+            ShaderStages, TextureSampleType,
             binding_types::{
                 sampler, storage_buffer_read_only_sized, texture_2d, texture_3d,
                 uniform_buffer_sized,
             },
-            BindGroupLayoutEntryBuilder, BufferSize, GpuArrayBuffer, SamplerBindingType,
-            ShaderStages, TextureSampleType,
         },
         renderer::RenderDevice,
     };

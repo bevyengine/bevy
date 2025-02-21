@@ -1,19 +1,19 @@
 use core::mem::{self, size_of};
 use std::sync::OnceLock;
 
-use bevy_asset::{prelude::AssetChanged, Assets};
+use bevy_asset::{Assets, prelude::AssetChanged};
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_platform_support::collections::hash_map::Entry;
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
+    Extract,
     batching::NoAutomaticBatching,
     mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     render_resource::BufferUsages,
     renderer::{RenderDevice, RenderQueue},
     view::ViewVisibility,
-    Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
 use offset_allocator::{Allocation, Allocator};

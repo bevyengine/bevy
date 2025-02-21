@@ -35,8 +35,8 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
 use bevy_input::{
-    keyboard::{KeyCode, KeyboardInput},
     ButtonInput, ButtonState,
+    keyboard::{KeyCode, KeyboardInput},
 };
 use bevy_window::PrimaryWindow;
 use log::warn;
@@ -47,7 +47,7 @@ use crate::{FocusedInput, InputFocus, InputFocusVisible};
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::prelude::ReflectComponent,
-    bevy_reflect::{prelude::*, Reflect},
+    bevy_reflect::{Reflect, prelude::*},
 };
 
 /// A component which indicates that an entity wants to participate in tab navigation.
@@ -135,7 +135,9 @@ pub enum TabNavigationError {
     #[error("Failed to navigate to next focusable entity")]
     FailedToNavigateToNextFocusableEntity,
     /// No tab group for the current focus entity was found.
-    #[error("No tab group found for currently focused entity {previous_focus}. Users will not be able to navigate back to this entity.")]
+    #[error(
+        "No tab group found for currently focused entity {previous_focus}. Users will not be able to navigate back to this entity."
+    )]
     NoTabGroupForCurrentFocus {
         /// The entity that was previously focused,
         /// and is missing its tab group.

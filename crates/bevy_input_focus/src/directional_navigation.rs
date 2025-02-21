@@ -27,7 +27,7 @@ use thiserror::Error;
 use crate::InputFocus;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{prelude::*, Reflect};
+use bevy_reflect::{Reflect, prelude::*};
 
 /// A plugin that sets up the directional navigation systems and resources.
 #[derive(Default)]

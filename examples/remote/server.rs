@@ -4,7 +4,7 @@ use bevy::math::ops::cos;
 use bevy::{
     input::common_conditions::input_just_pressed,
     prelude::*,
-    remote::{http::RemoteHttpPlugin, RemotePlugin},
+    remote::{RemotePlugin, http::RemoteHttpPlugin},
 };
 use serde::{Deserialize, Serialize};
 

@@ -22,7 +22,7 @@ impl<T: Mix> ColorRange<T> for Range<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{palettes::basic, LinearRgba, Srgba};
+    use crate::{LinearRgba, Srgba, palettes::basic};
 
     #[test]
     fn test_color_range() {

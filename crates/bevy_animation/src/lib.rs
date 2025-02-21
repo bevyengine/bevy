@@ -36,7 +36,7 @@ use bevy_asset::{Asset, AssetApp, AssetEvents, Assets};
 use bevy_ecs::{prelude::*, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
-use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
+use bevy_reflect::{Reflect, TypePath, prelude::ReflectDefault};
 use bevy_time::Time;
 use bevy_transform::TransformSystem;
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
@@ -52,15 +52,15 @@ use uuid::Uuid;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        animatable::*, animation_curves::*, graph::*, transition::*, AnimationClip,
-        AnimationPlayer, AnimationPlugin, VariableCurve,
+        AnimationClip, AnimationPlayer, AnimationPlugin, VariableCurve, animatable::*,
+        animation_curves::*, graph::*, transition::*,
     };
 }
 
 use crate::{
     animation_curves::AnimationCurve,
     graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
-    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+    transition::{AnimationTransitions, advance_transitions, expire_completed_transitions},
 };
 use alloc::sync::Arc;
 

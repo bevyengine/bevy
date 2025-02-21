@@ -4,8 +4,8 @@ use bevy_ecs::prelude::*;
 use bevy_platform_support::collections::HashSet;
 
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
     ComputedNode, GlobalZIndex, ZIndex,
+    experimental::{UiChildren, UiRootNodes},
 };
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).

@@ -74,8 +74,8 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         fog::{DistanceFog, FogFalloff},
-        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
-        light_probe::{environment_map::EnvironmentMapLight, LightProbe},
+        light::{AmbientLight, DirectionalLight, PointLight, SpotLight, light_consts},
+        light_probe::{LightProbe, environment_map::EnvironmentMapLight},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
@@ -124,11 +124,12 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, AssetApp, Assets, Handle};
+use bevy_asset::{AssetApp, Assets, Handle, load_internal_asset, weak_handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
     alpha::AlphaMode,
     camera::{CameraUpdateSystem, Projection},
     extract_component::ExtractComponentPlugin,
@@ -139,7 +140,6 @@ use bevy_render::{
     sync_component::SyncComponentPlugin,
     texture::GpuImage,
     view::VisibilitySystems,
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 
 use bevy_transform::TransformSystem;

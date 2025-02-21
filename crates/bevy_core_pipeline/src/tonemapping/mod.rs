@@ -1,10 +1,11 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Assets, Handle};
+use bevy_asset::{Assets, Handle, load_internal_asset, weak_handle};
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
@@ -16,7 +17,6 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::{FallbackImage, GpuImage},
     view::{ExtractedView, ViewTarget, ViewUniform},
-    Render, RenderApp, RenderSet,
 };
 use bitflags::bitflags;
 #[cfg(not(feature = "tonemapping_luts"))]

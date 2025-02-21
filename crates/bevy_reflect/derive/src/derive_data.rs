@@ -2,6 +2,7 @@ use core::fmt;
 use proc_macro2::Span;
 
 use crate::{
+    REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
     container_attributes::{ContainerAttributes, FromReflectAttrs, TypePathAttrs},
     field_attributes::FieldAttributes,
     remote::RemoteType,
@@ -10,15 +11,14 @@ use crate::{
     string_expr::StringExpr,
     type_path::parse_path_no_leading_colon,
     where_clause_options::WhereClauseOptions,
-    REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::token::Comma;
 
 use crate::generics::generate_generics;
 use syn::{
-    parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
-    GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
+    Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
+    PathSegment, Type, TypeParam, Variant, parse_str, punctuated::Punctuated, spanned::Spanned,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -202,7 +202,9 @@ impl<'a> ReflectDerive<'a> {
                     else {
                         return Err(syn::Error::new(
                             pair.span(),
-                            format_args!("`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
+                            format_args!(
+                                "`#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"
+                            ),
                         ));
                     };
 
@@ -219,7 +221,9 @@ impl<'a> ReflectDerive<'a> {
                     else {
                         return Err(syn::Error::new(
                             pair.span(),
-                            format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
+                            format_args!(
+                                "`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"
+                            ),
                         ));
                     };
 
@@ -246,7 +250,9 @@ impl<'a> ReflectDerive<'a> {
             (None, Some(name)) => {
                 return Err(syn::Error::new(
                     name.span(),
-                    format!("cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute."),
+                    format!(
+                        "cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute."
+                    ),
                 ));
             }
             _ => (),
@@ -266,7 +272,9 @@ impl<'a> ReflectDerive<'a> {
         {
             return Err(syn::Error::new(
                 meta.type_path().span(),
-                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")
+                format!(
+                    "a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}"
+                ),
             ));
         }
 

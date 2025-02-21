@@ -12,9 +12,9 @@ use bevy::{
     color::palettes::basic::{GREEN, RED, WHITE},
     prelude::*,
     render::{
+        RenderPlugin,
         render_resource::WgpuFeatures,
         settings::{RenderCreation, WgpuSettings},
-        RenderPlugin,
     },
     sprite::{NoWireframe2d, Wireframe2d, Wireframe2dColor, Wireframe2dConfig, Wireframe2dPlugin},
 };

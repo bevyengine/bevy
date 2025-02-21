@@ -22,7 +22,7 @@ use bevy_platform_support::collections::HashMap;
 use bevy_utils::synccell::SyncCell;
 use gilrs::GilrsBuilder;
 use gilrs_system::{gilrs_event_startup_system, gilrs_event_system};
-use rumble::{play_gilrs_rumble, RunningRumbleEffects};
+use rumble::{RunningRumbleEffects, play_gilrs_rumble};
 use tracing::error;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Resource))]

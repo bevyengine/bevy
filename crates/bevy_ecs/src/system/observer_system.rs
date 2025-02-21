@@ -8,8 +8,8 @@ use crate::{
     query::Access,
     result::Result,
     schedule::{Fallible, Infallible},
-    system::{input::SystemIn, System},
-    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
+    system::{System, input::SystemIn},
+    world::{DeferredWorld, World, unsafe_world_cell::UnsafeWorldCell},
 };
 
 use super::IntoSystem;

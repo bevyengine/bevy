@@ -7,8 +7,8 @@ use bevy_ecs::{
     query::QueryFilter,
     world::World,
 };
-use criterion::{criterion_group, Criterion};
-use rand::{prelude::SliceRandom, SeedableRng};
+use criterion::{Criterion, criterion_group};
+use rand::{SeedableRng, prelude::SliceRandom};
 use rand_chacha::ChaCha8Rng;
 
 criterion_group!(

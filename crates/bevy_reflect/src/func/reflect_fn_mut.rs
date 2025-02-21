@@ -1,12 +1,12 @@
 use variadics_please::all_tuples;
 
 use crate::{
+    Reflect, TypePath,
     func::{
+        ArgList, FunctionError, FunctionResult, IntoReturn,
         args::{ArgCount, FromArg},
         macros::count_tokens,
-        ArgList, FunctionError, FunctionResult, IntoReturn,
     },
-    Reflect, TypePath,
 };
 
 /// A reflection-based version of the [`FnMut`] trait.

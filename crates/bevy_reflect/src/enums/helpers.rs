@@ -1,4 +1,4 @@
-use crate::{utility::reflect_hasher, Enum, PartialReflect, ReflectRef, VariantType};
+use crate::{Enum, PartialReflect, ReflectRef, VariantType, utility::reflect_hasher};
 use core::{
     fmt::Debug,
     hash::{Hash, Hasher},

@@ -1,6 +1,6 @@
 use crate::{Indices, Mesh, MeshBuilder, Meshable, PrimitiveTopology};
 use bevy_asset::RenderAssetUsages;
-use bevy_math::{ops, primitives::Torus, Vec3};
+use bevy_math::{Vec3, ops, primitives::Torus};
 use bevy_reflect::prelude::*;
 use core::ops::RangeInclusive;
 

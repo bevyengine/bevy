@@ -16,21 +16,21 @@ use bevy_ecs::{
     system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet, hash_map::Entry};
 use bevy_utils::default;
 use offset_allocator::{Allocation, Allocator};
 use tracing::error;
 use wgpu::{
-    BufferDescriptor, BufferSize, BufferUsages, CommandEncoderDescriptor, DownlevelFlags,
-    COPY_BUFFER_ALIGNMENT,
+    BufferDescriptor, BufferSize, BufferUsages, COPY_BUFFER_ALIGNMENT, CommandEncoderDescriptor,
+    DownlevelFlags,
 };
 
 use crate::{
+    Render, RenderApp, RenderSet,
     mesh::{Indices, Mesh, MeshVertexBufferLayouts, RenderMesh},
-    render_asset::{prepare_assets, ExtractedAssets},
+    render_asset::{ExtractedAssets, prepare_assets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
 };
 
 /// A plugin that manages GPU memory for mesh data.
@@ -763,9 +763,7 @@ impl MeshAllocator {
         // Mark the allocation as pending. Don't copy it in just yet; further
         // meshes loaded this frame may result in its final allocation location
         // changing.
-        if let Some(Slab::General(general_slab)) =
-            self.slabs.get_mut(&mesh_allocation.slab_id)
-        {
+        if let Some(Slab::General(general_slab)) = self.slabs.get_mut(&mesh_allocation.slab_id) {
             general_slab
                 .pending_allocations
                 .insert(*mesh_id, mesh_allocation.slab_allocation);

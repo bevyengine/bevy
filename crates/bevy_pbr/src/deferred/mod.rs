@@ -1,20 +1,20 @@
 use crate::{
-    graph::NodePbr, irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
-    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
-    ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
-    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
-};
-use crate::{
     DistanceFog, MeshPipelineKey, ShadowFilteringMethod, ViewFogUniformOffset,
     ViewLightsUniformOffset,
 };
+use crate::{
+    MeshPipeline, MeshViewBindGroup, RenderViewLightProbes, ScreenSpaceAmbientOcclusion,
+    ScreenSpaceReflectionsUniform, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
+    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX, ViewEnvironmentMapUniformOffset,
+    ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset, graph::NodePbr,
+    irradiance_volume::IrradianceVolume, prelude::EnvironmentMapLight,
+};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     deferred::{
-        copy_lighting_id::DeferredLightingIdDepthTexture, DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT,
+        DEFERRED_LIGHTING_PASS_ID_DEPTH_FORMAT, copy_lighting_id::DeferredLightingIdDepthTexture,
     },
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
@@ -22,6 +22,7 @@ use bevy_core_pipeline::{
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -29,7 +30,6 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderContext, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
 };
 
 pub struct DeferredPbrLightingPlugin;

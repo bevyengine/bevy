@@ -525,8 +525,7 @@ impl PluginGroupBuilder {
                     {
                         panic!(
                             "Error adding plugin {} in group {}: plugin was already added in application",
-                            plugin_name,
-                            self.group_name
+                            plugin_name, self.group_name
                         );
                     }
                 }

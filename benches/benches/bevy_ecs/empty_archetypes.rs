@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use bevy_ecs::{component::Component, prelude::*, schedule::ExecutorKind, world::World};
-use criterion::{criterion_group, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group};
 
 criterion_group!(benches, empty_archetypes);
 

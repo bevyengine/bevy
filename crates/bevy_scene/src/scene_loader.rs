@@ -1,7 +1,7 @@
 #[cfg(feature = "serialize")]
 use crate::serde::SceneDeserializer;
-use crate::{ron, DynamicScene};
-use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use crate::{DynamicScene, ron};
+use bevy_asset::{AssetLoader, LoadContext, io::Reader};
 use bevy_ecs::{
     reflect::AppTypeRegistry,
     world::{FromWorld, World},

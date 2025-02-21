@@ -1,6 +1,6 @@
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
-use syn::{spanned::Spanned, LitStr};
+use quote::{ToTokens, quote};
+use syn::{LitStr, spanned::Spanned};
 
 /// Contains tokens representing different kinds of string.
 #[derive(Clone)]

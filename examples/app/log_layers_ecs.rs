@@ -15,9 +15,9 @@ use std::sync::mpsc;
 
 use bevy::{
     log::{
+        BoxedLayer, Level,
         tracing::{self, Subscriber},
         tracing_subscriber::{self, Layer},
-        BoxedLayer, Level,
     },
     prelude::*,
 };

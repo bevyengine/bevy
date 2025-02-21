@@ -1,8 +1,8 @@
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Component;
-use bevy_ecs::entity::{hash_map::EntityHashMap, Entity};
+use bevy_ecs::entity::{Entity, hash_map::EntityHashMap};
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::sync_world::MainEntity;
 /// Collection of mesh entities visible for 3D lighting.
 ///

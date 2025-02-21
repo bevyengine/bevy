@@ -194,8 +194,8 @@ mod tests {
     use super::*;
     use crate::func::args::ArgCount;
     use crate::{
-        func::args::{ArgError, ArgList, Ownership},
         TypePath,
+        func::args::{ArgError, ArgList, Ownership},
     };
 
     #[test]

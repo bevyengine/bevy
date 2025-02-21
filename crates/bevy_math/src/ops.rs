@@ -463,11 +463,7 @@ mod libm_ops_for_no_std {
         let result = libm::remainderf(x, y);
 
         // libm::remainderf has a range of -y/2 to +y/2
-        if result < 0. {
-            result + y
-        } else {
-            result
-        }
+        if result < 0. { result + y } else { result }
     }
 
     /// Computes the absolute value of x.

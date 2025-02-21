@@ -1,8 +1,8 @@
 use alloc::sync::Arc;
 use bevy_asset::{
+    Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
     io::{Reader, Writer},
     saver::{AssetSaver, SavedAsset},
-    Asset, AssetLoader, AsyncReadExt, AsyncWriteExt, LoadContext,
 };
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::TypePath;

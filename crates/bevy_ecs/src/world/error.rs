@@ -21,7 +21,9 @@ pub struct TryRunScheduleError(pub InternedScheduleLabel);
 /// [`World::try_insert_batch`]: crate::world::World::try_insert_batch
 /// [`World::try_insert_batch_if_new`]: crate::world::World::try_insert_batch_if_new
 #[derive(thiserror::Error, Debug, Clone)]
-#[error("Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}")]
+#[error(
+    "Could not insert bundles of type {bundle_type} into the entities with the following IDs because they do not exist: {entities:?}"
+)]
 pub struct TryInsertBatchError {
     /// The bundles' type name.
     pub bundle_type: &'static str,

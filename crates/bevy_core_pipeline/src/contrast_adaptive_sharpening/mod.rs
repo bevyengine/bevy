@@ -4,11 +4,12 @@ use crate::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
 };
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     prelude::Camera,
     render_graph::RenderGraphApp,
@@ -18,7 +19,6 @@ use bevy_render::{
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
 };
 
 mod node;

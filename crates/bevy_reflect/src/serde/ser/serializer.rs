@@ -1,15 +1,15 @@
 #[cfg(feature = "debug_stack")]
 use crate::serde::ser::error_utils::TYPE_INFO_STACK;
 use crate::{
+    PartialReflect, ReflectRef, TypeRegistry,
     serde::ser::{
         arrays::ArraySerializer, custom_serialization::try_custom_serialize, enums::EnumSerializer,
         error_utils::make_custom_error, lists::ListSerializer, maps::MapSerializer,
         sets::SetSerializer, structs::StructSerializer, tuple_structs::TupleStructSerializer,
         tuples::TupleSerializer,
     },
-    PartialReflect, ReflectRef, TypeRegistry,
 };
-use serde::{ser::SerializeMap, Serialize, Serializer};
+use serde::{Serialize, Serializer, ser::SerializeMap};
 
 use super::ReflectSerializerProcessor;
 

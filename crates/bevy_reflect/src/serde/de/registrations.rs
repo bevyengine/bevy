@@ -1,4 +1,4 @@
-use crate::{serde::de::error_utils::make_custom_error, TypeRegistration, TypeRegistry};
+use crate::{TypeRegistration, TypeRegistry, serde::de::error_utils::make_custom_error};
 use core::{fmt, fmt::Formatter};
 use serde::de::{DeserializeSeed, Error, Visitor};
 

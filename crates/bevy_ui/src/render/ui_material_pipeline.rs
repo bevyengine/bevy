@@ -14,6 +14,7 @@ use bevy_image::BevyDefault as _;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
+    Extract, ExtractSchedule, Render, RenderSet,
     extract_component::ExtractComponentPlugin,
     globals::{GlobalsBuffer, GlobalsUniform},
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -21,7 +22,6 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     view::*,
-    Extract, ExtractSchedule, Render, RenderSet,
 };
 use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;

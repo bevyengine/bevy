@@ -1,7 +1,7 @@
 use super::config::*;
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
-use bevy_render::view::screenshot::{save_to_disk, Screenshot};
+use bevy_render::view::screenshot::{Screenshot, save_to_disk};
 use tracing::{debug, info};
 
 pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {

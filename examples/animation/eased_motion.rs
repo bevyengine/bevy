@@ -3,7 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    animation::{animated_field, AnimationTarget, AnimationTargetId},
+    animation::{AnimationTarget, AnimationTargetId, animated_field},
     color::palettes::css::{ORANGE, SILVER},
     math::vec3,
     prelude::*,

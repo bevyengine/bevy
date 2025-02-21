@@ -7,12 +7,12 @@ use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
+    Render, RenderApp, RenderSet,
     camera::ExtractedCamera,
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderApp, RenderSet,
 };
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras

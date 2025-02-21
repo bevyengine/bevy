@@ -3,7 +3,7 @@
 use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
-    change_detection::{MaybeLocation, MAX_CHANGE_AGE},
+    change_detection::{MAX_CHANGE_AGE, MaybeLocation},
     entity::{ComponentCloneCtx, Entity},
     query::DebugCheckedUnwrap,
     resource::Resource,

@@ -1,6 +1,6 @@
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::Vec2;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_text::CosmicFontSystem;
 use core::fmt::Formatter;
 pub use taffy::style::AvailableSpace;

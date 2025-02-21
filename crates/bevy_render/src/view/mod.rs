@@ -1,12 +1,13 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
+    Render, RenderApp, RenderSet,
     camera::{
         CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
         ManualTextureViews, MipBias, NormalizedRenderTarget, TemporalJitter,
@@ -24,7 +25,6 @@ use crate::{
         CachedTexture, ColorAttachment, DepthAttachment, GpuImage, OutputColorAttachment,
         TextureCache,
     },
-    Render, RenderApp, RenderSet,
 };
 use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
@@ -32,9 +32,9 @@ use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
-use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_math::{Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles, mat3, vec2, vec3};
+use bevy_platform_support::collections::{HashMap, hash_map::Entry};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_render_macros::ExtractComponent;
 use bevy_transform::components::GlobalTransform;
 use core::{

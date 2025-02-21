@@ -1,41 +1,42 @@
 mod prepass_bindings;
 
 use crate::{
+    DrawMesh, EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey,
+    MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial,
+    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
+    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
     collect_meshes_for_gpu_building, material_bind_groups::MaterialBindGroupAllocator,
-    queue_material_meshes, setup_morph_and_skinning_defs, skin, DrawMesh,
-    EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts,
-    MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
-    RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    queue_material_meshes, setup_morph_and_skinning_defs, skin,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
     alpha::AlphaMode,
     batching::gpu_preprocessing::GpuPreprocessingSupport,
-    mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh, allocator::MeshAllocator},
     render_asset::prepare_assets,
     render_resource::binding_types::uniform_buffer,
     renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, RetainedViewEntity, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSet,
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{load_internal_asset, weak_handle, AssetServer, Handle};
+use bevy_asset::{AssetServer, Handle, load_internal_asset, weak_handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
 use bevy_ecs::{
     prelude::*,
     system::{
-        lifetimeless::{Read, SRes},
         SystemParamItem,
+        lifetimeless::{Read, SRes},
     },
 };
 use bevy_math::{Affine3A, Vec4};
 use bevy_render::{
+    Extract,
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -43,24 +44,23 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
 use tracing::{error, warn};
 
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
-    prepare_material_meshlet_meshes_prepass, queue_material_meshlet_meshes, InstanceManager,
-    MeshletMesh3d,
+    InstanceManager, MeshletMesh3d, prepare_material_meshlet_meshes_prepass,
+    queue_material_meshlet_meshes,
 };
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_platform_support::collections::HashMap;
+use bevy_render::RenderSet::{PrepareAssets, PrepareResources};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::view::RenderVisibleEntities;
-use bevy_render::RenderSet::{PrepareAssets, PrepareResources};
 use core::{hash::Hash, marker::PhantomData};
 
 pub const PREPASS_SHADER_HANDLE: Handle<Shader> =

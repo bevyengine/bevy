@@ -2,8 +2,8 @@ use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_math::{URect, UVec2};
 use bevy_platform_support::collections::HashMap;
 use rectangle_pack::{
-    contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,
-    RectToInsert, TargetBin,
+    GroupedRectsToPlace, PackedLocation, RectToInsert, TargetBin, contains_smallest_box,
+    pack_rects, volume_heuristic,
 };
 use thiserror::Error;
 use tracing::{debug, error, warn};

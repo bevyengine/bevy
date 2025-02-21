@@ -1,7 +1,8 @@
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, AssetApp, Assets, Handle};
+use bevy_asset::{AssetApp, Assets, Handle, load_internal_asset};
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    ExtractSchedule, Render, RenderApp, RenderSet,
     extract_component::ExtractComponentPlugin,
     render_asset::RenderAssetPlugin,
     render_graph::RenderGraphApp,
@@ -9,7 +10,6 @@ use bevy_render::{
         Buffer, BufferDescriptor, BufferUsages, PipelineCache, Shader, SpecializedComputePipelines,
     },
     renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 mod buffers;
@@ -18,11 +18,11 @@ mod node;
 mod pipeline;
 mod settings;
 
-use buffers::{extract_buffers, prepare_buffers, AutoExposureBuffers};
+use buffers::{AutoExposureBuffers, extract_buffers, prepare_buffers};
 pub use compensation_curve::{AutoExposureCompensationCurve, AutoExposureCompensationCurveError};
 use node::AutoExposureNode;
 use pipeline::{
-    AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline, METERING_SHADER_HANDLE,
+    AutoExposurePass, AutoExposurePipeline, METERING_SHADER_HANDLE, ViewAutoExposurePipeline,
 };
 pub use settings::AutoExposure;
 

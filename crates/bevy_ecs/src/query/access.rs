@@ -1360,7 +1360,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 #[cfg(test)]
 mod tests {
     use crate::query::{
-        access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
+        Access, AccessConflicts, FilteredAccess, FilteredAccessSet, access::AccessFilters,
     };
     use alloc::vec;
     use core::marker::PhantomData;

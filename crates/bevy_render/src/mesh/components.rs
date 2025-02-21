@@ -9,7 +9,7 @@ use bevy_ecs::{
     reflect::ReflectComponent, system::Query,
 };
 use bevy_platform_support::{collections::HashSet, hash::FixedHasher};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
 

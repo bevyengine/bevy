@@ -10,7 +10,9 @@ use thiserror::Error;
 #[derive(Clone, Copy, Debug, Error)]
 pub enum IcosphereError {
     /// The icosphere has too many vertices.
-    #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
+    #[error(
+        "Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)"
+    )]
     TooManyVertices {
         /// The number of subdivisions used. 79 is the largest allowed value for a mesh to be generated.
         subdivisions: u32,

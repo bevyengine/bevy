@@ -1,7 +1,7 @@
 use super::{
+    MeshletMesh,
     asset::{Meshlet, MeshletBoundingSpheres, MeshletSimplificationError},
     persistent_buffer::PersistentGpuBuffer,
-    MeshletMesh,
 };
 use alloc::sync::Arc;
 use bevy_asset::{AssetId, Assets};
@@ -116,7 +116,15 @@ impl MeshletMeshManager {
 
     pub fn remove(&mut self, asset_id: &AssetId<MeshletMesh>) {
         if let Some(
-            [vertex_positions_slice, vertex_normals_slice, vertex_uvs_slice, indices_slice, meshlets_slice, meshlet_bounding_spheres_slice, meshlet_simplification_errors_slice],
+            [
+                vertex_positions_slice,
+                vertex_normals_slice,
+                vertex_uvs_slice,
+                indices_slice,
+                meshlets_slice,
+                meshlet_bounding_spheres_slice,
+                meshlet_simplification_errors_slice,
+            ],
         ) = self.meshlet_mesh_slices.remove(asset_id)
         {
             self.vertex_positions

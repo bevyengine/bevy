@@ -1,9 +1,9 @@
 use alloc::borrow::Cow;
 
 use crate::{
+    Type, TypePath,
     func::args::{GetOwnership, Ownership},
     type_info::impl_type_methods,
-    Type, TypePath,
 };
 
 /// Type information for an [`Arg`] used in a [`DynamicFunction`] or [`DynamicFunctionMut`].

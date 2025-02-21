@@ -1,13 +1,13 @@
 use bevy_ecs::prelude::*;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform_support::collections::{HashMap, hash_map::Entry};
 use bevy_render::{
+    Extract,
     render_resource::{StorageBuffer, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
-    Extract,
 };
 
-use super::{pipeline::AutoExposureUniform, AutoExposure};
+use super::{AutoExposure, pipeline::AutoExposureUniform};
 
 #[derive(Resource, Default)]
 pub(super) struct AutoExposureBuffers {

@@ -1,6 +1,6 @@
 use crate::{
-    serde::{de::registration_utils::try_get_registration, TypedReflectDeserializer},
     ArrayInfo, DynamicArray, TypeRegistry,
+    serde::{TypedReflectDeserializer, de::registration_utils::try_get_registration},
 };
 use alloc::{string::ToString, vec::Vec};
 use core::{fmt, fmt::Formatter};

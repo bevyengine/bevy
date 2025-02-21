@@ -5,8 +5,8 @@
 
 use bevy_color::Color;
 use bevy_math::{
-    curve::{Curve, CurveExt},
     Vec2, Vec3,
+    curve::{Curve, CurveExt},
 };
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};

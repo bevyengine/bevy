@@ -1,7 +1,6 @@
 use crate::{
-    ops,
+    Dir2, Dir3, Vec2, Vec3, ops,
     primitives::{InfinitePlane3d, Plane2d},
-    Dir2, Dir3, Vec2, Vec3,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -110,31 +109,36 @@ mod tests {
             ray.intersect_plane(Vec2::Y, Plane2d::new(Vec2::NEG_Y)),
             Some(1.0)
         );
-        assert!(ray
-            .intersect_plane(Vec2::NEG_Y, Plane2d::new(Vec2::Y))
-            .is_none());
-        assert!(ray
-            .intersect_plane(Vec2::NEG_Y, Plane2d::new(Vec2::NEG_Y))
-            .is_none());
+        assert!(
+            ray.intersect_plane(Vec2::NEG_Y, Plane2d::new(Vec2::Y))
+                .is_none()
+        );
+        assert!(
+            ray.intersect_plane(Vec2::NEG_Y, Plane2d::new(Vec2::NEG_Y))
+                .is_none()
+        );
 
         // Diagonal
         assert_eq!(
             ray.intersect_plane(Vec2::Y, Plane2d::new(Vec2::ONE)),
             Some(1.0)
         );
-        assert!(ray
-            .intersect_plane(Vec2::NEG_Y, Plane2d::new(Vec2::ONE))
-            .is_none());
+        assert!(
+            ray.intersect_plane(Vec2::NEG_Y, Plane2d::new(Vec2::ONE))
+                .is_none()
+        );
 
         // Parallel
-        assert!(ray
-            .intersect_plane(Vec2::X, Plane2d::new(Vec2::X))
-            .is_none());
+        assert!(
+            ray.intersect_plane(Vec2::X, Plane2d::new(Vec2::X))
+                .is_none()
+        );
 
         // Parallel with simulated rounding error
-        assert!(ray
-            .intersect_plane(Vec2::X, Plane2d::new(Vec2::X + Vec2::Y * f32::EPSILON))
-            .is_none());
+        assert!(
+            ray.intersect_plane(Vec2::X, Plane2d::new(Vec2::X + Vec2::Y * f32::EPSILON))
+                .is_none()
+        );
     }
 
     #[test]
@@ -150,33 +154,38 @@ mod tests {
             ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z)),
             Some(1.0)
         );
-        assert!(ray
-            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z))
-            .is_none());
-        assert!(ray
-            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::NEG_Z))
-            .is_none());
+        assert!(
+            ray.intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z))
+                .is_none()
+        );
+        assert!(
+            ray.intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::NEG_Z))
+                .is_none()
+        );
 
         // Diagonal
         assert_eq!(
             ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::ONE)),
             Some(1.0)
         );
-        assert!(ray
-            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE))
-            .is_none());
+        assert!(
+            ray.intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE))
+                .is_none()
+        );
 
         // Parallel
-        assert!(ray
-            .intersect_plane(Vec3::X, InfinitePlane3d::new(Vec3::X))
-            .is_none());
+        assert!(
+            ray.intersect_plane(Vec3::X, InfinitePlane3d::new(Vec3::X))
+                .is_none()
+        );
 
         // Parallel with simulated rounding error
-        assert!(ray
-            .intersect_plane(
+        assert!(
+            ray.intersect_plane(
                 Vec3::X,
                 InfinitePlane3d::new(Vec3::X + Vec3::Z * f32::EPSILON)
             )
-            .is_none());
+            .is_none()
+        );
     }
 }

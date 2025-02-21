@@ -96,9 +96,11 @@ mod tests {
     #[test]
     fn match_transform_propagation_systems() {
         // Single transform
-        match_transform_propagation_systems_inner(vec![Transform::from_translation(Vec3::X)
-            .with_rotation(Quat::from_rotation_y(TAU / 4.))
-            .with_scale(Vec3::splat(2.))]);
+        match_transform_propagation_systems_inner(vec![
+            Transform::from_translation(Vec3::X)
+                .with_rotation(Quat::from_rotation_y(TAU / 4.))
+                .with_scale(Vec3::splat(2.)),
+        ]);
 
         // Transform hierarchy
         match_transform_propagation_systems_inner(vec![

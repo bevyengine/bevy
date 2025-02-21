@@ -63,7 +63,9 @@ impl Plugin for TerminalCtrlCHandlerPlugin {
         match result {
             Ok(()) => {}
             Err(ctrlc::Error::MultipleHandlers) => {
-                log::info!("Skipping installing `Ctrl+C` handler as one was already installed. Please call `TerminalCtrlCHandlerPlugin::gracefully_exit` in your own `Ctrl+C` handler if you want Bevy to gracefully exit on `Ctrl+C`.");
+                log::info!(
+                    "Skipping installing `Ctrl+C` handler as one was already installed. Please call `TerminalCtrlCHandlerPlugin::gracefully_exit` in your own `Ctrl+C` handler if you want Bevy to gracefully exit on `Ctrl+C`."
+                );
             }
             Err(err) => log::warn!("Failed to set `Ctrl+C` handler: {err}"),
         }

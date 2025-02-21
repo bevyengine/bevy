@@ -1,12 +1,12 @@
 use crate::{
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     extract_resource::ExtractResource,
     prelude::Shader,
     render_resource::{ShaderType, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{Handle, load_internal_asset, weak_handle};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;

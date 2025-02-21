@@ -14,8 +14,8 @@ use crate::{
     entity::{Entity, EntityClonerBuilder},
     event::Event,
     result::Result,
-    system::{command::HandleError, Command, IntoObserverSystem},
-    world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
+    system::{Command, IntoObserverSystem, command::HandleError},
+    world::{EntityWorldMut, FromWorld, World, error::EntityMutableFetchError},
 };
 use bevy_ptr::OwningPtr;
 
@@ -101,7 +101,7 @@ impl<C: EntityCommand> CommandWithEntity<Result<(), EntityMutableFetchError>> fo
         self,
         entity: Entity,
     ) -> impl Command<Result<(), EntityMutableFetchError>>
-           + HandleError<Result<(), EntityMutableFetchError>> {
+    + HandleError<Result<(), EntityMutableFetchError>> {
         move |world: &mut World| -> Result<(), EntityMutableFetchError> {
             let entity = world.get_entity_mut(entity)?;
             self.apply(entity);
@@ -111,10 +111,10 @@ impl<C: EntityCommand> CommandWithEntity<Result<(), EntityMutableFetchError>> fo
 }
 
 impl<
-        C: EntityCommand<Result<T, Err>>,
-        T,
-        Err: core::fmt::Debug + core::fmt::Display + Send + Sync + 'static,
-    > CommandWithEntity<Result<T, EntityCommandError<Err>>> for C
+    C: EntityCommand<Result<T, Err>>,
+    T,
+    Err: core::fmt::Debug + core::fmt::Display + Send + Sync + 'static,
+> CommandWithEntity<Result<T, EntityCommandError<Err>>> for C
 {
     fn with_entity(
         self,

@@ -1,6 +1,6 @@
 use bevy_asset::prelude::*;
-use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
-use bevy_math::{cubic_splines::CubicGenerator, FloatExt, Vec2};
+use bevy_ecs::system::{SystemParamItem, lifetimeless::SRes};
+use bevy_math::{FloatExt, Vec2, cubic_splines::CubicGenerator};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     render_asset::{RenderAsset, RenderAssetUsages},

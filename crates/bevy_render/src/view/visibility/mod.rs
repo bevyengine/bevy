@@ -13,8 +13,8 @@ pub use render_layers::*;
 use bevy_app::{Plugin, PostUpdate};
 use bevy_asset::Assets;
 use bevy_ecs::{hierarchy::validate_parent_has_component, prelude::*};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_transform::{components::GlobalTransform, TransformSystem};
+use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_transform::{TransformSystem, components::GlobalTransform};
 use bevy_utils::{Parallel, TypeIdMap};
 use smallvec::SmallVec;
 

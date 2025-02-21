@@ -1,8 +1,8 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, ecs::prelude::*, input::prelude::*, log::prelude::*, math::prelude::*,
-    reflect::prelude::*, time::prelude::*, transform::prelude::*, utils::prelude::*,
-    DefaultPlugins, MinimalPlugins,
+    DefaultPlugins, MinimalPlugins, app::prelude::*, ecs::prelude::*, input::prelude::*,
+    log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
+    transform::prelude::*, utils::prelude::*,
 };
 
 #[doc(hidden)]
@@ -13,7 +13,7 @@ pub use crate::window::prelude::*;
 #[cfg(feature = "bevy_image")]
 pub use crate::image::prelude::*;
 
-pub use bevy_derive::{bevy_main, Deref, DerefMut};
+pub use bevy_derive::{Deref, DerefMut, bevy_main};
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_asset")]

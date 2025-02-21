@@ -14,10 +14,10 @@
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_input::{
+    ButtonState,
     mouse::MouseWheel,
     prelude::*,
     touch::{TouchInput, TouchPhase},
-    ButtonState,
 };
 use bevy_math::Vec2;
 use bevy_platform_support::collections::{HashMap, HashSet};

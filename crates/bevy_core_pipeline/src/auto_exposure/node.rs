@@ -1,8 +1,8 @@
 use super::{
+    AutoExposureResources,
     buffers::AutoExposureBuffers,
     compensation_curve::GpuAutoExposureCompensationCurve,
     pipeline::{AutoExposurePipeline, ViewAutoExposurePipeline},
-    AutoExposureResources,
 };
 use bevy_ecs::{
     query::QueryState,

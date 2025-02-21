@@ -185,8 +185,8 @@ impl<F> Debug for DynamicFunctionInternal<F> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::func::{FunctionInfo, SignatureInfo};
     use crate::Type;
+    use crate::func::{FunctionInfo, SignatureInfo};
 
     #[test]
     fn should_merge_single_into_single() {

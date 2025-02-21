@@ -11,16 +11,16 @@ use std::{
 };
 
 #[cfg(feature = "trace")]
-use tracing::{info_span, Span};
+use tracing::{Span, info_span};
 
 use crate::{
     archetype::ArchetypeComponentId,
     prelude::Resource,
     query::Access,
     result::{Error, Result, SystemErrorContext},
-    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule, is_apply_deferred},
     system::ScheduleSystem,
-    world::{unsafe_world_cell::UnsafeWorldCell, World},
+    world::{World, unsafe_world_cell::UnsafeWorldCell},
 };
 
 use super::__rust_begin_short_backtrace;

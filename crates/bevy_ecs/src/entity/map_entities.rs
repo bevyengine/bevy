@@ -1,10 +1,10 @@
 use crate::{
     entity::Entity,
-    identifier::masks::{IdentifierMask, HIGH_MASK},
+    identifier::masks::{HIGH_MASK, IdentifierMask},
     world::World,
 };
 
-use super::{hash_map::EntityHashMap, VisitEntitiesMut};
+use super::{VisitEntitiesMut, hash_map::EntityHashMap};
 
 /// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
@@ -114,11 +114,7 @@ impl EntityMapper for () {
 impl EntityMapper for (Entity, Entity) {
     #[inline]
     fn get_mapped(&mut self, source: Entity) -> Entity {
-        if source == self.0 {
-            self.1
-        } else {
-            source
-        }
+        if source == self.0 { self.1 } else { source }
     }
 
     fn set_mapped(&mut self, _source: Entity, _target: Entity) {}
@@ -247,7 +243,7 @@ impl<'m> SceneEntityMapper<'m> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::{hash_map::EntityHashMap, Entity, EntityMapper, SceneEntityMapper},
+        entity::{Entity, EntityMapper, SceneEntityMapper, hash_map::EntityHashMap},
         world::World,
     };
 

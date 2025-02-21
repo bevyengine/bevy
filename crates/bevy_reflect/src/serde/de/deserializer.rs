@@ -2,15 +2,15 @@
 use crate::serde::de::error_utils::TYPE_INFO_STACK;
 use crate::serde::{ReflectDeserializeWithRegistry, SerializationData};
 use crate::{
+    PartialReflect, ReflectDeserialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
     serde::{
+        TypeRegistrationDeserializer,
         de::{
             arrays::ArrayVisitor, enums::EnumVisitor, error_utils::make_custom_error,
             lists::ListVisitor, maps::MapVisitor, options::OptionVisitor, sets::SetVisitor,
             structs::StructVisitor, tuple_structs::TupleStructVisitor, tuples::TupleVisitor,
         },
-        TypeRegistrationDeserializer,
     },
-    PartialReflect, ReflectDeserialize, TypeInfo, TypePath, TypeRegistration, TypeRegistry,
 };
 use alloc::boxed::Box;
 use core::{fmt, fmt::Formatter};

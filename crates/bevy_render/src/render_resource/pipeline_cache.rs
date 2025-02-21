@@ -1,8 +1,8 @@
 use crate::renderer::WgpuWrapper;
 use crate::{
+    Extract,
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
-    Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets};
@@ -11,7 +11,7 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
+use bevy_platform_support::collections::{HashMap, HashSet, hash_map::EntryRef};
 use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
@@ -882,16 +882,14 @@ impl PipelineCache {
                 };
             }
 
-            CachedPipelineState::Creating(task) => {
-                match bevy_tasks::futures::check_ready(task) {
-                    Some(Ok(pipeline)) => {
-                        cached_pipeline.state = CachedPipelineState::Ok(pipeline);
-                        return;
-                    }
-                    Some(Err(err)) => cached_pipeline.state = CachedPipelineState::Err(err),
-                    _ => (),
+            CachedPipelineState::Creating(task) => match bevy_tasks::futures::check_ready(task) {
+                Some(Ok(pipeline)) => {
+                    cached_pipeline.state = CachedPipelineState::Ok(pipeline);
+                    return;
                 }
-            }
+                Some(Err(err)) => cached_pipeline.state = CachedPipelineState::Err(err),
+                _ => (),
+            },
 
             CachedPipelineState::Err(err) => match err {
                 // Retry

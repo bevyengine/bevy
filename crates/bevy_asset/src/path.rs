@@ -10,7 +10,7 @@ use core::{
     hash::Hash,
     ops::Deref,
 };
-use serde::{de::Visitor, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Visitor};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -89,10 +89,14 @@ pub enum ParseAssetPathError {
     #[error("Asset label must not contain a `://` substring")]
     InvalidLabelSyntax,
     /// Error that occurs when a path string has an [`AssetPath::source`] delimiter `://` with no characters preceding it. E.g. `://file.test`.
-    #[error("Asset source must be at least one character. Either specify the source before the '://' or remove the `://`")]
+    #[error(
+        "Asset source must be at least one character. Either specify the source before the '://' or remove the `://`"
+    )]
     MissingSource,
     /// Error that occurs when a path string has an [`AssetPath::label`] delimiter `#` with no characters succeeding it. E.g. `file.test#`
-    #[error("Asset label must be at least one character. Either specify the label after the '#' or remove the '#'")]
+    #[error(
+        "Asset label must be at least one character. Either specify the label after the '#' or remove the '#'"
+    )]
     MissingLabel,
 }
 

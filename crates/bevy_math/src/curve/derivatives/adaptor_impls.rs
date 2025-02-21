@@ -4,11 +4,11 @@
 use super::{SampleDerivative, SampleTwoDerivatives};
 use crate::common_traits::{HasTangent, Sum, VectorSpace, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
+    Curve,
     adaptors::{
         ChainCurve, ConstantCurve, ContinuationCurve, CurveReparamCurve, ForeverCurve, GraphCurve,
         LinearReparamCurve, PingPongCurve, RepeatCurve, ReverseCurve, ZipCurve,
     },
-    Curve,
 };
 
 // -- ConstantCurve
@@ -454,7 +454,7 @@ mod tests {
     use super::*;
     use crate::cubic_splines::{CubicBezier, CubicCardinalSpline, CubicCurve, CubicGenerator};
     use crate::curve::{Curve, CurveExt, Interval};
-    use crate::{vec2, Vec2, Vec3};
+    use crate::{Vec2, Vec3, vec2};
 
     fn test_curve() -> CubicCurve<Vec2> {
         let control_pts = [[

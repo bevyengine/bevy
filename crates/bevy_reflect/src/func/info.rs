@@ -2,11 +2,11 @@ use alloc::{borrow::Cow, boxed::Box, vec, vec::Vec};
 use core::fmt::{Debug, Formatter};
 
 use crate::{
+    Type, TypePath,
+    func::FunctionOverloadError,
     func::args::{ArgCount, ArgCountOutOfBoundsError, ArgInfo, GetOwnership, Ownership},
     func::signature::ArgumentSignature,
-    func::FunctionOverloadError,
     type_info::impl_type_methods,
-    Type, TypePath,
 };
 
 use variadics_please::all_tuples;
