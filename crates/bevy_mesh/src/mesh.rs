@@ -881,7 +881,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale, rotation, and translation to vertex positions
@@ -898,7 +898,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling and rotation
@@ -909,7 +909,7 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x3(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling and rotation
@@ -936,7 +936,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply translation to vertex positions
@@ -958,7 +958,7 @@ impl Mesh {
     ///
     /// `Aabb` of entities with modified mesh are not updated automatically.
     pub fn rotate_by(&mut self, rotation: Quat) {
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply rotation to vertex positions
@@ -972,7 +972,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals
@@ -981,7 +981,7 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x3(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents
@@ -1010,7 +1010,7 @@ impl Mesh {
             "mesh transform scale cannot be zero on more than one axis"
         );
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut positions)) =
+        if let Some(VertexAttributeValues::Float32x3(positions)) =
             self.attribute_mut(Mesh::ATTRIBUTE_POSITION)
         {
             // Apply scale to vertex positions
@@ -1024,7 +1024,7 @@ impl Mesh {
             return;
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut normals)) =
+        if let Some(VertexAttributeValues::Float32x3(normals)) =
             self.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
         {
             // Transform normals, taking into account non-uniform scaling
@@ -1033,7 +1033,7 @@ impl Mesh {
             });
         }
 
-        if let Some(VertexAttributeValues::Float32x3(ref mut tangents)) =
+        if let Some(VertexAttributeValues::Float32x3(tangents)) =
             self.attribute_mut(Mesh::ATTRIBUTE_TANGENT)
         {
             // Transform tangents, taking into account non-uniform scaling
@@ -1096,7 +1096,7 @@ impl Mesh {
     /// Normalize joint weights so they sum to 1.
     pub fn normalize_joint_weights(&mut self) {
         if let Some(joints) = self.attribute_mut(Self::ATTRIBUTE_JOINT_WEIGHT) {
-            let VertexAttributeValues::Float32x4(ref mut joints) = joints else {
+            let VertexAttributeValues::Float32x4(joints) = joints else {
                 panic!("unexpected joint weight format");
             };
 

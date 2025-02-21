@@ -257,7 +257,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
     match data {
-        Data::Struct(DataStruct { ref fields, .. }) => {
+        Data::Struct(DataStruct { fields, .. }) => {
             let mut visited_fields = Vec::new();
             let mut visited_indices = Vec::new();
             match fields {

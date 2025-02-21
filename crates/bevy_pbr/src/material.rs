@@ -1217,20 +1217,20 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
     fn prepare_asset(
         material: Self::SourceAsset,
         material_id: AssetId<Self::SourceAsset>,
-        (
-            render_device,
-            pipeline,
-            default_opaque_render_method,
+        &mut (
+            ref render_device,
+            ref pipeline,
+            ref default_opaque_render_method,
             ref mut bind_group_allocator,
             ref mut render_material_bindings,
-            opaque_draw_functions,
-            alpha_mask_draw_functions,
-            transmissive_draw_functions,
-            transparent_draw_functions,
-            opaque_prepass_draw_functions,
-            alpha_mask_prepass_draw_functions,
-            opaque_deferred_draw_functions,
-            alpha_mask_deferred_draw_functions,
+            ref opaque_draw_functions,
+            ref alpha_mask_draw_functions,
+            ref transmissive_draw_functions,
+            ref transparent_draw_functions,
+            ref opaque_prepass_draw_functions,
+            ref alpha_mask_prepass_draw_functions,
+            ref opaque_deferred_draw_functions,
+            ref alpha_mask_deferred_draw_functions,
             ref mut material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
@@ -1299,12 +1299,12 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
         match material.unprepared_bind_group(
             &pipeline.material_layout,
-            render_device,
+            &render_device,
             material_param,
             false,
         ) {
             Ok(unprepared) => {
-                bind_group_allocator.init(render_device, material_binding_id, unprepared);
+                bind_group_allocator.init(&render_device, material_binding_id, unprepared);
 
                 Ok(PreparedMaterial {
                     binding: material_binding_id,
@@ -1334,7 +1334,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                 // group in the slot.
                 match material.as_bind_group(
                     &pipeline.material_layout,
-                    render_device,
+                    &render_device,
                     material_param,
                 ) {
                     Ok(prepared_bind_group) => {
@@ -1376,7 +1376,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (
+        &mut (
             _,
             _,
             _,

@@ -906,7 +906,7 @@ impl Node for LateGpuPreprocessNode {
                             }),
                         ..
                     },
-                    Some(PhasePreprocessBindGroups::IndirectOcclusionCulling {
+                    Some(&PhasePreprocessBindGroups::IndirectOcclusionCulling {
                         late_indexed: ref maybe_late_indexed_bind_group,
                         late_non_indexed: ref maybe_late_non_indexed_bind_group,
                         ..
@@ -1735,7 +1735,7 @@ pub fn prepare_preprocess_bind_groups(
     pipelines: Res<PreprocessPipelines>,
 ) {
     // Grab the `BatchedInstanceBuffers`.
-    let BatchedInstanceBuffers {
+    let &BatchedInstanceBuffers {
         current_input_buffer: ref current_input_buffer_vec,
         previous_input_buffer: ref previous_input_buffer_vec,
         ref phase_instance_buffers,

@@ -415,7 +415,8 @@ impl<'a> OwningPtr<'a> {
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { Self::make_internal(&mut ManuallyDrop::new(val)) })
+        let mut tmp = ManuallyDrop::new(val);
+        f(unsafe { Self::make_internal(&mut tmp) })
     }
 }
 
