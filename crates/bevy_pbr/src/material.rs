@@ -1381,14 +1381,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (
-            _,
-            _,
-            _,
-            bind_group_allocator,
-            render_material_bindings,
-            ..,
-        ): &mut SystemParamItem<Self::Param>,
+        (_, _, _, bind_group_allocator, render_material_bindings, ..): &mut SystemParamItem<
+            Self::Param,
+        >,
     ) {
         let Some(material_binding_id) = render_material_bindings.remove(&source_asset.untyped())
         else {

@@ -453,23 +453,16 @@ mod test {
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
 
-        let mut child_entity = app
-            .world_mut()
-            .entity_mut(child);
+        let mut child_entity = app.world_mut().entity_mut(child);
 
-        let mut grandchild_entity = temp
-            .entity_mut(grandchild);
+        let mut grandchild_entity = temp.entity_mut(grandchild);
 
         #[expect(
             unsafe_code,
             reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
         )]
         // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
-        let mut a = unsafe {
-            child_entity
-                .get_mut_assume_mutable::<ChildOf>()
-                .unwrap()
-        };
+        let mut a = unsafe { child_entity.get_mut_assume_mutable::<ChildOf>().unwrap() };
 
         // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
         #[expect(
@@ -482,10 +475,7 @@ mod test {
                 .unwrap()
         };
 
-        core::mem::swap(
-            a.as_mut(),
-            b.as_mut(),
-        );
+        core::mem::swap(a.as_mut(), b.as_mut());
 
         app.update();
     }

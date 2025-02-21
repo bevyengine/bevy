@@ -763,9 +763,7 @@ impl MeshAllocator {
         // Mark the allocation as pending. Don't copy it in just yet; further
         // meshes loaded this frame may result in its final allocation location
         // changing.
-        if let Some(Slab::General(general_slab)) =
-            self.slabs.get_mut(&mesh_allocation.slab_id)
-        {
+        if let Some(Slab::General(general_slab)) = self.slabs.get_mut(&mesh_allocation.slab_id) {
             general_slab
                 .pending_allocations
                 .insert(*mesh_id, mesh_allocation.slab_allocation);

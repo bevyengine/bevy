@@ -36,14 +36,17 @@ fn setup(
     );
 
     // All assets end up in their Assets<T> collection once they are done loading:
-    match meshes.get(&sphere_handle) { Some(sphere) => {
-        // You might notice that this doesn't run! This is because assets load in parallel without
-        // blocking. When an asset has loaded, it will appear in relevant Assets<T>
-        // collection.
-        info!("{:?}", sphere.primitive_topology());
-    } _ => {
-        info!("sphere hasn't loaded yet");
-    }}
+    match meshes.get(&sphere_handle) {
+        Some(sphere) => {
+            // You might notice that this doesn't run! This is because assets load in parallel without
+            // blocking. When an asset has loaded, it will appear in relevant Assets<T>
+            // collection.
+            info!("{:?}", sphere.primitive_topology());
+        }
+        _ => {
+            info!("sphere hasn't loaded yet");
+        }
+    }
 
     // You can load all assets in a folder like this. They will be loaded in parallel without
     // blocking. The LoadedFolder asset holds handles to each asset in the folder. These are all
