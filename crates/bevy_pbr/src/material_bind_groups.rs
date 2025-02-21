@@ -26,6 +26,7 @@ use bevy_render::{
     texture::FallbackImage,
 };
 use bevy_utils::default;
+use bytemuck::Pod;
 use tracing::{error, trace};
 
 use crate::Material;
@@ -97,8 +98,11 @@ where
     samplers: HashMap<BindlessResourceType, MaterialBindlessBindingArray<Sampler>>,
     /// The binding arrays containing textures.
     textures: HashMap<BindlessResourceType, MaterialBindlessBindingArray<TextureView>>,
-    /// The binding arrays containing data buffers.
+    /// The binding arrays containing buffers.
     buffers: HashMap<BindlessIndex, MaterialBindlessBindingArray<Buffer>>,
+    /// The buffers that contain plain old data (i.e. the structure-level
+    /// `#[data]` attribute of `AsBindGroup`).
+    data_buffers: HashMap<BindlessIndex, MaterialDataBuffer>,
 
     /// Holds extra CPU-accessible data that the material provides.
     ///
@@ -122,10 +126,8 @@ struct MaterialBindlessIndexTable<M>
 where
     M: Material,
 {
-    /// The contents of the buffer.
-    buffer: RawBufferVec<u32>,
-    /// Whether the contents of the buffer have been uploaded to the GPU.
-    buffer_dirty: BufferDirtyState,
+    /// The buffer containing the mappings.
+    buffer: RetainedRawBufferVec<u32>,
     phantom: PhantomData<M>,
 }
 
@@ -228,6 +230,11 @@ enum BindingResourceId {
     TextureView(TextureViewDimension, TextureViewId),
     /// A sampler.
     Sampler(SamplerId),
+    /// A buffer containing plain old data.
+    ///
+    /// This corresponds to the `#[data]` structure-level attribute on
+    /// `AsBindGroup`.
+    DataBuffer,
 }
 
 /// A temporary list of references to `wgpu` bindless resources.
@@ -346,6 +353,44 @@ struct MaterialNonBindlessSlab<'a, M>(&'a PreparedBindGroup<M::Data>)
 where
     M: Material;
 
+/// Manages an array of untyped plain old data on GPU and allocates individual
+/// slots within that array.
+///
+/// This supports the `#[data]` attribute of `AsBindGroup`.
+struct MaterialDataBuffer {
+    /// The number of the binding that we attach this storage buffer to.
+    binding_number: BindingNumber,
+    /// The actual data.
+    ///
+    /// Note that this is untyped (`u8`); the actual aligned size of each
+    /// element is given by [`Self::aligned_element_size`];
+    buffer: RetainedRawBufferVec<u8>,
+    /// The size of each element in the buffer, including padding and alignment
+    /// if any.
+    aligned_element_size: u32,
+    /// A list of free slots within the buffer.
+    free_slots: Vec<u32>,
+    /// The actual number of slots that have been allocated.
+    len: u32,
+}
+
+/// A buffer containing plain old data, already packed into the appropriate GPU
+/// format, and that can be updated incrementally.
+///
+/// This structure exists in order to encapsulate the lazy update
+/// ([`BufferDirtyState`]) logic in a single place.
+#[derive(Deref, DerefMut)]
+struct RetainedRawBufferVec<T>
+where
+    T: Pod,
+{
+    /// The contents of the buffer.
+    #[deref]
+    buffer: RawBufferVec<T>,
+    /// Whether the contents of the buffer have been uploaded to the GPU.
+    dirty: BufferDirtyState,
+}
+
 impl From<u32> for MaterialBindGroupSlot {
     fn from(value: u32) -> Self {
         MaterialBindGroupSlot(value)
@@ -362,6 +407,7 @@ impl<'a> From<&'a OwnedBindingResource> for BindingResourceId {
     fn from(value: &'a OwnedBindingResource) -> Self {
         match *value {
             OwnedBindingResource::Buffer(ref buffer) => BindingResourceId::Buffer(buffer.id()),
+            OwnedBindingResource::Data(_) => BindingResourceId::DataBuffer,
             OwnedBindingResource::TextureView(ref texture_view_dimension, ref texture_view) => {
                 BindingResourceId::TextureView(*texture_view_dimension, texture_view.id())
             }
@@ -539,14 +585,13 @@ where
     /// Creates a new [`MaterialBindlessIndexTable`] for a single slab.
     fn new(bindless_descriptor: &BindlessDescriptor) -> MaterialBindlessIndexTable<M> {
         // Preallocate space for one bindings table, so that there will always be a buffer.
-        let mut buffer = RawBufferVec::new(BufferUsages::STORAGE);
+        let mut buffer = RetainedRawBufferVec::new(BufferUsages::STORAGE);
         for _ in 0..bindless_descriptor.resources.len() {
             buffer.push(0);
         }
 
         MaterialBindlessIndexTable {
             buffer,
-            buffer_dirty: BufferDirtyState::NeedsReserve,
             phantom: PhantomData,
         }
     }
@@ -586,29 +631,42 @@ where
         }
 
         // Mark the buffer as needing to be recreated, in case we grew it.
-        self.buffer_dirty = BufferDirtyState::NeedsReserve;
+        self.buffer.dirty = BufferDirtyState::NeedsReserve;
+    }
+}
+
+impl<T> RetainedRawBufferVec<T>
+where
+    T: Pod,
+{
+    /// Creates a new empty [`RetainedRawBufferVec`] supporting the given
+    /// [`BufferUsages`].
+    fn new(buffer_usages: BufferUsages) -> RetainedRawBufferVec<T> {
+        RetainedRawBufferVec {
+            buffer: RawBufferVec::new(buffer_usages),
+            dirty: BufferDirtyState::NeedsUpload,
+        }
     }
 
-    /// Creates the buffer that contains the bindless index table if necessary.
-    fn prepare_buffer(&mut self, render_device: &RenderDevice) {
-        match self.buffer_dirty {
+    /// Recreates the GPU backing buffer if needed.
+    fn prepare(&mut self, render_device: &RenderDevice) {
+        match self.dirty {
             BufferDirtyState::Clean | BufferDirtyState::NeedsUpload => {}
             BufferDirtyState::NeedsReserve => {
                 let capacity = self.buffer.len();
                 self.buffer.reserve(capacity, render_device);
-                self.buffer_dirty = BufferDirtyState::NeedsUpload;
+                self.dirty = BufferDirtyState::NeedsUpload;
             }
         }
     }
 
-    /// Writes the contents of the bindless index table buffer to GPU if
-    /// necessary.
-    fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
-        match self.buffer_dirty {
+    /// Writes the current contents of the buffer to the GPU if necessary.
+    fn write(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+        match self.dirty {
             BufferDirtyState::Clean => {}
             BufferDirtyState::NeedsReserve | BufferDirtyState::NeedsUpload => {
                 self.buffer.write_buffer(render_device, render_queue);
-                self.buffer_dirty = BufferDirtyState::Clean;
+                self.dirty = BufferDirtyState::Clean;
             }
         }
     }
@@ -857,6 +915,10 @@ where
                     }
                 }
 
+                OwnedBindingResource::Data(_) => {
+                    // The size of a data buffer is unlimited.
+                }
+
                 OwnedBindingResource::TextureView(texture_view_dimension, ref texture_view) => {
                     let bindless_resource_type = BindlessResourceType::from(texture_view_dimension);
                     match self
@@ -934,6 +996,11 @@ where
                             .expect("Slot should exist")
                             .ref_count += 1;
                     }
+
+                    OwnedBindingResource::Data(_) => {
+                        panic!("Data buffers can't be deduplicated")
+                    }
+
                     OwnedBindingResource::TextureView(texture_view_dimension, _) => {
                         let bindless_resource_type =
                             BindlessResourceType::from(texture_view_dimension);
@@ -946,6 +1013,7 @@ where
                             .expect("Slot should exist")
                             .ref_count += 1;
                     }
+
                     OwnedBindingResource::Sampler(sampler_binding_type, _) => {
                         let bindless_resource_type =
                             BindlessResourceType::from(sampler_binding_type);
@@ -972,6 +1040,14 @@ where
                         .get_mut(&bindless_index)
                         .expect("Buffer binding array should exist")
                         .insert(binding_resource_id, buffer);
+                    allocated_resource_slots.insert(bindless_index, slot);
+                }
+                OwnedBindingResource::Data(data) => {
+                    let slot = self
+                        .data_buffers
+                        .get_mut(&bindless_index)
+                        .expect("Data buffer binding array should exist")
+                        .insert(&data);
                     allocated_resource_slots.insert(bindless_index, slot);
                 }
                 OwnedBindingResource::TextureView(texture_view_dimension, texture_view) => {
@@ -1013,14 +1089,23 @@ where
         {
             let bindless_index = BindlessIndex::from(bindless_index as u32);
 
-            // Free the binding.
-            let resource_freed = match *bindless_resource_type {
+            // Free the binding. If the resource in question was anything other
+            // than a data buffer, then it has a reference count and
+            // consequently we need to decrement it.
+            let decrement_allocated_resource_count = match *bindless_resource_type {
                 BindlessResourceType::None => false,
                 BindlessResourceType::Buffer => self
                     .buffers
                     .get_mut(&bindless_index)
                     .expect("Buffer should exist with that bindless index")
                     .remove(bindless_binding),
+                BindlessResourceType::DataBuffer => {
+                    self.data_buffers
+                        .get_mut(&bindless_index)
+                        .expect("Data buffer should exist with that bindless index")
+                        .remove(bindless_binding);
+                    false
+                }
                 BindlessResourceType::SamplerFiltering
                 | BindlessResourceType::SamplerNonFiltering
                 | BindlessResourceType::SamplerComparison => self
@@ -1042,7 +1127,7 @@ where
 
             // If the slot is now free, decrement the allocated resource
             // count.
-            if resource_freed {
+            if decrement_allocated_resource_count {
                 self.allocated_resource_count -= 1;
             }
         }
@@ -1069,7 +1154,12 @@ where
         bindless_descriptor: &BindlessDescriptor,
     ) {
         // Create the bindless index table buffer if needed.
-        self.bindless_index_table.prepare_buffer(render_device);
+        self.bindless_index_table.buffer.prepare(render_device);
+
+        // Create any data buffers we were managing if necessary.
+        for data_buffer in self.data_buffers.values_mut() {
+            data_buffer.buffer.prepare(render_device);
+        }
 
         // Create the bind group if needed.
         self.prepare_bind_group(
@@ -1132,6 +1222,18 @@ where
             });
         }
 
+        // Create bind group entries for any data buffers we're managing.
+        for data_buffer in self.data_buffers.values() {
+            bind_group_entries.push(BindGroupEntry {
+                binding: *data_buffer.binding_number,
+                resource: data_buffer
+                    .buffer
+                    .buffer()
+                    .expect("Backing data buffer must have been uploaded by now")
+                    .as_entire_binding(),
+            });
+        }
+
         self.bind_group = Some(render_device.create_bind_group(
             M::label(),
             bind_group_layout,
@@ -1141,10 +1243,16 @@ where
 
     /// Writes any buffers that we're managing to the GPU.
     ///
-    /// Currently, this only consists of the bindless index table.
+    /// Currently, this consists of the bindless index table plus any data
+    /// buffers we're managing.
     fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
         self.bindless_index_table
-            .write_buffer(render_device, render_queue);
+            .buffer
+            .write(render_device, render_queue);
+
+        for data_buffer in self.data_buffers.values_mut() {
+            data_buffer.buffer.write(render_device, render_queue);
+        }
     }
 
     /// Converts our binding arrays into binding resource arrays suitable for
@@ -1450,6 +1558,7 @@ where
         let mut buffers = HashMap::default();
         let mut samplers = HashMap::default();
         let mut textures = HashMap::default();
+        let mut data_buffers = HashMap::default();
 
         for (bindless_index, bindless_resource_type) in
             bindless_descriptor.resources.iter().enumerate()
@@ -1472,6 +1581,26 @@ where
                     buffers.insert(
                         bindless_index,
                         MaterialBindlessBindingArray::new(binding_number, *bindless_resource_type),
+                    );
+                }
+                BindlessResourceType::DataBuffer => {
+                    // Copy the data in.
+                    let buffer_descriptor = bindless_descriptor
+                        .buffers
+                        .iter()
+                        .find(|bindless_buffer_descriptor| {
+                            bindless_buffer_descriptor.bindless_index == bindless_index
+                        })
+                        .expect(
+                            "Bindless buffer descriptor matching that bindless index should be \
+                             present",
+                        );
+                    data_buffers.insert(
+                        bindless_index,
+                        MaterialDataBuffer::new(
+                            buffer_descriptor.binding_number,
+                            buffer_descriptor.size as u32,
+                        ),
                     );
                 }
                 BindlessResourceType::SamplerFiltering
@@ -1508,6 +1637,7 @@ where
             samplers,
             textures,
             buffers,
+            data_buffers,
             extra_data: vec![],
             free_slots: vec![],
             live_allocation_count: 0,
@@ -1702,5 +1832,59 @@ where
                 Some(&prepared_bind_group.0.bind_group)
             }
         }
+    }
+}
+
+impl MaterialDataBuffer {
+    /// Creates a new [`MaterialDataBuffer`] managing a buffer of elements of
+    /// size `aligned_element_size` that will be bound to the given binding
+    /// number.
+    fn new(binding_number: BindingNumber, aligned_element_size: u32) -> MaterialDataBuffer {
+        MaterialDataBuffer {
+            binding_number,
+            buffer: RetainedRawBufferVec::new(BufferUsages::STORAGE),
+            aligned_element_size,
+            free_slots: vec![],
+            len: 0,
+        }
+    }
+
+    /// Allocates a slot for a new piece of data, copies the data into that
+    /// slot, and returns the slot ID.
+    ///
+    /// The size of the piece of data supplied to this method must equal the
+    /// [`Self::aligned_element_size`] provided to [`MaterialDataBuffer::new`].
+    fn insert(&mut self, data: &[u8]) -> u32 {
+        // Make the the data is of the right length.
+        debug_assert_eq!(data.len(), self.aligned_element_size as usize);
+
+        // Grab a slot.
+        let slot = self.free_slots.pop().unwrap_or(self.len);
+
+        // Calculate the range we're going to copy to.
+        let start = slot as usize * self.aligned_element_size as usize;
+        let end = (slot as usize + 1) * self.aligned_element_size as usize;
+
+        // Resize the buffer if necessary.
+        if self.buffer.len() < end {
+            self.buffer.reserve_internal(end);
+        }
+        while self.buffer.values().len() < end {
+            self.buffer.push(0);
+        }
+
+        // Copy in the data.
+        self.buffer.values_mut()[start..end].copy_from_slice(data);
+
+        // Mark the buffer dirty, and finish up.
+        self.len += 1;
+        self.buffer.dirty = BufferDirtyState::NeedsReserve;
+        slot
+    }
+
+    /// Marks the given slot as free.
+    fn remove(&mut self, slot: u32) {
+        self.free_slots.push(slot);
+        self.len -= 1;
     }
 }

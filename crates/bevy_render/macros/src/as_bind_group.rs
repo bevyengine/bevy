@@ -17,6 +17,7 @@ const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");
 const STORAGE_ATTRIBUTE_NAME: Symbol = Symbol("storage");
 const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
 const BINDLESS_ATTRIBUTE_NAME: Symbol = Symbol("bindless");
+const DATA_ATTRIBUTE_NAME: Symbol = Symbol("data");
 const BINDING_ARRAY_MODIFIER_NAME: Symbol = Symbol("binding_array");
 const LIMIT_MODIFIER_NAME: Symbol = Symbol("limit");
 
@@ -117,66 +118,94 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     // Read struct-level attributes, second pass.
     for attr in &ast.attrs {
         if let Some(attr_ident) = attr.path().get_ident() {
-            if attr_ident == UNIFORM_ATTRIBUTE_NAME {
+            if attr_ident == UNIFORM_ATTRIBUTE_NAME || attr_ident == DATA_ATTRIBUTE_NAME {
                 let UniformBindingAttr {
+                    binding_type,
                     binding_index,
                     converted_shader_type,
                     binding_array: binding_array_binding,
                 } = get_uniform_binding_attr(attr)?;
-                binding_impls.push(quote! {{
-                    use #render_path::render_resource::AsBindGroupShaderType;
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
-                    let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
-                    buffer.write(&converted).unwrap();
-                    (
-                        #binding_index,
-                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
-                            &#render_path::render_resource::BufferInitDescriptor {
-                                label: None,
-                                usage: #uniform_buffer_usages,
-                                contents: buffer.as_ref(),
-                            },
-                        ))
-                    )
-                }});
+                match binding_type {
+                    UniformBindingAttrType::Uniform => {
+                        binding_impls.push(quote! {{
+                            use #render_path::render_resource::AsBindGroupShaderType;
+                            let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+                            let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
+                            buffer.write(&converted).unwrap();
+                            (
+                                #binding_index,
+                                #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                                    &#render_path::render_resource::BufferInitDescriptor {
+                                        label: None,
+                                        usage: #uniform_buffer_usages,
+                                        contents: buffer.as_ref(),
+                                    },
+                                ))
+                            )
+                        }});
 
-                // Push the binding layout. This depends on whether we're bindless or not.
+                        // Push the binding layout. This depends on whether we're bindless or not.
 
-                non_bindless_binding_layouts.push(quote!{
-                    #bind_group_layout_entries.push(
-                        #render_path::render_resource::BindGroupLayoutEntry {
-                            binding: #binding_index,
-                            visibility: #render_path::render_resource::ShaderStages::all(),
-                            ty: #render_path::render_resource::BindingType::Buffer {
-                                ty: #uniform_binding_type,
-                                has_dynamic_offset: false,
-                                min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
-                            },
-                            count: None,
-                        }
-                    );
-                });
+                        non_bindless_binding_layouts.push(quote!{
+                            #bind_group_layout_entries.push(
+                                #render_path::render_resource::BindGroupLayoutEntry {
+                                    binding: #binding_index,
+                                    visibility: #render_path::render_resource::ShaderStages::all(),
+                                    ty: #render_path::render_resource::BindingType::Buffer {
+                                        ty: #uniform_binding_type,
+                                        has_dynamic_offset: false,
+                                        min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                                    },
+                                    count: None,
+                                }
+                            );
+                        });
 
-                match binding_array_binding {
-                    None => {
-                        if attr_bindless_count.is_some() {
-                            return Err(Error::new_spanned(
-                                attr,
-                                "Must specify `binding_array(...)` with `#[uniform]` if the \
-                                 object is bindless",
-                            ));
+                        match (&binding_array_binding, &attr_bindless_count) {
+                            (&None, &Some(_)) => {
+                                return Err(Error::new_spanned(
+                                    attr,
+                                    "Must specify `binding_array(...)` with `#[uniform]` if the \
+                                    object is bindless",
+                                ));
+                            }
+                            (&Some(_), &None) => {
+                                return Err(Error::new_spanned(
+                                    attr,
+                                    "`binding_array(...)` with `#[uniform]` requires the object to \
+                                    be bindless",
+                                ));
+                            }
+                            _ => {}
                         }
                     }
-                    Some(binding_array_binding) => {
-                        if attr_bindless_count.is_none() {
-                            return Err(Error::new_spanned(
-                                attr,
-                                "`binding_array(...)` with `#[uniform]` requires the object to be \
-                                 bindless",
-                            ));
-                        }
 
-                        bindless_binding_layouts.push(quote!{
+                    UniformBindingAttrType::Data => {
+                        binding_impls.push(quote! {{
+                            use #render_path::render_resource::AsBindGroupShaderType;
+                            use #render_path::render_resource::encase::{ShaderType, internal::WriteInto};
+                            let mut buffer: Vec<u8> = Vec::new();
+                            let converted: #converted_shader_type = self.as_bind_group_shader_type(&images);
+                            converted.write_into(
+                                &mut #render_path::render_resource::encase::internal::Writer::new(
+                                    &converted,
+                                    &mut buffer,
+                                    0,
+                                ).unwrap(),
+                            );
+                            let min_size = <#converted_shader_type as #render_path::render_resource::ShaderType>::min_size().get() as usize;
+                            while buffer.len() < min_size {
+                                buffer.push(0);
+                            }
+                            (
+                                #binding_index,
+                                #render_path::render_resource::OwnedBindingResource::Data(
+                                    #render_path::render_resource::OwnedData(buffer)
+                                )
+                            )
+                        }});
+
+                        bindless_binding_layouts.push(quote! {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
                                     binding: #binding_array_binding,
@@ -186,37 +215,37 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                                         has_dynamic_offset: false,
                                         min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
                                     },
-                                    count: #actual_bindless_slot_count,
+                                    count: None,
                                 }
-                            );
-                        });
-
-                        bindless_buffer_descriptors.push(quote! {
-                            #render_path::render_resource::BindlessBufferDescriptor {
-                                // Note that, because this is bindless, *binding
-                                // index* here refers to the index in the
-                                // bindless index table (`bindless_index`), and
-                                // the actual binding number is the *binding
-                                // array binding*.
-                                binding_number: #render_path::render_resource::BindingNumber(
-                                    #binding_array_binding
-                                ),
-                                bindless_index:
-                                    #render_path::render_resource::BindlessIndex(#binding_index),
-                                size: <#converted_shader_type as
-                                    #render_path::render_resource::ShaderType>::min_size().get() as
-                                    usize,
-                            }
+                            )
                         });
 
                         add_bindless_resource_type(
                             &render_path,
                             &mut bindless_resource_types,
                             binding_index,
-                            quote! { #render_path::render_resource::BindlessResourceType::Buffer },
+                            quote! { #render_path::render_resource::BindlessResourceType::DataBuffer },
                         );
                     }
                 }
+
+                bindless_buffer_descriptors.push(quote! {
+                    #render_path::render_resource::BindlessBufferDescriptor {
+                        // Note that, because this is bindless, *binding
+                        // index* here refers to the index in the
+                        // bindless index table (`bindless_index`), and
+                        // the actual binding number is the *binding
+                        // array binding*.
+                        binding_number: #render_path::render_resource::BindingNumber(
+                            #binding_array_binding
+                        ),
+                        bindless_index:
+                            #render_path::render_resource::BindlessIndex(#binding_index),
+                        size: <#converted_shader_type as
+                            #render_path::render_resource::ShaderType>::min_size().get() as
+                            usize,
+                    }
+                });
 
                 let required_len = binding_index as usize + 1;
                 if required_len > binding_states.len() {
@@ -986,17 +1015,30 @@ struct UniformBindingMeta {
     binding_array: Option<LitInt>,
 }
 
-/// The parsed structure-level `#[uniform]` attribute.
+/// The parsed structure-level `#[uniform]` or `#[data]` attribute.
 ///
 /// The corresponding syntax is `#[uniform(BINDING_INDEX, CONVERTED_SHADER_TYPE,
-/// binding_array(BINDING_ARRAY)]`.
+/// binding_array(BINDING_ARRAY)]`, optionally replacing `uniform` with `data`.
 struct UniformBindingAttr {
+    /// Whether the declaration is `#[uniform]` or `#[data]`.
+    binding_type: UniformBindingAttrType,
     /// The binding index.
     binding_index: u32,
     /// The uniform data type.
     converted_shader_type: Ident,
     /// The binding number of the binding array, if this is a bindless material.
     binding_array: Option<u32>,
+}
+
+/// Whether a structure-level shader type declaration is `#[uniform]` or
+/// `#[data]`.
+enum UniformBindingAttrType {
+    /// `#[uniform]`: i.e. in bindless mode, we need a separate buffer per data
+    /// instance.
+    Uniform,
+    /// `#[data]`: i.e. in bindless mode, we concatenate all instance data into
+    /// a single buffer.
+    Data,
 }
 
 /// Represents the arguments for any general binding attribute.
@@ -1070,6 +1112,11 @@ impl Parse for UniformBindingMeta {
 /// Parses a structure-level `#[uniform]` attribute (not a field-level
 /// `#[uniform]` attribute).
 fn get_uniform_binding_attr(attr: &syn::Attribute) -> Result<UniformBindingAttr> {
+    let attr_ident = attr
+        .path()
+        .get_ident()
+        .expect("Shouldn't be here if we didn't have an attribute");
+
     let uniform_binding_meta = attr.parse_args_with(UniformBindingMeta::parse)?;
 
     let binding_index = uniform_binding_meta.lit_int.base10_parse()?;
@@ -1080,6 +1127,11 @@ fn get_uniform_binding_attr(attr: &syn::Attribute) -> Result<UniformBindingAttr>
     };
 
     Ok(UniformBindingAttr {
+        binding_type: if attr_ident == UNIFORM_ATTRIBUTE_NAME {
+            UniformBindingAttrType::Uniform
+        } else {
+            UniformBindingAttrType::Data
+        },
         binding_index,
         converted_shader_type: ident,
         binding_array,
