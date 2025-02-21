@@ -1116,7 +1116,7 @@ mod tests {
         let mut world = World::new();
 
         let observer = world
-            .add_observer(|_: Trigger<OnAdd, A>| {
+            .add_observer(|_: Trigger<OnAdd, A>| -> () {
                 panic!("Observer triggered after being despawned.")
             })
             .id();
@@ -1137,8 +1137,8 @@ mod tests {
         });
 
         let observer = world
-            .add_observer(|_: Trigger<OnRemove, B>| {
-                panic!("Observer triggered after being despawned.")
+            .add_observer(|_: Trigger<OnRemove, B>| -> () {
+                panic!("Observer triggered after being despawned.");
             })
             .flush();
         world.despawn(observer);
@@ -1168,7 +1168,9 @@ mod tests {
 
         world
             .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+            .observe(|_: Trigger<EventA>| -> () {
+                panic!("Trigger routed to non-targeted entity.");
+            });
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
@@ -1189,7 +1191,9 @@ mod tests {
 
         world
             .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+            .observe(|_: Trigger<EventA>| -> () {
+                panic!("Trigger routed to non-targeted entity.");
+            });
         let entity = world
             .spawn_empty()
             .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
