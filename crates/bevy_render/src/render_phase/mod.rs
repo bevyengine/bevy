@@ -712,7 +712,7 @@ where
                             }
                         },
                     },
-                    UnbatchableBinnedEntityIndexSet::Dense(ref dynamic_offsets) => {
+                    UnbatchableBinnedEntityIndexSet::Dense(dynamic_offsets) => {
                         dynamic_offsets[entity_index].clone()
                     }
                 };
@@ -1003,7 +1003,7 @@ impl UnbatchableBinnedEntityIndexSet {
                     },
                 })
             }
-            UnbatchableBinnedEntityIndexSet::Dense(ref indices) => {
+            UnbatchableBinnedEntityIndexSet::Dense(indices) => {
                 indices.get(entity_index as usize).cloned()
             }
         }
@@ -1223,7 +1223,7 @@ impl UnbatchableBinnedEntityIndexSet {
             }
 
             UnbatchableBinnedEntityIndexSet::Sparse {
-                ref mut instance_range,
+                instance_range,
                 first_indirect_parameters_index,
             } if instance_range.end == indices.instance_index
                 && ((first_indirect_parameters_index.is_none()
@@ -1261,7 +1261,7 @@ impl UnbatchableBinnedEntityIndexSet {
                 *self = UnbatchableBinnedEntityIndexSet::Dense(new_dynamic_offsets);
             }
 
-            UnbatchableBinnedEntityIndexSet::Dense(ref mut dense_indices) => {
+            UnbatchableBinnedEntityIndexSet::Dense(dense_indices) => {
                 dense_indices.push(indices);
             }
         }

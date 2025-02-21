@@ -882,7 +882,7 @@ impl PipelineCache {
                 };
             }
 
-            CachedPipelineState::Creating(ref mut task) => {
+            CachedPipelineState::Creating(task) => {
                 match bevy_tasks::futures::check_ready(task) {
                     Some(Ok(pipeline)) => {
                         cached_pipeline.state = CachedPipelineState::Ok(pipeline);
