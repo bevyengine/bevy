@@ -14,6 +14,7 @@ The default feature set enables most of the expected features of a game engine, 
 |android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |animation|Enable animation support, and glTF animation loading|
+|async_executor|Uses `async-executor` as a task execution backend.|
 |bevy_animation|Provides animation functionality|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
@@ -22,6 +23,8 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
+|bevy_input_focus|Enable input focus subsystem|
+|bevy_log|Enable integration with `tracing` and `log`|
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
@@ -42,6 +45,7 @@ The default feature set enables most of the expected features of a game engine, 
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
+|std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
 |vorbis|OGG/VORBIS audio format support|
@@ -65,10 +69,13 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_remote|Enable the Bevy Remote Protocol|
 |bevy_ui_debug|Provides a debug overlay for bevy UI|
 |bmp|BMP image format support|
+|critical-section|`critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.|
 |dds|DDS compressed texture support|
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
+|default_no_std|Recommended defaults for no_std applications|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
+|edge_executor|Uses `edge-executor` as a task execution backend.|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
@@ -80,6 +87,7 @@ The default feature set enables most of the expected features of a game engine, 
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
+|libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
 |minimp3|MP3 audio format support (through minimp3)|
@@ -89,6 +97,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_specular_textures|Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
+|portable-atomic|`portable-atomic` provides additional platform support for atomic types and operations, even on targets without native support. |
 |qoi|QOI image format support|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|

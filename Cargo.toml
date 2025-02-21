@@ -114,6 +114,8 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "std",
+  "async_executor",
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
@@ -124,6 +126,8 @@ default = [
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
+  "bevy_input_focus",
+  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -149,6 +153,9 @@ default = [
   "webgl2",
   "x11",
 ]
+
+# Recommended defaults for no_std applications
+default_no_std = ["edge_executor", "libm", "critical-section", "bevy_state"]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
@@ -256,6 +263,12 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
+
+# Enable integration with `tracing` and `log`
+bevy_log = ["bevy_internal/bevy_log"]
+
+# Enable input focus subsystem
+bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
@@ -478,6 +491,24 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
+
+# Uses `async-executor` as a task execution backend.
+async_executor = ["std", "bevy_internal/async_executor"]
+
+# Uses `edge-executor` as a task execution backend.
+edge_executor = ["bevy_internal/edge_executor"]
+
+# Allows access to the `std` crate.
+std = ["bevy_internal/std"]
+
+# `critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.
+critical-section = ["bevy_internal/critical-section"]
+
+# `portable-atomic` provides additional platform support for atomic types and operations, even on targets without native support. 
+portable-atomic = ["bevy_internal/portable-atomic"]
+
+# Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_internal/libm"]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.16.0-dev", default-features = false }
