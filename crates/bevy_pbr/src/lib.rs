@@ -45,8 +45,6 @@ mod ssao;
 mod ssr;
 mod volumetric_fog;
 
-use crate::material_bind_groups::FallbackBindlessResources;
-
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
@@ -59,6 +57,7 @@ pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
+pub use material_bind_groups::*;
 pub use mesh_material::*;
 pub use parallax::*;
 pub use pbr_material::*;
