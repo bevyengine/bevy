@@ -16,12 +16,12 @@ use bevy::{
     },
     prelude::*,
     render::{
-        batching::GetFullBatchData,
         batching::{
             gpu_preprocessing::{
-                self, BatchedInstanceBuffers, IndirectParametersBuffers, PreprocessWorkItem,
+                self, PhaseBatchedInstanceBuffers, PhaseIndirectParametersBuffers,
+                PreprocessWorkItem, UntypedPhaseBatchedInstanceBuffers,
             },
-            GetBatchData,
+            GetBatchData, GetFullBatchData,
         },
         experimental::occlusion_culling::OcclusionCulling,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -291,24 +291,21 @@ fn queue_custom_mesh_pipeline(
         Res<RenderMeshInstances>,
     ),
     param: StaticSystemParam<<MeshPipeline as GetBatchData>::Param>,
-    gpu_array_buffer: ResMut<
-        BatchedInstanceBuffers<
-            <MeshPipeline as GetBatchData>::BufferData,
-            <MeshPipeline as GetFullBatchData>::BufferInputData,
-        >,
+    mut phase_batched_instance_buffers: ResMut<
+        PhaseBatchedInstanceBuffers<Opaque3d, <MeshPipeline as GetBatchData>::BufferData>,
     >,
-    mut indirect_parameters_buffers: ResMut<IndirectParametersBuffers>,
+    mut phase_indirect_parameters_buffers: ResMut<PhaseIndirectParametersBuffers<Opaque3d>>,
     mut change_tick: Local<Tick>,
 ) {
     let system_param_item = param.into_inner();
 
-    let BatchedInstanceBuffers {
+    let UntypedPhaseBatchedInstanceBuffers {
         ref mut data_buffer,
         ref mut work_item_buffers,
         ref mut late_indexed_indirect_parameters_buffer,
         ref mut late_non_indexed_indirect_parameters_buffer,
         ..
-    } = gpu_array_buffer.into_inner();
+    } = phase_batched_instance_buffers.buffers;
 
     // Get the id for our custom draw function
     let draw_function_id = opaque_draw_functions
@@ -378,7 +375,8 @@ fn queue_custom_mesh_pipeline(
             // batch set.
             if mesh_batch_set_info.is_none() {
                 mesh_batch_set_info = Some(MeshBatchSetInfo {
-                    indirect_parameters_index: indirect_parameters_buffers
+                    indirect_parameters_index: phase_indirect_parameters_buffers
+                        .buffers
                         .allocate(mesh.indexed(), 1),
                     is_indexed: mesh.indexed(),
                 });
@@ -427,6 +425,7 @@ fn queue_custom_mesh_pipeline(
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
                 (render_entity, visible_entity),
+                mesh_instance.current_uniform_index,
                 // This example supports batching, but if your pipeline doesn't
                 // support it you can use `BinnedRenderPhaseType::UnbatchableMesh`
                 BinnedRenderPhaseType::BatchableMesh,
@@ -439,8 +438,11 @@ fn queue_custom_mesh_pipeline(
                 mesh.indexed(),
                 PreprocessWorkItem {
                     input_index: input_index.into(),
-                    output_index,
-                    indirect_parameters_index: mesh_info.indirect_parameters_index,
+                    output_or_indirect_parameters_index: if no_indirect_drawing {
+                        output_index
+                    } else {
+                        mesh_info.indirect_parameters_index
+                    },
                 },
             );
         }
@@ -449,7 +451,8 @@ fn queue_custom_mesh_pipeline(
         // indirect parameters buffer, so that the renderer will end up
         // enqueuing a command to draw the mesh.
         if let Some(mesh_info) = mesh_batch_set_info {
-            indirect_parameters_buffers
+            phase_indirect_parameters_buffers
+                .buffers
                 .add_batch_set(mesh_info.is_indexed, mesh_info.indirect_parameters_index);
         }
     }

@@ -52,11 +52,11 @@ fn map_error(err: QueryEntityError, ancestor: bool) -> ComputeGlobalTransformErr
     use ComputeGlobalTransformError::*;
     match err {
         QueryEntityError::QueryDoesNotMatch(entity, _) => MissingTransform(entity),
-        QueryEntityError::NoSuchEntity(entity, _) => {
+        QueryEntityError::EntityDoesNotExist(error) => {
             if ancestor {
-                MalformedHierarchy(entity)
+                MalformedHierarchy(error.entity)
             } else {
-                NoSuchEntity(entity)
+                NoSuchEntity(error.entity)
             }
         }
         QueryEntityError::AliasedMutability(_) => unreachable!(),

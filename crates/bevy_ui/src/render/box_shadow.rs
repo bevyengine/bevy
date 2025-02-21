@@ -3,8 +3,8 @@
 use core::{hash::Hash, ops::Range};
 
 use crate::{
-    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, RenderUiSystem,
-    ResolvedBorderRadius, TransparentUi, UiTargetCamera, Val,
+    BoxShadow, BoxShadowSamples, CalculatedClip, ComputedNode, ComputedNodeTarget, RenderUiSystem,
+    ResolvedBorderRadius, TransparentUi, Val,
 };
 use bevy_app::prelude::*;
 use bevy_asset::*;
@@ -22,7 +22,6 @@ use bevy_math::{vec2, FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_render::sync_world::MainEntity;
 use bevy_render::RenderApp;
 use bevy_render::{
-    camera::Camera,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -237,7 +236,6 @@ pub struct ExtractedBoxShadows {
 pub fn extract_shadows(
     mut commands: Commands,
     mut extracted_box_shadows: ResMut<ExtractedBoxShadows>,
-    camera_query: Extract<Query<(Entity, &Camera)>>,
     box_shadow_query: Extract<
         Query<(
             Entity,
@@ -246,12 +244,12 @@ pub fn extract_shadows(
             &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = camera_map.get_mapper();
+    let mut mapping = camera_map.get_mapper();
 
     for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
         // Skip if no visible shadows
@@ -259,18 +257,11 @@ pub fn extract_shadows(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = mapping.map(camera) else {
             continue;
         };
 
-        let ui_physical_viewport_size = camera_query
-            .get(camera_mapper.current_camera())
-            .ok()
-            .and_then(|(_, c)| {
-                c.physical_viewport_size()
-                    .map(|size| Vec2::new(size.x as f32, size.y as f32))
-            })
-            .unwrap_or(Vec2::ZERO);
+        let ui_physical_viewport_size = camera.physical_size.as_vec2();
 
         let scale_factor = uinode.inverse_scale_factor.recip();
 
@@ -386,10 +377,6 @@ pub fn queue_shadows(
     }
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "Could be rewritten with less arguments using a QueryData-implementing struct, but doesn't need to be."
-)]
 pub fn prepare_shadows(
     mut commands: Commands,
     render_device: Res<RenderDevice>,

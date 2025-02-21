@@ -186,7 +186,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
             let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
             let mut commands = world.get_raw_command_queue();
             for source_entity in relationship_target.iter() {
-                if world.get_entity(source_entity).is_some() {
+                if world.get_entity(source_entity).is_ok() {
                     commands.push(
                         entity_command::remove::<Self::Relationship>()
                             .with_entity(source_entity)
@@ -217,7 +217,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
             let relationship_target = world.get_entity(entity).unwrap().get::<Self>().unwrap();
             let mut commands = world.get_raw_command_queue();
             for source_entity in relationship_target.iter() {
-                if world.get_entity(source_entity).is_some() {
+                if world.get_entity(source_entity).is_ok() {
                     commands.push(
                         entity_command::despawn()
                             .with_entity(source_entity)

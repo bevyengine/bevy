@@ -438,6 +438,18 @@ mod tests {
     }
 
     #[test]
+    fn get_many_only_mut_checks_duplicates() {
+        let mut world = World::new();
+        let id = world.spawn(A(10)).id();
+        let mut query_state = world.query::<&mut A>();
+        let mut query = query_state.query_mut(&mut world);
+        let result = query.get_many([id, id]);
+        assert_eq!(result, Ok([&A(10), &A(10)]));
+        let mut_result = query.get_many_mut([id, id]);
+        assert!(mut_result.is_err());
+    }
+
+    #[test]
     fn multi_storage_query() {
         let mut world = World::new();
 

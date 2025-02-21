@@ -22,7 +22,9 @@ use core::slice;
 use disqualified::ShortName;
 use log::warn;
 
-/// A [`Relationship`](crate::relationship::Relationship) component that creates the canonical
+/// Stores the parent entity of this child entity with this component.
+///
+/// This is a [`Relationship`](crate::relationship::Relationship) component, and creates the canonical
 /// "parent / child" hierarchy. This is the "source of truth" component, and it pairs with
 /// the [`Children`] [`RelationshipTarget`](crate::relationship::RelationshipTarget).
 ///
@@ -31,7 +33,6 @@ use log::warn;
 /// 1. Organizing entities in a scene
 /// 2. Propagating configuration or data inherited from a parent, such as "visibility" or "world-space global transforms".
 /// 3. Ensuring a hierarchy is despawned when an entity is despawned.
-/// 4.
 ///
 /// [`ChildOf`] contains a single "target" [`Entity`]. When [`ChildOf`] is inserted on a "source" entity,
 /// the "target" entity will automatically (and immediately, via a component hook) have a [`Children`]
@@ -92,10 +93,11 @@ use log::warn;
     reflect(Component, PartialEq, Debug, FromWorld)
 )]
 #[relationship(relationship_target = Children)]
+#[doc(alias = "IsChild", alias = "Parent")]
 pub struct ChildOf(pub Entity);
 
 impl ChildOf {
-    /// Returns the "target" entity.
+    /// Returns the parent entity, which is the "target" of this relationship.
     pub fn get(&self) -> Entity {
         self.0
     }
@@ -121,15 +123,29 @@ impl FromWorld for ChildOf {
     }
 }
 
-/// A [`RelationshipTarget`](crate::relationship::RelationshipTarget) collection component that is populated
+/// Tracks which entities are children of this parent entity.
+///
+/// A [`RelationshipTarget`] collection component that is populated
 /// with entities that "target" this entity with the [`ChildOf`] [`Relationship`](crate::relationship::Relationship) component.
 ///
-/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for all full
+/// Together, these components form the "canonical parent-child hierarchy". See the [`ChildOf`] component for the full
 /// description of this relationship and instructions on how to use it.
+///
+/// # Usage
+///
+/// Like all [`RelationshipTarget`] components, this data should not be directly manipulated to avoid desynchronization.
+/// Instead, modify the [`ChildOf`] components on the "source" entities.
+///
+/// To access the children of an entity, you can iterate over the [`Children`] component,
+/// using the [`IntoIterator`] trait.
+/// For more complex access patterns, see the [`RelationshipTarget`] trait.
+///
+/// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
 #[relationship_target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
+#[doc(alias = "IsParent")]
 pub struct Children(Vec<Entity>);
 
 impl<'a> IntoIterator for &'a Children {
@@ -277,12 +293,49 @@ pub fn validate_parent_has_component<C: Component>(
     }
 }
 
+/// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
+/// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
+///
+/// Any additional arguments will be interpreted as bundles to be spawned.
+///
+/// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// # use bevy_ecs::children;
+/// # use bevy_ecs::spawn::{Spawn, SpawnRelated};
+/// let mut world = World::new();
+/// world.spawn((
+///     Name::new("Root"),
+///     children![
+///         Name::new("Child1"),
+///         (
+///             Name::new("Child2"),
+///             children![Name::new("Grandchild")]
+///         )
+///     ]
+/// ));
+/// ```
+///
+/// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
+/// [`SpawnRelatedBundle`]: crate::spawn::SpawnRelatedBundle
+/// [`SpawnableList`]: crate::spawn::SpawnableList
+#[macro_export]
+macro_rules! children {
+    [$($child:expr),*$(,)?] => {
+       $crate::hierarchy::Children::spawn(($($crate::spawn::Spawn($child)),*))
+    };
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{
         entity::Entity,
         hierarchy::{ChildOf, Children},
         relationship::RelationshipTarget,
+        spawn::{Spawn, SpawnRelated},
         world::World,
     };
     use alloc::{vec, vec::Vec};
@@ -434,5 +487,12 @@ mod tests {
             world.entity(id).get::<ChildOf>(),
             "ChildOf should still be there"
         );
+    }
+
+    #[test]
+    fn spawn_children() {
+        let mut world = World::new();
+        let id = world.spawn(Children::spawn((Spawn(()), Spawn(())))).id();
+        assert_eq!(world.entity(id).get::<Children>().unwrap().len(), 2,);
     }
 }

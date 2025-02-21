@@ -13,12 +13,12 @@ pub use parallel_scope::*;
 
 use alloc::boxed::Box;
 use core::marker::PhantomData;
-use core::panic::Location;
 use log::error;
 
 use crate::{
-    bundle::{Bundle, InsertMode},
-    change_detection::Mut,
+    self as bevy_ecs,
+    bundle::{Bundle, InsertMode, NoBundleEffect},
+    change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder},
     event::Event,
@@ -539,7 +539,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn spawn_batch<I>(&mut self, bundles_iter: I)
     where
         I: IntoIterator + Send + Sync + 'static,
-        I::Item: Bundle,
+        I::Item: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::spawn_batch(bundles_iter));
     }
@@ -680,13 +680,12 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
-        let caller = Location::caller();
+        let caller = MaybeLocation::caller();
         self.queue(move |world: &mut World| {
             if let Err(invalid_entities) = world.insert_or_spawn_batch_with_caller(
                 bundles_iter,
-                #[cfg(feature = "track_location")]
                 caller,
             ) {
                 error!(
@@ -720,7 +719,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::insert_batch(batch, InsertMode::Replace));
     }
@@ -747,7 +746,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(command::insert_batch(batch, InsertMode::Keep));
     }
@@ -772,7 +771,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(
             command::insert_batch(batch, InsertMode::Replace)
@@ -800,7 +799,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle,
+        B: Bundle<Effect: NoBundleEffect>,
     {
         self.queue(
             command::insert_batch(batch, InsertMode::Keep).handle_error_with(error_handler::warn()),

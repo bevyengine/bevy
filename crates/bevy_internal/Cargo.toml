@@ -33,7 +33,7 @@ dds = [
   "bevy_image/dds",
   "bevy_render/dds",
   "bevy_core_pipeline/dds",
-  "bevy_gltf/dds",
+  "bevy_gltf?/dds",
 ]
 exr = ["bevy_image/exr", "bevy_render/exr"]
 hdr = ["bevy_image/hdr", "bevy_render/hdr"]
@@ -252,9 +252,6 @@ bevy_ui_picking_backend = ["bevy_picking", "bevy_ui/bevy_ui_picking_backend"]
 
 # Provides a UI debug overlay
 bevy_ui_debug = ["bevy_ui?/bevy_ui_debug"]
-
-# Enable support for the ios_simulator by downgrading some rendering capabilities
-ios_simulator = ["bevy_pbr?/ios_simulator", "bevy_render?/ios_simulator"]
 
 # Enable built in global state machines
 bevy_state = ["dep:bevy_state"]
