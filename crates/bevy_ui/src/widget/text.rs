@@ -410,7 +410,7 @@ pub struct TextCursor {
     pub width: TextCursorWidth,
     /// Corner radius in logical pixels
     pub radius: f32,
-    /// Normalised height of the cursor relative to the text block's line height.
+    /// Normalized height of the cursor relative to the text block's line height.
     pub height: f32,
 }
 
