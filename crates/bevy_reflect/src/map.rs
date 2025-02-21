@@ -189,7 +189,7 @@ impl MapInfo {
 macro_rules! hash_error {
     ( $key:expr ) => {{
         let type_path = (*$key).reflect_type_path();
-        if !$key.is_dynamic() {
+        let error = if !$key.is_dynamic() {
             format!(
                 "the given key of type `{}` does not support hashing",
                 type_path
@@ -205,8 +205,9 @@ macro_rules! hash_error {
                     s.type_path()
                 ),
             }
-        }
-        .as_str()
+        };
+        
+        error.as_str()
     }}
 }
 
