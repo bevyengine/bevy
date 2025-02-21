@@ -370,6 +370,7 @@ jobs:
     needs: check-missing-examples-in-docs
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
