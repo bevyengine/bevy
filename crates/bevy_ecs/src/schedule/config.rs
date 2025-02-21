@@ -71,6 +71,11 @@ impl NodeType for InternedSystemSet {
     type GroupMetadata = Chain;
 
     fn config(self) -> NodeConfig<Self> {
+        assert!(
+            self.system_type().is_none(),
+            "configuring system type sets is not allowed"
+        );
+
         NodeConfig {
             node: self,
             metadata: GraphInfo::default(),
@@ -280,8 +285,7 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
 /// # Examples
 ///
 /// ```
-/// # use bevy_ecs::schedule::IntoNodeConfigs;
-/// # use bevy_ecs::system::ScheduleSystem;
+/// # use bevy_ecs::{schedule::IntoNodeConfigs, system::ScheduleSystem};
 /// # struct AppMock;
 /// # struct Update;
 /// # impl AppMock {
