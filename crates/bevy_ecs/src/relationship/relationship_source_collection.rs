@@ -125,11 +125,11 @@ mod tests {
     #[test]
     fn vec_relationship_source_collection() {
         #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
+        #[relationship(target = RelTarget)]
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, linked_spawn)]
+        #[target(relationship = Rel, linked_spawn)]
         struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
@@ -146,11 +146,11 @@ mod tests {
     #[test]
     fn entity_hash_set_relationship_source_collection() {
         #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
+        #[relationship(target = RelTarget)]
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, linked_spawn)]
+        #[target(relationship = Rel, linked_spawn)]
         struct RelTarget(EntityHashSet);
 
         let mut world = World::new();
@@ -167,11 +167,11 @@ mod tests {
     #[test]
     fn smallvec_relationship_source_collection() {
         #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
+        #[relationship(target = RelTarget)]
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, linked_spawn)]
+        #[target(relationship = Rel, linked_spawn)]
         struct RelTarget(SmallVec<[Entity; 4]>);
 
         let mut world = World::new();

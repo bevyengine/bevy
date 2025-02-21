@@ -425,7 +425,7 @@ pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
-pub const RELATIONSHIP_TARGET: &str = "relationship_target";
+pub const RELATIONSHIP_TARGET: &str = "target";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
@@ -465,7 +465,7 @@ enum RequireFunc {
 }
 
 struct Relationship {
-    relationship_target: Ident,
+    target: Ident,
 }
 
 struct RelationshipTarget {
@@ -600,11 +600,11 @@ fn hook_register_function_call(
 
 impl Parse for Relationship {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
-        syn::custom_keyword!(relationship_target);
-        input.parse::<relationship_target>()?;
+        syn::custom_keyword!(target);
+        input.parse::<target>()?;
         input.parse::<Token![=]>()?;
         Ok(Relationship {
-            relationship_target: input.parse::<Ident>()?,
+            target: input.parse::<Ident>()?,
         })
     }
 }
@@ -635,7 +635,7 @@ impl Parse for RelationshipTarget {
             }
         }
 
-        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[relationship_target(relationship = X)"))?;
+        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[target(relationship = X)"))?;
         Ok(RelationshipTarget {
             relationship,
             linked_spawn: linked_spawn_exists,
@@ -674,7 +674,7 @@ fn derive_relationship(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let relationship_target = &relationship.relationship_target;
+    let relationship_target = &relationship.target;
 
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::Relationship for #struct_name #type_generics #where_clause {

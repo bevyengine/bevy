@@ -39,11 +39,11 @@ use log::warn;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
-/// #[relationship(relationship_target = Children)]
+/// #[relationship(target = Children)]
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = ChildOf)]
+/// #[target(relationship = ChildOf)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
@@ -54,11 +54,11 @@ use log::warn;
 /// # use bevy_ecs::component::Component;
 /// # use bevy_ecs::entity::Entity;
 /// #[derive(Component)]
-/// #[relationship(relationship_target = Children)]
+/// #[relationship(target = Children)]
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[relationship_target(relationship = ChildOf, linked_spawn)]
+/// #[target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
@@ -293,11 +293,11 @@ mod tests {
     #[test]
     fn custom_relationship() {
         #[derive(Component)]
-        #[relationship(relationship_target = LikedBy)]
+        #[relationship(target = LikedBy)]
         struct Likes(pub Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Likes)]
+        #[target(relationship = Likes)]
         struct LikedBy(Vec<Entity>);
 
         let mut world = World::new();
@@ -310,11 +310,11 @@ mod tests {
     #[test]
     fn self_relationship_fails() {
         #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
+        #[relationship(target = RelTarget)]
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel)]
+        #[target(relationship = Rel)]
         struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
@@ -327,11 +327,11 @@ mod tests {
     #[test]
     fn relationship_with_missing_target_fails() {
         #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
+        #[relationship(target = RelTarget)]
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel)]
+        #[target(relationship = Rel)]
         struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();

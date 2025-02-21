@@ -92,7 +92,7 @@ use log::warn;
     feature = "bevy_reflect",
     reflect(Component, PartialEq, Debug, FromWorld)
 )]
-#[relationship(relationship_target = Children)]
+#[relationship(target = Children)]
 #[doc(alias = "IsChild", alias = "Parent")]
 pub struct ChildOf(pub Entity);
 
@@ -142,7 +142,7 @@ impl FromWorld for ChildOf {
 ///
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
-#[relationship_target(relationship = ChildOf, linked_spawn)]
+#[target(relationship = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
 #[doc(alias = "IsParent")]

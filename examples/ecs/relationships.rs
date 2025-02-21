@@ -20,7 +20,7 @@ use bevy::prelude::*;
 /// This is the source of truth for the relationship,
 /// and can be modified directly to change the target.
 #[derive(Component, Debug)]
-#[relationship(relationship_target = TargetedBy)]
+#[relationship(target = TargetedBy)]
 struct Targeting(Entity);
 
 /// All entities that are targeting this entity.
@@ -30,7 +30,7 @@ struct Targeting(Entity);
 /// but can safely read its field. In a larger project, we could enforce this through the use of
 /// private fields and public getters.
 #[derive(Component, Debug)]
-#[relationship_target(relationship = Targeting)]
+#[target(relationship = Targeting)]
 struct TargetedBy(Vec<Entity>);
 
 fn main() {
