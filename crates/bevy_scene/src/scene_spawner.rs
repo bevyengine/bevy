@@ -179,8 +179,17 @@ impl SceneSpawner {
     }
 
     /// Schedule the despawn of a scene instance, removing all its entities from the world.
+    ///
+    /// Note: this will despawn _all_ entities associated with this instance, including those
+    /// that have been removed from the scene hierarchy. To despawn _only_ entities still in the hierarchy,
+    /// despawn the relevant root entity directly.
     pub fn despawn_instance(&mut self, instance_id: InstanceId) {
         self.instances_to_despawn.push(instance_id);
+    }
+
+    /// This will remove all records of this instance, without despawning any entities.
+    pub fn unregister_instance(&mut self, instance_id: InstanceId) {
+        self.spawned_instances.remove(&instance_id);
     }
 
     /// Immediately despawns all instances of a dynamic scene.

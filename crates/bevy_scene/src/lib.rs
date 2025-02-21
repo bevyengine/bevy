@@ -81,7 +81,7 @@ impl Plugin for ScenePlugin {
                     if let Some(instance_ids) = scene_spawner.spawned_dynamic_scenes.get_mut(&id) {
                         instance_ids.remove(&scene_instance);
                     }
-                    scene_spawner.despawn_instance(scene_instance);
+                    scene_spawner.unregister_instance(scene_instance);
                 }
             });
 
@@ -95,7 +95,7 @@ impl Plugin for ScenePlugin {
                     let Some(mut scene_spawner) = world.get_resource_mut::<SceneSpawner>() else {
                         return;
                     };
-                    scene_spawner.despawn_instance(scene_instance);
+                    scene_spawner.unregister_instance(scene_instance);
                 }
             });
     }
