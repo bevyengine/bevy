@@ -13,8 +13,6 @@ use crate::{
     system::{BoxedSystem, InfallibleSystemWrapper, IntoSystem, ScheduleSystem, System},
 };
 
-use super::SystemSchedule;
-
 fn new_condition<M>(condition: impl Condition<M>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
@@ -40,8 +38,8 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
 
 /// Stores data to differentiate different Node types
 pub trait NodeType {
-    type Metadata; // <-- Used in NodeConfig
-    type GroupMetadata; // <-- Used in NodeConfigs (plural)
+    type Metadata;
+    type GroupMetadata;
 
     fn config(self) -> NodeConfig<Self>
     where

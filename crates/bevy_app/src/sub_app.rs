@@ -4,9 +4,7 @@ use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     result::{DefaultSystemErrorHandler, SystemErrorContext},
-    schedule::{
-        InternedScheduleLabel, InternedSystemSet, NodeType, ScheduleBuildSettings, ScheduleLabel,
-    },
+    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};

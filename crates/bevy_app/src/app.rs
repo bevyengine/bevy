@@ -14,7 +14,7 @@ use bevy_ecs::{
     intern::Interned,
     prelude::*,
     result::{Error, SystemErrorContext},
-    schedule::{InternedSystemSet, NodeType, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform_support::collections::HashMap;

@@ -864,7 +864,7 @@ impl ScheduleGraph {
         match configs {
             NodeConfigs::NodeConfig(config) => self.process_config(config, collect_nodes),
             NodeConfigs::Configs {
-                metadata,
+                metadata: _,
                 mut configs,
                 collective_conditions,
                 chained,
