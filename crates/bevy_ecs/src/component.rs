@@ -21,7 +21,7 @@ use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use bevy_utils::{
-    staging::{MaybeStaged, StagedChanges, StagedRef, Stager},
+    staging::{StagedChanges, StagedRef, Stager},
     TypeIdMap,
 };
 use core::{
@@ -1204,57 +1204,6 @@ impl StagedChanges for StagedComponents {
     }
 }
 
-/// The [`Deref`] trait ties the lifetime of the returned reference to the lifetime of the value itself.
-/// However, when the returned reference has nothing to do with the value containing it, this behavior is undesirable.
-/// This trait gets around that by putting the lifetime in the trait, allowing a number of niche conviniencies.
-pub trait DerefByLifetime<'a>: Deref {
-    /// Corresponds to [`Deref::deref`]
-    fn deref_lifetime(&self) -> &'a Self::Target;
-}
-
-impl<'a, T> DerefByLifetime<'a> for &'a T {
-    #[inline]
-    fn deref_lifetime(&self) -> &'a Self::Target {
-        self
-    }
-}
-
-impl<'a, C: DerefByLifetime<'a>, S: DerefByLifetime<'a, Target = C::Target>> DerefByLifetime<'a>
-    for MaybeStaged<C, S>
-{
-    #[inline]
-    fn deref_lifetime(&self) -> &'a Self::Target {
-        match self {
-            MaybeStaged::Cold(c) => c.deref_lifetime(),
-            MaybeStaged::Staged(s) => s.deref_lifetime(),
-        }
-    }
-}
-
-/// Allows [`ComponentInfo::name`] to be retrieved with a lifetime from anything that implements [`DerefByLifetime`] for [`ComponentInfo`].
-pub struct ComponentNameFromRef<'a, T: DerefByLifetime<'a, Target = ComponentInfo>>(
-    pub T,
-    pub PhantomData<&'a ()>,
-);
-
-impl<'a, T: DerefByLifetime<'a, Target = ComponentInfo>> Deref for ComponentNameFromRef<'a, T> {
-    type Target = str;
-
-    #[inline]
-    fn deref(&self) -> &'a Self::Target {
-        self.0.deref_lifetime().name()
-    }
-}
-
-impl<'a, T: DerefByLifetime<'a, Target = ComponentInfo>> DerefByLifetime<'a>
-    for ComponentNameFromRef<'a, T>
-{
-    #[inline]
-    fn deref_lifetime(&self) -> &'a Self::Target {
-        self.0.deref_lifetime().name()
-    }
-}
-
 /// Reports how "registered" a component is in a particular collection.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ComponentRegistrationStatus {
@@ -1289,7 +1238,7 @@ pub trait ComponentsReader {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    fn get_info(&self, id: ComponentId) -> Option<impl DerefByLifetime<Target = ComponentInfo>> {
+    fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         if !self.is_id_valid(id) {
             return None;
         }
@@ -1304,19 +1253,15 @@ pub trait ComponentsReader {
     ///
     /// This will return an incorrect result if `id` did not come from the same world as `self`. It may return `None` or a garbage value.
     #[inline]
-    fn get_name(&self, id: ComponentId) -> Option<impl DerefByLifetime<Target = str>> {
-        self.get_info(id)
-            .map(|info| ComponentNameFromRef(info, PhantomData))
+    fn get_name(&self, id: ComponentId) -> Option<&str> {
+        self.get_info(id).map(ComponentInfo::name)
     }
 
     /// Gets the metadata associated with the given component.
     /// # Safety
     ///
     /// `id` must be a valid [`ComponentId`]
-    unsafe fn get_info_unchecked(
-        &self,
-        id: ComponentId,
-    ) -> impl DerefByLifetime<Target = ComponentInfo>;
+    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo;
 
     /// Returns true only if this `id` is valid on this collection of [`Component`]s
     fn is_id_valid(&self, id: ComponentId) -> bool;
@@ -1819,19 +1764,14 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
     }
 
     #[inline]
-    unsafe fn get_info_unchecked(
-        &self,
-        id: ComponentId,
-    ) -> impl DerefByLifetime<Target = ComponentInfo> {
+    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.len());
         if self.is_id_staged(id) {
             // SAFETY: The caller ensures `id` is valid.
-            MaybeStaged::Staged(unsafe {
-                self.staged.components.get_unchecked(id.0 - self.cold.len())
-            })
+            unsafe { self.staged.components.get_unchecked(id.0 - self.cold.len()) }
         } else {
             // SAFETY: The caller ensures `id` is valid.
-            MaybeStaged::Cold(unsafe { self.cold.get_info_unchecked(id) })
+            unsafe { self.cold.get_info_unchecked(id) }
         }
     }
 
@@ -2011,19 +1951,14 @@ impl ComponentsReader for Stager<'_, StagedComponents> {
     }
 
     #[inline]
-    unsafe fn get_info_unchecked(
-        &self,
-        id: ComponentId,
-    ) -> impl DerefByLifetime<Target = ComponentInfo> {
+    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.len());
         if self.is_id_staged(id) {
             // SAFETY: The caller ensures `id` is valid.
-            MaybeStaged::Staged(unsafe {
-                self.staged.components.get_unchecked(id.0 - self.cold.len())
-            })
+            unsafe { self.staged.components.get_unchecked(id.0 - self.cold.len()) }
         } else {
             // SAFETY: The caller ensures `id` is valid.
-            MaybeStaged::Cold(unsafe { self.cold.get_info_unchecked(id) })
+            unsafe { self.cold.get_info_unchecked(id) }
         }
     }
 
@@ -2055,10 +1990,7 @@ impl ComponentsReader for Components {
     }
 
     #[inline]
-    unsafe fn get_info_unchecked(
-        &self,
-        id: ComponentId,
-    ) -> impl DerefByLifetime<Target = ComponentInfo> {
+    unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
         // SAFETY: The caller ensures `id` is valid.
         unsafe { self.components.get_unchecked(id.0) }
@@ -2846,13 +2778,13 @@ pub fn enforce_no_required_components_recursion(
                 "Recursive required components detected: {}\nhelp: {}",
                 recursion_check_stack
                     .iter()
-                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap().deref())))
+                    .map(|id| format!("{}", ShortName(components.get_name(*id).unwrap())))
                     .collect::<Vec<_>>()
                     .join(" → "),
                 if direct_recursion {
                     format!(
                         "Remove require({}).",
-                        ShortName(components.get_name(requiree).unwrap().deref())
+                        ShortName(components.get_name(requiree).unwrap())
                     )
                 } else {
                     "If this is intentional, consider merging the components.".into()

@@ -12,8 +12,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{
         Component, ComponentId, Components, ComponentsInternalReader, ComponentsReader,
-        ComponentsWriter, DerefByLifetime, RequiredComponentConstructor, RequiredComponents,
-        StorageType, Tick,
+        ComponentsWriter, RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -496,7 +495,7 @@ impl BundleInfo {
                 .into_iter()
                 .map(|id| {
                     // SAFETY: the caller ensures component_id is valid.
-                    unsafe { components.get_info_unchecked(id).deref_lifetime().name() }
+                    unsafe { components.get_info_unchecked(id).name() }
                 })
                 .collect::<Vec<_>>()
                 .join(", ");

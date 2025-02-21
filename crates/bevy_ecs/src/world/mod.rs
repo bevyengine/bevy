@@ -40,8 +40,7 @@ use crate::{
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
         Components, ComponentsInternalReader, ComponentsInternalWriter, ComponentsReader,
-        ComponentsWriter, DerefByLifetime, Mutable, RequiredComponentsError,
-        RequiredComponentsStagedRef, Tick,
+        ComponentsWriter, Mutable, RequiredComponentsError, RequiredComponentsStagedRef, Tick,
     },
     entity::{
         AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
@@ -856,8 +855,7 @@ impl World {
 
         Ok(archetype
             .components()
-            .filter_map(|id| self.components().get_info(id))
-            .map(|info| info.deref_lifetime()))
+            .filter_map(|id| self.components().get_info(id)))
     }
 
     /// Returns [`EntityRef`]s that expose read-only operations for the given
@@ -3179,7 +3177,7 @@ impl World {
                         .get_info(component_id)
                         .debug_checked_unwrap()
                 };
-                Some((component_info.deref_lifetime(), data.get_data()?))
+                Some((component_info, data.get_data()?))
             })
     }
 
@@ -3259,8 +3257,7 @@ impl World {
                     self.components
                         .get_info(component_id)
                         .debug_checked_unwrap()
-                }
-                .deref_lifetime();
+                };
                 let (ptr, ticks, caller) = data.get_with_ticks()?;
 
                 // SAFETY:

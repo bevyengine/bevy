@@ -9,7 +9,6 @@ use alloc::boxed::Box;
 
 use crate::component::{
     ComponentCloneBehavior, ComponentCloneFn, ComponentsInternalReader, ComponentsReader,
-    DerefByLifetime,
 };
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::EntityMapper;
@@ -76,7 +75,7 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             target_component_written: false,
             bundle_scratch_allocator,
             components,
-            component_info: components.get_info_unchecked(component_id).deref_lifetime(),
+            component_info: components.get_info_unchecked(component_id),
             mapper,
             entity_cloner,
             type_registry,
