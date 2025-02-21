@@ -171,9 +171,9 @@ pub fn reflect_auto_registration(meta: &ReflectMeta) -> Option<proc_macro2::Toke
     };
 
     Some(quote! {
-        #bevy_reflect_path::__macro_exports::auto_register::auto_register_function!{
-            #bevy_reflect_path::__macro_exports::auto_register::AutomaticReflectRegistrations::add(
-                <#type_path as #bevy_reflect_path::__macro_exports::auto_register::RegisterForReflection>::__register
+        #bevy_reflect_path::__macro_exports::auto_register::inventory::submit!{
+            #bevy_reflect_path::__macro_exports::auto_register::AutomaticReflectRegistrations(
+                <#type_path as #bevy_reflect_path::__macro_exports::RegisterForReflection>::__register
             )
         }
     })

@@ -78,11 +78,7 @@ portable-atomic = [
   "bevy_utils/portable-atomic",
 ]
 # Enables automatic reflect registration
-auto_register = [
-  "bevy_reflect_derive/auto_register",
-  "dep:inventory",
-  "dep:wasm-init",
-]
+auto_register = ["bevy_reflect_derive/auto_register", "dep:inventory"]
 
 [dependencies]
 # bevy
@@ -124,14 +120,11 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
 variadics_please = "1.1"
 wgpu-types = { version = "24", features = ["serde"], optional = true }
 
+# deps for automatic type registration
+inventory = { version = "0.3", optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }
-
-# deps for automatic type registration
-[target.'cfg(not(target_family = "wasm"))'.dependencies]
-inventory = { version = "0.3", optional = true }
-[target.'cfg(target_family = "wasm")'.dependencies]
-wasm-init = { version = "0.2", optional = true }
 
 
 [dev-dependencies]
