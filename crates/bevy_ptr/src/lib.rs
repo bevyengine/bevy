@@ -413,9 +413,10 @@ impl<'a> OwningPtr<'a> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
+        let mut val = ManuallyDrop::new(val);
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { Self::make_internal(&mut ManuallyDrop::new(val)) })
+        f(unsafe { Self::make_internal(&mut val) })
     }
 }
 

@@ -82,7 +82,6 @@ use crate::{
 /// // NOTE: type inference fails here, so annotations are required on the closure.
 /// commands.queue(|w: &mut World| {
 ///     // Mutate the world however you want...
-///     # todo!();
 /// });
 /// # }
 /// ```

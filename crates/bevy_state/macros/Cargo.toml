@@ -2,7 +2,7 @@
 name = "bevy_state_macros"
 version = "0.16.0-dev"
 description = "Macros for bevy_state"
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [lib]

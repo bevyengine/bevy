@@ -1617,7 +1617,7 @@ pub fn collect_meshes_for_gpu_building(
     skin_uniforms: Res<SkinUniforms>,
     frame_count: Res<FrameCount>,
 ) {
-    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
+    let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
     else {
         return;
@@ -1625,8 +1625,8 @@ pub fn collect_meshes_for_gpu_building(
 
     // Collect render mesh instances. Build up the uniform buffer.
     let gpu_preprocessing::BatchedInstanceBuffers {
-        ref mut current_input_buffer,
-        ref mut previous_input_buffer,
+        current_input_buffer,
+        previous_input_buffer,
         ..
     } = batched_instance_buffers.into_inner();
 

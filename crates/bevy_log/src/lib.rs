@@ -117,7 +117,10 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
+/// #   // SAFETY: Single-threaded
+/// #   unsafe {
 ///     std::env::set_var("NO_COLOR", "1");
+/// #   }
 ///     App::new()
 ///        .add_plugins(DefaultPlugins)
 ///        .run();

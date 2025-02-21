@@ -243,7 +243,7 @@ fn change_fov(
     input: Res<ButtonInput<KeyCode>>,
     mut world_model_projection: Single<&mut Projection, With<WorldModelCamera>>,
 ) {
-    let Projection::Perspective(ref mut perspective) = world_model_projection.as_mut() else {
+    let Projection::Perspective(perspective) = world_model_projection.as_mut() else {
         unreachable!(
             "The `Projection` component was explicitly built with `Projection::Perspective`"
         );
