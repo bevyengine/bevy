@@ -446,7 +446,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         // SAFETY:
         // - The reborrowed query is converted to read-only, so it cannot perform mutable access,
         //   and the original query is held with a shared borrow, so it cannot perform mutable access either.
-        //   Note that although `NopWorldQuery` itself peforms *no* access and could soundly alias a mutable query,
+        //   Note that although `NopWorldQuery` itself performs *no* access and could soundly alias a mutable query,
         //   it has the original `QueryState::component_access` and could be `transmute`d to a read-only query.
         // - The world matches because it was the same one used to construct self.
         unsafe { Query::new(self.world, new_state, self.last_run, self.this_run) }
