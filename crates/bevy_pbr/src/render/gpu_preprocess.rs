@@ -20,7 +20,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::resource_exists,
-    query::{Has, QueryState, With, Without},
+    query::{Has, Or, QueryState, With, Without},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
@@ -61,7 +61,7 @@ use crate::{
     graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
 };
 
-use super::ViewLightEntities;
+use super::{ShadowView, ViewLightEntities};
 
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
@@ -154,7 +154,7 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
         ),
     >,
 }
@@ -173,7 +173,7 @@ pub struct LatePrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
             With<OcclusionCulling>,
         ),
     >,
@@ -528,11 +528,22 @@ impl Plugin for GpuMeshPreprocessPlugin {
                     Node3d::LatePrepass,
                     Node3d::LateDeferredPrepass,
                     NodePbr::MainBuildIndirectParameters,
-                    // Shadows don't currently support occlusion culling, so we
-                    // treat shadows as effectively the main phase for our
-                    // purposes.
-                    NodePbr::ShadowPass,
+                    Node3d::StartMainPass,
                 ),
+            ).add_render_graph_edges(
+                Core3d,
+                (
+                    NodePbr::EarlyPrepassBuildIndirectParameters,
+                    NodePbr::EarlyShadowPass,
+                    Node3d::EarlyDownsampleDepth,
+                )
+            ).add_render_graph_edges(
+                Core3d,
+                (
+                    NodePbr::LatePrepassBuildIndirectParameters,
+                    NodePbr::LateShadowPass,
+                    NodePbr::MainBuildIndirectParameters,
+                )
             );
     }
 }
