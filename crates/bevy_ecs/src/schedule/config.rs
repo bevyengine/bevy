@@ -38,12 +38,12 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
 
 /// Stores data to differentiate different Node types
 pub trait NodeType {
-    /// Used in NodeConfig
+    /// Used in `NodeConfig`
     type Metadata;
-    /// Used in NodeConfigs
+    /// Used in `NodeConfigs`
     type GroupMetadata;
 
-    /// Initialize NodeConfig from NodeType
+    /// Initialize `NodeConfig` from NodeType
     fn config(self) -> NodeConfig<Self>
     where
         Self: Sized;
@@ -101,7 +101,7 @@ pub enum NodeConfigs<T: NodeType> {
         configs: Vec<NodeConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
-        /// Metadata for NodeConfigs
+        /// Metadata for `NodeConfigs`
         metadata: T::GroupMetadata,
         /// See [`Chain`] for usage.
         chained: Chain,
@@ -287,7 +287,7 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
 /// #     pub fn add_systems<M>(
 /// #         &mut self,
 /// #         schedule: Update,
-/// #         systems: impl IntoNodeConfigs<M>,
+/// #         systems: impl IntoNodeConfigs<ScheduleSystem, M>,
 /// #    ) -> &mut Self { self }
 /// # }
 /// # let mut app = AppMock;
