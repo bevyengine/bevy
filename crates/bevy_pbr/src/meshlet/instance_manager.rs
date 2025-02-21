@@ -1,4 +1,4 @@
-use super::{MeshletMesh, MeshletMesh3d, meshlet_mesh_manager::MeshletMeshManager};
+use super::{meshlet_mesh_manager::MeshletMeshManager, MeshletMesh, MeshletMesh3d};
 use crate::{
     Material, MeshFlags, MeshTransforms, MeshUniform, NotShadowCaster, NotShadowReceiver,
     PreviousGlobalTransform, RenderMaterialBindings, RenderMaterialInstances,
@@ -6,7 +6,7 @@ use crate::{
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
 use bevy_ecs::{
-    entity::{Entities, Entity, hash_map::EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entities, Entity},
     event::EventReader,
     query::Has,
     resource::Resource,
@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
-    MainWorld, render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers,
+    render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
 };
 use bevy_transform::components::GlobalTransform;
 use core::ops::{DerefMut, Range};

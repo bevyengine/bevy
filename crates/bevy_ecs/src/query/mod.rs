@@ -113,8 +113,8 @@ mod tests {
         },
         schedule::{IntoSystemConfigs, Schedule},
         storage::{Table, TableRow},
-        system::{IntoSystem, Query, System, SystemState, assert_is_system},
-        world::{World, unsafe_world_cell::UnsafeWorldCell},
+        system::{assert_is_system, IntoSystem, Query, System, SystemState},
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
     use alloc::{vec, vec::Vec};
     use bevy_ecs_macros::QueryFilter;
@@ -920,15 +920,11 @@ mod tests {
         let mut write_res = IntoSystem::into_system(write_res);
         write_res.initialize(&mut world);
 
-        assert!(
-            read_query
-                .archetype_component_access()
-                .is_compatible(read_res.archetype_component_access())
-        );
-        assert!(
-            !read_query
-                .archetype_component_access()
-                .is_compatible(write_res.archetype_component_access())
-        );
+        assert!(read_query
+            .archetype_component_access()
+            .is_compatible(read_res.archetype_component_access()));
+        assert!(!read_query
+            .archetype_component_access()
+            .is_compatible(write_res.archetype_component_access()));
     }
 }

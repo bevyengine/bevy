@@ -2,11 +2,10 @@
 //! `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 
 use bevy::{
-    ecs::system::{SystemParamItem, lifetimeless::SRes},
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
     prelude::*,
     reflect::TypePath,
     render::{
-        RenderApp,
         render_asset::RenderAssets,
         render_resource::{
             binding_types::{sampler, texture_2d},
@@ -14,6 +13,7 @@ use bevy::{
         },
         renderer::RenderDevice,
         texture::{FallbackImage, GpuImage},
+        RenderApp,
     },
 };
 use std::{num::NonZero, process::exit};

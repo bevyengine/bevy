@@ -196,14 +196,18 @@ impl<'a> TrackedRenderPass<'a> {
             #[cfg(feature = "detailed_trace")]
             trace!(
                 "set bind_group {} (already set): {:?} ({:?})",
-                index, bind_group, dynamic_uniform_indices
+                index,
+                bind_group,
+                dynamic_uniform_indices
             );
             return;
         }
         #[cfg(feature = "detailed_trace")]
         trace!(
             "set bind_group {}: {:?} ({:?})",
-            index, bind_group, dynamic_uniform_indices
+            index,
+            bind_group,
+            dynamic_uniform_indices
         );
 
         self.pass
@@ -294,7 +298,9 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!(
             "draw indexed: {:?} {} {:?}",
-            indices, base_vertex, instances
+            indices,
+            base_vertex,
+            instances
         );
         self.pass.draw_indexed(indices, base_vertex, instances);
     }
@@ -345,7 +351,8 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!(
             "draw indexed indirect: {:?} {}",
-            indirect_buffer, indirect_offset
+            indirect_buffer,
+            indirect_offset
         );
         self.pass
             .draw_indexed_indirect(indirect_buffer, indirect_offset);
@@ -377,7 +384,9 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!(
             "multi draw indirect: {:?} {}, {}x",
-            indirect_buffer, indirect_offset, count
+            indirect_buffer,
+            indirect_offset,
+            count
         );
         self.pass
             .multi_draw_indirect(indirect_buffer, indirect_offset, count);
@@ -416,7 +425,11 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!(
             "multi draw indirect count: {:?} {}, ({:?} {})x, max {}x",
-            indirect_buffer, indirect_offset, count_buffer, count_offset, max_count
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count
         );
         self.pass.multi_draw_indirect_count(
             indirect_buffer,
@@ -455,7 +468,9 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!(
             "multi draw indexed indirect: {:?} {}, {}x",
-            indirect_buffer, indirect_offset, count
+            indirect_buffer,
+            indirect_offset,
+            count
         );
         self.pass
             .multi_draw_indexed_indirect(indirect_buffer, indirect_offset, count);
@@ -496,7 +511,11 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!(
             "multi draw indexed indirect count: {:?} {}, ({:?} {})x, max {}x",
-            indirect_buffer, indirect_offset, count_buffer, count_offset, max_count
+            indirect_buffer,
+            indirect_offset,
+            count_buffer,
+            count_offset,
+            max_count
         );
         self.pass.multi_draw_indexed_indirect_count(
             indirect_buffer,
@@ -554,7 +573,12 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!(
             "set viewport: {} {} {} {} {} {}",
-            x, y, width, height, min_depth, max_depth
+            x,
+            y,
+            width,
+            height,
+            min_depth,
+            max_depth
         );
         self.pass
             .set_viewport(x, y, width, height, min_depth, max_depth);

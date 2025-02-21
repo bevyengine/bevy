@@ -56,19 +56,19 @@ pub mod view;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        ExtractSchedule,
         alpha::AlphaMode,
         camera::{
             Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
             Projection,
         },
         mesh::{
-            Mesh, Mesh2d, Mesh3d, morph::MorphWeights, primitives::MeshBuilder,
-            primitives::Meshable,
+            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
+            Mesh3d,
         },
         render_resource::Shader,
         texture::ImagePlugin,
         view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
+        ExtractSchedule,
     };
 }
 use batching::gpu_preprocessing::BatchingPlugin;
@@ -84,7 +84,7 @@ use render_asset::RenderAssetBytesPerFrame;
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
-    SyncToRenderWorld, SyncWorldPlugin, despawn_temporary_render_entities, entity_sync_system,
+    despawn_temporary_render_entities, entity_sync_system, SyncToRenderWorld, SyncWorldPlugin,
 };
 
 use crate::gpu_readback::GpuReadbackPlugin;
@@ -93,14 +93,14 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{RenderInstance, WgpuWrapper, render_system},
+    renderer::{render_system, RenderInstance, WgpuWrapper},
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
 use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{AssetApp, AssetServer, Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetServer, Handle};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};

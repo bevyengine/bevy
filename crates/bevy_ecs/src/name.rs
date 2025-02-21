@@ -16,15 +16,15 @@ use core::{
 use {
     alloc::string::ToString,
     serde::{
-        Deserialize, Deserializer, Serialize, Serializer,
         de::{Error, Visitor},
+        Deserialize, Deserializer, Serialize, Serializer,
     },
 };
 
 #[cfg(feature = "bevy_reflect")]
 use {
     crate::reflect::ReflectComponent,
-    bevy_reflect::{Reflect, std_traits::ReflectDefault},
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
@@ -286,7 +286,7 @@ mod tests {
 mod serde_tests {
     use super::Name;
 
-    use serde_test::{Token, assert_tokens};
+    use serde_test::{assert_tokens, Token};
 
     #[test]
     fn test_serde_name() {

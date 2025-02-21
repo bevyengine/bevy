@@ -5,7 +5,7 @@ use crate::{
 use bevy_macro_utils::fq_std::FQDefault;
 use quote::quote;
 use std::collections::HashMap;
-use syn::{Path, spanned::Spanned};
+use syn::{spanned::Spanned, Path};
 
 type ReflectionIndex = usize;
 

@@ -185,7 +185,11 @@ fn update_system(
     }
 
     // Linear Fog Controls
-    if let FogFalloff::Linear { start, end } = &mut fog.falloff {
+    if let FogFalloff::Linear {
+        start,
+        end,
+    } = &mut fog.falloff
+    {
         text.push_str("\nA / S - Move Start Distance\nZ / X - Move End Distance");
 
         if keycode.pressed(KeyCode::KeyA) {

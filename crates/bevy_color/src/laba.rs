@@ -1,8 +1,8 @@
 use crate::{
-    Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, LinearRgba, Luminance, Mix, Oklaba, Srgba,
-    StandardColor, Xyza, impl_componentwise_vector_space,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, LinearRgba,
+    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
-use bevy_math::{Vec3, Vec4, ops};
+use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 

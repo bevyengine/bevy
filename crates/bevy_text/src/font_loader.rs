@@ -1,5 +1,5 @@
 use crate::Font;
-use bevy_asset::{AssetLoader, LoadContext, io::Reader};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use thiserror::Error;
 
 #[derive(Default)]

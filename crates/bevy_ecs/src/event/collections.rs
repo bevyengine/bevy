@@ -11,7 +11,7 @@ use core::{
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
-    bevy_reflect::{Reflect, std_traits::ReflectDefault},
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
 /// An event collection that represents the events that occurred within the last two

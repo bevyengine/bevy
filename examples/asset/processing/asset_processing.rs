@@ -2,11 +2,12 @@
 
 use bevy::{
     asset::{
-        AssetLoader, AsyncWriteExt, LoadContext, embedded_asset,
+        embedded_asset,
         io::{Reader, Writer},
         processor::LoadTransformAndSave,
         saver::{AssetSaver, SavedAsset},
         transformer::{AssetTransformer, TransformedAsset},
+        AssetLoader, AsyncWriteExt, LoadContext,
     },
     prelude::*,
     reflect::TypePath,

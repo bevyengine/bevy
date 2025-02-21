@@ -19,7 +19,7 @@ use winit::{
 
 use crate::{
     accessibility::{
-        AccessKitAdapters, WinitActionRequestHandlers, prepare_accessibility_for_window,
+        prepare_accessibility_for_window, AccessKitAdapters, WinitActionRequestHandlers,
     },
     converters::{convert_enabled_buttons, convert_window_level, convert_window_theme},
     winit_monitors::WinitMonitors,
@@ -460,9 +460,7 @@ pub fn select_monitor(
     match monitor_selection {
         Current => {
             if current_monitor.is_none() {
-                warn!(
-                    "Can't select current monitor on window creation or cannot find current monitor!"
-                );
+                warn!("Can't select current monitor on window creation or cannot find current monitor!");
             }
             current_monitor
         }

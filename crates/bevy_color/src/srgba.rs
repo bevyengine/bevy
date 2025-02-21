@@ -1,10 +1,10 @@
 use crate::{
-    Alpha, ColorToComponents, ColorToPacked, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza,
-    color_difference::EuclideanDistance, impl_componentwise_vector_space,
+    color_difference::EuclideanDistance, impl_componentwise_vector_space, Alpha, ColorToComponents,
+    ColorToPacked, Gray, LinearRgba, Luminance, Mix, StandardColor, Xyza,
 };
 #[cfg(feature = "alloc")]
 use alloc::{format, string::String};
-use bevy_math::{Vec3, Vec4, ops};
+use bevy_math::{ops, Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 use thiserror::Error;

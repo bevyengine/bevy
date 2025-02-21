@@ -1,5 +1,5 @@
 use crate::{
-    DynamicTuple, TupleInfo, TypeRegistration, TypeRegistry, serde::de::tuple_utils::visit_tuple,
+    serde::de::tuple_utils::visit_tuple, DynamicTuple, TupleInfo, TypeRegistration, TypeRegistry,
 };
 use core::{fmt, fmt::Formatter};
 use serde::de::{SeqAccess, Visitor};

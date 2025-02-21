@@ -13,7 +13,6 @@
 //! If no valid number is provided, for each argument there's a reasonable default.
 
 use bevy::{
-    MinimalPlugins,
     diagnostic::{
         DiagnosticPath, DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin,
     },
@@ -25,6 +24,7 @@ use bevy::{
     log::LogPlugin,
     prelude::{App, In, IntoSystem, Query, Schedule, SystemParamBuilder, Update},
     ptr::{OwningPtr, PtrMut},
+    MinimalPlugins,
 };
 
 use rand::prelude::{Rng, SeedableRng, SliceRandom};

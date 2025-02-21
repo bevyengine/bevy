@@ -1,9 +1,9 @@
 use crate::{
-    PartialReflect, Reflect, TypePath,
     func::{
-        ArgError,
         args::{Arg, ArgValue, FromArg},
+        ArgError,
     },
+    PartialReflect, Reflect, TypePath,
 };
 use alloc::{
     boxed::Box,

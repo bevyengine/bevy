@@ -30,35 +30,35 @@
 //! [Henyey-Greenstein phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions#TheHenyeyndashGreensteinPhaseFunction
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Assets, Handle, load_internal_asset};
+use bevy_asset::{load_internal_asset, Assets, Handle};
 use bevy_color::Color;
 use bevy_core_pipeline::core_3d::{
     graph::{Core3d, Node3d},
     prepare_core_3d_depth_textures,
 };
 use bevy_ecs::{
-    component::{Component, require},
+    component::{require, Component},
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs as _,
 };
 use bevy_image::Image;
 use bevy_math::{
-    Vec2, Vec3,
     primitives::{Cuboid, Plane3d},
+    Vec2, Vec3,
 };
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    ExtractSchedule, Render, RenderApp, RenderSet,
     mesh::{Mesh, Meshable},
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::{Shader, SpecializedRenderPipelines},
     sync_component::SyncComponentPlugin,
     view::Visibility,
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
 use render::{
-    CUBE_MESH, PLANE_MESH, VOLUMETRIC_FOG_HANDLE, VolumetricFogNode, VolumetricFogPipeline,
-    VolumetricFogUniformBuffer,
+    VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer, CUBE_MESH, PLANE_MESH,
+    VOLUMETRIC_FOG_HANDLE,
 };
 
 use crate::graph::NodePbr;

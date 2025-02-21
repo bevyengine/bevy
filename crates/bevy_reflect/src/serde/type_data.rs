@@ -1,6 +1,6 @@
 use crate::Reflect;
 use alloc::boxed::Box;
-use bevy_platform_support::collections::{HashMap, hash_map::Iter};
+use bevy_platform_support::collections::{hash_map::Iter, HashMap};
 
 /// Contains data relevant to the automatic reflect powered (de)serialization of a type.
 #[derive(Debug, Clone)]

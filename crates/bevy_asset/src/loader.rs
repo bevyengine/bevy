@@ -1,10 +1,10 @@
 use crate::{
-    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
-    UntypedHandle,
     io::{AssetReaderError, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader},
     loader_builders::{Deferred, NestedLoader, StaticTyped},
     meta::{AssetHash, AssetMeta, AssetMetaDyn, ProcessedInfoMinimal, Settings},
     path::AssetPath,
+    Asset, AssetLoadError, AssetServer, AssetServerMode, Assets, Handle, UntypedAssetId,
+    UntypedHandle,
 };
 use alloc::{
     boxed::Box,
@@ -17,7 +17,7 @@ use bevy_log::warn;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
 use core::any::{Any, TypeId};
-use downcast_rs::{Downcast, impl_downcast};
+use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -508,9 +508,7 @@ impl<'a> LoadContext<'a> {
         );
         for (label, asset) in labeled_assets {
             if self.labeled_assets.insert(label.clone(), asset).is_some() {
-                warn!(
-                    "A labeled asset with the label \"{label}\" already exists. Replacing with the new asset."
-                );
+                warn!("A labeled asset with the label \"{label}\" already exists. Replacing with the new asset.");
             }
         }
         handle
@@ -660,8 +658,6 @@ pub enum ReadAssetBytesError {
         path: PathBuf,
         source: std::io::Error,
     },
-    #[error(
-        "The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error."
-    )]
+    #[error("The LoadContext for this read_asset_bytes call requires hash metadata, but it was not provided. This is likely an internal implementation error.")]
     MissingAssetHash,
 }

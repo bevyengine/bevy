@@ -1,8 +1,8 @@
 //! Functionality related to random sampling from triangle meshes.
 
 use crate::{
-    ShapeSample, Vec3,
     primitives::{Measured2d, Triangle3d},
+    ShapeSample, Vec3,
 };
 use alloc::vec::Vec;
 use rand::Rng;

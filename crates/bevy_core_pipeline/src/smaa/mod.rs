@@ -38,7 +38,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 #[cfg(feature = "smaa_luts")]
 use bevy_asset::load_internal_binary_asset;
-use bevy_asset::{Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -47,14 +47,13 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Commands, Query, Res, ResMut, lifetimeless::Read},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::{BevyDefault, Image};
-use bevy_math::{Vec4, vec4};
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_math::{vec4, Vec4};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Render, RenderApp, RenderSet,
     camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
@@ -62,6 +61,7 @@ use bevy_render::{
         NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
     },
     render_resource::{
+        binding_types::{sampler, texture_2d, uniform_buffer},
         AddressMode, BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
         DynamicUniformBuffer, Extent3d, FilterMode, FragmentState, LoadOp, MultisampleState,
@@ -72,11 +72,11 @@ use bevy_render::{
         StencilFaceState, StencilOperation, StencilState, StoreOp, TextureDescriptor,
         TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
         VertexState,
-        binding_types::{sampler, texture_2d, uniform_buffer},
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
+    Render, RenderApp, RenderSet,
 };
 use bevy_utils::prelude::default;
 

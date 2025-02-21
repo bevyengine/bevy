@@ -1,13 +1,13 @@
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
-use bevy_asset::{Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{Component, Entity, require},
+    prelude::{require, Component, Entity},
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
@@ -15,9 +15,8 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     camera::{ExtractedCamera, TemporalJitter},
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -34,6 +33,7 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_utils::prelude::default;
 use core::mem;
@@ -89,9 +89,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
-            warn!(
-                "ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING."
-            );
+            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING.");
             return;
         }
 
@@ -102,9 +100,7 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             .max_storage_textures_per_shader_stage
             < 5
         {
-            warn!(
-                "ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: Limits::max_storage_textures_per_shader_stage is less than 5."
-            );
+            warn!("ScreenSpaceAmbientOcclusionPlugin not loaded. GPU lacks support: Limits::max_storage_textures_per_shader_stage is less than 5.");
             return;
         }
 

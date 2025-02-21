@@ -2,7 +2,7 @@
 
 use bevy_macro_utils::fq_std::FQOption;
 use proc_macro2::TokenStream;
-use quote::{ToTokens, quote};
+use quote::{quote, ToTokens};
 use syn::{Attribute, Expr, ExprLit, Lit, Meta};
 
 /// A struct used to represent a type's documentation, if any.

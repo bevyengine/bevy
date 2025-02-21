@@ -4,8 +4,8 @@
 //! [easing functions]: EaseFunction
 
 use crate::{
-    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
     curve::{Curve, CurveExt, FunctionCurve, Interval},
+    Dir2, Dir3, Dir3A, Isometry2d, Isometry3d, Quat, Rot2, VectorSpace,
 };
 
 use variadics_please::all_tuples_enumerated;
@@ -597,7 +597,7 @@ pub enum EaseFunction {
 mod easing_functions {
     use core::f32::consts::{FRAC_PI_2, FRAC_PI_3, PI};
 
-    use crate::{FloatPow, ops};
+    use crate::{ops, FloatPow};
 
     #[inline]
     pub(crate) fn linear(t: f32) -> f32 {

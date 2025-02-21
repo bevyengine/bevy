@@ -14,7 +14,6 @@ use bevy::{
     ecs::query::QueryItem,
     prelude::*,
     render::{
-        RenderApp,
         extract_component::{
             ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
             UniformComponentPlugin,
@@ -28,6 +27,7 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice},
         view::ViewTarget,
+        RenderApp,
     },
 };
 

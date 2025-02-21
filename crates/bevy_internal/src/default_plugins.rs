@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, plugin_group};
+use bevy_app::{plugin_group, Plugin};
 
 plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:

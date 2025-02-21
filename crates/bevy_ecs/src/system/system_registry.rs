@@ -3,11 +3,11 @@ use crate::reflect::ReflectComponent;
 use crate::{
     change_detection::Mut,
     entity::Entity,
-    system::{BoxedSystem, IntoSystem, System, input::SystemInput},
+    system::{input::SystemInput, BoxedSystem, IntoSystem, System},
     world::World,
 };
 use alloc::boxed::Box;
-use bevy_ecs_macros::{Component, Resource, require};
+use bevy_ecs_macros::{require, Component, Resource};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::marker::PhantomData;
@@ -477,9 +477,7 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     /// System could not be run due to parameters that failed validation.
     ///
     /// This can occur because the data required by the system was not present in the world.
-    #[error(
-        "The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation."
-    )]
+    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
     InvalidParams(SystemId<I, O>),
 }
 
@@ -538,8 +536,8 @@ mod tests {
     fn local_variables() {
         // The `Local` begins at the default value of 0
         fn doubling(last_counter: Local<Counter>, mut counter: ResMut<Counter>) {
-            counter.0 += last_counter.0.0;
-            last_counter.0.0 = counter.0;
+            counter.0 += last_counter.0 .0;
+            last_counter.0 .0 = counter.0;
         }
 
         let mut world = World::new();

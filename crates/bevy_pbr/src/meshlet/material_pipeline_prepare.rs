@@ -1,6 +1,6 @@
 use super::{
-    MESHLET_MESH_MATERIAL_SHADER_HANDLE, instance_manager::InstanceManager,
-    resource_manager::ResourceManager,
+    instance_manager::InstanceManager, resource_manager::ResourceManager,
+    MESHLET_MESH_MATERIAL_SHADER_HANDLE,
 };
 use crate::{
     environment_map::EnvironmentMapLight, irradiance_volume::IrradianceVolume,

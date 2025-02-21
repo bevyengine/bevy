@@ -6,7 +6,7 @@ use core::hash::Hash;
 #[cfg(feature = "bevy_reflect")]
 use {
     bevy_ecs::reflect::ReflectResource,
-    bevy_reflect::{Reflect, std_traits::ReflectDefault},
+    bevy_reflect::{std_traits::ReflectDefault, Reflect},
 };
 
 /// A "press-able" input of type `T`.

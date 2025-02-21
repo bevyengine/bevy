@@ -36,44 +36,44 @@ use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
-    component::{Component, require},
+    component::{require, Component},
     query::{Changed, QueryItem, With},
     schedule::IntoSystemConfigs,
-    system::{Query, lifetimeless::Read},
+    system::{lifetimeless::Read, Query},
 };
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::Reflect;
-use bevy_render::{
-    Render, RenderApp, RenderSet,
-    extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureFormat, TextureUsages},
-    renderer::RenderAdapter,
-};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
     renderer::RenderDevice,
     settings::WgpuFeatures,
 };
+use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    render_graph::{RenderGraphApp, ViewNodeRunner},
+    render_resource::{Shader, TextureFormat, TextureUsages},
+    renderer::RenderAdapter,
+    Render, RenderApp, RenderSet,
+};
 
-use bevy_core_pipeline::core_3d::{Camera3d, graph::Core3d};
+use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
 use resources::{
-    AtmosphereTransforms, RenderSkyBindGroupLayouts, prepare_atmosphere_transforms,
-    queue_render_sky_pipelines,
+    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
+    RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
     resources::{
-        AtmosphereBindGroupLayouts, AtmosphereLutPipelines, AtmosphereSamplers,
-        prepare_atmosphere_bind_groups, prepare_atmosphere_textures,
+        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
+        AtmosphereLutPipelines, AtmosphereSamplers,
     },
 };
 
 mod shaders {
-    use bevy_asset::{Handle, weak_handle};
+    use bevy_asset::{weak_handle, Handle};
     use bevy_render::render_resource::Shader;
 
     pub const TYPES: Handle<Shader> = weak_handle!("ef7e147e-30a0-4513-bae3-ddde2a6c20c5");
@@ -183,9 +183,7 @@ impl Plugin for AtmospherePlugin {
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
-            warn!(
-                "AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING."
-            );
+            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
             return;
         }
 

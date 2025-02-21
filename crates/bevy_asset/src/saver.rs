@@ -1,6 +1,6 @@
 use crate::{
-    Asset, AssetLoader, CompleteErasedLoadedAsset, ErasedLoadedAsset, Handle, LabeledAsset,
-    UntypedHandle, io::Writer, meta::Settings, transformer::TransformedAsset,
+    io::Writer, meta::Settings, transformer::TransformedAsset, Asset, AssetLoader,
+    CompleteErasedLoadedAsset, ErasedLoadedAsset, Handle, LabeledAsset, UntypedHandle,
 };
 use alloc::boxed::Box;
 use atomicow::CowArc;

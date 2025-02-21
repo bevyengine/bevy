@@ -3,8 +3,8 @@ use std::path::PathBuf;
 
 use bevy_math::curve::{CurveExt, EaseFunction, EasingCurve, JumpAt};
 use svg::{
-    Document,
     node::element::{self, path::Data},
+    Document,
 };
 
 fn main() {

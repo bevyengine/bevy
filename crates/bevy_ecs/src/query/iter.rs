@@ -7,8 +7,8 @@ use crate::{
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, StorageId},
     storage::{Table, TableRow, Tables},
     world::{
-        EntityMut, EntityMutExcept, EntityRef, EntityRefExcept, FilteredEntityMut,
-        FilteredEntityRef, unsafe_world_cell::UnsafeWorldCell,
+        unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityMutExcept, EntityRef, EntityRefExcept,
+        FilteredEntityMut, FilteredEntityRef,
     },
 };
 use alloc::vec::Vec;

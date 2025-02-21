@@ -4,7 +4,6 @@
 use bevy::{
     prelude::*,
     render::{
-        Render, RenderApp, RenderSet,
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         gpu_readback::{Readback, ReadbackComplete},
         render_asset::{RenderAssetUsages, RenderAssets},
@@ -16,6 +15,7 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
         texture::GpuImage,
+        Render, RenderApp, RenderSet,
     },
 };
 

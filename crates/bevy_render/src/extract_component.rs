@@ -1,10 +1,10 @@
 use crate::{
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
-    render_resource::{DynamicUniformBuffer, ShaderType, encase::internal::WriteInto},
+    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
     renderer::{RenderDevice, RenderQueue},
     sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     view::ViewVisibility,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{

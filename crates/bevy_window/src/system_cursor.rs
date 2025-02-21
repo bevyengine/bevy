@@ -69,7 +69,7 @@
 // --------------------------------------------------------------
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{Reflect, prelude::ReflectDefault};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};

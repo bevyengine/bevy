@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::RED,
-    core_pipeline::{Skybox, bloom::Bloom, tonemapping::Tonemapping},
+    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
     math::vec3,
     pbr::{FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,

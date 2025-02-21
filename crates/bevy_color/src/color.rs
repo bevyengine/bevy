@@ -1,6 +1,6 @@
 use crate::{
-    Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba, Luminance, Mix, Oklaba, Oklcha, Srgba,
-    StandardColor, Xyza, color_difference::EuclideanDistance,
+    color_difference::EuclideanDistance, Alpha, Hsla, Hsva, Hue, Hwba, Laba, Lcha, LinearRgba,
+    Luminance, Mix, Oklaba, Oklcha, Srgba, StandardColor, Xyza,
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;

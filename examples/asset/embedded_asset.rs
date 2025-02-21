@@ -1,7 +1,7 @@
 //! Example of loading an embedded asset.
 
 use bevy::{
-    asset::{AssetPath, embedded_asset, io::AssetSourceId},
+    asset::{embedded_asset, io::AssetSourceId, AssetPath},
     prelude::*,
 };
 use std::path::Path;

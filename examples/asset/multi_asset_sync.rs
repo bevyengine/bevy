@@ -4,8 +4,8 @@ use std::{
     f32::consts::PI,
     ops::Drop,
     sync::{
-        Arc,
         atomic::{AtomicBool, AtomicU32, Ordering},
+        Arc,
     },
 };
 

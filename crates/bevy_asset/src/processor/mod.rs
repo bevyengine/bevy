@@ -44,17 +44,17 @@ pub use log::*;
 pub use process::*;
 
 use crate::{
-    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
-    MissingAssetLoaderForExtensionError,
     io::{
         AssetReaderError, AssetSource, AssetSourceBuilders, AssetSourceEvent, AssetSourceId,
         AssetSources, AssetWriterError, ErasedAssetReader, ErasedAssetWriter,
         MissingAssetSourceError,
     },
     meta::{
-        AssetAction, AssetActionMinimal, AssetHash, AssetMeta, AssetMetaDyn, AssetMetaMinimal,
-        ProcessedInfo, ProcessedInfoMinimal, get_asset_hash, get_full_asset_hash,
+        get_asset_hash, get_full_asset_hash, AssetAction, AssetActionMinimal, AssetHash, AssetMeta,
+        AssetMetaDyn, AssetMetaMinimal, ProcessedInfo, ProcessedInfoMinimal,
     },
+    AssetLoadError, AssetMetaCheck, AssetPath, AssetServer, AssetServerMode, DeserializeMetaError,
+    MissingAssetLoaderForExtensionError,
 };
 use alloc::{borrow::ToOwned, boxed::Box, collections::VecDeque, sync::Arc, vec, vec::Vec};
 use bevy_ecs::prelude::*;
@@ -428,9 +428,7 @@ impl AssetProcessor {
                     // then we automatically clean up this folder
                     if err.kind() != ErrorKind::NotFound {
                         let asset_path = AssetPath::from_path(path).with_source(source.id());
-                        error!(
-                            "Failed to remove destination folder that no longer exists in {asset_path}: {err}"
-                        );
+                        error!("Failed to remove destination folder that no longer exists in {asset_path}: {err}");
                     }
                 }
             }
@@ -655,18 +653,14 @@ impl AssetProcessor {
                                     info.processed_info = minimal.processed_info;
                                 }
                                 Err(err) => {
-                                    trace!(
-                                        "Removing processed data for {asset_path} because meta could not be parsed: {err}"
-                                    );
+                                    trace!("Removing processed data for {asset_path} because meta could not be parsed: {err}");
                                     self.remove_processed_asset_and_meta(source, asset_path.path())
                                         .await;
                                 }
                             }
                         }
                         Err(err) => {
-                            trace!(
-                                "Removing processed data for {asset_path} because meta failed to load: {err}"
-                            );
+                            trace!("Removing processed data for {asset_path} because meta failed to load: {err}");
                             self.remove_processed_asset_and_meta(source, asset_path.path())
                                 .await;
                         }
@@ -706,9 +700,7 @@ impl AssetProcessor {
     async fn clean_empty_processed_ancestor_folders(&self, source: &AssetSource, path: &Path) {
         // As a safety precaution don't delete absolute paths to avoid deleting folders outside of the destination folder
         if path.is_absolute() {
-            error!(
-                "Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped."
-            );
+            error!("Attempted to clean up ancestor folders of an absolute path. This is unsafe so the operation was skipped.");
             return;
         }
         while let Some(parent) = path.parent() {
@@ -820,7 +812,7 @@ impl AssetProcessor {
                 return Err(ProcessError::ReadAssetMetaError {
                     path: asset_path.clone(),
                     err,
-                });
+                })
             }
         };
 
@@ -934,15 +926,11 @@ impl AssetProcessor {
         if let Err(err) = ProcessorTransactionLog::validate().await {
             let state_is_valid = match err {
                 ValidateLogError::ReadLogError(err) => {
-                    error!(
-                        "Failed to read processor log file. Processed assets cannot be validated so they must be re-generated {err}"
-                    );
+                    error!("Failed to read processor log file. Processed assets cannot be validated so they must be re-generated {err}");
                     false
                 }
                 ValidateLogError::UnrecoverableError => {
-                    error!(
-                        "Encountered an unrecoverable error in the last run. Processed assets cannot be validated so they must be re-generated"
-                    );
+                    error!("Encountered an unrecoverable error in the last run. Processed assets cannot be validated so they must be re-generated");
                     false
                 }
                 ValidateLogError::EntryErrors(entry_errors) => {
@@ -956,9 +944,7 @@ impl AssetProcessor {
                                 break;
                             }
                             LogEntryError::UnfinishedTransaction(path) => {
-                                debug!(
-                                    "Asset {path:?} did not finish processing. Clearing state for that asset"
-                                );
+                                debug!("Asset {path:?} did not finish processing. Clearing state for that asset");
                                 let mut unrecoverable_err = |message: &dyn core::fmt::Display| {
                                     error!("Failed to remove asset {path:?}: {message}");
                                     state_is_valid = false;
@@ -968,9 +954,7 @@ impl AssetProcessor {
                                     continue;
                                 };
                                 let Ok(processed_writer) = source.processed_writer() else {
-                                    unrecoverable_err(
-                                        &"AssetSource does not have a processed AssetWriter registered",
-                                    );
+                                    unrecoverable_err(&"AssetSource does not have a processed AssetWriter registered");
                                     continue;
                                 };
 
@@ -1002,9 +986,7 @@ impl AssetProcessor {
             };
 
             if !state_is_valid {
-                error!(
-                    "Processed asset transaction log state was invalid and unrecoverable for some reason (see previous logs). Removing processed assets and starting fresh."
-                );
+                error!("Processed asset transaction log state was invalid and unrecoverable for some reason (see previous logs). Removing processed assets and starting fresh.");
                 for source in self.sources().iter_processed() {
                     let Ok(processed_writer) = source.processed_writer() else {
                         continue;
@@ -1013,9 +995,7 @@ impl AssetProcessor {
                         .remove_assets_in_directory(Path::new(""))
                         .await
                     {
-                        panic!(
-                            "Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}"
-                        );
+                        panic!("Processed assets were in a bad state. To correct this, the asset processor attempted to remove all processed assets and start from scratch. This failed. There is no way to continue. Try restarting, or deleting imported asset folder manually. {err}");
                     }
                 }
             }
@@ -1023,10 +1003,7 @@ impl AssetProcessor {
         let mut log = self.data.log.write().await;
         *log = match ProcessorTransactionLog::new().await {
             Ok(log) => Some(log),
-            Err(err) => panic!(
-                "Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset folder. {}",
-                err
-            ),
+            Err(err) => panic!("Failed to initialize asset processor log. This cannot be recovered. Try restarting. If that doesn't work, try deleting processed asset folder. {}", err),
         };
     }
 }

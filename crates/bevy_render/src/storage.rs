@@ -5,10 +5,10 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, AssetApp, AssetId};
-use bevy_ecs::system::{SystemParamItem, lifetimeless::SRes};
-use bevy_reflect::{Reflect, prelude::ReflectDefault};
+use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_utils::default;
-use encase::{ShaderType, internal::WriteInto};
+use encase::{internal::WriteInto, ShaderType};
 use wgpu::util::BufferInitDescriptor;
 
 /// Adds [`ShaderStorageBuffer`] as an asset that is extracted and uploaded to the GPU.

@@ -3,8 +3,8 @@ use bevy_ecs::prelude::*;
 
 #[cfg(feature = "serialize")]
 use serde::{
-    Deserialize, Deserializer, Serialize, Serializer,
     de::{Error, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
 };
 
 /// Maintains a count of frames rendered since the start of the application.
@@ -91,7 +91,7 @@ mod tests {
 mod serde_tests {
     use super::*;
 
-    use serde_test::{Token, assert_tokens};
+    use serde_test::{assert_tokens, Token};
 
     #[test]
     fn test_serde_frame_count() {

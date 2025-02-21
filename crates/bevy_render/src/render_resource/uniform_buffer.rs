@@ -5,12 +5,12 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
+    internal::{AlignmentValue, BufferMut, WriteInto},
     DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
-    internal::{AlignmentValue, BufferMut, WriteInto},
 };
 use wgpu::{
-    BindingResource, BufferBinding, BufferDescriptor, BufferUsages, util::BufferInitDescriptor,
+    util::BufferInitDescriptor, BindingResource, BufferBinding, BufferDescriptor, BufferUsages,
 };
 
 use super::IntoBinding;

@@ -7,13 +7,13 @@ use std::{
 pub use ui_test;
 
 use ui_test::{
-    Args, Config, OutputConflictHandling,
     color_eyre::eyre::eyre,
     default_file_filter, default_per_file_config,
     dependencies::DependencyBuilder,
     run_tests_generic,
     spanned::Spanned,
     status_emitter::{Gha, StatusEmitter, Text},
+    Args, Config, OutputConflictHandling,
 };
 
 /// Use this instead of hand rolling configs.

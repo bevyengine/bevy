@@ -7,8 +7,8 @@
 use bevy::{
     prelude::*,
     reflect::{
-        DynamicStruct, PartialReflect,
         serde::{ReflectDeserializer, ReflectSerializer},
+        DynamicStruct, PartialReflect,
     },
 };
 use serde::de::DeserializeSeed;

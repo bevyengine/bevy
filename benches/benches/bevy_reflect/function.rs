@@ -2,7 +2,7 @@ use core::hint::black_box;
 
 use benches::bench;
 use bevy_reflect::func::{ArgList, IntoFunction, IntoFunctionMut, TypedFunction};
-use criterion::{BatchSize, BenchmarkId, Criterion, criterion_group};
+use criterion::{criterion_group, BatchSize, BenchmarkId, Criterion};
 
 criterion_group!(
     benches,

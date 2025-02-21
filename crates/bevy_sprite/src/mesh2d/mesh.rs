@@ -1,12 +1,12 @@
 use bevy_app::Plugin;
-use bevy_asset::{AssetId, Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 
-use crate::{Material2dBindGroupId, tonemapping_pipeline_key};
+use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::tonemapping::DebandDither;
 use bevy_core_pipeline::{
-    core_2d::{AlphaMask2d, CORE_2D_DEPTH_FORMAT, Camera2d, Opaque2d, Transparent2d},
+    core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
-        Tonemapping, TonemappingLuts, get_lut_bind_group_layout_entries, get_lut_bindings,
+        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
     },
 };
 use bevy_derive::{Deref, DerefMut};
@@ -15,32 +15,31 @@ use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
-    system::{SystemParamItem, SystemState, lifetimeless::*},
+    system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
-use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::mesh::MeshTag;
 use bevy_render::prelude::Msaa;
+use bevy_render::RenderSet::PrepareAssets;
 use bevy_render::{
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     batching::{
-        GetBatchData, GetFullBatchData, NoAutomaticBatching,
         gpu_preprocessing::IndirectParametersCpuMetadata,
         no_gpu_preprocessing::{
-            self, BatchedInstanceBuffer, batch_and_prepare_binned_render_phase,
-            batch_and_prepare_sorted_render_phase, write_batched_instance_buffer,
+            self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+            write_batched_instance_buffer, BatchedInstanceBuffer,
         },
+        GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{
-        Mesh, Mesh2d, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
-        allocator::MeshAllocator,
+        allocator::MeshAllocator, Mesh, Mesh2d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMeshBufferInfo,
     },
     render_asset::RenderAssets,
     render_phase::{
-        PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult, TrackedRenderPass,
-        sweep_old_entities,
+        sweep_old_entities, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        TrackedRenderPass,
     },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
@@ -49,6 +48,7 @@ use bevy_render::{
     view::{
         ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
     },
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 use nonmax::NonMaxU32;

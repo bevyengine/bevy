@@ -1476,8 +1476,8 @@ mod tests {
 
     use crate::{
         change_detection::{
-            CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE, MaybeLocation, Mut, NonSendMut, Ref, ResMut,
-            TicksMut,
+            MaybeLocation, Mut, NonSendMut, Ref, ResMut, TicksMut, CHECK_TICK_THRESHOLD,
+            MAX_CHANGE_AGE,
         },
         component::{Component, ComponentTicks, Tick},
         system::{IntoSystem, Single, System},

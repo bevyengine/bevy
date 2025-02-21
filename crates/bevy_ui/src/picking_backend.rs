@@ -24,7 +24,7 @@
 
 #![deny(missing_docs)]
 
-use crate::{UiStack, focus::pick_rounded_rect, prelude::*};
+use crate::{focus::pick_rounded_rect, prelude::*, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::{Rect, Vec2};

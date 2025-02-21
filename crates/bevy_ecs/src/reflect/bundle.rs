@@ -17,7 +17,7 @@ use bevy_reflect::{
     FromReflect, FromType, PartialReflect, Reflect, ReflectRef, TypePath, TypeRegistry,
 };
 
-use super::{ReflectComponent, from_reflect_with_fallback};
+use super::{from_reflect_with_fallback, ReflectComponent};
 
 /// A struct used to operate on reflected [`Bundle`] trait of a type.
 ///

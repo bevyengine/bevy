@@ -1,7 +1,7 @@
 mod iter;
 mod send;
 
-use criterion::{Criterion, criterion_group};
+use criterion::{criterion_group, Criterion};
 
 criterion_group!(benches, send, iter);
 

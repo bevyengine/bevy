@@ -18,7 +18,7 @@ use bevy::{
     core_pipeline::Skybox,
     math::{uvec3, vec3},
     pbr::{
-        ExtendedMaterial, MaterialExtension, NotShadowCaster, irradiance_volume::IrradianceVolume,
+        irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
     },
     prelude::*,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},

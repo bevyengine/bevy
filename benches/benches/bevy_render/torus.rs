@@ -1,6 +1,6 @@
 use core::hint::black_box;
 
-use criterion::{Criterion, criterion_group};
+use criterion::{criterion_group, Criterion};
 
 use bevy_render::mesh::TorusMeshBuilder;
 

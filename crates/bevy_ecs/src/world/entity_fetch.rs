@@ -2,10 +2,10 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{Entity, EntityDoesNotExistError, hash_map::EntityHashMap, hash_set::EntityHashSet},
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet, Entity, EntityDoesNotExistError},
     world::{
-        EntityMut, EntityRef, EntityWorldMut, error::EntityMutableFetchError,
-        unsafe_world_cell::UnsafeWorldCell,
+        error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
+        EntityWorldMut,
     },
 };
 

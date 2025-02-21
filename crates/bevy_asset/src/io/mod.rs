@@ -30,7 +30,7 @@ use core::{
     task::{Context, Poll},
 };
 use futures_io::{AsyncRead, AsyncWrite};
-use futures_lite::{Stream, ready};
+use futures_lite::{ready, Stream};
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 

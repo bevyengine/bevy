@@ -5,11 +5,11 @@
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
 use crate::{
-    REFLECT_ATTRIBUTE_NAME, attribute_parser::terminated_parser,
-    custom_attributes::CustomAttributes,
+    attribute_parser::terminated_parser, custom_attributes::CustomAttributes,
+    REFLECT_ATTRIBUTE_NAME,
 };
 use quote::ToTokens;
-use syn::{Attribute, LitStr, Meta, Token, Type, parse::ParseStream};
+use syn::{parse::ParseStream, Attribute, LitStr, Meta, Token, Type};
 
 mod kw {
     syn::custom_keyword!(ignore);

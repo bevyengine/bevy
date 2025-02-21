@@ -5,10 +5,10 @@ use alloc::{
 };
 
 use crate::{
-    Asset, AssetPath, DeserializeMetaError, VisitAssetDependencies, loader::AssetLoader,
-    processor::Process,
+    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
+    VisitAssetDependencies,
 };
-use downcast_rs::{Downcast, impl_downcast};
+use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use tracing::error;

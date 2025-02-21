@@ -507,9 +507,7 @@ pub enum ChunkedUnevenCoreError {
     },
 
     /// Tried to infer the width, but the ratio of lengths wasn't an integer, so no such length exists.
-    #[error(
-        "The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})"
-    )]
+    #[error("The length of the list of values ({values_len}) was not divisible by that of the list of times ({times_len})")]
     NonDivisibleLengths {
         /// The length of the value buffer.
         values_len: usize,
@@ -700,7 +698,7 @@ mod tests {
     use super::{ChunkedUnevenCore, EvenCore, UnevenCore};
     use crate::curve::{cores::InterpolationDatum, interval};
     use alloc::vec;
-    use approx::{AbsDiffEq, assert_abs_diff_eq};
+    use approx::{assert_abs_diff_eq, AbsDiffEq};
 
     fn approx_between<T>(datum: InterpolationDatum<T>, start: T, end: T, p: f32) -> bool
     where

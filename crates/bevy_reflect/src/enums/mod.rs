@@ -50,22 +50,18 @@ mod tests {
             if let VariantInfo::Tuple(variant) = info.variant("B").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<usize>());
                 assert!(variant.field_at(1).unwrap().is::<i32>());
-                assert!(
-                    variant
-                        .field_at(0)
-                        .unwrap()
-                        .type_info()
-                        .unwrap()
-                        .is::<usize>()
-                );
-                assert!(
-                    variant
-                        .field_at(1)
-                        .unwrap()
-                        .type_info()
-                        .unwrap()
-                        .is::<i32>()
-                );
+                assert!(variant
+                    .field_at(0)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<usize>());
+                assert!(variant
+                    .field_at(1)
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<i32>());
             } else {
                 panic!("Expected `VariantInfo::Tuple`");
             }
@@ -76,14 +72,12 @@ mod tests {
             if let VariantInfo::Struct(variant) = info.variant("C").unwrap() {
                 assert!(variant.field_at(0).unwrap().is::<f32>());
                 assert!(variant.field("foo").unwrap().is::<f32>());
-                assert!(
-                    variant
-                        .field("foo")
-                        .unwrap()
-                        .type_info()
-                        .unwrap()
-                        .is::<f32>()
-                );
+                assert!(variant
+                    .field("foo")
+                    .unwrap()
+                    .type_info()
+                    .unwrap()
+                    .is::<f32>());
             } else {
                 panic!("Expected `VariantInfo::Struct`");
             }
@@ -235,16 +229,14 @@ mod tests {
         let value: &dyn Enum = &MyEnum::B(123, 321);
         assert_eq!(2, value.field_len());
         let mut iter = value.iter_fields();
-        assert!(
-            iter.next()
-                .and_then(|field| field.value().reflect_partial_eq(&123_usize))
-                .unwrap_or_default()
-        );
-        assert!(
-            iter.next()
-                .and_then(|field| field.value().reflect_partial_eq(&321_i32))
-                .unwrap_or_default()
-        );
+        assert!(iter
+            .next()
+            .and_then(|field| field.value().reflect_partial_eq(&123_usize))
+            .unwrap_or_default());
+        assert!(iter
+            .next()
+            .and_then(|field| field.value().reflect_partial_eq(&321_i32))
+            .unwrap_or_default());
 
         // === Struct === //
         let value: &dyn Enum = &MyEnum::C {
@@ -253,22 +245,20 @@ mod tests {
         };
         assert_eq!(2, value.field_len());
         let mut iter = value.iter_fields();
-        assert!(
-            iter.next()
-                .and_then(|field| field
-                    .value()
-                    .reflect_partial_eq(&1.23_f32)
-                    .and(field.name().map(|name| name == "foo")))
-                .unwrap_or_default()
-        );
-        assert!(
-            iter.next()
-                .and_then(|field| field
-                    .value()
-                    .reflect_partial_eq(&true)
-                    .and(field.name().map(|name| name == "bar")))
-                .unwrap_or_default()
-        );
+        assert!(iter
+            .next()
+            .and_then(|field| field
+                .value()
+                .reflect_partial_eq(&1.23_f32)
+                .and(field.name().map(|name| name == "foo")))
+            .unwrap_or_default());
+        assert!(iter
+            .next()
+            .and_then(|field| field
+                .value()
+                .reflect_partial_eq(&true)
+                .and(field.name().map(|name| name == "bar")))
+            .unwrap_or_default());
     }
 
     #[test]
@@ -512,55 +502,45 @@ mod tests {
 
         // === MyEnum::A -> MyEnum::B === //
         value.apply(&MyEnum::B(123, 321));
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::B(123, 321))
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::B === //
         value.apply(&MyEnum::B(321, 123));
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::B(321, 123))
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(321, 123))
+            .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::C === //
         value.apply(&MyEnum::C {
             foo: 1.23,
             bar: true,
         });
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::C {
-                    foo: 1.23,
-                    bar: true
-                })
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 1.23,
+                bar: true
+            })
+            .unwrap_or_default());
 
         // === MyEnum::C -> MyEnum::C === //
         value.apply(&MyEnum::C {
             foo: 3.21,
             bar: false,
         });
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::C {
-                    foo: 3.21,
-                    bar: false
-                })
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 3.21,
+                bar: false
+            })
+            .unwrap_or_default());
 
         // === MyEnum::C -> MyEnum::B === //
         value.apply(&MyEnum::B(123, 321));
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::B(123, 321))
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::A === //
         value.apply(&MyEnum::A);
@@ -577,19 +557,15 @@ mod tests {
 
         // === MyEnum::A -> MyEnum::B === //
         value.set(Box::new(MyEnum::B(123, 321))).unwrap();
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::B(123, 321))
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::B === //
         value.set(Box::new(MyEnum::B(321, 123))).unwrap();
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::B(321, 123))
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(321, 123))
+            .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::C === //
         value
@@ -598,14 +574,12 @@ mod tests {
                 bar: true,
             }))
             .unwrap();
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::C {
-                    foo: 1.23,
-                    bar: true
-                })
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 1.23,
+                bar: true
+            })
+            .unwrap_or_default());
 
         // === MyEnum::C -> MyEnum::C === //
         value
@@ -614,22 +588,18 @@ mod tests {
                 bar: false,
             }))
             .unwrap();
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::C {
-                    foo: 3.21,
-                    bar: false
-                })
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::C {
+                foo: 3.21,
+                bar: false
+            })
+            .unwrap_or_default());
 
         // === MyEnum::C -> MyEnum::B === //
         value.set(Box::new(MyEnum::B(123, 321))).unwrap();
-        assert!(
-            value
-                .reflect_partial_eq(&MyEnum::B(123, 321))
-                .unwrap_or_default()
-        );
+        assert!(value
+            .reflect_partial_eq(&MyEnum::B(123, 321))
+            .unwrap_or_default());
 
         // === MyEnum::B -> MyEnum::A === //
         value.set(Box::new(MyEnum::A)).unwrap();

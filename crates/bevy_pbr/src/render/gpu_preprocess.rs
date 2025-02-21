@@ -9,7 +9,7 @@
 use core::num::{NonZero, NonZeroU64};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     experimental::mip_generation::ViewDepthPyramid,
@@ -23,14 +23,13 @@ use bevy_ecs::{
     query::{Has, Or, QueryState, With, Without},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Commands, Query, Res, ResMut, lifetimeless::Read},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_render::batching::gpu_preprocessing::{
     IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
 };
 use bevy_render::{
-    Render, RenderApp, RenderSet,
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
         IndirectBatchSet, IndirectParametersBuffers, IndirectParametersCpuMetadata,
@@ -41,24 +40,25 @@ use bevy_render::{
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{Node, NodeRunError, RenderGraphApp, RenderGraphContext},
     render_resource::{
+        binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
         DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec, Shader,
         ShaderStages, ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
         TextureSampleType, UninitBufferVec,
-        binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
+    Render, RenderApp, RenderSet,
 };
 use bevy_utils::TypeIdMap;
 use bitflags::bitflags;
-use smallvec::{SmallVec, smallvec};
+use smallvec::{smallvec, SmallVec};
 use tracing::warn;
 
 use crate::{
-    MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform, graph::NodePbr,
+    graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
 };
 
 use super::{ShadowView, ViewLightEntities};

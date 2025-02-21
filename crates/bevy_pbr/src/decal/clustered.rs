@@ -17,11 +17,11 @@
 use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetId, Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{Component, require},
-    entity::{Entity, hash_map::EntityHashMap},
+    component::{require, Component},
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::ReflectComponent,
     query::With,
     resource::Resource,
@@ -33,23 +33,23 @@ use bevy_math::Mat4;
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_resource::{
-        BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
-        SamplerBindingType, Shader, ShaderType, TextureSampleType, TextureView, binding_types,
+        binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
+        SamplerBindingType, Shader, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::{self, ViewVisibility, Visibility, VisibilityClass},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    GlobalClusterableObjectMeta, LightVisibilityClass, binding_arrays_are_usable, prepare_lights,
+    binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta, LightVisibilityClass,
 };
 
 /// The handle to the `clustered.wgsl` shader.

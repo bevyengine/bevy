@@ -16,9 +16,9 @@
 pub mod ray_cast;
 
 use crate::{
-    PickSet,
-    backend::{HitData, PointerHits, ray::RayMap},
+    backend::{ray::RayMap, HitData, PointerHits},
     prelude::*,
+    PickSet,
 };
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;

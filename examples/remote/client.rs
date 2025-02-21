@@ -4,10 +4,10 @@
 use anyhow::Result as AnyhowResult;
 use argh::FromArgs;
 use bevy::remote::{
-    BrpRequest,
-    builtin_methods::{BRP_QUERY_METHOD, BrpQuery, BrpQueryFilter, BrpQueryParams},
+    builtin_methods::{BrpQuery, BrpQueryFilter, BrpQueryParams, BRP_QUERY_METHOD},
     http::DEFAULT_ADDR,
     http::DEFAULT_PORT,
+    BrpRequest,
 };
 
 /// Struct containing the command-line arguments that can be passed to this example.

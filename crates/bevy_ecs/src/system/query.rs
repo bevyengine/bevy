@@ -2596,12 +2596,10 @@ mod tests {
         // We don't care about aliased mutability for the read-only equivalent
 
         // SAFETY: Query does not access world data.
-        assert!(
-            query_state
-                .query_mut(&mut world)
-                .get_many_inner::<10>(entities.clone().try_into().unwrap())
-                .is_ok()
-        );
+        assert!(query_state
+            .query_mut(&mut world)
+            .get_many_inner::<10>(entities.clone().try_into().unwrap())
+            .is_ok());
 
         assert_eq!(
             query_state

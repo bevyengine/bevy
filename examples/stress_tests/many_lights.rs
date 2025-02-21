@@ -9,11 +9,11 @@ use bevy::{
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
-    render::{Render, RenderApp, RenderSet, camera::ScalingMode},
+    render::{camera::ScalingMode, Render, RenderApp, RenderSet},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{Rng, thread_rng};
+use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()

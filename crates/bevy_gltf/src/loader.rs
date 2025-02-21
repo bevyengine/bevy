@@ -1,15 +1,15 @@
 use crate::{
-    Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfNode, GltfSceneExtras, GltfSkin, vertex_attributes::convert_attribute,
+    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
+    GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 use bevy_asset::{
-    AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError, io::Reader,
+    io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
 use bevy_color::{Color, LinearRgba};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
-    entity::{Entity, hash_map::EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     hierarchy::ChildSpawner,
     name::Name,
     world::World,
@@ -20,17 +20,17 @@ use bevy_image::{
 };
 use bevy_math::{Affine2, Mat4, Vec3};
 use bevy_pbr::{
-    DirectionalLight, MAX_JOINTS, MeshMaterial3d, PointLight, SpotLight, StandardMaterial,
-    UvChannel,
+    DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, UvChannel,
+    MAX_JOINTS,
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     alpha::AlphaMode,
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     mesh::{
-        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
         morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
     },
     primitives::Aabb,
     render_asset::RenderAssetUsages,
@@ -43,12 +43,12 @@ use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 use fixedbitset::FixedBitSet;
 use gltf::{
-    Document, Material, Node, Primitive, Semantic,
     accessor::Iter,
     image::Source,
     json,
-    mesh::{Mode, util::ReadIndices},
+    mesh::{util::ReadIndices, Mode},
     texture::{Info, MagFilter, MinFilter, TextureTransform, WrappingMode},
+    Document, Material, Node, Primitive, Semantic,
 };
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ use serde::{Deserialize, Serialize};
     feature = "pbr_multi_layer_material_textures"
 ))]
 use serde_json::Map;
-use serde_json::{Value, value};
+use serde_json::{value, Value};
 use std::{
     io::Error,
     path::{Path, PathBuf},
@@ -66,7 +66,7 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 #[cfg(feature = "bevy_animation")]
 use {
-    bevy_animation::{AnimationTarget, AnimationTargetId, prelude::*},
+    bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId},
     smallvec::SmallVec,
 };
 
@@ -275,10 +275,10 @@ async fn load_gltf<'a, 'b, 'c>(
 
     #[cfg(feature = "bevy_animation")]
     let (animations, named_animations, animation_roots) = {
-        use bevy_animation::{VariableCurve, animated_field, animation_curves::*, gltf_curves::*};
+        use bevy_animation::{animated_field, animation_curves::*, gltf_curves::*, VariableCurve};
         use bevy_math::{
-            Quat, Vec4,
             curve::{ConstantCurve, Interval, UnevenSampleAutoCurve},
+            Quat, Vec4,
         };
         use gltf::animation::util::ReadOutputs;
         let mut animations = vec![];
@@ -653,15 +653,13 @@ async fn load_gltf<'a, 'b, 'c>(
                 if [Semantic::Joints(0), Semantic::Weights(0)].contains(&semantic) {
                     if !meshes_on_skinned_nodes.contains(&gltf_mesh.index()) {
                         warn!(
-                            "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
-                            semantic, primitive_label
-                        );
+                        "Ignoring attribute {:?} for skinned mesh {} used on non skinned nodes (NODE_SKINNED_MESH_WITHOUT_SKIN)",
+                        semantic,
+                        primitive_label
+                    );
                         continue;
                     } else if meshes_on_non_skinned_nodes.contains(&gltf_mesh.index()) {
-                        error!(
-                            "Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)",
-                            primitive_label
-                        );
+                        error!("Skinned mesh {} used on both skinned and non skin nodes, this is likely to cause an error (NODE_SKINNED_MESH_WITHOUT_SKIN)", primitive_label);
                     }
                 }
                 match convert_attribute(
@@ -719,11 +717,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 mesh.compute_flat_normals();
                 let vertex_count_after = mesh.count_vertices();
                 if vertex_count_before != vertex_count_after {
-                    tracing::debug!(
-                        "Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}",
-                        vertex_count_before,
-                        vertex_count_after
-                    );
+                    tracing::debug!("Missing vertex normals in indexed geometry, computing them as flat. Vertex count increased from {} to {}", vertex_count_before, vertex_count_after);
                 } else {
                     tracing::debug!(
                         "Missing vertex normals in indexed geometry, computing them as flat."
@@ -740,8 +734,7 @@ async fn load_gltf<'a, 'b, 'c>(
                 && material_needs_tangents(&primitive.material())
             {
                 tracing::debug!(
-                    "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.",
-                    file_name
+                    "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
                 );
 
                 let generate_tangents_span = info_span!("generate_tangents", name = file_name);
@@ -1420,8 +1413,7 @@ fn warn_on_differing_texture_transforms(
             .unwrap_or_else(|| "default".to_string());
         warn!(
             "Only texture transforms on base color textures are supported, but {material_name} ({material_index}) \
-            has a texture transform on {texture_name} (index {}), which will be ignored.",
-            info.texture().index()
+            has a texture transform on {texture_name} (index {}), which will be ignored.", info.texture().index()
         );
     }
 }
@@ -1996,9 +1988,9 @@ impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
     type Item = MorphAttributes;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let position = self.0.0.as_mut().and_then(Iterator::next);
-        let normal = self.0.1.as_mut().and_then(Iterator::next);
-        let tangent = self.0.2.as_mut().and_then(Iterator::next);
+        let position = self.0 .0.as_mut().and_then(Iterator::next);
+        let normal = self.0 .1.as_mut().and_then(Iterator::next);
+        let tangent = self.0 .2.as_mut().and_then(Iterator::next);
         if position.is_none() && normal.is_none() && tangent.is_none() {
             return None;
         }
@@ -2391,15 +2383,15 @@ mod test {
     use crate::{Gltf, GltfAssetLabel, GltfNode, GltfSkin};
     use bevy_app::{App, TaskPoolPlugin};
     use bevy_asset::{
-        AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
         io::{
-            AssetSource, AssetSourceId,
             memory::{Dir, MemoryAssetReader},
+            AssetSource, AssetSourceId,
         },
+        AssetApp, AssetPlugin, AssetServer, Assets, Handle, LoadState,
     };
     use bevy_ecs::{resource::Resource, world::World};
     use bevy_log::LogPlugin;
-    use bevy_render::mesh::{MeshPlugin, skinning::SkinnedMeshInverseBindposes};
+    use bevy_render::mesh::{skinning::SkinnedMeshInverseBindposes, MeshPlugin};
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {

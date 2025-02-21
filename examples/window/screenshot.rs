@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    render::view::screenshot::{Capturing, Screenshot, save_to_disk},
+    render::view::screenshot::{save_to_disk, Capturing, Screenshot},
     window::SystemCursorIcon,
     winit::cursor::CursorIcon,
 };

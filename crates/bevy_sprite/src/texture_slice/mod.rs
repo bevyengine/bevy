@@ -7,7 +7,7 @@ pub use border_rect::BorderRect;
 pub use slicer::{SliceScaleMode, TextureSlicer};
 
 pub(crate) use computed_slices::{
-    ComputedTextureSlices, compute_slices_on_asset_event, compute_slices_on_sprite_change,
+    compute_slices_on_asset_event, compute_slices_on_sprite_change, ComputedTextureSlices,
 };
 
 /// Single texture slice, representing a texture rect to draw in a given area
@@ -86,10 +86,7 @@ impl TextureSlice {
             remaining_columns -= size_y;
         }
         if slices.len() > 1_000 {
-            tracing::warn!(
-                "One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost",
-                slices.len()
-            );
+            tracing::warn!("One of your tiled textures has generated {} slices. You might want to use higher stretch values to avoid a great performance cost", slices.len());
         }
         slices
     }

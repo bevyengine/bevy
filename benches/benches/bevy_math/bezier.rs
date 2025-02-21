@@ -1,8 +1,8 @@
 use benches::bench;
-use bevy_math::{VectorSpace, prelude::*};
+use bevy_math::{prelude::*, VectorSpace};
 use core::hint::black_box;
 use criterion::{
-    BatchSize, BenchmarkGroup, BenchmarkId, Criterion, criterion_group, measurement::Measurement,
+    criterion_group, measurement::Measurement, BatchSize, BenchmarkGroup, BenchmarkId, Criterion,
 };
 
 criterion_group!(benches, segment_ease, curve_position, curve_iter_positions);

@@ -15,11 +15,11 @@ use bevy_ecs::{
     prelude::require,
     system::{Commands, Query},
 };
-use bevy_math::Vec2;
 use bevy_math::ops;
+use bevy_math::Vec2;
 use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use derive_more::derive::From;
@@ -267,11 +267,7 @@ pub enum AxisSettingsError {
     #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
     LiveZoneUpperBoundOutOfRange(f32),
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
-    #[error(
-        "invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound",
-        livezone_lowerbound,
-        deadzone_lowerbound
-    )]
+    #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
         /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
@@ -279,11 +275,7 @@ pub enum AxisSettingsError {
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
-    #[error(
-        "invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound",
-        livezone_upperbound,
-        deadzone_upperbound
-    )]
+    #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
         /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
@@ -305,11 +297,7 @@ pub enum ButtonSettingsError {
     #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
     PressThresholdOutOfRange(f32),
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
-    #[error(
-        "invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold",
-        release_threshold,
-        press_threshold
-    )]
+    #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
         /// The value of the `press_threshold` parameter.
         press_threshold: f32,
@@ -1488,10 +1476,7 @@ pub fn gamepad_connection_system(
             }
             GamepadConnection::Disconnected => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!(
-                        "Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.",
-                        id
-                    );
+                    warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
                 // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
@@ -1766,13 +1751,13 @@ impl GamepadRumbleRequest {
 #[cfg(test)]
 mod tests {
     use super::{
-        AxisSettings, AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError,
-        Gamepad, GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
+        gamepad_connection_system, gamepad_event_processing_system, AxisSettings,
+        AxisSettingsError, ButtonAxisSettings, ButtonSettings, ButtonSettingsError, Gamepad,
+        GamepadAxis, GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent,
         GamepadButtonStateChangedEvent,
         GamepadConnection::{Connected, Disconnected},
         GamepadConnectionEvent, GamepadEvent, GamepadSettings, RawGamepadAxisChangedEvent,
-        RawGamepadButtonChangedEvent, RawGamepadEvent, gamepad_connection_system,
-        gamepad_event_processing_system,
+        RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
     use crate::ButtonState;
     use alloc::string::ToString;
@@ -1850,8 +1835,7 @@ mod tests {
     ) {
         let actual = settings.filter(new_raw_value, old_raw_value);
         assert_eq!(
-            expected,
-            actual.map(|f| f.scaled.to_f32()),
+            expected, actual.map(|f| f.scaled.to_f32()),
             "Testing filtering for {settings:?} with new_raw_value = {new_raw_value:?}, old_raw_value = {old_raw_value:?}",
         );
     }
@@ -2259,39 +2243,35 @@ mod tests {
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
         // Gamepad component should be removed
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .is_err()
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .is_err());
         // Settings should be kept
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&GamepadSettings>()
-                .get(ctx.app.world(), entity)
-                .is_ok()
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&GamepadSettings>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
 
         // Mistakenly sending a second disconnection event shouldn't break anything
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .is_err()
-        );
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&GamepadSettings>()
-                .get(ctx.app.world(), entity)
-                .is_ok()
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .is_err());
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&GamepadSettings>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
     }
 
     #[test]
@@ -2309,21 +2289,19 @@ mod tests {
         ctx.send_gamepad_disconnection_event(entity);
         ctx.update();
         // Gamepad component should be removed
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .is_err()
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .is_err());
         // Settings should be kept
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&GamepadSettings>()
-                .get(ctx.app.world(), entity)
-                .is_ok()
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&GamepadSettings>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
     }
 
     #[test]
@@ -2391,13 +2369,12 @@ mod tests {
                 .len(),
             0
         );
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<(Entity, &GamepadSettings)>()
-                .get(ctx.app.world(), entity)
-                .is_ok()
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<(Entity, &GamepadSettings)>()
+            .get(ctx.app.world(), entity)
+            .is_ok());
     }
 
     #[test]
@@ -2707,14 +2684,13 @@ mod tests {
             assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Pressed);
         }
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .pressed(GamepadButton::DPadDown)
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
 
         ctx.app
             .world_mut()
@@ -2729,14 +2705,13 @@ mod tests {
                 .len(),
             0
         );
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .pressed(GamepadButton::DPadDown)
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
     }
 
     #[test]
@@ -2755,25 +2730,23 @@ mod tests {
         ctx.update();
 
         // Check it is flagged for this frame
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .just_pressed(GamepadButton::DPadDown)
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_pressed(GamepadButton::DPadDown));
         ctx.update();
 
         //Check it clears next frame
-        assert!(
-            !ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .just_pressed(GamepadButton::DPadDown)
-        );
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_pressed(GamepadButton::DPadDown));
     }
     #[test]
     fn gamepad_buttons_released() {
@@ -2816,14 +2789,13 @@ mod tests {
             assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Released);
         }
-        assert!(
-            !ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .pressed(GamepadButton::DPadDown)
-        );
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
         ctx.app
             .world_mut()
             .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
@@ -2862,25 +2834,23 @@ mod tests {
         ctx.update();
 
         // Check it is flagged for this frame
-        assert!(
-            ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .just_released(GamepadButton::DPadDown)
-        );
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_released(GamepadButton::DPadDown));
         ctx.update();
 
         //Check it clears next frame
-        assert!(
-            !ctx.app
-                .world_mut()
-                .query::<&Gamepad>()
-                .get(ctx.app.world(), entity)
-                .unwrap()
-                .just_released(GamepadButton::DPadDown)
-        );
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_released(GamepadButton::DPadDown));
     }
 
     #[test]

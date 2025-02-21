@@ -1,4 +1,4 @@
-use super::{BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT, Bloom};
+use super::{Bloom, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},

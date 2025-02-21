@@ -9,7 +9,7 @@ use std::eprintln;
 
 use crate::{
     result::{Error, SystemErrorContext},
-    schedule::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule, is_apply_deferred},
+    schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 

@@ -1,8 +1,8 @@
 use crate::io::{
-    AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward, PathStream,
-    Reader, Writer, get_meta_path,
+    get_meta_path, AssetReader, AssetReaderError, AssetWriter, AssetWriterError, AsyncSeekForward,
+    PathStream, Reader, Writer,
 };
-use async_fs::{File, read_dir};
+use async_fs::{read_dir, File};
 use futures_io::AsyncSeek;
 use futures_lite::StreamExt;
 

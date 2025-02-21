@@ -27,12 +27,12 @@ use crate::{
     result::Error,
     schedule::ScheduleLabel,
     system::{
-        Deferred, IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId, command::HandleError,
-        entity_command::CommandWithEntity, input::SystemInput,
+        command::HandleError, entity_command::CommandWithEntity, input::SystemInput, Deferred,
+        IntoObserverSystem, IntoSystem, RegisteredSystem, SystemId,
     },
     world::{
-        CommandQueue, EntityWorldMut, FromWorld, World, command_queue::RawCommandQueue,
-        unsafe_world_cell::UnsafeWorldCell,
+        command_queue::RawCommandQueue, unsafe_world_cell::UnsafeWorldCell, CommandQueue,
+        EntityWorldMut, FromWorld, World,
     },
 };
 
@@ -2201,7 +2201,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        component::{Component, require},
+        component::{require, Component},
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},

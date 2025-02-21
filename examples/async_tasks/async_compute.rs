@@ -4,7 +4,7 @@
 use bevy::{
     ecs::{system::SystemState, world::CommandQueue},
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task, block_on, futures_lite::future},
+    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
 use rand::Rng;
 use std::time::Duration;

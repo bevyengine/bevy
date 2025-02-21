@@ -1,8 +1,9 @@
 use proc_macro2::Ident;
 use syn::{
-    Generics, Path, PathSegment, Token, parenthesized,
+    parenthesized,
     parse::{Parse, ParseStream},
     token::Paren,
+    Generics, Path, PathSegment, Token,
 };
 
 pub(crate) fn parse_path_no_leading_colon(input: ParseStream) -> syn::Result<Path> {

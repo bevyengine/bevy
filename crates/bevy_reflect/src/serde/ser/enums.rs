@@ -1,10 +1,10 @@
 use crate::{
+    serde::{ser::error_utils::make_custom_error, TypedReflectSerializer},
     Enum, TypeInfo, TypeRegistry, VariantInfo, VariantType,
-    serde::{TypedReflectSerializer, ser::error_utils::make_custom_error},
 };
 use serde::{
-    Serialize,
     ser::{SerializeStructVariant, SerializeTupleVariant},
+    Serialize,
 };
 
 use super::ReflectSerializerProcessor;

@@ -8,8 +8,8 @@ use core::{any::TypeId, ptr::NonNull};
 use alloc::boxed::Box;
 
 use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
-use crate::entity::EntityMapper;
 use crate::entity::hash_map::EntityHashMap;
+use crate::entity::EntityMapper;
 use crate::system::Commands;
 use crate::{
     bundle::Bundle,
@@ -817,7 +817,7 @@ mod tests {
     use super::ComponentCloneCtx;
     use crate::{
         component::{Component, ComponentCloneBehavior, ComponentDescriptor, StorageType},
-        entity::{Entity, EntityCloner, hash_map::EntityHashMap},
+        entity::{hash_map::EntityHashMap, Entity, EntityCloner},
         prelude::{ChildOf, Children, Resource},
         reflect::AppTypeRegistry,
         reflect::{ReflectComponent, ReflectFromWorld},
@@ -840,7 +840,7 @@ mod tests {
             system::Commands,
         };
         use alloc::vec;
-        use bevy_reflect::{FromType, Reflect, ReflectFromPtr, std_traits::ReflectDefault};
+        use bevy_reflect::{std_traits::ReflectDefault, FromType, Reflect, ReflectFromPtr};
 
         #[test]
         fn clone_entity_using_reflect() {
@@ -989,11 +989,9 @@ mod tests {
 
             EntityCloner::build(&mut world).clone_entity(e, e_clone);
 
-            assert!(
-                world
-                    .get::<A>(e_clone)
-                    .is_some_and(|comp| *comp == A { field: 10 })
-            );
+            assert!(world
+                .get::<A>(e_clone)
+                .is_some_and(|comp| *comp == A { field: 10 }));
         }
 
         #[test]

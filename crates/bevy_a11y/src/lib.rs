@@ -33,8 +33,8 @@ use bevy_ecs::{
 
 #[cfg(feature = "bevy_reflect")]
 use {
-    bevy_ecs::reflect::ReflectResource, bevy_reflect::Reflect,
-    bevy_reflect::std_traits::ReflectDefault,
+    bevy_ecs::reflect::ReflectResource, bevy_reflect::std_traits::ReflectDefault,
+    bevy_reflect::Reflect,
 };
 
 #[cfg(feature = "serialize")]

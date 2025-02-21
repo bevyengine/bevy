@@ -1,52 +1,52 @@
 //! Screen space reflections implemented via raymarching.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::{
-        DEPTH_TEXTURE_SAMPLING_SUPPORTED,
         graph::{Core3d, Node3d},
+        DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
     fullscreen_vertex_shader,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{Component, require},
+    component::{require, Component},
     entity::Entity,
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Commands, Query, Res, ResMut, lifetimeless::Read},
+    system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::render_graph::RenderGraph;
 use bevy_render::{
-    Render, RenderApp, RenderSet,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
     render_resource::{
-        AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
+        binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
         FragmentState, Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
         ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType, binding_types,
+        TextureFormat, TextureSampleType,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
+    Render, RenderApp, RenderSet,
 };
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
+    binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
     MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, binding_arrays_are_usable, graph::NodePbr,
-    prelude::EnvironmentMapLight,
+    ViewLightsUniformOffset,
 };
 
 const SSR_SHADER_HANDLE: Handle<Shader> = weak_handle!("0b559df2-0d61-4f53-bf62-aea16cf32787");

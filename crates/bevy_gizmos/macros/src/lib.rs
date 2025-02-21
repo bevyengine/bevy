@@ -5,7 +5,7 @@
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{DeriveInput, Path, parse_macro_input, parse_quote};
+use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
 
 /// Implements the [`GizmoConfigGroup`] trait for a gizmo config group type.
 #[proc_macro_derive(GizmoConfigGroup)]

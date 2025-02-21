@@ -3,8 +3,8 @@
 use bevy::{
     color::palettes::basic::*,
     input_focus::{
-        InputDispatchPlugin, InputFocus,
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
+        InputDispatchPlugin, InputFocus,
     },
     prelude::*,
     winit::WinitSettings,

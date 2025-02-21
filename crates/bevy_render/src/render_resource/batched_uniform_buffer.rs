@@ -5,8 +5,8 @@ use crate::{
 };
 use core::{marker::PhantomData, num::NonZero};
 use encase::{
-    ShaderType,
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
+    ShaderType,
 };
 use nonmax::NonMaxU32;
 use wgpu::{BindingResource, Limits};

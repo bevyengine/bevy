@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
 use bevy_ecs::{
-    component::{Component, require},
+    component::{require, Component},
     reflect::ReflectComponent,
 };
 use bevy_reflect::Reflect;
@@ -12,19 +12,19 @@ use bevy_transform::components::Transform;
 
 #[cfg(feature = "bevy_render")]
 use {
-    crate::{LineGizmoUniform, config::GizmoLineJoint},
+    crate::{config::GizmoLineJoint, LineGizmoUniform},
     bevy_ecs::{
         entity::Entity,
         system::{Commands, Local, Query},
     },
-    bevy_render::{Extract, view::RenderLayers},
+    bevy_render::{view::RenderLayers, Extract},
     bevy_transform::components::GlobalTransform,
 };
 
 use crate::{
-    GizmoAsset,
     config::{ErasedGizmoConfigGroup, GizmoLineConfig},
     gizmos::GizmoBuffer,
+    GizmoAsset,
 };
 
 impl Deref for GizmoAsset {
@@ -125,14 +125,10 @@ pub(crate) fn extract_linegizmos(
         } = gizmo.line_config.style
         {
             if gap_scale <= 0.0 {
-                once!(warn!(
-                    "when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero"
-                ));
+                once!(warn!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero"));
             }
             if line_scale <= 0.0 {
-                once!(warn!(
-                    "when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero"
-                ));
+                once!(warn!("when using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero"));
             }
             (gap_scale, line_scale)
         } else {

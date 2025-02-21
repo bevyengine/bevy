@@ -50,7 +50,7 @@ use bevy_window::Window;
 use tracing::debug;
 
 use crate::{
-    backend::{HitData, prelude::PointerLocation},
+    backend::{prelude::PointerLocation, HitData},
     hover::{HoverMap, PreviousHoverMap},
     pointer::{Location, PointerAction, PointerButton, PointerId, PointerInput, PointerMap},
 };

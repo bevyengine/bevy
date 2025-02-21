@@ -1,6 +1,6 @@
 use crate::{
-    Alpha, ColorToComponents, Gray, LinearRgba, Luminance, Mix, StandardColor,
-    impl_componentwise_vector_space,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, LinearRgba, Luminance, Mix,
+    StandardColor,
 };
 use bevy_math::{Vec3, Vec4};
 #[cfg(feature = "bevy_reflect")]
@@ -245,8 +245,8 @@ impl From<Xyza> for LinearRgba {
 mod tests {
     use super::*;
     use crate::{
-        Srgba, color_difference::EuclideanDistance, test_colors::TEST_COLORS,
-        testing::assert_approx_eq,
+        color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
+        Srgba,
     };
 
     #[test]

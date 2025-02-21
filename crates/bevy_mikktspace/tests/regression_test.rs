@@ -5,7 +5,7 @@
     clippy::useless_conversion
 )]
 
-use bevy_mikktspace::{Geometry, generate_tangents};
+use bevy_mikktspace::{generate_tangents, Geometry};
 use glam::{Vec2, Vec3};
 
 pub type Face = [u32; 3];

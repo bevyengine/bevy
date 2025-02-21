@@ -1,6 +1,6 @@
 //! This module contains abstract mathematical traits shared by types used in `bevy_math`.
 
-use crate::{Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4, ops};
+use crate::{ops, Dir2, Dir3, Dir3A, Quat, Rot2, Vec2, Vec3, Vec3A, Vec4};
 use core::{
     fmt::Debug,
     ops::{Add, Div, Mul, Neg, Sub},

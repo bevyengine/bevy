@@ -6,8 +6,8 @@ use crate::primitives::dim3::GizmoPrimitive3d;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
-    Color, Oklcha,
     palettes::basic::{BLUE, GREEN, RED},
+    Color, Oklcha,
 };
 use bevy_ecs::{
     component::Component,
@@ -18,17 +18,18 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_math::{
-    Isometry3d, Quat, Vec3, ops,
+    ops,
     primitives::{Cone, Sphere},
+    Isometry3d, Quat, Vec3,
 };
 use bevy_pbr::{DirectionalLight, PointLight, SpotLight};
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
-use bevy_transform::{TransformSystem, components::GlobalTransform};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_transform::{components::GlobalTransform, TransformSystem};
 
 use crate::{
-    AppGizmoBuilder,
     config::{GizmoConfigGroup, GizmoConfigStore},
     gizmos::Gizmos,
+    AppGizmoBuilder,
 };
 
 /// Draws a standard sphere for the radius and an axis sphere for the range.

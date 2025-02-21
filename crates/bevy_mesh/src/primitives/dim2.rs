@@ -1,15 +1,16 @@
 use core::f32::consts::FRAC_PI_2;
 
-use crate::{Indices, Mesh, PerimeterSegment, primitives::dim3::triangle3d};
+use crate::{primitives::dim3::triangle3d, Indices, Mesh, PerimeterSegment};
 use bevy_asset::RenderAssetUsages;
 
 use super::{Extrudable, MeshBuilder, Meshable};
 use bevy_math::{
-    FloatExt, Vec2, ops,
+    ops,
     primitives::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
         Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
     },
+    FloatExt, Vec2,
 };
 use bevy_reflect::prelude::*;
 use wgpu_types::PrimitiveTopology;
@@ -1174,7 +1175,7 @@ impl From<Capsule2d> for Mesh {
 
 #[cfg(test)]
 mod tests {
-    use bevy_math::{FloatOrd, prelude::Annulus, primitives::RegularPolygon};
+    use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
     use bevy_platform_support::collections::HashSet;
 
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};

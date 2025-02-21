@@ -6,8 +6,8 @@ use crate::system::IntoSystem;
 use crate::world::World;
 
 use super::{
-    ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError, ScheduleBuildPass,
-    ScheduleGraph, SystemNode, is_apply_deferred,
+    is_apply_deferred, ApplyDeferred, DiGraph, Direction, NodeId, ReportCycles, ScheduleBuildError,
+    ScheduleBuildPass, ScheduleGraph, SystemNode,
 };
 
 /// A [`ScheduleBuildPass`] that inserts [`ApplyDeferred`] systems into the schedule graph

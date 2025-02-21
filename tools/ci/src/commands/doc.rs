@@ -1,6 +1,6 @@
 use crate::{
-    Flag, Prepare, PreparedCommand,
     commands::{DocCheckCommand, DocTestCommand},
+    Flag, Prepare, PreparedCommand,
 };
 use argh::FromArgs;
 

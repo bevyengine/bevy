@@ -5,7 +5,7 @@ use bevy_ecs::{component::HookContext, prelude::*, world::DeferredWorld};
 use crate::InputFocus;
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{Reflect, prelude::*};
+use bevy_reflect::{prelude::*, Reflect};
 
 /// Indicates that this widget should automatically receive [`InputFocus`].
 ///

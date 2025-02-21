@@ -47,24 +47,24 @@ pub mod prelude {
 
 pub use bevy_utils::once;
 pub use tracing::{
-    self, Level, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
-    warn_span,
+    self, debug, debug_span, error, error_span, info, info_span, trace, trace_span, warn,
+    warn_span, Level,
 };
 pub use tracing_subscriber;
 
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 use tracing_subscriber::{
-    EnvFilter, Layer,
     filter::{FromEnvError, ParseError},
     prelude::*,
     registry::Registry,
+    EnvFilter, Layer,
 };
 #[cfg(feature = "tracing-chrome")]
 use {
     bevy_ecs::resource::Resource,
     bevy_utils::synccell::SyncCell,
-    tracing_subscriber::fmt::{FormattedFields, format::DefaultFields},
+    tracing_subscriber::fmt::{format::DefaultFields, FormattedFields},
 };
 
 /// Wrapper resource for `tracing-chrome`'s flush guard.
@@ -371,12 +371,8 @@ impl Plugin for LogPlugin {
             (true, true) => error!(
                 "Could not set global logger and tracing subscriber as they are already set. Consider disabling LogPlugin."
             ),
-            (true, false) => error!(
-                "Could not set global logger as it is already set. Consider disabling LogPlugin."
-            ),
-            (false, true) => error!(
-                "Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."
-            ),
+            (true, false) => error!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
+            (false, true) => error!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
             (false, false) => (),
         }
     }

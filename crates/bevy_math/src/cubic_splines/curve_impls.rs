@@ -1,8 +1,8 @@
 use super::{CubicSegment, RationalSegment};
 use crate::common_traits::{VectorSpace, WithDerivative, WithTwoDerivatives};
 use crate::curve::{
-    Curve, Interval,
     derivatives::{SampleDerivative, SampleTwoDerivatives},
+    Curve, Interval,
 };
 
 #[cfg(feature = "alloc")]

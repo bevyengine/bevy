@@ -2,8 +2,8 @@ use crate::Decodable;
 use bevy_asset::Asset;
 use bevy_reflect::TypePath;
 use rodio::{
-    Source,
     source::{SineWave, TakeDuration},
+    Source,
 };
 
 /// A source of sine wave sound

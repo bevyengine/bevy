@@ -18,7 +18,7 @@ use bevy::{
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{Rng, SeedableRng, seq::SliceRandom};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 const BIRDS_PER_SECOND: u32 = 10000;

@@ -12,8 +12,8 @@ use bevy::{
 
 use argh::FromArgs;
 use rand::{
-    Rng, SeedableRng,
     seq::{IteratorRandom, SliceRandom},
+    Rng, SeedableRng,
 };
 use rand_chacha::ChaCha8Rng;
 

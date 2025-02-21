@@ -5,18 +5,17 @@ use core::num::NonZero;
 use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, hash_map::EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
-use bevy_math::{AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4, uvec4};
+use bevy_math::{uvec4, AspectRatio, UVec2, UVec3, UVec4, Vec3Swizzles as _, Vec4};
 use bevy_platform_support::collections::HashSet;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    Extract,
     camera::Camera,
     render_resource::{
         BindingResource, BufferBindingType, ShaderSize as _, ShaderType, StorageBuffer,
@@ -24,11 +23,12 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
+    Extract,
 };
 use tracing::warn;
 
-use crate::MeshPipeline;
 pub(crate) use crate::cluster::assign::assign_objects_to_clusters;
+use crate::MeshPipeline;
 
 pub(crate) mod assign;
 

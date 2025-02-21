@@ -9,7 +9,7 @@
 #![cfg(not(target_family = "wasm"))]
 
 use crate::{
-    BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpResult, BrpSender, error_codes,
+    error_codes, BrpBatch, BrpError, BrpMessage, BrpRequest, BrpResponse, BrpResult, BrpSender,
 };
 use anyhow::Result as AnyhowResult;
 use async_channel::{Receiver, Sender};
@@ -17,7 +17,7 @@ use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Res;
-use bevy_tasks::{IoTaskPool, futures_lite::StreamExt};
+use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
     convert::Infallible,
     net::{IpAddr, Ipv4Addr},
@@ -26,11 +26,10 @@ use core::{
 };
 use http_body_util::{BodyExt as _, Full};
 use hyper::{
-    Request, Response,
     body::{Body, Bytes, Frame, Incoming},
     header::{HeaderName, HeaderValue},
     server::conn::http1,
-    service,
+    service, Request, Response,
 };
 use serde_json::Value;
 use smol_hyper::rt::{FuturesIo, SmolTimer};

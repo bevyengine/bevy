@@ -6,9 +6,9 @@ use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Unaligned};
 use core::{
     fmt::Debug,
-    mem::{MaybeUninit, size_of},
+    mem::{size_of, MaybeUninit},
     panic::AssertUnwindSafe,
-    ptr::{NonNull, addr_of_mut},
+    ptr::{addr_of_mut, NonNull},
 };
 use log::warn;
 
@@ -311,9 +311,7 @@ impl RawCommandQueue {
 impl Drop for CommandQueue {
     fn drop(&mut self) {
         if !self.bytes.is_empty() {
-            warn!(
-                "CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply?"
-            );
+            warn!("CommandQueue has un-applied commands being dropped. Did you forget to call SystemState::apply?");
         }
         // SAFETY: A reference is always a valid pointer
         unsafe { self.get_raw().apply_or_drop_queued(None) };

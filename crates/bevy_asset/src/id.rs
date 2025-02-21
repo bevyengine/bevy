@@ -418,9 +418,7 @@ impl<A: Asset> TryFrom<UntypedAssetId> for AssetId<A> {
 #[non_exhaustive]
 pub enum UntypedAssetIdConversionError {
     /// Caused when trying to convert an [`UntypedAssetId`] into an [`AssetId`] of the wrong type.
-    #[error(
-        "This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>"
-    )]
+    #[error("This UntypedAssetId is for {found:?} and cannot be converted into an AssetId<{expected:?}>")]
     TypeIdMismatch {
         /// The [`TypeId`] of the asset that we are trying to convert to.
         expected: TypeId,

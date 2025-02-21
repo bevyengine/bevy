@@ -15,7 +15,7 @@ use bevy_render::{
     view::{ViewTarget, ViewUniformOffset, ViewUniforms},
 };
 
-use super::{Tonemapping, get_lut_bindings};
+use super::{get_lut_bindings, Tonemapping};
 
 #[derive(Default)]
 pub struct TonemappingNode {

@@ -6,7 +6,7 @@ use core::{
     time::Duration,
 };
 use std::{
-    collections::{HashMap, hash_map::DefaultHasher},
+    collections::{hash_map::DefaultHasher, HashMap},
     fs::{self, File},
     io::Write,
     path::{Path, PathBuf},
@@ -15,11 +15,11 @@ use std::{
     time::Instant,
 };
 
-use clap::{CommandFactory, Parser, ValueEnum, error::ErrorKind};
+use clap::{error::ErrorKind, CommandFactory, Parser, ValueEnum};
 use pbr::ProgressBar;
 use regex::Regex;
 use toml_edit::{DocumentMut, Item};
-use xshell::{Shell, cmd};
+use xshell::{cmd, Shell};
 
 #[derive(Parser, Debug)]
 struct Args {

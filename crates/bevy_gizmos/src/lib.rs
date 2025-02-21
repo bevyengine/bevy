@@ -64,7 +64,6 @@ pub mod prelude {
 
     #[doc(hidden)]
     pub use crate::{
-        AppGizmoBuilder, GizmoAsset,
         config::{
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
             GizmoLineConfig, GizmoLineJoint, GizmoLineStyle,
@@ -72,6 +71,7 @@ pub mod prelude {
         gizmos::Gizmos,
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
+        AppGizmoBuilder, GizmoAsset,
     };
 
     #[cfg(all(feature = "bevy_pbr", feature = "bevy_render"))]
@@ -79,7 +79,7 @@ pub mod prelude {
 }
 
 use bevy_app::{App, FixedFirst, FixedLast, Last, Plugin, RunFixedMainLoop};
-use bevy_asset::{Asset, AssetApp, AssetId, Assets, Handle, weak_handle};
+use bevy_asset::{weak_handle, Asset, AssetApp, AssetId, Assets, Handle};
 use bevy_ecs::{
     resource::Resource,
     schedule::{IntoSystemConfigs, SystemSet},
@@ -104,23 +104,23 @@ use {
         entity::Entity,
         query::ROQueryItem,
         system::{
-            Commands, SystemParamItem,
             lifetimeless::{Read, SRes},
+            Commands, SystemParamItem,
         },
     },
     bevy_math::{Affine3, Affine3A},
     bevy_render::{
-        Extract, ExtractSchedule, Render, RenderApp, RenderSet,
         extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
         render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
         render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
         render_resource::{
-            BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, Buffer,
-            BufferInitDescriptor, BufferUsages, Shader, ShaderStages, ShaderType, VertexFormat,
-            binding_types::uniform_buffer,
+            binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
+            BindGroupLayoutEntries, Buffer, BufferInitDescriptor, BufferUsages, Shader,
+            ShaderStages, ShaderType, VertexFormat,
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
+        Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     },
     bytemuck::cast_slice,
 };
@@ -194,22 +194,16 @@ impl Plugin for GizmoPlugin {
             if app.is_plugin_added::<bevy_sprite::SpritePlugin>() {
                 app.add_plugins(pipeline_2d::LineGizmo2dPlugin);
             } else {
-                tracing::warn!(
-                    "bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?"
-                );
+                tracing::warn!("bevy_sprite feature is enabled but bevy_sprite::SpritePlugin was not detected. Are you sure you loaded GizmoPlugin after SpritePlugin?");
             }
             #[cfg(feature = "bevy_pbr")]
             if app.is_plugin_added::<bevy_pbr::PbrPlugin>() {
                 app.add_plugins(pipeline_3d::LineGizmo3dPlugin);
             } else {
-                tracing::warn!(
-                    "bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?"
-                );
+                tracing::warn!("bevy_pbr feature is enabled but bevy_pbr::PbrPlugin was not detected. Are you sure you loaded GizmoPlugin after PbrPlugin?");
             }
         } else {
-            tracing::warn!(
-                "bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?"
-            );
+            tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
     }
 
@@ -459,14 +453,10 @@ fn extract_gizmo_data(
         } = config.line.style
         {
             if gap_scale <= 0.0 {
-                once!(warn!(
-                    "When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero."
-                ));
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the gap scale should be greater than zero."));
             }
             if line_scale <= 0.0 {
-                once!(warn!(
-                    "When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero."
-                ));
+                once!(warn!("When using gizmos with the line style `GizmoLineStyle::Dashed{{..}}` the line scale should be greater than zero."));
             }
             (gap_scale, line_scale)
         } else {

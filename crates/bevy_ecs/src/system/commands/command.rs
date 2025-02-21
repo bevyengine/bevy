@@ -13,7 +13,7 @@ use crate::{
     resource::Resource,
     result::{Error, Result},
     schedule::ScheduleLabel,
-    system::{IntoSystem, SystemId, SystemInput, error_handler},
+    system::{error_handler, IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
 

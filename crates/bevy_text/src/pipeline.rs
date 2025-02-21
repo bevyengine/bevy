@@ -11,13 +11,13 @@ use bevy_image::prelude::*;
 use bevy_log::{once, warn};
 use bevy_math::{UVec2, Vec2};
 use bevy_platform_support::collections::HashMap;
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText, LineBreak, PositionedGlyph,
-    TextBounds, TextEntity, TextFont, TextLayout, YAxisOrientation, error::TextError,
+    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
+    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout, YAxisOrientation,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]

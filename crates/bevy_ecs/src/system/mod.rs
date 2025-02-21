@@ -341,8 +341,8 @@ mod tests {
         resource::Resource,
         result::Result,
         schedule::{
-            ApplyDeferred, Condition, IntoSystemConfigs, Schedule,
-            common_conditions::resource_exists,
+            common_conditions::resource_exists, ApplyDeferred, Condition, IntoSystemConfigs,
+            Schedule,
         },
         system::{
             Commands, In, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, Res, ResMut,
@@ -1490,11 +1490,9 @@ mod tests {
         system.initialize(&mut world);
         system.update_archetype_component_access(world.as_unsafe_world_cell());
         let archetype_component_access = system.archetype_component_access();
-        assert!(
-            expected_ids
-                .iter()
-                .all(|id| archetype_component_access.has_component_read(*id))
-        );
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
 
         // add some entities with archetypes that should match and save their ids
         expected_ids.insert(
@@ -1519,11 +1517,9 @@ mod tests {
         // update system and verify its accesses are correct
         system.update_archetype_component_access(world.as_unsafe_world_cell());
         let archetype_component_access = system.archetype_component_access();
-        assert!(
-            expected_ids
-                .iter()
-                .all(|id| archetype_component_access.has_component_read(*id))
-        );
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
 
         // one more round
         expected_ids.insert(
@@ -1536,11 +1532,9 @@ mod tests {
         world.spawn((A, B, D));
         system.update_archetype_component_access(world.as_unsafe_world_cell());
         let archetype_component_access = system.archetype_component_access();
-        assert!(
-            expected_ids
-                .iter()
-                .all(|id| archetype_component_access.has_component_read(*id))
-        );
+        assert!(expected_ids
+            .iter()
+            .all(|id| archetype_component_access.has_component_read(*id)));
     }
 
     #[test]
@@ -1654,9 +1648,7 @@ mod tests {
     #[should_panic]
     fn panic_inside_system() {
         let mut world = World::new();
-        run_system(&mut world, || -> () {
-            panic!("this system panics");
-        });
+        run_system(&mut world, || -> () { panic!("this system panics"); });
     }
 
     #[test]

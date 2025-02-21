@@ -3,10 +3,10 @@ use core::marker::PhantomData;
 use super::Buffer;
 use crate::renderer::{RenderDevice, RenderQueue};
 use encase::{
-    DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
-    StorageBuffer as StorageBufferWrapper, internal::WriteInto,
+    internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
+    StorageBuffer as StorageBufferWrapper,
 };
-use wgpu::{BindingResource, BufferBinding, BufferSize, BufferUsages, util::BufferInitDescriptor};
+use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferSize, BufferUsages};
 
 use super::IntoBinding;
 

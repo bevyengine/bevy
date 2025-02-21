@@ -3,11 +3,11 @@
 #[cfg(feature = "curve")]
 mod curve_impls;
 use crate::{
-    Vec2, VectorSpace,
     ops::{self, FloatPow},
+    Vec2, VectorSpace,
 };
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use thiserror::Error;
 #[cfg(feature = "alloc")]
 use {alloc::vec, alloc::vec::Vec, core::iter::once, itertools::Itertools};
@@ -925,9 +925,7 @@ impl<P: VectorSpace> CyclicCubicGenerator<P> for LinearSpline<P> {
 
 /// An error indicating that a spline construction didn't have enough control points to generate a curve.
 #[derive(Clone, Debug, Error)]
-#[error(
-    "Not enough data to build curve: needed at least {expected} control points but was only given {given}"
-)]
+#[error("Not enough data to build curve: needed at least {expected} control points but was only given {given}")]
 pub struct InsufficientDataError {
     expected: usize,
     given: usize,
@@ -1624,7 +1622,7 @@ mod tests {
         ops::{self, FloatPow},
     };
     use alloc::vec::Vec;
-    use glam::{Vec2, vec2};
+    use glam::{vec2, Vec2};
 
     /// How close two floats can be and still be considered equal
     const FLOAT_EQ: f32 = 1e-5;
@@ -1707,26 +1705,18 @@ mod tests {
         assert!(curve.position(3.).abs_diff_eq(p3, FLOAT_EQ));
 
         // Tangents at segment endpoints
-        assert!(
-            curve
-                .velocity(0.)
-                .abs_diff_eq((p1 - p0) * tension * 2., FLOAT_EQ)
-        );
-        assert!(
-            curve
-                .velocity(1.)
-                .abs_diff_eq((p2 - p0) * tension, FLOAT_EQ)
-        );
-        assert!(
-            curve
-                .velocity(2.)
-                .abs_diff_eq((p3 - p1) * tension, FLOAT_EQ)
-        );
-        assert!(
-            curve
-                .velocity(3.)
-                .abs_diff_eq((p3 - p2) * tension * 2., FLOAT_EQ)
-        );
+        assert!(curve
+            .velocity(0.)
+            .abs_diff_eq((p1 - p0) * tension * 2., FLOAT_EQ));
+        assert!(curve
+            .velocity(1.)
+            .abs_diff_eq((p2 - p0) * tension, FLOAT_EQ));
+        assert!(curve
+            .velocity(2.)
+            .abs_diff_eq((p3 - p1) * tension, FLOAT_EQ));
+        assert!(curve
+            .velocity(3.)
+            .abs_diff_eq((p3 - p2) * tension * 2., FLOAT_EQ));
     }
 
     /// Test that [`RationalCurve`] properly generalizes [`CubicCurve`]. A Cubic upgraded to a rational

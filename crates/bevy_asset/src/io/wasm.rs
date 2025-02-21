@@ -1,11 +1,11 @@
 use crate::io::{
-    AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader, get_meta_path,
+    get_meta_path, AssetReader, AssetReaderError, EmptyPathStream, PathStream, Reader, VecReader,
 };
 use alloc::{borrow::ToOwned, boxed::Box, format};
-use js_sys::{JSON, Uint8Array};
+use js_sys::{Uint8Array, JSON};
 use std::path::{Path, PathBuf};
 use tracing::error;
-use wasm_bindgen::{JsCast, JsValue, prelude::wasm_bindgen};
+use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::Response;
 

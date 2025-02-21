@@ -15,10 +15,10 @@ pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{
-    Render, RenderApp, RenderSet, render_asset::RenderAssetPlugin, renderer::RenderDevice,
+    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetApp, Assets, Handle, weak_handle};
+use bevy_asset::{weak_handle, AssetApp, Assets, Handle};
 use bevy_ecs::prelude::*;
 
 /// A handle to a 1 x 1 transparent white image.

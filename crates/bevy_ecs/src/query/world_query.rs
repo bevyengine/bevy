@@ -3,7 +3,7 @@ use crate::{
     component::{ComponentId, Components, Tick},
     query::FilteredAccess,
     storage::Table,
-    world::{World, unsafe_world_cell::UnsafeWorldCell},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use variadics_please::all_tuples;
 

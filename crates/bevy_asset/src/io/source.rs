@@ -1,5 +1,5 @@
 use crate::{
-    io::{AssetSourceEvent, AssetWatcher, processor_gated::ProcessorGatedReader},
+    io::{processor_gated::ProcessorGatedReader, AssetSourceEvent, AssetWatcher},
     processor::AssetProcessorData,
 };
 use alloc::{
@@ -240,12 +240,10 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct unprocessed [`AssetWatcher`] instances.
     pub fn with_watcher(
         mut self,
-        watcher: impl FnMut(
-            crossbeam_channel::Sender<AssetSourceEvent>,
-        ) -> Option<Box<dyn AssetWatcher>>
-        + Send
-        + Sync
-        + 'static,
+        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            + Send
+            + Sync
+            + 'static,
     ) -> Self {
         self.watcher = Some(Box::new(watcher));
         self
@@ -272,12 +270,10 @@ impl AssetSourceBuilder {
     /// Will use the given `watcher` function to construct processed [`AssetWatcher`] instances.
     pub fn with_processed_watcher(
         mut self,
-        watcher: impl FnMut(
-            crossbeam_channel::Sender<AssetSourceEvent>,
-        ) -> Option<Box<dyn AssetWatcher>>
-        + Send
-        + Sync
-        + 'static,
+        watcher: impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
+            + Send
+            + Sync
+            + 'static,
     ) -> Self {
         self.processed_watcher = Some(Box::new(watcher));
         self
@@ -536,8 +532,8 @@ impl AssetSource {
         path: String,
         file_debounce_wait_time: Duration,
     ) -> impl FnMut(crossbeam_channel::Sender<AssetSourceEvent>) -> Option<Box<dyn AssetWatcher>>
-    + Send
-    + Sync {
+           + Send
+           + Sync {
         move |sender: crossbeam_channel::Sender<AssetSourceEvent>| {
             #[cfg(all(
                 feature = "file_watcher",

@@ -160,8 +160,7 @@ unsafe fn propagate_recursive(
     let Some(children) = children else { return };
     for (child, actual_parent) in parent_query.iter_many(children) {
         assert_eq!(
-            actual_parent.get(),
-            entity,
+            actual_parent.get(), entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
         // SAFETY: The caller guarantees that `transform_query` will not be fetched
@@ -186,7 +185,7 @@ mod test {
     use alloc::vec;
     use bevy_app::prelude::*;
     use bevy_ecs::{prelude::*, world::CommandQueue};
-    use bevy_math::{Vec3, vec3};
+    use bevy_math::{vec3, Vec3};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::systems::*;
@@ -454,16 +453,23 @@ mod test {
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
 
-        let mut child_entity = app.world_mut().entity_mut(child);
+        let mut child_entity = app
+            .world_mut()
+            .entity_mut(child);
 
-        let mut grandchild_entity = temp.entity_mut(grandchild);
+        let mut grandchild_entity = temp
+            .entity_mut(grandchild);
 
         #[expect(
             unsafe_code,
             reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
         )]
         // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
-        let mut a = unsafe { child_entity.get_mut_assume_mutable::<ChildOf>().unwrap() };
+        let mut a = unsafe {
+            child_entity
+                .get_mut_assume_mutable::<ChildOf>()
+                .unwrap()
+        };
 
         // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that cannot happen
         #[expect(
@@ -476,7 +482,10 @@ mod test {
                 .unwrap()
         };
 
-        core::mem::swap(a.as_mut(), b.as_mut());
+        core::mem::swap(
+            a.as_mut(),
+            b.as_mut(),
+        );
 
         app.update();
     }
@@ -505,16 +514,12 @@ mod test {
         // Child should be positioned relative to its parent
         let parent_global_transform = *world.entity(parent).get::<GlobalTransform>().unwrap();
         let child_global_transform = *world.entity(child).get::<GlobalTransform>().unwrap();
-        assert!(
-            parent_global_transform
-                .translation()
-                .abs_diff_eq(translation, 0.1)
-        );
-        assert!(
-            child_global_transform
-                .translation()
-                .abs_diff_eq(2. * translation, 0.1)
-        );
+        assert!(parent_global_transform
+            .translation()
+            .abs_diff_eq(translation, 0.1));
+        assert!(child_global_transform
+            .translation()
+            .abs_diff_eq(2. * translation, 0.1));
 
         // Reparent child
         world.entity_mut(child).remove::<ChildOf>();

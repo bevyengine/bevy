@@ -26,18 +26,18 @@ pub mod graph {
 }
 
 pub(crate) use self::{
-    instance_manager::{InstanceManager, queue_material_meshlet_meshes},
+    instance_manager::{queue_material_meshlet_meshes, InstanceManager},
     material_pipeline_prepare::{
         prepare_material_meshlet_meshes_main_opaque_pass, prepare_material_meshlet_meshes_prepass,
     },
 };
 
 pub use self::asset::{
-    MESHLET_MESH_ASSET_VERSION, MeshletMesh, MeshletMeshLoader, MeshletMeshSaver,
+    MeshletMesh, MeshletMeshLoader, MeshletMeshSaver, MESHLET_MESH_ASSET_VERSION,
 };
 #[cfg(feature = "meshlet_processor")]
 pub use self::from_mesh::{
-    MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR, MeshToMeshletMeshConversionError,
+    MeshToMeshletMeshConversionError, MESHLET_DEFAULT_VERTEX_POSITION_QUANTIZATION_FACTOR,
 };
 use self::{
     graph::NodeMeshlet,
@@ -49,37 +49,37 @@ use self::{
     material_shade_nodes::{
         MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
-    meshlet_mesh_manager::{MeshletMeshManager, perform_pending_meshlet_mesh_writes},
+    meshlet_mesh_manager::{perform_pending_meshlet_mesh_writes, MeshletMeshManager},
     pipelines::*,
     resource_manager::{
-        ResourceManager, prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups,
+        prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{PreviousGlobalTransform, graph::NodePbr};
+use crate::{graph::NodePbr, PreviousGlobalTransform};
 use bevy_app::{App, Plugin};
-use bevy_asset::{AssetApp, AssetId, Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, AssetApp, AssetId, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    component::{Component, require},
+    component::{require, Component},
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    ExtractSchedule, Render, RenderApp, RenderSet,
     render_graph::{RenderGraphApp, ViewNodeRunner},
     render_resource::Shader,
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{self, Msaa, Visibility, VisibilityClass, prepare_view_targets},
+    view::{self, prepare_view_targets, Msaa, Visibility, VisibilityClass},
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
 use bevy_transform::components::Transform;
 use derive_more::From;
@@ -319,9 +319,7 @@ fn configure_meshlet_views(
 ) {
     for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {
-            error!(
-                "MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin."
-            );
+            error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
             std::process::exit(1);
         }
 

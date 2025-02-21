@@ -10,11 +10,10 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{Handle, load_internal_asset, weak_handle};
+use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_math::{UVec2, ops};
+use bevy_math::{ops, UVec2};
 use bevy_render::{
-    Render, RenderApp, RenderSet,
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     extract_component::{
@@ -25,13 +24,14 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
+    Render, RenderApp, RenderSet,
 };
 use downsampling_pipeline::{
-    BloomDownsamplingPipeline, BloomDownsamplingPipelineIds, BloomUniforms,
-    prepare_downsampling_pipeline,
+    prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
+    BloomUniforms,
 };
 use upsampling_pipeline::{
-    BloomUpsamplingPipeline, UpsamplingPipelineIds, prepare_upsampling_pipeline,
+    prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
 
 const BLOOM_SHADER_HANDLE: Handle<Shader> = weak_handle!("c9190ddc-573b-4472-8b21-573cab502b73");

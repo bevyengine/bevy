@@ -6,7 +6,7 @@ use bevy::{
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
     math::vec3,
-    pbr::{CascadeShadowConfigBuilder, light_consts::lux::FULL_DAYLIGHT},
+    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
     render::view::VisibilityRange,
 };

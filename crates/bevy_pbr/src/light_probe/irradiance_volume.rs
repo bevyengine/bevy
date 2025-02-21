@@ -137,8 +137,8 @@ use bevy_image::Image;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{
-        BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader, TextureSampleType,
-        TextureView, binding_types,
+        binding_types, BindGroupLayoutEntryBuilder, Sampler, SamplerBindingType, Shader,
+        TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice},
     texture::{FallbackImage, GpuImage},
@@ -146,12 +146,12 @@ use bevy_render::{
 use bevy_utils::default;
 use core::{num::NonZero, ops::Deref};
 
-use bevy_asset::{AssetId, Handle, weak_handle};
-use bevy_reflect::{Reflect, std_traits::ReflectDefault};
+use bevy_asset::{weak_handle, AssetId, Handle};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use crate::{
-    MAX_VIEW_LIGHT_PROBES, RenderViewLightProbes, add_cubemap_texture_view,
-    binding_arrays_are_usable,
+    add_cubemap_texture_view, binding_arrays_are_usable, RenderViewLightProbes,
+    MAX_VIEW_LIGHT_PROBES,
 };
 
 use super::LightProbeComponent;

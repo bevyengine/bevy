@@ -12,7 +12,7 @@ use bevy_app::{App, Plugin, PreUpdate};
 use crate::RenderApp;
 
 use self::internal::{
-    DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp, sync_diagnostics,
+    sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
 };
 
 use super::{RenderDevice, RenderQueue};

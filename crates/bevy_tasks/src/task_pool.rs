@@ -11,8 +11,9 @@ use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
 use crate::{
-    Task, block_on,
+    block_on,
     thread_executor::{ThreadExecutor, ThreadExecutorTicker},
+    Task,
 };
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);

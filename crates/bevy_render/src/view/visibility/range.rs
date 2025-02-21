@@ -9,7 +9,7 @@ use core::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, hash_map::EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{Changed, With},
     reflect::ReflectComponent,
     removal_detection::RemovedComponents,
@@ -17,7 +17,7 @@ use bevy_ecs::{
     schedule::IntoSystemConfigs as _,
     system::{Query, Res, ResMut},
 };
-use bevy_math::{FloatOrd, Vec4, vec4};
+use bevy_math::{vec4, FloatOrd, Vec4};
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
@@ -25,14 +25,14 @@ use bevy_utils::prelude::default;
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
-use super::{VisibilitySystems, check_visibility};
+use super::{check_visibility, VisibilitySystems};
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
     camera::Camera,
     primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
 };
 
 /// We need at least 4 storage buffer bindings available to enable the

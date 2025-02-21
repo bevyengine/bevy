@@ -4,7 +4,7 @@ use std::ops::Range;
 
 use bevy::{
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::{Skybox, fxaa::Fxaa},
+    core_pipeline::{fxaa::Fxaa, Skybox},
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,

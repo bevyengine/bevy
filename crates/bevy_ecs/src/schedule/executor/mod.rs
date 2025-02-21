@@ -21,7 +21,7 @@ use crate::{
     result::{Error, Result, SystemErrorContext},
     schedule::{BoxedCondition, InternedSystemSet, NodeId, SystemTypeSet},
     system::{ScheduleSystem, System, SystemIn},
-    world::{DeferredWorld, World, unsafe_world_cell::UnsafeWorldCell},
+    world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
 /// Types that can run a [`SystemSchedule`] on a [`World`].
@@ -267,7 +267,7 @@ mod __rust_begin_short_backtrace {
     use crate::{
         result::Result,
         system::{ReadOnlySystem, ScheduleSystem},
-        world::{World, unsafe_world_cell::UnsafeWorldCell},
+        world::{unsafe_world_cell::UnsafeWorldCell, World},
     };
 
     /// # Safety

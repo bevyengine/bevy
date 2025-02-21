@@ -1166,9 +1166,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.spawn_empty().observe(|_: Trigger<EventA>| -> () {
-            panic!("Trigger routed to non-targeted entity.");
-        });
+        world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA>| -> () {
+                panic!("Trigger routed to non-targeted entity.");
+            });
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
@@ -1187,9 +1189,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world.spawn_empty().observe(|_: Trigger<EventA>| -> () {
-            panic!("Trigger routed to non-targeted entity.");
-        });
+        world
+            .spawn_empty()
+            .observe(|_: Trigger<EventA>| -> () {
+                panic!("Trigger routed to non-targeted entity.");
+            });
         let entity = world
             .spawn_empty()
             .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))

@@ -3,8 +3,8 @@ use core::{hint::black_box, time::Duration};
 use benches::bench;
 use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
 use criterion::{
-    AxisScale, BatchSize, BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, Throughput,
-    criterion_group, measurement::Measurement,
+    criterion_group, measurement::Measurement, AxisScale, BatchSize, BenchmarkGroup, BenchmarkId,
+    Criterion, PlotConfiguration, Throughput,
 };
 
 criterion_group!(

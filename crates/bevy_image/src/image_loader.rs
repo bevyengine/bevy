@@ -1,5 +1,5 @@
 use crate::image::{Image, ImageFormat, ImageType, TextureError};
-use bevy_asset::{AssetLoader, LoadContext, RenderAssetUsages, io::Reader};
+use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use thiserror::Error;
 
 use super::{CompressedImageFormats, ImageSampler};

@@ -4,10 +4,10 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderDevice, RenderQueue},
 };
-use bytemuck::{NoUninit, must_cast_slice};
+use bytemuck::{must_cast_slice, NoUninit};
 use encase::{
-    ShaderType,
     internal::{WriteInto, Writer},
+    ShaderType,
 };
 use wgpu::{BindingResource, BufferAddress, BufferUsages};
 

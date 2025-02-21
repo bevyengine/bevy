@@ -218,7 +218,7 @@ where
 mod tests {
     use crate::{
         resource::Resource,
-        schedule::{Schedule, tests::ResMut},
+        schedule::{tests::ResMut, Schedule},
     };
 
     use super::*;

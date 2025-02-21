@@ -12,7 +12,7 @@ use bevy_ecs::{
     component::Tick,
     resource::Resource,
     system::{Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam},
-    world::{World, unsafe_world_cell::UnsafeWorldCell},
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_math::{Isometry2d, Isometry3d, Vec2, Vec3};
 use bevy_reflect::Reflect;

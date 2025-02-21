@@ -1,6 +1,6 @@
 use crate::{
-    PartialReflect, Reflect, TypePath,
     func::args::{ArgError, FromArg, Ownership},
+    PartialReflect, Reflect, TypePath,
 };
 use alloc::{boxed::Box, string::ToString};
 use core::ops::Deref;

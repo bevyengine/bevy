@@ -4,13 +4,13 @@ use bevy_platform_support::collections::hash_map::Entry;
 use taffy::TaffyTree;
 
 use bevy_ecs::{
-    entity::{Entity, hash_map::EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     prelude::Resource,
 };
 use bevy_math::{UVec2, Vec2};
 use bevy_utils::default;
 
-use crate::{LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure, layout::convert};
+use crate::{layout::convert, LayoutContext, LayoutError, Measure, MeasureArgs, Node, NodeMeasure};
 use bevy_text::CosmicFontSystem;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -373,11 +373,9 @@ mod tests {
         let mut content_size = ContentSize::default();
         content_size.set(NodeMeasure::Fixed(FixedMeasure { size: Vec2::ONE }));
         let measure_func = content_size.measure.take().unwrap();
-        assert!(
-            ui_surface
-                .update_node_context(root_node_entity, measure_func)
-                .is_some()
-        );
+        assert!(ui_surface
+            .update_node_context(root_node_entity, measure_func)
+            .is_some());
     }
 
     #[test]

@@ -7,8 +7,8 @@ use core::{
     fmt::{Debug, Display, Formatter},
 };
 use serde::{
-    Deserialize,
     de::{Error, Visitor},
+    Deserialize,
 };
 
 /// A debug struct used for error messages that displays a list of expected values.

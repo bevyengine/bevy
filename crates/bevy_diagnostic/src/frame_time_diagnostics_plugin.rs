@@ -1,6 +1,6 @@
 use crate::{
-    DEFAULT_MAX_HISTORY_LENGTH, Diagnostic, DiagnosticPath, Diagnostics, FrameCount,
-    RegisterDiagnostic,
+    Diagnostic, DiagnosticPath, Diagnostics, FrameCount, RegisterDiagnostic,
+    DEFAULT_MAX_HISTORY_LENGTH,
 };
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
