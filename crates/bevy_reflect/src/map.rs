@@ -189,7 +189,7 @@ impl MapInfo {
 macro_rules! hash_error {
     ( $key:expr ) => {{
         let type_path = (*$key).reflect_type_path();
-        let error = if !$key.is_dynamic() {
+        if !$key.is_dynamic() {
             format!(
                 "the given key of type `{}` does not support hashing",
                 type_path
@@ -205,9 +205,7 @@ macro_rules! hash_error {
                     s.type_path()
                 ),
             }
-        };
-        
-        error.as_str()
+        }
     }}
 }
 
@@ -245,7 +243,7 @@ impl DynamicMap {
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(hash_error!(value))
+        value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq<'a>(
