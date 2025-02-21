@@ -43,7 +43,7 @@ pub trait NodeType {
     /// Used in `NodeConfigs`
     type GroupMetadata;
 
-    /// Initialize `NodeConfig` from `NodeType``
+    /// Initialize `NodeConfig` from `NodeType`
     fn config(self) -> NodeConfig<Self>
     where
         Self: Sized;
