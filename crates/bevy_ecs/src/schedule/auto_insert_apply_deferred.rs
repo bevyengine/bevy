@@ -82,39 +82,54 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
-        let mut distances: HashMap<usize, Option<u32>> =
+        // distance means here how many sync points are placed between the schedule start and a node
+        // if a sync point is ignored for an edge, add it to a later edge
+        let mut distances_and_pending_sync: HashMap<usize, (u32, bool)> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
         for node in &topo {
-            let add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
+            let (node_distance, mut add_sync_after) = distances_and_pending_sync
+                .get(&node.index())
+                .copied()
+                .unwrap_or_default();
+
+            if !add_sync_after {
+                add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
+            }
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
-                let add_sync_on_edge = add_sync_after
-                    && !is_apply_deferred(graph.systems[target.index()].get().unwrap())
-                    && !self.no_sync_edges.contains(&(*node, target));
+                let (target_distance, target_pending_sync) = distances_and_pending_sync
+                    .entry(target.index())
+                    .or_default();
 
-                let weight = if add_sync_on_edge { 1 } else { 0 };
+                *target_distance = node_distance.max(*target_distance);
 
-                let distance = distances
-                    .get(&target.index())
-                    .unwrap_or(&None)
-                    .or(Some(0))
-                    .map(|distance| {
-                        distance.max(
-                            distances.get(&node.index()).unwrap_or(&None).unwrap_or(0) + weight,
-                        )
-                    });
-
-                distances.insert(target.index(), distance);
-
-                if add_sync_on_edge {
-                    let sync_point =
-                        self.get_sync_point(graph, distances[&target.index()].unwrap());
-                    sync_point_graph.add_edge(*node, sync_point);
-                    sync_point_graph.add_edge(sync_point, target);
-
-                    // edge is now redundant
-                    sync_point_graph.remove_edge(*node, target);
+                if !add_sync_after {
+                    continue;
                 }
+
+                let target_system = graph.systems[target.index()].get().unwrap();
+
+                if is_apply_deferred(target_system) {
+                    // if target system is `ApplyDeferred` there is no point in adding another sync point
+                    continue;
+                }
+
+                if !target_system.is_exclusive() && self.no_sync_edges.contains(&(*node, target)) {
+                    // `node` has deferred commands to apply, but this edge is a no sync edge
+                    // Mark the `target` node as 'delaying' those commands to a future edge
+                    *target_pending_sync = true;
+                    continue;
+                }
+
+                // add sync point at this edge, target distance may increase
+                *target_distance = (node_distance + 1).max(*target_distance);
+
+                let sync_point = self.get_sync_point(graph, *target_distance);
+                sync_point_graph.add_edge(*node, sync_point);
+                sync_point_graph.add_edge(sync_point, target);
+
+                // edge is now redundant
+                sync_point_graph.remove_edge(*node, target);
             }
         }
 
