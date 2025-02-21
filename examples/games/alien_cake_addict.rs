@@ -271,7 +271,7 @@ fn focus_camera(
 ) {
     const SPEED: f32 = 2.0;
     // if there is both a player and a bonus, target the mid-point of them
-    if let (Some(player_entity), Some(bonus_entity)) = (game.player.entity, game.bonus.entity) {
+    match (game.player.entity, game.bonus.entity) { (Some(player_entity), Some(bonus_entity)) => {
         let transform_query = transforms.p1();
         if let (Ok(player_transform), Ok(bonus_transform)) = (
             transform_query.get(player_entity),
@@ -282,14 +282,14 @@ fn focus_camera(
                 .lerp(bonus_transform.translation, 0.5);
         }
         // otherwise, if there is only a player, target the player
-    } else if let Some(player_entity) = game.player.entity {
+    } _ => if let Some(player_entity) = game.player.entity {
         if let Ok(player_transform) = transforms.p1().get(player_entity) {
             game.camera_should_focus = player_transform.translation;
         }
         // otherwise, target the middle
     } else {
         game.camera_should_focus = Vec3::from(RESET_FOCUS);
-    }
+    }}
     // calculate the camera motion based on the difference between where the camera is looking
     // and where it should be looking; the greater the distance, the faster the motion;
     // smooth out the camera movement using the frame time
