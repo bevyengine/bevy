@@ -241,7 +241,7 @@ fn bend_normal_for_anisotropy(lighting_input: ptr<function, lighting::LightingIn
     (*lighting_input).layers[LAYER_BASE].R = R;
 }
 
-#endif  // STANDARD_MATERIAL_ANISTROPY
+#endif  // STANDARD_MATERIAL_ANISOTROPY
 
 // NOTE: Correctly calculates the view vector depending on whether
 // the projection is orthographic or perspective.

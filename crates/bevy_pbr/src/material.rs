@@ -19,7 +19,6 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
-use bevy_ecs::entity::EntityHash;
 use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
@@ -28,7 +27,8 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
@@ -41,7 +41,7 @@ use bevy_render::{
     render_resource::*,
     renderer::RenderDevice,
     sync_world::MainEntity,
-    view::{ExtractedView, Msaa, RenderVisibilityRanges, ViewVisibility},
+    view::{ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewVisibility},
     Extract,
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
@@ -735,11 +735,22 @@ impl<M> Default for EntitySpecializationTicks<M> {
     }
 }
 
+/// Stores the [`SpecializedMaterialViewPipelineCache`] for each view.
 #[derive(Resource, Deref, DerefMut)]
 pub struct SpecializedMaterialPipelineCache<M> {
-    // (view_entity, material_entity) -> (tick, pipeline_id)
+    // view entity -> view pipeline cache
     #[deref]
-    map: HashMap<(MainEntity, MainEntity), (Tick, CachedRenderPipelineId), EntityHash>,
+    map: HashMap<RetainedViewEntity, SpecializedMaterialViewPipelineCache<M>>,
+    marker: PhantomData<M>,
+}
+
+/// Stores the cached render pipeline ID for each entity in a single view, as
+/// well as the last time it was changed.
+#[derive(Deref, DerefMut)]
+pub struct SpecializedMaterialViewPipelineCache<M> {
+    // material entity -> (tick, pipeline_id)
+    #[deref]
+    map: MainEntityHashMap<(Tick, CachedRenderPipelineId)>,
     marker: PhantomData<M>,
 }
 
@@ -747,6 +758,15 @@ impl<M> Default for SpecializedMaterialPipelineCache<M> {
     fn default() -> Self {
         Self {
             map: HashMap::default(),
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<M> Default for SpecializedMaterialViewPipelineCache<M> {
+    fn default() -> Self {
+        Self {
+            map: MainEntityHashMap::default(),
             marker: PhantomData,
         }
     }
@@ -792,7 +812,7 @@ pub fn specialize_material_meshes<M: Material>(
         Res<ViewSortedRenderPhases<Transmissive3d>>,
         Res<ViewSortedRenderPhases<Transparent3d>>,
     ),
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
     entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
@@ -804,7 +824,13 @@ pub fn specialize_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view_entity, view, visible_entities) in &views {
+    // Record the retained IDs of all shadow views so that we can expire old
+    // pipeline IDs.
+    let mut all_views: HashSet<RetainedViewEntity, FixedHasher> = HashSet::default();
+
+    for (view, visible_entities) in &views {
+        all_views.insert(view.retained_view_entity);
+
         if !transparent_render_phases.contains_key(&view.retained_view_entity)
             && !opaque_render_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_render_phases.contains_key(&view.retained_view_entity)
@@ -813,15 +839,21 @@ pub fn specialize_material_meshes<M: Material>(
             continue;
         }
 
-        let Some(view_key) = view_key_cache.get(view_entity) else {
+        let Some(view_key) = view_key_cache.get(&view.retained_view_entity) else {
             continue;
         };
 
+        let view_tick = view_specialization_ticks
+            .get(&view.retained_view_entity)
+            .unwrap();
+        let view_specialized_material_pipeline_cache = specialized_material_pipeline_cache
+            .entry(view.retained_view_entity)
+            .or_default();
+
         for (_, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let view_tick = view_specialization_ticks.get(view_entity).unwrap();
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
-            let last_specialized_tick = specialized_material_pipeline_cache
-                .get(&(*view_entity, *visible_entity))
+            let last_specialized_tick = view_specialized_material_pipeline_cache
+                .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
                 view_tick.is_newer_than(tick, ticks.this_run())
@@ -901,12 +933,14 @@ pub fn specialize_material_meshes<M: Material>(
                 }
             };
 
-            specialized_material_pipeline_cache.insert(
-                (*view_entity, *visible_entity),
-                (ticks.this_run(), pipeline_id),
-            );
+            view_specialized_material_pipeline_cache
+                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
         }
     }
+
+    // Delete specialized pipelines belonging to views that have expired.
+    specialized_material_pipeline_cache
+        .retain(|retained_view_entity, _| all_views.contains(retained_view_entity));
 }
 
 /// For each view, iterates over all the meshes visible from that view and adds
@@ -921,12 +955,12 @@ pub fn queue_material_meshes<M: Material>(
     mut alpha_mask_render_phases: ResMut<ViewBinnedRenderPhases<AlphaMask3d>>,
     mut transmissive_render_phases: ResMut<ViewSortedRenderPhases<Transmissive3d>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
+    views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view_entity, view, visible_entities) in &views {
+    for (view, visible_entities) in &views {
         let (
             Some(opaque_phase),
             Some(alpha_mask_phase),
@@ -942,10 +976,16 @@ pub fn queue_material_meshes<M: Material>(
             continue;
         };
 
+        let Some(view_specialized_material_pipeline_cache) =
+            specialized_material_pipeline_cache.get(&view.retained_view_entity)
+        else {
+            continue;
+        };
+
         let rangefinder = view.rangefinder3d();
         for (render_entity, visible_entity) in visible_entities.iter::<Mesh3d>() {
-            let Some((current_change_tick, pipeline_id)) = specialized_material_pipeline_cache
-                .get(&(*view_entity, *visible_entity))
+            let Some((current_change_tick, pipeline_id)) = view_specialized_material_pipeline_cache
+                .get(visible_entity)
                 .map(|(current_change_tick, pipeline_id)| (*current_change_tick, *pipeline_id))
             else {
                 continue;
