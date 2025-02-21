@@ -16,6 +16,7 @@ use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem, ops::Deref};
 use naga::valid::Capabilities;
+use std::path::PathBuf;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
 use tracing::{debug, error};
@@ -127,6 +128,7 @@ struct ShaderData {
 
 struct ShaderCache {
     data: HashMap<AssetId<Shader>, ShaderData>,
+    asset_paths: HashMap<PathBuf, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
@@ -179,6 +181,7 @@ impl ShaderCache {
         Self {
             composer,
             data: Default::default(),
+            asset_paths: Default::default(),
             shaders: Default::default(),
             import_path_shaders: Default::default(),
             waiting_on_import: Default::default(),
@@ -223,6 +226,7 @@ impl ShaderCache {
             .shaders
             .get(&id)
             .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
+
         let data = self.data.entry(id).or_default();
         let n_asset_imports = shader
             .imports()
@@ -267,6 +271,44 @@ impl ShaderCache {
                 let shader_source = match &shader.source {
                     #[cfg(feature = "shader_format_spirv")]
                     Source::SpirV(data) => make_spirv(data),
+                    #[cfg(feature = "shader_format_wesl")]
+                    Source::Wesl(_) => {
+                        if let ShaderImport::AssetPath(path) = shader.import_path() {
+                            let shader_resolver =
+                                ShaderResolver::new(&self.asset_paths, &self.shaders);
+                            let resource = wesl::Resource::new(path);
+                            let mut compiler_options = wesl::CompileOptions {
+                                imports: true,
+                                condcomp: true,
+                                lower: true,
+                                ..default()
+                            };
+
+                            for shader_def in shader_defs {
+                                match shader_def {
+                                    ShaderDefVal::Bool(key, value) => {
+                                        compiler_options.features.insert(key.clone(), value);
+                                    }
+                                    _ => debug!(
+                                        "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",
+                                    ),
+                                }
+                            }
+
+                            let compiled = wesl::compile(
+                                &resource,
+                                &shader_resolver,
+                                &wesl::EscapeMangler,
+                                &compiler_options,
+                            )
+                            .unwrap();
+
+                            let naga = naga::front::wgsl::parse_str(&compiled.to_string()).unwrap();
+                            ShaderSource::Naga(Cow::Owned(naga))
+                        } else {
+                            panic!("Wesl shaders must be imported from a file");
+                        }
+                    }
                     #[cfg(not(feature = "shader_format_spirv"))]
                     Source::SpirV(_) => {
                         unimplemented!(
@@ -398,6 +440,11 @@ impl ShaderCache {
             }
         }
 
+        if let Source::Wesl(_) = shader.source {
+            if let ShaderImport::AssetPath(path) = shader.import_path() {
+                self.asset_paths.insert(PathBuf::from(&path), id);
+            }
+        }
         self.shaders.insert(id, shader);
         pipelines_to_queue
     }
@@ -409,6 +456,43 @@ impl ShaderCache {
         }
 
         pipelines_to_queue
+    }
+}
+
+#[cfg(feature = "shader_format_wesl")]
+pub struct ShaderResolver<'a> {
+    asset_paths: &'a HashMap<PathBuf, AssetId<Shader>>,
+    shaders: &'a HashMap<AssetId<Shader>, Shader>,
+}
+
+#[cfg(feature = "shader_format_wesl")]
+impl<'a> ShaderResolver<'a> {
+    pub fn new(
+        asset_paths: &'a HashMap<PathBuf, AssetId<Shader>>,
+        shaders: &'a HashMap<AssetId<Shader>, Shader>,
+    ) -> Self {
+        Self {
+            asset_paths,
+            shaders,
+        }
+    }
+}
+
+#[cfg(feature = "shader_format_wesl")]
+impl<'a> wesl::Resolver for ShaderResolver<'a> {
+    fn resolve_source(&self, resource: &wesl::Resource) -> Result<Cow<str>, wesl::ResolveError> {
+        let asset_id = self
+            .asset_paths
+            .get(&resource.path().to_path_buf())
+            .ok_or_else(|| {
+                wesl::ResolveError::FileNotFound(
+                    resource.path().to_path_buf(),
+                    "Invalid asset id".to_string(),
+                )
+            })?;
+
+        let shader = self.shaders.get(asset_id).unwrap();
+        Ok(Cow::Borrowed(shader.source.as_str()))
     }
 }
 
