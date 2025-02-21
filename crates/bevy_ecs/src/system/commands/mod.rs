@@ -89,14 +89,19 @@ use crate::{
 ///
 /// # Error handling
 ///
-/// Commands can return a [`Result`](crate::result::Result), which can be passed to
-/// an error handler. Error handlers are functions/closures of the form
-/// `fn(&mut World, CommandError)`.
+/// A [`Command`] can return a [`Result`](crate::result::Result),
+/// which will be passed to an error handler if the `Result` is an error.
 ///
-/// The default error handler panics. It can be configured by enabling the `configurable_error_handler`
-/// cargo feature, then setting the `GLOBAL_ERROR_HANDLER`.
+/// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
+/// They are granted exclusive access to the [`World`], which enables them to
+/// respond to the error in whatever way is necessary.
 ///
-/// Alternatively, you can customize the error handler for a specific command by calling [`Commands::queue_handled`].
+/// The [default error handler](error_handler::default) panics.
+/// It can be configured by enabling the `configurable_error_handler` cargo feature,
+/// then setting the `GLOBAL_ERROR_HANDLER`.
+///
+/// Alternatively, you can customize the error handler for a specific command
+/// by calling [`Commands::queue_handled`].
 ///
 /// The [`error_handler`] module provides some simple error handlers for convenience.
 ///
@@ -546,7 +551,8 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Pushes a generic [`Command`] to the command queue.
     ///
-    /// If the [`Command`] returns a [`Result`], it will be handled using the [default error handler](error_handler::default).
+    /// If the [`Command`] returns a [`Result`],
+    /// it will be handled using the [default error handler](error_handler::default).
     ///
     /// To use a custom error handler, see [`Commands::queue_handled`].
     ///
@@ -589,8 +595,11 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn queue<C: Command<T> + HandleError<T>, T>(&mut self, command: C) {
         self.queue_internal(command.handle_error());
     }
-    /// Pushes a generic [`Command`] to the command queue. If the command returns a [`Result`] the given
-    /// `error_handler` will be used to handle error cases.
+
+    /// Pushes a generic [`Command`] to the command queue.
+    ///
+    /// If the [`Command`] returns a [`Result`],
+    /// the given `error_handler` will be used to handle error cases.
     ///
     /// To implicitly use the default error handler, see [`Commands::queue`].
     ///
@@ -1137,7 +1146,7 @@ impl<'w, 's> Commands<'w, 's> {
 /// Most [`Commands`] (and thereby [`EntityCommands`]) are deferred: when you call the command,
 /// if it requires mutable access to the [`World`] (that is, if it removes, adds, or changes something),
 /// it's not executed immediately. Instead, the command is added to a "command queue."
-/// The command queue is applied between [`Schedules`](bevy_ecs::schedule::Schedule), one by one,
+/// The command queue is applied between [`Schedules`](crate::schedule::Schedule), one by one,
 /// so that each command can have exclusive access to the World.
 ///
 /// # Fallible
@@ -1148,14 +1157,19 @@ impl<'w, 's> Commands<'w, 's> {
 ///
 /// # Error handling
 ///
-/// [`EntityCommands`] can return a [`Result`](crate::result::Result), which can be passed to
-/// an error handler. Error handlers are functions/closures of the form
-/// `fn(&mut World, CommandError)`.
+/// An [`EntityCommand`] can return a [`Result`](crate::result::Result),
+/// which will be passed to an error handler if the `Result` is an error.
 ///
-/// The default error handler panics. It can be configured by enabling the `configurable_error_handler`
-/// cargo feature, then setting the `GLOBAL_ERROR_HANDLER`.
+/// Error handlers are functions/closures of the form `fn(&mut World, Error)`.
+/// They are granted exclusive access to the [`World`], which enables them to
+/// respond to the error in whatever way is necessary.
 ///
-/// Alternatively, you can customize the error handler for a specific command by calling [`EntityCommands::queue_handled`].
+/// The [default error handler](error_handler::default) panics.
+/// It can be configured by enabling the `configurable_error_handler` cargo feature,
+/// then setting the `GLOBAL_ERROR_HANDLER`.
+///
+/// Alternatively, you can customize the error handler for a specific command
+/// by calling [`EntityCommands::queue_handled`].
 ///
 /// The [`error_handler`] module provides some simple error handlers for convenience.
 pub struct EntityCommands<'a> {
@@ -1754,7 +1768,8 @@ impl<'a> EntityCommands<'a> {
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
     ///
-    /// If the [`EntityCommand`] returns a [`Result`], it will be handled using the [default error handler](error_handler::default).
+    /// If the [`EntityCommand`] returns a [`Result`],
+    /// it will be handled using the [default error handler](error_handler::default).
     ///
     /// To use a custom error handler, see [`EntityCommands::queue_handled`].
     ///
@@ -1788,7 +1803,9 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
-    /// If the command returns a [`Result`] the given `error_handler` will be used to handle error cases.
+    ///
+    /// If the [`EntityCommand`] returns a [`Result`],
+    /// the given `error_handler` will be used to handle error cases.
     ///
     /// To implicitly use the default error handler, see [`EntityCommands::queue`].
     ///
