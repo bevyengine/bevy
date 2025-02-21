@@ -9,6 +9,7 @@ use alloc::boxed::Box;
 
 use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
 use crate::entity::hash_map::EntityHashMap;
+use crate::entity::hash_set::EntityHashSet;
 use crate::entity::EntityMapper;
 use crate::system::Commands;
 use crate::{
@@ -273,7 +274,9 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
     }
 
     /// Queues the `entity` to be cloned by the current [`EntityCloner`]
-    pub fn queue_entity_clone(&self, entity: Entity) {
+    ///
+    /// This will create exactly one clone, even if called multiple times with the same `entity`.
+    pub fn queue_entity_clone_once(&self, entity: Entity) {
         self.entity_cloner
             .clone_queue
             .borrow_mut()
@@ -564,12 +567,17 @@ impl EntityCloner {
         mapper: &mut dyn EntityMapper,
     ) -> Entity {
         let target = self.clone_entity_internal(world, source, mapper);
+        let mut already_cloned = EntityHashSet::new();
         loop {
             let queued = self.clone_queue.borrow_mut().pop_front();
             if let Some(queued) = queued {
+                if already_cloned.contains(&queued) {
+                    continue;
+                }
                 let target = world.entities.reserve_entity();
                 mapper.set_mapped(queued, target);
                 self.clone_entity_internal(world, queued, mapper);
+                already_cloned.insert(queued);
             } else {
                 break;
             }
@@ -1291,6 +1299,45 @@ mod tests {
             world.entity(root).get::<Children>().unwrap().deref(),
             &[child1, child2]
         );
+    }
+
+    #[test]
+    fn recursive_clone_with_multiple_linked_spawn_relations() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
+        struct RelTarget(Vec<Entity>);
+
+        let mut world = World::new();
+        let root = world.spawn_empty().id();
+        let child = world.spawn((ChildOf(root), Rel(root))).id();
+        world.spawn((ChildOf(child), Rel(root)));
+
+        let clone_root = world.spawn_empty().id();
+        EntityCloner::build(&mut world)
+            .recursive(true)
+            .clone_entity(root, clone_root);
+
+        let root_children = world
+            .entity(clone_root)
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(root_children.len(), 1);
+
+        let child_children = world
+            .entity(root_children[0])
+            .get::<Children>()
+            .unwrap()
+            .iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(child_children.len(), 1);
     }
 
     #[test]
