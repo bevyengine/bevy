@@ -5,7 +5,7 @@ use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
     prelude::{Bundle, Trigger},
-    query::Access,
+    query::{Access, FilteredAccessSet},
     result::Result,
     schedule::{Fallible, Infallible},
     system::{input::SystemIn, System},
@@ -106,6 +106,11 @@ where
     #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.observer.component_access()
+    }
+
+    #[inline]
+    fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        self.observer.component_access_set()
     }
 
     #[inline]
