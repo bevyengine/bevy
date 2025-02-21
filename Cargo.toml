@@ -3262,6 +3262,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_cursor"
+path = "examples/ui/text_cursor.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_cursor]
+name = "Text Cursor"
+description = "Illustrates creating and using a text cursor"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
 doc-scrape-examples = true
