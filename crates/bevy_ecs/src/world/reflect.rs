@@ -7,7 +7,7 @@ use thiserror::Error;
 use alloc::string::{String, ToString};
 use bevy_reflect::{Reflect, ReflectFromPtr};
 
-use crate::{prelude::*, world::ComponentId};
+use crate::{component::ComponentsReader, prelude::*, world::ComponentId};
 
 impl World {
     /// Retrieves a reference to the given `entity`'s [`Component`] of the given `type_id` using
@@ -80,7 +80,7 @@ impl World {
             let component_name = self
                 .components()
                 .get_name(component_id)
-                .map(ToString::to_string);
+                .map(|name| name.to_string());
 
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {
                 entity,
@@ -169,7 +169,7 @@ impl World {
         let component_name = self
             .components()
             .get_name(component_id)
-            .map(ToString::to_string);
+            .map(|name| name.to_string());
 
         let Some(comp_mut_untyped) = self.get_mut_by_id(entity, component_id) else {
             return Err(GetComponentReflectError::EntityDoesNotHaveComponent {

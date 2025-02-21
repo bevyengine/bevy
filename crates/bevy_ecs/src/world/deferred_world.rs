@@ -3,7 +3,7 @@ use core::ops::Deref;
 use crate::{
     archetype::Archetype,
     change_detection::{MaybeLocation, MutUntyped},
-    component::{ComponentId, HookContext, Mutable},
+    component::{ComponentId, ComponentsReader, HookContext, Mutable},
     entity::Entity,
     event::{Event, EventId, Events, SendBatchIds},
     observer::{Observers, TriggerTargets},
@@ -507,7 +507,8 @@ impl<'w> DeferredWorld<'w> {
         if archetype.has_add_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
-                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                let info = unsafe { self.components().get_info_unchecked(component_id) };
+                let hooks = info.hooks();
                 if let Some(hook) = hooks.on_add {
                     hook(
                         DeferredWorld { world: self.world },
@@ -537,7 +538,8 @@ impl<'w> DeferredWorld<'w> {
         if archetype.has_insert_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
-                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                let info = unsafe { self.components().get_info_unchecked(component_id) };
+                let hooks = info.hooks();
                 if let Some(hook) = hooks.on_insert {
                     hook(
                         DeferredWorld { world: self.world },
@@ -567,7 +569,8 @@ impl<'w> DeferredWorld<'w> {
         if archetype.has_replace_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
-                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                let info = unsafe { self.components().get_info_unchecked(component_id) };
+                let hooks = info.hooks();
                 if let Some(hook) = hooks.on_replace {
                     hook(
                         DeferredWorld { world: self.world },
@@ -597,7 +600,8 @@ impl<'w> DeferredWorld<'w> {
         if archetype.has_remove_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
-                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                let info = unsafe { self.components().get_info_unchecked(component_id) };
+                let hooks = info.hooks();
                 if let Some(hook) = hooks.on_remove {
                     hook(
                         DeferredWorld { world: self.world },
@@ -627,7 +631,8 @@ impl<'w> DeferredWorld<'w> {
         if archetype.has_despawn_hook() {
             for component_id in targets {
                 // SAFETY: Caller ensures that these components exist
-                let hooks = unsafe { self.components().get_info_unchecked(component_id) }.hooks();
+                let info = unsafe { self.components().get_info_unchecked(component_id) };
+                let hooks = info.hooks();
                 if let Some(hook) = hooks.on_despawn {
                     hook(
                         DeferredWorld { world: self.world },

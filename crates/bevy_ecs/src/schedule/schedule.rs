@@ -15,6 +15,7 @@ use bevy_utils::{default, TypeIdMap};
 use core::{
     any::{Any, TypeId},
     fmt::{Debug, Write},
+    ops::Deref,
 };
 use disqualified::ShortName;
 use fixedbitset::FixedBitSet;
@@ -25,7 +26,9 @@ use thiserror::Error;
 use tracing::info_span;
 
 use crate::{
-    component::{ComponentId, Components, Tick},
+    component::{
+        ComponentId, Components, ComponentsReader, ComponentsWriter, DerefByLifetime, Tick,
+    },
     prelude::Component,
     resource::Resource,
     result::{DefaultSystemErrorHandler, Error, SystemErrorContext},
@@ -163,7 +166,7 @@ impl Schedules {
             "System order ambiguities caused by conflicts on the following types are ignored:\n"
                 .to_string();
         for id in self.iter_ignored_ambiguities() {
-            writeln!(message, "{}", components.get_name(*id).unwrap()).unwrap();
+            writeln!(message, "{}", components.get_name(*id).unwrap().deref()).unwrap();
         }
 
         info!("{}", message);
@@ -1891,7 +1894,7 @@ impl ScheduleGraph {
 
                 let conflict_names: Vec<_> = conflicts
                     .iter()
-                    .map(|id| components.get_name(*id).unwrap())
+                    .map(|id| components.get_name(*id).unwrap().deref_lifetime())
                     .collect();
 
                 (name_a, name_b, conflict_names)
