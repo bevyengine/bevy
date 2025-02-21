@@ -363,7 +363,79 @@ impl<T: TrustedEntityBorrow> From<[T; 0]> for UniqueEntityArray<T, 0> {
     }
 }
 
-// impl From<UniqueEntityArray> for Tuples from size 0-12
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 1>> for (T,) {
+    fn from(array: UniqueEntityArray<T, 1>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 2>> for (T, T) {
+    fn from(array: UniqueEntityArray<T, 2>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 3>> for (T, T, T) {
+    fn from(array: UniqueEntityArray<T, 3>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 4>> for (T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 4>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 5>> for (T, T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 5>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 6>> for (T, T, T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 6>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 7>> for (T, T, T, T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 7>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 8>> for (T, T, T, T, T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 8>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 9>> for (T, T, T, T, T, T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 9>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 10>> for (T, T, T, T, T, T, T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 10>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 11>> for (T, T, T, T, T, T, T, T, T, T, T) {
+    fn from(array: UniqueEntityArray<T, 11>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityArray<T, 12>>
+    for (T, T, T, T, T, T, T, T, T, T, T, T)
+{
+    fn from(array: UniqueEntityArray<T, 12>) -> Self {
+        Self::from(array.into_inner())
+    }
+}
 
 impl<T: TrustedEntityBorrow + Ord, const N: usize> From<UniqueEntityArray<T, N>> for BTreeSet<T> {
     fn from(value: UniqueEntityArray<T, N>) -> Self {
