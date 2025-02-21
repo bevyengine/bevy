@@ -44,6 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             color: Color::WHITE,
             width: TextCursorWidth::Px(4.),
             radius: 2.,
+            height: 1.,
         },
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),

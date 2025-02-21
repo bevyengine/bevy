@@ -805,7 +805,7 @@ pub fn extract_text_sections(
             TextCursorWidth::Px(width) => width * target.scale_factor,
         };
 
-        let height = computed_block.buffer().metrics().line_height;
+        let height = computed_block.buffer().metrics().line_height * cursor.height;
 
         let position = if cursor.width == TextCursorWidth::All {
             glyph.position
