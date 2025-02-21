@@ -2252,31 +2252,49 @@ impl Components {
     }
 }
 
-/// Allows modifying required components with potential staged changes.
+/// Allows modifying [`RequiredComponents`] with potential staged changes.
 pub(crate) struct RequiredComponentsStagedMut<'a> {
+    /// Working refers to the most changeable version of the data.
+    /// Since this is meant to be changed, it usually comes from staged storage (unless we have mutable access to cold storage in which case we can just use that.)
     working: &'a mut RequiredComponents,
+    /// Cold refers to any tacked on extra data in addition to working.
+    /// This is called `cold` because this value, if present, always comes from cold storage.
+    /// If there's anything in staged, staged will always go to working, since that is the "most changeable"/closest to the "top".
+    /// This is used if and only if there was staged data to put in working and cold data to put in cold.
     cold: Option<&'a RequiredComponents>,
 }
 
-/// Allows viewing required components with potential staged changes.
-pub struct RequiredByStagedRef<'a> {
-    working: &'a HashSet<ComponentId>,
-    cold: Option<&'a HashSet<ComponentId>>,
-}
-
-/// Allows viewing required components with potential staged changes.
+/// Allows viewing [`RequiredComponents`] with potential staged changes.
 pub struct RequiredComponentsStagedRef<'a> {
+    /// Working refers to the most changeable version of the data.
+    /// Every component must have a working field.
+    /// Since this is immutable, it can be in cold or staged.
     working: &'a RequiredComponents,
+    /// Cold refers to any tacked on extra data in addition to working.
+    /// This is called `cold` because this value, if present, always comes from cold storage.
+    /// If there's anything in staged, staged will always go to working, since that is the "most changeable"/closest to the "top".
+    /// This is used if and only if there was staged data to put in working and cold data to put in cold.
+    /// If there is only one of those, it goes in working regardless of it it came from cold or staged storage.
     cold: Option<&'a RequiredComponents>,
 }
 
-/// Allows modifying required components with potential staged changes.
+/// Allows modifying component requirees with potential staged changes.
 pub(crate) struct RequiredByStagedMut<'a> {
+    /// See [`RequiredComponentsStagedMut::working`].
     working: &'a mut HashSet<ComponentId>,
     #[expect(
         unused,
         reason = "Although we aren't using this now, it is useful to have."
     )]
+    /// See [`RequiredComponentsStagedMut::cold`].
+    cold: Option<&'a HashSet<ComponentId>>,
+}
+
+/// Allows viewing component requirees with potential staged changes.
+pub struct RequiredByStagedRef<'a> {
+    /// See [`RequiredComponentsStagedRef::working`].
+    working: &'a HashSet<ComponentId>,
+    /// See [`RequiredComponentsStagedRef::cold`].
     cold: Option<&'a HashSet<ComponentId>>,
 }
 
