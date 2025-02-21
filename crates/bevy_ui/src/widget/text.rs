@@ -397,3 +397,32 @@ pub fn text_system(
         }
     }
 }
+
+/// Add to a [`Text`] entity to draw a cursor for a block of text.
+#[derive(Component, Copy, Clone, Debug, Default, PartialEq)]
+pub struct TextCursor {
+    /// Index of the glyph where the cursor will be drawn.
+    /// If the index is out of bounds the cursor isn't shown.
+    pub index: usize,
+    /// Color of the cursor
+    pub color: Color,
+    /// Width of the cursor
+    pub width: TextCursorWidth,
+    /// Corner radius in logical pixels
+    pub radius: f32,
+}
+
+/// Width of a text cursor
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum TextCursorWidth {
+    /// Cover whole glyph
+    All,
+    /// Width of cursor in logical pixels
+    Px(f32),
+}
+
+impl Default for TextCursorWidth {
+    fn default() -> Self {
+        Self::Px(4.)
+    }
+}

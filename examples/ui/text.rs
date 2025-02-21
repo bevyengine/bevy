@@ -4,9 +4,10 @@
 //! in the bottom right. For text within a scene, please see the text2d example.
 
 use bevy::{
-    color::palettes::css::GOLD,
+    color::palettes::css::{GOLD, RED},
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    ui::widget::{TextCursor, TextCursorWidth},
 };
 
 fn main() {
@@ -38,7 +39,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             font_size: 67.0,
             ..default()
         },
-        TextShadow::default(),
+        TextCursor {
+            index: 5,
+            color: Color::WHITE,
+            width: TextCursorWidth::Px(4.),
+            radius: 1.,
+        },
         // Set the justification of the Text
         TextLayout::new_with_justify(JustifyText::Center),
         // Set the style of the Node itself.

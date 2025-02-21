@@ -7,9 +7,9 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
-use crate::widget::ImageNode;
+use crate::widget::{ImageNode, TextCursor, TextCursorWidth};
 use crate::{
-    BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
+    BackgroundColor, BorderColor, BorderRadius, BoxShadowSamples, CalculatedClip, ComputedNode,
     ComputedNodeTarget, DefaultUiCamera, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
     UiTargetCamera,
 };
@@ -52,7 +52,7 @@ pub use debug_overlay::UiDebugOptions;
 
 use crate::{Display, Node};
 use bevy_platform_support::collections::{HashMap, HashSet};
-use bevy_text::{ComputedTextBlock, PositionedGlyph, TextColor, TextLayoutInfo};
+use bevy_text::{ComputedTextBlock, GlyphAtlasInfo, PositionedGlyph, TextColor, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
 use bytemuck::{Pod, Zeroable};
@@ -707,6 +707,7 @@ pub fn extract_text_sections(
             &ComputedNodeTarget,
             &ComputedTextBlock,
             &TextLayoutInfo,
+            Option<&TextCursor>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -722,9 +723,10 @@ pub fn extract_text_sections(
         global_transform,
         inherited_visibility,
         clip,
-        camera,
+        target,
         computed_block,
         text_layout_info,
+        maybe_cursor,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -732,12 +734,12 @@ pub fn extract_text_sections(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
-        let transform = global_transform.affine()
-            * bevy_math::Affine3A::from_translation((-0.5 * uinode.size()).extend(0.));
+        let transform: Mat4 = global_transform.compute_matrix()
+            * Mat4::from_translation((-0.5 * uinode.size()).extend(0.));
 
         for (
             i,
@@ -788,6 +790,56 @@ pub fn extract_text_sections(
 
             end += 1;
         }
+
+        let Some(cursor) = maybe_cursor.filter(|cursor| !cursor.color.is_fully_transparent())
+        else {
+            continue;
+        };
+
+        let Some(glyph) = text_layout_info.glyphs.get(cursor.index) else {
+            continue;
+        };
+
+        let width = match cursor.width {
+            TextCursorWidth::All => glyph.size.x,
+            TextCursorWidth::Px(width) => width * target.scale_factor,
+        };
+
+        let height = computed_block.buffer().metrics().line_height;
+
+        let position = if cursor.width == TextCursorWidth::All {
+            glyph.position
+        } else {
+            glyph.position - 0.5 * (glyph.size.x + width) * Vec2::X
+        };
+
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: uinode.stack_index,
+            color: LinearRgba::from(cursor.color),
+            image: AssetId::default(),
+            clip: clip.map(|clip| clip.clip),
+            extracted_camera_entity,
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: Vec2::new(width, height),
+            },
+            item: ExtractedUiItem::Node {
+                atlas_scaling: None,
+                flip_x: false,
+                flip_y: false,
+                border_radius: ResolvedBorderRadius {
+                    top_left: cursor.radius * target.scale_factor,
+                    top_right: cursor.radius * target.scale_factor,
+                    bottom_left: cursor.radius * target.scale_factor,
+                    bottom_right: cursor.radius * target.scale_factor,
+                },
+                border: BorderRect::ZERO,
+                node_type: NodeType::Rect,
+                transform: transform * Mat4::from_translation(position.extend(0.)),
+            },
+            main_entity: entity.into(),
+        });
     }
 }
 
