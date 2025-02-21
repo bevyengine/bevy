@@ -39,7 +39,7 @@ use bevy_core_pipeline::core_3d::{
 use bevy_ecs::{
     component::{require, Component},
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs as _,
+    schedule::IntoNodeConfigs as _,
 };
 use bevy_image::Image;
 use bevy_math::{
