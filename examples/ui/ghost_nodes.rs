@@ -117,7 +117,7 @@ fn button_system(
 
     // Update button labels to match their parent counter
     for (children, child_of) in &labels_query {
-        let counter = counter_query.get(child_of.get()).unwrap();
+        let counter = counter_query.get(child_of.parent).unwrap();
         let mut text = text_query.get_mut(children[0]).unwrap();
 
         **text = counter.0.to_string();
