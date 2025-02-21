@@ -270,7 +270,7 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
     }
 }
 
-/// Types that can convert into a [`SystemConfigs`].
+/// Types that can convert into a [`NodeConfigs`].
 ///
 /// This trait is implemented for "systems" (functions whose arguments all implement
 /// [`SystemParam`](crate::system::SystemParam)), or tuples thereof.
@@ -280,7 +280,7 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
 ///
 /// This trait should only be used as a bound for trait implementations or as an
 /// argument to a function. If system configs need to be returned from a
-/// function or stored somewhere, use [`SystemConfigs`] instead of this trait.
+/// function or stored somewhere, use [`NodeConfigs`] instead of this trait.
 ///
 /// # Examples
 ///
@@ -421,7 +421,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     /// that all evaluations in a single schedule run will yield the same result. If another
     /// system is run inbetween two evaluations it could cause the result of the condition to change.
     ///
-    /// Use [`run_if`](IntoSystemSetConfigs::run_if) on a [`SystemSet`] if you want to make sure
+    /// Use [`run_if`](NodeConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
     fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> NodeConfigs<T>

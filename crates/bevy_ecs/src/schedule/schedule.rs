@@ -964,7 +964,7 @@ impl ScheduleGraph {
         self.process_configs(sets.into_configs(), false);
     }
 
-    /// Add a single `SystemSetConfig` to the graph, including its dependencies and conditions.
+    /// Add a single `NodeConfig` to the graph, including its dependencies and conditions.
     fn configure_set_inner(
         &mut self,
         set: NodeConfig<InternedSystemSet>,
