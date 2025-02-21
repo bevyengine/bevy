@@ -49,7 +49,7 @@ where
 {
     /// Construct a value of this type uniformly at random using `rng` as the source of randomness.
     fn from_rng<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        rng.gen()
+        rng.r#gen()
     }
 }
 
