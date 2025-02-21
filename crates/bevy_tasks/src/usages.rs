@@ -81,7 +81,7 @@ taskpool! {
 /// # Warning
 ///
 /// This function *must* be called on the main thread, or the task pools will not be updated appropriately.
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub fn tick_global_task_pools_on_main_thread() {
     COMPUTE_TASK_POOL
         .get()

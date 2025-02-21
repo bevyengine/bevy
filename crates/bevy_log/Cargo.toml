@@ -38,6 +38,10 @@ android_log-sys = "0.3.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tracing-wasm = "0.2.1"
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+bevy_app = { path = "../bevy_app", version = "0.16.0-dev", default-features = false, features = [
+  "web",
+] }
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tracing-oslog = "0.2"
