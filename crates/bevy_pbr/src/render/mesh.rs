@@ -1451,8 +1451,6 @@ pub fn extract_meshes_for_gpu_building(
         >,
     >,
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
-    mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
     meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
@@ -1508,11 +1506,7 @@ pub fn extract_meshes_for_gpu_building(
     }
 
     // Also record info about each mesh that became invisible.
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_global_transforms_query.read())
-        .chain(removed_meshes_query.read())
-    {
+    for entity in removed_meshes_query.read() {
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.

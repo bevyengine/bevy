@@ -331,7 +331,6 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
             Or<(Changed<ViewVisibility>, Changed<MeshMaterial2d<M>>)>,
         >,
     >,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_materials_query: Extract<RemovedComponents<MeshMaterial2d<M>>>,
 ) {
     for (entity, view_visibility, material) in &changed_meshes_query {
@@ -342,10 +341,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         }
     }
 
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_materials_query.read())
-    {
+    for entity in removed_materials_query.read() {
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.

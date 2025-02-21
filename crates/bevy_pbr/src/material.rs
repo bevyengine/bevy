@@ -784,11 +784,11 @@ fn early_sweep_material_instances<M>(
 /// preparation for a new frame.
 fn late_sweep_material_instances(
     mut material_instances: ResMut<RenderMaterialInstances>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
+    mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
 ) {
     let last_change_tick = material_instances.current_change_tick;
 
-    for entity in removed_visibilities_query.read() {
+    for entity in removed_meshes_query.read() {
         if let Entry::Occupied(occupied_entry) = material_instances.instances.entry(entity.into()) {
             // Only sweep the entry if it wasn't updated this frame. It's
             // possible that a `ViewVisibility` component was removed and
