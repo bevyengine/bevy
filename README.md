@@ -31,13 +31,25 @@ Despite these challenges, Bevy provides a solid framework for Rust-based game de
 As a result, the Minimum Supported Rust Version (MSRV) is generally close to "the latest stable release" of Rust.
 
 ## Design Goals
+Bevy is built for **performance, flexibility, and ease of use**, following these principles:
 
-* **Capable**: Offer a complete 2D and 3D feature set
-* **Simple**: Easy for newbies to pick up, but infinitely flexible for power users
-* **Data Focused**: Data-oriented architecture using the Entity Component System paradigm
-* **Modular**: Use only what you need. Replace what you don't like
-* **Fast**: App logic should run quickly, and when possible, in parallel
-* **Productive**: Changes should compile quickly ... waiting isn't fun
+### **Capable: Full 2D and 3D Support**
+Bevy provides a **modern rendering engine**, **physics integration**, and **asset management** for both 2D and 3D development.
+
+### **Simple: Easy to Use, Powerful When Needed**
+Minimal setup with a **clear API**, **no garbage collection**, and **Rust’s strong type system** to ensure safety and efficiency.
+
+### **Data-Oriented: Optimized with ECS**
+Uses the **Entity Component System (ECS)** for **scalability, parallel execution, and performance**.
+
+### **Modular: Use Only What You Need**
+Developers can **enable or replace components** as needed, keeping projects lightweight and customizable.
+
+### **Fast: High-Performance Execution**
+Bevy optimizes **parallel processing, cache efficiency, and system execution** for smooth gameplay.
+
+### **Productive: Faster Iteration**
+Supports **hot-reloading, rapid prototyping, and reduced compile times** for better development workflow.
 
 These principles ensure Bevy remains a **powerful yet user-friendly** engine for both small and large projects.
 
