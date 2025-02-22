@@ -17,7 +17,7 @@ Bevy is still in the early stages of development. Which means:
 - Some **important features are missing**.  
 - **Documentation is still being improved**.  
 - A **new version is released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule)**, often with **breaking API changes**
-- **[migration guides](https://bevyengine.org/learn/migration-guides/)** are available, but updating to new versions may require manual adjustments.
+- **[Migration guides](https://bevyengine.org/learn/migration-guides/)** are available, but updating to new versions may require manual adjustments.
 
 Despite these challenges, Bevy provides a solid framework for Rust-based game development, and the community is actively improving the engine with each release.
 
