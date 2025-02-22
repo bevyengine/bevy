@@ -1,12 +1,5 @@
 //! Handle user specified rumble request events.
-use crate::GilrsGamepads;
-
-#[cfg(not(target_arch = "wasm32"))]
-use crate::Gilrs;
-
-#[cfg(target_arch = "wasm32")]
-use crate::GILRS;
-
+use crate::{Gilrs, GilrsGamepads};
 use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
 use bevy_input::gamepad::{GamepadRumbleIntensity, GamepadRumbleRequest};
 use bevy_platform_support::collections::HashMap;
@@ -131,60 +124,44 @@ fn handle_rumble_request(
 
     Ok(())
 }
-
 pub(crate) fn play_gilrs_rumble(
     time: Res<Time<Real>>,
-    #[cfg(not(target_arch = "wasm32"))] mut gilrs: ResMut<Gilrs>,
-    gamepads: Res<GilrsGamepads>,
-    requests: EventReader<GamepadRumbleRequest>,
-    running_rumbles: ResMut<RunningRumbleEffects>,
-) {
-    #[cfg(target_arch = "wasm32")]
-    GILRS.with(|g| {
-        let mut g_ref = g.borrow_mut();
-        let gilrs = g_ref.as_mut().expect("GILRS was not initialized");
-        play_gilrs_rumble_inner(time, gilrs, gamepads, requests, running_rumbles);
-    });
-    #[cfg(not(target_arch = "wasm32"))]
-    play_gilrs_rumble_inner(time, gilrs.0.get(), gamepads, requests, running_rumbles);
-}
-
-fn play_gilrs_rumble_inner(
-    time: Res<Time<Real>>,
-    gilrs: &mut gilrs::Gilrs,
+    mut gilrs: ResMut<Gilrs>,
     gamepads: Res<GilrsGamepads>,
     mut requests: EventReader<GamepadRumbleRequest>,
     mut running_rumbles: ResMut<RunningRumbleEffects>,
 ) {
-    let current_time = time.elapsed();
-    // Remove outdated rumble effects.
-    for rumbles in running_rumbles.rumbles.values_mut() {
-        // `ff::Effect` uses RAII, dropping = deactivating
-        rumbles.retain(|RunningRumble { deadline, .. }| *deadline >= current_time);
-    }
-    running_rumbles
-        .rumbles
-        .retain(|_gamepad, rumbles| !rumbles.is_empty());
+    gilrs.with(|g| {
+        let current_time = time.elapsed();
+        // Remove outdated rumble effects.
+        for rumbles in running_rumbles.rumbles.values_mut() {
+            // `ff::Effect` uses RAII, dropping = deactivating
+            rumbles.retain(|RunningRumble { deadline, .. }| *deadline >= current_time);
+        }
+        running_rumbles
+            .rumbles
+            .retain(|_gamepad, rumbles| !rumbles.is_empty());
 
-    // Add new effects.
-    for rumble in requests.read().cloned() {
-        let gamepad = rumble.gamepad();
-        match handle_rumble_request(&mut running_rumbles, gilrs, &gamepads, rumble, current_time) {
-            Ok(()) => {}
-            Err(RumbleError::GilrsError(err)) => {
-                if let ff::Error::FfNotSupported(_) = err {
-                    debug!("Tried to rumble {gamepad:?}, but it doesn't support force feedback");
-                } else {
-                    warn!(
-                    "Tried to handle rumble request for {gamepad:?} but an error occurred: {err}"
-                    );
+        // Add new effects.
+        for rumble in requests.read().cloned() {
+            let gamepad = rumble.gamepad();
+            match handle_rumble_request(&mut running_rumbles, g, &gamepads, rumble, current_time) {
+                Ok(()) => {}
+                Err(RumbleError::GilrsError(err)) => {
+                    if let ff::Error::FfNotSupported(_) = err {
+                        debug!("Tried to rumble {gamepad:?}, but it doesn't support force feedback");
+                    } else {
+                        warn!(
+                        "Tried to handle rumble request for {gamepad:?} but an error occurred: {err}"
+                        );
+                    }
                 }
-            }
-            Err(RumbleError::GamepadNotFound) => {
-                warn!("Tried to handle rumble request {gamepad:?} but it doesn't exist!");
-            }
-        };
-    }
+                Err(RumbleError::GamepadNotFound) => {
+                    warn!("Tried to handle rumble request {gamepad:?} but it doesn't exist!");
+                }
+            };
+        }
+    });
 }
 
 #[cfg(test)]

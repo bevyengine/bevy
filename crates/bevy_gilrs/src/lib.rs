@@ -34,12 +34,23 @@ use tracing::error;
 thread_local! {
     /// Temporary storage of gilrs data to replace usage of `!Send` resources.
     /// This will be replaced with proper storage of `!Send` data after issue #17667 is complete.
-    pub static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
+    static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 #[derive(Resource)]
-pub(crate) struct Gilrs(pub SyncCell<gilrs::Gilrs>);
+pub(crate) struct Gilrs {
+    #[cfg(not(target_arch = "wasm32"))]
+    cell: SyncCell<gilrs::Gilrs>,
+}
+impl Gilrs {
+    #[inline]
+    pub fn with(&mut self, f: impl FnOnce(&mut gilrs::Gilrs)) {
+        #[cfg(target_arch = "wasm32")]
+        GILRS.with(|g| f(g.borrow_mut().as_mut().expect("GILRS was not initialized")));
+        #[cfg(not(target_arch = "wasm32"))]
+        f(self.cell.get());
+    }
+}
 
 /// A [`resource`](Resource) with the mapping of connected [`gilrs::GamepadId`] and their [`Entity`].
 #[derive(Debug, Default, Resource)]
@@ -78,12 +89,15 @@ impl Plugin for GilrsPlugin {
             .build()
         {
             Ok(gilrs) => {
+                let g = Gilrs {
+                    #[cfg(not(target_arch = "wasm32"))]
+                    cell: SyncCell::new(gilrs),
+                };
                 #[cfg(target_arch = "wasm32")]
                 GILRS.with(|g| {
                     g.replace(Some(gilrs));
                 });
-                #[cfg(not(target_arch = "wasm32"))]
-                app.insert_resource(Gilrs(SyncCell::new(gilrs)));
+                app.insert_resource(g);
                 app.init_resource::<GilrsGamepads>();
                 app.init_resource::<RunningRumbleEffects>()
                     .add_systems(PreStartup, gilrs_event_startup_system)
