@@ -58,7 +58,7 @@ fn setup_camera_fog(mut commands: Commands) {
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 13.0 },
+        Exposure { ev100: 15.0 },
         // Tonemapper chosen just because it looked good with the scene, any
         // tonemapper would be fine :)
         Tonemapping::AcesFitted,
@@ -139,20 +139,20 @@ fn setup_terrain_scene(
         Transform::from_xyz(-0.3, 0.1, 0.1).with_scale(Vec3::splat(0.05)),
     ));
 
-    let tall_cylinder_mesh = meshes.add(Cylinder {
-        radius: 0.5,
-        half_height: 5.0,
-        ..default()
-    });
+    // let tall_cylinder_mesh = meshes.add(Cylinder {
+    //     radius: 0.5,
+    //     half_height: 5.0,
+    //     ..default()
+    // });
 
-    commands.spawn((
-        Mesh3d(tall_cylinder_mesh.clone()),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            ..default()
-        })),
-        Transform::from_xyz(0.0, 5.0, 0.0),
-    ));
+    // commands.spawn((
+    //     Mesh3d(tall_cylinder_mesh.clone()),
+    //     MeshMaterial3d(materials.add(StandardMaterial {
+    //         base_color: Color::WHITE,
+    //         ..default()
+    //     })),
+    //     Transform::from_xyz(0.0, 5.0, 0.0),
+    // ));
 
     // ground plane
     commands.spawn((
@@ -170,7 +170,7 @@ fn setup_terrain_scene(
         SceneRoot(
             asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/terrain/terrain.glb")),
         ),
-        Transform::from_xyz(-1.0, 0.0, -0.5)
+        Transform::from_xyz(-1.0, -0.1, -0.5)
             .with_scale(Vec3::splat(0.5))
             .with_rotation(Quat::from_rotation_y(PI / 2.0)),
     ));

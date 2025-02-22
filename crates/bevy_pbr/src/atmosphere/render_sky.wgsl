@@ -30,16 +30,15 @@ struct RenderSkyOutput {
 @fragment
 fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
-
     let world_pos = get_view_position();
     let r = view_radius();
     let ray_dir_ws = uv_to_ray_direction(in.uv).xyz;
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
 
-    let camera_outside = in.uv.x > 0.0; //length(world_pos) >= atmosphere.top_radius;
+    let should_raymarch = true; //length(world_pos) >= atmosphere.top_radius;
 
-    let raymarch_steps = 256.0;
+    let raymarch_steps = 16.0;
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
@@ -50,10 +49,10 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws);
         transmittance = sample_transmittance_lut(r, mu);
         inscattering += sample_sky_view_lut(r, ray_dir_as);
-        if camera_outside {
+        if should_raymarch {
             let t_max = max_atmosphere_distance(r, mu);
             let sample_count = mix(1.0, raymarch_steps, clamp(t_max * 0.01, 0.0, 1.0));
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, in.uv);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }
@@ -64,9 +63,9 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
         inscattering = sample_aerial_view_lut(in.uv, t);
         transmittance = sample_transmittance_lut_segment(r, mu, t);
 
-        if camera_outside {
+        if should_raymarch {
             let sample_count = mix(1.0, raymarch_steps, clamp(t * 0.01, 0.0, 1.0));
-            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count);
+            let result = raymarch_atmosphere(world_pos, ray_dir_ws, t, sample_count, in.uv);
             inscattering = result.inscattering;
             transmittance = result.transmittance;
         }

@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+dds = ["bevy_render/dds", "bevy_image/dds"]
 webgl = []
 webgpu = []
 pbr_transmission_textures = []

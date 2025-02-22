@@ -7,7 +7,7 @@
     bindings::{
         atmosphere, settings, view, lights, transmittance_lut, transmittance_lut_sampler, 
         multiscattering_lut, multiscattering_lut_sampler, sky_view_lut, sky_view_lut_sampler,
-        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms
+        aerial_view_lut, aerial_view_lut_sampler, atmosphere_transforms, blue_noise_texture, blue_noise_sampler
     },
     bruneton_functions::{
         transmittance_lut_r_mu_to_uv, transmittance_lut_uv_to_r_mu, 
@@ -461,6 +461,15 @@ fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
     return segment;
 }
 
+fn get_blue_noise(uv: vec2<f32>) -> f32 {
+    let screen_size = view.viewport.zw;
+    let aspect = view.viewport.z / view.viewport.w;
+    let noise_scale = screen_size.y / 64.0;
+    let noise_uv = vec2(uv.x * aspect, uv.y) * noise_scale;
+    let blue_noise = textureSampleLevel(blue_noise_texture, blue_noise_sampler, noise_uv, 0.0).r;
+    return blue_noise;
+}
+
 struct RaymarchResult {
     inscattering: vec3<f32>,
     transmittance: vec3<f32>,
@@ -471,6 +480,7 @@ fn raymarch_atmosphere(
     ray_dir: vec3<f32>,
     t_max: f32,
     sample_count: f32,
+    uv: vec2<f32>,
 ) -> RaymarchResult {
     let r = length(pos);
     let up = normalize(pos);
@@ -491,11 +501,13 @@ fn raymarch_atmosphere(
     if t_total <= 0.0 {
         return result;
     }
+
+    let jitter = (get_blue_noise(uv) - 0.5) * settings.jitter_strength + 0.5;
     
     var prev_t = t_start;
     for (var s = 0.0; s < sample_count; s += 1.0) {
         // Linear distribution from atmosphere entry to exit/ground
-        let t_i = t_start + t_total * (s + MIDPOINT_RATIO) / sample_count;
+        let t_i = t_start + t_total * (s + jitter) / sample_count;
         let dt_i = (t_i - prev_t);
         prev_t = t_i;
 

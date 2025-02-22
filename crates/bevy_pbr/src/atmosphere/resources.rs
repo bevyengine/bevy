@@ -13,9 +13,10 @@ use bevy_math::{Mat4, Vec3};
 use bevy_render::{
     camera::Camera,
     extract_component::ComponentUniforms,
+    render_asset::RenderAssets,
     render_resource::{binding_types::*, StorageBuffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{CachedTexture, TextureCache},
+    texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
 
@@ -101,12 +102,13 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                             StorageTextureAccess::WriteOnly,
                         ),
                     ),
-                    (
-                        // directional shadow texture
-                        14,
-                        texture_2d_array(TextureSampleType::Depth),
-                    ),
+                    (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
                     (15, sampler(SamplerBindingType::Comparison)),
+                    (
+                        16,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ), // blue noise texture and sampler
+                    (17, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
@@ -126,19 +128,19 @@ impl FromWorld for AtmosphereBindGroupLayouts {
                     (7, texture_2d(TextureSampleType::Float { filterable: true })), //multiscattering lut and sampler
                     (8, sampler(SamplerBindingType::Filtering)),
                     (
-                        //Aerial view lut storage texture
                         13,
                         texture_storage_3d(
                             TextureFormat::Rgba16Float,
                             StorageTextureAccess::WriteOnly,
-                        ),
+                        ), //Aerial view lut storage texture
                     ),
-                    (
-                        // directional shadow texture
-                        14,
-                        texture_2d_array(TextureSampleType::Depth),
-                    ),
+                    (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
                     (15, sampler(SamplerBindingType::Comparison)),
+                    (
+                        16,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ), // blue noise texture and sampler
+                    (17, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
@@ -188,6 +190,11 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                         texture_2d_array(TextureSampleType::Depth),
                     ),
                     (15, sampler(SamplerBindingType::Comparison)),
+                    (
+                        16,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ), // blue noise texture and sampler
+                    (17, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
@@ -209,22 +216,18 @@ impl FromWorld for RenderSkyBindGroupLayouts {
                     (9, texture_2d(TextureSampleType::Float { filterable: true })), //sky view lut and sampler
                     (10, sampler(SamplerBindingType::Filtering)),
                     (
-                        // aerial view lut and sampler
                         11,
                         texture_3d(TextureSampleType::Float { filterable: true }),
-                    ),
+                    ), // aerial view lut and sampler
                     (12, sampler(SamplerBindingType::Filtering)),
-                    (
-                        //view depth texture
-                        13,
-                        texture_2d_multisampled(TextureSampleType::Depth),
-                    ),
-                    (
-                        // directional shadow texture
-                        14,
-                        texture_2d_array(TextureSampleType::Depth),
-                    ),
+                    (13, texture_2d_multisampled(TextureSampleType::Depth)), //view depth texture
+                    (14, texture_2d_array(TextureSampleType::Depth)), // directional shadow texture
                     (15, sampler(SamplerBindingType::Comparison)),
+                    (
+                        16,
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                    ), // blue noise texture and sampler
+                    (17, sampler(SamplerBindingType::Filtering)),
                 ),
             ),
         );
@@ -242,6 +245,7 @@ pub struct AtmosphereSamplers {
     pub multiscattering_lut: Sampler,
     pub sky_view_lut: Sampler,
     pub aerial_view_lut: Sampler,
+    pub blue_noise: Sampler,
 }
 
 impl FromWorld for AtmosphereSamplers {
@@ -276,11 +280,22 @@ impl FromWorld for AtmosphereSamplers {
             ..base_sampler
         });
 
+        let blue_noise = render_device.create_sampler(&SamplerDescriptor {
+            address_mode_u: AddressMode::Repeat,
+            address_mode_v: AddressMode::Repeat,
+            address_mode_w: AddressMode::Repeat,
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: FilterMode::Nearest,
+            ..Default::default()
+        });
+
         Self {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
             aerial_view_lut,
+            blue_noise,
         }
     }
 }
@@ -653,6 +668,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
     settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
     shadow_samplers: Res<ShadowSamplers>,
+    images: Res<RenderAssets<GpuImage>>,
     mut commands: Commands,
 ) {
     if views.iter().len() == 0 {
@@ -681,6 +697,10 @@ pub(super) fn prepare_atmosphere_bind_groups(
         .view_gpu_lights
         .binding()
         .expect("Failed to prepare atmosphere bind groups. Lights uniform buffer missing");
+
+    let blue_noise_texture = images
+        .get(&shaders::BLUENOISE_TEXTURE)
+        .expect("Blue noise texture not loaded");
 
     for (entity, textures, view_depth_texture, shadow_bindings, msaa) in &views {
         let transmittance_lut = render_device.create_bind_group(
@@ -721,6 +741,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (13, &textures.sky_view_lut.default_view),
                 (14, &shadow_bindings.directional_light_depth_texture_view),
                 (15, &shadow_samplers.directional_light_comparison_sampler),
+                (16, &blue_noise_texture.texture_view),
+                (17, &samplers.blue_noise),
             )),
         );
 
@@ -740,6 +762,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (13, &textures.aerial_view_lut.default_view),
                 (14, &shadow_bindings.directional_light_depth_texture_view),
                 (15, &shadow_samplers.directional_light_comparison_sampler),
+                (16, &blue_noise_texture.texture_view),
+                (17, &samplers.blue_noise),
             )),
         );
 
@@ -767,6 +791,8 @@ pub(super) fn prepare_atmosphere_bind_groups(
                 (13, view_depth_texture.view()),
                 (14, &shadow_bindings.directional_light_depth_texture_view),
                 (15, &shadow_samplers.directional_light_comparison_sampler),
+                (16, &blue_noise_texture.texture_view),
+                (17, &samplers.blue_noise),
             )),
         );
 

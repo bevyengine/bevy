@@ -36,7 +36,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let t_max = max_atmosphere_distance(r, mu);
 
     let sample_count = mix(1.0, f32(settings.sky_view_lut_samples), clamp(t_max * 0.01, 0.0, 1.0));
-    let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count);
+    let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, sample_count, uv);
 
     textureStore(sky_view_lut_out, idx.xy, vec4(result.inscattering, 1.0));
 }
