@@ -765,7 +765,7 @@ impl ScheduleGraph {
         }
         self.system_set_conditions
             .get(id.index())
-            .map(|conditions| conditions.as_slice())
+            .map(Vec::as_slice)
     }
 
     /// Returns the conditions for the set at the given [`NodeId`].
