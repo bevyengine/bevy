@@ -32,8 +32,13 @@ use tracing::error;
 
 #[cfg(target_arch = "wasm32")]
 thread_local! {
-    /// Temporary storage of gilrs data to replace usage of `!Send` resources.
-    /// This will be replaced with proper storage of `!Send` data after issue #17667 is complete.
+    /// Temporary storage of gilrs data to replace usage of `!Send` resources. This will be replaced with proper
+    /// storage of `!Send` data after issue #17667 is complete.
+    ///
+    /// Using a `thread_local!` here relies on the fact that wasm32 can only be single threaded. Previously, we used a
+    /// `NonSendMut` parameter, which told Bevy that the system was `!Send`, but now with the removal of `!Send`
+    /// resource/system parameter usage, there is no internal guarantee that the system will run in only one thread, so
+    /// we need to rely on the platform to make such a guarantee.
     static GILRS: RefCell<Option<gilrs::Gilrs>> = const { RefCell::new(None) };
 }
 
