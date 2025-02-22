@@ -74,7 +74,7 @@ If you’d like to help improve Bevy, follow these steps:
 - **For simple fixes**, feel free to open a **pull request (PR)**.  
 - **For major changes**, submit a **Request For Comments (RFC)** so the community can discuss the best approach.  
 
-Your contributions help make Bevy a better engine for everyone.!
+Your contributions help make Bevy a better engine for everyone!
 
 ## Getting Started
 
