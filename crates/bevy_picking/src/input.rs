@@ -20,7 +20,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_platform_support::collections::{HashMap, HashSet};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::prelude::*;
 use bevy_render::camera::RenderTarget;
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
@@ -87,10 +87,6 @@ impl Plugin for PointerInputPlugin {
                 )
                     .chain()
                     .in_set(PickSet::Input),
-            )
-            .add_systems(
-                Last,
-                deactivate_touch_pointers.run_if(PointerInputPlugin::is_touch_enabled),
             )
             .register_type::<Self>()
             .register_type::<PointerInputPlugin>();
@@ -185,14 +181,13 @@ pub fn touch_pick_events(
     mut window_events: EventReader<WindowEvent>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     // Locals
-    mut touch_cache: Local<HashMap<u64, TouchInput>>,
+    mut touch_cache: Local<HashMap<u64, (TouchInput, Entity)>>,
     // Output
     mut commands: Commands,
     mut pointer_events: EventWriter<PointerInput>,
 ) {
     for window_event in window_events.read() {
         if let WindowEvent::TouchInput(touch) = window_event {
-            let pointer = PointerId::Touch(touch.id);
             let location = Location {
                 target: match RenderTarget::Window(WindowRef::Entity(touch.window))
                     .normalize(primary_window.get_single().ok())
@@ -202,78 +197,75 @@ pub fn touch_pick_events(
                 },
                 position: touch.position,
             };
+
             match touch.phase {
                 TouchPhase::Started => {
-                    debug!("Spawning pointer {:?}", pointer);
-                    commands.spawn((pointer, PointerLocation::new(location.clone())));
+                    let pointer = commands
+                        .spawn((PointerId::Touch, PointerLocation::new(location.clone())))
+                        .id();
+                    touch_cache.insert(touch.id, (*touch, pointer));
 
-                    pointer_events.send(PointerInput::new(
+                    debug!(
+                        "Spawned touch, finger: {:?}, pointer:{:?}",
+                        touch.id, pointer
+                    );
+
+                    pointer_events.send(PointerInput::new_with_entity(
+                        PointerId::Touch,
                         pointer,
                         location,
                         PointerAction::Press(PointerButton::Primary),
                     ));
-
-                    touch_cache.insert(touch.id, *touch);
                 }
                 TouchPhase::Moved => {
-                    // Send a move event only if it isn't the same as the last one
-                    if let Some(last_touch) = touch_cache.get(&touch.id) {
-                        if last_touch == touch {
+                    if let Some((last_touch, pointer)) = touch_cache.get_mut(&touch.id) {
+                        if *last_touch == *touch {
                             continue;
                         }
-                        pointer_events.send(PointerInput::new(
-                            pointer,
+                        pointer_events.send(PointerInput::new_with_entity(
+                            PointerId::Touch,
+                            *pointer,
                             location,
                             PointerAction::Move {
                                 delta: touch.position - last_touch.position,
                             },
                         ));
+                        *last_touch = *touch;
                     }
-                    touch_cache.insert(touch.id, *touch);
                 }
                 TouchPhase::Ended => {
-                    pointer_events.send(PointerInput::new(
-                        pointer,
-                        location,
-                        PointerAction::Release(PointerButton::Primary),
-                    ));
-                    touch_cache.remove(&touch.id);
+                    if let Some((_, pointer)) = touch_cache.remove(&touch.id) {
+                        debug!(
+                            "Despawning touch, finger {:?}, entity {:?}",
+                            touch.id, pointer
+                        );
+                        commands.entity(pointer).despawn();
+
+                        pointer_events.send(PointerInput::new_with_entity(
+                            PointerId::Touch,
+                            pointer,
+                            location,
+                            PointerAction::Release(PointerButton::Primary),
+                        ));
+                    }
                 }
                 TouchPhase::Canceled => {
-                    pointer_events.send(PointerInput::new(
-                        pointer,
-                        location,
-                        PointerAction::Cancel,
-                    ));
-                    touch_cache.remove(&touch.id);
-                }
-            }
-        }
-    }
-}
+                    if let Some((_, pointer)) = touch_cache.remove(&touch.id) {
+                        debug!(
+                            "Despawning touch, finger {:?}, entity {:?}",
+                            touch.id, pointer
+                        );
+                        commands.entity(pointer).despawn();
 
-/// Deactivates unused touch pointers.
-///
-/// Because each new touch gets assigned a new ID, we need to remove the pointers associated with
-/// touches that are no longer active.
-pub fn deactivate_touch_pointers(
-    mut commands: Commands,
-    mut despawn_list: Local<HashSet<(Entity, PointerId)>>,
-    pointers: Query<(Entity, &PointerId)>,
-    mut touches: EventReader<TouchInput>,
-) {
-    for touch in touches.read() {
-        if let TouchPhase::Ended | TouchPhase::Canceled = touch.phase {
-            for (entity, pointer) in &pointers {
-                if pointer.get_touch_id() == Some(touch.id) {
-                    despawn_list.insert((entity, *pointer));
+                        pointer_events.send(PointerInput::new_with_entity(
+                            PointerId::Touch,
+                            pointer,
+                            location,
+                            PointerAction::Cancel,
+                        ));
+                    }
                 }
             }
         }
-    }
-    // A hash set is used to prevent despawning the same entity twice.
-    for (entity, pointer) in despawn_list.drain() {
-        debug!("Despawning pointer {:?}", pointer);
-        commands.entity(entity).despawn();
     }
 }
