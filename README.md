@@ -9,11 +9,17 @@
 
 ## What is Bevy?
 
-Bevy is a refreshingly simple data-driven game engine built in Rust. It is free and open-source forever!
+Bevy is a refreshingly simple data-driven game engine built in Rust. 
+It is designed to be **fast, modular, and easy to use**, offering a modern approach to game development. It is free and open-source forever!
+
+- **No Garbage Collection**: Bevy uses Rust's **ownership model** for memory safety.  
+- **Entity Component System (ECS)**: Efficient data-driven architecture for handling complex game logic.  
+- **Parallel Execution**: Bevy **automatically runs systems in parallel**, improving performance.  
+- **Cross-Platform**: Runs on **Windows, macOS, Linux, and WebAssembly** (WASM).
 
 ## WARNING
 
-Bevy is still in the early stages of development. Which means:
+Bevy is still in the early stages of development and is actively evolving. Which means:
 - Some **important features are missing**.  
 - **Documentation is still being improved**.  
 - A **new version is released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule)**, often with **breaking API changes**
@@ -74,6 +80,7 @@ Your contributions help make Bevy a better engine for everyone.!
 
 We recommend checking out the [Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction) for a brief introduction.
 
+### **Setting Up Bevy**
 Follow the [Setup guide](https://bevyengine.org/learn/quick-start/getting-started/setup) to ensure your development environment is set up correctly.
 Once set up, you can quickly try out the [examples](https://github.com/bevyengine/bevy/tree/latest/examples) by cloning this repo and running the following commands:
 
