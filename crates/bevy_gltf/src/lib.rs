@@ -107,7 +107,10 @@ use bevy_image::CompressedImageFormats;
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_render::{
-    mesh::{skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute, TangentStrategy},
+    mesh::{
+        skinning::SkinnedMeshInverseBindposes, Mesh, MeshVertexAttribute,
+        TangentCalculationStrategy,
+    },
     renderer::RenderDevice,
 };
 use bevy_scene::Scene;
@@ -124,8 +127,8 @@ pub mod prelude {
 #[derive(Default)]
 pub struct GltfPlugin {
     custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
-    /// The strategy to use when computing mesh tangents.
-    pub computed_tangent_strategy: TangentStrategy,
+    /// The strategy to use when computing tangents for meshes without them.
+    pub tangent_calculation_strategy: TangentCalculationStrategy,
 }
 
 impl GltfPlugin {
@@ -144,8 +147,11 @@ impl GltfPlugin {
     }
 
     /// The strategy to use when computing mesh tangents.
-    pub fn with_computed_tangent_strategy(mut self, tangent_strategy: TangentStrategy) -> Self {
-        self.computed_tangent_strategy = tangent_strategy;
+    pub fn with_tangent_calculation_strategy(
+        mut self,
+        tangent_strategy: TangentCalculationStrategy,
+    ) -> Self {
+        self.tangent_calculation_strategy = tangent_strategy;
         self
     }
 }
@@ -173,7 +179,7 @@ impl Plugin for GltfPlugin {
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
-            computed_tangent_strategy: self.computed_tangent_strategy,
+            tangent_calculation_strategy: self.tangent_calculation_strategy,
         });
     }
 }
