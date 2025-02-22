@@ -29,6 +29,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_platform_support::collections::hash_map::Entry;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
@@ -1306,12 +1307,24 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             false,
         ) {
             Ok(unprepared) => {
-                let binding = *render_material_bindings
-                    .entry(material_id.into())
-                    .or_insert_with(|| {
+                // Allocate or update the material.
+                let binding = match render_material_bindings.entry(material_id.into()) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        // TODO: Have a fast path that doesn't require
+                        // recreating the bind group if only buffer contents
+                        // change. For now, we just delete and recreate the bind
+                        // group.
+                        bind_group_allocator.free(*occupied_entry.get());
+                        let new_binding = bind_group_allocator
+                            .allocate_unprepared(unprepared, &pipeline.material_layout);
+                        *occupied_entry.get_mut() = new_binding;
+                        new_binding
+                    }
+                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
                         bind_group_allocator
-                            .allocate_unprepared(unprepared, &pipeline.material_layout)
-                    });
+                            .allocate_unprepared(unprepared, &pipeline.material_layout),
+                    ),
+                };
 
                 Ok(PreparedMaterial {
                     binding,
