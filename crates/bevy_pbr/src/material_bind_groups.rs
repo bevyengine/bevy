@@ -1408,11 +1408,9 @@ where
             let Some(buffer_bindless_binding_array) =
                 self.buffers.get(&bindless_buffer_descriptor.bindless_index)
             else {
-                error!(
-                    "Slab didn't contain a binding array for buffer binding {:?}, bindless {:?}",
-                    bindless_buffer_descriptor.binding_number,
-                    bindless_buffer_descriptor.bindless_index,
-                );
+                // This is OK, because index buffers are present in
+                // `BindlessDescriptor::buffers` but not in
+                // `BindlessDescriptor::resources`.
                 continue;
             };
             let buffer_bindings = buffer_bindless_binding_array
