@@ -267,7 +267,7 @@ reflect_functions = [
 ]
 
 # Enable documentation reflection
-documentation_reflection = ["bevy_reflect/documentation"]
+reflect_documentation = ["bevy_reflect/documentation"]
 
 # Enable winit custom cursor support
 custom_cursor = ["bevy_winit/custom_cursor"]
