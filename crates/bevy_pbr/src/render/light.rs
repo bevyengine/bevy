@@ -19,6 +19,7 @@ use bevy_render::experimental::occlusion_culling::{
     OcclusionCulling, OcclusionCullingSubview, OcclusionCullingSubviewEntities,
 };
 use bevy_render::sync_world::MainEntityHashMap;
+use bevy_render::view::ComputedVisibleLayers;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::SortedCameras,
@@ -257,7 +258,7 @@ pub fn extract_lights(
                 &CascadesFrusta,
                 &GlobalTransform,
                 &ViewVisibility,
-                Option<&RenderLayers>,
+                Option<&ComputedVisibleLayers>,
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
             ),
@@ -489,7 +490,7 @@ pub fn extract_lights(
                     cascade_shadow_config: cascade_config.clone(),
                     cascades: extracted_cascades,
                     frusta: extracted_frusta,
-                    render_layers: maybe_layers.unwrap_or_default().clone(),
+                    render_layers: maybe_layers.unwrap_or_default().0.clone(),
                     occlusion_culling,
                 },
                 RenderCascadesVisibleEntities {
@@ -727,7 +728,7 @@ pub fn prepare_lights(
             MainEntity,
             &ExtractedView,
             &ExtractedClusterConfig,
-            Option<&RenderLayers>,
+            Option<&ComputedVisibleLayers>,
             Has<NoIndirectDrawing>,
             Option<&AmbientLight>,
         ),

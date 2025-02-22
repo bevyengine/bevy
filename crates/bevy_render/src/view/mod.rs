@@ -108,6 +108,8 @@ impl Plugin for ViewPlugin {
             .register_type::<Msaa>()
             .register_type::<NoFrustumCulling>()
             .register_type::<RenderLayers>()
+            .register_type::<VisibleLayers>()
+            .register_type::<ComputedVisibleLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
             .register_type::<ColorGrading>()

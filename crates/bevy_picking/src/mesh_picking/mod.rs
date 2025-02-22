@@ -23,7 +23,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::{prelude::*, view::RenderLayers};
+use bevy_render::{prelude::*, view::ComputedVisibleLayers};
 use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
 
 /// Runtime settings for the [`MeshPickingPlugin`].
@@ -72,14 +72,15 @@ impl Plugin for MeshPickingPlugin {
     }
 }
 
+// TODO GRACE: make sure that this system is ordered appropriately to new systemss
 /// Casts rays into the scene using [`MeshPickingSettings`] and sends [`PointerHits`] events.
 pub fn update_hits(
     backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,
-    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&RenderLayers>)>,
+    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&ComputedVisibleLayers>)>,
     pickables: Query<&Pickable>,
     marked_targets: Query<&RayCastPickable>,
-    layers: Query<&RenderLayers>,
+    layers: Query<&ComputedVisibleLayers>,
     mut ray_cast: MeshRayCast,
     mut output: EventWriter<PointerHits>,
 ) {
@@ -100,7 +101,7 @@ pub fn update_hits(
                     !backend_settings.require_markers || marked_targets.get(entity).is_ok();
 
                 // Other entities missing render layers are on the default layer 0
-                let entity_layers = layers.get(entity).cloned().unwrap_or_default();
+                let entity_layers = layers.get(entity).cloned().unwrap_or_default().0;
                 let render_layers_match = cam_layers.intersects(&entity_layers);
 
                 let is_pickable = pickables.get(entity).ok().is_none_or(|p| p.is_hoverable);

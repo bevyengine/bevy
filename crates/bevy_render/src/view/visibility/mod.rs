@@ -353,7 +353,7 @@ impl Plugin for VisibilityPlugin {
                 PostUpdate,
                 (
                     calculate_bounds.in_set(CalculateBounds),
-                    (visibility_propagate_system, reset_view_visibility)
+                    (visibility_propagate_system, visible_layers_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
                     check_visibility.in_set(CheckVisibility),
                     mark_newly_hidden_entities_invisible.in_set(MarkNewlyHiddenEntitiesInvisible),
@@ -489,6 +489,7 @@ fn reset_view_visibility(
     });
 }
 
+// TODO GRACE: make sure this system is consistently ordered to new systems
 /// System updating the visibility of entities each frame.
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
@@ -503,7 +504,7 @@ pub fn check_visibility(
         Entity,
         &mut VisibleEntities,
         &Frustum,
-        Option<&RenderLayers>,
+        Option<&ComputedVisibleLayers>,
         &Camera,
         Has<NoCpuCulling>,
     )>,
@@ -512,7 +513,7 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         &VisibilityClass,
-        Option<&RenderLayers>,
+        Option<&ComputedVisibleLayers>,
         Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,

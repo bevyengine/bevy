@@ -14,7 +14,7 @@ use bevy_render::{
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::{RenderAdapter, RenderDevice},
-    view::{RenderLayers, ViewVisibility},
+    view::{ComputedVisibleLayers, RenderLayers, ViewVisibility},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
@@ -142,6 +142,7 @@ impl ClusterableObjectType {
     }
 }
 
+// TODO GRACE: make sure ordering is good!
 // NOTE: Run this before update_point_light_frusta!
 pub(crate) fn assign_objects_to_clusters(
     mut commands: Commands,
@@ -153,14 +154,14 @@ pub(crate) fn assign_objects_to_clusters(
         &Frustum,
         &ClusterConfig,
         &mut Clusters,
-        Option<&RenderLayers>,
+        Option<&ComputedVisibleLayers>,
         Option<&mut VisibleClusterableObjects>,
     )>,
     point_lights_query: Query<(
         Entity,
         &GlobalTransform,
         &PointLight,
-        Option<&RenderLayers>,
+        Option<&ComputedVisibleLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
@@ -168,7 +169,7 @@ pub(crate) fn assign_objects_to_clusters(
         Entity,
         &GlobalTransform,
         &SpotLight,
-        Option<&RenderLayers>,
+        Option<&ComputedVisibleLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
@@ -203,7 +204,7 @@ pub(crate) fn assign_objects_to_clusters(
                             shadows_enabled: point_light.shadows_enabled,
                             volumetric: volumetric.is_some(),
                         },
-                        render_layers: maybe_layers.unwrap_or_default().clone(),
+                        render_layers: maybe_layers.unwrap_or_default().0.clone(),
                     }
                 },
             ),
@@ -223,7 +224,7 @@ pub(crate) fn assign_objects_to_clusters(
                             shadows_enabled: spot_light.shadows_enabled,
                             volumetric: volumetric.is_some(),
                         },
-                        render_layers: maybe_layers.unwrap_or_default().clone(),
+                        render_layers: maybe_layers.unwrap_or_default().0.clone(),
                     }
                 },
             ),

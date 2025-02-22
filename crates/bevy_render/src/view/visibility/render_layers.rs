@@ -1,7 +1,12 @@
-use bevy_ecs::prelude::{Component, ReflectComponent};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{component::require, entity::Entity, hierarchy::{ChildOf, Children}, prelude::{Component, ReflectComponent}, query::{Changed, Or, With}, system::Query};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smallvec::SmallVec;
 
+// TODO GRACE: make sure imports in render_layers.rs align with that in mod.rs
+// TODO GRACE: read through the original PR
+// XXX GRACE: render layers
+// TODO GRACE: remove DEFAULT_LAYERS
 pub const DEFAULT_LAYERS: &RenderLayers = &RenderLayers::layer(0);
 
 /// An identifier for a rendering layer.
@@ -19,8 +24,8 @@ pub type Layer = usize;
 /// An entity with this component without any layers is invisible.
 ///
 /// Entities without this component belong to layer `0`.
-#[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
-#[reflect(Component, Default, PartialEq, Debug)]
+#[derive(Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
+#[reflect(Default, PartialEq, Debug)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
 
 /// The number of memory blocks stored inline
@@ -247,6 +252,111 @@ impl core::ops::BitXor for RenderLayers {
     }
 }
 
+// TODO GRACE: prelude?
+// TODO GRACE: register component
+// TODO GRACE: document VisibilityLayers
+// TODO GRACE: impl Debug
+// TODO GRACE: implement helper methods on VisibilityLayers (see Visibility)
+#[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
+#[reflect(Component, Default, PartialEq, Debug)]
+#[require(ComputedVisibleLayers)]
+pub enum VisibleLayers {
+    #[default]
+    Inherited,
+    Layers(RenderLayers),
+}
+
+
+impl Default for &VisibleLayers {
+    fn default() -> Self {
+        &VisibleLayers::Inherited
+    }
+}
+
+// TODO GRACE: register component
+// TODO GRACE: document ComputedVisibilityLayers
+// TODO GRACE: impl Debug
+// TODO GRACE: make ReadOnly
+#[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Deref, DerefMut)]
+#[reflect(Component, Default, PartialEq, Debug)]
+pub struct ComputedVisibleLayers(pub RenderLayers);
+
+impl Default for &ComputedVisibleLayers {
+    fn default() -> Self {
+        const { &ComputedVisibleLayers(RenderLayers::layer(0)) }
+    }
+}
+
+// TODO GRACE: re-write this system
+// TODO GRACE: add this system to the schedule
+pub(super) fn visible_layers_propagate_system(
+    changed: Query<
+        (Entity, &VisibleLayers, Option<&ChildOf>, Option<&Children>),
+        (
+            With<ComputedVisibleLayers>,
+            Or<(Changed<VisibleLayers>, Changed<ChildOf>)>,
+        ),
+    >,
+    mut visible_layer_query: Query<(&VisibleLayers, &mut ComputedVisibleLayers)>,
+    children_query: Query<&Children, (With<VisibleLayers>, With<ComputedVisibleLayers>)>,
+) {
+    for (entity, visible_layers, parent, children) in &changed {
+        
+        let render_layers = match visible_layers {
+            VisibleLayers::Layers(layers) => layers.clone(),
+            VisibleLayers::Inherited => parent
+                .and_then(|p| visible_layer_query.get(p.get()).ok())
+                .map(|(_, x)| x.0.clone())
+                .unwrap_or_default()
+        };
+
+        let (_, mut computed_visible_layers) = visible_layer_query
+            .get_mut(entity)
+            .expect("With<ComputedVisibleLayers> ensures this query will return a value");
+
+        // Only updates visible layers if they have changed.
+        // This will also prevent visible layers from propagating multiple times in the same frame
+        // if this entity's visible layers has been updated recursively by its parent.
+        if computed_visible_layers.0 != render_layers {
+            computed_visible_layers.0 = render_layers.clone();
+
+            for &child in children.into_iter().flatten() {
+                let _ = propagate_recursive(&render_layers, child, &mut visible_layer_query, &children_query);
+            }
+        }
+    }
+}
+
+fn propagate_recursive(
+    parent_render_layers: &RenderLayers,
+    entity: Entity,
+    mut visible_layer_query: &mut Query<(&VisibleLayers, &mut ComputedVisibleLayers)>,
+    children_query: &Query<&Children, (With<VisibleLayers>, With<ComputedVisibleLayers>)>,
+    // BLOCKED: https://github.com/rust-lang/rust/issues/31436
+    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
+) -> Result<(), ()> {
+    // Get the visible_layer components for the current entity.
+    // If the entity does not have the required components, just return early.
+    let (visibility, mut inherited_visibility) = visible_layer_query.get_mut(entity).map_err(drop)?;
+
+    let render_layers = match visibility {
+        VisibleLayers::Layers(layers) => layers.clone(),
+        VisibleLayers::Inherited => parent_render_layers.clone()
+    };
+
+    if inherited_visibility.0 != render_layers {
+        inherited_visibility.0 = render_layers;
+        let new_render_layers = inherited_visibility.0.clone();
+
+        for &child in children_query.into_iter().flatten() {
+            let _ = propagate_recursive(&new_render_layers, child, &mut visible_layer_query, &children_query);
+        }
+    }
+
+    Ok(())
+}
+
+// TODO GRACE: hierarchy tests(?)
 #[cfg(test)]
 mod rendering_mask_tests {
     use super::{Layer, RenderLayers};

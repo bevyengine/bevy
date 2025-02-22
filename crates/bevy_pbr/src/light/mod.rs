@@ -13,8 +13,7 @@ use bevy_render::{
     mesh::Mesh3d,
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     view::{
-        InheritedVisibility, NoFrustumCulling, PreviousVisibleEntities, RenderLayers,
-        ViewVisibility, VisibilityClass, VisibilityRange, VisibleEntityRanges,
+        ComputedVisibleLayers, InheritedVisibility, NoFrustumCulling, PreviousVisibleEntities, ViewVisibility, VisibilityClass, VisibilityRange, VisibleEntityRanges
     },
 };
 use bevy_transform::components::{GlobalTransform, Transform};
@@ -667,7 +666,7 @@ pub fn check_dir_light_mesh_visibility(
             &DirectionalLight,
             &CascadesFrusta,
             &mut CascadesVisibleEntities,
-            Option<&RenderLayers>,
+            Option<&ComputedVisibleLayers>,
             &ViewVisibility,
         ),
         Without<SpotLight>,
@@ -676,7 +675,7 @@ pub fn check_dir_light_mesh_visibility(
         (
             Entity,
             &InheritedVisibility,
-            Option<&RenderLayers>,
+            Option<&ComputedVisibleLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
             Has<VisibilityRange>,
@@ -841,21 +840,21 @@ pub fn check_point_light_mesh_visibility(
         &GlobalTransform,
         &CubemapFrusta,
         &mut CubemapVisibleEntities,
-        Option<&RenderLayers>,
+        Option<&ComputedVisibleLayers>,
     )>,
     mut spot_lights: Query<(
         &SpotLight,
         &GlobalTransform,
         &Frustum,
         &mut VisibleMeshEntities,
-        Option<&RenderLayers>,
+        Option<&ComputedVisibleLayers>,
     )>,
     mut visible_entity_query: Query<
         (
             Entity,
             &InheritedVisibility,
             &mut ViewVisibility,
-            Option<&RenderLayers>,
+            Option<&ComputedVisibleLayers>,
             Option<&Aabb>,
             Option<&GlobalTransform>,
             Has<VisibilityRange>,

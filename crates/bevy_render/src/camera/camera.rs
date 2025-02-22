@@ -13,8 +13,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
-        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
+        ColorGrading, ComputedVisibleLayers, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities
     },
     Extract,
 };
@@ -1042,6 +1041,7 @@ pub struct ExtractedCamera {
     pub hdr: bool,
 }
 
+// TODO GRACE: order appropriately(?)
 pub fn extract_cameras(
     mut commands: Commands,
     query: Extract<
@@ -1056,7 +1056,7 @@ pub fn extract_cameras(
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
-            Option<&RenderLayers>,
+            Option<&ComputedVisibleLayers>,
             Option<&Projection>,
             Has<NoIndirectDrawing>,
         )>,
@@ -1088,7 +1088,8 @@ pub fn extract_cameras(
                 ExtractedView,
                 RenderVisibleEntities,
                 TemporalJitter,
-                RenderLayers,
+                // TODO GRACE: what is this code supposed to do?
+                // RenderLayers,
                 Projection,
                 NoIndirectDrawing,
                 ViewUniformOffset,

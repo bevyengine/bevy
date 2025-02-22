@@ -17,7 +17,7 @@ use {
         entity::Entity,
         system::{Commands, Local, Query},
     },
-    bevy_render::{view::RenderLayers, Extract},
+    bevy_render::{view::ComputedVisibleLayers, Extract},
     bevy_transform::components::GlobalTransform,
 };
 
@@ -102,7 +102,7 @@ pub struct Gizmo {
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&RenderLayers>)>>,
+    query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&ComputedVisibleLayers>)>>,
 ) {
     use bevy_math::Affine3;
     use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
@@ -151,7 +151,7 @@ pub(crate) fn extract_linegizmos(
                 line_perspective: gizmo.line_config.perspective,
                 line_style: gizmo.line_config.style,
                 line_joints: gizmo.line_config.joints,
-                render_layers: render_layers.cloned().unwrap_or_default(),
+                render_layers: render_layers.cloned().unwrap_or_default().0,
                 handle: gizmo.handle.clone_weak(),
             },
             MainEntity::from(entity),
