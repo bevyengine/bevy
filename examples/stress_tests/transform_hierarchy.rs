@@ -447,7 +447,7 @@ fn gen_tree(depth: u32, branch_width: u32) -> Vec<usize> {
     // the tree is built using this pattern:
     // 0, 0, 0, ... 1, 1, 1, ... 2, 2, 2, ... (count - 1)
     (0..count)
-        .flat_map(|i| std::iter::repeat(i).take(branch_width.try_into().unwrap()))
+        .flat_map(|i| std::iter::repeat_n(i, branch_width.try_into().unwrap()))
         .collect()
 }
 

@@ -101,9 +101,9 @@ pub fn propagate_transforms(
 /// # Safety
 ///
 /// - While this function is running, `transform_query` must not have any fetches for `entity`,
-///     nor any of its descendants.
+///   nor any of its descendants.
 /// - The caller must ensure that the hierarchy leading to `entity`
-///     is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
+///   is well-formed and must remain as a tree or a forest. Each entity must have at most one parent.
 #[expect(
     unsafe_code,
     reason = "This function uses `Query::get_unchecked()`, which can result in multiple mutable references if the preconditions are not met."

@@ -1348,7 +1348,7 @@ mod tests {
         //
         // first system will be configured as `run_if(|| false)`, so it can
         // just panic if called
-        let first_system = move || -> () {
+        let first_system: fn() = move || {
             panic!("first_system should not be run");
         };
 
