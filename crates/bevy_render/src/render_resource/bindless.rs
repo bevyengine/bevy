@@ -1,7 +1,10 @@
 //! Types and functions relating to bindless resources.
 
 use alloc::borrow::Cow;
-use core::num::{NonZeroU32, NonZeroU64};
+use core::{
+    num::{NonZeroU32, NonZeroU64},
+    ops::Range,
+};
 
 use bevy_derive::{Deref, DerefMut};
 use wgpu::{
@@ -102,6 +105,11 @@ pub struct BindlessDescriptor {
     ///
     /// The order of this array is irrelevant.
     pub buffers: Cow<'static, [BindlessBufferDescriptor]>,
+    /// The [`BindlessIndexTableDescriptor`]s describing each bindless index
+    /// table.
+    ///
+    /// This list must be sorted by the first bindless index.
+    pub index_tables: Cow<'static, [BindlessIndexTableDescriptor]>,
 }
 
 /// The type of potentially-bindless resource.
@@ -165,7 +173,7 @@ pub enum BindlessResourceType {
 /// `#[uniform(BINDLESS_INDEX, StandardMaterialUniform,
 /// bindless(BINDING_NUMBER)]`, the bindless index is `BINDLESS_INDEX`, and the
 /// binding number is `BINDING_NUMBER`. Note the order.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct BindlessBufferDescriptor {
     /// The actual binding number of the buffer.
     ///
@@ -185,6 +193,19 @@ pub struct BindlessBufferDescriptor {
     pub size: usize,
 }
 
+/// Describes the layout of the bindless index table, which maps bindless
+/// indices to indices within the binding arrays.
+#[derive(Clone)]
+pub struct BindlessIndexTableDescriptor {
+    /// The range of bindless indices that this descriptor covers.
+    pub indices: Range<BindlessIndex>,
+    /// The binding at which the index table itself will be bound.
+    ///
+    /// By default, this is binding 0, but it can be changed with the
+    /// `#[bindless(index_table(binding(B)))]` attribute.
+    pub binding_number: BindingNumber,
+}
+
 /// The index of the actual binding in the bind group.
 ///
 /// This is the value specified in WGSL as `@binding`.
@@ -194,7 +215,7 @@ pub struct BindingNumber(pub u32);
 /// The index in the bindless index table.
 ///
 /// This table is conventionally bound to binding number 0.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Deref, DerefMut)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Hash, Debug, Deref, DerefMut)]
 pub struct BindlessIndex(pub u32);
 
 /// Creates the bind group layout entries common to all shaders that use
@@ -206,6 +227,7 @@ pub struct BindlessIndex(pub u32);
 pub fn create_bindless_bind_group_layout_entries(
     bindless_resource_count: u32,
     bindless_slab_resource_limit: u32,
+    bindless_index_table_binding_number: BindingNumber,
 ) -> Vec<BindGroupLayoutEntry> {
     let bindless_slab_resource_limit =
         NonZeroU32::new(bindless_slab_resource_limit).expect("Bindless slot count must be nonzero");
@@ -221,8 +243,8 @@ pub fn create_bindless_bind_group_layout_entries(
             false,
             NonZeroU64::new(bindless_resource_count as u64 * size_of::<u32>() as u64),
         )
-        .build(0, ShaderStages::all()),
-        // Continue with the common bindless buffers.
+        .build(*bindless_index_table_binding_number, ShaderStages::all()),
+        // Continue with the common bindless resource arrays.
         sampler(SamplerBindingType::Filtering)
             .count(bindless_slab_resource_limit)
             .build(1, ShaderStages::all()),

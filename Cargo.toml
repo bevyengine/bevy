@@ -4214,3 +4214,14 @@ name = "Occlusion Culling"
 description = "Demonstration of Occlusion Culling"
 category = "3D Rendering"
 wasm = false
+
+[[example]]
+name = "extended_material_bindless"
+path = "examples/shader/extended_material_bindless.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.extended_material_bindless]
+name = "Extended Bindless Material"
+description = "Demonstrates bindless `ExtendedMaterial`"
+category = "Shaders"
+wasm = false
