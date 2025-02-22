@@ -46,6 +46,11 @@ Bevy provides a variety of resources to help users get started and stay up to da
 
 * **[Features](https://bevyengine.org):** A quick overview of Bevy's features.
 * **[News](https://bevyengine.org/news/)**: A development blog that covers our progress, plans and shiny new features.
+* **[Bevy Showcase](https://bevyengine.org/showcase/)**: A collection of games and projects built using Bevy.  
+* **[Bevy Plugins](https://bevyengine.org/assets/)**: A curated list of community-contributed plugins and tools.  
+* **[Rust Game Development Resources](https://arewegameyet.rs/)**: External resources for learning Rust game development.
+
+Bevy is actively developed by **a passionate open-source community**, and new contributors are always welcome!
 
 ## Docs
 Bevy offers a range of official and community-maintained documentation:
