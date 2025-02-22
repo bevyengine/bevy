@@ -80,6 +80,39 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
+        fn set_has_conditions(graph: &ScheduleGraph, node: NodeId) -> bool {
+            !graph.set_conditions_at(node).is_empty()
+                || graph
+                    .hierarchy()
+                    .graph()
+                    .edges_directed(node, Direction::Incoming)
+                    .any(|(parent, _)| set_has_conditions(graph, parent))
+        }
+
+        fn system_has_conditions(graph: &ScheduleGraph, node: NodeId) -> bool {
+            assert!(node.is_system());
+            !graph.system_conditions[node.index()].is_empty()
+                || graph
+                    .hierarchy()
+                    .graph()
+                    .edges_directed(node, Direction::Incoming)
+                    .any(|(parent, _)| set_has_conditions(graph, parent))
+        }
+
+        let mut system_has_conditions_cache = HashMap::default();
+
+        fn is_valid_explicit_sync_point(
+            graph: &ScheduleGraph,
+            system: NodeId,
+            system_has_conditions_cache: &mut HashMap<usize, bool>,
+        ) -> bool {
+            let index = system.index();
+            is_apply_deferred(graph.systems[index].get().unwrap())
+                && !*system_has_conditions_cache
+                    .entry(index)
+                    .or_insert_with(|| system_has_conditions(graph, system))
+        }
+
         // calculate the number of sync points each sync point is from the beginning of the graph
         let mut distances: HashMap<usize, u32> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
@@ -88,23 +121,28 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         for node in &topo {
             let node_system = graph.systems[node.index()].get().unwrap();
 
-            let node_needs_sync = if is_apply_deferred(node_system) {
-                distance_to_explicit_sync_node.insert(
-                    distances.get(&node.index()).copied().unwrap_or_default(),
-                    *node,
-                );
+            let node_needs_sync =
+                if is_valid_explicit_sync_point(graph, *node, &mut system_has_conditions_cache) {
+                    distance_to_explicit_sync_node.insert(
+                        distances.get(&node.index()).copied().unwrap_or_default(),
+                        *node,
+                    );
 
-                // This node just did a sync, so the only reason to do another sync is if one was
-                // explicitly scheduled afterwards.
-                false
-            } else {
-                node_system.has_deferred()
-            };
+                    // This node just did a sync, so the only reason to do another sync is if one was
+                    // explicitly scheduled afterwards.
+                    false
+                } else {
+                    node_system.has_deferred()
+                };
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
                 let edge_needs_sync = node_needs_sync
                     && !self.no_sync_edges.contains(&(*node, target))
-                    || is_apply_deferred(graph.systems[target.index()].get().unwrap());
+                    || is_valid_explicit_sync_point(
+                        graph,
+                        target,
+                        &mut system_has_conditions_cache,
+                    );
 
                 let weight = if edge_needs_sync { 1 } else { 0 };
 

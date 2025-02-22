@@ -758,6 +758,26 @@ impl ScheduleGraph {
             .unwrap()
     }
 
+    /// Returns the conditions for the set at the given [`NodeId`], if it exists.
+    pub fn get_set_conditions_at(&self, id: NodeId) -> Option<&[BoxedCondition]> {
+        if !id.is_set() {
+            return None;
+        }
+        self.system_set_conditions
+            .get(id.index())
+            .map(|conditions| conditions.as_slice())
+    }
+
+    /// Returns the conditions for the set at the given [`NodeId`].
+    ///
+    /// Panics if it doesn't exist.
+    #[track_caller]
+    pub fn set_conditions_at(&self, id: NodeId) -> &[BoxedCondition] {
+        self.get_set_conditions_at(id)
+            .ok_or_else(|| format!("set with id {id:?} does not exist in this Schedule"))
+            .unwrap()
+    }
+
     /// Returns an iterator over all systems in this schedule, along with the conditions for each system.
     pub fn systems(&self) -> impl Iterator<Item = (NodeId, &ScheduleSystem, &[BoxedCondition])> {
         self.systems
