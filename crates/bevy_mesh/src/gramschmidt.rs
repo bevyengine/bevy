@@ -1,5 +1,5 @@
 use super::{GenerateTangentsError, Mesh};
-use bevy_math::{Vec2, Vec3A, Vec4};
+use bevy_math::{Vec2, Vec3A};
 use wgpu_types::{PrimitiveTopology, VertexFormat};
 
 struct TriangleIndexIter<'a, I>(&'a mut I);
@@ -120,8 +120,7 @@ pub(crate) fn generate_tangents_for_mesh(
                 // a deviation from the general algorithm. The generated mikktspace tangents are
                 // also post processed to flip the sign.
                 let handedness = handedness * -1.0;
-                result_tangents
-                    .push(Vec4::new(tangent.x, tangent.y, tangent.z, handedness).to_array());
+                result_tangents.push([tangent.x, tangent.y, tangent.z, handedness]);
             }
 
             Ok(result_tangents)
