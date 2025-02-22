@@ -30,8 +30,8 @@ pub enum UvChannel {
 /// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
 #[bind_group_data(StandardMaterialKey)]
-#[uniform(0, StandardMaterialUniform)]
-#[bindless(16)]
+#[uniform(0, StandardMaterialUniform, binding_array(10))]
+#[bindless]
 #[reflect(Default, Debug)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
