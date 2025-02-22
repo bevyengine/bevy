@@ -36,11 +36,13 @@ As a result, the Minimum Supported Rust Version (MSRV) is generally close to "th
 These principles ensure Bevy remains a **powerful yet user-friendly** engine for both small and large projects.
 
 ## About
+Bevy provides a variety of resources to help users get started and stay up to date:
 
 * **[Features](https://bevyengine.org):** A quick overview of Bevy's features.
 * **[News](https://bevyengine.org/news/)**: A development blog that covers our progress, plans and shiny new features.
 
 ## Docs
+Bevy offers a range of official and community-maintained documentation:
 
 * **[Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction):** Bevy's official Quick Start Guide. The best place to start learning Bevy.
 * **[Bevy Rust API Docs](https://docs.rs/bevy):** Bevy's Rust API docs, which are automatically generated from the doc comments in this repo.
@@ -48,13 +50,14 @@ These principles ensure Bevy remains a **powerful yet user-friendly** engine for
 * **[Community-Made Learning Resources](https://bevyengine.org/assets/#learning)**: More tutorials, documentation, and examples made by the Bevy community.
 
 ## Community
-
 Before contributing or participating in discussions with the community, you should familiarize yourself with our [**Code of Conduct**](./CODE_OF_CONDUCT.md).
 
-* **[Discord](https://discord.gg/bevy):** Bevy's official discord server.
-* **[Reddit](https://reddit.com/r/bevy):** Bevy's official subreddit.
-* **[GitHub Discussions](https://github.com/bevyengine/bevy/discussions):** The best place for questions about Bevy, answered right here!
-* **[Bevy Assets](https://bevyengine.org/assets/):** A collection of awesome Bevy projects, tools, plugins and learning materials.
+Ways to get involved:
+
+- **[Discord](https://discord.gg/bevy)** – The official Bevy Discord server for real-time discussions.  
+- **[Reddit](https://www.reddit.com/r/bevy/)** – A space for Bevy-related discussions and news.  
+- **[GitHub Discussions](https://github.com/bevyengine/bevy/discussions)** – A place for questions, ideas, and feature discussions.  
+- **[Bevy Assets](https://bevyengine.org/assets/)** – A curated list of Bevy projects, tools, plugins, and learning materials.
 
 ### Contributing
 
