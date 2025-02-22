@@ -144,23 +144,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             )
                         }});
 
-                        // Push the binding layout. This depends on whether we're bindless or not.
-
-                        non_bindless_binding_layouts.push(quote!{
-                            #bind_group_layout_entries.push(
-                                #render_path::render_resource::BindGroupLayoutEntry {
-                                    binding: #binding_index,
-                                    visibility: #render_path::render_resource::ShaderStages::all(),
-                                    ty: #render_path::render_resource::BindingType::Buffer {
-                                        ty: #uniform_binding_type,
-                                        has_dynamic_offset: false,
-                                        min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
-                                    },
-                                    count: None,
-                                }
-                            );
-                        });
-
                         match (&binding_array_binding, &attr_bindless_count) {
                             (&None, &Some(_)) => {
                                 return Err(Error::new_spanned(
@@ -205,6 +188,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             )
                         }});
 
+                        let binding_array_binding = binding_array_binding.unwrap_or(0);
                         bindless_binding_layouts.push(quote! {
                             #bind_group_layout_entries.push(
                                 #render_path::render_resource::BindGroupLayoutEntry {
@@ -228,6 +212,23 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         );
                     }
                 }
+
+                // Push the non-bindless binding layout.
+
+                non_bindless_binding_layouts.push(quote!{
+                    #bind_group_layout_entries.push(
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #render_path::render_resource::ShaderStages::all(),
+                            ty: #render_path::render_resource::BindingType::Buffer {
+                                ty: #uniform_binding_type,
+                                has_dynamic_offset: false,
+                                min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                            },
+                            count: None,
+                        }
+                    );
+                });
 
                 bindless_buffer_descriptors.push(quote! {
                     #render_path::render_resource::BindlessBufferDescriptor {

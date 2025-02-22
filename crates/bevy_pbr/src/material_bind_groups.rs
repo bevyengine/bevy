@@ -17,10 +17,10 @@ use bevy_render::{
     render_resource::{
         BindGroup, BindGroupEntry, BindGroupLayout, BindingNumber, BindingResource,
         BindingResources, BindlessDescriptor, BindlessIndex, BindlessResourceType, Buffer,
-        BufferBinding, BufferDescriptor, BufferId, BufferUsages, CompareFunction, FilterMode,
-        OwnedBindingResource, PreparedBindGroup, RawBufferVec, Sampler, SamplerDescriptor,
-        SamplerId, TextureView, TextureViewDimension, TextureViewId, UnpreparedBindGroup,
-        WgpuSampler, WgpuTextureView,
+        BufferBinding, BufferDescriptor, BufferId, BufferInitDescriptor, BufferUsages,
+        CompareFunction, FilterMode, OwnedBindingResource, PreparedBindGroup, RawBufferVec,
+        Sampler, SamplerDescriptor, SamplerId, TextureView, TextureViewDimension, TextureViewId,
+        UnpreparedBindGroup, WgpuSampler, WgpuTextureView,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::FallbackImage,
@@ -206,7 +206,11 @@ where
         layout: BindGroupLayout,
     },
     /// A bind group that's already been prepared.
-    Prepared(PreparedBindGroup<M::Data>),
+    Prepared {
+        bind_group: PreparedBindGroup<M::Data>,
+        #[expect(dead_code, reason = "These buffers are only referenced by bind groups")]
+        uniform_buffers: Vec<Buffer>,
+    },
 }
 
 /// Dummy instances of various resources that we fill unused slots in binding
@@ -1741,9 +1745,10 @@ where
         &mut self,
         prepared_bind_group: PreparedBindGroup<M::Data>,
     ) -> MaterialBindingId {
-        self.allocate(MaterialNonBindlessAllocatedBindGroup::Prepared(
-            prepared_bind_group,
-        ))
+        self.allocate(MaterialNonBindlessAllocatedBindGroup::Prepared {
+            bind_group: prepared_bind_group,
+            uniform_buffers: vec![],
+        })
     }
 
     /// Deallocates the bind group with the given binding ID.
@@ -1760,8 +1765,8 @@ where
         self.bind_groups[group.0 as usize]
             .as_ref()
             .map(|bind_group| match bind_group {
-                MaterialNonBindlessAllocatedBindGroup::Prepared(prepared_bind_group) => {
-                    MaterialNonBindlessSlab::Prepared(prepared_bind_group)
+                MaterialNonBindlessAllocatedBindGroup::Prepared { bind_group, .. } => {
+                    MaterialNonBindlessSlab::Prepared(bind_group)
                 }
                 MaterialNonBindlessAllocatedBindGroup::Unprepared { bind_group, .. } => {
                     MaterialNonBindlessSlab::Unprepared(bind_group)
@@ -1785,25 +1790,58 @@ where
                 panic!("Allocation didn't exist or was already prepared");
             };
 
-            let entries: Vec<_> = unprepared_bind_group
-                .bindings
-                .iter()
-                .map(|(index, binding)| BindGroupEntry {
-                    binding: *index,
-                    resource: binding.get_binding(),
-                })
-                .collect();
+            // Pack any `Data` into uniform buffers.
+            let mut uniform_buffers = vec![];
+            for (index, binding) in unprepared_bind_group.bindings.iter() {
+                let OwnedBindingResource::Data(ref owned_data) = *binding else {
+                    continue;
+                };
+                let label = format!("material uniform data {}", *index);
+                let uniform_buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+                    label: Some(&label),
+                    contents: &owned_data.0,
+                    usage: BufferUsages::COPY_DST | BufferUsages::UNIFORM,
+                });
+                uniform_buffers.push(uniform_buffer);
+            }
 
-            let bind_group =
-                render_device.create_bind_group(M::label(), &bind_group_layout, &entries);
+            // Create bind group entries.
+            let mut bind_group_entries = vec![];
+            let mut uniform_buffers_iter = uniform_buffers.iter();
+            for (index, binding) in unprepared_bind_group.bindings.iter() {
+                match *binding {
+                    OwnedBindingResource::Data(_) => {
+                        bind_group_entries.push(BindGroupEntry {
+                            binding: *index,
+                            resource: uniform_buffers_iter
+                                .next()
+                                .expect("We should have created uniform buffers for each `Data`")
+                                .as_entire_binding(),
+                        });
+                    }
+                    _ => bind_group_entries.push(BindGroupEntry {
+                        binding: *index,
+                        resource: binding.get_binding(),
+                    }),
+                }
+            }
 
-            self.bind_groups[*bind_group_index as usize] = Some(
-                MaterialNonBindlessAllocatedBindGroup::Prepared(PreparedBindGroup {
-                    bindings: unprepared_bind_group.bindings,
-                    bind_group,
-                    data: unprepared_bind_group.data,
-                }),
+            // Create the bind group.
+            let bind_group = render_device.create_bind_group(
+                M::label(),
+                &bind_group_layout,
+                &bind_group_entries,
             );
+
+            self.bind_groups[*bind_group_index as usize] =
+                Some(MaterialNonBindlessAllocatedBindGroup::Prepared {
+                    bind_group: PreparedBindGroup {
+                        bindings: unprepared_bind_group.bindings,
+                        bind_group,
+                        data: unprepared_bind_group.data,
+                    },
+                    uniform_buffers,
+                });
         }
     }
 }
