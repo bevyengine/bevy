@@ -18,7 +18,7 @@ use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_window::{RawHandleWrapperHolder, WindowEvent};
-use core::{any::Any, cell::RefCell, marker::PhantomData};
+use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
 
 use bevy_a11y::AccessibilityRequested;
@@ -52,14 +52,6 @@ mod system;
 mod winit_config;
 mod winit_monitors;
 mod winit_windows;
-
-thread_local! {
-    /// Temporary storage of event loop to replace usage of `!Send` resources.
-    /// This will be replaced with proper storage of `!Send` data after issue #17667 is complete.
-    ///
-    /// Here we use runtime type checking because generics cannot be used with `static`.
-    pub static EVENT_LOOP: RefCell<Option<Box<dyn Any>>> = RefCell::new(None);
-}
 
 /// A [`Plugin`] that uses `winit` to create and manage windows, and receive window and input
 /// events.
@@ -128,11 +120,15 @@ impl<T: Event> Plugin for WinitPlugin<T> {
             event_loop_builder.with_android_app(bevy_window::ANDROID_APP.get().expect(msg).clone());
         }
 
+        let event_loop = event_loop_builder
+            .build()
+            .expect("Failed to build event loop");
+
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .add_event::<RawWinitWindowEvent>()
-            .set_runner(winit_runner::<T>)
+            .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
                 Last,
                 (
@@ -147,16 +143,6 @@ impl<T: Event> Plugin for WinitPlugin<T> {
 
         app.add_plugins(AccessKitPlugin);
         app.add_plugins(cursor::CursorPlugin);
-
-        let event_loop = event_loop_builder
-            .build()
-            .expect("Failed to build event loop");
-
-        // `winit`'s windows are bound to the event loop that created them, so the event loop must
-        // be set as a `thread_local!` here to pass it onto the runner.
-        //
-        // This a temporary solution to replace usage of `!Send` resources. See issue #17667 for more info.
-        EVENT_LOOP.set(Some(Box::new(event_loop)));
     }
 }
 

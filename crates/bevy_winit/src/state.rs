@@ -51,7 +51,7 @@ use crate::{
     converters, create_windows,
     system::{create_monitors, CachedWindow},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
-    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows, EVENT_LOOP,
+    RawWinitWindowEvent, UpdateMode, WinitSettings, WinitWindows,
 };
 
 /// Persistent state that is used to run the [`App`] according to the current
@@ -865,17 +865,11 @@ impl<T: Event> WinitAppRunnerState<T> {
 ///
 /// Overriding the app's [runner](bevy_app::App::runner) while using `WinitPlugin` will bypass the
 /// `EventLoop`.
-pub fn winit_runner<T: Event>(mut app: App) -> AppExit {
+pub fn winit_runner<T: Event>(mut app: App, event_loop: EventLoop<T>) -> AppExit {
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
     }
-
-    let event_loop = EVENT_LOOP
-        .take()
-        .expect("event loop was either never initialized or already taken after initialization")
-        .downcast::<EventLoop<T>>()
-        .expect("event loop passed into Winit needs to be of type `EventLoop<T: Event>`");
 
     app.world_mut()
         .insert_resource(EventLoopProxyWrapper(event_loop.create_proxy()));
