@@ -13,7 +13,13 @@ Bevy is a refreshingly simple data-driven game engine built in Rust. It is free 
 
 ## WARNING
 
-Bevy is still in the early stages of development. Important features are missing. Documentation is sparse. A new version of Bevy containing breaking changes to the API is released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule). We provide [migration guides](https://bevyengine.org/learn/migration-guides/), but we can't guarantee migrations will always be easy. Use only if you are willing to work in this environment.
+Bevy is still in the early stages of development. Which means:
+- Some **important features are missing**.  
+- **Documentation is still being improved**.  
+- A **new version is released [approximately once every 3 months](https://bevyengine.org/news/bevy-0-6/#the-train-release-schedule).**, often with **breaking API changes**
+- **[migration guides](https://bevyengine.org/learn/migration-guides/)** are available, but updating to new versions may require manual adjustments.
+
+Despite these challenges, Bevy provides a solid framework for Rust-based game development, and the community is actively improving the engine with each release.
 
 **MSRV:** Bevy relies heavily on improvements in the Rust language and compiler.
 As a result, the Minimum Supported Rust Version (MSRV) is generally close to "the latest stable release" of Rust.
@@ -26,6 +32,8 @@ As a result, the Minimum Supported Rust Version (MSRV) is generally close to "th
 * **Modular**: Use only what you need. Replace what you don't like
 * **Fast**: App logic should run quickly, and when possible, in parallel
 * **Productive**: Changes should compile quickly ... waiting isn't fun
+
+These principles ensure Bevy remains a **powerful yet user-friendly** engine for both small and large projects.
 
 ## About
 
@@ -50,11 +58,14 @@ Before contributing or participating in discussions with the community, you shou
 
 ### Contributing
 
-If you'd like to help build Bevy, check out the **[Contributor's Guide](https://bevyengine.org/learn/contribute/introduction)**.
-For simple problems, feel free to [open an issue](https://github.com/bevyengine/bevy/issues) or
-[PR](https://github.com/bevyengine/bevy/pulls) and tackle it yourself!
+If you’d like to help improve Bevy, follow these steps:
 
-For more complex architecture decisions and experimental mad science, please open an [RFC](https://github.com/bevyengine/rfcs) (Request For Comments) so we can brainstorm together effectively!
+- **Check out the [Contributor's Guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md)** for an overview of how to contribute.  
+- **Browse the [issue tracker](https://github.com/bevyengine/bevy/issues)** for open tasks.  
+- **For simple fixes**, feel free to open a **pull request (PR)**.  
+- **For major changes**, submit a **Request For Comments (RFC)** so the community can discuss the best approach.  
+
+Your contributions help make Bevy a better engine for everyone.!
 
 ## Getting Started
 
@@ -87,6 +98,7 @@ fn main(){
 Bevy can be built just fine using default configuration on stable Rust. However for really fast iterative compiles, you should enable the "fast compiles" setup by [following the instructions here](https://bevyengine.org/learn/quick-start/getting-started/setup).
 
 ## [Bevy Cargo Features][cargo_features]
+Bevy supports various **Cargo features** that allow customization based on project needs.
 
 This [list][cargo_features] outlines the different cargo features supported by Bevy. These allow you to customize the Bevy feature set for your use-case.
 
