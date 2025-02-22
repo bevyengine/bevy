@@ -1,4 +1,4 @@
-pub struct DataUri<'a> {
+pub(crate) struct DataUri<'a> {
     pub mime_type: &'a str,
     pub base64: bool,
     pub data: &'a str,
@@ -10,7 +10,7 @@ fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
 }
 
 impl<'a> DataUri<'a> {
-    pub fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
+    pub(crate) fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
         let uri = uri.strip_prefix("data:").ok_or(())?;
         let (mime_type, data) = split_once(uri, ',').ok_or(())?;
 
@@ -26,7 +26,7 @@ impl<'a> DataUri<'a> {
         })
     }
 
-    pub fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
+    pub(crate) fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
         if self.base64 {
             base64::Engine::decode(&base64::engine::general_purpose::STANDARD, self.data)
         } else {

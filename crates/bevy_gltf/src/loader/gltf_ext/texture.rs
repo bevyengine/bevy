@@ -16,7 +16,10 @@ use gltf::{json::texture::Info, Document};
 
 use crate::{loader::data_uri::DataUri, GltfAssetLabel};
 
-pub fn texture_handle(texture: &Texture<'_>, load_context: &mut LoadContext) -> Handle<Image> {
+pub(crate) fn texture_handle(
+    texture: &Texture<'_>,
+    load_context: &mut LoadContext,
+) -> Handle<Image> {
     match texture.source().source() {
         Source::View { .. } => load_context.get_label_handle(texture_label(texture).to_string()),
         Source::Uri { uri, .. } => {
@@ -36,7 +39,7 @@ pub fn texture_handle(texture: &Texture<'_>, load_context: &mut LoadContext) -> 
 }
 
 /// Extracts the texture sampler data from the glTF [`Texture`].
-pub fn texture_sampler(texture: &Texture<'_>) -> ImageSamplerDescriptor {
+pub(crate) fn texture_sampler(texture: &Texture<'_>) -> ImageSamplerDescriptor {
     let gltf_sampler = texture.sampler();
 
     ImageSamplerDescriptor {
@@ -80,11 +83,11 @@ pub fn texture_sampler(texture: &Texture<'_>) -> ImageSamplerDescriptor {
     }
 }
 
-pub fn texture_label(texture: &Texture<'_>) -> GltfAssetLabel {
+pub(crate) fn texture_label(texture: &Texture<'_>) -> GltfAssetLabel {
     GltfAssetLabel::Texture(texture.index())
 }
 
-pub fn address_mode(wrapping_mode: &WrappingMode) -> ImageAddressMode {
+pub(crate) fn address_mode(wrapping_mode: &WrappingMode) -> ImageAddressMode {
     match wrapping_mode {
         WrappingMode::ClampToEdge => ImageAddressMode::ClampToEdge,
         WrappingMode::Repeat => ImageAddressMode::Repeat,
@@ -92,7 +95,7 @@ pub fn address_mode(wrapping_mode: &WrappingMode) -> ImageAddressMode {
     }
 }
 
-pub fn texture_transform_to_affine2(texture_transform: TextureTransform) -> Affine2 {
+pub(crate) fn texture_transform_to_affine2(texture_transform: TextureTransform) -> Affine2 {
     Affine2::from_scale_angle_translation(
         texture_transform.scale().into(),
         -texture_transform.rotation(),
@@ -110,7 +113,7 @@ pub fn texture_transform_to_affine2(texture_transform: TextureTransform) -> Affi
 ///
 /// This is a low-level function only used when the [`gltf`] crate has no support
 /// for an extension, forcing us to parse its texture references manually.
-pub fn texture_handle_from_info(
+pub(crate) fn texture_handle_from_info(
     info: &Info,
     document: &Document,
     load_context: &mut LoadContext,

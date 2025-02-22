@@ -1,8 +1,9 @@
 use bevy_math::Vec3;
 use bevy_render::mesh::morph::MorphAttributes;
+
 use gltf::accessor::Iter;
 
-pub(super) struct PrimitiveMorphAttributesIter<'s>(
+pub(crate) struct PrimitiveMorphAttributesIter<'s>(
     pub  (
         Option<Iter<'s, [f32; 3]>>,
         Option<Iter<'s, [f32; 3]>>,

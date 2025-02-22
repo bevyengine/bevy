@@ -11,17 +11,17 @@ use bevy_platform_support::collections::HashSet;
 
 use fixedbitset::FixedBitSet;
 use gltf::{Document, Gltf};
-use material::extension_texture_index;
-use scene::check_is_part_of_cycle;
 
 use super::GltfError;
+
+use self::{material::extension_texture_index, scene::check_is_part_of_cycle};
 
 #[expect(
     clippy::result_large_err,
     reason = "need to be signature compatible with `load_gltf`"
 )]
 /// Checks all glTF nodes for cycles, starting at the scene root.
-pub fn check_for_cycles(gltf: &Gltf) -> Result<(), GltfError> {
+pub(crate) fn check_for_cycles(gltf: &Gltf) -> Result<(), GltfError> {
     // Initialize with the scene roots.
     let mut roots = FixedBitSet::with_capacity(gltf.nodes().len());
     for root in gltf.scenes().flat_map(|scene| scene.nodes()) {
@@ -40,7 +40,7 @@ pub fn check_for_cycles(gltf: &Gltf) -> Result<(), GltfError> {
     Ok(())
 }
 
-pub fn get_linear_textures(document: &Document) -> HashSet<usize> {
+pub(crate) fn get_linear_textures(document: &Document) -> HashSet<usize> {
     let mut linear_textures = HashSet::default();
 
     for material in document.materials() {

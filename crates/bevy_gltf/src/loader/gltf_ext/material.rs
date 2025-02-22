@@ -15,6 +15,7 @@ use super::texture::texture_transform_to_affine2;
     feature = "pbr_multi_layer_material_textures"
 ))]
 use {
+    super::texture::texture_handle_from_info,
     bevy_asset::{Handle, LoadContext},
     bevy_image::Image,
     gltf::Document,
@@ -27,7 +28,7 @@ use {
     feature = "pbr_specular_textures",
     feature = "pbr_multi_layer_material_textures"
 ))]
-pub fn parse_material_extension_texture(
+pub(crate) fn parse_material_extension_texture(
     material: &Material,
     load_context: &mut LoadContext,
     document: &Document,
@@ -35,8 +36,6 @@ pub fn parse_material_extension_texture(
     texture_name: &str,
     texture_kind: &str,
 ) -> (UvChannel, Option<Handle<Image>>) {
-    use super::texture::texture_handle_from_info;
-
     match extension
         .get(texture_name)
         .and_then(|value| value::from_value::<Info>(value.clone()).ok())
@@ -49,7 +48,7 @@ pub fn parse_material_extension_texture(
     }
 }
 
-pub fn uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> UvChannel {
+pub(crate) fn uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> UvChannel {
     match tex_coord {
         0 => UvChannel::Uv0,
         1 => UvChannel::Uv1,
@@ -72,7 +71,7 @@ pub fn uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> Uv
     }
 }
 
-pub fn alpha_mode(material: &Material) -> AlphaMode {
+pub(crate) fn alpha_mode(material: &Material) -> AlphaMode {
     match material.alpha_mode() {
         gltf::material::AlphaMode::Opaque => AlphaMode::Opaque,
         gltf::material::AlphaMode::Mask => AlphaMode::Mask(material.alpha_cutoff().unwrap_or(0.5)),
@@ -83,7 +82,7 @@ pub fn alpha_mode(material: &Material) -> AlphaMode {
 /// Returns the index (within the `textures` array) of the texture with the
 /// given field name in the data for the material extension with the given name,
 /// if there is one.
-pub fn extension_texture_index(
+pub(crate) fn extension_texture_index(
     material: &Material,
     extension_name: &str,
     texture_field_name: &str,
@@ -107,7 +106,7 @@ pub fn extension_texture_index(
 /// rendered.
 ///
 /// We generate them if this function returns true.
-pub fn needs_tangents(material: &Material) -> bool {
+pub(crate) fn needs_tangents(material: &Material) -> bool {
     [
         material.normal_texture().is_some(),
         #[cfg(feature = "pbr_multi_layer_material_textures")]
@@ -123,7 +122,7 @@ pub fn needs_tangents(material: &Material) -> bool {
     .unwrap_or(false)
 }
 
-pub fn warn_on_differing_texture_transforms(
+pub(crate) fn warn_on_differing_texture_transforms(
     material: &Material,
     info: &gltf::texture::Info,
     texture_transform: Affine2,
@@ -154,7 +153,7 @@ pub fn warn_on_differing_texture_transforms(
     }
 }
 
-pub fn material_label(material: &Material, is_scale_inverted: bool) -> GltfAssetLabel {
+pub(crate) fn material_label(material: &Material, is_scale_inverted: bool) -> GltfAssetLabel {
     if let Some(index) = material.index() {
         GltfAssetLabel::Material {
             index,

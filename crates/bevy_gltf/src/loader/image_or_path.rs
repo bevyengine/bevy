@@ -5,7 +5,7 @@ use bevy_image::{Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescripto
 
 use crate::GltfAssetLabel;
 
-pub enum ImageOrPath {
+pub(crate) enum ImageOrPath {
     Image {
         image: Image,
         label: GltfAssetLabel,
@@ -23,7 +23,7 @@ impl ImageOrPath {
     // The taskpool use is also avoided when there is only one texture for performance reasons and
     // to avoid https://github.com/bevyengine/bevy/pull/2725
     // PERF: could this be a Vec instead? Are gltf texture indices dense?
-    pub fn process_loaded_texture(
+    pub(crate) fn process_loaded_texture(
         self,
         load_context: &mut LoadContext,
         handles: &mut Vec<Handle<Image>>,

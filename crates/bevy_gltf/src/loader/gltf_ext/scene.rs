@@ -13,11 +13,11 @@ use bevy_platform_support::collections::{HashMap, HashSet};
 use crate::{GltfAssetLabel, GltfError};
 
 /// Returns the label for the glTF [`Scene`].
-pub fn scene_label(scene: &Scene<'_>) -> GltfAssetLabel {
+pub(crate) fn scene_label(scene: &Scene<'_>) -> GltfAssetLabel {
     GltfAssetLabel::Scene(scene.index())
 }
 
-pub fn node_name(node: &Node) -> Name {
+pub(crate) fn node_name(node: &Node) -> Name {
     let name = node
         .name()
         .map(ToString::to_string)
@@ -31,7 +31,7 @@ pub fn node_name(node: &Node) -> Name {
 /// on [`Node::transform()`](gltf::Node::transform) directly because it uses optimized glam types and
 /// if `libm` feature of `bevy_math` crate is enabled also handles cross
 /// platform determinism properly.
-pub fn node_transform(node: &Node) -> Transform {
+pub(crate) fn node_transform(node: &Node) -> Transform {
     match node.transform() {
         gltf::scene::Transform::Matrix { matrix } => {
             Transform::from_matrix(Mat4::from_cols_array_2d(&matrix))
@@ -53,7 +53,10 @@ pub fn node_transform(node: &Node) -> Transform {
     reason = "need to be signature compatible with `load_gltf`"
 )]
 /// Check if [`Node`] is part of cycle
-pub fn check_is_part_of_cycle(node: &Node, visited: &mut FixedBitSet) -> Result<(), GltfError> {
+pub(crate) fn check_is_part_of_cycle(
+    node: &Node,
+    visited: &mut FixedBitSet,
+) -> Result<(), GltfError> {
     // Do we have a cycle?
     if visited.contains(node.index()) {
         return Err(GltfError::CircularChildren(format!(
@@ -74,7 +77,7 @@ pub fn check_is_part_of_cycle(node: &Node, visited: &mut FixedBitSet) -> Result<
 }
 
 #[cfg(feature = "bevy_animation")]
-pub fn collect_path(
+pub(crate) fn collect_path(
     node: &Node,
     current_path: &[Name],
     paths: &mut HashMap<usize, (usize, Vec<Name>)>,

@@ -4,7 +4,7 @@ use gltf::mesh::{Mesh, Mode, Primitive};
 
 use crate::GltfError;
 
-pub fn primitive_name(mesh: &Mesh<'_>, primitive: &Primitive) -> String {
+pub(crate) fn primitive_name(mesh: &Mesh<'_>, primitive: &Primitive) -> String {
     let mesh_name = mesh.name().unwrap_or("Mesh");
     if mesh.primitives().len() > 1 {
         format!("{}.{}", mesh_name, primitive.index())
@@ -18,7 +18,7 @@ pub fn primitive_name(mesh: &Mesh<'_>, primitive: &Primitive) -> String {
     clippy::result_large_err,
     reason = "`GltfError` is only barely past the threshold for large errors."
 )]
-pub fn primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
+pub(crate) fn primitive_topology(mode: Mode) -> Result<PrimitiveTopology, GltfError> {
     match mode {
         Mode::Points => Ok(PrimitiveTopology::PointList),
         Mode::Lines => Ok(PrimitiveTopology::LineList),
