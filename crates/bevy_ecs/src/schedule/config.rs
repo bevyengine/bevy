@@ -43,7 +43,7 @@ pub trait NodeType {
     /// Additional data used to configure a group of nodes. Stored in [`NodeConfigs`].
     type GroupMetadata;
 
-    /// Initialize `NodeConfig` from `NodeType`
+    /// Initializes a configuration from this node.
     fn config(self) -> NodeConfig<Self>
     where
         Self: Sized;
