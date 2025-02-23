@@ -960,7 +960,7 @@ impl ScheduleGraph {
     }
 
     #[track_caller]
-    fn configure_sets<Marker>(&mut self, sets: impl IntoNodeConfigs<InternedSystemSet, Marker>) {
+    fn configure_sets<M>(&mut self, sets: impl IntoNodeConfigs<InternedSystemSet, M>) {
         self.process_configs(sets.into_configs(), false);
     }
 
