@@ -163,9 +163,10 @@ impl Mesh {
     pub const ATTRIBUTE_UV_1: MeshVertexAttribute =
         MeshVertexAttribute::new("Vertex_Uv_1", 3, VertexFormat::Float32x2);
 
-    /// The direction of the vertex tangent. Used for normal mapping.
-    /// Usually generated with [`generate_tangents`](Mesh::generate_tangents) or
-    /// [`with_generated_tangents`](Mesh::with_generated_tangents).
+    /// The direction of the vertex tangent, with the "handedness" (`1` or `-1`) in the `w` column.
+    /// Used for normal mapping. Usually generated with
+    /// [`compute_tangents`](Mesh::generate_tangents) or
+    /// [`with_computed_tangents`](Mesh::with_computed_tangents).
     ///
     /// The format of this attribute is [`VertexFormat::Float32x4`].
     pub const ATTRIBUTE_TANGENT: MeshVertexAttribute =
