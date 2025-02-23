@@ -411,6 +411,13 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
             }
             WindowEvent::RedrawRequested => {
                 self.ran_update_since_last_redraw = false;
+
+                // https://github.com/bevyengine/bevy/issues/17488
+                #[cfg(target_os = "windows")]
+                {
+                    self.redraw_requested = true;
+                    self.redraw_requested(_event_loop);
+                }
             }
             _ => {}
         }
@@ -448,6 +455,27 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         create_windows(event_loop, create_window.get_mut(self.world_mut()));
         create_window.apply(self.world_mut());
 
+        // TODO: This is a workaround for https://github.com/bevyengine/bevy/issues/17488
+        //       while preserving the iOS fix in https://github.com/bevyengine/bevy/pull/11245
+        //       The monitor sync logic likely belongs in monitor event handlers and not here.
+        #[cfg(not(target_os = "windows"))]
+        self.redraw_requested(event_loop);
+    }
+
+    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        // Mark the state as `WillSuspend`. This will let the schedule run one last time
+        // before actually suspending to let the application react
+        self.lifecycle = AppLifecycle::WillSuspend;
+    }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        let world = self.world_mut();
+        world.clear_all();
+    }
+}
+
+impl<T: Event> WinitAppRunnerState<T> {
+    fn redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
         let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
@@ -642,19 +670,6 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         }
     }
 
-    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
-        // Mark the state as `WillSuspend`. This will let the schedule run one last time
-        // before actually suspending to let the application react
-        self.lifecycle = AppLifecycle::WillSuspend;
-    }
-
-    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
-        let world = self.world_mut();
-        world.clear_all();
-    }
-}
-
-impl<T: Event> WinitAppRunnerState<T> {
     fn should_update(&self, update_mode: UpdateMode) -> bool {
         let handle_event = match update_mode {
             UpdateMode::Continuous => {
