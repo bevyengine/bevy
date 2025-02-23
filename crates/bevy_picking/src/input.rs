@@ -125,7 +125,7 @@ pub fn mouse_pick_events(
                     },
                     position: event.position,
                 };
-                pointer_events.send(PointerInput::new(
+                pointer_events.write(PointerInput::new(
                     PointerId::Mouse,
                     location,
                     PointerAction::Move {
@@ -155,7 +155,7 @@ pub fn mouse_pick_events(
                     ButtonState::Pressed => PointerAction::Press(button),
                     ButtonState::Released => PointerAction::Release(button),
                 };
-                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
             }
             WindowEvent::MouseWheel(event) => {
                 let MouseWheel { unit, x, y, window } = *event;
@@ -172,7 +172,7 @@ pub fn mouse_pick_events(
 
                 let action = PointerAction::Scroll { x, y, unit };
 
-                pointer_events.send(PointerInput::new(PointerId::Mouse, location, action));
+                pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
             }
             _ => {}
         }
@@ -207,7 +207,7 @@ pub fn touch_pick_events(
                     debug!("Spawning pointer {:?}", pointer);
                     commands.spawn((pointer, PointerLocation::new(location.clone())));
 
-                    pointer_events.send(PointerInput::new(
+                    pointer_events.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Press(PointerButton::Primary),
@@ -221,7 +221,7 @@ pub fn touch_pick_events(
                         if last_touch == touch {
                             continue;
                         }
-                        pointer_events.send(PointerInput::new(
+                        pointer_events.write(PointerInput::new(
                             pointer,
                             location,
                             PointerAction::Move {
@@ -232,7 +232,7 @@ pub fn touch_pick_events(
                     touch_cache.insert(touch.id, *touch);
                 }
                 TouchPhase::Ended => {
-                    pointer_events.send(PointerInput::new(
+                    pointer_events.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Release(PointerButton::Primary),
@@ -240,7 +240,7 @@ pub fn touch_pick_events(
                     touch_cache.remove(&touch.id);
                 }
                 TouchPhase::Canceled => {
-                    pointer_events.send(PointerInput::new(
+                    pointer_events.write(PointerInput::new(
                         pointer,
                         location,
                         PointerAction::Cancel,
