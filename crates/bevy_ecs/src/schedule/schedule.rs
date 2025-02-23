@@ -375,9 +375,9 @@ impl Schedule {
 
     /// Configures a collection of system sets in this schedule, adding them if they does not exist.
     #[track_caller]
-    pub fn configure_sets<Marker>(
+    pub fn configure_sets<M>(
         &mut self,
-        sets: impl IntoNodeConfigs<InternedSystemSet, Marker>,
+        sets: impl IntoNodeConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
         self.graph.configure_sets(sets);
         self
