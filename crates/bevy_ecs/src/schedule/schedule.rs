@@ -840,7 +840,7 @@ impl ScheduleGraph {
                 for config in configs.iter_mut() {
                     config.in_set_inner(set.intern());
                 }
-                let mut set_config = InternedSystemSet::config(set.intern());
+                let mut set_config = InternedSystemSet::into_config(set.intern());
                 set_config.conditions.extend(collective_conditions);
                 self.configure_set_inner(set_config).unwrap();
             }

@@ -53,7 +53,7 @@ impl NodeType for ScheduleSystem {
     type Metadata = GraphInfo;
     type GroupMetadata = Chain;
 
-    fn config(self) -> NodeConfig<Self> {
+    fn into_config(self) -> NodeConfig<Self> {
         let sets = self.default_system_sets().clone();
         NodeConfig {
             node: self,
@@ -70,7 +70,7 @@ impl NodeType for InternedSystemSet {
     type Metadata = GraphInfo;
     type GroupMetadata = Chain;
 
-    fn config(self) -> NodeConfig<Self> {
+    fn into_config(self) -> NodeConfig<Self> {
         assert!(
             self.system_type().is_none(),
             "configuring system type sets is not allowed"
@@ -595,7 +595,7 @@ where
 {
     fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
         let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
-        NodeConfigs::NodeConfig(ScheduleSystem::config(Box::new(wrapper)))
+        NodeConfigs::NodeConfig(ScheduleSystem::into_config(Box::new(wrapper)))
     }
 }
 
@@ -609,31 +609,31 @@ where
 {
     fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
         let boxed_system = Box::new(IntoSystem::into_system(self));
-        NodeConfigs::NodeConfig(ScheduleSystem::config(boxed_system))
+        NodeConfigs::NodeConfig(ScheduleSystem::into_config(boxed_system))
     }
 }
 
 impl IntoNodeConfigs<ScheduleSystem, ()> for BoxedSystem<(), Result> {
     fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
-        NodeConfigs::NodeConfig(ScheduleSystem::config(self))
+        NodeConfigs::NodeConfig(ScheduleSystem::into_config(self))
     }
 }
 
 impl<S: SystemSet> IntoNodeConfigs<InternedSystemSet, ()> for S {
     fn into_configs(self) -> NodeConfigs<InternedSystemSet> {
-        NodeConfigs::NodeConfig(InternedSystemSet::config(self.intern()))
+        NodeConfigs::NodeConfig(InternedSystemSet::into_config(self.intern()))
     }
 }
 
 #[doc(hidden)]
 pub struct NodeConfigTupleMarker;
 
-macro_rules! impl_system_collection {
+macro_rules! impl_node_type_collection {
     ($(#[$meta:meta])* $(($param: ident, $sys: ident)),*) => {
         $(#[$meta])*
-        impl<$($param, $sys),*> IntoNodeConfigs<ScheduleSystem, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
+        impl<$($param, $sys),*, T: NodeType<GroupMetadata: Default>> IntoNodeConfigs<T, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
         where
-            $($sys: IntoNodeConfigs<ScheduleSystem, $param>),*
+            $($sys: IntoNodeConfigs<T, $param>),*
         {
             #[expect(
                 clippy::allow_attributes,
@@ -643,10 +643,10 @@ macro_rules! impl_system_collection {
                 non_snake_case,
                 reason = "Variable names are provided by the macro caller, not by us."
             )]
-            fn into_configs(self) -> NodeConfigs<ScheduleSystem> {
+            fn into_configs(self) -> NodeConfigs<T> {
                 let ($($sys,)*) = self;
                 NodeConfigs::Configs {
-                    metadata: Chain::default(),
+                    metadata: Default::default(),
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
                     chained: Default::default(),
@@ -658,43 +658,9 @@ macro_rules! impl_system_collection {
 
 all_tuples!(
     #[doc(fake_variadic)]
-    impl_system_collection,
+    impl_node_type_collection,
     1,
     20,
     P,
-    S
-);
-
-macro_rules! impl_system_set_collection {
-    ($(#[$meta:meta])* $($set: ident),*) => {
-        $(#[$meta])*
-        impl<$($set: IntoNodeConfigs<InternedSystemSet, ()>),*> IntoNodeConfigs<InternedSystemSet, ()> for ($($set,)*)
-        {
-            #[expect(
-                clippy::allow_attributes,
-                reason = "We are inside a macro, and as such, `non_snake_case` is not guaranteed to apply."
-            )]
-            #[allow(
-                non_snake_case,
-                reason = "Variable names are provided by the macro caller, not by us."
-            )]
-            fn into_configs(self) -> NodeConfigs<InternedSystemSet> {
-                let ($($set,)*) = self;
-                NodeConfigs::Configs {
-                    metadata: Chain::default(),
-                    configs: vec![$($set.into_configs(),)*],
-                    collective_conditions: Vec::new(),
-                    chained: Default::default(),
-                }
-            }
-        }
-    }
-}
-
-all_tuples!(
-    #[doc(fake_variadic)]
-    impl_system_set_collection,
-    1,
-    20,
     S
 );
