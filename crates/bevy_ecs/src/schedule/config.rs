@@ -44,7 +44,7 @@ pub trait NodeType {
     type GroupMetadata;
 
     /// Initializes a configuration from this node.
-    fn config(self) -> NodeConfig<Self>
+    fn into_config(self) -> NodeConfig<Self>
     where
         Self: Sized;
 }
