@@ -26,9 +26,7 @@ impl<T: Send> Parallel<T> {
     /// If there is no thread-local value, it will be initialized to the result
     /// of `create`.
     pub fn scope_or<R>(&self, create: impl FnOnce() -> T, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut cell = self.locals.get_or(|| RefCell::new(create())).borrow_mut();
-        let ret = f(cell.deref_mut());
-        ret
+        f(&mut self.borrow_local_mut_or(create))
     }
 
     /// Mutably borrows the thread-local value.
@@ -48,16 +46,14 @@ impl<T: Default + Send> Parallel<T> {
     ///
     /// If there is no thread-local value, it will be initialized to its default.
     pub fn scope<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut cell = self.locals.get_or_default().borrow_mut();
-        let ret = f(cell.deref_mut());
-        ret
+        self.scope_or(Default::default, f)
     }
 
     /// Mutably borrows the thread-local value.
     ///
     /// If there is no thread-local value, it will be initialized to it's default.
     pub fn borrow_local_mut(&self) -> impl DerefMut<Target = T> + '_ {
-        self.locals.get_or_default().borrow_mut()
+        self.borrow_local_mut_or(Default::default)
     }
 }
 
