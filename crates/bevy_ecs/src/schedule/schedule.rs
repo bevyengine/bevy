@@ -1548,11 +1548,9 @@ struct ProcessConfigsResult {
 }
 
 /// Trait used by [`ScheduleGraph::process_configs`] to process a single [`NodeConfig`].
-trait ProcessNodeConfig: Sized {
+trait ProcessNodeConfig: NodeType + Sized {
     /// Process a single [`NodeConfig`].
-    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId
-    where
-        Self: NodeType;
+    fn process_config(schedule_graph: &mut ScheduleGraph, config: NodeConfig<Self>) -> NodeId;
 }
 
 impl ProcessNodeConfig for ScheduleSystem {
