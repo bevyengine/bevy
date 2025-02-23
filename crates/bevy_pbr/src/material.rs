@@ -1036,6 +1036,11 @@ pub fn queue_material_meshes<M: Material>(
                 }
                 RenderPhaseType::Opaque => {
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        opaque_phase.update_cache(*visible_entity, None, current_change_tick);
                         continue;
                     }
                     let batch_set_key = Opaque3dBatchSetKey {
