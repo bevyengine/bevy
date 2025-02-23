@@ -103,6 +103,11 @@ impl<T: NoUninit> RawBufferVec<T> {
         self.values.append(&mut other.values);
     }
 
+    /// Returns the value at the given index.
+    pub fn get(&self, index: u32) -> Option<&T> {
+        self.values.get(index as usize)
+    }
+
     /// Sets the value at the given index.
     ///
     /// The index must be less than [`RawBufferVec::len`].
@@ -451,8 +456,14 @@ where
 
     /// Reserves space for one more element in the buffer and returns its index.
     pub fn add(&mut self) -> usize {
+        self.add_multiple(1)
+    }
+
+    /// Reserves space for the given number of elements in the buffer and
+    /// returns the index of the first one.
+    pub fn add_multiple(&mut self, count: usize) -> usize {
         let index = self.len;
-        self.len += 1;
+        self.len += count;
         index
     }
 

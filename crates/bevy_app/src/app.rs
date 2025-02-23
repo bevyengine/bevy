@@ -1417,7 +1417,6 @@ impl AppExit {
 }
 
 impl From<u8> for AppExit {
-    #[must_use]
     fn from(value: u8) -> Self {
         Self::from_code(value)
     }
