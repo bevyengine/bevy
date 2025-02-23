@@ -555,10 +555,7 @@ impl<T: NodeType<Metadata = GraphInfo>> IntoNodeConfigs<T, ()> for NodeConfigs<T
         self
     }
 
-    fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> NodeConfigs<T>
-    where
-        T: NodeType,
-    {
+    fn distributive_run_if<M>(mut self, condition: impl Condition<M> + Clone) -> NodeConfigs<T> {
         self.distributive_run_if_inner(condition);
         self
     }
