@@ -560,10 +560,7 @@ impl<T: NodeType<Metadata = GraphInfo>> IntoNodeConfigs<T, ()> for NodeConfigs<T
         self
     }
 
-    fn run_if<M>(mut self, condition: impl Condition<M>) -> NodeConfigs<T>
-    where
-        T: NodeType,
-    {
+    fn run_if<M>(mut self, condition: impl Condition<M>) -> NodeConfigs<T> {
         self.run_if_dyn(new_condition(condition));
         self
     }
