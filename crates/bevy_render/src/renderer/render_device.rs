@@ -44,8 +44,18 @@ impl RenderDevice {
     }
 
     /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
+    /// # Safety
+    ///
+    /// Creates a shader module with user-customizable runtime checks which allows shaders to
+    /// perform operations which can lead to undefined behavior like indexing out of bounds,
+    /// To avoid UB, ensure any unchecked shaders are sound!
+    /// This method should never be called for user-supplied shaders.
     #[inline]
-    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+    pub unsafe fn create_shader_module(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor,
+    ) -> wgpu::ShaderModule {
         #[cfg(feature = "spirv_shader_passthrough")]
         match &desc.source {
             wgpu::ShaderSource::SpirV(source)
@@ -64,27 +74,38 @@ impl RenderDevice {
                         })
                 }
             }
-            // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-            // such as indexing out of bounds.
-            // The checks required are prohibitively expensive and a poor default for game engines.
-            // TODO: split this method into safe and unsafe variants, and propagate the safety requirements from
-            // https://docs.rs/wgpu/latest/wgpu/struct.Device.html#method.create_shader_module_trusted to the unsafe form.
+            // SAFETY:
+            //
+            // This call passes binary data to the backend as-is and can potentially result in a driver crash or bogus behavior.
+            // No attempt is made to ensure that data is valid SPIR-V.
             _ => unsafe {
                 self.device
                     .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
             },
         }
-
         #[cfg(not(feature = "spirv_shader_passthrough"))]
-        // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-        // such as indexing out of bounds.
-        // The checks required are prohibitively expensive and a poor default for game engines.
-        // TODO: split this method into safe and unsafe variants, and propagate the safety requirements from
-        // https://docs.rs/wgpu/latest/wgpu/struct.Device.html#method.create_shader_module_trusted to the unsafe form.
+        // SAFETY: the caller is responsible for upholding the safety requirements
         unsafe {
             self.device
                 .create_shader_module_trusted(desc, wgpu::ShaderRuntimeChecks::unchecked())
         }
+    }
+
+    /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    ///
+    /// See [`ValidateShader`](bevy_render::render_resource::ValidateShader) for more information on the tradeoffs involved with shader validation.
+    #[inline]
+    pub fn create_and_validate_shader_module(
+        &self,
+        desc: wgpu::ShaderModuleDescriptor,
+    ) -> wgpu::ShaderModule {
+        #[cfg(feature = "spirv_shader_passthrough")]
+        match &desc.source {
+            wgpu::ShaderSource::SpirV(_source) => panic!("no safety checks are performed for spirv shaders. use `create_shader_module` instead"),
+            _ => self.device.create_shader_module(desc),
+        }
+        #[cfg(not(feature = "spirv_shader_passthrough"))]
+        self.device.create_shader_module(desc)
     }
 
     /// Check for resource cleanups and mapping callbacks.

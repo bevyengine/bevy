@@ -180,7 +180,7 @@ macro_rules! define_label {
 
         impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
-                Box::leak(self.dyn_clone())
+                $crate::label::Box::leak(self.dyn_clone())
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
