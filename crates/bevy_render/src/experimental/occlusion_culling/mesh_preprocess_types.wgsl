@@ -15,10 +15,10 @@ struct MeshInput {
     first_index_index: u32,
     index_count: u32,
     current_skin_index: u32,
-    previous_skin_index: u32,
     // Low 16 bits: index of the material inside the bind group data.
     // High 16 bits: index of the lightmap in the binding array.
     material_and_lightmap_bind_group_slot: u32,
+    timestamp: u32,
     // User supplied index to identify the mesh instance
     tag: u32,
     pad: u32,
@@ -47,17 +47,20 @@ struct IndirectParametersNonIndexed {
     first_instance: u32,
 }
 
-struct IndirectParametersMetadata {
-    mesh_index: u32,
+struct IndirectParametersCpuMetadata {
     base_output_index: u32,
     batch_set_index: u32,
+}
+
+struct IndirectParametersGpuMetadata {
+    mesh_index: u32,
 #ifdef WRITE_INDIRECT_PARAMETERS_METADATA
     early_instance_count: atomic<u32>,
     late_instance_count: atomic<u32>,
-#else
+#else   // WRITE_INDIRECT_PARAMETERS_METADATA
     early_instance_count: u32,
     late_instance_count: u32,
-#endif
+#endif  // WRITE_INDIRECT_PARAMETERS_METADATA
 }
 
 struct IndirectBatchSet {

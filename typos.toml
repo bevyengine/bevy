@@ -13,7 +13,6 @@ LOD = "LOD"                             # Level of detail
 reparametrization = "reparametrization" # Mathematical term in curve context (reparameterize)
 reparametrize = "reparametrize"
 reparametrized = "reparametrized"
-implementors = "implementors"           # Can probably remove after next typos release. https://github.com/crate-ci/typos/issues/1226
 
 # Match a Whole Word - Case Sensitive
 [default.extend-identifiers]

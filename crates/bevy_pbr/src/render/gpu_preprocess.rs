@@ -13,28 +13,27 @@ use bevy_asset::{load_internal_asset, weak_handle, Handle};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     experimental::mip_generation::ViewDepthPyramid,
-    prepass::{
-        DeferredPrepass, DepthPrepass, PreviousViewData, PreviousViewUniformOffset,
-        PreviousViewUniforms,
-    },
+    prepass::{DepthPrepass, PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::resource_exists,
-    query::{Has, QueryState, With, Without},
+    query::{Has, Or, QueryState, With, Without},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_render::batching::gpu_preprocessing::UntypedPhaseIndirectParametersBuffers;
+use bevy_render::batching::gpu_preprocessing::{
+    IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
+};
 use bevy_render::{
     batching::gpu_preprocessing::{
         BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
-        IndirectBatchSet, IndirectParametersBuffers, IndirectParametersIndexed,
-        IndirectParametersMetadata, IndirectParametersNonIndexed,
+        IndirectBatchSet, IndirectParametersBuffers, IndirectParametersCpuMetadata,
+        IndirectParametersIndexed, IndirectParametersNonIndexed,
         LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
         UntypedPhaseBatchedInstanceBuffers,
     },
@@ -62,7 +61,7 @@ use crate::{
     graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
 };
 
-use super::ViewLightEntities;
+use super::{ShadowView, ViewLightEntities};
 
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
@@ -91,6 +90,12 @@ pub struct GpuMeshPreprocessPlugin {
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
 }
+
+/// The render node that clears out the GPU-side indirect metadata buffers.
+///
+/// This is only used when indirect drawing is enabled.
+#[derive(Default)]
+pub struct ClearIndirectParametersMetadataNode;
 
 /// The render node for the first mesh preprocessing pass.
 ///
@@ -132,7 +137,6 @@ pub struct LateGpuPreprocessNode {
             Without<NoIndirectDrawing>,
             With<OcclusionCulling>,
             With<DepthPrepass>,
-            Without<DeferredPrepass>,
         ),
     >,
 }
@@ -142,7 +146,7 @@ pub struct LateGpuPreprocessNode {
 ///
 /// This node runs a compute shader on the output of the
 /// [`EarlyGpuPreprocessNode`] in order to transform the
-/// [`IndirectParametersMetadata`] into properly-formatted
+/// [`IndirectParametersGpuMetadata`] into properly-formatted
 /// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct EarlyPrepassBuildIndirectParametersNode {
     view_query: QueryState<
@@ -150,8 +154,7 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
-            Without<DeferredPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
         ),
     >,
 }
@@ -162,7 +165,7 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
 ///
 /// This node runs a compute shader on the output of the
 /// [`LateGpuPreprocessNode`] in order to transform the
-/// [`IndirectParametersMetadata`] into properly-formatted
+/// [`IndirectParametersGpuMetadata`] into properly-formatted
 /// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct LatePrepassBuildIndirectParametersNode {
     view_query: QueryState<
@@ -170,9 +173,8 @@ pub struct LatePrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
             With<OcclusionCulling>,
-            Without<DeferredPrepass>,
         ),
     >,
 }
@@ -183,7 +185,7 @@ pub struct LatePrepassBuildIndirectParametersNode {
 ///
 /// This node runs a compute shader on the output of the
 /// [`EarlyGpuPreprocessNode`] and [`LateGpuPreprocessNode`] in order to
-/// transform the [`IndirectParametersMetadata`] into properly-formatted
+/// transform the [`IndirectParametersGpuMetadata`] into properly-formatted
 /// [`IndirectParametersIndexed`] and [`IndirectParametersNonIndexed`].
 pub struct MainBuildIndirectParametersNode {
     view_query: QueryState<
@@ -494,6 +496,10 @@ impl Plugin for GpuMeshPreprocessPlugin {
                     write_mesh_culling_data_buffer.in_set(RenderSet::PrepareResourcesFlush),
                 ),
             )
+            .add_render_graph_node::<ClearIndirectParametersMetadataNode>(
+                Core3d,
+                NodePbr::ClearIndirectParametersMetadata
+            )
             .add_render_graph_node::<EarlyGpuPreprocessNode>(Core3d, NodePbr::EarlyGpuPreprocess)
             .add_render_graph_node::<LateGpuPreprocessNode>(Core3d, NodePbr::LateGpuPreprocess)
             .add_render_graph_node::<EarlyPrepassBuildIndirectParametersNode>(
@@ -511,25 +517,81 @@ impl Plugin for GpuMeshPreprocessPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
+                    NodePbr::ClearIndirectParametersMetadata,
                     NodePbr::EarlyGpuPreprocess,
                     NodePbr::EarlyPrepassBuildIndirectParameters,
                     Node3d::EarlyPrepass,
+                    Node3d::EarlyDeferredPrepass,
                     Node3d::EarlyDownsampleDepth,
                     NodePbr::LateGpuPreprocess,
                     NodePbr::LatePrepassBuildIndirectParameters,
                     Node3d::LatePrepass,
+                    Node3d::LateDeferredPrepass,
                     NodePbr::MainBuildIndirectParameters,
-                    // Shadows don't currently support occlusion culling, so we
-                    // treat shadows as effectively the main phase for our
-                    // purposes.
-                    NodePbr::ShadowPass,
+                    Node3d::StartMainPass,
                 ),
-            )
-            .add_render_graph_edge(
+            ).add_render_graph_edges(
                 Core3d,
-                NodePbr::MainBuildIndirectParameters,
-                Node3d::DeferredPrepass,
+                (
+                    NodePbr::EarlyPrepassBuildIndirectParameters,
+                    NodePbr::EarlyShadowPass,
+                    Node3d::EarlyDownsampleDepth,
+                )
+            ).add_render_graph_edges(
+                Core3d,
+                (
+                    NodePbr::LatePrepassBuildIndirectParameters,
+                    NodePbr::LateShadowPass,
+                    NodePbr::MainBuildIndirectParameters,
+                )
             );
+    }
+}
+
+impl Node for ClearIndirectParametersMetadataNode {
+    fn run<'w>(
+        &self,
+        _: &mut RenderGraphContext,
+        render_context: &mut RenderContext<'w>,
+        world: &'w World,
+    ) -> Result<(), NodeRunError> {
+        let Some(indirect_parameters_buffers) = world.get_resource::<IndirectParametersBuffers>()
+        else {
+            return Ok(());
+        };
+
+        // Clear out each indexed and non-indexed GPU-side buffer.
+        for phase_indirect_parameters_buffers in indirect_parameters_buffers.values() {
+            if let Some(indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
+                .indexed
+                .gpu_metadata_buffer()
+            {
+                render_context.command_encoder().clear_buffer(
+                    indexed_gpu_metadata_buffer,
+                    0,
+                    Some(
+                        phase_indirect_parameters_buffers.indexed.batch_count() as u64
+                            * size_of::<IndirectParametersGpuMetadata>() as u64,
+                    ),
+                );
+            }
+
+            if let Some(non_indexed_gpu_metadata_buffer) = phase_indirect_parameters_buffers
+                .non_indexed
+                .gpu_metadata_buffer()
+            {
+                render_context.command_encoder().clear_buffer(
+                    non_indexed_gpu_metadata_buffer,
+                    0,
+                    Some(
+                        phase_indirect_parameters_buffers.non_indexed.batch_count() as u64
+                            * size_of::<IndirectParametersGpuMetadata>() as u64,
+                    ),
+                );
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -644,12 +706,10 @@ impl Node for EarlyGpuPreprocessNode {
                     continue;
                 };
 
-                // If we're drawing indirectly, make sure the mesh preprocessing
-                // shader has access to the view info it needs to do culling.
-                let mut dynamic_offsets: SmallVec<[u32; 1]> = smallvec![];
-                if !no_indirect_drawing {
-                    dynamic_offsets.push(view_uniform_offset.offset);
-                }
+                // Make sure the mesh preprocessing shader has access to the
+                // view info it needs to do culling and motion vector
+                // computation.
+                let dynamic_offsets = [view_uniform_offset.offset];
 
                 // Are we drawing directly or indirectly?
                 match *phase_bind_groups {
@@ -1085,7 +1145,8 @@ fn run_build_indirect_parameters_node(
             compute_pass.set_pipeline(build_indexed_indirect_params_pipeline);
             compute_pass.set_bind_group(0, build_indirect_indexed_params_bind_group, &[]);
             let workgroup_count = phase_indirect_parameters_buffers
-                .indexed_batch_count()
+                .indexed
+                .batch_count()
                 .div_ceil(WORKGROUP_SIZE);
             if workgroup_count > 0 {
                 compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
@@ -1112,7 +1173,8 @@ fn run_build_indirect_parameters_node(
             compute_pass.set_pipeline(build_non_indexed_indirect_params_pipeline);
             compute_pass.set_bind_group(0, build_indirect_non_indexed_params_bind_group, &[]);
             let workgroup_count = phase_indirect_parameters_buffers
-                .non_indexed_batch_count()
+                .non_indexed
+                .batch_count()
                 .div_ceil(WORKGROUP_SIZE);
             if workgroup_count > 0 {
                 compute_pass.dispatch_workgroups(workgroup_count as u32, 1, 1);
@@ -1354,6 +1416,11 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
     DynamicBindGroupLayoutEntries::new_with_indices(
         ShaderStages::COMPUTE,
         (
+            // `view`
+            (
+                0,
+                uniform_buffer::<ViewUniform>(/* has_dynamic_offset= */ true),
+            ),
             // `current_input`
             (3, storage_buffer_read_only::<MeshInputUniform>(false)),
             // `previous_input`
@@ -1366,7 +1433,7 @@ fn preprocess_direct_bind_group_layout_entries() -> DynamicBindGroupLayoutEntrie
     )
 }
 
-// Returns the first 3 bind group layout entries shared between all invocations
+// Returns the first 4 bind group layout entries shared between all invocations
 // of the indirect parameters building shader.
 fn build_indirect_params_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
     DynamicBindGroupLayoutEntries::new_with_indices(
@@ -1375,9 +1442,13 @@ fn build_indirect_params_bind_group_layout_entries() -> DynamicBindGroupLayoutEn
             (0, storage_buffer_read_only::<MeshInputUniform>(false)),
             (
                 1,
-                storage_buffer_read_only::<IndirectParametersMetadata>(false),
+                storage_buffer_read_only::<IndirectParametersCpuMetadata>(false),
             ),
-            (2, storage_buffer::<IndirectBatchSet>(false)),
+            (
+                2,
+                storage_buffer_read_only::<IndirectParametersGpuMetadata>(false),
+            ),
+            (3, storage_buffer::<IndirectBatchSet>(false)),
         ),
     )
 }
@@ -1388,20 +1459,22 @@ fn gpu_culling_bind_group_layout_entries() -> DynamicBindGroupLayoutEntries {
     // GPU culling bind group parameters are a superset of those in the CPU
     // culling (direct) shader.
     preprocess_direct_bind_group_layout_entries().extend_with_indices((
-        // `indirect_parameters`
+        // `indirect_parameters_cpu_metadata`
         (
             7,
-            storage_buffer::<IndirectParametersMetadata>(/* has_dynamic_offset= */ false),
+            storage_buffer_read_only::<IndirectParametersCpuMetadata>(
+                /* has_dynamic_offset= */ false,
+            ),
+        ),
+        // `indirect_parameters_gpu_metadata`
+        (
+            8,
+            storage_buffer::<IndirectParametersGpuMetadata>(/* has_dynamic_offset= */ false),
         ),
         // `mesh_culling_data`
         (
-            8,
+            9,
             storage_buffer_read_only::<MeshCullingData>(/* has_dynamic_offset= */ false),
-        ),
-        // `view`
-        (
-            0,
-            uniform_buffer::<ViewUniform>(/* has_dynamic_offset= */ true),
         ),
     ))
 }
@@ -1857,6 +1930,7 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                 "preprocess_direct_bind_group",
                 &self.pipelines.direct_preprocess.bind_group_layout,
                 &BindGroupEntries::with_indices((
+                    (0, self.view_uniforms.uniforms.binding()?),
                     (3, self.current_input_buffer.as_entire_binding()),
                     (4, self.previous_input_buffer.as_entire_binding()),
                     (
@@ -1935,13 +2009,18 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 
         match (
             self.phase_indirect_parameters_buffers
-                .indexed_metadata_buffer(),
+                .indexed
+                .cpu_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .indexed
+                .gpu_metadata_buffer(),
             indexed_work_item_buffer.buffer(),
             late_indexed_work_item_buffer.buffer(),
             self.late_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(indexed_metadata_buffer),
+                Some(indexed_cpu_metadata_buffer),
+                Some(indexed_gpu_metadata_buffer),
                 Some(indexed_work_item_gpu_buffer),
                 Some(late_indexed_work_item_gpu_buffer),
                 Some(late_indexed_indirect_parameters_buffer),
@@ -1974,8 +2053,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_metadata_buffer.as_entire_binding()),
-                            (8, mesh_culling_data_buffer.as_entire_binding()),
+                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (8, indexed_gpu_metadata_buffer.as_entire_binding()),
+                            (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
                             (10, &view_depth_pyramid.all_mips),
                             (
@@ -2027,13 +2107,18 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 
         match (
             self.phase_indirect_parameters_buffers
-                .non_indexed_metadata_buffer(),
+                .non_indexed
+                .cpu_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .non_indexed
+                .gpu_metadata_buffer(),
             non_indexed_work_item_buffer.buffer(),
             late_non_indexed_work_item_buffer.buffer(),
             self.late_non_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(non_indexed_metadata_buffer),
+                Some(non_indexed_cpu_metadata_buffer),
+                Some(non_indexed_gpu_metadata_buffer),
                 Some(non_indexed_work_item_gpu_buffer),
                 Some(late_non_indexed_work_item_buffer),
                 Some(late_non_indexed_indirect_parameters_buffer),
@@ -2066,8 +2151,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_metadata_buffer.as_entire_binding()),
-                            (8, mesh_culling_data_buffer.as_entire_binding()),
+                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
+                            (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
                             (10, &view_depth_pyramid.all_mips),
                             (
@@ -2118,12 +2204,17 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 
         match (
             self.phase_indirect_parameters_buffers
-                .indexed_metadata_buffer(),
+                .indexed
+                .cpu_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .indexed
+                .gpu_metadata_buffer(),
             late_indexed_work_item_buffer.buffer(),
             self.late_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(indexed_metadata_buffer),
+                Some(indexed_cpu_metadata_buffer),
+                Some(indexed_gpu_metadata_buffer),
                 Some(late_indexed_work_item_gpu_buffer),
                 Some(late_indexed_indirect_parameters_buffer),
             ) => {
@@ -2155,8 +2246,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_metadata_buffer.as_entire_binding()),
-                            (8, mesh_culling_data_buffer.as_entire_binding()),
+                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (8, indexed_gpu_metadata_buffer.as_entire_binding()),
+                            (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
                             (10, &view_depth_pyramid.all_mips),
                             (
@@ -2199,12 +2291,17 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 
         match (
             self.phase_indirect_parameters_buffers
-                .non_indexed_metadata_buffer(),
+                .non_indexed
+                .cpu_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .non_indexed
+                .gpu_metadata_buffer(),
             late_non_indexed_work_item_buffer.buffer(),
             self.late_non_indexed_indirect_parameters_buffer.buffer(),
         ) {
             (
-                Some(non_indexed_metadata_buffer),
+                Some(non_indexed_cpu_metadata_buffer),
+                Some(non_indexed_gpu_metadata_buffer),
                 Some(non_indexed_work_item_gpu_buffer),
                 Some(late_non_indexed_indirect_parameters_buffer),
             ) => {
@@ -2236,8 +2333,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_metadata_buffer.as_entire_binding()),
-                            (8, mesh_culling_data_buffer.as_entire_binding()),
+                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
+                            (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
                             (10, &view_depth_pyramid.all_mips),
                             (
@@ -2293,10 +2391,18 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 
         match (
             self.phase_indirect_parameters_buffers
-                .indexed_metadata_buffer(),
+                .indexed
+                .cpu_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .indexed
+                .gpu_metadata_buffer(),
             indexed_work_item_buffer.buffer(),
         ) {
-            (Some(indexed_metadata_buffer), Some(indexed_work_item_gpu_buffer)) => {
+            (
+                Some(indexed_cpu_metadata_buffer),
+                Some(indexed_gpu_metadata_buffer),
+                Some(indexed_work_item_gpu_buffer),
+            ) => {
                 // Don't use `as_entire_binding()` here; the shader reads the array
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
@@ -2325,8 +2431,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, indexed_metadata_buffer.as_entire_binding()),
-                            (8, mesh_culling_data_buffer.as_entire_binding()),
+                            (7, indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (8, indexed_gpu_metadata_buffer.as_entire_binding()),
+                            (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
                         )),
                     ),
@@ -2347,10 +2454,18 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
 
         match (
             self.phase_indirect_parameters_buffers
-                .non_indexed_metadata_buffer(),
+                .non_indexed
+                .cpu_metadata_buffer(),
+            self.phase_indirect_parameters_buffers
+                .non_indexed
+                .gpu_metadata_buffer(),
             non_indexed_work_item_buffer.buffer(),
         ) {
-            (Some(non_indexed_metadata_buffer), Some(non_indexed_work_item_gpu_buffer)) => {
+            (
+                Some(non_indexed_cpu_metadata_buffer),
+                Some(non_indexed_gpu_metadata_buffer),
+                Some(non_indexed_work_item_gpu_buffer),
+            ) => {
                 // Don't use `as_entire_binding()` here; the shader reads the array
                 // length and the underlying buffer may be longer than the actual size
                 // of the vector.
@@ -2379,8 +2494,9 @@ impl<'a> PreprocessBindGroupBuilder<'a> {
                                 }),
                             ),
                             (6, self.data_buffer.as_entire_binding()),
-                            (7, non_indexed_metadata_buffer.as_entire_binding()),
-                            (8, mesh_culling_data_buffer.as_entire_binding()),
+                            (7, non_indexed_cpu_metadata_buffer.as_entire_binding()),
+                            (8, non_indexed_gpu_metadata_buffer.as_entire_binding()),
+                            (9, mesh_culling_data_buffer.as_entire_binding()),
                             (0, view_uniforms_binding.clone()),
                         )),
                     ),
@@ -2407,9 +2523,10 @@ fn create_build_indirect_parameters_bind_groups(
         build_indirect_parameters_bind_groups.insert(
             *phase_type_id,
             PhaseBuildIndirectParametersBindGroups {
-                reset_indexed_indirect_batch_sets: match (
-                    phase_indirect_parameters_buffer.indexed_batch_sets_buffer(),
-                ) {
+                reset_indexed_indirect_batch_sets: match (phase_indirect_parameters_buffer
+                    .indexed
+                    .batch_sets_buffer(),)
+                {
                     (Some(indexed_batch_sets_buffer),) => Some(
                         render_device.create_bind_group(
                             "reset_indexed_indirect_batch_sets_bind_group",
@@ -2427,9 +2544,10 @@ fn create_build_indirect_parameters_bind_groups(
                     _ => None,
                 },
 
-                reset_non_indexed_indirect_batch_sets: match (
-                    phase_indirect_parameters_buffer.non_indexed_batch_sets_buffer(),
-                ) {
+                reset_non_indexed_indirect_batch_sets: match (phase_indirect_parameters_buffer
+                    .non_indexed
+                    .batch_sets_buffer(),)
+                {
                     (Some(non_indexed_batch_sets_buffer),) => Some(
                         render_device.create_bind_group(
                             "reset_non_indexed_indirect_batch_sets_bind_group",
@@ -2448,12 +2566,18 @@ fn create_build_indirect_parameters_bind_groups(
                 },
 
                 build_indexed_indirect: match (
-                    phase_indirect_parameters_buffer.indexed_metadata_buffer(),
-                    phase_indirect_parameters_buffer.indexed_data_buffer(),
-                    phase_indirect_parameters_buffer.indexed_batch_sets_buffer(),
+                    phase_indirect_parameters_buffer
+                        .indexed
+                        .cpu_metadata_buffer(),
+                    phase_indirect_parameters_buffer
+                        .indexed
+                        .gpu_metadata_buffer(),
+                    phase_indirect_parameters_buffer.indexed.data_buffer(),
+                    phase_indirect_parameters_buffer.indexed.batch_sets_buffer(),
                 ) {
                     (
-                        Some(indexed_indirect_parameters_metadata_buffer),
+                        Some(indexed_indirect_parameters_cpu_metadata_buffer),
+                        Some(indexed_indirect_parameters_gpu_metadata_buffer),
                         Some(indexed_indirect_parameters_data_buffer),
                         Some(indexed_batch_sets_buffer),
                     ) => Some(
@@ -2469,12 +2593,21 @@ fn create_build_indirect_parameters_bind_groups(
                                 // Don't use `as_entire_binding` here; the shader reads
                                 // the length and `RawBufferVec` overallocates.
                                 BufferBinding {
-                                    buffer: indexed_indirect_parameters_metadata_buffer,
+                                    buffer: indexed_indirect_parameters_cpu_metadata_buffer,
                                     offset: 0,
                                     size: NonZeroU64::new(
-                                        phase_indirect_parameters_buffer.indexed_batch_count()
+                                        phase_indirect_parameters_buffer.indexed.batch_count()
                                             as u64
-                                            * size_of::<IndirectParametersMetadata>() as u64,
+                                            * size_of::<IndirectParametersCpuMetadata>() as u64,
+                                    ),
+                                },
+                                BufferBinding {
+                                    buffer: indexed_indirect_parameters_gpu_metadata_buffer,
+                                    offset: 0,
+                                    size: NonZeroU64::new(
+                                        phase_indirect_parameters_buffer.indexed.batch_count()
+                                            as u64
+                                            * size_of::<IndirectParametersGpuMetadata>() as u64,
                                     ),
                                 },
                                 indexed_batch_sets_buffer.as_entire_binding(),
@@ -2486,12 +2619,20 @@ fn create_build_indirect_parameters_bind_groups(
                 },
 
                 build_non_indexed_indirect: match (
-                    phase_indirect_parameters_buffer.non_indexed_metadata_buffer(),
-                    phase_indirect_parameters_buffer.non_indexed_data_buffer(),
-                    phase_indirect_parameters_buffer.non_indexed_batch_sets_buffer(),
+                    phase_indirect_parameters_buffer
+                        .non_indexed
+                        .cpu_metadata_buffer(),
+                    phase_indirect_parameters_buffer
+                        .non_indexed
+                        .gpu_metadata_buffer(),
+                    phase_indirect_parameters_buffer.non_indexed.data_buffer(),
+                    phase_indirect_parameters_buffer
+                        .non_indexed
+                        .batch_sets_buffer(),
                 ) {
                     (
-                        Some(non_indexed_indirect_parameters_metadata_buffer),
+                        Some(non_indexed_indirect_parameters_cpu_metadata_buffer),
+                        Some(non_indexed_indirect_parameters_gpu_metadata_buffer),
                         Some(non_indexed_indirect_parameters_data_buffer),
                         Some(non_indexed_batch_sets_buffer),
                     ) => Some(
@@ -2507,12 +2648,21 @@ fn create_build_indirect_parameters_bind_groups(
                                 // Don't use `as_entire_binding` here; the shader reads
                                 // the length and `RawBufferVec` overallocates.
                                 BufferBinding {
-                                    buffer: non_indexed_indirect_parameters_metadata_buffer,
+                                    buffer: non_indexed_indirect_parameters_cpu_metadata_buffer,
                                     offset: 0,
                                     size: NonZeroU64::new(
-                                        phase_indirect_parameters_buffer.non_indexed_batch_count()
+                                        phase_indirect_parameters_buffer.non_indexed.batch_count()
                                             as u64
-                                            * size_of::<IndirectParametersMetadata>() as u64,
+                                            * size_of::<IndirectParametersCpuMetadata>() as u64,
+                                    ),
+                                },
+                                BufferBinding {
+                                    buffer: non_indexed_indirect_parameters_gpu_metadata_buffer,
+                                    offset: 0,
+                                    size: NonZeroU64::new(
+                                        phase_indirect_parameters_buffer.non_indexed.batch_count()
+                                            as u64
+                                            * size_of::<IndirectParametersGpuMetadata>() as u64,
                                     ),
                                 },
                                 non_indexed_batch_sets_buffer.as_entire_binding(),
