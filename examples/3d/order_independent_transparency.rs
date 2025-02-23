@@ -7,7 +7,7 @@ use bevy::{
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
     prelude::*,
-    render::view::RenderLayers,
+    render::view::VisibleLayers,
 };
 
 fn main() {
@@ -30,7 +30,7 @@ fn setup(
         Transform::from_xyz(0.0, 0.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         // Add this component to this camera to render transparent meshes using OIT
         OrderIndependentTransparencySettings::default(),
-        RenderLayers::layer(1),
+        VisibleLayers::layer(1),
         // Msaa currently doesn't work with OIT
         Msaa::Off,
     ));
@@ -42,7 +42,7 @@ fn setup(
             ..default()
         },
         Transform::from_xyz(4.0, 8.0, 4.0),
-        RenderLayers::layer(1),
+        VisibleLayers::layer(1),
     ));
 
     // spawn help text
@@ -55,7 +55,7 @@ fn setup(
                 left: Val::Px(12.0),
                 ..default()
             },
-            RenderLayers::layer(1),
+            VisibleLayers::layer(1),
         ))
         .with_children(|p| {
             p.spawn(TextSpan::new("Press T to toggle OIT\n"));
@@ -135,7 +135,7 @@ fn spawn_spheres(
 
     let alpha = 0.25;
 
-    let render_layers = RenderLayers::layer(1);
+    let render_layers = VisibleLayers::layer(1);
 
     commands.spawn((
         Mesh3d(sphere_handle.clone()),
@@ -181,7 +181,7 @@ fn spawn_occlusion_test(
     let cube_handle = meshes.add(Cuboid::from_size(Vec3::ONE).mesh());
     let cube_material = materials.add(Color::srgb(0.8, 0.7, 0.6));
 
-    let render_layers = RenderLayers::layer(1);
+    let render_layers = VisibleLayers::layer(1);
 
     // front
     let x = -2.5;

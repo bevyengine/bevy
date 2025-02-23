@@ -23,7 +23,7 @@ use crate::{
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::{prelude::*, view::ComputedVisibleLayers};
+use bevy_render::{prelude::*, view::InheritedVisibleLayers};
 use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
 
 /// Runtime settings for the [`MeshPickingPlugin`].
@@ -72,15 +72,14 @@ impl Plugin for MeshPickingPlugin {
     }
 }
 
-// TODO GRACE: make sure that this system is ordered appropriately to new systemss
 /// Casts rays into the scene using [`MeshPickingSettings`] and sends [`PointerHits`] events.
 pub fn update_hits(
     backend_settings: Res<MeshPickingSettings>,
     ray_map: Res<RayMap>,
-    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&ComputedVisibleLayers>)>,
+    picking_cameras: Query<(&Camera, Option<&RayCastPickable>, Option<&InheritedVisibleLayers>)>,
     pickables: Query<&Pickable>,
     marked_targets: Query<&RayCastPickable>,
-    layers: Query<&ComputedVisibleLayers>,
+    layers: Query<&InheritedVisibleLayers>,
     mut ray_cast: MeshRayCast,
     mut output: EventWriter<PointerHits>,
 ) {

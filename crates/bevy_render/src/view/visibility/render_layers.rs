@@ -3,27 +3,14 @@ use bevy_ecs::{component::require, entity::Entity, hierarchy::{ChildOf, Children
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use smallvec::SmallVec;
 
-// TODO GRACE: make sure imports in render_layers.rs align with that in mod.rs
-// TODO GRACE: read through the original PR
-// XXX GRACE: render layers
-// TODO GRACE: remove DEFAULT_LAYERS
 pub const DEFAULT_LAYERS: &RenderLayers = &RenderLayers::layer(0);
 
 /// An identifier for a rendering layer.
 pub type Layer = usize;
 
-/// Describes which rendering layers an entity belongs to.
-///
-/// Cameras with this component will only render entities with intersecting
-/// layers.
-///
-/// Entities may belong to one or more layers, or no layer at all.
+/// Describes which rendering layers an entity belongs to via the [`VisibleLayers`] and [`InheritedVisibleLayers`] components.
 ///
 /// The [`Default`] instance of `RenderLayers` contains layer `0`, the first layer.
-///
-/// An entity with this component without any layers is invisible.
-///
-/// Entities without this component belong to layer `0`.
 #[derive(Clone, Reflect, PartialEq, Eq, PartialOrd, Ord)]
 #[reflect(Default, PartialEq, Debug)]
 pub struct RenderLayers(SmallVec<[u64; INLINE_BLOCKS]>);
@@ -252,20 +239,44 @@ impl core::ops::BitXor for RenderLayers {
     }
 }
 
-// TODO GRACE: prelude?
-// TODO GRACE: register component
-// TODO GRACE: document VisibilityLayers
-// TODO GRACE: impl Debug
-// TODO GRACE: implement helper methods on VisibilityLayers (see Visibility)
+/// User indication of which [`RenderLayers`] an entity will render to.
+/// 
+/// If this component is an [`Override`](Self::Override), all [`Children`] (and all of their children and so on) who
+/// are set to [`Inherited`](Self::Inherited) will take this component's render layers. 
+/// 
+/// This is done in the [`VisibilityPropagate`](super::VisibilitySystems::VisibilityPropagate) system set, and the actual computed render layers 
+/// are put in the [`InheritedVisibleLayers`] component.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord, Debug, Default)]
 #[reflect(Component, Default, PartialEq, Debug)]
-#[require(ComputedVisibleLayers)]
+#[require(InheritedVisibleLayers)]
 pub enum VisibleLayers {
     #[default]
     Inherited,
-    Layers(RenderLayers),
+    Override(RenderLayers),
 }
 
+impl VisibleLayers {
+    /// Create a new `VisibleLayers` belonging to the given layer.
+    ///
+    /// This `const` constructor is limited to `size_of::<usize>()` layers.
+    /// If you need to support an arbitrary number of layers, use 
+    /// [`from_layers`](VisibleLayers::from_layers).
+    pub const fn layer(n: Layer) -> Self {
+        VisibleLayers::Override(RenderLayers::layer(n))
+    }
+
+    /// Create a new `VisibleLayers` that belongs to no layers.
+    ///
+    /// This is distinct from [`VisibleLayers::default`], which belongs to the first layer.
+    pub const fn none() -> Self {
+        VisibleLayers::Override(RenderLayers::none())
+    }
+
+    /// Create a `VisibleLayers` from a list of layers.
+    pub fn from_layers(layers: &[Layer]) -> Self {
+        VisibleLayers::Override(RenderLayers::from_layers(layers))
+    }
+}
 
 impl Default for &VisibleLayers {
     fn default() -> Self {
@@ -273,52 +284,54 @@ impl Default for &VisibleLayers {
     }
 }
 
-// TODO GRACE: register component
-// TODO GRACE: document ComputedVisibilityLayers
-// TODO GRACE: impl Debug
-// TODO GRACE: make ReadOnly
+/// The actual [`RenderLayers`] computed from [`VisibleLayers`].
+/// 
+/// Entities may belong to one or more layers, or no layer at all.
+/// 
+/// Cameras with this component will only render entities with intersecting
+/// layers.
+///
+/// Entities without this component belong to layer `0`.
+/// 
+/// The [`Default`] instance of `InheritedVisibleLayers` contains layer `0`, the first layer.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, PartialOrd, Ord, Debug, Default, Deref, DerefMut)]
 #[reflect(Component, Default, PartialEq, Debug)]
-pub struct ComputedVisibleLayers(pub RenderLayers);
+pub struct InheritedVisibleLayers(pub RenderLayers);
 
-impl Default for &ComputedVisibleLayers {
+impl Default for &InheritedVisibleLayers {
     fn default() -> Self {
-        const { &ComputedVisibleLayers(RenderLayers::layer(0)) }
+        const { &InheritedVisibleLayers(RenderLayers::layer(0)) }
     }
 }
 
-// TODO GRACE: re-write this system
-// TODO GRACE: add this system to the schedule
 pub(super) fn visible_layers_propagate_system(
     changed: Query<
         (Entity, &VisibleLayers, Option<&ChildOf>, Option<&Children>),
         (
-            With<ComputedVisibleLayers>,
+            With<InheritedVisibleLayers>,
             Or<(Changed<VisibleLayers>, Changed<ChildOf>)>,
         ),
     >,
-    mut visible_layer_query: Query<(&VisibleLayers, &mut ComputedVisibleLayers)>,
-    children_query: Query<&Children, (With<VisibleLayers>, With<ComputedVisibleLayers>)>,
+    mut visible_layer_query: Query<(&VisibleLayers, &mut InheritedVisibleLayers)>,
+    children_query: Query<&Children, (With<VisibleLayers>, With<InheritedVisibleLayers>)>,
 ) {
     for (entity, visible_layers, parent, children) in &changed {
         
         let render_layers = match visible_layers {
-            VisibleLayers::Layers(layers) => layers.clone(),
+            VisibleLayers::Override(layers) => layers.clone(),
             VisibleLayers::Inherited => parent
                 .and_then(|p| visible_layer_query.get(p.get()).ok())
                 .map(|(_, x)| x.0.clone())
                 .unwrap_or_default()
         };
 
-        let (_, mut computed_visible_layers) = visible_layer_query
+        let (_, mut inherited_visible_layers) = visible_layer_query
             .get_mut(entity)
-            .expect("With<ComputedVisibleLayers> ensures this query will return a value");
+            .expect("With<InheritedVisibleLayers> ensures this query will return a value");
 
         // Only updates visible layers if they have changed.
-        // This will also prevent visible layers from propagating multiple times in the same frame
-        // if this entity's visible layers has been updated recursively by its parent.
-        if computed_visible_layers.0 != render_layers {
-            computed_visible_layers.0 = render_layers.clone();
+        if inherited_visible_layers.0 != render_layers {
+            inherited_visible_layers.0 = render_layers.clone();
 
             for &child in children.into_iter().flatten() {
                 let _ = propagate_recursive(&render_layers, child, &mut visible_layer_query, &children_query);
@@ -330,8 +343,8 @@ pub(super) fn visible_layers_propagate_system(
 fn propagate_recursive(
     parent_render_layers: &RenderLayers,
     entity: Entity,
-    mut visible_layer_query: &mut Query<(&VisibleLayers, &mut ComputedVisibleLayers)>,
-    children_query: &Query<&Children, (With<VisibleLayers>, With<ComputedVisibleLayers>)>,
+    mut visible_layer_query: &mut Query<(&VisibleLayers, &mut InheritedVisibleLayers)>,
+    children_query: &Query<&Children, (With<VisibleLayers>, With<InheritedVisibleLayers>)>,
     // BLOCKED: https://github.com/rust-lang/rust/issues/31436
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) -> Result<(), ()> {
@@ -340,7 +353,7 @@ fn propagate_recursive(
     let (visibility, mut inherited_visibility) = visible_layer_query.get_mut(entity).map_err(drop)?;
 
     let render_layers = match visibility {
-        VisibleLayers::Layers(layers) => layers.clone(),
+        VisibleLayers::Override(layers) => layers.clone(),
         VisibleLayers::Inherited => parent_render_layers.clone()
     };
 
@@ -356,7 +369,6 @@ fn propagate_recursive(
     Ok(())
 }
 
-// TODO GRACE: hierarchy tests(?)
 #[cfg(test)]
 mod rendering_mask_tests {
     use super::{Layer, RenderLayers};

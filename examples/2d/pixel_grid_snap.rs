@@ -8,7 +8,7 @@ use bevy::{
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
-        view::RenderLayers,
+        view::VisibleLayers,
     },
     window::WindowResized,
 };
@@ -21,10 +21,10 @@ const RES_HEIGHT: u32 = 90;
 
 /// Default render layers for pixel-perfect rendering.
 /// You can skip adding this component, as this is the default.
-const PIXEL_PERFECT_LAYERS: RenderLayers = RenderLayers::layer(0);
+const PIXEL_PERFECT_LAYERS: VisibleLayers = VisibleLayers::layer(0);
 
 /// Render layers for high-resolution rendering.
-const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
+const HIGH_RES_LAYERS: VisibleLayers = VisibleLayers::layer(1);
 
 fn main() {
     App::new()

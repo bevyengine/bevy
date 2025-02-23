@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::FloatOrd;
-use bevy_render::{sync_world::MainEntity, view::ComputedVisibleLayers};
+use bevy_render::{sync_world::MainEntity, view::InheritedVisibleLayers};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -297,7 +297,7 @@ fn queue_line_gizmos_2d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(&ExtractedView, &Msaa, Option<&ComputedVisibleLayers>)>,
+    mut views: Query<(&ExtractedView, &Msaa, Option<&InheritedVisibleLayers>)>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo2d>().unwrap();
     let draw_function_strip = draw_functions
@@ -376,7 +376,7 @@ fn queue_line_joint_gizmos_2d(
     line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent2d>>,
-    mut views: Query<(&ExtractedView, &Msaa, Option<&ComputedVisibleLayers>)>,
+    mut views: Query<(&ExtractedView, &Msaa, Option<&InheritedVisibleLayers>)>,
 ) {
     let draw_function = draw_functions
         .read()

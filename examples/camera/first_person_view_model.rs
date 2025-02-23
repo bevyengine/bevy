@@ -46,7 +46,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, pbr::NotShadowCaster,
-    prelude::*, render::view::RenderLayers,
+    prelude::*, render::view::VisibleLayers,
 };
 
 fn main() {
@@ -134,7 +134,7 @@ fn spawn_view_model(
                     ..default()
                 }),
                 // Only render objects belonging to the view model.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                VisibleLayers::layer(VIEW_MODEL_RENDER_LAYER),
             ));
 
             // Spawn the player's right arm.
@@ -143,7 +143,7 @@ fn spawn_view_model(
                 MeshMaterial3d(arm_material),
                 Transform::from_xyz(0.2, -0.1, -0.25),
                 // Ensure the arm is only rendered by the view model camera.
-                RenderLayers::layer(VIEW_MODEL_RENDER_LAYER),
+                VisibleLayers::layer(VIEW_MODEL_RENDER_LAYER),
                 // The arm is free-floating, so shadows would look weird.
                 NotShadowCaster,
             ));
@@ -186,7 +186,7 @@ fn spawn_lights(mut commands: Commands) {
         },
         Transform::from_xyz(-2.0, 4.0, -0.75),
         // The light source illuminates both the world model and the view model.
-        RenderLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
+        VisibleLayers::from_layers(&[DEFAULT_RENDER_LAYER, VIEW_MODEL_RENDER_LAYER]),
     ));
 }
 

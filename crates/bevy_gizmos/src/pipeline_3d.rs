@@ -20,7 +20,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
-use bevy_render::{sync_world::MainEntity, view::ComputedVisibleLayers};
+use bevy_render::{sync_world::MainEntity, view::InheritedVisibleLayers};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -295,7 +295,7 @@ fn queue_line_gizmos_3d(
     views: Query<(
         &ExtractedView,
         &Msaa,
-        Option<&ComputedVisibleLayers>,
+        Option<&InheritedVisibleLayers>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -410,7 +410,7 @@ fn queue_line_joint_gizmos_3d(
     views: Query<(
         &ExtractedView,
         &Msaa,
-        Option<&ComputedVisibleLayers>,
+        Option<&InheritedVisibleLayers>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,

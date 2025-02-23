@@ -14,7 +14,7 @@ use bevy_render::{
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::{RenderAdapter, RenderDevice},
-    view::{ComputedVisibleLayers, RenderLayers, ViewVisibility},
+    view::{InheritedVisibleLayers, RenderLayers, ViewVisibility},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
@@ -142,7 +142,6 @@ impl ClusterableObjectType {
     }
 }
 
-// TODO GRACE: make sure ordering is good!
 // NOTE: Run this before update_point_light_frusta!
 pub(crate) fn assign_objects_to_clusters(
     mut commands: Commands,
@@ -154,14 +153,14 @@ pub(crate) fn assign_objects_to_clusters(
         &Frustum,
         &ClusterConfig,
         &mut Clusters,
-        Option<&ComputedVisibleLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&mut VisibleClusterableObjects>,
     )>,
     point_lights_query: Query<(
         Entity,
         &GlobalTransform,
         &PointLight,
-        Option<&ComputedVisibleLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
@@ -169,7 +168,7 @@ pub(crate) fn assign_objects_to_clusters(
         Entity,
         &GlobalTransform,
         &SpotLight,
-        Option<&ComputedVisibleLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
     )>,

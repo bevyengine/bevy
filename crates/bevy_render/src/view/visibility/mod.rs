@@ -35,7 +35,7 @@ use crate::{
 /// `Visibility` to set the values of each entity's [`InheritedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default, Debug, PartialEq)]
-#[require(InheritedVisibility, ViewVisibility)]
+#[require(InheritedVisibility, ViewVisibility, VisibleLayers)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
     ///
@@ -315,7 +315,7 @@ pub enum VisibilitySystems {
     CalculateBounds,
     /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
     UpdateFrusta,
-    /// Label for the system propagating the [`InheritedVisibility`] in a
+    /// Label for the systems propagating [`InheritedVisibility`] and [`InheritedVisibleLayers`] in the
     /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
@@ -489,7 +489,6 @@ fn reset_view_visibility(
     });
 }
 
-// TODO GRACE: make sure this system is consistently ordered to new systems
 /// System updating the visibility of entities each frame.
 ///
 /// The system is part of the [`VisibilitySystems::CheckVisibility`] set. Each
@@ -504,7 +503,7 @@ pub fn check_visibility(
         Entity,
         &mut VisibleEntities,
         &Frustum,
-        Option<&ComputedVisibleLayers>,
+        Option<&InheritedVisibleLayers>,
         &Camera,
         Has<NoCpuCulling>,
     )>,
@@ -513,7 +512,7 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         &VisibilityClass,
-        Option<&ComputedVisibleLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,

@@ -17,7 +17,7 @@ use {
         entity::Entity,
         system::{Commands, Local, Query},
     },
-    bevy_render::{view::ComputedVisibleLayers, Extract},
+    bevy_render::{view::InheritedVisibleLayers, Extract},
     bevy_transform::components::GlobalTransform,
 };
 
@@ -102,7 +102,7 @@ pub struct Gizmo {
 pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
-    query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&ComputedVisibleLayers>)>>,
+    query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&InheritedVisibleLayers>)>>,
 ) {
     use bevy_math::Affine3;
     use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
