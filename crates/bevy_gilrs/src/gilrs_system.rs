@@ -17,8 +17,8 @@ pub fn gilrs_event_startup_system(
     mut gamepads: ResMut<GilrsGamepads>,
     mut events: EventWriter<GamepadConnectionEvent>,
 ) {
-    gilrs.with(|g| {
-        for (id, gamepad) in g.gamepads() {
+    gilrs.with(|gilrs| {
+        for (id, gamepad) in gilrs.gamepads() {
             // Create entity and add to mapping
             let entity = commands.spawn_empty().id();
             gamepads.id_to_entity.insert(id, entity);
@@ -45,12 +45,12 @@ pub fn gilrs_event_system(
     mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
     mut axis_event: EventWriter<RawGamepadAxisChangedEvent>,
 ) {
-    gilrs.with(|g| {
-        while let Some(gilrs_event) = g.next_event().filter_ev(&axis_dpad_to_button, g) {
-            g.update(&gilrs_event);
+    gilrs.with(|gilrs| {
+        while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
+            gilrs.update(&gilrs_event);
             match gilrs_event.event {
                 EventType::Connected => {
-                    let pad = g.gamepad(gilrs_event.id);
+                    let pad = gilrs.gamepad(gilrs_event.id);
                     let entity = gamepads.get_entity(gilrs_event.id).unwrap_or_else(|| {
                         let entity = commands.spawn_empty().id();
                         gamepads.id_to_entity.insert(gilrs_event.id, entity);
@@ -111,6 +111,6 @@ pub fn gilrs_event_system(
                 _ => (),
             };
         }
-        g.inc();
+        gilrs.inc();
     });
 }

@@ -131,7 +131,7 @@ pub(crate) fn play_gilrs_rumble(
     mut requests: EventReader<GamepadRumbleRequest>,
     mut running_rumbles: ResMut<RunningRumbleEffects>,
 ) {
-    gilrs.with(|g| {
+    gilrs.with(|gilrs| {
         let current_time = time.elapsed();
         // Remove outdated rumble effects.
         for rumbles in running_rumbles.rumbles.values_mut() {
@@ -145,7 +145,7 @@ pub(crate) fn play_gilrs_rumble(
         // Add new effects.
         for rumble in requests.read().cloned() {
             let gamepad = rumble.gamepad();
-            match handle_rumble_request(&mut running_rumbles, g, &gamepads, rumble, current_time) {
+            match handle_rumble_request(&mut running_rumbles, gilrs, &gamepads, rumble, current_time) {
                 Ok(()) => {}
                 Err(RumbleError::GilrsError(err)) => {
                     if let ff::Error::FfNotSupported(_) = err {
