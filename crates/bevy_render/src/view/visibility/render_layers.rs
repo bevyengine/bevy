@@ -350,18 +350,18 @@ fn propagate_recursive(
 ) -> Result<(), ()> {
     // Get the visible_layer components for the current entity.
     // If the entity does not have the required components, just return early.
-    let (visibility, mut inherited_visibility) = visible_layer_query.get_mut(entity).map_err(drop)?;
+    let (visible_layers, mut inherited_visible_layers) = visible_layer_query.get_mut(entity).map_err(drop)?;
 
-    let render_layers = match visibility {
+    let render_layers = match visible_layers {
         VisibleLayers::Override(layers) => layers.clone(),
         VisibleLayers::Inherited => parent_render_layers.clone()
     };
 
-    if inherited_visibility.0 != render_layers {
-        inherited_visibility.0 = render_layers;
-        let new_render_layers = inherited_visibility.0.clone();
+    if inherited_visible_layers.0 != render_layers {
+        inherited_visible_layers.0 = render_layers;
+        let new_render_layers = inherited_visible_layers.0.clone();
 
-        for &child in children_query.into_iter().flatten() {
+        for &child in children_query.get(entity).ok().into_iter().flatten() {
             let _ = propagate_recursive(&new_render_layers, child, &mut visible_layer_query, &children_query);
         }
     }
