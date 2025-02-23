@@ -1519,6 +1519,8 @@ fn encode_color(
 }
 
 /// A reference to a pixel in an [`Image`].
+///
+/// This is the iteration element of [`Pixels`].
 pub struct Pixel<'a> {
     format: TextureFormat,
     bytes: &'a [u8],
@@ -1535,16 +1537,31 @@ impl<'a> Pixel<'a> {
     ///
     /// See [`Image::get_color_at`] for more information, including supported texture formats.
     ///
+    /// # Panics
+    ///
+    /// This function will panic if the image is in an unsupported format. See [`Self::try_get_color`]
+    /// for a non-panicking version.
+    #[inline(always)]
+    pub fn get_color(&self) -> Color {
+        self.try_get_color().unwrap()
+    }
+
+    /// Attempt to read the [`Color`] of this pixel.
+    ///
+    /// See [`Image::get_color_at`] for more information, including supported texture formats.
+    ///
     /// # Errors
     ///
     /// Returns a [`TextureAccessError`] when the image is in an unsupported format.
     #[inline(always)]
-    pub fn get_color(&self) -> Result<Color, TextureAccessError> {
+    pub fn try_get_color(&self) -> Result<Color, TextureAccessError> {
         decode_color(self.format, self.bytes)
     }
 }
 
 /// A mutable reference to a pixel in an [`Image`].
+///
+/// This is the iteration element of [`PixelsMut`].
 pub struct PixelMut<'a> {
     format: TextureFormat,
     bytes: &'a mut [u8],
@@ -1567,11 +1584,24 @@ impl<'a> PixelMut<'a> {
     ///
     /// See [`Image::get_color_at`] for more information, including supported texture formats.
     ///
+    /// # Panics
+    ///
+    /// This function will panic if the image is in an unsupported format. See [`Self::try_get_color`]
+    /// for a non-panicking version.
+    #[inline(always)]
+    pub fn get_color(&self) -> Color {
+        self.try_get_color().unwrap()
+    }
+
+    /// Attempt to read the [`Color`] of this pixel.
+    ///
+    /// See [`Image::get_color_at`] for more information, including supported texture formats.
+    ///
     /// # Errors
     ///
     /// Returns a [`TextureAccessError`] when the image is in an unsupported format.
     #[inline(always)]
-    pub fn get_color(&self) -> Result<Color, TextureAccessError> {
+    pub fn try_get_color(&self) -> Result<Color, TextureAccessError> {
         decode_color(self.format, self.bytes)
     }
 
@@ -1579,39 +1609,67 @@ impl<'a> PixelMut<'a> {
     ///
     /// See [`Image::set_color_at`] for more information, including supported texture formats.
     ///
+    /// # Panics
+    ///
+    /// This function will panic if the image is in an unsupported format. See [`Self::try_set_color`]
+    /// for a non-panicking version.
+    #[inline(always)]
+    pub fn set_color(&mut self, color: Color) {
+        self.try_set_color(color).unwrap()
+    }
+
+    /// Attempts to write the [`Color`] of this pixel.
+    ///
+    /// See [`Image::set_color_at`] for more information, including supported texture formats.
+    ///
     /// # Errors
     ///
     /// Returns a [`TextureAccessError`] when the image is in an unsupported format.
     #[inline(always)]
-    pub fn set_color(&mut self, color: Color) -> Result<(), TextureAccessError> {
+    pub fn try_set_color(&mut self, color: Color) -> Result<(), TextureAccessError> {
         encode_color(self.format, self.bytes, color)
     }
 
-
     /// Edits the [`Color`] of this pixel.
-    /// 
+    ///
     /// `edit` is a closure that accepts the current pixel `Color`, and returns a new `Color` to
     /// set. This allows for pseudo-in-place editing of a pixel's `Color`. For example, you can
     /// easily lighten all pixels in an image:
-    /// 
-    /// ```ignore
-    /// # use bevy_image::{Image, Luminance};
+    ///
+    /// ```
+    /// # use bevy_image::Image;
     /// # fn lighten_image(image: &mut Image) {
+    /// use bevy_color::Luminance;
+    ///
     /// for mut pixel in image.pixels_mut() {
     ///     pixel.edit_color(|c| c.lighter(0.1));
     /// }
     /// # }
     /// ```
-    /// 
+    ///
     /// See [`Image::set_color_at`] for more information, including supported texture formats.
-    /// 
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if the image is in an unsupported format. See [`Self::try_edit_color`]
+    /// for a non-panicking version.
+    #[inline(always)]
+    pub fn edit_color(&mut self, edit: impl FnOnce(Color) -> Color) {
+        self.try_edit_color(edit).unwrap()
+    }
+
+    /// Attempts to edit the [`Color`] of this pixel. See [`Self::edit_color`] for more information.
+    ///
     /// # Errors
     ///
     /// Returns a [`TextureAccessError`] when the image is in an unsupported format.
     #[inline(always)]
-    pub fn edit_color(&mut self, edit: impl FnOnce(Color) -> Color) -> Result<(), TextureAccessError> {
-        let color = self.get_color()?;
-        self.set_color(edit(color))
+    pub fn try_edit_color(
+        &mut self,
+        edit: impl FnOnce(Color) -> Color,
+    ) -> Result<(), TextureAccessError> {
+        let color = self.try_get_color()?;
+        self.try_set_color(edit(color))
     }
 }
 
