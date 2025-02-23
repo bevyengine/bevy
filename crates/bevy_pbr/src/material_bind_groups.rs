@@ -342,9 +342,15 @@ where
 
 /// A single bind group that the [`MaterialBindGroupNonBindlessAllocator`]
 /// manages.
-struct MaterialNonBindlessSlab<'a, M>(&'a PreparedBindGroup<M::Data>)
+enum MaterialNonBindlessSlab<'a, M>
 where
-    M: Material;
+    M: Material,
+{
+    /// A slab that has a bind group.
+    Prepared(&'a PreparedBindGroup<M::Data>),
+    /// A slab that doesn't yet have a bind group.
+    Unprepared(&'a UnpreparedBindGroup<M::Data>),
+}
 
 impl From<u32> for MaterialBindGroupSlot {
     fn from(value: u32) -> Self {
@@ -1615,7 +1621,7 @@ where
     /// Deallocates the bind group with the given binding ID.
     fn free(&mut self, binding_id: MaterialBindingId) {
         debug_assert_eq!(binding_id.slot, MaterialBindGroupSlot(0));
-        debug_assert!(self.bind_groups[*binding_id.group as usize].is_none());
+        debug_assert!(self.bind_groups[*binding_id.group as usize].is_some());
         self.bind_groups[*binding_id.group as usize] = None;
         self.to_prepare.remove(&binding_id.group);
         self.free_indices.push(binding_id.group);
@@ -1623,12 +1629,16 @@ where
 
     /// Returns a wrapper around the bind group with the given index.
     fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialNonBindlessSlab<M>> {
-        match self.bind_groups[group.0 as usize] {
-            Some(MaterialNonBindlessAllocatedBindGroup::Prepared(ref prepared_bind_group)) => {
-                Some(MaterialNonBindlessSlab(prepared_bind_group))
-            }
-            Some(MaterialNonBindlessAllocatedBindGroup::Unprepared { .. }) | None => None,
-        }
+        self.bind_groups[group.0 as usize]
+            .as_ref()
+            .map(|bind_group| match bind_group {
+                MaterialNonBindlessAllocatedBindGroup::Prepared(prepared_bind_group) => {
+                    MaterialNonBindlessSlab::Prepared(prepared_bind_group)
+                }
+                MaterialNonBindlessAllocatedBindGroup::Unprepared { bind_group, .. } => {
+                    MaterialNonBindlessSlab::Unprepared(bind_group)
+                }
+            })
     }
 
     /// Prepares any as-yet unprepared bind groups that this allocator is
@@ -1683,7 +1693,12 @@ where
             MaterialSlabImpl::Bindless(material_bindless_slab) => {
                 material_bindless_slab.get_extra_data(slot)
             }
-            MaterialSlabImpl::NonBindless(ref prepared_bind_group) => &prepared_bind_group.0.data,
+            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Prepared(
+                prepared_bind_group,
+            )) => &prepared_bind_group.data,
+            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Unprepared(
+                unprepared_bind_group,
+            )) => &unprepared_bind_group.data,
         }
     }
 
@@ -1698,9 +1713,10 @@ where
             MaterialSlabImpl::Bindless(material_bindless_slab) => {
                 material_bindless_slab.bind_group()
             }
-            MaterialSlabImpl::NonBindless(ref prepared_bind_group) => {
-                Some(&prepared_bind_group.0.bind_group)
-            }
+            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Prepared(
+                prepared_bind_group,
+            )) => Some(&prepared_bind_group.bind_group),
+            MaterialSlabImpl::NonBindless(MaterialNonBindlessSlab::Unprepared(_)) => None,
         }
     }
 }
