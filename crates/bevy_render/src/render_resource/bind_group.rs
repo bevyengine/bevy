@@ -304,7 +304,8 @@ impl Deref for BindGroup {
 /// struct StandardMaterial { ... }
 /// ```
 ///
-/// This will produce a binding matching the following WGSL declaration:
+/// In bindless mode, this will produce a binding matching the following WGSL
+/// declaration:
 ///
 /// ```wgsl
 /// @group(2) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
@@ -329,7 +330,12 @@ impl Deref for BindGroup {
 ///
 /// * In non-bindless mode, the structure-level `data` attribute is the same as
 ///   the structure-level `uniform` attribute and produces a single uniform buffer
-///   in the shader.
+///   in the shader. The above example would result in a binding that looks like
+///   this in WGSL in non-bindless mode:
+///
+/// ```wgsl
+/// @group(2) @binding(0) var<uniform> material: StandardMaterial;
+/// ```
 ///
 /// * For efficiency reasons, `data` is generally preferred over `uniform`
 ///   unless you need to place your data in individual buffers.
