@@ -54,7 +54,7 @@ impl NodeType for ScheduleSystem {
     type GroupMetadata = Chain;
 
     fn config(self) -> NodeConfig<Self> {
-        let sets = self.default_system_sets().into_iter().collect();
+        let sets = self.default_system_sets().clone();
         NodeConfig {
             node: self,
             metadata: GraphInfo {
