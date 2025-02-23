@@ -1,13 +1,13 @@
 use crate::{
-    experimental::{UiChildren, UiRootNodes},
+    resolve_hierarchy::{ResolvedChildOf, ResolvedChildren},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition, Val,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
-    hierarchy::{ChildOf, Children},
-    query::With,
+    hierarchy::Children,
+    query::{With, Without},
     removal_detection::RemovedComponents,
     system::{Commands, Query, ResMut},
     world::Ref,
@@ -72,15 +72,15 @@ pub enum LayoutError {
 pub fn ui_layout_system(
     mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
-    ui_root_node_query: UiRootNodes,
+    ui_root_node_query: Query<Entity, (Without<ResolvedChildOf>, With<Node>)>,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
         Ref<ComputedNodeTarget>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
-    ui_children: UiChildren,
+    computed_node_query: Query<(Entity, Option<Ref<ResolvedChildOf>>), With<ComputedNode>>,
+    ui_children: Query<Ref<ResolvedChildren>>,
     mut node_transform_query: Query<(
         &mut ComputedNode,
         &mut Transform,
@@ -132,7 +132,7 @@ pub fn ui_layout_system(
                 // Note: This does not cover the case where a parent's Node component was removed.
                 // Users are responsible for fixing hierarchies if they do that (it is not recommended).
                 // Detecting it here would be a permanent perf burden on the hot path.
-                if parent.is_changed() && !ui_children.is_ui_node(parent.get()) {
+                if parent.is_changed() && !node_query.contains(parent.0) {
                     warn!(
                         "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
 with UI components as a child of an entity without UI components, your UI layout may be broken."
@@ -140,8 +140,10 @@ with UI components as a child of an entity without UI components, your UI layout
                 }
             }
 
-            if ui_children.is_changed(entity) {
-                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            if let Ok(children) = ui_children.get(entity) {
+                if children.is_changed() {
+                    ui_surface.update_children(entity, children.0.iter().cloned());
+                }
             }
         });
 
@@ -154,8 +156,10 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
     computed_node_query.iter().for_each(|(entity, _)| {
-        if ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+        if let Ok(children) = ui_children.get(entity) {
+            if children.is_changed() {
+                ui_surface.update_children(entity, children.0.iter().cloned());
+            }
         }
     });
 
@@ -199,7 +203,7 @@ with UI components as a child of an entity without UI components, your UI layout
             Option<&Outline>,
             Option<&ScrollPosition>,
         )>,
-        ui_children: &UiChildren,
+        ui_children: &Query<Ref<ResolvedChildren>>,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
@@ -324,19 +328,21 @@ with UI components as a child of an entity without UI components, your UI layout
             let physical_scroll_position =
                 (clamped_scroll_position / inverse_target_scale_factor).round();
 
-            for child_uinode in ui_children.iter_ui_children(entity) {
-                update_uinode_geometry_recursive(
-                    commands,
-                    child_uinode,
-                    ui_surface,
-                    use_rounding,
-                    Some(viewport_size),
-                    node_transform_query,
-                    ui_children,
-                    inverse_target_scale_factor,
-                    layout_size,
-                    physical_scroll_position,
-                );
+            if let Ok(children) = ui_children.get(entity) {
+                for &child_uinode in children.0.iter() {
+                    update_uinode_geometry_recursive(
+                        commands,
+                        child_uinode,
+                        ui_surface,
+                        use_rounding,
+                        Some(viewport_size),
+                        node_transform_query,
+                        ui_children,
+                        inverse_target_scale_factor,
+                        layout_size,
+                        physical_scroll_position,
+                    );
+                }
             }
         }
     }

@@ -17,6 +17,7 @@ pub mod widget;
 
 #[cfg(feature = "bevy_ui_picking_backend")]
 pub mod picking_backend;
+pub mod resolve_hierarchy;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -36,6 +37,7 @@ pub use geometry::*;
 pub use layout::*;
 pub use measurement::*;
 pub use render::*;
+use resolve_hierarchy::{resolve_ui_hierarchy, synchronise_removed_hierarchy_components};
 pub use ui_material::*;
 pub use ui_node::*;
 
@@ -70,6 +72,7 @@ use bevy_input::InputSystem;
 use bevy_render::{camera::CameraUpdateSystem, RenderApp};
 use bevy_transform::TransformSystem;
 use layout::ui_surface::UiSurface;
+use resolve_hierarchy::mark_ghost_ancestor_nodes_changed;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_ui_context_system};
@@ -101,6 +104,8 @@ pub enum UiSystem {
     ///
     /// Runs in [`PreUpdate`].
     Focus,
+    /// After this label, the `ResolvedChildOf` and `ResolvedChildren` have been updated for this frame.
+    Resolve,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
     /// Update content requirements before layout.
@@ -174,6 +179,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 (
                     CameraUpdateSystem,
+                    UiSystem::Resolve,
                     UiSystem::Prepare.after(Animation),
                     UiSystem::Content,
                     UiSystem::Layout,
@@ -198,6 +204,14 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
+                mark_ghost_ancestor_nodes_changed
+                    .in_set(UiSystem::Resolve)
+                    .before(synchronise_removed_hierarchy_components)
+                    .before(resolve_ui_hierarchy),
+                synchronise_removed_hierarchy_components
+                    .in_set(UiSystem::Resolve)
+                    .before(resolve_ui_hierarchy),
+                resolve_ui_hierarchy.in_set(UiSystem::Resolve),
                 update_ui_context_system.in_set(UiSystem::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
