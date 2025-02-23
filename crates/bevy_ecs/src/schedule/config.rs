@@ -38,7 +38,7 @@ fn ambiguous_with(graph_info: &mut GraphInfo, set: InternedSystemSet) {
 
 /// Stores data to differentiate different Node types
 pub trait NodeType {
-    /// Used in `NodeConfig`
+    /// Additional data used to configure a node. Stored in [`NodeConfig`].
     type Metadata;
     /// Additional data used to configure a group of nodes. Stored in [`NodeConfigs`].
     type GroupMetadata;
