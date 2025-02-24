@@ -3,7 +3,7 @@
 use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin,
     prelude::*,
-    ui::widget::{TextCursor, TextCursorWidth},
+    ui::widget::{TextCursor, TextCursorStyle, TextCursorWidth},
 };
 
 fn main() {
@@ -37,6 +37,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             TextCursor {
                 index: 5,
+            },
+            TextCursorStyle {
                 color: Color::WHITE,
                 width: TextCursorWidth::Px(4.),
                 radius: 2.,

@@ -7,7 +7,7 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
-use crate::widget::{ImageNode, TextCursor, TextCursorWidth};
+use crate::widget::{ImageNode, TextCursor, TextCursorStyle, TextCursorWidth};
 use crate::{
     BackgroundColor, BorderColor, BoxShadowSamples, CalculatedClip, ComputedNode,
     ComputedNodeTarget, DefaultUiCamera, Outline, ResolvedBorderRadius, TextShadow, UiAntiAlias,
@@ -708,6 +708,7 @@ pub fn extract_text_sections(
             &ComputedTextBlock,
             &TextLayoutInfo,
             Option<&TextCursor>,
+            Option<&TextCursorStyle>,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
@@ -727,6 +728,7 @@ pub fn extract_text_sections(
         computed_block,
         text_layout_info,
         maybe_cursor,
+        maybe_cursor_style,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -791,7 +793,14 @@ pub fn extract_text_sections(
             end += 1;
         }
 
-        let Some(cursor) = maybe_cursor.filter(|cursor| !cursor.color.is_fully_transparent())
+        let Some(cursor) = maybe_cursor else {
+            continue;
+        };
+
+        let default_cursor_style = &TextCursorStyle::default();
+        let Some(style) = maybe_cursor_style
+            .or(Some(default_cursor_style))
+            .filter(|style| !style.color.is_fully_transparent())
         else {
             continue;
         };
@@ -800,14 +809,14 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let width = match cursor.width {
+        let width = match style.width {
             TextCursorWidth::All => glyph.size.x,
             TextCursorWidth::Px(width) => width * target.scale_factor,
         };
 
-        let height = computed_block.buffer().metrics().line_height * cursor.height;
+        let height = computed_block.buffer().metrics().line_height * style.height;
 
-        let position = if cursor.width == TextCursorWidth::All {
+        let position = if style.width == TextCursorWidth::All {
             glyph.position
         } else {
             glyph.position - 0.5 * (glyph.size.x + width) * Vec2::X
@@ -816,7 +825,7 @@ pub fn extract_text_sections(
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             stack_index: uinode.stack_index,
-            color: LinearRgba::from(cursor.color),
+            color: LinearRgba::from(style.color),
             image: AssetId::default(),
             clip: clip.map(|clip| clip.clip),
             extracted_camera_entity,
@@ -829,10 +838,10 @@ pub fn extract_text_sections(
                 flip_x: false,
                 flip_y: false,
                 border_radius: ResolvedBorderRadius {
-                    top_left: cursor.radius * target.scale_factor,
-                    top_right: cursor.radius * target.scale_factor,
-                    bottom_left: cursor.radius * target.scale_factor,
-                    bottom_right: cursor.radius * target.scale_factor,
+                    top_left: style.radius * target.scale_factor,
+                    top_right: style.radius * target.scale_factor,
+                    bottom_left: style.radius * target.scale_factor,
+                    bottom_right: style.radius * target.scale_factor,
                 },
                 border: BorderRect::ZERO,
                 node_type: NodeType::Rect,

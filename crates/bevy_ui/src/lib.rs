@@ -49,7 +49,9 @@ pub mod prelude {
     #[cfg(feature = "bevy_ui_debug")]
     pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
-    pub use crate::widget::{Text, TextCursor, TextCursorWidth, TextUiReader, TextUiWriter};
+    pub use crate::widget::{
+        Text, TextCursor, TextCursorStyle, TextCursorWidth, TextUiReader, TextUiWriter,
+    };
     #[doc(hidden)]
     pub use {
         crate::{
