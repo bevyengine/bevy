@@ -246,6 +246,7 @@ impl<T: TriggerTargets> TriggerTargets for [T] {
 
 macro_rules! impl_trigger_targets_tuples {
     ($(#[$meta:meta])* $($trigger_targets: ident),*) => {
+        #[expect(clippy::allow_attributes, reason = "can't guarantee violation of non_snake_case")]
         #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
         $(#[$meta])*
         impl<$($trigger_targets: TriggerTargets),*> TriggerTargets for ($($trigger_targets,)*)
