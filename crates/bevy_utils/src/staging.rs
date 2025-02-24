@@ -34,7 +34,7 @@
 //!
 //! # How it works
 //!
-//! The general approach here is called "Stage on Write", similar to "Copy on Write" from std.
+//! The general approach here is called "Stage-on-Write", similar to "Copy-on-Write" from std.
 //!
 //! Data that has not been changed in a while lives in a compact, read-optimized data structure.
 //! We call this read-optimized, old (not changed recently) data "cold" data.
@@ -46,7 +46,7 @@
 //! The traits [`StagableWrites`] and company represent types that coordinate this behavior.
 //!
 //! A few other types help with this.
-//! If a lock is held or there is mutable access to the underlying stage on write type, [`Stager`] and [`StagedRef`] can be obtained.
+//! If a lock is held or there is mutable access to the underlying stage-on-write type, [`Stager`] and [`StagedRef`] can be obtained.
 //! Use [`StagedRef`] when you need to access data with standard references.
 //! Since the there might be a lock involved, this should be used only when needed.
 //! Use [`Stager`] when you need to write data, since this gives read access to cold data, and write access to staged data.
@@ -61,27 +61,31 @@
 //! So, if you want to return a mutable reference to something in staged data, you can use this to do that while allowing the cold lock to be dropped.
 //! This is less useful, but still has its place.
 //!
-//! In general:
-//! - Implement general purpose reads on [`StagedRef`],
-//! - high performance reads on [`StagedRefLocked`],
-//! - writes on [`Stager`],
-//! - and niche/advanced uses on [`StagerLocked`].
-//!
-//! In addition, this module offers two implementations of the stage on write concept: [`StageOnWrite`] and [`AtomicStageOnWrite`].
+//! In addition, this module offers two implementations of the stage-on-write concept: [`StageOnWrite`] and [`AtomicStageOnWrite`].
 //! [`StageOnWrite`] is the simpler implementation, storing cold data directly and staged data in an [`RwLock`] to synchronize writes.
 //! Because it stores cold data directly, the only way to clean the data (drain staged data into cold) is to have mutable access to it.
 //! This means it can't be put in an `Arc` or similar and still be able to be cleaned.
-//! [`AtomicStageOnWrite`] comes to the resque here. It stores cold data in another [`RwLock`], allowing the data to be cleaned with immutable access.
+//! [`AtomicStageOnWrite`] comes to the rescue here. It stores cold data in another [`RwLock`], allowing the data to be cleaned with immutable access.
 //! Although blocking methods for this exist, [`AtomicStageOnWrite`] also offers non-blocking methods for cleaning.
 //! Hence, in normal use, [`AtomicStageOnWrite`] will almost never block to read from cold data.
 //! Additionally, because it can see when cold is being read or not, it can apply staged changes as needed without needing specific calls from the user.
 //!
+//! In general, users should use:
+//! - [`StagedRef`] for general-purpose and bulk reads.
+//! - [`StagedRefLocked`] to hold lock guards, while delegating to [`StagedRef`].
+//! - [`Stager`] for all writing.
+//! - [`StagerLocked`]to hold lock guards, while delegating to [`Stager`].
+//! - [`AtomicStageOnWrite`], [`StageOnWrite`], or another [`StagableWritesCore`] type for quick, as-needed locking reads.
+//!     Note that for bulk reads, [`StagedRef`] tends to be faster.
+//!
+//! A common pattern for this is creating an extension trait for your staged changes that you implement on `StagedRef<MyStagedChanges>`, etc.
+//!
 //! Finally, [`StagableWrites`] offers some utilities to prevent deadlocking.
 //! It is implemented by [`RefStageOnWrite`] and `ArcStageOnWrite` for utility.
 //! The idea behind this type is that the most common way to accidentally deadlock is to maintain an immutable borrow while making a muttable borrow via synchronization.
-//! This trait makes mutable borrows requie mutable access to self, preventing this kind of deadlock.
-//! Because these types only wrap cloneable references to to the [`StagableWritesCore`] type, this can still be shared between thread safely.
-//! It also means that this does not fully prevent deadlock, especially if the same thread is maintaining a lock guard on one copy of the stage on write structure while another copy is being used.
+//! This trait makes mutable borrows require mutable access to self, preventing this kind of deadlock.
+//! Because these types only wrap cloneable references to to the [`StagableWritesCore`] type, this can still be shared between threads safely.
+//! It also means that this does not fully prevent deadlock, especially if the same thread is maintaining a lock guard on one copy of the stage-on-write structure while another copy is being used.
 //! Still this protection is better than none.
 //!
 //! # Example
@@ -106,15 +110,15 @@
 //!     id: PlayerId,
 //! }
 //!
-//! /// A unique id per player
+//! /// A unique id per player.
 //! #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
 //! pub struct PlayerId(u32);
 //!
-//! /// The standard collection of players
+//! /// The standard collection of players.
 //! #[derive(Default, Debug)]
 //! pub struct Players(HashMap<PlayerId, PlayerData>);
 //!
-//! /// When a change is made to a player
+//! /// A struct describing changes that should be applied to [`Players`]
 //! #[derive(Default, Debug)]
 //! pub struct StagedPlayerChanges {
 //!     replacements: HashMap<PlayerId, PlayerData>,
@@ -245,12 +249,14 @@
 //!     }
 //! }
 //!
+//! /// This is a workaround for [mapped guards](https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html).
 //! struct LockedNameStagedRef<'a> {
 //!     staged: RwLockReadGuard<'a, StagedPlayerChanges>,
 //!     // must be valid
 //!     id: PlayerId,
 //! }
 //!
+//! /// This is a workaround for [mapped guards](https://doc.rust-lang.org/std/sync/struct.MappedRwLockReadGuard.html).
 //! struct LockedNameColdRef<'a, T: StagableWritesCore<Staging = StagedPlayerChanges> + 'a> {
 //!     cold: T::ColdRef<'a>,
 //!     // must be valid
@@ -278,14 +284,33 @@
 //!     }
 //! }
 //!
+//! /// This stores the player data itself.
 //! #[derive(Debug, Default)]
 //! pub struct PlayerRegistry {
 //!     players: StageOnWrite<StagedPlayerChanges>,
 //! }
 //!
+//! /// This allows reading from [`PlayerRegistry`]
+//! #[derive(Debug)]
+//! pub struct PlayerRegistryHandle<'a> {
+//!     players: RefStageOnWrite<'a, StageOnWrite<StagedPlayerChanges>>,
+//! }
+//!
 //! impl PlayerRegistry {
+//!     /// Gets a [`PlayerRegistryHandle`] to read and write this player collection.
+//!     pub fn get_handle(&self) -> PlayerRegistryHandle<'_> {
+//!         PlayerRegistryHandle { players: RefStageOnWrite(&self.players), }
+//!     }
+//!
+//!     /// Cleans up internal data to make reading faster.
+//!     pub fn clean(&mut self) {
+//!         self.players.apply_staged_for_full();
+//!     }
+//! }
+//!
+//! impl PlayerRegistryHandle<'_> {
 //!     /// Runs relatively rarely
-//!     pub fn player_joined(&self, name: String) -> PlayerId {
+//!     pub fn player_joined(&mut self, name: String) -> PlayerId {
 //!         self.bulk_write().as_stager().add(name)
 //!     }
 //!
@@ -311,20 +336,14 @@
 //!         }
 //!     }
 //!
-//!     /// Cleans up internal data to make reading faster.
-//!     pub fn clean(&mut self) {
-//!         self.players.apply_staged_for_full();
-//!     }
-//!
 //!     /// Allows reading in bulk without extra locking.
 //!     pub fn bulk_read(&self) -> StagedRefLocked<'_, StageOnWrite<StagedPlayerChanges>> {
 //!         self.players.read_lock()
 //!     }
 //!
 //!     /// Allows writing in bulk without extra locking.
-//!     pub fn bulk_write(&self) -> StagerLocked<'_, StageOnWrite<StagedPlayerChanges>> {
-//!         // SAFETY: unsafe is used to take responsibility for deadlocks.
-//!         unsafe { self.players.stage_lock_unsafe() }
+//!     pub fn bulk_write(&mut self) -> StagerLocked<'_, StageOnWrite<StagedPlayerChanges>> {
+//!         self.players.stage_lock()
 //!     }
 //! }
 //! ```
@@ -368,7 +387,7 @@ pub trait StagableWritesTypes: Sized {
         <Self::Staging as StagedChanges>::Cold: 'a;
 }
 
-/// This trait generallizes the stage on write concept.
+/// This trait generallizes the stage-on-write concept.
 pub trait StagableWritesCore: StagableWritesTypes {
     /// Allows raw access to reading cold storage, which may still have unapplied staged changes that make this out of date.
     /// Use this to return data attached to a lock guard when one such guard is already in existence.
@@ -394,7 +413,7 @@ pub trait StagableWritesCore: StagableWritesTypes {
     /// Same as [`raw_write_staged`](StagableWritesCore::raw_write_staged), but never blocks.
     fn raw_write_staged_non_blocking(&self) -> Option<RwLockWriteGuard<'_, Self::Staging>>;
 
-    /// Allows raw access to both staged and cold data.
+    /// Allows raw access to both staged and cold data without locking.
     fn raw_write_both_mut(
         &mut self,
     ) -> (
@@ -615,13 +634,12 @@ pub enum MaybeStaged<C, S> {
 pub struct StageOnWrite<T: StagedChanges> {
     /// Cold data is read optimized.
     cold: T::Cold,
-    /// Staged data stores recent modifications to cold. It's [`RwLock`] coordinates mutations.
+    /// Staged data stores recent modifications to cold.
     staged: RwLock<T>,
 }
 
 /// A version of [`StageOnWrite`] designed for atomic use.
 /// It functions fully without needing `&mut self`.
-/// See [`StageOnWrite`] for details.
 #[derive(Default, Debug)]
 pub struct AtomicStageOnWrite<T: StagedChanges> {
     /// Cold data is read optimized.
@@ -629,7 +647,6 @@ pub struct AtomicStageOnWrite<T: StagedChanges> {
     /// This will only block if a thread tries to read from it while it is having changes applied, but that is extremely rare.
     cold: RwLock<T::Cold>,
     /// Staged data stores recent modifications to cold.
-    /// It's [`RwLock`] coordinates mutations.
     staged: RwLock<T>,
 }
 
@@ -643,7 +660,7 @@ pub struct AtomicStageOnWrite<T: StagedChanges> {
 #[derive(Clone)]
 pub struct ArcStageOnWrite<T: StagedChanges>(pub Arc<AtomicStageOnWrite<T>>);
 
-/// Although it is is often enough to pass around references to a [`StagableWritesCore`], it is sometimes desierable to encapsulate that reference here.
+/// Although it is is often enough to pass around references to a [`StagableWritesCore`], it is sometimes desirable to encapsulate that reference here.
 /// That enables utilities like [`StagableWrites`]
 #[derive(Debug)]
 pub struct RefStageOnWrite<'a, T: StagableWritesCore>(pub &'a T);
