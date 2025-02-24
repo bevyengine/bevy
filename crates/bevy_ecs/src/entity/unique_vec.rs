@@ -1,12 +1,14 @@
 use core::{
-    borrow::Borrow,
+    borrow::{Borrow, BorrowMut},
     mem::MaybeUninit,
-    ops::{Index, RangeBounds},
-    slice,
+    ops::{
+        Bound, Deref, DerefMut, Index, IndexMut, Range, RangeBounds, RangeFrom, RangeFull,
+        RangeInclusive, RangeTo, RangeToInclusive,
+    },
 };
 
 use alloc::{
-    borrow::Cow,
+    borrow::{Cow, ToOwned},
     boxed::Box,
     collections::{BTreeSet, BinaryHeap, TryReserveError, VecDeque},
     rc::Rc,
@@ -14,7 +16,10 @@ use alloc::{
     vec::{self, Vec},
 };
 
-use super::{EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter};
+use super::{
+    unique_slice, EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
+    UniqueEntitySlice,
+};
 
 /// A `Vec` that contains only unique entities.
 ///
@@ -138,6 +143,22 @@ impl<T: TrustedEntityBorrow> UniqueEntityVec<T> {
     /// Equivalent to [`Vec::shrink_to`].
     pub fn shrink_to(&mut self, min_capacity: usize) {
         self.0.shrink_to(min_capacity);
+    }
+
+    /// Converts the vector into `Box<UniqueEntitySlice<T>>`.
+    pub fn into_boxed_slice(self) -> Box<UniqueEntitySlice<T>> {
+        // SAFETY: UniqueEntitySlice is a transparent wrapper around [T].
+        unsafe { UniqueEntitySlice::from_boxed_slice_unchecked(self.0.into_boxed_slice()) }
+    }
+
+    /// Extracts a slice containing the entire vector.
+    pub fn as_slice(&self) -> &UniqueEntitySlice<T> {
+        self
+    }
+
+    /// Extracts a mutable slice of the entire vector.
+    pub fn as_mut_slice(&mut self) -> &mut UniqueEntitySlice<T> {
+        self
     }
 
     /// Shortens the vector, keeping the first `len` elements and dropping
@@ -343,6 +364,12 @@ impl<T: TrustedEntityBorrow> UniqueEntityVec<T> {
         self.0.resize_with(new_len, f);
     }
 
+    /// Consumes and leaks the Vec, returning a mutable reference to the contents, `&'a mut UniqueEntitySlice<T>`.
+    pub fn leak<'a>(self) -> &'a mut UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.leak()) }
+    }
+
     /// Returns the remaining spare capacity of the vector as a slice of
     /// [`MaybeUninit<T>`].
     ///
@@ -370,7 +397,7 @@ impl<T: TrustedEntityBorrow> UniqueEntityVec<T> {
         I: EntitySet<Item = T>,
     {
         // SAFETY: `self` and thus `range` contains only unique elements.
-        UniqueEntityIter::from_iterator_unchecked(self.0.splice(range, replace_with))
+        unsafe { UniqueEntityIter::from_iterator_unchecked(self.0.splice(range, replace_with)) }
     }
 }
 
@@ -380,13 +407,29 @@ impl<T: TrustedEntityBorrow> Default for UniqueEntityVec<T> {
     }
 }
 
+impl<T: TrustedEntityBorrow> Deref for UniqueEntityVec<T> {
+    type Target = UniqueEntitySlice<T>;
+
+    fn deref(&self) -> &Self::Target {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(&self.0) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> DerefMut for UniqueEntityVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(&mut self.0) }
+    }
+}
+
 impl<'a, T: TrustedEntityBorrow> IntoIterator for &'a UniqueEntityVec<T>
 where
     &'a T: TrustedEntityBorrow,
 {
     type Item = &'a T;
 
-    type IntoIter = UniqueEntityIter<slice::Iter<'a, T>>;
+    type IntoIter = unique_slice::Iter<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
         // SAFETY: `self` contains only unique elements.
@@ -407,6 +450,12 @@ impl<T: TrustedEntityBorrow> IntoIterator for UniqueEntityVec<T> {
 
 impl<T: TrustedEntityBorrow> AsMut<Self> for UniqueEntityVec<T> {
     fn as_mut(&mut self) -> &mut UniqueEntityVec<T> {
+        self
+    }
+}
+
+impl<T: TrustedEntityBorrow> AsMut<UniqueEntitySlice<T>> for UniqueEntityVec<T> {
+    fn as_mut(&mut self) -> &mut UniqueEntitySlice<T> {
         self
     }
 }
@@ -435,9 +484,27 @@ impl<T: TrustedEntityBorrow> AsRef<[T]> for UniqueEntityVec<T> {
     }
 }
 
+impl<T: TrustedEntityBorrow> AsRef<UniqueEntitySlice<T>> for UniqueEntityVec<T> {
+    fn as_ref(&self) -> &UniqueEntitySlice<T> {
+        self
+    }
+}
+
 impl<T: TrustedEntityBorrow> Borrow<[T]> for UniqueEntityVec<T> {
     fn borrow(&self) -> &[T] {
         &self.0
+    }
+}
+
+impl<T: TrustedEntityBorrow> Borrow<UniqueEntitySlice<T>> for UniqueEntityVec<T> {
+    fn borrow(&self) -> &UniqueEntitySlice<T> {
+        self
+    }
+}
+
+impl<T: TrustedEntityBorrow> BorrowMut<UniqueEntitySlice<T>> for UniqueEntityVec<T> {
+    fn borrow_mut(&mut self) -> &mut UniqueEntitySlice<T> {
+        self
     }
 }
 
@@ -453,8 +520,24 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U> PartialEq<&[U]> for UniqueEntityV
     }
 }
 
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<&UniqueEntitySlice<U>>
+    for UniqueEntityVec<T>
+{
+    fn eq(&self, other: &&UniqueEntitySlice<U>) -> bool {
+        self.0.eq(other)
+    }
+}
+
 impl<T: TrustedEntityBorrow + PartialEq<U>, U> PartialEq<&mut [U]> for UniqueEntityVec<T> {
     fn eq(&self, other: &&mut [U]) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow>
+    PartialEq<&mut UniqueEntitySlice<U>> for UniqueEntityVec<T>
+{
+    fn eq(&self, other: &&mut UniqueEntitySlice<U>) -> bool {
         self.0.eq(other)
     }
 }
@@ -478,6 +561,14 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<&mut [U
 impl<T: TrustedEntityBorrow + PartialEq<U>, U> PartialEq<[U]> for UniqueEntityVec<T> {
     fn eq(&self, other: &[U]) -> bool {
         self.0.eq(other)
+    }
+}
+
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow> PartialEq<UniqueEntitySlice<U>>
+    for UniqueEntityVec<T>
+{
+    fn eq(&self, other: &UniqueEntitySlice<U>) -> bool {
+        self.0.eq(&**other)
     }
 }
 
@@ -529,6 +620,33 @@ impl<T: PartialEq<U>, U: TrustedEntityBorrow> PartialEq<UniqueEntityVec<U>> for 
     }
 }
 
+impl<T: TrustedEntityBorrow + Clone> From<&UniqueEntitySlice<T>> for UniqueEntityVec<T> {
+    fn from(value: &UniqueEntitySlice<T>) -> Self {
+        value.to_vec()
+    }
+}
+
+impl<T: TrustedEntityBorrow + Clone> From<&mut UniqueEntitySlice<T>> for UniqueEntityVec<T> {
+    fn from(value: &mut UniqueEntitySlice<T>) -> Self {
+        value.to_vec()
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<Box<UniqueEntitySlice<T>>> for UniqueEntityVec<T> {
+    fn from(value: Box<UniqueEntitySlice<T>>) -> Self {
+        value.into_vec()
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<Cow<'_, UniqueEntitySlice<T>>> for UniqueEntityVec<T>
+where
+    UniqueEntitySlice<T>: ToOwned<Owned = UniqueEntityVec<T>>,
+{
+    fn from(value: Cow<UniqueEntitySlice<T>>) -> Self {
+        value.into_owned()
+    }
+}
+
 impl<T: TrustedEntityBorrow + Clone> From<&[T; 1]> for UniqueEntityVec<T> {
     fn from(value: &[T; 1]) -> Self {
         Self(Vec::from(value))
@@ -577,9 +695,24 @@ impl<'a, T: TrustedEntityBorrow + Clone> From<UniqueEntityVec<T>> for Cow<'a, [T
     }
 }
 
+impl<'a, T: TrustedEntityBorrow + Clone> From<UniqueEntityVec<T>>
+    for Cow<'a, UniqueEntitySlice<T>>
+{
+    fn from(value: UniqueEntityVec<T>) -> Self {
+        Cow::Owned(value)
+    }
+}
+
 impl<T: TrustedEntityBorrow> From<UniqueEntityVec<T>> for Arc<[T]> {
     fn from(value: UniqueEntityVec<T>) -> Self {
         Arc::from(value.0)
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityVec<T>> for Arc<UniqueEntitySlice<T>> {
+    fn from(value: UniqueEntityVec<T>) -> Self {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_arc_slice_unchecked(Arc::from(value.0)) }
     }
 }
 
@@ -598,6 +731,13 @@ impl<T: TrustedEntityBorrow> From<UniqueEntityVec<T>> for Box<[T]> {
 impl<T: TrustedEntityBorrow> From<UniqueEntityVec<T>> for Rc<[T]> {
     fn from(value: UniqueEntityVec<T>) -> Self {
         Rc::from(value.0)
+    }
+}
+
+impl<T: TrustedEntityBorrow> From<UniqueEntityVec<T>> for Rc<UniqueEntitySlice<T>> {
+    fn from(value: UniqueEntityVec<T>) -> Self {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_rc_slice_unchecked(Rc::from(value.0)) }
     }
 }
 
@@ -669,7 +809,7 @@ impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
         let reserve = if self.is_empty() {
             iter.size_hint().0
         } else {
-            (iter.size_hint().0 + 1) / 2
+            iter.size_hint().0.div_ceil(2)
         };
         self.reserve(reserve);
         // Internal iteration (fold/for_each) is known to result in better code generation
@@ -696,7 +836,7 @@ impl<'a, T: TrustedEntityBorrow + Copy + 'a> Extend<&'a T> for UniqueEntityVec<T
         let reserve = if self.is_empty() {
             iter.size_hint().0
         } else {
-            (iter.size_hint().0 + 1) / 2
+            iter.size_hint().0.div_ceil(2)
         };
         self.reserve(reserve);
         // Internal iteration (fold/for_each) is known to result in better code generation
@@ -709,10 +849,139 @@ impl<'a, T: TrustedEntityBorrow + Copy + 'a> Extend<&'a T> for UniqueEntityVec<T
     }
 }
 
+impl<T: TrustedEntityBorrow> Index<(Bound<usize>, Bound<usize>)> for UniqueEntityVec<T> {
+    type Output = UniqueEntitySlice<T>;
+    fn index(&self, key: (Bound<usize>, Bound<usize>)) -> &Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.0.index(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> Index<Range<usize>> for UniqueEntityVec<T> {
+    type Output = UniqueEntitySlice<T>;
+    fn index(&self, key: Range<usize>) -> &Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.0.index(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> Index<RangeFrom<usize>> for UniqueEntityVec<T> {
+    type Output = UniqueEntitySlice<T>;
+    fn index(&self, key: RangeFrom<usize>) -> &Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.0.index(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> Index<RangeFull> for UniqueEntityVec<T> {
+    type Output = UniqueEntitySlice<T>;
+    fn index(&self, key: RangeFull) -> &Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.0.index(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> Index<RangeInclusive<usize>> for UniqueEntityVec<T> {
+    type Output = UniqueEntitySlice<T>;
+    fn index(&self, key: RangeInclusive<usize>) -> &Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.0.index(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> Index<RangeTo<usize>> for UniqueEntityVec<T> {
+    type Output = UniqueEntitySlice<T>;
+    fn index(&self, key: RangeTo<usize>) -> &Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.0.index(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> Index<RangeToInclusive<usize>> for UniqueEntityVec<T> {
+    type Output = UniqueEntitySlice<T>;
+    fn index(&self, key: RangeToInclusive<usize>) -> &Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.0.index(key)) }
+    }
+}
+
 impl<T: TrustedEntityBorrow> Index<usize> for UniqueEntityVec<T> {
     type Output = T;
     fn index(&self, key: usize) -> &T {
         self.0.index(key)
+    }
+}
+
+impl<T: TrustedEntityBorrow> IndexMut<(Bound<usize>, Bound<usize>)> for UniqueEntityVec<T> {
+    fn index_mut(&mut self, key: (Bound<usize>, Bound<usize>)) -> &mut Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.index_mut(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> IndexMut<Range<usize>> for UniqueEntityVec<T> {
+    fn index_mut(&mut self, key: Range<usize>) -> &mut Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.index_mut(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> IndexMut<RangeFrom<usize>> for UniqueEntityVec<T> {
+    fn index_mut(&mut self, key: RangeFrom<usize>) -> &mut Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.index_mut(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> IndexMut<RangeFull> for UniqueEntityVec<T> {
+    fn index_mut(&mut self, key: RangeFull) -> &mut Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.index_mut(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> IndexMut<RangeInclusive<usize>> for UniqueEntityVec<T> {
+    fn index_mut(&mut self, key: RangeInclusive<usize>) -> &mut Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.index_mut(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> IndexMut<RangeTo<usize>> for UniqueEntityVec<T> {
+    fn index_mut(&mut self, key: RangeTo<usize>) -> &mut Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.index_mut(key)) }
+    }
+}
+
+impl<T: TrustedEntityBorrow> IndexMut<RangeToInclusive<usize>> for UniqueEntityVec<T> {
+    fn index_mut(&mut self, key: RangeToInclusive<usize>) -> &mut Self::Output {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.0.index_mut(key)) }
+    }
+}
+
+/// An iterator that moves out of a vector.
+///
+/// This `struct` is created by the [`IntoIterator::into_iter`] trait
+/// method on [`UniqueEntityVec`].
+pub type IntoIter<T> = UniqueEntityIter<vec::IntoIter<T>>;
+
+impl<T: TrustedEntityBorrow> UniqueEntityIter<vec::IntoIter<T>> {
+    /// Returns the remaining items of this iterator as a slice.
+    ///
+    /// Equivalent to [`vec::IntoIter::as_slice`].
+    pub fn as_slice(&self) -> &UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.as_inner().as_slice()) }
+    }
+
+    /// Returns the remaining items of this iterator as a mutable slice.
+    ///
+    /// Equivalent to [`vec::IntoIter::as_mut_slice`].
+    pub fn as_mut_slice(&mut self) -> &mut UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked_mut(self.as_mut_inner().as_mut_slice()) }
     }
 }
 
@@ -722,14 +991,18 @@ impl<T: TrustedEntityBorrow> Index<usize> for UniqueEntityVec<T> {
 /// See its documentation for more.
 pub type Drain<'a, T> = UniqueEntityIter<vec::Drain<'a, T>>;
 
+impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<vec::Drain<'a, T>> {
+    /// Returns the remaining items of this iterator as a slice.
+    ///
+    /// Equivalent to [`vec::Drain::as_slice`].
+    pub fn as_slice(&self) -> &UniqueEntitySlice<T> {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_slice_unchecked(self.as_inner().as_slice()) }
+    }
+}
+
 /// A splicing iterator for [`UniqueEntityVec`].
 ///
 /// This struct is created by [`UniqueEntityVec::splice`].
 /// See its documentation for more.
 pub type Splice<'a, I> = UniqueEntityIter<vec::Splice<'a, I>>;
-
-/// An iterator that moves out of a vector.
-///
-/// This `struct` is created by the [`IntoIterator::into_iter`] trait
-/// method on [`UniqueEntityVec`].
-pub type IntoIter<T> = UniqueEntityIter<vec::IntoIter<T>>;

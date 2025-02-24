@@ -1,5 +1,4 @@
 use crate::{
-    self as bevy_reflect,
     __macro_exports::RegisterForReflection,
     func::{
         args::{ArgCount, ArgList},

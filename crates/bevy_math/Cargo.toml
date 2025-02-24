@@ -1,13 +1,13 @@
 [package]
 name = "bevy_math"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Provides math functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-rust-version = "1.83.0"
+rust-version = "1.85.0"
 
 [dependencies]
 glam = { version = "0.29", default-features = false, features = ["bytemuck"] }
@@ -36,9 +36,7 @@ approx = "0.5"
 rand = "0.8"
 rand_chacha = "0.3"
 # Enable the approx feature when testing.
-bevy_math = { path = ".", version = "0.16.0-dev", default-features = false, features = [
-  "approx",
-] }
+bevy_math = { path = ".", default-features = false, features = ["approx"] }
 glam = { version = "0.29", default-features = false, features = ["approx"] }
 
 [features]

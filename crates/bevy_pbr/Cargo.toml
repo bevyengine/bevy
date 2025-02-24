@@ -1,7 +1,7 @@
 [package]
 name = "bevy_pbr"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Adds PBR rendering to Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -18,7 +18,6 @@ experimental_pbr_pcss = []
 pbr_specular_textures = []
 shader_format_glsl = ["bevy_render/shader_format_glsl"]
 trace = ["bevy_render/trace"]
-ios_simulator = ["bevy_render/ios_simulator"]
 # Enables the meshlet renderer for dense high-poly scenes (experimental)
 meshlet = ["dep:lz4_flex", "dep:range-alloc", "dep:half", "dep:bevy_tasks"]
 # Enables processing meshes into meshlet meshes
@@ -37,6 +36,7 @@ bevy_asset = { path = "../bevy_asset", version = "0.16.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.16.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.16.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.16.0-dev" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.16.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.16.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.16.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev" }
@@ -74,6 +74,7 @@ smallvec = "1.6"
 nonmax = "0.5"
 static_assertions = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+offset-allocator = "0.2"
 
 [lints]
 workspace = true

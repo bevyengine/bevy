@@ -1,4 +1,6 @@
-use crate::systems::{propagate_transforms, sync_simple_transforms};
+use crate::systems::{
+    compute_transform_leaves, propagate_parent_transforms, sync_simple_transforms,
+};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
 
@@ -32,14 +34,12 @@ impl Plugin for TransformPlugin {
         .add_systems(
             PostStartup,
             (
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    // FIXME: https://github.com/bevyengine/bevy/issues/4381
-                    // These systems cannot access the same entities,
-                    // due to subtle query filtering that is not yet correctly computed in the ambiguity detector
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ),
+                propagate_parent_transforms,
+                (compute_transform_leaves, sync_simple_transforms)
+                    .ambiguous_with(TransformSystem::TransformPropagate),
+            )
+                .chain()
+                .in_set(PropagateTransformsSet),
         )
         .configure_sets(
             PostUpdate,
@@ -48,11 +48,12 @@ impl Plugin for TransformPlugin {
         .add_systems(
             PostUpdate,
             (
-                sync_simple_transforms
-                    .in_set(TransformSystem::TransformPropagate)
-                    .ambiguous_with(PropagateTransformsSet),
-                propagate_transforms.in_set(PropagateTransformsSet),
-            ),
+                propagate_parent_transforms,
+                (compute_transform_leaves, sync_simple_transforms) // TODO: Adjust the internal parallel queries to make these parallel systems more efficiently share and fill CPU time.
+                    .ambiguous_with(TransformSystem::TransformPropagate),
+            )
+                .chain()
+                .in_set(PropagateTransformsSet),
         );
     }
 }

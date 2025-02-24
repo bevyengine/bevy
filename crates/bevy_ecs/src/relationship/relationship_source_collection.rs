@@ -119,7 +119,6 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_ecs;
     use crate::prelude::{Component, World};
     use crate::relationship::RelationshipTarget;
 
@@ -130,7 +129,7 @@ mod tests {
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, despawn_descendants)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
         struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
@@ -151,7 +150,7 @@ mod tests {
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, despawn_descendants)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
         struct RelTarget(EntityHashSet);
 
         let mut world = World::new();
@@ -172,7 +171,7 @@ mod tests {
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[relationship_target(relationship = Rel, despawn_descendants)]
+        #[relationship_target(relationship = Rel, linked_spawn)]
         struct RelTarget(SmallVec<[Entity; 4]>);
 
         let mut world = World::new();
