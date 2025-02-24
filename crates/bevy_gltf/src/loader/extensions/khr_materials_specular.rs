@@ -27,7 +27,7 @@ use {
 /// See the specification:
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>
 #[derive(Default)]
-pub struct SpecularExtension {
+pub(crate) struct SpecularExtension {
     pub specular_factor: Option<f64>,
     #[cfg(feature = "pbr_specular_textures")]
     pub specular_channel: UvChannel,

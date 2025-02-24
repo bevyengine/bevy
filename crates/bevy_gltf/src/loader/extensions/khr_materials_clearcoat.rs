@@ -15,7 +15,7 @@ use {
 /// See the specification:
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md>
 #[derive(Default)]
-pub struct ClearcoatExtension {
+pub(crate) struct ClearcoatExtension {
     pub clearcoat_factor: Option<f64>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
     pub clearcoat_channel: UvChannel,

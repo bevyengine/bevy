@@ -19,7 +19,7 @@ use {
 /// See the specification:
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md>
 #[derive(Default)]
-pub struct AnisotropyExtension {
+pub(crate) struct AnisotropyExtension {
     pub anisotropy_strength: Option<f64>,
     pub anisotropy_rotation: Option<f64>,
     #[cfg(feature = "pbr_anisotropy_texture")]
