@@ -537,9 +537,11 @@ pub trait StagableWritesCore: StagableWritesTypes {
     }
 }
 
-/// This trait provides some conviniencies around [`StagableWritesCore`].
+/// This trait provides some conviniencies around [`StagableWritesCore`] by holding a reference to a [`Core`](StagableWrites::Core) type.
 ///
 /// For example, mutable references are used to enforce safety for some functions.
+/// Some of this safety is diminished by cloning these types.
+/// Semantically, cloning these types implies that the clones will be used in a disjoint, separate context from eachother.
 pub trait StagableWrites {
     /// This is the inner [`StagableWritesCore`] type responsible for the bulk of the implementation.
     type Core: StagableWritesCore;
