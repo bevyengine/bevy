@@ -1,7 +1,7 @@
 [package]
 name = "bevy_render"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -24,12 +24,15 @@ shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]
 
+# Statically linked DXC shader compiler for DirectX 12
+# TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
+statically-linked-dxc = ["wgpu/static-dxc"]
+
 trace = ["profiling"]
 tracing-tracy = []
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
-ios_simulator = []
 detailed_trace = []
 
 [dependencies]
@@ -70,14 +73,14 @@ codespan-reporting = "0.11.0"
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "23.0.1", default-features = false, features = [
+wgpu = { version = "24", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "23", features = ["wgsl-in"] }
+naga = { version = "24", features = ["wgsl-in"] }
 serde = { version = "1", features = ["derive"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
@@ -98,10 +101,11 @@ variadics_please = "1.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }
+bitflags = "2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.16", default-features = false, features = [
+naga_oil = { version = "0.17", default-features = false, features = [
   "test_shader",
 ] }
 
@@ -109,7 +113,7 @@ naga_oil = { version = "0.16", default-features = false, features = [
 proptest = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = "0.16"
+naga_oil = "0.17"
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',

@@ -2,8 +2,9 @@
 
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::TextureViewDescriptor;
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat, TextureViewDimension};
+use wgpu_types::{
+    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+};
 #[cfg(debug_assertions)]
 use {bevy_utils::once, tracing::warn};
 
@@ -65,10 +66,14 @@ pub fn dds_buffer_to_image(
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3
-    } else if image.is_compressed() || dds.get_height() > 1 {
-        TextureDimension::D2
-    } else {
+    // 1x1 textures should generally be interpreted as solid 2D
+    } else if ((dds.get_width() > 1 || dds.get_height() > 1)
+        && !(dds.get_width() > 1 && dds.get_height() > 1))
+        && !image.is_compressed()
+    {
         TextureDimension::D1
+    } else {
+        TextureDimension::D2
     };
     if is_cubemap {
         let dimension = if image.texture_descriptor.size.depth_or_array_layers > 6 {
@@ -81,7 +86,7 @@ pub fn dds_buffer_to_image(
             ..Default::default()
         });
     }
-    image.data = dds.data;
+    image.data = Some(dds.data);
     Ok(image)
 }
 
@@ -283,8 +288,7 @@ pub fn dds_format_to_texture_format(
 
 #[cfg(test)]
 mod test {
-    use wgpu::util::TextureDataOrder;
-    use wgpu_types::{TextureDescriptor, TextureDimension, TextureFormat};
+    use wgpu_types::{TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat};
 
     use crate::CompressedImageFormats;
 
@@ -373,7 +377,7 @@ mod test {
         let r = dds_buffer_to_image("".into(), &buffer, CompressedImageFormats::BC, true);
         assert!(r.is_ok());
         if let Ok(r) = r {
-            fake_wgpu_create_texture_with_data(&r.texture_descriptor, &r.data);
+            fake_wgpu_create_texture_with_data(&r.texture_descriptor, r.data.as_ref().unwrap());
         }
     }
 }

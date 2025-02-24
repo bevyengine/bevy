@@ -72,6 +72,7 @@ pub use unique_slice::*;
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
+    change_detection::MaybeLocation,
     identifier::{
         error::IdentifierError,
         kinds::IdKind,
@@ -82,11 +83,8 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform_support::sync::atomic::Ordering;
-use core::{fmt, hash::Hash, mem, num::NonZero};
+use core::{fmt, hash::Hash, mem, num::NonZero, panic::Location};
 use log::warn;
-
-#[cfg(feature = "track_location")]
-use core::panic::Location;
 
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
@@ -832,7 +830,7 @@ impl Entities {
     }
 
     /// Returns the location of an [`Entity`].
-    /// Note: for pending entities, returns `Some(EntityLocation::INVALID)`.
+    /// Note: for pending entities, returns `None`.
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<EntityLocation> {
         if let Some(meta) = self.meta.get(entity.index() as usize) {
@@ -984,42 +982,63 @@ impl Entities {
 
     /// Sets the source code location from which this entity has last been spawned
     /// or despawned.
-    #[cfg(feature = "track_location")]
     #[inline]
-    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: &'static Location) {
-        let meta = self
-            .meta
-            .get_mut(index as usize)
-            .expect("Entity index invalid");
-        meta.spawned_or_despawned_by = Some(caller);
+    pub(crate) fn set_spawned_or_despawned_by(&mut self, index: u32, caller: MaybeLocation) {
+        caller.map(|caller| {
+            let meta = self
+                .meta
+                .get_mut(index as usize)
+                .expect("Entity index invalid");
+            meta.spawned_or_despawned_by = MaybeLocation::new(Some(caller));
+        });
     }
 
     /// Returns the source code location from which this entity has last been spawned
     /// or despawned. Returns `None` if its index has been reused by another entity
     /// or if this entity has never existed.
-    #[cfg(feature = "track_location")]
     pub fn entity_get_spawned_or_despawned_by(
         &self,
         entity: Entity,
-    ) -> Option<&'static Location<'static>> {
-        self.meta
-            .get(entity.index() as usize)
-            .filter(|meta|
+    ) -> MaybeLocation<Option<&'static Location<'static>>> {
+        MaybeLocation::new_with_flattened(|| {
+            self.meta
+                .get(entity.index() as usize)
+                .filter(|meta|
                 // Generation is incremented immediately upon despawn
                 (meta.generation == entity.generation)
                 || (meta.location.archetype_id == ArchetypeId::INVALID)
                 && (meta.generation == IdentifierMask::inc_masked_high_by(entity.generation, 1)))
-            .and_then(|meta| meta.spawned_or_despawned_by)
+                .map(|meta| meta.spawned_or_despawned_by)
+        })
+        .map(Option::flatten)
     }
 
-    /// Constructs a message explaining why an entity does not exists, if known.
+    /// Constructs a message explaining why an entity does not exist, if known.
     pub(crate) fn entity_does_not_exist_error_details(
         &self,
-        _entity: Entity,
+        entity: Entity,
     ) -> EntityDoesNotExistDetails {
         EntityDoesNotExistDetails {
-            #[cfg(feature = "track_location")]
-            location: self.entity_get_spawned_or_despawned_by(_entity),
+            location: self.entity_get_spawned_or_despawned_by(entity),
+        }
+    }
+}
+
+/// An error that occurs when a specified [`Entity`] does not exist.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
+#[error("The entity with ID {entity} {details}")]
+pub struct EntityDoesNotExistError {
+    /// The entity's ID.
+    pub entity: Entity,
+    /// Details on why the entity does not exist, if available.
+    pub details: EntityDoesNotExistDetails,
+}
+
+impl EntityDoesNotExistError {
+    pub(crate) fn new(entity: Entity, entities: &Entities) -> Self {
+        Self {
+            entity,
+            details: entities.entity_does_not_exist_error_details(entity),
         }
     }
 }
@@ -1028,26 +1047,22 @@ impl Entities {
 /// regarding an entity that did not exist.
 #[derive(Copy, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct EntityDoesNotExistDetails {
-    #[cfg(feature = "track_location")]
-    location: Option<&'static Location<'static>>,
+    location: MaybeLocation<Option<&'static Location<'static>>>,
 }
 
 impl fmt::Display for EntityDoesNotExistDetails {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        #[cfg(feature = "track_location")]
-        if let Some(location) = self.location {
-            write!(f, "was despawned by {location}")
-        } else {
-            write!(
+        match self.location.into_option() {
+            Some(Some(location)) => write!(f, "was despawned by {location}"),
+            Some(None) => write!(
                 f,
                 "does not exist (index has been reused or was never spawned)"
-            )
+            ),
+            None => write!(
+                f,
+                "does not exist (enable `track_location` feature for more details)"
+            ),
         }
-        #[cfg(not(feature = "track_location"))]
-        write!(
-            f,
-            "does not exist (enable `track_location` feature for more details)"
-        )
     }
 }
 
@@ -1058,8 +1073,7 @@ struct EntityMeta {
     /// The current location of the [`Entity`]
     pub location: EntityLocation,
     /// Location of the last spawn or despawn of this entity
-    #[cfg(feature = "track_location")]
-    spawned_or_despawned_by: Option<&'static Location<'static>>,
+    spawned_or_despawned_by: MaybeLocation<Option<&'static Location<'static>>>,
 }
 
 impl EntityMeta {
@@ -1067,8 +1081,7 @@ impl EntityMeta {
     const EMPTY: EntityMeta = EntityMeta {
         generation: NonZero::<u32>::MIN,
         location: EntityLocation::INVALID,
-        #[cfg(feature = "track_location")]
-        spawned_or_despawned_by: None,
+        spawned_or_despawned_by: MaybeLocation::new(None),
     };
 }
 

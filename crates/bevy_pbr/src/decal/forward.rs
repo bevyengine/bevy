@@ -14,6 +14,7 @@ use bevy_render::{
         AsBindGroup, CompareFunction, RenderPipelineDescriptor, Shader,
         SpecializedMeshPipelineError,
     },
+    RenderDebugFlags,
 };
 
 const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> =
@@ -48,6 +49,7 @@ impl Plugin for ForwardDecalPlugin {
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
             prepass_enabled: false,
             shadows_enabled: false,
+            debug_flags: RenderDebugFlags::default(),
             ..Default::default()
         });
     }

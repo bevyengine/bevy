@@ -149,6 +149,9 @@
 extern crate alloc;
 extern crate std;
 
+// Required to make proc macros work in bevy itself.
+extern crate self as bevy_asset;
+
 pub mod io;
 pub mod meta;
 pub mod processor;
@@ -496,8 +499,8 @@ pub trait AssetApp {
     /// * Initializing the [`AssetEvent`] resource for the [`Asset`]
     /// * Adding other relevant systems and resources for the [`Asset`]
     /// * Ignoring schedule ambiguities in [`Assets`] resource. Any time a system takes
-    ///     mutable access to this resource this causes a conflict, but they rarely actually
-    ///     modify the same underlying asset.
+    ///   mutable access to this resource this causes a conflict, but they rarely actually
+    ///   modify the same underlying asset.
     fn init_asset<A: Asset>(&mut self) -> &mut Self;
     /// Registers the asset type `T` using `[App::register]`,
     /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
@@ -627,7 +630,6 @@ pub struct AssetEvents;
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_asset,
         folder::LoadedFolder,
         handle::Handle,
         io::{
@@ -723,7 +725,7 @@ mod tests {
                     .map_err(|_| Self::Error::CannotLoadDependency {
                         dependency: dep.into(),
                     })?;
-                let cool = loaded.get();
+                let cool = loaded.get_asset().get();
                 embedded.push_str(&cool.text);
             }
             Ok(CoolText {
