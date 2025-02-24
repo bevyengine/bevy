@@ -157,9 +157,9 @@ mod serial {
     /// # Safety
     ///
     /// - While this function is running, `transform_query` must not have any fetches for `entity`,
-    ///     nor any of its descendants.
+    ///   nor any of its descendants.
     /// - The caller must ensure that the hierarchy leading to `entity` is well-formed and must
-    ///     remain as a tree or a forest. Each entity must have at most one parent.
+    ///   remain as a tree or a forest. Each entity must have at most one parent.
     #[expect(
         unsafe_code,
         reason = "This function uses `Query::get_unchecked()`, which can result in multiple mutable references if the preconditions are not met."
@@ -245,17 +245,15 @@ mod serial {
 #[cfg(feature = "std")]
 mod parallel {
     use crate::prelude::*;
+    use alloc::{sync::Arc, vec::Vec};
     use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
     // TODO: this implementation could be used in no_std if there are equivalents of these.
-    use std::{
-        sync::{
-            mpsc::{Receiver, Sender},
-            Arc, Mutex,
-        },
-        vec::Vec,
+    use std::sync::{
+        mpsc::{Receiver, Sender},
+        Mutex,
     };
 
     /// Update [`GlobalTransform`] component of entities based on entity hierarchy and [`Transform`]
@@ -877,33 +875,32 @@ mod test {
         app.world_mut()
             .spawn(Transform::IDENTITY)
             .add_children(&[child]);
-        core::mem::swap(
-            #[expect(
-                unsafe_code,
-                reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
-            )]
-            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
-            // cannot happen
-            unsafe {
-                &mut *app
-                    .world_mut()
-                    .entity_mut(child)
-                    .get_mut_assume_mutable::<ChildOf>()
-                    .unwrap()
-            },
-            // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
-            // cannot happen
-            #[expect(
-                unsafe_code,
-                reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
-            )]
-            unsafe {
-                &mut *temp
-                    .entity_mut(grandchild)
-                    .get_mut_assume_mutable::<ChildOf>()
-                    .unwrap()
-            },
-        );
+
+        let mut child_entity = app.world_mut().entity_mut(child);
+
+        let mut grandchild_entity = temp.entity_mut(grandchild);
+
+        #[expect(
+            unsafe_code,
+            reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
+        )]
+        // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
+        // cannot happen
+        let mut a = unsafe { child_entity.get_mut_assume_mutable::<ChildOf>().unwrap() };
+
+        // SAFETY: ChildOf is not mutable but this is for a test to produce a scenario that
+        // cannot happen
+        #[expect(
+            unsafe_code,
+            reason = "ChildOf is not mutable but this is for a test to produce a scenario that cannot happen"
+        )]
+        let mut b = unsafe {
+            grandchild_entity
+                .get_mut_assume_mutable::<ChildOf>()
+                .unwrap()
+        };
+
+        core::mem::swap(a.as_mut(), b.as_mut());
 
         app.update();
     }

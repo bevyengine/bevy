@@ -2062,12 +2062,12 @@ mod tests {
         let mut world = World::new();
         let mut schedule = Schedule::default();
 
+        let system: fn() = || {
+            panic!("This system must not run");
+        };
+
         schedule.configure_sets(Set.run_if(|| false));
-        schedule.add_systems(
-            (|| panic!("This system must not run"))
-                .ambiguous_with(|| ())
-                .in_set(Set),
-        );
+        schedule.add_systems(system.ambiguous_with(|| ()).in_set(Set));
         schedule.run(&mut world);
     }
 

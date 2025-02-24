@@ -1115,11 +1115,10 @@ mod tests {
     fn observer_despawn() {
         let mut world = World::new();
 
-        let observer = world
-            .add_observer(|_: Trigger<OnAdd, A>| {
-                panic!("Observer triggered after being despawned.")
-            })
-            .id();
+        let system: fn(Trigger<OnAdd, A>) = |_| {
+            panic!("Observer triggered after being despawned.");
+        };
+        let observer = world.add_observer(system).id();
         world.despawn(observer);
         world.spawn(A).flush();
     }
@@ -1136,11 +1135,11 @@ mod tests {
             res.observed("remove_a");
         });
 
-        let observer = world
-            .add_observer(|_: Trigger<OnRemove, B>| {
-                panic!("Observer triggered after being despawned.")
-            })
-            .flush();
+        let system: fn(Trigger<OnRemove, B>) = |_: Trigger<OnRemove, B>| {
+            panic!("Observer triggered after being despawned.");
+        };
+
+        let observer = world.add_observer(system).flush();
         world.despawn(observer);
 
         world.despawn(entity);
@@ -1166,9 +1165,10 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world
-            .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+        let system: fn(Trigger<EventA>) = |_| {
+            panic!("Trigger routed to non-targeted entity.");
+        };
+        world.spawn_empty().observe(system);
         world.add_observer(move |obs: Trigger<EventA>, mut res: ResMut<Order>| {
             assert_eq!(obs.target(), Entity::PLACEHOLDER);
             res.observed("event_a");
@@ -1187,9 +1187,11 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
 
-        world
-            .spawn_empty()
-            .observe(|_: Trigger<EventA>| panic!("Trigger routed to non-targeted entity."));
+        let system: fn(Trigger<EventA>) = |_| {
+            panic!("Trigger routed to non-targeted entity.");
+        };
+
+        world.spawn_empty().observe(system);
         let entity = world
             .spawn_empty()
             .observe(|_: Trigger<EventA>, mut res: ResMut<Order>| res.observed("a_1"))

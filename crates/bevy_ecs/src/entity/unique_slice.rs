@@ -1281,7 +1281,6 @@ impl<T: TrustedEntityBorrow> IndexMut<RangeToInclusive<usize>> for UniqueEntityS
 /// the [`IntoIterator`] impls on it and [`UniqueEntityVec`].
 ///
 /// [`iter`]: `UniqueEntitySlice::iter`
-/// [`into_iter`]: UniqueEntitySlice::into_iter
 pub type Iter<'a, T> = UniqueEntityIter<slice::Iter<'a, T>>;
 
 impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::Iter<'a, T>> {

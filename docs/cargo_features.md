@@ -99,6 +99,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |portable-atomic|`portable-atomic` provides additional platform support for atomic types and operations, even on targets without native support. |
 |qoi|QOI image format support|
+|reflect_documentation|Enable documentation reflection|
 |reflect_functions|Enable function reflection|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|

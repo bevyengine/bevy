@@ -145,7 +145,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
 
                     // Transition events are sent even for same state transitions
                     // Although enter and exit schedules are not run by default.
-                    event.send(StateTransitionEvent {
+                    event.write(StateTransitionEvent {
                         exited: Some(exited.clone()),
                         entered: Some(entered.clone()),
                     });
@@ -154,7 +154,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
                     // If the [`State<S>`] resource does not exist, we create it, compute dependent states, send a transition event and register the `OnEnter` schedule.
                     commands.insert_resource(State(entered.clone()));
 
-                    event.send(StateTransitionEvent {
+                    event.write(StateTransitionEvent {
                         exited: None,
                         entered: Some(entered.clone()),
                     });
@@ -166,7 +166,7 @@ pub(crate) fn internal_apply_state_transition<S: States>(
             if let Some(resource) = current_state {
                 commands.remove_resource::<State<S>>();
 
-                event.send(StateTransitionEvent {
+                event.write(StateTransitionEvent {
                     exited: Some(resource.get().clone()),
                     entered: None,
                 });
