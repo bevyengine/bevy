@@ -291,6 +291,55 @@ impl Deref for BindGroup {
 ///   binding_array<StandardMaterialUniform>` and accessible as
 ///   `material_array[material_indices[slot].material]`.
 ///
+/// ## `data(BINDING_INDEX, ConvertedShaderType, binding_array(BINDING_INDEX))`
+///
+/// * This is very similar to `uniform(BINDING_INDEX, ConvertedShaderType,
+///   binding_array(BINDING_INDEX)` and in fact is identical if bindless mode
+///   isn't being used. The difference is that, in bindless mode, the `data`
+///   attribute produces a single buffer containing an array, not an array of
+///   buffers. For example, suppose you had the following declaration:
+///
+/// ```ignore
+/// #[uniform(0, StandardMaterialUniform, binding_array(10))]
+/// struct StandardMaterial { ... }
+/// ```
+///
+/// In bindless mode, this will produce a binding matching the following WGSL
+/// declaration:
+///
+/// ```wgsl
+/// @group(2) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
+/// ```
+///
+/// On the other hand, if you write this declaration:
+///
+/// ```ignore
+/// #[data(0, StandardMaterialUniform, binding_array(10))]
+/// struct StandardMaterial { ... }
+/// ```
+///
+/// Then Bevy produces a binding that matches this WGSL declaration instead:
+///
+/// ```wgsl
+/// @group(2) @binding(10) var<storage> material_array: array<StandardMaterial>;
+/// ```
+///
+/// * Just as with the structure-level `uniform` attribute, Bevy converts the
+///   entire [`AsBindGroup`] to `ConvertedShaderType`, using the
+///   [`AsBindGroupShaderType<ConvertedShaderType>`] trait.
+///
+/// * In non-bindless mode, the structure-level `data` attribute is the same as
+///   the structure-level `uniform` attribute and produces a single uniform buffer
+///   in the shader. The above example would result in a binding that looks like
+///   this in WGSL in non-bindless mode:
+///
+/// ```wgsl
+/// @group(2) @binding(0) var<uniform> material: StandardMaterial;
+/// ```
+///
+/// * For efficiency reasons, `data` is generally preferred over `uniform`
+///   unless you need to place your data in individual buffers.
+///
 /// ## `bind_group_data(DataType)`
 ///
 /// * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
@@ -567,14 +616,29 @@ pub enum OwnedBindingResource {
     Buffer(Buffer),
     TextureView(TextureViewDimension, TextureView),
     Sampler(SamplerBindingType, Sampler),
+    Data(OwnedData),
 }
 
+/// Data that will be copied into a GPU buffer.
+///
+/// This corresponds to the `#[data]` attribute in `AsBindGroup`.
+#[derive(Debug, Deref, DerefMut)]
+pub struct OwnedData(pub Vec<u8>);
+
 impl OwnedBindingResource {
+    /// Creates a [`BindingResource`] reference to this
+    /// [`OwnedBindingResource`].
+    ///
+    /// Note that this operation panics if passed a
+    /// [`OwnedBindingResource::Data`], because [`OwnedData`] doesn't itself
+    /// correspond to any binding and instead requires the
+    /// `MaterialBindGroupAllocator` to pack it into a buffer.
     pub fn get_binding(&self) -> BindingResource {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
             OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
             OwnedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
+            OwnedBindingResource::Data(_) => panic!("`OwnedData` has no binding resource"),
         }
     }
 }
