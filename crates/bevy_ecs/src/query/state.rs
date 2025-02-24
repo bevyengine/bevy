@@ -957,7 +957,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w World,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'w, D>; N], QueryEntityError<'w>> {
-        self.query(world).get_many_inner(entities)
+        self.query(world).get_inner(entities)
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
@@ -1016,7 +1016,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w mut World,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
-        self.query_mut(world).get_many_inner(entities)
+        self.query_mut(world).get_inner(entities)
     }
 
     /// Gets the query result for the given [`World`] and [`Entity`].
