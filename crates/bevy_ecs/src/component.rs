@@ -1341,11 +1341,11 @@ pub trait ComponentsReader {
         self.get_resource_id(TypeId::of::<T>())
     }
 
-    /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
-    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef>;
+    /// Gets the [`RequiredComponentsMut`] for a component if it exists.
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsRef>;
 
     /// Gets the [`RequiredByStagedMut`] for a component if it exists.
-    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef>;
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByRef>;
 }
 
 /// A trait that allows the user to read into a collection of registered Components.
@@ -1436,14 +1436,11 @@ pub trait ComponentsWriter: ComponentsReader {
 
 /// This trait provides easily misused write access to [`Component`] collections intended for use only within this crate.
 pub(crate) trait ComponentsInternalWriter: ComponentsReader {
-    /// Gets the [`RequiredComponentsStagedMut`] for a component if it exists.
-    fn get_required_components_mut(
-        &mut self,
-        id: ComponentId,
-    ) -> Option<RequiredComponentsStagedMut>;
+    /// Gets the [`RequiredComponentsMut`] for a component if it exists.
+    fn get_required_components_mut(&mut self, id: ComponentId) -> Option<RequiredComponentsMut>;
 
     /// Gets the [`RequiredByStagedMut`] for a component if it exists.
-    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByStagedMut>;
+    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByMut>;
 
     /// Registers a [`ComponentDescriptor`] returning a unique [`ComponentId`].
     /// If this is called multiple times with the same arguments, it will produce different results.
@@ -1789,7 +1786,7 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
         self.cold.len() <= id.0
     }
 
-    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef> {
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsRef> {
         if !self.is_id_valid(id) {
             return None;
         }
@@ -1802,7 +1799,7 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
                     .get(id.0 - self.cold.components.len())
                     .debug_checked_unwrap()
             };
-            RequiredComponentsStagedRef {
+            RequiredComponentsRef {
                 working: &info.required_components,
                 cold: None,
             }
@@ -1810,12 +1807,12 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
             // SAFETY: We just checked that it was valid and cold
             let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
             if let Some(additional) = self.staged.additional_required_components.get(&id) {
-                RequiredComponentsStagedRef {
+                RequiredComponentsRef {
                     working: additional,
                     cold: Some(&info.required_components),
                 }
             } else {
-                RequiredComponentsStagedRef {
+                RequiredComponentsRef {
                     working: &info.required_components,
                     cold: None,
                 }
@@ -1823,7 +1820,7 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
         })
     }
 
-    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef> {
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByRef> {
         if !self.is_id_valid(id) {
             return None;
         }
@@ -1836,7 +1833,7 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
                     .get(id.0 - self.cold.components.len())
                     .debug_checked_unwrap()
             };
-            RequiredByStagedRef {
+            RequiredByRef {
                 working: &info.required_by,
                 cold: None,
             }
@@ -1844,12 +1841,12 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
             // SAFETY: We just checked that it was valid and cold
             let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
             if let Some(additional) = self.staged.additional_required_by.get(&id) {
-                RequiredByStagedRef {
+                RequiredByRef {
                     working: additional,
                     cold: Some(&info.required_by),
                 }
             } else {
-                RequiredByStagedRef {
+                RequiredByRef {
                     working: &info.required_by,
                     cold: None,
                 }
@@ -1859,7 +1856,7 @@ impl ComponentsReader for StagedRef<'_, StagedComponents> {
 }
 
 impl ComponentsReader for Stager<'_, StagedComponents> {
-    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef> {
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsRef> {
         if !self.is_id_valid(id) {
             return None;
         }
@@ -1872,7 +1869,7 @@ impl ComponentsReader for Stager<'_, StagedComponents> {
                     .get(id.0 - self.cold.components.len())
                     .debug_checked_unwrap()
             };
-            RequiredComponentsStagedRef {
+            RequiredComponentsRef {
                 working: &info.required_components,
                 cold: None,
             }
@@ -1880,12 +1877,12 @@ impl ComponentsReader for Stager<'_, StagedComponents> {
             // SAFETY: We just checked that it was valid and cold
             let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
             if let Some(additional) = self.staged.additional_required_components.get(&id) {
-                RequiredComponentsStagedRef {
+                RequiredComponentsRef {
                     working: additional,
                     cold: Some(&info.required_components),
                 }
             } else {
-                RequiredComponentsStagedRef {
+                RequiredComponentsRef {
                     working: &info.required_components,
                     cold: None,
                 }
@@ -1893,7 +1890,7 @@ impl ComponentsReader for Stager<'_, StagedComponents> {
         })
     }
 
-    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef> {
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByRef> {
         if !self.is_id_valid(id) {
             return None;
         }
@@ -1906,7 +1903,7 @@ impl ComponentsReader for Stager<'_, StagedComponents> {
                     .get(id.0 - self.cold.components.len())
                     .debug_checked_unwrap()
             };
-            RequiredByStagedRef {
+            RequiredByRef {
                 working: &info.required_by,
                 cold: None,
             }
@@ -1914,12 +1911,12 @@ impl ComponentsReader for Stager<'_, StagedComponents> {
             // SAFETY: We just checked that it was valid and cold
             let info = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
             if let Some(additional) = self.staged.additional_required_by.get(&id) {
-                RequiredByStagedRef {
+                RequiredByRef {
                     working: additional,
                     cold: Some(&info.required_by),
                 }
             } else {
-                RequiredByStagedRef {
+                RequiredByRef {
                     working: &info.required_by,
                     cold: None,
                 }
@@ -1999,18 +1996,16 @@ impl ComponentsReader for Components {
     }
 
     #[inline]
-    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsStagedRef> {
-        self.components
-            .get(id.0)
-            .map(|info| RequiredComponentsStagedRef {
-                working: &info.required_components,
-                cold: None,
-            })
+    fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsRef> {
+        self.components.get(id.0).map(|info| RequiredComponentsRef {
+            working: &info.required_components,
+            cold: None,
+        })
     }
 
     #[inline]
-    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByStagedRef> {
-        self.components.get(id.0).map(|info| RequiredByStagedRef {
+    fn get_required_by(&self, id: ComponentId) -> Option<RequiredByRef> {
+        self.components.get(id.0).map(|info| RequiredByRef {
             working: &info.required_by,
             cold: None,
         })
@@ -2061,26 +2056,21 @@ impl ComponentsPrivateWriter for Components {
 
 impl ComponentsInternalWriter for Components {
     #[inline]
-    fn get_required_components_mut(
-        &mut self,
-        id: ComponentId,
-    ) -> Option<RequiredComponentsStagedMut> {
+    fn get_required_components_mut(&mut self, id: ComponentId) -> Option<RequiredComponentsMut> {
         self.components
             .get_mut(id.0)
-            .map(|info| RequiredComponentsStagedMut {
+            .map(|info| RequiredComponentsMut {
                 working: &mut info.required_components,
                 cold: None,
             })
     }
 
     #[inline]
-    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByStagedMut> {
-        self.components
-            .get_mut(id.0)
-            .map(|info| RequiredByStagedMut {
-                working: &mut info.required_by,
-                cold: None,
-            })
+    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByMut> {
+        self.components.get_mut(id.0).map(|info| RequiredByMut {
+            working: &mut info.required_by,
+            cold: None,
+        })
     }
 
     #[inline]
@@ -2093,10 +2083,7 @@ impl ComponentsInternalWriter for Components {
 }
 
 impl ComponentsInternalWriter for Stager<'_, StagedComponents> {
-    fn get_required_components_mut(
-        &mut self,
-        id: ComponentId,
-    ) -> Option<RequiredComponentsStagedMut> {
+    fn get_required_components_mut(&mut self, id: ComponentId) -> Option<RequiredComponentsMut> {
         if !self.is_id_valid(id) {
             return None;
         }
@@ -2109,7 +2096,7 @@ impl ComponentsInternalWriter for Stager<'_, StagedComponents> {
                     .get_mut(id.0 - self.cold.components.len())
                     .debug_checked_unwrap()
             };
-            RequiredComponentsStagedMut {
+            RequiredComponentsMut {
                 working: &mut info.required_components,
                 cold: None,
             }
@@ -2122,14 +2109,14 @@ impl ComponentsInternalWriter for Stager<'_, StagedComponents> {
                 .entry(id)
                 .or_default();
 
-            RequiredComponentsStagedMut {
+            RequiredComponentsMut {
                 working: additional,
                 cold: Some(&cold.required_components),
             }
         })
     }
 
-    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByStagedMut> {
+    fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByMut> {
         if !self.is_id_valid(id) {
             return None;
         }
@@ -2142,7 +2129,7 @@ impl ComponentsInternalWriter for Stager<'_, StagedComponents> {
                     .get_mut(id.0 - self.cold.components.len())
                     .debug_checked_unwrap()
             };
-            RequiredByStagedMut {
+            RequiredByMut {
                 working: &mut info.required_by,
                 cold: None,
             }
@@ -2151,7 +2138,7 @@ impl ComponentsInternalWriter for Stager<'_, StagedComponents> {
             let cold = unsafe { self.cold.components.get(id.0).debug_checked_unwrap() };
             let additional = self.staged.additional_required_by.entry(id).or_default();
 
-            RequiredByStagedMut {
+            RequiredByMut {
                 working: additional,
                 cold: Some(&cold.required_by),
             }
@@ -2233,7 +2220,7 @@ impl Components {
 }
 
 /// Allows modifying [`RequiredComponents`] with potential staged changes.
-pub(crate) struct RequiredComponentsStagedMut<'a> {
+pub(crate) struct RequiredComponentsMut<'a> {
     /// Working refers to the most changeable version of the data.
     /// Since this is meant to be changed, it usually comes from staged storage (unless we have mutable access to cold storage in which case we can just use that.)
     working: &'a mut RequiredComponents,
@@ -2245,7 +2232,7 @@ pub(crate) struct RequiredComponentsStagedMut<'a> {
 }
 
 /// Allows viewing [`RequiredComponents`] with potential staged changes.
-pub struct RequiredComponentsStagedRef<'a> {
+pub struct RequiredComponentsRef<'a> {
     /// Working refers to the most changeable version of the data.
     /// Every component must have a working field.
     /// Since this is immutable, it can be in cold or staged.
@@ -2259,26 +2246,26 @@ pub struct RequiredComponentsStagedRef<'a> {
 }
 
 /// Allows modifying component requirees with potential staged changes.
-pub(crate) struct RequiredByStagedMut<'a> {
-    /// See [`RequiredComponentsStagedMut::working`].
+pub(crate) struct RequiredByMut<'a> {
+    /// See [`RequiredComponentsMut::working`].
     working: &'a mut HashSet<ComponentId>,
     #[expect(
         unused,
         reason = "Although we aren't using this now, it is useful to have."
     )]
-    /// See [`RequiredComponentsStagedMut::cold`].
+    /// See [`RequiredComponentsMut::cold`].
     cold: Option<&'a HashSet<ComponentId>>,
 }
 
 /// Allows viewing component requirees with potential staged changes.
-pub struct RequiredByStagedRef<'a> {
-    /// See [`RequiredComponentsStagedRef::working`].
+pub struct RequiredByRef<'a> {
+    /// See [`RequiredComponentsRef::working`].
     working: &'a HashSet<ComponentId>,
-    /// See [`RequiredComponentsStagedRef::cold`].
+    /// See [`RequiredComponentsRef::cold`].
     cold: Option<&'a HashSet<ComponentId>>,
 }
 
-impl<'a> RequiredComponentsStagedMut<'a> {
+impl<'a> RequiredComponentsMut<'a> {
     /// Gets the [`RequiredComponent`] for this id if it exists.
     #[inline]
     pub fn get(&self, id: ComponentId) -> Option<&RequiredComponent> {
@@ -2289,7 +2276,7 @@ impl<'a> RequiredComponentsStagedMut<'a> {
     }
 }
 
-impl<'a> RequiredComponentsStagedRef<'a> {
+impl<'a> RequiredComponentsRef<'a> {
     /// Iterates the required components.
     #[inline]
     pub(crate) fn iter(&self) -> impl Iterator<Item = &RequiredComponents> {
@@ -2327,7 +2314,7 @@ impl<'a> RequiredComponentsStagedRef<'a> {
     }
 }
 
-impl<'a> RequiredByStagedRef<'a> {
+impl<'a> RequiredByRef<'a> {
     /// Iterates the required components.
     #[inline]
     pub(crate) fn iter(&self) -> impl Iterator<Item = &HashSet<ComponentId>> {

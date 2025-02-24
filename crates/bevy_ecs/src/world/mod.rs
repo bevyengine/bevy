@@ -40,7 +40,7 @@ use crate::{
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
         Components, ComponentsInternalWriter, ComponentsReader, ComponentsWriter, Mutable,
-        RequiredComponentsError, RequiredComponentsStagedRef, Tick,
+        RequiredComponentsError, RequiredComponentsRef, Tick,
     },
     entity::{
         AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,
@@ -508,16 +508,13 @@ impl World {
     }
 
     /// Retrieves the [required components](RequiredComponentsStagedRef) for the given component type, if it exists.
-    pub fn get_required_components<C: Component>(&self) -> Option<RequiredComponentsStagedRef> {
+    pub fn get_required_components<C: Component>(&self) -> Option<RequiredComponentsRef> {
         let id = self.components().component_id::<C>()?;
         self.get_required_components_by_id(id)
     }
 
     /// Retrieves the [required components](RequiredComponentsStagedRef) for the component of the given [`ComponentId`], if it exists.
-    pub fn get_required_components_by_id(
-        &self,
-        id: ComponentId,
-    ) -> Option<RequiredComponentsStagedRef> {
+    pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<RequiredComponentsRef> {
         self.components().get_required_components(id)
     }
 

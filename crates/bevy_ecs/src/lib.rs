@@ -141,7 +141,7 @@ mod tests {
         change_detection::Ref,
         component::{
             require, Component, ComponentId, ComponentsReader, RequiredComponentsError,
-            RequiredComponentsStagedRef,
+            RequiredComponentsRef,
         },
         entity::Entity,
         entity_disabling::DefaultQueryFilters,
@@ -2623,7 +2623,7 @@ mod tests {
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: RequiredComponentsStagedRef) -> Vec<(ComponentId, u16)> {
+        fn to_vec(required: RequiredComponentsRef) -> Vec<(ComponentId, u16)> {
             let mut vec = required
                 .iter()
                 .flat_map(|requirements| requirements.0.iter())
