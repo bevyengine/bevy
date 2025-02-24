@@ -395,6 +395,11 @@ impl SpecializedRenderPipeline for RenderSkyBindGroupLayouts {
             BlendFactor::SrcAlpha
         };
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            shader_defs.push("DUAL_SOURCE_BLENDING".into());
+        }
+
         RenderPipelineDescriptor {
             label: Some(format!("render_sky_pipeline_{}", key.msaa_samples).into()),
             layout: vec![if key.msaa_samples == 1 {
