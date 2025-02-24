@@ -1341,10 +1341,10 @@ pub trait ComponentsReader {
         self.get_resource_id(TypeId::of::<T>())
     }
 
-    /// Gets the [`RequiredComponentsMut`] for a component if it exists.
+    /// Gets the [`RequiredComponentsRef`] for a component if it is registered.
     fn get_required_components(&self, id: ComponentId) -> Option<RequiredComponentsRef>;
 
-    /// Gets the [`RequiredByStagedMut`] for a component if it exists.
+    /// Gets the [`RequiredByRef`] for a component if it is registered.
     fn get_required_by(&self, id: ComponentId) -> Option<RequiredByRef>;
 }
 
@@ -1439,7 +1439,7 @@ pub(crate) trait ComponentsInternalWriter: ComponentsReader {
     /// Gets the [`RequiredComponentsMut`] for a component if it exists.
     fn get_required_components_mut(&mut self, id: ComponentId) -> Option<RequiredComponentsMut>;
 
-    /// Gets the [`RequiredByStagedMut`] for a component if it exists.
+    /// Gets the [`RequiredByMut`] for a component if it exists.
     fn get_required_by_mut(&mut self, id: ComponentId) -> Option<RequiredByMut>;
 
     /// Registers a [`ComponentDescriptor`] returning a unique [`ComponentId`].

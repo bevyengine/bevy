@@ -507,13 +507,13 @@ impl World {
         }
     }
 
-    /// Retrieves the [required components](RequiredComponentsStagedRef) for the given component type, if it exists.
+    /// Retrieves the [required components](RequiredComponentsRef) for the given component type, if it is registered.
     pub fn get_required_components<C: Component>(&self) -> Option<RequiredComponentsRef> {
         let id = self.components().component_id::<C>()?;
         self.get_required_components_by_id(id)
     }
 
-    /// Retrieves the [required components](RequiredComponentsStagedRef) for the component of the given [`ComponentId`], if it exists.
+    /// Retrieves the [required components](RequiredComponentsRef) for the component of the given [`ComponentId`], if it is registered.
     pub fn get_required_components_by_id(&self, id: ComponentId) -> Option<RequiredComponentsRef> {
         self.components().get_required_components(id)
     }
