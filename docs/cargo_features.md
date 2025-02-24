@@ -97,7 +97,6 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_specular_textures|Enable support for specular textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
-|portable-atomic|`portable-atomic` provides additional platform support for atomic types and operations, even on targets without native support. |
 |qoi|QOI image format support|
 |reflect_documentation|Enable documentation reflection|
 |reflect_functions|Enable function reflection|

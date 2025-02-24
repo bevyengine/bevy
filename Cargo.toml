@@ -509,9 +509,6 @@ std = ["bevy_internal/std"]
 # `critical-section` provides the building blocks for synchronization primitives on all platforms, including `no_std`.
 critical-section = ["bevy_internal/critical-section"]
 
-# `portable-atomic` provides additional platform support for atomic types and operations, even on targets without native support. 
-portable-atomic = ["bevy_internal/portable-atomic"]
-
 # Uses the `libm` maths library instead of the one provided in `std` and `core`.
 libm = ["bevy_internal/libm"]
 
