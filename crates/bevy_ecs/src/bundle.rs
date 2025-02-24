@@ -11,8 +11,8 @@ use crate::{
     },
     change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, ComponentsInternalReader, ComponentsReader,
-        ComponentsWriter, RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
+        Component, ComponentId, Components, ComponentsReader, ComponentsWriter,
+        RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,

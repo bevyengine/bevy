@@ -39,8 +39,8 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentHooks, ComponentId, ComponentInfo, ComponentTicks,
-        Components, ComponentsInternalReader, ComponentsInternalWriter, ComponentsReader,
-        ComponentsWriter, Mutable, RequiredComponentsError, RequiredComponentsStagedRef, Tick,
+        Components, ComponentsInternalWriter, ComponentsReader, ComponentsWriter, Mutable,
+        RequiredComponentsError, RequiredComponentsStagedRef, Tick,
     },
     entity::{
         AllocAtWithoutReplacement, Entities, Entity, EntityDoesNotExistError, EntityLocation,

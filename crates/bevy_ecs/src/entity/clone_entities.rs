@@ -7,9 +7,7 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
-use crate::component::{
-    ComponentCloneBehavior, ComponentCloneFn, ComponentsInternalReader, ComponentsReader,
-};
+use crate::component::{ComponentCloneBehavior, ComponentCloneFn, ComponentsReader};
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::EntityMapper;
 use crate::system::Commands;
