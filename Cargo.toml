@@ -784,6 +784,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "mesh2d_repeated_texture"
+path = "examples/2d/mesh2d_repeated_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.mesh2d_repeated_texture]
+name = "Mesh2d Repeated Texture"
+description = "Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "pixel_grid_snap"
 path = "examples/2d/pixel_grid_snap.rs"
 doc-scrape-examples = true
