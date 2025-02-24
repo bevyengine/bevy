@@ -2,7 +2,12 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet, Entity, EntityDoesNotExistError},
+    entity::{
+        hash_map::EntityHashMap, hash_set::EntityHashSet, Entity, EntityDoesNotExistError,
+        UniqueEntitySlice,
+    },
+    query::{QueryData, QueryEntityError, QueryFilter, QueryItem},
+    system::Query,
     world::{
         error::EntityMutableFetchError, unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef,
         EntityWorldMut,
@@ -44,6 +49,9 @@ pub unsafe trait WorldEntityFetch {
     /// The mutable reference type returned by [`WorldEntityFetch::fetch_deferred_mut`],
     /// but without structural mutability.
     type DeferredMut<'w>;
+
+    /// The query data returned by [`Query::get_inner`].
+    type Data<'w, D: QueryData>;
 
     /// Returns read-only reference(s) to the entities with the given
     /// [`Entity`] IDs, as determined by `self`.
@@ -103,6 +111,18 @@ pub unsafe trait WorldEntityFetch {
         self,
         cell: UnsafeWorldCell<'_>,
     ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError>;
+
+    /// Returns query data for the entities with the given [`Entity`] IDs, as determined by `self`.
+    ///
+    /// # Errors
+    ///
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
+    ///   requested mutably more than once and the query performs mutable access.
+    fn fetch_query_data<'w, 's, D: QueryData, F: QueryFilter>(
+        self,
+        query: Query<'w, 's, D, F>,
+    ) -> Result<Self::Data<'w, D>, QueryEntityError<'w>>;
 }
 
 // SAFETY:
@@ -113,6 +133,7 @@ unsafe impl WorldEntityFetch for Entity {
     type Ref<'w> = EntityRef<'w>;
     type Mut<'w> = EntityWorldMut<'w>;
     type DeferredMut<'w> = EntityMut<'w>;
+    type Data<'w, D: QueryData> = QueryItem<'w, D>;
 
     unsafe fn fetch_ref(
         self,
@@ -145,6 +166,14 @@ unsafe impl WorldEntityFetch for Entity {
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         Ok(unsafe { EntityMut::new(ecell) })
     }
+
+    fn fetch_query_data<'w, 's, D: QueryData, F: QueryFilter>(
+        self,
+        query: Query<'w, 's, D, F>,
+    ) -> Result<Self::Data<'w, D>, QueryEntityError<'w>> {
+        // SAFETY: This is the only call made from this query
+        unsafe { query.get_inner_unsafe(self) }
+    }
 }
 
 // SAFETY:
@@ -155,6 +184,7 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     type Ref<'w> = [EntityRef<'w>; N];
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
+    type Data<'w, D: QueryData> = [QueryItem<'w, D>; N];
 
     unsafe fn fetch_ref(
         self,
@@ -176,6 +206,13 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError> {
         <&Self>::fetch_deferred_mut(&self, cell)
     }
+
+    fn fetch_query_data<'w, 's, D: QueryData, F: QueryFilter>(
+        self,
+        query: Query<'w, 's, D, F>,
+    ) -> Result<Self::Data<'w, D>, QueryEntityError<'w>> {
+        <&Self>::fetch_query_data(&self, query)
+    }
 }
 
 // SAFETY:
@@ -186,6 +223,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     type Ref<'w> = [EntityRef<'w>; N];
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
+    type Data<'w, D: QueryData> = [QueryItem<'w, D>; N];
 
     unsafe fn fetch_ref(
         self,
@@ -238,6 +276,33 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
         // and `fetch_mut` does not return structurally-mutable references.
         unsafe { self.fetch_mut(cell) }
     }
+
+    fn fetch_query_data<'w, 's, D: QueryData, F: QueryFilter>(
+        self,
+        query: Query<'w, 's, D, F>,
+    ) -> Result<Self::Data<'w, D>, QueryEntityError<'w>> {
+        if !D::IS_READ_ONLY {
+            // Check for duplicate entities.
+            for i in 0..self.len() {
+                for j in 0..i {
+                    if self[i] == self[j] {
+                        return Err(QueryEntityError::AliasedMutability(self[i]));
+                    }
+                }
+            }
+        }
+
+        let mut values = [(); N].map(|_| MaybeUninit::uninit());
+
+        for (value, &entity) in core::iter::zip(&mut values, self) {
+            // SAFETY: We ensured that every entity is distinct
+            let item = unsafe { query.get_inner_unsafe(entity) }?;
+            *value = MaybeUninit::new(item);
+        }
+
+        // SAFETY: Each value has been fully initialized.
+        Ok(values.map(|x| unsafe { x.assume_init() }))
+    }
 }
 
 // SAFETY:
@@ -248,6 +313,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     type Ref<'w> = Vec<EntityRef<'w>>;
     type Mut<'w> = Vec<EntityMut<'w>>;
     type DeferredMut<'w> = Vec<EntityMut<'w>>;
+    type Data<'w, D: QueryData> = Vec<QueryItem<'w, D>>;
 
     unsafe fn fetch_ref(
         self,
@@ -294,6 +360,26 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
         // and `fetch_mut` does not return structurally-mutable references.
         unsafe { self.fetch_mut(cell) }
     }
+
+    fn fetch_query_data<'w, 's, D: QueryData, F: QueryFilter>(
+        self,
+        query: Query<'w, 's, D, F>,
+    ) -> Result<Self::Data<'w, D>, QueryEntityError<'w>> {
+        if !D::IS_READ_ONLY {
+            // Check for duplicate entities.
+            for i in 0..self.len() {
+                for j in 0..i {
+                    if self[i] == self[j] {
+                        return Err(QueryEntityError::AliasedMutability(self[i]));
+                    }
+                }
+            }
+        }
+
+        // SAFETY: We checked for duplicates above
+        let entities = unsafe { UniqueEntitySlice::from_slice_unchecked(self) };
+        Ok(query.iter_many_unique_inner(entities).collect())
+    }
 }
 
 // SAFETY:
@@ -304,6 +390,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     type Ref<'w> = EntityHashMap<EntityRef<'w>>;
     type Mut<'w> = EntityHashMap<EntityMut<'w>>;
     type DeferredMut<'w> = EntityHashMap<EntityMut<'w>>;
+    type Data<'w, D: QueryData> = EntityHashMap<QueryItem<'w, D>>;
 
     unsafe fn fetch_ref(
         self,
@@ -338,5 +425,17 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
         // SAFETY: caller ensures that the world cell has mutable access to the entity,
         // and `fetch_mut` does not return structurally-mutable references.
         unsafe { self.fetch_mut(cell) }
+    }
+
+    fn fetch_query_data<'w, 's, D: QueryData, F: QueryFilter>(
+        self,
+        query: Query<'w, 's, D, F>,
+    ) -> Result<Self::Data<'w, D>, QueryEntityError<'w>> {
+        let mut refs = EntityHashMap::with_capacity(self.len());
+        for &id in self {
+            // SAFETY: EntityHashset ensures that every entity is distinct
+            refs.insert(id, unsafe { query.get_inner_unsafe(id) }?);
+        }
+        Ok(refs)
     }
 }

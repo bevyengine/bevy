@@ -7,11 +7,10 @@ use crate::{
         QueryFilter, QueryIter, QueryManyIter, QueryManyUniqueIter, QueryParIter, QueryParManyIter,
         QueryParManyUniqueIter, QuerySingleError, QueryState, ROQueryItem, ReadOnlyQueryData,
     },
-    world::unsafe_world_cell::UnsafeWorldCell,
+    world::{unsafe_world_cell::UnsafeWorldCell, WorldEntityFetch},
 };
 use core::{
     marker::PhantomData,
-    mem::MaybeUninit,
     ops::{Deref, DerefMut},
 };
 
@@ -508,24 +507,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`reborrow`](Self::reborrow) for the safe versions.
     pub unsafe fn reborrow_unsafe(&self) -> Query<'_, 's, D, F> {
-        // SAFETY:
-        // - This is memory safe because the caller ensures that there are no conflicting references.
-        // - The world matches because it was the same one used to construct self.
-        unsafe { self.copy_unsafe() }
-    }
-
-    /// Returns a new `Query` copying the access from this one.
-    /// The current query will still be usable while the new one exists, but must not be used in a way that violates aliasing.
-    ///
-    /// # Safety
-    ///
-    /// This function makes it possible to violate Rust's aliasing guarantees.
-    /// You must make sure this call does not result in a mutable or shared reference to a component with a mutable reference.
-    ///
-    /// # See also
-    ///
-    /// - [`reborrow_unsafe`](Self::reborrow_unsafe) for a safer version that constrains the returned `'w` lifetime to the length of the borrow.
-    unsafe fn copy_unsafe(&self) -> Query<'w, 's, D, F> {
         // SAFETY:
         // - This is memory safe because the caller ensures that there are no conflicting references.
         // - The world matches because it was the same one used to construct self.
@@ -1240,15 +1221,25 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         }
     }
 
-    /// Returns the read-only query item for the given [`Entity`].
+    /// Returns read-only query items for the given `entities`.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// This function supports fetching data for a single or multiple entities:
+    /// - Pass an [`Entity`] to receive the query item for that entity.
+    ///   This is always guaranteed to run in `O(1)` time.
+    /// - Pass an array of [`Entity`]s to receive an array of query items in the
+    ///   same order. This is always guaranteed to run in `O(N)` time.
     ///
-    /// This is always guaranteed to run in `O(1)` time.
+    /// # Errors
     ///
-    /// # Example
+    /// - If an entity does not exist, [`QueryEntityError::NoSuchEntity`] is returned.
+    /// - If an entity does not have the queried component, [`QueryEntityError::QueryDoesNotMatch`] is returned.
     ///
-    /// Here, `get` is used to retrieve the exact query item of the entity specified by the `SelectedCharacter` resource.
+    /// # Examples
+    ///
+    /// ## Single [`Entity`]
+    ///
+    /// Here, `get` is used to retrieve the exact query item of the entity
+    /// specified by the `SelectedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1261,8 +1252,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// fn print_selected_character_name_system(
     ///        query: Query<&Character>,
     ///        selection: Res<SelectedCharacter>
-    /// )
-    /// {
+    /// ) {
     ///     if let Ok(selected_character) = query.get(selection.entity) {
     ///         println!("{}", selected_character.name);
     ///     }
@@ -1270,12 +1260,38 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(print_selected_character_name_system);
     /// ```
     ///
+    /// ## Array of [`Entity`]s
+    ///
+    /// Here, `get` is used to retrieve two query items for the two entities
+    /// specified by the `Fight` resource.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Resource)]
+    /// # struct Fight { attacker: Entity, defender: Entity }
+    /// # #[derive(Component)]
+    /// # struct Character { name: String }
+    ///
+    /// fn print_fighting_characters_name_system(
+    ///        query: Query<&Character>,
+    ///        fight: Res<Fight>
+    /// ) {
+    ///     if let Ok([attacker_char, defender_char]) = query.get([fight.attacker, fight.defender]) {
+    ///         println!("{} vs {}", attacker_char.name, defender_char.name);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(print_fighting_characters_name_system);
+    /// ```
+    ///
     /// # See also
     ///
     /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
-    pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, D>, QueryEntityError> {
-        self.as_readonly().get_inner(entity)
+    pub fn get<E: WorldEntityFetch>(
+        &self,
+        entities: E,
+    ) -> Result<E::Data<'_, D::ReadOnly>, QueryEntityError> {
+        self.as_readonly().get_inner(entities)
     }
 
     /// Returns the read-only query items for the given array of [`Entity`].
@@ -1326,9 +1342,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &self,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'_, D>; N], QueryEntityError> {
-        // Note that this calls `get_many_readonly` instead of `get_many_inner`
-        // since we don't need to check for duplicates.
-        self.as_readonly().get_many_readonly(entities)
+        self.get(entities)
     }
 
     /// Returns the read-only query items for the given array of [`Entity`].
@@ -1374,22 +1388,33 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     #[track_caller]
-    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
-        match self.get_many(entities) {
+    pub fn many<E: WorldEntityFetch>(&self, entities: E) -> E::Data<'_, D::ReadOnly> {
+        match self.get(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query results: {error}"),
         }
     }
 
-    /// Returns the query item for the given [`Entity`].
+    /// Returns read-only query items for the given `entities`.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// This function supports fetching data for a single or multiple entities:
+    /// - Pass an [`Entity`] to receive the query item for that entity.
+    ///   This is always guaranteed to run in `O(1)` time.
+    /// - Pass an array of [`Entity`]s to receive an array of query items in the
+    ///   same order. This is always guaranteed to run in `O(N)` time.
     ///
-    /// This is always guaranteed to run in `O(1)` time.
+    /// # Errors
     ///
-    /// # Example
+    /// - If an entity does not exist, [`QueryEntityError::NoSuchEntity`] is returned.
+    /// - If an entity does not have the queried component, [`QueryEntityError::QueryDoesNotMatch`] is returned.
+    /// - If the same entity is requested multiple times and the query is mutable, [`QueryEntityError::AliasedMutability`] is returned.
     ///
-    /// Here, `get_mut` is used to retrieve the exact query item of the entity specified by the `PoisonedCharacter` resource.
+    /// # Examples
+    ///
+    /// ## Single [`Entity`]
+    ///
+    /// Here, `get_mut` is used to retrieve the exact query item of the entity
+    /// specified by the `PoisonedCharacter` resource.
     ///
     /// ```
     /// # use bevy_ecs::prelude::*;
@@ -1407,28 +1432,98 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # bevy_ecs::system::assert_is_system(poison_system);
     /// ```
     ///
+    /// ## Array of [`Entity`]s
+    ///
+    /// Here, `get_mut` is used to retrieve two query items for the two entities
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct Spring{
+    ///     connected_entities: [Entity; 2],
+    ///     strength: f32,
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Position {
+    ///     x: f32,
+    ///     y: f32,
+    /// }
+    ///
+    /// #[derive(Component)]
+    /// struct Force {
+    ///     x: f32,
+    ///     y: f32,
+    /// }
+    ///
+    /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
+    ///     for spring in &spring_query {
+    ///          // We can use "destructuring" to unpack our query items nicely
+    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
+    ///
+    ///          force_1.x += spring.strength * (position_1.x - position_2.x);
+    ///          force_1.y += spring.strength * (position_1.y - position_2.y);
+    ///
+    ///          // Silence borrow-checker: I have split your mutable borrow!
+    ///          force_2.x += spring.strength * (position_2.x - position_1.x);
+    ///          force_2.y += spring.strength * (position_2.y - position_1.y);
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(spring_forces);
+    /// ```
+    ///
     /// # See also
     ///
     /// - [`get`](Self::get) to get a read-only query item.
     #[inline]
-    pub fn get_mut(&mut self, entity: Entity) -> Result<D::Item<'_>, QueryEntityError> {
-        self.reborrow().get_inner(entity)
+    pub fn get_mut<E: WorldEntityFetch>(
+        &mut self,
+        entities: E,
+    ) -> Result<E::Data<'_, D>, QueryEntityError> {
+        self.reborrow().get_inner(entities)
     }
 
-    /// Returns the query item for the given [`Entity`].
+    /// Returns query items for the given `entities`.
     /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
     ///
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
+    /// This function supports fetching data for a single or multiple entities:
+    /// - Pass an [`Entity`] to receive the query item for that entity.
+    ///   This is always guaranteed to run in `O(1)` time.
+    /// - Pass an array of [`Entity`]s to receive an array of query items in the
+    ///   same order. This is always guaranteed to run in `O(N)` time.
     ///
-    /// This is always guaranteed to run in `O(1)` time.
+    /// # Errors
+    ///
+    /// - If an entity does not exist, [`QueryEntityError::NoSuchEntity`] is returned.
+    /// - If an entity does not have the queried component, [`QueryEntityError::QueryDoesNotMatch`] is returned.
+    /// - If the same entity is requested multiple times and the query is mutable, [`QueryEntityError::AliasedMutability`] is returned.
     ///
     /// # See also
     ///
     /// - [`get_mut`](Self::get_mut) to get the item using a mutable borrow of the [`Query`].
     #[inline]
-    pub fn get_inner(self, entity: Entity) -> Result<D::Item<'w>, QueryEntityError<'w>> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+    pub fn get_inner<E: WorldEntityFetch>(
+        self,
+        entities: E,
+    ) -> Result<E::Data<'w, D>, QueryEntityError<'w>> {
+        entities.fetch_query_data(self)
+    }
+
+    /// Returns the query item for the given [`Entity`].
+    /// This returns results with the actual "inner" world lifetime, but does not consume the query.
+    ///
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that this is not called more than once with the same [`Entity`],
+    /// and that no other methods are called on the `Query`.
+    pub(crate) unsafe fn get_inner_unsafe(
+        &self,
+        entity: Entity,
+    ) -> Result<D::Item<'w>, QueryEntityError<'w>> {
+        // SAFETY: The `Query` has access to this data,
+        // and the caller ensures that no conflicting calls are made
         unsafe {
             let location = self
                 .world
@@ -1550,7 +1645,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         &mut self,
         entities: [Entity; N],
     ) -> Result<[D::Item<'_>; N], QueryEntityError> {
-        self.reborrow().get_many_inner(entities)
+        self.get_mut(entities)
     }
 
     /// Returns the query items for the given array of [`Entity`].
@@ -1570,63 +1665,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self,
         entities: [Entity; N],
     ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
-        // Verify that all entities are unique
-        for i in 0..N {
-            for j in 0..i {
-                if entities[i] == entities[j] {
-                    return Err(QueryEntityError::AliasedMutability(entities[i]));
-                }
-            }
-        }
-
-        // SAFETY: All entities are unique, so the results don't alias.
-        unsafe { self.get_many_impl(entities) }
-    }
-
-    /// Returns the query items for the given array of [`Entity`].
-    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
-    ///
-    /// The returned query items are in the same order as the input.
-    /// In case of a nonexisting entity or mismatched component, a [`QueryEntityError`] is returned instead.
-    ///
-    /// # See also
-    ///
-    /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
-    /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
-    /// - [`get_many_inner`](Self::get_many_readonly) to get mutable query items with the actual "inner" world lifetime.
-    #[inline]
-    pub fn get_many_readonly<const N: usize>(
-        self,
-        entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>>
-    where
-        D: ReadOnlyQueryData,
-    {
-        // SAFETY: The query results are read-only, so they don't conflict if there are duplicate entities.
-        unsafe { self.get_many_impl(entities) }
-    }
-
-    /// Returns the query items for the given array of [`Entity`].
-    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
-    ///
-    /// # Safety
-    ///
-    /// The caller must ensure that the query data returned for the entities does not conflict,
-    /// either because they are all unique or because the data is read-only.
-    unsafe fn get_many_impl<const N: usize>(
-        self,
-        entities: [Entity; N],
-    ) -> Result<[D::Item<'w>; N], QueryEntityError<'w>> {
-        let mut values = [(); N].map(|_| MaybeUninit::uninit());
-
-        for (value, entity) in core::iter::zip(&mut values, entities) {
-            // SAFETY: The caller asserts that the results don't alias
-            let item = unsafe { self.copy_unsafe() }.get_inner(entity)?;
-            *value = MaybeUninit::new(item);
-        }
-
-        // SAFETY: Each value has been fully initialized.
-        Ok(values.map(|x| unsafe { x.assume_init() }))
+        self.get_inner(entities)
     }
 
     /// Returns the query items for the given array of [`Entity`].
@@ -1679,8 +1718,8 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     #[track_caller]
-    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
-        match self.get_many_mut(entities) {
+    pub fn many_mut<E: WorldEntityFetch>(&mut self, entities: E) -> E::Data<'_, D> {
+        match self.get_mut(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query result: {error}"),
         }
@@ -2586,11 +2625,14 @@ mod tests {
 
     #[test]
     fn get_many_uniqueness() {
+        #[derive(Component, Debug)]
+        struct C;
+
         let mut world = World::new();
 
-        let entities: Vec<Entity> = (0..10).map(|_| world.spawn_empty().id()).collect();
+        let entities: Vec<Entity> = (0..10).map(|_| world.spawn(C).id()).collect();
 
-        let mut query_state = world.query::<Entity>();
+        let mut query_state = world.query::<&mut C>();
 
         // It's best to test get_many_inner directly, as it is shared
         // We don't care about aliased mutability for the read-only equivalent
