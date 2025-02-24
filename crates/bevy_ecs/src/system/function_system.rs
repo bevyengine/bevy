@@ -619,6 +619,10 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Retrieve the [`SystemParam`] values. This will not update archetypes automatically.
+    /// 
+    /// Notably, this method guarantees no structural ECS changes to the `world`, as part of the safety contracts required by
+    /// [`SystemParam`]. This allows calling `get_unchecked_manual` in multiple `SystemState`s to the same world concurrently,
+    /// provided all mutable accesses are disjoint.
     ///
     /// # Safety
     /// This call might access any of the input parameters in a way that violates Rust's mutability rules. Make sure the data
