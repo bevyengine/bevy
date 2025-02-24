@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Fields, Ident, Index, LitStr, Member,
-    Path, Result, Token, Visibility,
+    Data, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Fields, Ident, Index,
+    LitStr, Member, Path, Result, Token, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -75,25 +75,14 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add_path = attrs.on_add.map(|path| path.to_token_stream());
-    let on_remove_path = attrs.on_remove.map(|path| path.to_token_stream());
-
-    let on_insert_path = if relationship.is_some() {
+    if relationship.is_some() {
         if attrs.on_insert.is_some() {
             return syn::Error::new(
-                ast.span(),
-                "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
-            )
-            .into_compile_error()
-            .into();
+                    ast.span(),
+                    "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
+                ).into_compile_error().into();
         }
 
-        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert))
-    } else {
-        attrs.on_insert.map(|path| path.to_token_stream())
-    };
-
-    let on_replace_path = if relationship.is_some() {
         if attrs.on_replace.is_some() {
             return syn::Error::new(
                 ast.span(),
@@ -102,9 +91,9 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into_compile_error()
             .into();
         }
+    }
 
-        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace))
-    } else if attrs.relationship_target.is_some() {
+    if relationship_target.is_some() {
         if attrs.on_replace.is_some() {
             return syn::Error::new(
                 ast.span(),
@@ -114,15 +103,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into();
         }
 
-        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace))
-    } else {
-        attrs.on_replace.map(|path| path.to_token_stream())
-    };
-
-    let on_despawn_path = if attrs
-        .relationship_target
-        .is_some_and(|target| target.linked_spawn)
-    {
         if attrs.on_despawn.is_some() {
             return syn::Error::new(
                 ast.span(),
@@ -131,19 +111,74 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             .into_compile_error()
             .into();
         }
+    }
 
-        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn))
-    } else {
-        attrs.on_despawn.map(|path| path.to_token_stream())
+    let on_insert_fn = match HookKind::parse(
+        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert)
+            .to_token_stream()
+            .into(),
+    ) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error().into(),
+    };
+    let on_replace_fn = match HookKind::parse(
+        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace)
+            .to_token_stream()
+            .into(),
+    ) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error().into(),
+    };
+    let on_replace_target_fn = match HookKind::parse(
+        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace)
+            .to_token_stream()
+            .into(),
+    ) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error().into(),
+    };
+    let on_despawn_target_fn = match HookKind::parse(
+        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn)
+            .to_token_stream()
+            .into(),
+    ) {
+        Ok(value) => value,
+        Err(err) => return err.into_compile_error().into(),
     };
 
-    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
-    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
+    let [rel_insert_hook, rel_replace_hook, rel_target_replace_hook, rel_target_despawn_hook] =
+        relationship
+            .is_some()
+            .then(|| {
+                [
+                    attrs.on_insert.is_some().then_some(on_insert_fn),
+                    attrs.on_replace.is_some().then_some(on_replace_fn),
+                    attrs
+                        .relationship_target
+                        .is_some()
+                        .then_some(on_replace_target_fn),
+                    attrs
+                        .relationship_target
+                        .is_some_and(|target| target.linked_spawn)
+                        .then_some(on_despawn_target_fn),
+                ]
+            })
+            .unwrap_or([None, None, None, None]);
+
+    let on_insert_hook = rel_insert_hook.or(attrs.on_insert);
+    let on_replace_hook = rel_replace_hook
+        .or(rel_target_replace_hook)
+        .or(attrs.on_replace);
+    let on_despawn_hook = rel_target_despawn_hook.or(attrs.on_despawn);
+
+    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, attrs.on_add);
+    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_hook);
     let on_replace =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
-    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
+        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_hook);
+    let on_remove =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, attrs.on_remove);
     let on_despawn =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
+        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_hook);
 
     ast.generics
         .make_where_clause()
@@ -435,14 +470,44 @@ pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 
+enum HookKind {
+    Path(ExprPath),
+    Call(ExprCall),
+    Closure(ExprClosure),
+}
+
+impl HookKind {
+    fn parse(tokens: TokenStream) -> Result<Self> {
+        syn::parse::<Expr>(tokens).and_then(Self::from_expr)
+    }
+
+    fn from_expr(value: Expr) -> Result<Self> {
+        match value {
+            Expr::Path(path) => Ok(HookKind::Path(path)),
+            Expr::Call(call) => Ok(HookKind::Call(call)),
+            Expr::Closure(closure) => Ok(HookKind::Closure(closure)),
+            _ => Err(syn::Error::new(
+                value.span(),
+                [
+                    "Not supported in this position, please use one of the following:",
+                    "- path to function",
+                    "- closure",
+                    "- call to function yielding closure",
+                ]
+                .join("\n"),
+            )),
+        }
+    }
+}
+
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
-    on_add: Option<ExprPath>,
-    on_insert: Option<ExprPath>,
-    on_replace: Option<ExprPath>,
-    on_remove: Option<ExprPath>,
-    on_despawn: Option<ExprPath>,
+    on_add: Option<HookKind>,
+    on_insert: Option<HookKind>,
+    on_replace: Option<HookKind>,
+    on_remove: Option<HookKind>,
+    on_despawn: Option<HookKind>,
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
@@ -507,19 +572,44 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                     };
                     Ok(())
                 } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_add = Some(
+                        nested
+                            .value()?
+                            .parse::<Expr>()
+                            .and_then(HookKind::from_expr)?,
+                    );
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_insert = Some(
+                        nested
+                            .value()?
+                            .parse::<Expr>()
+                            .and_then(HookKind::from_expr)?,
+                    );
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_replace = Some(
+                        nested
+                            .value()?
+                            .parse::<Expr>()
+                            .and_then(HookKind::from_expr)?,
+                    );
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_remove = Some(
+                        nested
+                            .value()?
+                            .parse::<Expr>()
+                            .and_then(HookKind::from_expr)?,
+                    );
                     Ok(())
                 } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<ExprPath>()?);
+                    attrs.on_despawn = Some(
+                        nested
+                            .value()?
+                            .parse::<Expr>()
+                            .and_then(HookKind::from_expr)?,
+                    );
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
                     attrs.immutable = true;
@@ -587,12 +677,34 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
 fn hook_register_function_call(
     bevy_ecs_path: &Path,
     hook: TokenStream2,
-    function: Option<TokenStream2>,
+    function: Option<HookKind>,
 ) -> Option<TokenStream2> {
-    function.map(|meta| {
-        quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
-                ::core::option::Option::Some(#meta)
+    function.map(|hook_kind| match hook_kind {
+        HookKind::Path(path) => {
+            quote! {
+                fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                    ::core::option::Option::Some(#path)
+                }
+            }
+        }
+        HookKind::Call(call) => {
+            quote! {
+                fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
+                        (#call)(world, ctx)
+                    }
+                    ::core::option::Option::Some(_internal_hook)
+                }
+            }
+        }
+        HookKind::Closure(closure) => {
+            quote! {
+                fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
+                        (#closure)(world, ctx)
+                    }
+                    ::core::option::Option::Some(_internal_hook)
+                }
             }
         }
     })
