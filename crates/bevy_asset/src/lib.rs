@@ -639,7 +639,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadState,
+        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState,
     };
     use alloc::{
         boxed::Box,
@@ -695,6 +695,8 @@ mod tests {
         CannotLoadDependency { dependency: AssetPath<'static> },
         #[error("A RON error occurred during loading")]
         RonSpannedError(#[from] ron::error::SpannedError),
+        #[error(transparent)]
+        DuplicateLabelAssetError(#[from] DuplicateLabelAssetError),
         #[error("An IO error occurred during loading")]
         Io(#[from] std::io::Error),
     }
@@ -740,7 +742,7 @@ mod tests {
                     .sub_texts
                     .drain(..)
                     .map(|text| load_context.add_labeled_asset(text.clone(), SubText { text }))
-                    .collect(),
+                    .collect::<Result<Vec<_>, _>>()?,
             })
         }
 
