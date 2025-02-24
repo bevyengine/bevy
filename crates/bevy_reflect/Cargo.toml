@@ -1,13 +1,13 @@
 [package]
 name = "bevy_reflect"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-rust-version = "1.81.0"
+rust-version = "1.85.0"
 
 [features]
 default = ["std", "smallvec", "debug"]
@@ -71,13 +71,6 @@ critical-section = [
   "bevy_utils/critical-section",
 ]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support.
-portable-atomic = [
-  "bevy_platform_support/portable-atomic",
-  "bevy_utils/portable-atomic",
-]
-
 [dependencies]
 # bevy
 bevy_reflect_derive = { path = "derive", version = "0.16.0-dev" }
@@ -116,7 +109,7 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "23", features = ["serde"], optional = true }
+wgpu-types = { version = "24", features = ["serde"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }

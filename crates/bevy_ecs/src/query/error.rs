@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use crate::{
-    entity::{Entity, EntityDoesNotExistDetails},
+    entity::{Entity, EntityDoesNotExistError},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -14,11 +14,17 @@ pub enum QueryEntityError<'w> {
     /// Either it does not have a requested component, or it has a component which the query filters out.
     QueryDoesNotMatch(Entity, UnsafeWorldCell<'w>),
     /// The given [`Entity`] does not exist.
-    NoSuchEntity(Entity, EntityDoesNotExistDetails),
+    EntityDoesNotExist(EntityDoesNotExistError),
     /// The [`Entity`] was requested mutably more than once.
     ///
-    /// See [`QueryState::get_many_mut`](crate::query::QueryState::get_many_mut) for an example.
+    /// See [`Query::get_many_mut`](crate::system::Query::get_many_mut) for an example.
     AliasedMutability(Entity),
+}
+
+impl<'w> From<EntityDoesNotExistError> for QueryEntityError<'w> {
+    fn from(error: EntityDoesNotExistError) -> Self {
+        QueryEntityError::EntityDoesNotExist(error)
+    }
 }
 
 impl<'w> core::error::Error for QueryEntityError<'w> {}
@@ -33,8 +39,8 @@ impl<'w> core::fmt::Display for QueryEntityError<'w> {
                 )?;
                 format_archetype(f, world, entity)
             }
-            Self::NoSuchEntity(entity, details) => {
-                write!(f, "The entity with ID {entity} {details}")
+            Self::EntityDoesNotExist(error) => {
+                write!(f, "{error}")
             }
             Self::AliasedMutability(entity) => {
                 write!(
@@ -54,8 +60,8 @@ impl<'w> core::fmt::Debug for QueryEntityError<'w> {
                 format_archetype(f, world, entity)?;
                 write!(f, ")")
             }
-            Self::NoSuchEntity(entity, details) => {
-                write!(f, "NoSuchEntity({entity} {details})")
+            Self::EntityDoesNotExist(error) => {
+                write!(f, "EntityDoesNotExist({error})")
             }
             Self::AliasedMutability(entity) => write!(f, "AliasedMutability({entity})"),
         }
@@ -88,7 +94,7 @@ impl<'w> PartialEq for QueryEntityError<'w> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::QueryDoesNotMatch(e1, _), Self::QueryDoesNotMatch(e2, _)) if e1 == e2 => true,
-            (Self::NoSuchEntity(e1, _), Self::NoSuchEntity(e2, _)) if e1 == e2 => true,
+            (Self::EntityDoesNotExist(e1), Self::EntityDoesNotExist(e2)) if e1 == e2 => true,
             (Self::AliasedMutability(e1), Self::AliasedMutability(e2)) if e1 == e2 => true,
             _ => false,
         }
@@ -111,7 +117,6 @@ pub enum QuerySingleError {
 
 #[cfg(test)]
 mod test {
-    use crate as bevy_ecs;
     use crate::prelude::World;
     use alloc::format;
     use bevy_ecs_macros::Component;

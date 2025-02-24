@@ -183,7 +183,7 @@ impl ConstParamInfo {
     pub fn with_default<T: Reflect + 'static>(mut self, default: T) -> Self {
         let arc = Arc::new(default);
 
-        #[cfg(feature = "portable-atomic")]
+        #[cfg(not(target_has_atomic = "ptr"))]
         #[expect(
             unsafe_code,
             reason = "unsized coercion is an unstable feature for non-std types"
@@ -252,7 +252,6 @@ pub(crate) use impl_generic_info_methods;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::{Reflect, Typed};
     use alloc::string::String;
     use core::fmt::Debug;

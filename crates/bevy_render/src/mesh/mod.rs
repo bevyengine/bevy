@@ -13,7 +13,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
+use bevy_asset::{AssetApp, AssetEvents, AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -21,7 +21,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d};
+pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
 use wgpu::IndexFormat;
 
 /// Registers all [`MeshBuilder`] types.
@@ -72,7 +72,8 @@ impl Plugin for MeshPlugin {
             .add_systems(
                 PostUpdate,
                 mark_3d_meshes_as_changed_if_their_assets_changed
-                    .ambiguous_with(VisibilitySystems::CalculateBounds),
+                    .ambiguous_with(VisibilitySystems::CalculateBounds)
+                    .before(AssetEvents),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -195,7 +196,7 @@ impl RenderAsset for RenderMesh {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
-            vertex_size += vertex_format.get_size() as usize;
+            vertex_size += vertex_format.size() as usize;
         }
 
         let vertex_count = mesh.count_vertices();
@@ -207,7 +208,7 @@ impl RenderAsset for RenderMesh {
     fn prepare_asset(
         mesh: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {

@@ -12,7 +12,8 @@
     IndirectBatchSet,
     IndirectParametersIndexed,
     IndirectParametersNonIndexed,
-    IndirectParametersMetadata,
+    IndirectParametersCpuMetadata,
+    IndirectParametersGpuMetadata,
     MeshInput
 }
 
@@ -22,26 +23,30 @@
 // Data that we use to generate the indirect parameters.
 //
 // The `mesh_preprocess.wgsl` shader emits these.
-@group(0) @binding(1) var<storage> indirect_parameters_metadata: array<IndirectParametersMetadata>;
+@group(0) @binding(1) var<storage> indirect_parameters_cpu_metadata:
+    array<IndirectParametersCpuMetadata>;
+
+@group(0) @binding(2) var<storage> indirect_parameters_gpu_metadata:
+    array<IndirectParametersGpuMetadata>;
 
 // Information about each batch set.
 //
 // A *batch set* is a set of meshes that might be multi-drawn together.
-@group(0) @binding(2) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
+@group(0) @binding(3) var<storage, read_write> indirect_batch_sets: array<IndirectBatchSet>;
 
 #ifdef INDEXED
 // The buffer of indirect draw parameters that we generate, and that the GPU
 // reads to issue the draws.
 //
 // This buffer is for indexed meshes.
-@group(0) @binding(3) var<storage, read_write> indirect_parameters:
+@group(0) @binding(4) var<storage, read_write> indirect_parameters:
     array<IndirectParametersIndexed>;
 #else   // INDEXED
 // The buffer of indirect draw parameters that we generate, and that the GPU
 // reads to issue the draws.
 //
 // This buffer is for non-indexed meshes.
-@group(0) @binding(3) var<storage, read_write> indirect_parameters:
+@group(0) @binding(4) var<storage, read_write> indirect_parameters:
     array<IndirectParametersNonIndexed>;
 #endif  // INDEXED
 
@@ -51,22 +56,21 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // Figure out our instance index (i.e. batch index). If this thread doesn't
     // correspond to any index, bail.
     let instance_index = global_invocation_id.x;
-    if (instance_index >= arrayLength(&indirect_parameters_metadata)) {
+    if (instance_index >= arrayLength(&indirect_parameters_cpu_metadata)) {
         return;
     }
 
     // Unpack the metadata for this batch.
-    let mesh_index = indirect_parameters_metadata[instance_index].mesh_index;
-    let base_output_index = indirect_parameters_metadata[instance_index].base_output_index;
-    let batch_set_index = indirect_parameters_metadata[instance_index].batch_set_index;
+    let base_output_index = indirect_parameters_cpu_metadata[instance_index].base_output_index;
+    let batch_set_index = indirect_parameters_cpu_metadata[instance_index].batch_set_index;
+    let mesh_index = indirect_parameters_gpu_metadata[instance_index].mesh_index;
 
     // If we aren't using `multi_draw_indirect_count`, we have a 1:1 fixed
     // assignment of batches to slots in the indirect parameters buffer, so we
     // can just use the instance index as the index of our indirect parameters.
     let early_instance_count =
-        atomicLoad(&indirect_parameters_metadata[instance_index].early_instance_count);
-    let late_instance_count =
-        atomicLoad(&indirect_parameters_metadata[instance_index].late_instance_count);
+        indirect_parameters_gpu_metadata[instance_index].early_instance_count;
+    let late_instance_count = indirect_parameters_gpu_metadata[instance_index].late_instance_count;
 
     // If in the early phase, we draw only the early meshes. If in the late
     // phase, we draw only the late meshes. If in the main phase, draw all the

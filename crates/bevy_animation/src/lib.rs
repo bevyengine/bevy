@@ -32,13 +32,8 @@ use crate::{
 };
 
 use bevy_app::{Animation, App, Plugin, PostUpdate};
-use bevy_asset::{Asset, AssetApp, Assets};
-use bevy_ecs::{
-    entity::{VisitEntities, VisitEntitiesMut},
-    prelude::*,
-    reflect::{ReflectMapEntities, ReflectVisitEntities, ReflectVisitEntitiesMut},
-    world::EntityMutExcept,
-};
+use bevy_asset::{Asset, AssetApp, AssetEvents, Assets};
+use bevy_ecs::{prelude::*, world::EntityMutExcept};
 use bevy_math::FloatOrd;
 use bevy_platform_support::{collections::HashMap, hash::NoOpHash};
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
@@ -207,16 +202,16 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect, VisitEntities, VisitEntitiesMut)]
-#[reflect(Component, MapEntities, VisitEntities, VisitEntitiesMut)]
+#[derive(Clone, Copy, Component, Reflect)]
+#[reflect(Component)]
 pub struct AnimationTarget {
     /// The ID of this animation target.
     ///
     /// Typically, this is derived from the path.
-    #[visit_entities(ignore)]
     pub id: AnimationTargetId,
 
     /// The entity containing the [`AnimationPlayer`].
+    #[entities]
     pub player: Entity,
 }
 
@@ -1244,7 +1239,7 @@ impl Plugin for AnimationPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    graph::thread_animation_graphs,
+                    graph::thread_animation_graphs.before(AssetEvents),
                     advance_transitions,
                     advance_animations,
                     // TODO: `animate_targets` can animate anything, so
