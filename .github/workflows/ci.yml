@@ -244,7 +244,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.29.7
+        uses: crate-ci/typos@v1.29.9
       - name: Typos info
         if: failure()
         run: |
