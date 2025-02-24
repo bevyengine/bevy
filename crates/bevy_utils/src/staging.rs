@@ -1039,18 +1039,16 @@ impl<'a, T: StagedChanges> Clone for StagedRef<'a, T> {
 
 impl<'a, T: StagedChanges> Copy for StagedRef<'a, T> {}
 
-impl<'a, T: StagableWritesCore> Copy for RefStageOnWrite<'a, T> {}
-
 impl<'a, T: StagableWritesCore> Clone for RefStageOnWrite<'a, T> {
     fn clone(&self) -> Self {
-        *self
+        Self(self.0)
     }
 }
 
 impl<'a, T: StagableWritesCore> Clone for StagedRefLocked<'a, T> {
     fn clone(&self) -> Self {
         Self {
-            inner: self.inner,
+            inner: self.inner.clone(),
             staged: self.get_staged_guard(),
             cold: self.get_cold_guard(),
         }
