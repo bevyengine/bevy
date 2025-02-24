@@ -478,7 +478,7 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -497,7 +497,7 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -519,7 +519,7 @@ impl TaskPool {
                     .is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     #[inline]
@@ -537,7 +537,7 @@ impl TaskPool {
                 let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
             }
         };
-        execute_forever.or(get_results).await
+        get_results.or(execute_forever).await
     }
 
     /// Spawns a static future onto the thread pool. The returned [`Task`] is a
