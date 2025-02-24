@@ -811,7 +811,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
     /// - `changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
-    ///    as a reference to determine whether the wrapped value is newly added or changed.
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'w T,
