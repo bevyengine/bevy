@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mesh"
-version = "0.15.2"
+version = "0.15.3"
 edition = "2021"
 description = "Provides mesh types for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -9,17 +9,17 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
-bevy_asset = { path = "../bevy_asset", version = "0.15.2" }
-bevy_image = { path = "../bevy_image", version = "0.15.2" }
-bevy_math = { path = "../bevy_math", version = "0.15.2" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.2", features = [
+bevy_asset = { path = "../bevy_asset", version = "0.15.3" }
+bevy_image = { path = "../bevy_image", version = "0.15.3" }
+bevy_math = { path = "../bevy_math", version = "0.15.3" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.3", features = [
   "bevy",
 ] }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.2" }
-bevy_transform = { path = "../bevy_transform", version = "0.15.2" }
-bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.15.2" }
-bevy_derive = { path = "../bevy_derive", version = "0.15.2" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.2" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.15.3" }
+bevy_transform = { path = "../bevy_transform", version = "0.15.3" }
+bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.15.3" }
+bevy_derive = { path = "../bevy_derive", version = "0.15.3" }
+bevy_utils = { path = "../bevy_utils", version = "0.15.3" }
 
 # misc
 bitflags = { version = "2.3", features = ["serde"] }

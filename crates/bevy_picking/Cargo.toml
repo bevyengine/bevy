@@ -1,6 +1,6 @@
 [package]
 name = "bevy_picking"
-version = "0.15.2"
+version = "0.15.3"
 edition = "2021"
 description = "Provides screen picking functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -12,20 +12,20 @@ license = "MIT OR Apache-2.0"
 bevy_mesh_picking_backend = ["dep:bevy_mesh", "dep:crossbeam-channel"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.15.2" }
-bevy_asset = { path = "../bevy_asset", version = "0.15.2" }
-bevy_derive = { path = "../bevy_derive", version = "0.15.2" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.2" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.2" }
-bevy_input = { path = "../bevy_input", version = "0.15.2" }
-bevy_math = { path = "../bevy_math", version = "0.15.2" }
-bevy_mesh = { path = "../bevy_mesh", version = "0.15.2", optional = true }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.2" }
-bevy_render = { path = "../bevy_render", version = "0.15.2" }
-bevy_time = { path = "../bevy_time", version = "0.15.2" }
-bevy_transform = { path = "../bevy_transform", version = "0.15.2" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.2" }
-bevy_window = { path = "../bevy_window", version = "0.15.2" }
+bevy_app = { path = "../bevy_app", version = "0.15.3" }
+bevy_asset = { path = "../bevy_asset", version = "0.15.3" }
+bevy_derive = { path = "../bevy_derive", version = "0.15.3" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.15.3" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.3" }
+bevy_input = { path = "../bevy_input", version = "0.15.3" }
+bevy_math = { path = "../bevy_math", version = "0.15.3" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.15.3", optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.3" }
+bevy_render = { path = "../bevy_render", version = "0.15.3" }
+bevy_time = { path = "../bevy_time", version = "0.15.3" }
+bevy_transform = { path = "../bevy_transform", version = "0.15.3" }
+bevy_utils = { path = "../bevy_utils", version = "0.15.3" }
+bevy_window = { path = "../bevy_window", version = "0.15.3" }
 
 crossbeam-channel = { version = "0.5", optional = true }
 uuid = { version = "=1.12", features = ["v4"] }

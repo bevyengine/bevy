@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.15.2"
+version = "0.15.3"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -463,11 +463,11 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 ghost_nodes = ["bevy_internal/ghost_nodes"]
 
 [dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.15.2", default-features = false }
+bevy_internal = { path = "crates/bevy_internal", version = "0.15.3", default-features = false }
 
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.15.2", default-features = false, optional = true }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.15.3", default-features = false, optional = true }
 
 [dev-dependencies]
 rand = "0.8.0"
@@ -477,7 +477,7 @@ flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bytemuck = "1.7"
-bevy_render = { path = "crates/bevy_render", version = "0.15.2", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.15.3", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 async-std = "1.13"

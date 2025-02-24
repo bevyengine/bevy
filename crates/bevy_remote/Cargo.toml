@@ -1,6 +1,6 @@
 [package]
 name = "bevy_remote"
-version = "0.15.2"
+version = "0.15.3"
 edition = "2021"
 description = "The Bevy Remote Protocol"
 homepage = "https://bevyengine.org"
@@ -14,15 +14,15 @@ http = ["dep:async-io", "dep:smol-hyper"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.15.2" }
-bevy_derive = { path = "../bevy_derive", version = "0.15.2" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.15.2", features = [
+bevy_app = { path = "../bevy_app", version = "0.15.3" }
+bevy_derive = { path = "../bevy_derive", version = "0.15.3" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.15.3", features = [
   "serialize",
 ] }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.2" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.2" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.15.2" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.2" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.15.3" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.3" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.15.3" }
+bevy_utils = { path = "../bevy_utils", version = "0.15.3" }
 
 # other
 anyhow = "1"

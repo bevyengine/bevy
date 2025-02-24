@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.15.2"
+version = "0.15.3"
 edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
@@ -30,9 +30,9 @@ alloc = []
 
 [dependencies]
 # bevy
-bevy_reflect_derive = { path = "derive", version = "0.15.2" }
-bevy_utils = { path = "../bevy_utils", version = "0.15.2" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.15.2" }
+bevy_reflect_derive = { path = "derive", version = "0.15.3" }
+bevy_utils = { path = "../bevy_utils", version = "0.15.3" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.15.3" }
 
 # other
 erased-serde = "0.4"
