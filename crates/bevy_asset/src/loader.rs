@@ -552,8 +552,8 @@ impl<'a> LoadContext<'a> {
         let path = path.into();
         let source = self.asset_server.get_source(path.source())?;
         let asset_reader = match self.asset_server.mode() {
-            AssetServerMode::Unprocessed { .. } => source.reader(),
-            AssetServerMode::Processed { .. } => source.processed_reader()?,
+            AssetServerMode::Unprocessed => source.reader(),
+            AssetServerMode::Processed => source.processed_reader()?,
         };
         let mut reader = asset_reader.read(path.path()).await?;
         let hash = if self.populate_hashes {

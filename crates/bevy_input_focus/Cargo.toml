@@ -1,13 +1,13 @@
 [package]
 name = "bevy_input_focus"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Keyboard focus management"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-rust-version = "1.83.0"
+rust-version = "1.85.0"
 
 [features]
 default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
