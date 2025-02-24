@@ -145,7 +145,7 @@ fn u64_to_n_byte_key(k: u64, n: usize) -> String {
     write!(&mut key, "{}", k).unwrap();
 
     // Pad key to n bytes.
-    key.extend(iter::repeat('\0').take(n - key.len()));
+    key.extend(iter::repeat_n('\0', n - key.len()));
     key
 }
 

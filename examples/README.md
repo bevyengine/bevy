@@ -114,6 +114,7 @@ Example | Description
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d
+[Mesh2d Repeated Texture](../examples/2d/mesh2d_repeated_texture.rs) | Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
@@ -150,6 +151,7 @@ Example | Description
 [Decal](../examples/3d/decal.rs) | Decal rendering
 [Deferred Rendering](../examples/3d/deferred_rendering.rs) | Renders meshes with both forward and deferred pipelines
 [Depth of field](../examples/3d/depth_of_field.rs) | Demonstrates depth of field
+[Edit Gltf Material](../examples/3d/edit_material_on_gltf.rs) | Showcases changing materials of a Gltf after Scene spawn
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
@@ -306,6 +308,7 @@ Example | Description
 [Custom Schedule](../examples/ecs/custom_schedule.rs) | Demonstrates how to add custom schedules
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
+[Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
 [Fallible Systems](../examples/ecs/fallible_systems.rs) | Systems that return results to handle errors
@@ -432,6 +435,7 @@ Example | Description
 [Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
+[Custom Render Phase](../examples/shader/custom_render_phase.rs) | Shows how to make a complete render phase
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material

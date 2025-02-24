@@ -1,7 +1,7 @@
 [package]
 name = "bevy_tasks"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "A task executor for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -44,14 +44,6 @@ critical-section = [
   "edge-executor?/critical-section",
 ]
 
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support.
-portable-atomic = [
-  "bevy_platform_support/portable-atomic",
-  "edge-executor?/portable-atomic",
-  "async-task/portable-atomic",
-]
-
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
 web = [
@@ -87,8 +79,13 @@ wasm-bindgen-futures = { version = "0.4", optional = true }
 pin-project = { version = "1", optional = true }
 futures-channel = { version = "0.3", optional = true }
 
-[dev-dependencies]
-web-time = { version = "1.1" }
+[target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
+async-task = { version = "4.4.0", default-features = false, features = [
+  "portable-atomic",
+] }
+edge-executor = { version = "0.4.1", default-features = false, optional = true, features = [
+  "portable-atomic",
+] }
 
 [lints]
 workspace = true

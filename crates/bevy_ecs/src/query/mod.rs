@@ -104,7 +104,6 @@ impl<T> DebugCheckedUnwrap for Option<T> {
 #[cfg(test)]
 mod tests {
     use crate::{
-        self as bevy_ecs,
         archetype::Archetype,
         component::{Component, ComponentId, Components, Tick},
         prelude::{AnyOf, Changed, Entity, Or, QueryState, Res, ResMut, Resource, With, Without},
@@ -436,6 +435,18 @@ mod tests {
                 [&Sparse(2), &Sparse(3), &Sparse(4)],
             ]),
         );
+    }
+
+    #[test]
+    fn get_many_only_mut_checks_duplicates() {
+        let mut world = World::new();
+        let id = world.spawn(A(10)).id();
+        let mut query_state = world.query::<&mut A>();
+        let mut query = query_state.query_mut(&mut world);
+        let result = query.get_many([id, id]);
+        assert_eq!(result, Ok([&A(10), &A(10)]));
+        let mut_result = query.get_many_mut([id, id]);
+        assert!(mut_result.is_err());
     }
 
     #[test]

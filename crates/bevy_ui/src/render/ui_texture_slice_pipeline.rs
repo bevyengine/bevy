@@ -30,7 +30,8 @@ use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 use widget::ImageNode;
 
-pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(11156288772117983964);
+pub const UI_SLICER_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
 
 pub struct UiTextureSlicerPlugin;
 
@@ -87,7 +88,6 @@ struct UiTextureSliceVertex {
 pub struct UiTextureSlicerBatch {
     pub range: Range<u32>,
     pub image: AssetId<Image>,
-    pub camera: Entity,
 }
 
 #[derive(Resource)]
@@ -255,7 +255,7 @@ pub fn extract_ui_texture_slices(
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
             &ImageNode,
         )>,
     >,
@@ -445,8 +445,6 @@ pub fn prepare_ui_slices(
                         || (batch_image_handle != AssetId::default()
                             && texture_slices.image != AssetId::default()
                             && batch_image_handle != texture_slices.image)
-                        || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(texture_slices.extracted_camera_entity)
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_item_index = item_index;
@@ -456,7 +454,6 @@ pub fn prepare_ui_slices(
                             let new_batch = UiTextureSlicerBatch {
                                 range: vertices_index..vertices_index,
                                 image: texture_slices.image,
-                                camera: texture_slices.extracted_camera_entity,
                             };
 
                             batches.push((item.entity(), new_batch));

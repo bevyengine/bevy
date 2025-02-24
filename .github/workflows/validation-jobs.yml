@@ -161,7 +161,7 @@ jobs:
             example_name=`basename $example .ron`
             echo -n $example_name > last_example_run
             echo "running $example_name - "`date`
-            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
+            time WGPU_BACKEND=dx12 TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "statically-linked-dxc,bevy_ci_testing,trace,trace_chrome"
             sleep 10
             if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
               mkdir screenshots-$example_name
@@ -186,6 +186,17 @@ jobs:
           name: example-run-windows
           path: example-run/
 
+  compare-windows-screenshots:
+    name: Compare Windows screenshots
+    needs: [run-examples-on-windows-dx12]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-windows
+      os: windows
+    secrets: inherit
+
   run-examples-on-wasm:
     if: ${{ github.event_name == 'merge_group' }}
     runs-on: ubuntu-latest
@@ -207,13 +218,6 @@ jobs:
             ~/.github/start-wasm-example/node_modules
             target/
           key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
-
-      - name: install xvfb, llvmpipe and lavapipe
-        run: |
-          sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:kisak/turtle -y
-          sudo apt-get update
-          sudo apt install -y xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
 
       - name: Install wasm-bindgen
         run: cargo install --force wasm-bindgen-cli
