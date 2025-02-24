@@ -159,7 +159,7 @@ fn poll_receivers(
     for (_id, handler) in handlers.iter() {
         let mut handler = handler.lock().unwrap();
         while let Some(event) = handler.pop_front() {
-            actions.send(ActionRequestWrapper(event));
+            actions.write(ActionRequestWrapper(event));
         }
     }
 }

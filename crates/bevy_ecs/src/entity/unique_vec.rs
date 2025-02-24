@@ -809,7 +809,7 @@ impl<T: TrustedEntityBorrow> Extend<T> for UniqueEntityVec<T> {
         let reserve = if self.is_empty() {
             iter.size_hint().0
         } else {
-            (iter.size_hint().0 + 1) / 2
+            iter.size_hint().0.div_ceil(2)
         };
         self.reserve(reserve);
         // Internal iteration (fold/for_each) is known to result in better code generation
@@ -836,7 +836,7 @@ impl<'a, T: TrustedEntityBorrow + Copy + 'a> Extend<&'a T> for UniqueEntityVec<T
         let reserve = if self.is_empty() {
             iter.size_hint().0
         } else {
-            (iter.size_hint().0 + 1) / 2
+            iter.size_hint().0.div_ceil(2)
         };
         self.reserve(reserve);
         // Internal iteration (fold/for_each) is known to result in better code generation

@@ -20,7 +20,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     prelude::resource_exists,
-    query::{Has, QueryState, With, Without},
+    query::{Has, Or, QueryState, With, Without},
     resource::Resource,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
@@ -61,7 +61,7 @@ use crate::{
     graph::NodePbr, MeshCullingData, MeshCullingDataBuffer, MeshInputUniform, MeshUniform,
 };
 
-use super::ViewLightEntities;
+use super::{ShadowView, ViewLightEntities};
 
 /// The handle to the `mesh_preprocess.wgsl` compute shader.
 pub const MESH_PREPROCESS_SHADER_HANDLE: Handle<Shader> =
@@ -154,7 +154,7 @@ pub struct EarlyPrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
         ),
     >,
 }
@@ -173,7 +173,7 @@ pub struct LatePrepassBuildIndirectParametersNode {
         (
             Without<SkipGpuPreprocess>,
             Without<NoIndirectDrawing>,
-            With<DepthPrepass>,
+            Or<(With<DepthPrepass>, With<ShadowView>)>,
             With<OcclusionCulling>,
         ),
     >,
@@ -528,11 +528,22 @@ impl Plugin for GpuMeshPreprocessPlugin {
                     Node3d::LatePrepass,
                     Node3d::LateDeferredPrepass,
                     NodePbr::MainBuildIndirectParameters,
-                    // Shadows don't currently support occlusion culling, so we
-                    // treat shadows as effectively the main phase for our
-                    // purposes.
-                    NodePbr::ShadowPass,
+                    Node3d::StartMainPass,
                 ),
+            ).add_render_graph_edges(
+                Core3d,
+                (
+                    NodePbr::EarlyPrepassBuildIndirectParameters,
+                    NodePbr::EarlyShadowPass,
+                    Node3d::EarlyDownsampleDepth,
+                )
+            ).add_render_graph_edges(
+                Core3d,
+                (
+                    NodePbr::LatePrepassBuildIndirectParameters,
+                    NodePbr::LateShadowPass,
+                    NodePbr::MainBuildIndirectParameters,
+                )
             );
     }
 }
@@ -907,8 +918,8 @@ impl Node for LateGpuPreprocessNode {
                         ..
                     },
                     Some(PhasePreprocessBindGroups::IndirectOcclusionCulling {
-                        late_indexed: ref maybe_late_indexed_bind_group,
-                        late_non_indexed: ref maybe_late_non_indexed_bind_group,
+                        late_indexed: maybe_late_indexed_bind_group,
+                        late_non_indexed: maybe_late_non_indexed_bind_group,
                         ..
                     }),
                     Some(late_indexed_indirect_parameters_buffer),
@@ -1736,9 +1747,9 @@ pub fn prepare_preprocess_bind_groups(
 ) {
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
-        current_input_buffer: ref current_input_buffer_vec,
-        previous_input_buffer: ref previous_input_buffer_vec,
-        ref phase_instance_buffers,
+        current_input_buffer: current_input_buffer_vec,
+        previous_input_buffer: previous_input_buffer_vec,
+        phase_instance_buffers,
     } = batched_instance_buffers.into_inner();
 
     let (Some(current_input_buffer), Some(previous_input_buffer)) = (
