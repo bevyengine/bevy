@@ -1113,13 +1113,16 @@ impl ComponentCloneBehavior {
 
     /// Set clone handler based on `Reflect` trait.
     #[cfg(feature = "bevy_reflect")]
-    pub fn reflect_handler() -> Self {
+    pub fn reflect() -> Self {
         Self::Custom(component_clone_via_reflect)
     }
 
-    /// Set a custom handler for the component.
-    pub fn custom_handler(handler: ComponentCloneFn) -> Self {
-        Self::Custom(handler)
+    /// Returns the "global default"
+    pub fn global_default_fn() -> ComponentCloneFn {
+        #[cfg(feature = "bevy_reflect")]
+        return component_clone_via_reflect;
+        #[cfg(not(feature = "bevy_reflect"))]
+        return component_clone_ignore;
     }
 
     /// Resolves the [`ComponentCloneBehavior`] to a [`ComponentCloneFn`]. If [`ComponentCloneBehavior::Default`] is
@@ -1131,20 +1134,6 @@ impl ComponentCloneBehavior {
             ComponentCloneBehavior::Custom(custom)
             | ComponentCloneBehavior::RelationshipTarget(custom) => *custom,
         }
-    }
-
-    /// Set clone handler based on `Reflect` trait.
-    #[cfg(feature = "bevy_reflect")]
-    pub fn reflect() -> Self {
-        Self::Custom(component_clone_via_reflect)
-    }
-
-    /// Returns the "global default"
-    pub fn global_default_fn() -> ComponentCloneFn {
-        #[cfg(feature = "bevy_reflect")]
-        return component_clone_via_reflect;
-        #[cfg(not(feature = "bevy_reflect"))]
-        return component_clone_ignore;
     }
 }
 
