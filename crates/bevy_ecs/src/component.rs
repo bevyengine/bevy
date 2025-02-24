@@ -2290,13 +2290,13 @@ impl<'a> RequiredComponentsStagedMut<'a> {
 }
 
 impl<'a> RequiredComponentsStagedRef<'a> {
-    /// Iterates the required components
+    /// Iterates the required components.
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = &RequiredComponents> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &RequiredComponents> {
         core::iter::once(self.working).chain(self.cold)
     }
 
-    /// See [`RequiredComponents::iter_ids`]
+    /// See [`RequiredComponents::iter_ids`].
     #[inline]
     pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.iter().flat_map(RequiredComponents::iter_ids)
@@ -2318,16 +2318,23 @@ impl<'a> RequiredComponentsStagedRef<'a> {
             .get(&id)
             .or_else(|| self.cold.and_then(|cold| cold.0.get(&id)))
     }
+
+    /// Allows viewing all these [`RequiredComponent`]s as a whole [`RequiredComponents`].
+    pub fn get_all(&self) -> RequiredComponents {
+        let mut total = RequiredComponents::default();
+        self.merge_into(&mut total);
+        total
+    }
 }
 
 impl<'a> RequiredByStagedRef<'a> {
-    /// Iterates the required components
+    /// Iterates the required components.
     #[inline]
-    pub fn iter(&self) -> impl Iterator<Item = &HashSet<ComponentId>> {
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &HashSet<ComponentId>> {
         [self.working].into_iter().chain(self.cold)
     }
 
-    /// See [`RequiredComponents::iter_ids`]
+    /// See [`RequiredComponents::iter_ids`].
     #[inline]
     pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.iter().flat_map(|by| by.iter().copied())
