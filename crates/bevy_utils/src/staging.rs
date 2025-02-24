@@ -651,7 +651,6 @@ pub struct AtomicStageOnWrite<T: StagedChanges> {
 }
 
 /// A version of [`StageOnWrite`] designed for atomic use.
-/// See [`StageOnWrite`] for details.
 ///
 /// This type includes a baked in [`Arc`], so it can be shared across threads.
 ///
