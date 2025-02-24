@@ -176,7 +176,7 @@ jobs:
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
-        run: cargo check -p bevy --no-default-features --features default_no_std,portable-atomic --target thumbv6m-none-eabi
+        run: cargo check -p bevy --no-default-features --features default_no_std --target thumbv6m-none-eabi
 
   build-wasm:
     runs-on: ubuntu-latest
