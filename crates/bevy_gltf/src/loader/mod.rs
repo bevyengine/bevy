@@ -748,7 +748,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
     let mut nodes = HashMap::<usize, Handle<GltfNode>>::default();
     let mut named_nodes = <HashMap<_, _>>::default();
-    let mut skins = vec![];
+    let mut skins = <HashMap<_, _>>::default();
     let mut named_skins = <HashMap<_, _>>::default();
 
     // First, create the node handles.
@@ -764,39 +764,43 @@ async fn load_gltf<'a, 'b, 'c>(
     // Now populate the nodes.
     for node in gltf.nodes() {
         let skin = node.skin().map(|skin| {
-            let joints: Vec<_> = skin
-                .joints()
-                .map(|joint| nodes.get(&joint.index()).unwrap().clone())
-                .collect();
+            skins
+                .entry(skin.index())
+                .or_insert_with(|| {
+                    let joints: Vec<_> = skin
+                        .joints()
+                        .map(|joint| nodes.get(&joint.index()).unwrap().clone())
+                        .collect();
 
-            if joints.len() > MAX_JOINTS {
-                warn!(
-                    "The glTF skin {} has {} joints, but the maximum supported is {}",
-                    skin.name()
-                        .map(ToString::to_string)
-                        .unwrap_or_else(|| skin.index().to_string()),
-                    joints.len(),
-                    MAX_JOINTS
-                );
-            }
+                    if joints.len() > MAX_JOINTS {
+                        warn!(
+                            "The glTF skin {} has {} joints, but the maximum supported is {}",
+                            skin.name()
+                                .map(ToString::to_string)
+                                .unwrap_or_else(|| skin.index().to_string()),
+                            joints.len(),
+                            MAX_JOINTS
+                        );
+                    }
 
-            let gltf_skin = GltfSkin::new(
-                &skin,
-                joints,
-                skinned_mesh_inverse_bindposes[skin.index()].clone(),
-                as_gltf_extras(skin.extras()),
-            );
+                    let gltf_skin = GltfSkin::new(
+                        &skin,
+                        joints,
+                        skinned_mesh_inverse_bindposes[skin.index()].clone(),
+                        as_gltf_extras(skin.extras()),
+                    );
 
-            let handle = load_context
-                .add_labeled_asset(skin_label(&skin).to_string(), gltf_skin)
-                .expect("skin indices are unique, so the label is unique");
+                    let handle = load_context
+                        .add_labeled_asset(skin_label(&skin).to_string(), gltf_skin)
+                        .expect("skin indices are unique, so the label is unique");
 
-            skins.push(handle.clone());
-            if let Some(name) = skin.name() {
-                named_skins.insert(name.into(), handle.clone());
-            }
+                    if let Some(name) = skin.name() {
+                        named_skins.insert(name.into(), handle.clone());
+                    }
 
-            handle
+                    handle
+                })
+                .clone()
         });
 
         let children = node
@@ -931,7 +935,7 @@ async fn load_gltf<'a, 'b, 'c>(
         named_scenes,
         meshes,
         named_meshes,
-        skins,
+        skins: skins.into_values().collect(),
         named_skins,
         materials,
         named_materials,
