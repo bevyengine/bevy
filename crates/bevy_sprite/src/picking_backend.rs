@@ -1,6 +1,11 @@
 //! A [`bevy_picking`] backend for sprites. Works for simple sprites and sprite atlases. Works for
 //! sprites with arbitrary transforms. Picking is done based on sprite bounds, not visible pixels.
 //! This means a partially transparent sprite is pickable even in its transparent areas.
+//!
+//! ## Implementation Notes
+//!
+//! - The `position` reported in `HitData` in in world space, and the `normal` is a normalized
+//!   vector provided by the target's `GlobalTransform::back()`.
 
 use crate::Sprite;
 use bevy_app::prelude::*;
@@ -40,7 +45,7 @@ pub enum SpritePickingMode {
 #[reflect(Resource, Default)]
 pub struct SpritePickingSettings {
     /// When set to `true` sprite picking will only consider cameras marked with
-    /// [`SpritePickingCamera`] and entities marked with [`Pickable`]. `false` by default.
+    /// [`SpritePickingCamera`].
     ///
     /// This setting is provided to give you fine-grained control over which cameras and entities
     /// should be used by the sprite picking backend at runtime.
@@ -92,7 +97,7 @@ fn sprite_picking(
         Entity,
         &Sprite,
         &GlobalTransform,
-        Option<&Pickable>,
+        &Pickable,
         &ViewVisibility,
     )>,
     mut output: EventWriter<PointerHits>,
@@ -100,8 +105,7 @@ fn sprite_picking(
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
         .filter_map(|(entity, sprite, transform, pickable, vis)| {
-            let marker_requirement = !settings.require_markers || pickable.is_some();
-            if !transform.affine().is_nan() && vis.get() && marker_requirement {
+            if !transform.affine().is_nan() && vis.get() {
                 Some((entity, sprite, transform, pickable))
             } else {
                 None
@@ -217,8 +221,7 @@ fn sprite_picking(
                     }
                 };
 
-                blocked = cursor_in_valid_pixels_of_sprite
-                    && pickable.is_none_or(|p| p.should_block_lower);
+                blocked = cursor_in_valid_pixels_of_sprite && pickable.should_block_lower;
 
                 cursor_in_valid_pixels_of_sprite.then(|| {
                     let hit_pos_world =
@@ -244,6 +247,6 @@ fn sprite_picking(
             .collect();
 
         let order = camera.order as f32;
-        output.send(PointerHits::new(*pointer, picks, order));
+        output.write(PointerHits::new(*pointer, picks, order));
     }
 }

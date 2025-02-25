@@ -206,7 +206,6 @@ macro_rules! hash_error {
                 ),
             }
         }
-        .as_str()
     }}
 }
 
@@ -244,7 +243,7 @@ impl DynamicMap {
     }
 
     fn internal_hash(value: &dyn PartialReflect) -> u64 {
-        value.reflect_hash().expect(hash_error!(value))
+        value.reflect_hash().expect(&hash_error!(value))
     }
 
     fn internal_eq<'a>(

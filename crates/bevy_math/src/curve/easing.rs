@@ -150,8 +150,83 @@ all_tuples_enumerated!(
 ///
 /// The resulting curve's domain is always [the unit interval].
 ///
+/// # Example
+///
+/// Create a linear curve that interpolates between `2.0` and `4.0`.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
+/// ```
+///
+/// [`sample`] the curve at various points. This will return `None` if the parameter
+/// is outside the unit interval.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
+/// assert_eq!(c.sample(-1.0), None);
+/// assert_eq!(c.sample(0.0), Some(2.0));
+/// assert_eq!(c.sample(0.5), Some(3.0));
+/// assert_eq!(c.sample(1.0), Some(4.0));
+/// assert_eq!(c.sample(2.0), None);
+/// ```
+///
+/// [`sample_clamped`] will clamp the parameter to the unit interval, so it
+/// always returns a value.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let c = EasingCurve::new(2.0, 4.0, EaseFunction::Linear);
+/// assert_eq!(c.sample_clamped(-1.0), 2.0);
+/// assert_eq!(c.sample_clamped(0.0), 2.0);
+/// assert_eq!(c.sample_clamped(0.5), 3.0);
+/// assert_eq!(c.sample_clamped(1.0), 4.0);
+/// assert_eq!(c.sample_clamped(2.0), 4.0);
+/// ```
+///
+/// `EasingCurve` can be used with any type that implements the [`Ease`] trait.
+/// This includes many math types, like vectors and rotations.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// let c = EasingCurve::new(
+///     Vec2::new(0.0, 4.0),
+///     Vec2::new(2.0, 8.0),
+///     EaseFunction::Linear,
+/// );
+///
+/// assert_eq!(c.sample_clamped(0.5), Vec2::new(1.0, 6.0));
+/// ```
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # use approx::assert_abs_diff_eq;
+/// let c = EasingCurve::new(
+///     Rot2::degrees(10.0),
+///     Rot2::degrees(20.0),
+///     EaseFunction::Linear,
+/// );
+///
+/// assert_abs_diff_eq!(c.sample_clamped(0.5), Rot2::degrees(15.0));
+/// ```
+///
+/// As a shortcut, an `EasingCurve` between `0.0` and `1.0` can be replaced by
+/// [`EaseFunction`].
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let t = 0.5;
+/// let f = EaseFunction::SineIn;
+/// let c = EasingCurve::new(0.0, 1.0, EaseFunction::SineIn);
+///
+/// assert_eq!(f.sample(t), c.sample(t));
+/// ```
+///
 /// [easing function]: EaseFunction
 /// [the unit interval]: Interval::UNIT
+/// [`sample`]: EasingCurve::sample
+/// [`sample_clamped`]: EasingCurve::sample_clamped
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
@@ -194,8 +269,89 @@ where
     }
 }
 
+/// Configuration options for the [`EaseFunction::Steps`] curves. This closely replicates the
+/// [CSS step function specification].
+///
+/// [CSS step function specification]: https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function/steps#description
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
+pub enum JumpAt {
+    /// Indicates that the first step happens when the animation begins.
+    ///
+    #[doc = include_str!("../../images/easefunction/StartSteps.svg")]
+    Start,
+    /// Indicates that the last step happens when the animation ends.
+    ///
+    #[doc = include_str!("../../images/easefunction/EndSteps.svg")]
+    #[default]
+    End,
+    /// Indicates neither early nor late jumps happen.
+    ///
+    #[doc = include_str!("../../images/easefunction/NoneSteps.svg")]
+    None,
+    /// Indicates both early and late jumps happen.
+    ///
+    #[doc = include_str!("../../images/easefunction/BothSteps.svg")]
+    Both,
+}
+
+impl JumpAt {
+    #[inline]
+    pub(crate) fn eval(self, num_steps: usize, t: f32) -> f32 {
+        use crate::ops;
+
+        let (a, b) = match self {
+            JumpAt::Start => (1.0, 0),
+            JumpAt::End => (0.0, 0),
+            JumpAt::None => (0.0, -1),
+            JumpAt::Both => (1.0, 1),
+        };
+
+        let current_step = ops::floor(t * num_steps as f32) + a;
+        let step_size = (num_steps as isize + b).max(1) as f32;
+
+        (current_step / step_size).clamp(0.0, 1.0)
+    }
+}
+
 /// Curve functions over the [unit interval], commonly used for easing transitions.
 ///
+/// `EaseFunction` can be used on its own to interpolate between `0.0` and `1.0`.
+/// It can also be combined with [`EasingCurve`] to interpolate between other
+/// intervals and types, including vectors and rotations.
+///
+/// # Example
+///
+/// [`sample`] the smoothstep function at various points. This will return `None`
+/// if the parameter is outside the unit interval.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// let f = EaseFunction::SmoothStep;
+///
+/// assert_eq!(f.sample(-1.0), None);
+/// assert_eq!(f.sample(0.0), Some(0.0));
+/// assert_eq!(f.sample(0.5), Some(0.5));
+/// assert_eq!(f.sample(1.0), Some(1.0));
+/// assert_eq!(f.sample(2.0), None);
+/// ```
+///
+/// [`sample_clamped`] will clamp the parameter to the unit interval, so it
+/// always returns a value.
+///
+/// ```
+/// # use bevy_math::prelude::*;
+/// # let f = EaseFunction::SmoothStep;
+/// assert_eq!(f.sample_clamped(-1.0), 0.0);
+/// assert_eq!(f.sample_clamped(0.0), 0.0);
+/// assert_eq!(f.sample_clamped(0.5), 0.5);
+/// assert_eq!(f.sample_clamped(1.0), 1.0);
+/// assert_eq!(f.sample_clamped(2.0), 1.0);
+/// ```
+///
+/// [`sample`]: EaseFunction::sample
+/// [`sample_clamped`]: EaseFunction::sample_clamped
 /// [unit interval]: `Interval::UNIT`
 #[non_exhaustive]
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -428,10 +584,9 @@ pub enum EaseFunction {
     #[doc = include_str!("../../images/easefunction/BounceInOut.svg")]
     BounceInOut,
 
-    /// `n` steps connecting the start and the end
-    ///
-    #[doc = include_str!("../../images/easefunction/Steps.svg")]
-    Steps(usize),
+    /// `n` steps connecting the start and the end. Jumping behavior is customizable via
+    /// [`JumpAt`]. See [`JumpAt`] for all the options and visual examples.
+    Steps(usize, JumpAt),
 
     /// `f(omega,t) = 1 - (1 - t)²(2sin(omega * t) / omega + cos(omega * t))`, parametrized by `omega`
     ///
@@ -684,8 +839,8 @@ mod easing_functions {
     }
 
     #[inline]
-    pub(crate) fn steps(num_steps: usize, t: f32) -> f32 {
-        ops::floor(t * num_steps as f32) / num_steps.max(1) as f32
+    pub(crate) fn steps(num_steps: usize, jump_at: super::JumpAt, t: f32) -> f32 {
+        jump_at.eval(num_steps, t)
     }
 
     #[inline]
@@ -734,14 +889,30 @@ impl EaseFunction {
             EaseFunction::BounceIn => easing_functions::bounce_in(t),
             EaseFunction::BounceOut => easing_functions::bounce_out(t),
             EaseFunction::BounceInOut => easing_functions::bounce_in_out(t),
-            EaseFunction::Steps(num_steps) => easing_functions::steps(*num_steps, t),
+            EaseFunction::Steps(num_steps, jump_at) => {
+                easing_functions::steps(*num_steps, *jump_at, t)
+            }
             EaseFunction::Elastic(omega) => easing_functions::elastic(*omega, t),
         }
     }
 }
 
+impl Curve<f32> for EaseFunction {
+    #[inline]
+    fn domain(&self) -> Interval {
+        Interval::UNIT
+    }
+
+    #[inline]
+    fn sample_unchecked(&self, t: f32) -> f32 {
+        self.eval(t)
+    }
+}
+
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
+
     use crate::{Vec2, Vec3, Vec3A};
     use approx::assert_abs_diff_eq;
 
@@ -901,6 +1072,120 @@ mod tests {
                 iso_3d_curve.sample(t).unwrap(),
                 Isometry3d::new(Vec3A::ONE * t, Quat::from_axis_angle(Vec3::Z, angle * t))
             );
+        });
+    }
+
+    #[test]
+    fn jump_at_start() {
+        let jump_at = JumpAt::Start;
+        let num_steps = 4;
+
+        [
+            (0.0, 0.25),
+            (0.249, 0.25),
+            (0.25, 0.5),
+            (0.499, 0.5),
+            (0.5, 0.75),
+            (0.749, 0.75),
+            (0.75, 1.0),
+            (1.0, 1.0),
+        ]
+        .into_iter()
+        .for_each(|(t, expected)| {
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
+        });
+    }
+
+    #[test]
+    fn jump_at_end() {
+        let jump_at = JumpAt::End;
+        let num_steps = 4;
+
+        [
+            (0.0, 0.0),
+            (0.249, 0.0),
+            (0.25, 0.25),
+            (0.499, 0.25),
+            (0.5, 0.5),
+            (0.749, 0.5),
+            (0.75, 0.75),
+            (0.999, 0.75),
+            (1.0, 1.0),
+        ]
+        .into_iter()
+        .for_each(|(t, expected)| {
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
+        });
+    }
+
+    #[test]
+    fn jump_at_none() {
+        let jump_at = JumpAt::None;
+        let num_steps = 5;
+
+        [
+            (0.0, 0.0),
+            (0.199, 0.0),
+            (0.2, 0.25),
+            (0.399, 0.25),
+            (0.4, 0.5),
+            (0.599, 0.5),
+            (0.6, 0.75),
+            (0.799, 0.75),
+            (0.8, 1.0),
+            (0.999, 1.0),
+            (1.0, 1.0),
+        ]
+        .into_iter()
+        .for_each(|(t, expected)| {
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
+        });
+    }
+
+    #[test]
+    fn jump_at_both() {
+        let jump_at = JumpAt::Both;
+        let num_steps = 4;
+
+        [
+            (0.0, 0.2),
+            (0.249, 0.2),
+            (0.25, 0.4),
+            (0.499, 0.4),
+            (0.5, 0.6),
+            (0.749, 0.6),
+            (0.75, 0.8),
+            (0.999, 0.8),
+            (1.0, 1.0),
+        ]
+        .into_iter()
+        .for_each(|(t, expected)| {
+            assert_abs_diff_eq!(jump_at.eval(num_steps, t), expected);
+        });
+    }
+
+    #[test]
+    fn ease_function_curve() {
+        // Test that using `EaseFunction` directly is equivalent to `EasingCurve::new(0.0, 1.0, ...)`.
+
+        let f = EaseFunction::SmoothStep;
+        let c = EasingCurve::new(0.0, 1.0, EaseFunction::SmoothStep);
+
+        assert_eq!(f.domain(), c.domain());
+
+        [
+            -1.0,
+            0.0,
+            0.5,
+            1.0,
+            2.0,
+            -f32::MIN_POSITIVE,
+            1.0 + f32::EPSILON,
+        ]
+        .into_iter()
+        .for_each(|t| {
+            assert_eq!(f.sample(t), c.sample(t));
+            assert_eq!(f.sample_clamped(t), c.sample_clamped(t));
         });
     }
 }

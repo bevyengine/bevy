@@ -7,8 +7,12 @@
 //! to `true` and add [`MeshPickingCamera`] and [`Pickable`] components to the desired camera and
 //! target entities.
 //!
-//! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system
-//! parameter.
+//! To manually perform mesh ray casts independent of picking, use the [`MeshRayCast`] system parameter.
+//!
+//! ## Implementation Notes
+//!
+//! - The `position` reported in `HitData` is in world space. The `normal` is a vector pointing
+//!   away from the face, it is not guaranteed to be normalized for scaled meshes.
 
 pub mod ray_cast;
 
@@ -126,7 +130,7 @@ pub fn update_hits(
             .collect::<Vec<_>>();
         let order = camera.order as f32;
         if !picks.is_empty() {
-            output.send(PointerHits::new(ray_id.pointer, picks, order));
+            output.write(PointerHits::new(ray_id.pointer, picks, order));
         }
     }
 }
