@@ -129,7 +129,7 @@ pub enum CubemapLayout {
 
 /// Add to a [`PointLight`] to add a light cookie effect.
 /// A light cookie is a texture mask applied to a light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo effects, or soft falloffs. 
+/// simulating patterns like window shadows, gobo effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
 #[require(PointLight)]
@@ -142,7 +142,7 @@ pub struct PointLightCookie {
 
 /// Add to a [`SpotLight`] to add a light cookie effect.
 /// A light cookie is a texture mask applied to a light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo effects, or soft falloffs. 
+/// simulating patterns like window shadows, gobo effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
 #[require(SpotLight)]
@@ -154,7 +154,7 @@ pub struct SpotLightCookie {
 
 /// Add to a [`DirectionalLight`] to add a light cookie effect.
 /// A light cookie is a texture mask applied to a light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo effects, or soft falloffs. 
+/// simulating patterns like window shadows, gobo effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
 #[require(DirectionalLight)]
