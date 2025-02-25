@@ -29,9 +29,9 @@ impl ImageOrPath {
         handles: &mut Vec<Handle<Image>>,
     ) {
         let handle = match self {
-            ImageOrPath::Image { label, image } => {
-                load_context.add_labeled_asset(label.to_string(), image)
-            }
+            ImageOrPath::Image { label, image } => load_context
+                .add_labeled_asset(label.to_string(), image)
+                .expect("texture indices are unique, so the label is unique"),
             ImageOrPath::Path {
                 path,
                 is_srgb,

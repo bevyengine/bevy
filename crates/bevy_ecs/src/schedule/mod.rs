@@ -1192,7 +1192,7 @@ mod tests {
                 let mut schedule = Schedule::new(TestSchedule);
                 schedule
                     .set_executor_kind($executor)
-                    .add_systems(|| panic!("Executor ignored Stepping"));
+                    .add_systems(|| -> () { panic!("Executor ignored Stepping") });
 
                 // Add our schedule to stepping & and enable stepping; this should
                 // prevent any systems in the schedule from running
