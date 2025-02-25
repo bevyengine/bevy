@@ -157,7 +157,13 @@ default = [
 ]
 
 # Recommended defaults for no_std applications
-default_no_std = ["edge_executor", "libm", "critical-section", "bevy_color", "bevy_state"]
+default_no_std = [
+  "edge_executor",
+  "libm",
+  "critical-section",
+  "bevy_color",
+  "bevy_state",
+]
 
 # Provides an implementation for picking meshes
 bevy_mesh_picking_backend = [
