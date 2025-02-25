@@ -5,8 +5,9 @@ use bevy_render::{
     alpha::AlphaMode,
     mesh::MeshVertexBufferLayoutRef,
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroupLayout, RenderPipelineDescriptor, Shader,
-        ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
+        AsBindGroup, AsBindGroupError, BindGroupLayout, BindlessDescriptor,
+        BindlessSlabResourceLimit, RenderPipelineDescriptor, Shader, ShaderRef,
+        SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
 };
@@ -153,13 +154,12 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
     type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
-    fn bindless_slot_count() -> Option<u32> {
-        match (B::bindless_slot_count(), E::bindless_slot_count()) {
-            (Some(base_bindless_slot_count), Some(extension_bindless_slot_count)) => {
-                Some(base_bindless_slot_count.min(extension_bindless_slot_count))
-            }
-            _ => None,
+    fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
+        // For now, disable bindless in `ExtendedMaterial`.
+        if B::bindless_slot_count().is_some() && E::bindless_slot_count().is_some() {
+            panic!("Bindless extended materials are currently unsupported")
         }
+        None
     }
 
     fn unprepared_bind_group(
@@ -167,30 +167,15 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
-        mut force_no_bindless: bool,
+        _: bool,
     ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
-        // Only allow bindless mode if both the base material and the extension
-        // support it.
-        force_no_bindless = force_no_bindless || Self::bindless_slot_count().is_none();
-
         // add together the bindings of the base material and the user material
         let UnpreparedBindGroup {
             mut bindings,
             data: base_data,
-        } = B::unprepared_bind_group(
-            &self.base,
-            layout,
-            render_device,
-            base_param,
-            force_no_bindless,
-        )?;
-        let extended_bindgroup = E::unprepared_bind_group(
-            &self.extension,
-            layout,
-            render_device,
-            extended_param,
-            force_no_bindless,
-        )?;
+        } = B::unprepared_bind_group(&self.base, layout, render_device, base_param, true)?;
+        let extended_bindgroup =
+            E::unprepared_bind_group(&self.extension, layout, render_device, extended_param, true)?;
 
         bindings.extend(extended_bindgroup.bindings.0);
 
@@ -202,22 +187,23 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 
     fn bind_group_layout_entries(
         render_device: &RenderDevice,
-        mut force_no_bindless: bool,
+        _: bool,
     ) -> Vec<bevy_render::render_resource::BindGroupLayoutEntry>
     where
         Self: Sized,
     {
-        // Only allow bindless mode if both the base material and the extension
-        // support it.
-        force_no_bindless = force_no_bindless || Self::bindless_slot_count().is_none();
-
         // add together the bindings of the standard material and the user material
-        let mut entries = B::bind_group_layout_entries(render_device, force_no_bindless);
-        entries.extend(E::bind_group_layout_entries(
-            render_device,
-            force_no_bindless,
-        ));
+        let mut entries = B::bind_group_layout_entries(render_device, true);
+        entries.extend(E::bind_group_layout_entries(render_device, true));
         entries
+    }
+
+    fn bindless_descriptor() -> Option<BindlessDescriptor> {
+        if B::bindless_descriptor().is_some() && E::bindless_descriptor().is_some() {
+            panic!("Bindless extended materials are currently unsupported")
+        }
+
+        None
     }
 }
 

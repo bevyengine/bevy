@@ -79,7 +79,11 @@ pub trait HandleError<Out = ()> {
     }
 }
 
-impl<C: Command<Result<T, E>>, T, E: Into<Error>> HandleError<Result<T, E>> for C {
+impl<C, T, E> HandleError<Result<T, E>> for C
+where
+    C: Command<Result<T, E>>,
+    E: Into<Error>,
+{
     fn handle_error_with(self, error_handler: fn(&mut World, Error)) -> impl Command {
         move |world: &mut World| match self.apply(world) {
             Ok(_) => {}
@@ -88,7 +92,10 @@ impl<C: Command<Result<T, E>>, T, E: Into<Error>> HandleError<Result<T, E>> for 
     }
 }
 
-impl<C: Command> HandleError for C {
+impl<C> HandleError for C
+where
+    C: Command,
+{
     #[inline]
     fn handle_error_with(self, _error_handler: fn(&mut World, Error)) -> impl Command {
         self
