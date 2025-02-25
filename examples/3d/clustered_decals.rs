@@ -597,7 +597,7 @@ fn process_move_input(
             continue;
         }
 
-        // ues simple movement for the point light
+        // use simple movement for the point light
         if *selection == Selection::PointLight {
             transform.translation +=
                 (mouse_motion.delta * Vec2::new(1.0, -1.0) * MOVE_SPEED).extend(0.0);
