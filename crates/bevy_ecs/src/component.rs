@@ -2113,7 +2113,7 @@ impl RequiredComponents {
         unsafe { self.register_dynamic(component_id, erased, inheritance_depth) };
     }
 
-    /// Iterates the ids of all required components. This includes recursive required components.
+    /// Iterates the ids of all required components' ids. This includes recursive required components.
     pub fn iter_ids(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.0.keys().copied()
     }
@@ -2131,8 +2131,21 @@ impl RequiredComponents {
     // Merges `required_components` into this collection. This only inserts a required component
     // if it _did not already exist_.
     pub(crate) fn merge(&mut self, required_components: &RequiredComponents) {
-        for (id, constructor) in &required_components.0 {
-            self.0.entry(*id).or_insert_with(|| constructor.clone());
+        for (
+            component_id,
+            RequiredComponent {
+                constructor,
+                inheritance_depth,
+            },
+        ) in required_components
+            .0
+            .iter()
+            .map(|(id, req)| (*id, req.clone()))
+        {
+            // SAFETY: This exact registration must have been done on `required_components`, so safety is ensured by that caller.
+            unsafe {
+                self.register_dynamic(component_id, constructor, inheritance_depth);
+            }
         }
     }
 }
