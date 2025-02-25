@@ -318,7 +318,7 @@ fn spawn_light_cookies(
 
     commands
         .spawn((
-            Visibility::Inherited,
+            Visibility::Hidden,
             Transform::from_translation(Vec3::new(0.0, 1.8, 0.01)).with_scale(Vec3::splat(0.1)),
             Selection::PointLight,
         ))
