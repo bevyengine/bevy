@@ -125,7 +125,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
             if is_valid_explicit_sync_point(*node) {
                 distance_to_explicit_sync_node.insert(node_distance, *node);
-                
+
                 // This node just did a sync, so the only reason to do another sync is if one was
                 // explicitly scheduled afterwards.
                 add_sync_after = false;
