@@ -403,8 +403,9 @@ pub fn text_system(
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(TextCursorStyle)]
 pub struct TextCursor {
-    /// Index of the glyph where the cursor will be drawn.
-    /// If the index is out of bounds the cursor isn't shown.
+    /// Line index
+    pub line: usize,
+    /// First-byte-index of glyph at cursor (will insert behind this glyph)
     pub index: usize,
 }
 
@@ -445,6 +446,6 @@ pub enum TextCursorWidth {
 
 impl Default for TextCursorWidth {
     fn default() -> Self {
-        Self::Px(4.)
+        Self::Px(3.)
     }
 }

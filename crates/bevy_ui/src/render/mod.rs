@@ -803,50 +803,60 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let h = computed_block.buffer().metrics().line_height * cursor_style.height;
-        let mut i = cursor.index;
-        if let Some((line, glyph)) = computed_block.buffer().layout_runs().find_map(|line| {
-            if let Some(glyph) = line.glyphs.get(i) {
-                Some((line, glyph))
-            } else {
-                i -= line.glyphs.len();
-                None
-            }
-        }) {
-            let w = match cursor_style.width {
-                TextCursorWidth::All => glyph.w,
-                TextCursorWidth::Px(width) => width * target.scale_factor,
-            };
-            let x = glyph.x + w * 0.5;
-            let y = line.line_top + 0.5 * h;
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                stack_index: uinode.stack_index,
-                color: LinearRgba::from(cursor_style.color),
-                image: AssetId::default(),
-                clip: clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: Vec2::new(w, h),
+        let line_height = computed_block.buffer().metrics().line_height * cursor_style.height;
+        let Some(line) = computed_block.buffer().layout_runs().nth(cursor.line) else {
+            continue;
+        };
+
+        let (glyph_x, glyph_width) = if let Some(last_glyph) = line.glyphs.last() {
+            line.glyphs
+                .iter()
+                .find_map(|glyph| {
+                    if cursor.index <= glyph.end {
+                        Some((glyph.x, glyph.w))
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or((last_glyph.x + last_glyph.w, last_glyph.w))
+        } else {
+            (0., 3. * target.scale_factor)
+        };
+
+        let width = match cursor_style.width {
+            TextCursorWidth::All => glyph_width,
+            TextCursorWidth::Px(width) => width * target.scale_factor,
+        };
+
+        let x = glyph_x + width * 0.5;
+        let y = line.line_top + 0.5 * line_height;
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: uinode.stack_index,
+            color: LinearRgba::from(cursor_style.color),
+            image: AssetId::default(),
+            clip: clip.map(|clip| clip.clip),
+            extracted_camera_entity,
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: Vec2::new(width, line_height),
+            },
+            item: ExtractedUiItem::Node {
+                atlas_scaling: None,
+                flip_x: false,
+                flip_y: false,
+                border_radius: ResolvedBorderRadius {
+                    top_left: cursor_style.radius * target.scale_factor,
+                    top_right: cursor_style.radius * target.scale_factor,
+                    bottom_left: cursor_style.radius * target.scale_factor,
+                    bottom_right: cursor_style.radius * target.scale_factor,
                 },
-                item: ExtractedUiItem::Node {
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border_radius: ResolvedBorderRadius {
-                        top_left: cursor_style.radius * target.scale_factor,
-                        top_right: cursor_style.radius * target.scale_factor,
-                        bottom_left: cursor_style.radius * target.scale_factor,
-                        bottom_right: cursor_style.radius * target.scale_factor,
-                    },
-                    border: BorderRect::ZERO,
-                    node_type: NodeType::Rect,
-                    transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
-                },
-                main_entity: entity.into(),
-            });
-        }
+                border: BorderRect::ZERO,
+                node_type: NodeType::Rect,
+                transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
+            },
+            main_entity: entity.into(),
+        });
     }
 }
 

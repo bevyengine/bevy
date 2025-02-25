@@ -1,7 +1,10 @@
 //! This example illustrates how to create and control a UI text cursor
 
 use bevy::{
-    color::palettes::css::GOLDENROD, diagnostic::FrameTimeDiagnosticsPlugin, prelude::*, ui::widget::{TextCursor, TextCursorStyle, TextCursorWidth}
+    color::palettes::css::GOLDENROD,
+    diagnostic::FrameTimeDiagnosticsPlugin,
+    prelude::*,
+    ui::widget::{TextCursor, TextCursorStyle, TextCursorWidth},
 };
 
 const CURSOR_WIDTH: f32 = 4.;
@@ -30,7 +33,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_child((
             // Accepts a `String` or any type that converts into a `String`, such as `&str`
             Text::new(
-                "Lorem ipsum dolor sit amet,\nconsectetur adipiscing elit,\nsed do eiusmod tempor incididunt\nut labore et dolore magna aliqua."),
+                "Lorem ipsum dolor sit amet,\nconsectetur adipiscing elit,\nsed do eiusmod tempor incididunt\nut labore et dolore magna aliqua."
+            ),
             TextFont {
                 // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -39,6 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             TextColor(GOLDENROD.into()),
             TextCursor {
+                line: 0,
                 index: 0,
             },
             // Set the justification of the Text
@@ -61,6 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             TextCursor {
+                line: 0,
                 index: 0,
             },            
             TextColor(GOLDENROD.into()),
@@ -77,17 +83,23 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn move_cursor(
-    buttons: Res<ButtonInput<KeyCode>>,
+    keys: Res<ButtonInput<KeyCode>>,
     mut cursors: Query<(&mut TextCursor, &mut TextCursorStyle)>,
 ) {
     for (mut cursor, mut style) in &mut cursors {
-        if buttons.just_pressed(KeyCode::ArrowLeft) {
+        if keys.just_pressed(KeyCode::ArrowLeft) {
             cursor.index = cursor.index.saturating_sub(1);
         }
-        if buttons.just_pressed(KeyCode::ArrowRight) {
+        if keys.just_pressed(KeyCode::ArrowRight) {
             cursor.index += 1;
         }
-        if buttons.just_pressed(KeyCode::Insert) {
+        if keys.just_pressed(KeyCode::KeyQ) {
+            cursor.line = cursor.line.saturating_sub(1);
+        }
+        if keys.just_pressed(KeyCode::ArrowDown) {
+            cursor.line += 1;
+        }
+        if keys.just_pressed(KeyCode::Insert) {
             style.width = match style.width {
                 TextCursorWidth::All => TextCursorWidth::Px(CURSOR_WIDTH),
                 TextCursorWidth::Px(_) => TextCursorWidth::All,
