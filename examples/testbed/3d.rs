@@ -12,13 +12,10 @@ fn main() {
     app.add_plugins((DefaultPlugins,))
         .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Light), light::setup)
+        .add_systems(OnEnter(Scene::Bloom), bloom::setup)
+        .add_systems(OnEnter(Scene::Gltf), gltf::setup)
         .add_systems(OnEnter(Scene::Animation), animation::setup)
         .add_systems(Update, switch_scene);
-
-    // Those scenes don't work in CI on Windows runners
-    #[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
-    app.add_systems(OnEnter(Scene::Bloom), bloom::setup)
-        .add_systems(OnEnter(Scene::Gltf), gltf::setup);
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -139,7 +136,6 @@ mod light {
     }
 }
 
-#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod bloom {
     use bevy::{
         core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
@@ -193,7 +189,6 @@ mod bloom {
     }
 }
 
-#[cfg(not(all(feature = "bevy_ci_testing", target_os = "windows")))]
 mod gltf {
     use bevy::prelude::*;
 
@@ -287,19 +282,19 @@ mod animation {
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        let entity = children.get(trigger.target()).unwrap()[0];
-        let entity = children.get(entity).unwrap()[0];
+        for child in children.iter_descendants(trigger.target()) {
+            if let Ok((entity, mut player)) = players.get_mut(child) {
+                let mut transitions = AnimationTransitions::new();
+                transitions
+                    .play(&mut player, animation.animation, Duration::ZERO)
+                    .seek_to(0.5)
+                    .pause();
 
-        let (entity, mut player) = players.get_mut(entity).unwrap();
-        let mut transitions = AnimationTransitions::new();
-        transitions
-            .play(&mut player, animation.animation, Duration::ZERO)
-            .seek_to(0.5)
-            .pause();
-
-        commands
-            .entity(entity)
-            .insert(AnimationGraphHandle(animation.graph.clone()))
-            .insert(transitions);
+                commands
+                    .entity(entity)
+                    .insert(AnimationGraphHandle(animation.graph.clone()))
+                    .insert(transitions);
+            }
+        }
     }
 }

@@ -256,7 +256,7 @@ impl BlobArray {
         new_capacity: NonZeroUsize,
     ) {
         #[cfg(debug_assertions)]
-        debug_assert_eq!(self.capacity, current_capacity.into());
+        debug_assert_eq!(self.capacity, current_capacity.get());
         if !self.is_zst() {
             // SAFETY: `new_capacity` can't overflow usize
             let new_layout =
@@ -479,7 +479,6 @@ impl BlobArray {
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use bevy_ecs::prelude::*;
 
     #[derive(Component)]

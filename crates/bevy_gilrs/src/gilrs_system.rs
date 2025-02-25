@@ -23,8 +23,7 @@ pub fn gilrs_event_startup_system(
             let entity = commands.spawn_empty().id();
             gamepads.id_to_entity.insert(id, entity);
             gamepads.entity_to_id.insert(entity, id);
-
-            events.send(GamepadConnectionEvent {
+            events.write(GamepadConnectionEvent {
                 gamepad: entity,
                 connection: GamepadConnection::Connected {
                     name: gamepad.name().to_string(),
@@ -66,9 +65,8 @@ pub fn gilrs_event_system(
                             product_id: pad.product_id(),
                         },
                     );
-
-                    events.send(event.clone().into());
-                    connection_events.send(event);
+                    events.write(event.clone().into());
+                    connection_events.write(event);
                 }
                 EventType::Disconnected => {
                     let gamepad = gamepads
@@ -78,8 +76,8 @@ pub fn gilrs_event_system(
                         .expect("mapping should exist from connection");
                     let event =
                         GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected);
-                    events.send(event.clone().into());
-                    connection_events.send(event);
+                    events.write(event.clone().into());
+                    connection_events.write(event);
                 }
                 EventType::ButtonChanged(gilrs_button, raw_value, _) => {
                     let Some(button) = convert_button(gilrs_button) else {
@@ -90,9 +88,10 @@ pub fn gilrs_event_system(
                         .get(&gilrs_event.id)
                         .copied()
                         .expect("mapping should exist from connection");
-                    events
-                        .send(RawGamepadButtonChangedEvent::new(gamepad, button, raw_value).into());
-                    button_events.send(RawGamepadButtonChangedEvent::new(
+                    events.write(
+                        RawGamepadButtonChangedEvent::new(gamepad, button, raw_value).into(),
+                    );
+                    button_events.write(RawGamepadButtonChangedEvent::new(
                         gamepad, button, raw_value,
                     ));
                 }
@@ -105,8 +104,8 @@ pub fn gilrs_event_system(
                         .get(&gilrs_event.id)
                         .copied()
                         .expect("mapping should exist from connection");
-                    events.send(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value).into());
-                    axis_event.send(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value));
+                    events.write(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value).into());
+                    axis_event.write(RawGamepadAxisChangedEvent::new(gamepad, axis, raw_value));
                 }
                 _ => (),
             };
