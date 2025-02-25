@@ -1,13 +1,13 @@
 [package]
 name = "bevy_color"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Types for representing and manipulating color values"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "color"]
-rust-version = "1.83.0"
+rust-version = "1.85.0"
 
 [dependencies]
 bevy_math = { path = "../bevy_math", version = "0.16.0-dev", default-features = false, features = [
@@ -22,7 +22,7 @@ serde = { version = "1.0", features = [
 ], default-features = false, optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "1", default-features = false, features = ["from"] }
-wgpu-types = { version = "23", default-features = false, optional = true }
+wgpu-types = { version = "24", default-features = false, optional = true }
 encase = { version = "0.10", default-features = false, optional = true }
 
 [features]

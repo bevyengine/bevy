@@ -5,7 +5,6 @@ use bevy_asset::*;
 use bevy_ecs::{
     prelude::Component,
     query::ROQueryItem,
-    storage::SparseSet,
     system::{
         lifetimeless::{Read, SRes},
         *,
@@ -28,9 +27,11 @@ use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
-pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10074188772096983955);
+pub const UI_MATERIAL_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("b5612b7b-aed5-41b4-a930-1d1588239fcd");
 
-const UI_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(10123618247720234751);
+const UI_VERTEX_OUTPUT_SHADER_HANDLE: Handle<Shader> =
+    weak_handle!("1d97ca3e-eaa8-4bc5-a676-e8e9568c472e");
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given
 /// [`UiMaterial`] asset type (which includes [`UiMaterial`] types).
@@ -347,11 +348,12 @@ pub struct ExtractedUiMaterialNode<M: UiMaterial> {
     // Nodes with ambiguous camera will be ignored.
     pub extracted_camera_entity: Entity,
     pub main_entity: MainEntity,
+    render_entity: Entity,
 }
 
 #[derive(Resource)]
 pub struct ExtractedUiMaterialNodes<M: UiMaterial> {
-    pub uinodes: SparseSet<Entity, ExtractedUiMaterialNode<M>>,
+    pub uinodes: Vec<ExtractedUiMaterialNode<M>>,
 }
 
 impl<M: UiMaterial> Default for ExtractedUiMaterialNodes<M> {
@@ -374,7 +376,7 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             &MaterialNode<M>,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -398,23 +400,21 @@ pub fn extract_ui_material_nodes<M: UiMaterial>(
             continue;
         };
 
-        extracted_uinodes.uinodes.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-            ExtractedUiMaterialNode {
-                stack_index: computed_node.stack_index,
-                transform: transform.compute_matrix(),
-                material: handle.id(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: computed_node.size(),
-                },
-                border: computed_node.border(),
-                border_radius: computed_node.border_radius(),
-                clip: clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                main_entity: entity.into(),
+        extracted_uinodes.uinodes.push(ExtractedUiMaterialNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            stack_index: computed_node.stack_index,
+            transform: transform.compute_matrix(),
+            material: handle.id(),
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: computed_node.size(),
             },
-        );
+            border: computed_node.border(),
+            border_radius: computed_node.border_radius(),
+            clip: clip.map(|clip| clip.clip),
+            extracted_camera_entity,
+            main_entity: entity.into(),
+        });
     }
 }
 
@@ -450,7 +450,11 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes.uinodes.get(item.entity()) {
+                if let Some(extracted_uinode) = extracted_uinodes
+                    .uinodes
+                    .get(item.index)
+                    .filter(|n| item.entity() == n.render_entity)
+                {
                     let mut existing_batch = batches
                         .last_mut()
                         .filter(|_| batch_shader_handle == extracted_uinode.material);
@@ -593,7 +597,7 @@ impl<M: UiMaterial> RenderAsset for PreparedUiMaterial<M> {
     fn prepare_asset(
         material: Self::SourceAsset,
         _: AssetId<Self::SourceAsset>,
-        (render_device, pipeline, ref mut material_param): &mut SystemParamItem<Self::Param>,
+        (render_device, pipeline, material_param): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         match material.as_bind_group(&pipeline.ui_layout, render_device, material_param) {
             Ok(prepared) => Ok(PreparedUiMaterial {
@@ -624,7 +628,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
 {
     let draw_function = draw_functions.read().id::<DrawUiMaterial<M>>();
 
-    for (entity, extracted_uinode) in extracted_uinodes.uinodes.iter() {
+    for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
         let Some(material) = render_materials.get(extracted_uinode.material) else {
             continue;
         };
@@ -660,13 +664,14 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (*entity, extracted_uinode.main_entity),
+            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
             sort_key: (
                 FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
-                entity.index(),
+                extracted_uinode.render_entity.index(),
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
+            index,
             indexed: false,
         });
     }

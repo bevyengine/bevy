@@ -105,7 +105,7 @@ impl AssetBarrier {
     }
 
     /// Wait for all [`AssetBarrierGuard`]s to be dropped asynchronously.
-    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static {
+    pub fn wait_async(&self) -> impl Future<Output = ()> + 'static + use<> {
         let shared = self.0.clone();
         async move {
             loop {

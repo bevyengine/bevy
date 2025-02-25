@@ -1,6 +1,6 @@
+use crate::ui_node::ComputedNodeTarget;
 use crate::CalculatedClip;
 use crate::ComputedNode;
-use crate::UiTargetCamera;
 use bevy_asset::AssetId;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
@@ -64,7 +64,7 @@ pub fn extract_debug_overlay(
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
-            Option<&UiTargetCamera>,
+            &ComputedNodeTarget,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
@@ -75,44 +75,40 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, visibility, maybe_clip, transform, camera) in &uinode_query {
+    for (entity, uinode, visibility, maybe_clip, transform, computed_target) in &uinode_query {
         if !debug_options.show_hidden && !visibility.get() {
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(computed_target) else {
             continue;
         };
 
         // Extract a border box to display an outline for every UI Node in the layout
-        extracted_uinodes.uinodes.insert(
-            commands.spawn(TemporaryRenderEntity).id(),
-            ExtractedUiNode {
-                // Add a large number to the UI node's stack index so that the overlay is always drawn on top
-                stack_index: uinode.stack_index + u32::MAX / 2,
-                color: Hsla::sequential_dispersed(entity.index()).into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
-                },
-                clip: maybe_clip
-                    .filter(|_| !debug_options.show_clipped)
-                    .map(|clip| clip.clip),
-                image: AssetId::default(),
-                extracted_camera_entity,
-                item: ExtractedUiItem::Node {
-                    atlas_scaling: None,
-                    transform: transform.compute_matrix(),
-                    flip_x: false,
-                    flip_y: false,
-                    border: BorderRect::all(
-                        debug_options.line_width / uinode.inverse_scale_factor(),
-                    ),
-                    border_radius: uinode.border_radius(),
-                    node_type: NodeType::Border,
-                },
-                main_entity: entity.into(),
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            // Add a large number to the UI node's stack index so that the overlay is always drawn on top
+            stack_index: uinode.stack_index + u32::MAX / 2,
+            color: Hsla::sequential_dispersed(entity.index()).into(),
+            rect: Rect {
+                min: Vec2::ZERO,
+                max: uinode.size,
             },
-        );
+            clip: maybe_clip
+                .filter(|_| !debug_options.show_clipped)
+                .map(|clip| clip.clip),
+            image: AssetId::default(),
+            extracted_camera_entity,
+            item: ExtractedUiItem::Node {
+                atlas_scaling: None,
+                transform: transform.compute_matrix(),
+                flip_x: false,
+                flip_y: false,
+                border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
+                border_radius: uinode.border_radius(),
+                node_type: NodeType::Border,
+            },
+            main_entity: entity.into(),
+        });
     }
 }

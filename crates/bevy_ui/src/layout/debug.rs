@@ -12,21 +12,20 @@ pub fn print_ui_layout_tree(ui_surface: &UiSurface) {
     let taffy_to_entity: HashMap<NodeId, Entity> = ui_surface
         .entity_to_taffy
         .iter()
-        .map(|(entity, node)| (*node, *entity))
+        .map(|(entity, node)| (node.id, *entity))
         .collect();
-    for (&entity, roots) in &ui_surface.camera_roots {
+    for (&entity, &viewport_node) in &ui_surface.root_entity_to_viewport_node {
         let mut out = String::new();
-        for root in roots {
-            print_node(
-                ui_surface,
-                &taffy_to_entity,
-                entity,
-                root.implicit_viewport_node,
-                false,
-                String::new(),
-                &mut out,
-            );
-        }
+        print_node(
+            ui_surface,
+            &taffy_to_entity,
+            entity,
+            viewport_node,
+            false,
+            String::new(),
+            &mut out,
+        );
+
         tracing::info!("Layout tree for camera entity: {entity}\n{out}");
     }
 }

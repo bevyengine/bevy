@@ -3,7 +3,6 @@ use crate::{
     GltfMaterialName, GltfMeshExtras, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
-use alloc::collections::VecDeque;
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
 };
@@ -42,6 +41,7 @@ use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
+use fixedbitset::FixedBitSet;
 use gltf::{
     accessor::Iter,
     image::Source,
@@ -50,6 +50,7 @@ use gltf::{
     texture::{Info, MagFilter, MinFilter, TextureTransform, WrappingMode},
     Document, Material, Node, Primitive, Semantic,
 };
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 #[cfg(any(
     feature = "pbr_specular_textures",
@@ -516,10 +517,12 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
                 }
             }
-            let handle = load_context.add_labeled_asset(
-                GltfAssetLabel::Animation(animation.index()).to_string(),
-                animation_clip,
-            );
+            let handle = load_context
+                .add_labeled_asset(
+                    GltfAssetLabel::Animation(animation.index()).to_string(),
+                    animation_clip,
+                )
+                .expect("animation indices are unique, so the label is unique");
             if let Some(name) = animation.name() {
                 named_animations.insert(name.into(), handle.clone());
             }
@@ -539,9 +542,9 @@ async fn load_gltf<'a, 'b, 'c>(
         texture: ImageOrPath,
     ) {
         let handle = match texture {
-            ImageOrPath::Image { label, image } => {
-                load_context.add_labeled_asset(label.to_string(), image)
-            }
+            ImageOrPath::Image { label, image } => load_context
+                .add_labeled_asset(label.to_string(), image)
+                .expect("texture indices are unique, so the label is unique"),
             ImageOrPath::Path {
                 path,
                 is_srgb,
@@ -695,7 +698,8 @@ async fn load_gltf<'a, 'b, 'c>(
                         RenderAssetUsages::default(),
                     )?;
                     let handle = load_context
-                        .add_labeled_asset(morph_targets_label.to_string(), morph_target_image.0);
+                        .add_labeled_asset(morph_targets_label.to_string(), morph_target_image.0)
+                        .expect("morph target indices are unique, so the label is unique");
 
                     mesh.set_morph_targets(handle);
                     let extras = gltf_mesh.extras().as_ref();
@@ -748,7 +752,9 @@ async fn load_gltf<'a, 'b, 'c>(
                 });
             }
 
-            let mesh_handle = load_context.add_labeled_asset(primitive_label.to_string(), mesh);
+            let mesh_handle = load_context
+                .add_labeled_asset(primitive_label.to_string(), mesh)
+                .expect("primitive indices are unique, so the label is unique");
             primitives.push(super::GltfPrimitive::new(
                 &gltf_mesh,
                 &primitive,
@@ -765,7 +771,9 @@ async fn load_gltf<'a, 'b, 'c>(
         let mesh =
             super::GltfMesh::new(&gltf_mesh, primitives, get_gltf_extras(gltf_mesh.extras()));
 
-        let handle = load_context.add_labeled_asset(mesh.asset_label().to_string(), mesh);
+        let handle = load_context
+            .add_labeled_asset(mesh.asset_label().to_string(), mesh)
+            .expect("mesh indices are unique, so the label is unique");
         if let Some(name) = gltf_mesh.name() {
             named_meshes.insert(name.into(), handle.clone());
         }
@@ -782,39 +790,70 @@ async fn load_gltf<'a, 'b, 'c>(
                 .map(|mat| Mat4::from_cols_array_2d(&mat))
                 .collect();
 
-            load_context.add_labeled_asset(
-                inverse_bind_matrices_label(&gltf_skin),
-                SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
-            )
+            load_context
+                .add_labeled_asset(
+                    inverse_bind_matrices_label(&gltf_skin),
+                    SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
+                )
+                .expect("inverse bind matrix indices are unique, so the label is unique")
         })
         .collect();
 
     let mut nodes = HashMap::<usize, Handle<GltfNode>>::default();
     let mut named_nodes = <HashMap<_, _>>::default();
-    let mut skins = vec![];
+    let mut skins = <HashMap<_, _>>::default();
     let mut named_skins = <HashMap<_, _>>::default();
-    for node in GltfTreeIterator::try_new(&gltf)? {
+
+    // First, create the node handles.
+    for node in gltf.nodes() {
+        let label = GltfAssetLabel::Node(node.index());
+        let label_handle = load_context.get_label_handle(label.to_string());
+        nodes.insert(node.index(), label_handle);
+    }
+
+    // Then check for cycles.
+    check_gltf_for_cycles(&gltf)?;
+
+    // Now populate the nodes.
+    for node in gltf.nodes() {
         let skin = node.skin().map(|skin| {
-            let joints = skin
-                .joints()
-                .map(|joint| nodes.get(&joint.index()).unwrap().clone())
-                .collect();
+            skins
+                .entry(skin.index())
+                .or_insert_with(|| {
+                    let joints: Vec<_> = skin
+                        .joints()
+                        .map(|joint| nodes.get(&joint.index()).unwrap().clone())
+                        .collect();
 
-            let gltf_skin = GltfSkin::new(
-                &skin,
-                joints,
-                skinned_mesh_inverse_bindposes[skin.index()].clone(),
-                get_gltf_extras(skin.extras()),
-            );
+                    if joints.len() > MAX_JOINTS {
+                        warn!(
+                            "The glTF skin {} has {} joints, but the maximum supported is {}",
+                            skin.name()
+                                .map(ToString::to_string)
+                                .unwrap_or_else(|| skin.index().to_string()),
+                            joints.len(),
+                            MAX_JOINTS
+                        );
+                    }
 
-            let handle = load_context.add_labeled_asset(skin_label(&skin), gltf_skin);
+                    let gltf_skin = GltfSkin::new(
+                        &skin,
+                        joints,
+                        skinned_mesh_inverse_bindposes[skin.index()].clone(),
+                        get_gltf_extras(skin.extras()),
+                    );
 
-            skins.push(handle.clone());
-            if let Some(name) = skin.name() {
-                named_skins.insert(name.into(), handle.clone());
-            }
+                    let handle = load_context
+                        .add_labeled_asset(skin_label(&skin), gltf_skin)
+                        .expect("skin indices are unique, so the label is unique");
 
-            handle
+                    if let Some(name) = skin.name() {
+                        named_skins.insert(name.into(), handle.clone());
+                    }
+
+                    handle
+                })
+                .clone()
         });
 
         let children = node
@@ -839,7 +878,9 @@ async fn load_gltf<'a, 'b, 'c>(
         #[cfg(feature = "bevy_animation")]
         let gltf_node = gltf_node.with_animation_root(animation_roots.contains(&node.index()));
 
-        let handle = load_context.add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node);
+        let handle = load_context
+            .add_labeled_asset(gltf_node.asset_label().to_string(), gltf_node)
+            .expect("node indices are unique, so the label is unique");
         nodes.insert(node.index(), handle.clone());
         if let Some(name) = node.name() {
             named_nodes.insert(name.into(), handle);
@@ -928,7 +969,9 @@ async fn load_gltf<'a, 'b, 'c>(
             });
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world));
-        let scene_handle = load_context.add_loaded_labeled_asset(scene_label(&scene), loaded_scene);
+        let scene_handle = load_context
+            .add_loaded_labeled_asset(scene_label(&scene), loaded_scene)
+            .expect("scene indices are unique, so the label is unique");
 
         if let Some(name) = scene.name() {
             named_scenes.insert(name.into(), scene_handle.clone());
@@ -945,7 +988,7 @@ async fn load_gltf<'a, 'b, 'c>(
         named_scenes,
         meshes,
         named_meshes,
-        skins,
+        skins: skins.into_values().collect(),
         named_skins,
         materials,
         named_materials,
@@ -1095,74 +1138,78 @@ fn load_material(
     is_scale_inverted: bool,
 ) -> Handle<StandardMaterial> {
     let material_label = material_label(material, is_scale_inverted);
-    load_context.labeled_asset_scope(material_label, |load_context| {
-        let pbr = material.pbr_metallic_roughness();
+    load_context
+        .labeled_asset_scope(material_label, |load_context| {
+            let pbr = material.pbr_metallic_roughness();
 
-        // TODO: handle missing label handle errors here?
-        let color = pbr.base_color_factor();
-        let base_color_channel = pbr
-            .base_color_texture()
-            .map(|info| get_uv_channel(material, "base color", info.tex_coord()))
-            .unwrap_or_default();
-        let base_color_texture = pbr
-            .base_color_texture()
-            .map(|info| texture_handle(load_context, &info.texture()));
+            // TODO: handle missing label handle errors here?
+            let color = pbr.base_color_factor();
+            let base_color_channel = pbr
+                .base_color_texture()
+                .map(|info| get_uv_channel(material, "base color", info.tex_coord()))
+                .unwrap_or_default();
+            let base_color_texture = pbr
+                .base_color_texture()
+                .map(|info| texture_handle(load_context, &info.texture()));
 
-        let uv_transform = pbr
-            .base_color_texture()
-            .and_then(|info| {
-                info.texture_transform()
-                    .map(convert_texture_transform_to_affine2)
-            })
-            .unwrap_or_default();
+            let uv_transform = pbr
+                .base_color_texture()
+                .and_then(|info| {
+                    info.texture_transform()
+                        .map(convert_texture_transform_to_affine2)
+                })
+                .unwrap_or_default();
 
-        let normal_map_channel = material
-            .normal_texture()
-            .map(|info| get_uv_channel(material, "normal map", info.tex_coord()))
-            .unwrap_or_default();
-        let normal_map_texture: Option<Handle<Image>> =
-            material.normal_texture().map(|normal_texture| {
-                // TODO: handle normal_texture.scale
-                texture_handle(load_context, &normal_texture.texture())
+            let normal_map_channel = material
+                .normal_texture()
+                .map(|info| get_uv_channel(material, "normal map", info.tex_coord()))
+                .unwrap_or_default();
+            let normal_map_texture: Option<Handle<Image>> =
+                material.normal_texture().map(|normal_texture| {
+                    // TODO: handle normal_texture.scale
+                    texture_handle(load_context, &normal_texture.texture())
+                });
+
+            let metallic_roughness_channel = pbr
+                .metallic_roughness_texture()
+                .map(|info| get_uv_channel(material, "metallic/roughness", info.tex_coord()))
+                .unwrap_or_default();
+            let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
+                warn_on_differing_texture_transforms(
+                    material,
+                    &info,
+                    uv_transform,
+                    "metallic/roughness",
+                );
+                texture_handle(load_context, &info.texture())
             });
 
-        let metallic_roughness_channel = pbr
-            .metallic_roughness_texture()
-            .map(|info| get_uv_channel(material, "metallic/roughness", info.tex_coord()))
-            .unwrap_or_default();
-        let metallic_roughness_texture = pbr.metallic_roughness_texture().map(|info| {
-            warn_on_differing_texture_transforms(
-                material,
-                &info,
-                uv_transform,
-                "metallic/roughness",
-            );
-            texture_handle(load_context, &info.texture())
-        });
+            let occlusion_channel = material
+                .occlusion_texture()
+                .map(|info| get_uv_channel(material, "occlusion", info.tex_coord()))
+                .unwrap_or_default();
+            let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
+                // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+                texture_handle(load_context, &occlusion_texture.texture())
+            });
 
-        let occlusion_channel = material
-            .occlusion_texture()
-            .map(|info| get_uv_channel(material, "occlusion", info.tex_coord()))
-            .unwrap_or_default();
-        let occlusion_texture = material.occlusion_texture().map(|occlusion_texture| {
-            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            texture_handle(load_context, &occlusion_texture.texture())
-        });
+            let emissive = material.emissive_factor();
+            let emissive_channel = material
+                .emissive_texture()
+                .map(|info| get_uv_channel(material, "emissive", info.tex_coord()))
+                .unwrap_or_default();
+            let emissive_texture = material.emissive_texture().map(|info| {
+                // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
+                warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
+                texture_handle(load_context, &info.texture())
+            });
 
-        let emissive = material.emissive_factor();
-        let emissive_channel = material
-            .emissive_texture()
-            .map(|info| get_uv_channel(material, "emissive", info.tex_coord()))
-            .unwrap_or_default();
-        let emissive_texture = material.emissive_texture().map(|info| {
-            // TODO: handle occlusion_texture.strength() (a scalar multiplier for occlusion strength)
-            warn_on_differing_texture_transforms(material, &info, uv_transform, "emissive");
-            texture_handle(load_context, &info.texture())
-        });
-
-        #[cfg(feature = "pbr_transmission_textures")]
-        let (specular_transmission, specular_transmission_channel, specular_transmission_texture) =
-            material
+            #[cfg(feature = "pbr_transmission_textures")]
+            let (
+                specular_transmission,
+                specular_transmission_channel,
+                specular_transmission_texture,
+            ) = material
                 .transmission()
                 .map_or((0.0, UvChannel::Uv0, None), |transmission| {
                     let specular_transmission_channel = transmission
@@ -1184,152 +1231,156 @@ fn load_material(
                     )
                 });
 
-        #[cfg(not(feature = "pbr_transmission_textures"))]
-        let specular_transmission = material
-            .transmission()
-            .map_or(0.0, |transmission| transmission.transmission_factor());
+            #[cfg(not(feature = "pbr_transmission_textures"))]
+            let specular_transmission = material
+                .transmission()
+                .map_or(0.0, |transmission| transmission.transmission_factor());
 
-        #[cfg(feature = "pbr_transmission_textures")]
-        let (
-            thickness,
-            thickness_channel,
-            thickness_texture,
-            attenuation_distance,
-            attenuation_color,
-        ) = material.volume().map_or(
-            (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
-            |volume| {
-                let thickness_channel = volume
-                    .thickness_texture()
-                    .map(|info| get_uv_channel(material, "thickness", info.tex_coord()))
-                    .unwrap_or_default();
-                let thickness_texture: Option<Handle<Image>> =
-                    volume.thickness_texture().map(|thickness_texture| {
-                        texture_handle(load_context, &thickness_texture.texture())
-                    });
+            #[cfg(feature = "pbr_transmission_textures")]
+            let (
+                thickness,
+                thickness_channel,
+                thickness_texture,
+                attenuation_distance,
+                attenuation_color,
+            ) = material.volume().map_or(
+                (0.0, UvChannel::Uv0, None, f32::INFINITY, [1.0, 1.0, 1.0]),
+                |volume| {
+                    let thickness_channel = volume
+                        .thickness_texture()
+                        .map(|info| get_uv_channel(material, "thickness", info.tex_coord()))
+                        .unwrap_or_default();
+                    let thickness_texture: Option<Handle<Image>> =
+                        volume.thickness_texture().map(|thickness_texture| {
+                            texture_handle(load_context, &thickness_texture.texture())
+                        });
 
-                (
-                    volume.thickness_factor(),
-                    thickness_channel,
-                    thickness_texture,
-                    volume.attenuation_distance(),
-                    volume.attenuation_color(),
-                )
-            },
-        );
-
-        #[cfg(not(feature = "pbr_transmission_textures"))]
-        let (thickness, attenuation_distance, attenuation_color) =
-            material
-                .volume()
-                .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
                     (
                         volume.thickness_factor(),
+                        thickness_channel,
+                        thickness_texture,
                         volume.attenuation_distance(),
                         volume.attenuation_color(),
                     )
-                });
+                },
+            );
 
-        let ior = material.ior().unwrap_or(1.5);
+            #[cfg(not(feature = "pbr_transmission_textures"))]
+            let (thickness, attenuation_distance, attenuation_color) =
+                material
+                    .volume()
+                    .map_or((0.0, f32::INFINITY, [1.0, 1.0, 1.0]), |volume| {
+                        (
+                            volume.thickness_factor(),
+                            volume.attenuation_distance(),
+                            volume.attenuation_color(),
+                        )
+                    });
 
-        // Parse the `KHR_materials_clearcoat` extension data if necessary.
-        let clearcoat =
-            ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
+            let ior = material.ior().unwrap_or(1.5);
 
-        // Parse the `KHR_materials_anisotropy` extension data if necessary.
-        let anisotropy =
-            AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
+            // Parse the `KHR_materials_clearcoat` extension data if necessary.
+            let clearcoat =
+                ClearcoatExtension::parse(load_context, document, material).unwrap_or_default();
 
-        // Parse the `KHR_materials_specular` extension data if necessary.
-        let specular =
-            SpecularExtension::parse(load_context, document, material).unwrap_or_default();
+            // Parse the `KHR_materials_anisotropy` extension data if necessary.
+            let anisotropy =
+                AnisotropyExtension::parse(load_context, document, material).unwrap_or_default();
 
-        // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
-        let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
-        let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+            // Parse the `KHR_materials_specular` extension data if necessary.
+            let specular =
+                SpecularExtension::parse(load_context, document, material).unwrap_or_default();
 
-        StandardMaterial {
-            base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
-            base_color_channel,
-            base_color_texture,
-            perceptual_roughness: pbr.roughness_factor(),
-            metallic: pbr.metallic_factor(),
-            metallic_roughness_channel,
-            metallic_roughness_texture,
-            normal_map_channel,
-            normal_map_texture,
-            double_sided: material.double_sided(),
-            cull_mode: if material.double_sided() {
-                None
-            } else if is_scale_inverted {
-                Some(Face::Front)
-            } else {
-                Some(Face::Back)
-            },
-            occlusion_channel,
-            occlusion_texture,
-            emissive,
-            emissive_channel,
-            emissive_texture,
-            specular_transmission,
-            #[cfg(feature = "pbr_transmission_textures")]
-            specular_transmission_channel,
-            #[cfg(feature = "pbr_transmission_textures")]
-            specular_transmission_texture,
-            thickness,
-            #[cfg(feature = "pbr_transmission_textures")]
-            thickness_channel,
-            #[cfg(feature = "pbr_transmission_textures")]
-            thickness_texture,
-            ior,
-            attenuation_distance,
-            attenuation_color: Color::linear_rgb(
-                attenuation_color[0],
-                attenuation_color[1],
-                attenuation_color[2],
-            ),
-            unlit: material.unlit(),
-            alpha_mode: alpha_mode(material),
-            uv_transform,
-            clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
-            clearcoat_perceptual_roughness: clearcoat.clearcoat_roughness_factor.unwrap_or_default()
-                as f32,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_channel: clearcoat.clearcoat_channel,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_texture: clearcoat.clearcoat_texture,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
-            #[cfg(feature = "pbr_multi_layer_material_textures")]
-            clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
-            anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
-            anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
-            #[cfg(feature = "pbr_anisotropy_texture")]
-            anisotropy_channel: anisotropy.anisotropy_channel,
-            #[cfg(feature = "pbr_anisotropy_texture")]
-            anisotropy_texture: anisotropy.anisotropy_texture,
-            // From the `KHR_materials_specular` spec:
-            // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
-            reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
-            #[cfg(feature = "pbr_specular_textures")]
-            specular_channel: specular.specular_channel,
-            #[cfg(feature = "pbr_specular_textures")]
-            specular_texture: specular.specular_texture,
-            specular_tint: match specular.specular_color_factor {
-                Some(color) => Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32),
-                None => Color::WHITE,
-            },
-            #[cfg(feature = "pbr_specular_textures")]
-            specular_tint_channel: specular.specular_color_channel,
-            #[cfg(feature = "pbr_specular_textures")]
-            specular_tint_texture: specular.specular_color_texture,
-            ..Default::default()
-        }
-    })
+            // We need to operate in the Linear color space and be willing to exceed 1.0 in our channels
+            let base_emissive = LinearRgba::rgb(emissive[0], emissive[1], emissive[2]);
+            let emissive = base_emissive * material.emissive_strength().unwrap_or(1.0);
+
+            StandardMaterial {
+                base_color: Color::linear_rgba(color[0], color[1], color[2], color[3]),
+                base_color_channel,
+                base_color_texture,
+                perceptual_roughness: pbr.roughness_factor(),
+                metallic: pbr.metallic_factor(),
+                metallic_roughness_channel,
+                metallic_roughness_texture,
+                normal_map_channel,
+                normal_map_texture,
+                double_sided: material.double_sided(),
+                cull_mode: if material.double_sided() {
+                    None
+                } else if is_scale_inverted {
+                    Some(Face::Front)
+                } else {
+                    Some(Face::Back)
+                },
+                occlusion_channel,
+                occlusion_texture,
+                emissive,
+                emissive_channel,
+                emissive_texture,
+                specular_transmission,
+                #[cfg(feature = "pbr_transmission_textures")]
+                specular_transmission_channel,
+                #[cfg(feature = "pbr_transmission_textures")]
+                specular_transmission_texture,
+                thickness,
+                #[cfg(feature = "pbr_transmission_textures")]
+                thickness_channel,
+                #[cfg(feature = "pbr_transmission_textures")]
+                thickness_texture,
+                ior,
+                attenuation_distance,
+                attenuation_color: Color::linear_rgb(
+                    attenuation_color[0],
+                    attenuation_color[1],
+                    attenuation_color[2],
+                ),
+                unlit: material.unlit(),
+                alpha_mode: alpha_mode(material),
+                uv_transform,
+                clearcoat: clearcoat.clearcoat_factor.unwrap_or_default() as f32,
+                clearcoat_perceptual_roughness: clearcoat
+                    .clearcoat_roughness_factor
+                    .unwrap_or_default() as f32,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_channel: clearcoat.clearcoat_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_texture: clearcoat.clearcoat_texture,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_roughness_channel: clearcoat.clearcoat_roughness_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_roughness_texture: clearcoat.clearcoat_roughness_texture,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_normal_channel: clearcoat.clearcoat_normal_channel,
+                #[cfg(feature = "pbr_multi_layer_material_textures")]
+                clearcoat_normal_texture: clearcoat.clearcoat_normal_texture,
+                anisotropy_strength: anisotropy.anisotropy_strength.unwrap_or_default() as f32,
+                anisotropy_rotation: anisotropy.anisotropy_rotation.unwrap_or_default() as f32,
+                #[cfg(feature = "pbr_anisotropy_texture")]
+                anisotropy_channel: anisotropy.anisotropy_channel,
+                #[cfg(feature = "pbr_anisotropy_texture")]
+                anisotropy_texture: anisotropy.anisotropy_texture,
+                // From the `KHR_materials_specular` spec:
+                // <https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular#materials-with-reflectance-parameter>
+                reflectance: specular.specular_factor.unwrap_or(1.0) as f32 * 0.5,
+                #[cfg(feature = "pbr_specular_textures")]
+                specular_channel: specular.specular_channel,
+                #[cfg(feature = "pbr_specular_textures")]
+                specular_texture: specular.specular_texture,
+                specular_tint: match specular.specular_color_factor {
+                    Some(color) => {
+                        Color::linear_rgb(color[0] as f32, color[1] as f32, color[2] as f32)
+                    }
+                    None => Color::WHITE,
+                },
+                #[cfg(feature = "pbr_specular_textures")]
+                specular_tint_channel: specular.specular_color_channel,
+                #[cfg(feature = "pbr_specular_textures")]
+                specular_tint_texture: specular.specular_color_texture,
+                ..Default::default()
+            }
+        })
+        .expect("material indices are unique, so the label is unique")
 }
 
 fn get_uv_channel(material: &Material, texture_kind: &str, tex_coord: u32) -> UvChannel {
@@ -1904,114 +1955,6 @@ async fn load_buffers(
     Ok(buffer_data)
 }
 
-/// Iterator for a Gltf tree.
-///
-/// It resolves a Gltf tree and allows for a safe Gltf nodes iteration,
-/// putting dependent nodes before dependencies.
-struct GltfTreeIterator<'a> {
-    nodes: Vec<Node<'a>>,
-}
-
-impl<'a> GltfTreeIterator<'a> {
-    #[expect(
-        clippy::result_large_err,
-        reason = "`GltfError` is only barely past the threshold for large errors."
-    )]
-    fn try_new(gltf: &'a gltf::Gltf) -> Result<Self, GltfError> {
-        let nodes = gltf.nodes().collect::<Vec<_>>();
-
-        let mut empty_children = VecDeque::new();
-        let mut parents = vec![None; nodes.len()];
-        let mut unprocessed_nodes = nodes
-            .into_iter()
-            .enumerate()
-            .map(|(i, node)| {
-                let children = node
-                    .children()
-                    .map(|child| child.index())
-                    .collect::<HashSet<_>>();
-                for &child in &children {
-                    let parent = parents.get_mut(child).unwrap();
-                    *parent = Some(i);
-                }
-                if children.is_empty() {
-                    empty_children.push_back(i);
-                }
-                (i, (node, children))
-            })
-            .collect::<HashMap<_, _>>();
-
-        let mut nodes = Vec::new();
-        let mut warned_about_max_joints = <HashSet<_>>::default();
-        while let Some(index) = empty_children.pop_front() {
-            if let Some(skin) = unprocessed_nodes.get(&index).unwrap().0.skin() {
-                if skin.joints().len() > MAX_JOINTS && warned_about_max_joints.insert(skin.index())
-                {
-                    warn!(
-                        "The glTF skin {} has {} joints, but the maximum supported is {}",
-                        skin.name()
-                            .map(ToString::to_string)
-                            .unwrap_or_else(|| skin.index().to_string()),
-                        skin.joints().len(),
-                        MAX_JOINTS
-                    );
-                }
-
-                let skin_has_dependencies = skin
-                    .joints()
-                    .any(|joint| unprocessed_nodes.contains_key(&joint.index()));
-
-                if skin_has_dependencies && unprocessed_nodes.len() != 1 {
-                    empty_children.push_back(index);
-                    continue;
-                }
-            }
-
-            let (node, children) = unprocessed_nodes.remove(&index).unwrap();
-            assert!(children.is_empty());
-            nodes.push(node);
-
-            if let Some(parent_index) = parents[index] {
-                let (_, parent_children) = unprocessed_nodes.get_mut(&parent_index).unwrap();
-
-                assert!(parent_children.remove(&index));
-                if parent_children.is_empty() {
-                    empty_children.push_back(parent_index);
-                }
-            }
-        }
-
-        if !unprocessed_nodes.is_empty() {
-            return Err(GltfError::CircularChildren(format!(
-                "{:?}",
-                unprocessed_nodes
-                    .iter()
-                    .map(|(k, _v)| *k)
-                    .collect::<Vec<_>>(),
-            )));
-        }
-
-        nodes.reverse();
-        Ok(Self {
-            nodes: nodes.into_iter().collect(),
-        })
-    }
-}
-
-impl<'a> Iterator for GltfTreeIterator<'a> {
-    type Item = Node<'a>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.nodes.pop()
-    }
-}
-
-impl<'a> ExactSizeIterator for GltfTreeIterator<'a> {
-    fn len(&self) -> usize {
-        self.nodes.len()
-    }
-}
-
 enum ImageOrPath {
     Image {
         image: Image,
@@ -2413,6 +2356,51 @@ fn material_needs_tangents(material: &Material) -> bool {
     }
 
     false
+}
+
+/// Checks all glTF nodes for cycles, starting at the scene root.
+#[expect(
+    clippy::result_large_err,
+    reason = "need to be signature compatible with `load_gltf`"
+)]
+fn check_gltf_for_cycles(gltf: &gltf::Gltf) -> Result<(), GltfError> {
+    // Initialize with the scene roots.
+    let mut roots = FixedBitSet::with_capacity(gltf.nodes().len());
+    for root in gltf.scenes().flat_map(|scene| scene.nodes()) {
+        roots.insert(root.index());
+    }
+
+    // Check each one.
+    let mut visited = FixedBitSet::with_capacity(gltf.nodes().len());
+    for root in roots.ones() {
+        check(gltf.nodes().nth(root).unwrap(), &mut visited)?;
+    }
+    return Ok(());
+
+    // Depth first search.
+    #[expect(
+        clippy::result_large_err,
+        reason = "need to be signature compatible with `load_gltf`"
+    )]
+    fn check(node: Node, visited: &mut FixedBitSet) -> Result<(), GltfError> {
+        // Do we have a cycle?
+        if visited.contains(node.index()) {
+            return Err(GltfError::CircularChildren(format!(
+                "glTF nodes form a cycle: {} -> {}",
+                visited.ones().map(|bit| bit.to_string()).join(" -> "),
+                node.index()
+            )));
+        }
+
+        // Recurse.
+        visited.insert(node.index());
+        for kid in node.children() {
+            check(kid, visited)?;
+        }
+        visited.remove(node.index());
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]

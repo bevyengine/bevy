@@ -10,6 +10,7 @@
 use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::{
+        component::Tick,
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
@@ -18,8 +19,9 @@ use bevy::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         primitives::Aabb,
         render_phase::{
-            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, PhaseItem, RenderCommand,
-            RenderCommandResult, SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
+            AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, InputUniformIndex, PhaseItem,
+            RenderCommand, RenderCommandResult, SetItemPipeline, TrackedRenderPass,
+            ViewBinnedRenderPhases,
         },
         render_resource::{
             BufferUsages, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
@@ -224,6 +226,7 @@ fn queue_custom_phase_item(
     opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
     mut specialized_render_pipelines: ResMut<SpecializedRenderPipelines<CustomPhasePipeline>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities, &Msaa)>,
+    mut next_tick: Local<Tick>,
 ) {
     let draw_custom_phase_item = opaque_draw_functions
         .read()
@@ -250,6 +253,10 @@ fn queue_custom_phase_item(
                 *msaa,
             );
 
+            // Bump the change tick in order to force Bevy to rebuild the bin.
+            let this_tick = next_tick.get() + 1;
+            next_tick.set(this_tick);
+
             // Add the custom render item. We use the
             // [`BinnedRenderPhaseType::NonMesh`] type to skip the special
             // handling that Bevy has for meshes (preprocessing, indirect
@@ -271,7 +278,9 @@ fn queue_custom_phase_item(
                     asset_id: AssetId::<Mesh>::invalid().untyped(),
                 },
                 entity,
+                InputUniformIndex::default(),
                 BinnedRenderPhaseType::NonMesh,
+                *next_tick,
             );
         }
     }
