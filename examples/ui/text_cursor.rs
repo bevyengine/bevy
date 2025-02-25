@@ -70,6 +70,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: Val::Px(2.),
                 ..Default::default()
             },
+        ))
+        .with_child(Text::new(
+            "Press arrow keys to move the cursors and space to toggle the cursor style.",
         ));
 }
 
