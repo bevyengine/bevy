@@ -15,7 +15,8 @@ use crate::{
 };
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, weak_handle, AssetEvent, AssetId, Assets, Handle};
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::palettes::css::{LIME, ORANGE, RED};
+use bevy_color::{Alpha, Color, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
@@ -814,42 +815,132 @@ pub fn extract_text_sections(
             TextCursorWidth::Px(width) => width * target.scale_factor,
         };
 
-        let height = computed_block.buffer().metrics().line_height * style.height;
+        let buffer = computed_block.buffer();
+        let mut i: usize = 0;
+        for line in buffer.layout_runs() {
+            let t = line.line_top;
+            let h = buffer.metrics().line_height;
+            let f = buffer.metrics().font_size;
+            for glyph in line.glyphs {
+                let w = match style.width {
+                    TextCursorWidth::All => glyph.w,
+                    TextCursorWidth::Px(width) => width * target.scale_factor,
+                };
+                let x = glyph.x + w * 0.5;
+                let y = t + 0.5 * h;
+                if i == cursor.index {
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        stack_index: uinode.stack_index,
+                        color: LinearRgba::from(style.color),
+                        image: AssetId::default(),
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: Vec2::new(w, f),
+                        },
+                        item: ExtractedUiItem::Node {
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border_radius: ResolvedBorderRadius {
+                                top_left: style.radius * target.scale_factor,
+                                top_right: style.radius * target.scale_factor,
+                                bottom_left: style.radius * target.scale_factor,
+                                bottom_right: style.radius * target.scale_factor,
+                            },
+                            border: BorderRect::ZERO,
+                            node_type: NodeType::Rect,
+                            transform: transform * Mat4::from_translation(Vec3::new(x, y, 0.)),
+                        },
+                        main_entity: entity.into(),
+                    });
+                }
 
-        let position = if style.width == TextCursorWidth::All {
-            glyph.position
-        } else {
-            glyph.position - 0.5 * (glyph.size.x + width) * Vec2::X
-        };
+                i += 1;
+            }
 
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            stack_index: uinode.stack_index,
-            color: LinearRgba::from(style.color),
-            image: AssetId::default(),
-            clip: clip.map(|clip| clip.clip),
-            extracted_camera_entity,
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: Vec2::new(width, height),
-            },
-            item: ExtractedUiItem::Node {
-                atlas_scaling: None,
-                flip_x: false,
-                flip_y: false,
-                border_radius: ResolvedBorderRadius {
-                    top_left: style.radius * target.scale_factor,
-                    top_right: style.radius * target.scale_factor,
-                    bottom_left: style.radius * target.scale_factor,
-                    bottom_right: style.radius * target.scale_factor,
+            let y = line.line_y;
+
+            let x = 0.5 * uinode.size.x * Vec3::X;
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: LinearRgba::from(Color::from(RED)),
+                image: AssetId::default(),
+                clip: clip.map(|clip| clip.clip),
+                extracted_camera_entity,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(uinode.size.x, 1. * target.scale_factor),
                 },
-                border: BorderRect::ZERO,
-                node_type: NodeType::Rect,
-                transform: transform * Mat4::from_translation(position.extend(0.)),
-            },
-            main_entity: entity.into(),
-        });
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                    transform: transform * Mat4::from_translation(x + t * Vec3::Y),
+                },
+                main_entity: entity.into(),
+            });
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: LinearRgba::from(Color::from(LIME)),
+                image: AssetId::default(),
+                clip: clip.map(|clip| clip.clip),
+                extracted_camera_entity,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(uinode.size.x, 1. * target.scale_factor),
+                },
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                    transform: transform * Mat4::from_translation(x + y * Vec3::Y),
+                },
+                main_entity: entity.into(),
+            });
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                stack_index: uinode.stack_index,
+                color: LinearRgba::from(Color::from(ORANGE)),
+                image: AssetId::default(),
+                clip: clip.map(|clip| clip.clip),
+                extracted_camera_entity,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: Vec2::new(uinode.size.x, 1. * target.scale_factor),
+                },
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                    transform: transform * Mat4::from_translation(x + (t + f) * Vec3::Y),
+                },
+                main_entity: entity.into(),
+            });
+        }
     }
+    //     println!("line: {}", line.text);
+    //     println!("\tline_top: {}", line.line_top);
+    //     println!("\tline_y: {}", line.line_y);
+    // }
+
+    // println!("font_size: {}", buffer.metrics().font_size);
 }
 
 pub fn extract_text_shadows(

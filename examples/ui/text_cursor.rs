@@ -6,6 +6,8 @@ use bevy::{
     ui::widget::{TextCursor, TextCursorStyle, TextCursorWidth},
 };
 
+const CURSOR_WIDTH: f32 = 4.;
+
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
@@ -23,6 +25,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             height: Val::Percent(100.),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
+            row_gap: Val::Px(50.),
+            flex_direction: FlexDirection::Column,
             ..Default::default()
         })
         .with_child((
@@ -39,7 +43,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 index: 5,
             },
             TextCursorStyle {
-                color: Color::WHITE,
+                color: Srgba::hex("AEAFAD").unwrap().into(),
                 width: TextCursorWidth::Px(4.),
                 radius: 2.,
                 height: 1.,
@@ -52,16 +56,54 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: Val::Px(2.),
                 offset: Val::Px(25.),
             },
-        ));
+        ))
+        .with_child((
+            // Accepts a `String` or any type that converts into a `String`, such as `&str`
+            Text::new(
+                "Lorem ipsum dolor sit amet,\nconsectetur adipiscing elit,\nsed do eiusmod tempor incididunt\nut labore et dolore magna aliqua."),
+            TextFont {
+                // This font is loaded and will be used instead of the default font.
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 30.0,
+                ..default()
+            },
+            TextCursor {
+                index: 5,
+            },            
+            TextCursorStyle {
+                color: Srgba::hex("AEAFAD").unwrap().into(),
+                width: TextCursorWidth::Px(CURSOR_WIDTH),
+                radius: 2.,
+                height: 1.,
+            },
+            // Set the justification of the Text
+            TextLayout::new_with_justify(JustifyText::Center),
+            // Set the style of the Node itself.
+            Outline {
+                color: Color::WHITE,
+                width: Val::Px(2.),
+                offset: Val::Px(10.),
+            },
+        ))
+        ;
 }
 
-fn move_cursor(buttons: Res<ButtonInput<KeyCode>>, mut cursors: Query<&mut TextCursor>) {
-    for mut cursor in &mut cursors {
+fn move_cursor(
+    buttons: Res<ButtonInput<KeyCode>>,
+    mut cursors: Query<(&mut TextCursor, &mut TextCursorStyle)>,
+) {
+    for (mut cursor, mut style) in &mut cursors {
         if buttons.just_pressed(KeyCode::ArrowLeft) {
             cursor.index = cursor.index.saturating_sub(1);
         }
         if buttons.just_pressed(KeyCode::ArrowRight) {
             cursor.index += 1;
+        }
+        if buttons.just_pressed(KeyCode::Insert) {
+            style.width = match style.width {
+                TextCursorWidth::All => TextCursorWidth::Px(CURSOR_WIDTH),
+                TextCursorWidth::Px(_) => TextCursorWidth::All,
+            };
         }
     }
 }
