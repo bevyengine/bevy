@@ -1,10 +1,10 @@
-mod data_uri;
 mod extensions;
 mod gltf_ext;
-mod image_or_path;
-mod primitive_morph_attributes_iter;
 
-use std::{io::Error, path::Path};
+use std::{
+    io::Error,
+    path::{Path, PathBuf},
+};
 
 #[cfg(feature = "bevy_animation")]
 use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
@@ -19,7 +19,10 @@ use bevy_ecs::{
     name::Name,
     world::World,
 };
-use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError};
+use bevy_image::{
+    CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
+    ImageType, TextureError,
+};
 use bevy_math::{Mat4, Vec3};
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
@@ -30,7 +33,7 @@ use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_render::{
     camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
     mesh::{
-        morph::{MeshMorphWeights, MorphTargetImage, MorphWeights},
+        morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, Mesh, Mesh3d, MeshVertexAttribute, VertexAttributeValues,
     },
@@ -64,7 +67,6 @@ use crate::{
 };
 
 use self::{
-    data_uri::DataUri,
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
         check_for_cycles,
@@ -78,8 +80,6 @@ use self::{
         scene::{collect_path, node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
-    image_or_path::ImageOrPath,
-    primitive_morph_attributes_iter::PrimitiveMorphAttributesIter,
 };
 
 /// An error that occurs when loading a glTF file.
@@ -1621,6 +1621,113 @@ async fn load_buffers(
     }
 
     Ok(buffer_data)
+}
+
+struct DataUri<'a> {
+    pub mime_type: &'a str,
+    pub base64: bool,
+    pub data: &'a str,
+}
+
+impl<'a> DataUri<'a> {
+    fn parse(uri: &'a str) -> Result<DataUri<'a>, ()> {
+        let uri = uri.strip_prefix("data:").ok_or(())?;
+        let (mime_type, data) = Self::split_once(uri, ',').ok_or(())?;
+
+        let (mime_type, base64) = match mime_type.strip_suffix(";base64") {
+            Some(mime_type) => (mime_type, true),
+            None => (mime_type, false),
+        };
+
+        Ok(DataUri {
+            mime_type,
+            base64,
+            data,
+        })
+    }
+
+    fn decode(&self) -> Result<Vec<u8>, base64::DecodeError> {
+        if self.base64 {
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, self.data)
+        } else {
+            Ok(self.data.as_bytes().to_owned())
+        }
+    }
+
+    fn split_once(input: &str, delimiter: char) -> Option<(&str, &str)> {
+        let mut iter = input.splitn(2, delimiter);
+        Some((iter.next()?, iter.next()?))
+    }
+}
+
+enum ImageOrPath {
+    Image {
+        image: Image,
+        label: GltfAssetLabel,
+    },
+    Path {
+        path: PathBuf,
+        is_srgb: bool,
+        sampler_descriptor: ImageSamplerDescriptor,
+    },
+}
+
+impl ImageOrPath {
+    // TODO: use the threaded impl on wasm once wasm thread pool doesn't deadlock on it
+    // See https://github.com/bevyengine/bevy/issues/1924 for more details
+    // The taskpool use is also avoided when there is only one texture for performance reasons and
+    // to avoid https://github.com/bevyengine/bevy/pull/2725
+    // PERF: could this be a Vec instead? Are gltf texture indices dense?
+    fn process_loaded_texture(
+        self,
+        load_context: &mut LoadContext,
+        handles: &mut Vec<Handle<Image>>,
+    ) {
+        let handle = match self {
+            ImageOrPath::Image { label, image } => load_context
+                .add_labeled_asset(label.to_string(), image)
+                .expect("texture indices are unique, so the label is unique"),
+            ImageOrPath::Path {
+                path,
+                is_srgb,
+                sampler_descriptor,
+            } => load_context
+                .loader()
+                .with_settings(move |settings: &mut ImageLoaderSettings| {
+                    settings.is_srgb = is_srgb;
+                    settings.sampler = ImageSampler::Descriptor(sampler_descriptor.clone());
+                })
+                .load(path),
+        };
+        handles.push(handle);
+    }
+}
+
+struct PrimitiveMorphAttributesIter<'s>(
+    pub  (
+        Option<Iter<'s, [f32; 3]>>,
+        Option<Iter<'s, [f32; 3]>>,
+        Option<Iter<'s, [f32; 3]>>,
+    ),
+);
+
+impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
+    type Item = MorphAttributes;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let position = self.0 .0.as_mut().and_then(Iterator::next);
+        let normal = self.0 .1.as_mut().and_then(Iterator::next);
+        let tangent = self.0 .2.as_mut().and_then(Iterator::next);
+        if position.is_none() && normal.is_none() && tangent.is_none() {
+            return None;
+        }
+
+        Some(MorphAttributes {
+            position: position.map(Into::into).unwrap_or(Vec3::ZERO),
+            normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
+            tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
+        })
+    }
 }
 
 /// A helper structure for `load_node` that contains information about the

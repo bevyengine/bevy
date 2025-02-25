@@ -14,7 +14,7 @@ use gltf::{
 ))]
 use gltf::{json::texture::Info, Document};
 
-use crate::{loader::data_uri::DataUri, GltfAssetLabel};
+use crate::{loader::DataUri, GltfAssetLabel};
 
 pub(crate) fn texture_handle(
     texture: &Texture<'_>,
