@@ -6,6 +6,10 @@
 //! window will be inserted as a pointer hit, listed behind all other pointer
 //! hits. This means that when the pointer isn't hovering any other entities,
 //! the picking events will be routed to the window.
+//!
+//! ## Implementation Notes
+//!
+//! - This backend does not provide `position` or `normal` in `HitData`.
 
 use core::f32;
 
@@ -35,7 +39,7 @@ pub fn update_window_hits(
         {
             let entity = window_ref.entity();
             let hit_data = HitData::new(entity, 0.0, None, None);
-            output_events.send(PointerHits::new(
+            output_events.write(PointerHits::new(
                 *pointer_id,
                 vec![(entity, hit_data)],
                 f32::NEG_INFINITY,

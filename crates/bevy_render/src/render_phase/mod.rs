@@ -148,7 +148,7 @@ where
     /// We retain these so that, when the entity changes,
     /// [`Self::sweep_old_entities`] can quickly find the bin it was located in
     /// and remove it.
-    cached_entity_bin_keys: IndexMap<MainEntity, CachedBinKey<BPI>, EntityHash>,
+    cached_entity_bin_keys: IndexMap<MainEntity, CachedBinnedEntity<BPI>, EntityHash>,
 
     /// The set of indices in [`Self::cached_entity_bin_keys`] that are
     /// confirmed to be up to date.
@@ -185,10 +185,23 @@ where
     /// The entity.
     main_entity: MainEntity,
     /// The key that identifies the bin that this entity used to be in.
-    old_bin_key: CachedBinKey<BPI>,
+    old_cached_binned_entity: CachedBinnedEntity<BPI>,
 }
 
 /// Information that we keep about an entity currently within a bin.
+pub struct CachedBinnedEntity<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    /// Information that we use to identify a cached entity in a bin.
+    pub cached_bin_key: Option<CachedBinKey<BPI>>,
+    /// The last modified tick of the entity.
+    ///
+    /// We use this to detect when the entity needs to be invalidated.
+    pub change_tick: Tick,
+}
+
+/// Information that we use to identify a cached entity in a bin.
 pub struct CachedBinKey<BPI>
 where
     BPI: BinnedPhaseItem,
@@ -200,10 +213,18 @@ where
     /// The type of render phase that we use to render the entity: multidraw,
     /// plain batch, etc.
     pub phase_type: BinnedRenderPhaseType,
-    /// The last modified tick of the entity.
-    ///
-    /// We use this to detect when the entity needs to be invalidated.
-    pub change_tick: Tick,
+}
+
+impl<BPI> Clone for CachedBinnedEntity<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    fn clone(&self) -> Self {
+        CachedBinnedEntity {
+            cached_bin_key: self.cached_bin_key.clone(),
+            change_tick: self.change_tick,
+        }
+    }
 }
 
 impl<BPI> Clone for CachedBinKey<BPI>
@@ -215,8 +236,18 @@ where
             batch_set_key: self.batch_set_key.clone(),
             bin_key: self.bin_key.clone(),
             phase_type: self.phase_type,
-            change_tick: self.change_tick,
         }
+    }
+}
+
+impl<BPI> PartialEq for CachedBinKey<BPI>
+where
+    BPI: BinnedPhaseItem,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.batch_set_key == other.batch_set_key
+            && self.bin_key == other.bin_key
+            && self.phase_type == other.phase_type
     }
 }
 
@@ -504,27 +535,41 @@ where
             }
         }
 
-        let new_bin_key = CachedBinKey {
-            batch_set_key,
-            bin_key,
-            phase_type,
+        // Update the cache.
+        self.update_cache(
+            main_entity,
+            Some(CachedBinKey {
+                batch_set_key,
+                bin_key,
+                phase_type,
+            }),
+            change_tick,
+        );
+    }
+
+    /// Inserts an entity into the cache with the given change tick.
+    pub fn update_cache(
+        &mut self,
+        main_entity: MainEntity,
+        cached_bin_key: Option<CachedBinKey<BPI>>,
+        change_tick: Tick,
+    ) {
+        let new_cached_binned_entity = CachedBinnedEntity {
+            cached_bin_key,
             change_tick,
         };
 
-        let (index, old_bin_key) = self
+        let (index, old_cached_binned_entity) = self
             .cached_entity_bin_keys
-            .insert_full(main_entity, new_bin_key.clone());
+            .insert_full(main_entity, new_cached_binned_entity.clone());
 
         // If the entity changed bins, record its old bin so that we can remove
         // the entity from it.
-        if let Some(old_bin_key) = old_bin_key {
-            if old_bin_key.batch_set_key != new_bin_key.batch_set_key
-                || old_bin_key.bin_key != new_bin_key.bin_key
-                || old_bin_key.phase_type != new_bin_key.phase_type
-            {
+        if let Some(old_cached_binned_entity) = old_cached_binned_entity {
+            if old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key {
                 self.entities_that_changed_bins.push(EntityThatChangedBins {
                     main_entity,
-                    old_bin_key,
+                    old_cached_binned_entity,
                 });
             }
         }
@@ -712,7 +757,7 @@ where
                             }
                         },
                     },
-                    UnbatchableBinnedEntityIndexSet::Dense(ref dynamic_offsets) => {
+                    UnbatchableBinnedEntityIndexSet::Dense(dynamic_offsets) => {
                         dynamic_offsets[entity_index].clone()
                     }
                 };
@@ -826,27 +871,35 @@ where
         // reverse order because `swap_remove_index` will potentially invalidate
         // all indices after the one we remove.
         for index in ReverseFixedBitSetZeroesIterator::new(&self.valid_cached_entity_bin_keys) {
-            let Some((entity, entity_bin_key)) =
+            let Some((entity, cached_binned_entity)) =
                 self.cached_entity_bin_keys.swap_remove_index(index)
             else {
                 continue;
             };
 
-            remove_entity_from_bin(
-                entity,
-                &entity_bin_key,
-                &mut self.multidrawable_meshes,
-                &mut self.batchable_meshes,
-                &mut self.unbatchable_meshes,
-                &mut self.non_mesh_items,
-            );
+            if let Some(ref cached_bin_key) = cached_binned_entity.cached_bin_key {
+                remove_entity_from_bin(
+                    entity,
+                    cached_bin_key,
+                    &mut self.multidrawable_meshes,
+                    &mut self.batchable_meshes,
+                    &mut self.unbatchable_meshes,
+                    &mut self.non_mesh_items,
+                );
+            }
         }
 
         // If an entity changed bins, we need to remove it from its old bin.
         for entity_that_changed_bins in self.entities_that_changed_bins.drain(..) {
+            let Some(ref old_cached_bin_key) = entity_that_changed_bins
+                .old_cached_binned_entity
+                .cached_bin_key
+            else {
+                continue;
+            };
             remove_entity_from_bin(
                 entity_that_changed_bins.main_entity,
-                &entity_that_changed_bins.old_bin_key,
+                old_cached_bin_key,
                 &mut self.multidrawable_meshes,
                 &mut self.batchable_meshes,
                 &mut self.unbatchable_meshes,
@@ -1003,7 +1056,7 @@ impl UnbatchableBinnedEntityIndexSet {
                     },
                 })
             }
-            UnbatchableBinnedEntityIndexSet::Dense(ref indices) => {
+            UnbatchableBinnedEntityIndexSet::Dense(indices) => {
                 indices.get(entity_index as usize).cloned()
             }
         }
@@ -1223,7 +1276,7 @@ impl UnbatchableBinnedEntityIndexSet {
             }
 
             UnbatchableBinnedEntityIndexSet::Sparse {
-                ref mut instance_range,
+                instance_range,
                 first_indirect_parameters_index,
             } if instance_range.end == indices.instance_index
                 && ((first_indirect_parameters_index.is_none()
@@ -1261,7 +1314,7 @@ impl UnbatchableBinnedEntityIndexSet {
                 *self = UnbatchableBinnedEntityIndexSet::Dense(new_dynamic_offsets);
             }
 
-            UnbatchableBinnedEntityIndexSet::Dense(ref mut dense_indices) => {
+            UnbatchableBinnedEntityIndexSet::Dense(dense_indices) => {
                 dense_indices.push(indices);
             }
         }
@@ -1383,15 +1436,15 @@ where
 /// [`SortedPhaseItem`]s.
 ///
 /// * Binned phase items have a `BinKey` which specifies what bin they're to be
-///     placed in. All items in the same bin are eligible to be batched together.
-///     The `BinKey`s are sorted, but the individual bin items aren't. Binned phase
-///     items are good for opaque meshes, in which the order of rendering isn't
-///     important. Generally, binned phase items are faster than sorted phase items.
+///   placed in. All items in the same bin are eligible to be batched together.
+///   The `BinKey`s are sorted, but the individual bin items aren't. Binned phase
+///   items are good for opaque meshes, in which the order of rendering isn't
+///   important. Generally, binned phase items are faster than sorted phase items.
 ///
 /// * Sorted phase items, on the other hand, are placed into one large buffer
-///     and then sorted all at once. This is needed for transparent meshes, which
-///     have to be sorted back-to-front to render with the painter's algorithm.
-///     These types of phase items are generally slower than binned phase items.
+///   and then sorted all at once. This is needed for transparent meshes, which
+///   have to be sorted back-to-front to render with the painter's algorithm.
+///   These types of phase items are generally slower than binned phase items.
 pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// Whether or not this `PhaseItem` should be subjected to automatic batching. (Default: `true`)
     const AUTOMATIC_BATCHING: bool = true;
@@ -1432,12 +1485,12 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 /// instances they already have. These can be:
 ///
 /// * The *dynamic offset*: a `wgpu` dynamic offset into the uniform buffer of
-///     instance data. This is used on platforms that don't support storage
-///     buffers, to work around uniform buffer size limitations.
+///   instance data. This is used on platforms that don't support storage
+///   buffers, to work around uniform buffer size limitations.
 ///
 /// * The *indirect parameters index*: an index into the buffer that specifies
-///     the indirect parameters for this [`PhaseItem`]'s drawcall. This is used when
-///     indirect mode is on (as used for GPU culling).
+///   the indirect parameters for this [`PhaseItem`]'s drawcall. This is used when
+///   indirect mode is on (as used for GPU culling).
 ///
 /// Note that our indirect draw functionality requires storage buffers, so it's
 /// impossible to have both a dynamic offset and an indirect parameters index.
