@@ -74,9 +74,9 @@ impl<T: TrustedEntityBorrow, const N: usize> UniqueEntityArray<T, N> {
     }
 
     /// Casts `self` to the inner array.
-    pub fn into_arc_inner(self: Arc<Self>) -> Arc<[T; N]> {
+    pub fn into_arc_inner(this: Arc<Self>) -> Arc<[T; N]> {
         // SAFETY: UniqueEntityArray is a transparent wrapper around [T; N].
-        unsafe { Arc::from_raw(Arc::into_raw(self).cast()) }
+        unsafe { Arc::from_raw(Arc::into_raw(this).cast()) }
     }
 
     // Constructs a `Rc<UniqueEntityArray>` from a [`Rc<[T; N]>`] unsafely.
