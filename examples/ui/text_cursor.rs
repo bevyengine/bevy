@@ -7,8 +7,6 @@ use bevy::{
     ui::widget::{TextCursor, TextCursorStyle, TextCursorWidth},
 };
 
-const CURSOR_WIDTH: f32 = 4.;
-
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
@@ -43,6 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             TextColor(GOLDENROD.into()),
+            // Add `TextCursor` to a `Text` entity to display a cursor.
             TextCursor { line: 0, index: 0 },
             Outline {
                 color: Color::WHITE,
@@ -61,7 +60,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 30.0,
                 ..default()
             },
-            TextCursor { line: 0, index: 0 },
+            // Default is line = 0, index = 0
+            TextCursor::default(),
             TextColor(GOLDENROD.into()),
             Outline {
                 color: Color::WHITE,
@@ -79,21 +79,29 @@ fn move_cursor(
     mut cursors: Query<(&mut TextCursor, &mut TextCursorStyle)>,
 ) {
     for (mut cursor, mut style) in &mut cursors {
+        // This function assumes the text consists of single-byte characters
+        // and doesn't work correctly with multi-byte UTF-8.
         if keys.just_pressed(KeyCode::ArrowLeft) {
             cursor.index = cursor.index.saturating_sub(1);
         }
         if keys.just_pressed(KeyCode::ArrowRight) {
+            // `cursor.index is a byte offset into the string,
+            // with multi-byte characters the key will need to
+            // be pressed multiple times to advance the cursor.
             cursor.index += 1;
         }
         if keys.just_pressed(KeyCode::ArrowUp) {
             cursor.line = cursor.line.saturating_sub(1);
         }
         if keys.just_pressed(KeyCode::ArrowDown) {
+            // No out-of-bounds checks are performed.
             cursor.line += 1;
         }
         if keys.just_pressed(KeyCode::Space) {
+            // Toggle between a narrow line cursor and a block
+            // cursor that covers the entire glyph.
             style.width = match style.width {
-                TextCursorWidth::All => TextCursorWidth::Px(CURSOR_WIDTH),
+                TextCursorWidth::All => TextCursorWidth::Px(3.),
                 TextCursorWidth::Px(_) => TextCursorWidth::All,
             };
         }
