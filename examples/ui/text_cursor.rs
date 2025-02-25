@@ -87,7 +87,7 @@ fn move_cursor(
         if keys.just_pressed(KeyCode::ArrowRight) {
             cursor.index += 1;
         }
-        if keys.just_pressed(KeyCode::KeyQ) {
+        if keys.just_pressed(KeyCode::ArrowUp) {
             cursor.line = cursor.line.saturating_sub(1);
         }
         if keys.just_pressed(KeyCode::ArrowDown) {
