@@ -109,14 +109,10 @@ use bevy_render::{mesh::MeshVertexAttribute, renderer::RenderDevice};
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{assets::extras::GltfExtras, assets::Gltf, label::GltfAssetLabel};
+    pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
-pub use {
-    assets::{extras::*, mesh::*, node::*, primitive::*, skin::*, Gltf},
-    label::GltfAssetLabel,
-    loader::*,
-};
+pub use {assets::*, label::GltfAssetLabel, loader::*};
 
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
