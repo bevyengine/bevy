@@ -44,7 +44,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             TextColor(GOLDENROD.into()),
             TextCursor { line: 0, index: 0 },
-            TextLayout::new_with_justify(JustifyText::Center),
             Outline {
                 color: Color::WHITE,
                 width: Val::Px(2.),
@@ -64,7 +63,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
             TextCursor { line: 0, index: 0 },
             TextColor(GOLDENROD.into()),
-            TextLayout::new_with_justify(JustifyText::Center),
             Outline {
                 color: Color::WHITE,
                 width: Val::Px(2.),
