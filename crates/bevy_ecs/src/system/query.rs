@@ -1392,6 +1392,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`get_many`](Self::get_many) for the non-panicking version.
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use `get(entities)?` or `get(entities).unwrap()` instead, which now supports arrays."
+    )]
     pub fn many<E: WorldEntityFetch>(&self, entities: E) -> E::Data<'_, D::ReadOnly> {
         match self.get(entities) {
             Ok(items) => items,
@@ -1464,7 +1468,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// fn spring_forces(spring_query: Query<&Spring>, mut mass_query: Query<(&Position, &mut Force)>){
     ///     for spring in &spring_query {
     ///          // We can use "destructuring" to unpack our query items nicely
-    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.many_mut(spring.connected_entities);
+    ///          let [(position_1, mut force_1), (position_2, mut force_2)] = mass_query.get_mut(spring.connected_entities).unwrap();
     ///
     ///          force_1.x += spring.strength * (position_1.x - position_2.x);
     ///          force_1.y += spring.strength * (position_1.y - position_2.y);
@@ -1728,6 +1732,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`many`](Self::many) to get read-only query items.
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Use `get_mut(entities)?` or `get_mut(entities).unwrap()` instead, which now supports arrays."
+    )]
     pub fn many_mut<E: WorldEntityFetch>(&mut self, entities: E) -> E::Data<'_, D> {
         match self.get_mut(entities) {
             Ok(items) => items,
