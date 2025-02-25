@@ -113,34 +113,26 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         }
     }
 
-    let on_insert_fn = match HookKind::parse(
-        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert)
-            .to_token_stream()
-            .into(),
+    let on_insert_fn = match syn::parse::<HookKind>(
+        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert).into(),
     ) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
     };
-    let on_replace_fn = match HookKind::parse(
-        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace)
-            .to_token_stream()
-            .into(),
+    let on_replace_fn = match syn::parse::<HookKind>(
+        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace).into(),
     ) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
     };
-    let on_replace_target_fn = match HookKind::parse(
-        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace)
-            .to_token_stream()
-            .into(),
+    let on_replace_target_fn = match syn::parse::<HookKind>(
+        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace).into(),
     ) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
     };
-    let on_despawn_target_fn = match HookKind::parse(
-        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn)
-            .to_token_stream()
-            .into(),
+    let on_despawn_target_fn = match syn::parse::<HookKind>(
+        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn).into(),
     ) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
@@ -477,10 +469,6 @@ enum HookKind {
 }
 
 impl HookKind {
-    fn parse(tokens: TokenStream) -> Result<Self> {
-        syn::parse::<Expr>(tokens).and_then(Self::from_expr)
-    }
-
     fn from_expr(value: Expr) -> Result<Self> {
         match value {
             Expr::Path(path) => Ok(HookKind::Path(path)),
@@ -497,6 +485,12 @@ impl HookKind {
                 .join("\n"),
             )),
         }
+    }
+}
+
+impl Parse for HookKind {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        input.parse::<Expr>().and_then(Self::from_expr)
     }
 }
 
