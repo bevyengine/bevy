@@ -1231,7 +1231,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Errors
     ///
-    /// - If an entity does not exist, [`QueryEntityError::NoSuchEntity`] is returned.
+    /// - If an entity does not exist, [`QueryEntityError::EntityDoesNotExist`] is returned.
     /// - If an entity does not have the queried component, [`QueryEntityError::QueryDoesNotMatch`] is returned.
     ///
     /// # Examples
@@ -1409,7 +1409,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Errors
     ///
-    /// - If an entity does not exist, [`QueryEntityError::NoSuchEntity`] is returned.
+    /// - If an entity does not exist, [`QueryEntityError::EntityDoesNotExist`] is returned.
     /// - If an entity does not have the queried component, [`QueryEntityError::QueryDoesNotMatch`] is returned.
     /// - If the same entity is requested multiple times and the query is mutable, [`QueryEntityError::AliasedMutability`] is returned.
     ///
@@ -1499,7 +1499,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// # Errors
     ///
-    /// - If an entity does not exist, [`QueryEntityError::NoSuchEntity`] is returned.
+    /// - If an entity does not exist, [`QueryEntityError::EntityDoesNotExist`] is returned.
     /// - If an entity does not have the queried component, [`QueryEntityError::QueryDoesNotMatch`] is returned.
     /// - If the same entity is requested multiple times and the query is mutable, [`QueryEntityError::AliasedMutability`] is returned.
     ///
@@ -1666,8 +1666,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///
     /// - [`get_many`](Self::get_many) to get read-only query items without checking for duplicate entities.
     /// - [`get_many_mut`](Self::get_many_mut) to get items using a mutable reference.
-    /// - [`get_many_readonly`](Self::get_many_readonly) to get read-only query items without checking for duplicate entities
-    ///   with the actual "inner" world lifetime.
     #[inline]
     #[deprecated(
         since = "0.16.0",
