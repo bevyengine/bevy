@@ -197,6 +197,8 @@ bevy_render = [
   "bevy_scene?/bevy_render",
   "bevy_gizmos?/bevy_render",
   "bevy_image",
+  "bevy_color/wgpu-types",
+  "bevy_color/encase",
 ]
 
 # Enable assertions to check the validity of parameters passed to glam
@@ -283,6 +285,7 @@ ghost_nodes = ["bevy_ui/ghost_nodes"]
 std = [
   "bevy_a11y?/std",
   "bevy_app/std",
+  "bevy_color?/std",
   "bevy_diagnostic/std",
   "bevy_ecs/std",
   "bevy_input/std",
@@ -318,6 +321,7 @@ critical-section = [
 # Uses the `libm` maths library instead of the one provided in `std` and `core`.
 libm = [
   "bevy_a11y?/libm",
+  "bevy_color?/libm",
   "bevy_input/libm",
   "bevy_input_focus?/libm",
   "bevy_math/libm",
@@ -379,7 +383,10 @@ bevy_a11y = { path = "../bevy_a11y", optional = true, version = "0.16.0-dev", fe
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.16.0-dev" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.16.0-dev" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.16.0-dev" }
-bevy_color = { path = "../bevy_color", optional = true, version = "0.16.0-dev" }
+bevy_color = { path = "../bevy_color", optional = true, version = "0.16.0-dev", default-features = false, features = [
+  "alloc",
+  "bevy_reflect",
+] }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.16.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.16.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.16.0-dev" }
