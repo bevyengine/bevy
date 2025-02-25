@@ -59,6 +59,18 @@ jobs:
           name: example-run-macos
           path: example-run/
 
+  compare-macos-screenshots:
+    if: ${{ github.event_name != 'pull_request' }}
+    name: Compare Macos screenshots
+    needs: [run-examples-macos-metal]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.sha }}
+      branch: ${{ github.ref_name }}
+      artifact: screenshots-macos
+      os: macos
+    secrets: inherit
+
   run-examples-linux-vulkan:
     if: ${{ github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest

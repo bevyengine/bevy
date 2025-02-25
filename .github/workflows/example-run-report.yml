@@ -15,6 +15,7 @@ on:
 
 jobs:
   make-macos-screenshots-available:
+    if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
