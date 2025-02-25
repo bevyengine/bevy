@@ -507,8 +507,15 @@ where
             .mesh_key
             .intersects(MeshPipelineKey::NORMAL_PREPASS | MeshPipelineKey::DEFERRED_PREPASS)
         {
-            vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
             shader_defs.push("NORMAL_PREPASS_OR_DEFERRED_PREPASS".into());
+            if layout.0.contains(Mesh::ATTRIBUTE_NORMAL) {
+                shader_defs.push("VERTEX_NORMALS".into());
+                vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(3));
+            } else if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
+                warn!(
+                    "The default normal prepass expects the mesh to have vertex normal attributes."
+                );
+            }
             if layout.0.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(4));

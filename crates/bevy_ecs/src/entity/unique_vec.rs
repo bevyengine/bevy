@@ -18,8 +18,8 @@ use alloc::{
 use bevy_platform_support::sync::Arc;
 
 use super::{
-    unique_slice, EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityIter,
-    UniqueEntitySlice,
+    unique_slice, EntitySet, FromEntitySetIterator, TrustedEntityBorrow, UniqueEntityArray,
+    UniqueEntityIter, UniqueEntitySlice,
 };
 
 /// A `Vec` that contains only unique entities.
@@ -551,11 +551,27 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<&[U; N]
     }
 }
 
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+    PartialEq<&UniqueEntityArray<U, N>> for UniqueEntityVec<T>
+{
+    fn eq(&self, other: &&UniqueEntityArray<U, N>) -> bool {
+        self.0.eq(&other.as_inner())
+    }
+}
+
 impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<&mut [U; N]>
     for UniqueEntityVec<T>
 {
     fn eq(&self, other: &&mut [U; N]) -> bool {
         self.0.eq(&**other)
+    }
+}
+
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+    PartialEq<&mut UniqueEntityArray<U, N>> for UniqueEntityVec<T>
+{
+    fn eq(&self, other: &&mut UniqueEntityArray<U, N>) -> bool {
+        self.0.eq(other.as_inner())
     }
 }
 
@@ -578,6 +594,14 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
 {
     fn eq(&self, other: &[U; N]) -> bool {
         self.0.eq(other)
+    }
+}
+
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+    PartialEq<UniqueEntityArray<U, N>> for UniqueEntityVec<T>
+{
+    fn eq(&self, other: &UniqueEntityArray<U, N>) -> bool {
+        self.0.eq(other.as_inner())
     }
 }
 
@@ -684,6 +708,28 @@ impl<T: TrustedEntityBorrow> From<[T; 0]> for UniqueEntityVec<T> {
     }
 }
 
+impl<T: TrustedEntityBorrow + Clone, const N: usize> From<&UniqueEntityArray<T, N>>
+    for UniqueEntityVec<T>
+{
+    fn from(value: &UniqueEntityArray<T, N>) -> Self {
+        Self(Vec::from(value.as_inner().clone()))
+    }
+}
+
+impl<T: TrustedEntityBorrow + Clone, const N: usize> From<&mut UniqueEntityArray<T, N>>
+    for UniqueEntityVec<T>
+{
+    fn from(value: &mut UniqueEntityArray<T, N>) -> Self {
+        Self(Vec::from(value.as_inner().clone()))
+    }
+}
+
+impl<T: TrustedEntityBorrow, const N: usize> From<UniqueEntityArray<T, N>> for UniqueEntityVec<T> {
+    fn from(value: UniqueEntityArray<T, N>) -> Self {
+        Self(Vec::from(value.into_inner()))
+    }
+}
+
 impl<T: TrustedEntityBorrow> From<UniqueEntityVec<T>> for Vec<T> {
     fn from(value: UniqueEntityVec<T>) -> Self {
         value.0
@@ -756,11 +802,39 @@ impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>> for Box
     }
 }
 
+impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>>
+    for Box<UniqueEntityArray<T, N>>
+{
+    type Error = UniqueEntityVec<T>;
+
+    fn try_from(value: UniqueEntityVec<T>) -> Result<Self, Self::Error> {
+        Box::try_from(value.0)
+            .map(|v|
+                // SAFETY: All elements in the original Vec are unique.
+                unsafe { UniqueEntityArray::from_boxed_array_unchecked(v) })
+            .map_err(UniqueEntityVec)
+    }
+}
+
 impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>> for [T; N] {
     type Error = UniqueEntityVec<T>;
 
     fn try_from(value: UniqueEntityVec<T>) -> Result<Self, Self::Error> {
         <[T; N] as TryFrom<Vec<T>>>::try_from(value.0).map_err(UniqueEntityVec)
+    }
+}
+
+impl<T: TrustedEntityBorrow, const N: usize> TryFrom<UniqueEntityVec<T>>
+    for UniqueEntityArray<T, N>
+{
+    type Error = UniqueEntityVec<T>;
+
+    fn try_from(value: UniqueEntityVec<T>) -> Result<Self, Self::Error> {
+        <[T; N] as TryFrom<Vec<T>>>::try_from(value.0)
+            .map(|v|
+            // SAFETY: All elements in the original Vec are unique.
+            unsafe { UniqueEntityArray::from_array_unchecked(v) })
+            .map_err(UniqueEntityVec)
     }
 }
 

@@ -613,6 +613,7 @@ fn init_materials(
         color: Color::WHITE,
         texture: textures.first().cloned(),
         alpha_mode,
+        ..default()
     }));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -625,6 +626,7 @@ fn init_materials(
                 color: Color::srgb_u8(color_rng.r#gen(), color_rng.r#gen(), color_rng.r#gen()),
                 texture: textures.choose(&mut texture_rng).cloned(),
                 alpha_mode,
+                ..default()
             })
         })
         .take(capacity - materials.len()),
