@@ -1,6 +1,6 @@
 [package]
 name = "compile_fail_utils"
-edition = "2021"
+edition = "2024"
 description = "Utils for compile tests used in the engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"

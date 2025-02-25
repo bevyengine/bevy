@@ -80,19 +80,56 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
         let mut sync_point_graph = dependency_flattened.clone();
         let topo = graph.topsort_graph(dependency_flattened, ReportCycles::Dependency)?;
 
+        fn set_has_conditions(graph: &ScheduleGraph, node: NodeId) -> bool {
+            !graph.set_conditions_at(node).is_empty()
+                || graph
+                    .hierarchy()
+                    .graph()
+                    .edges_directed(node, Direction::Incoming)
+                    .any(|(parent, _)| set_has_conditions(graph, parent))
+        }
+
+        fn system_has_conditions(graph: &ScheduleGraph, node: NodeId) -> bool {
+            assert!(node.is_system());
+            !graph.system_conditions[node.index()].is_empty()
+                || graph
+                    .hierarchy()
+                    .graph()
+                    .edges_directed(node, Direction::Incoming)
+                    .any(|(parent, _)| set_has_conditions(graph, parent))
+        }
+
+        let mut system_has_conditions_cache = HashMap::<usize, bool>::default();
+        let mut is_valid_explicit_sync_point = |system: NodeId| {
+            let index = system.index();
+            is_apply_deferred(graph.systems[index].get().unwrap())
+                && !*system_has_conditions_cache
+                    .entry(index)
+                    .or_insert_with(|| system_has_conditions(graph, system))
+        };
+
         // calculate the number of sync points each sync point is from the beginning of the graph
         // use the same sync point if the distance is the same
         // distance means here how many sync points are placed between the schedule start and a node
         // if a sync point is ignored for an edge, add it to a later edge
         let mut distances_and_pending_sync: HashMap<usize, (u32, bool)> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
+        // Keep track of any explicit sync nodes for a specific distance.
+        let mut distance_to_explicit_sync_node: HashMap<u32, NodeId> = HashMap::default();
+
         for node in &topo {
             let (node_distance, mut add_sync_after) = distances_and_pending_sync
                 .get(&node.index())
                 .copied()
                 .unwrap_or_default();
 
-            if !add_sync_after {
+            if is_valid_explicit_sync_point(*node) {
+                distance_to_explicit_sync_node.insert(node_distance, *node);
+                
+                // This node just did a sync, so the only reason to do another sync is if one was
+                // explicitly scheduled afterwards.
+                add_sync_after = false;
+            } else if !add_sync_after {
                 add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
             }
 
@@ -103,32 +140,54 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
                 *target_distance = node_distance.max(*target_distance);
 
-                if !add_sync_after {
-                    continue;
-                }
-
-                let target_system = graph.systems[target.index()].get().unwrap();
-
-                if is_apply_deferred(target_system) {
-                    // if target system is `ApplyDeferred` there is no point in adding another sync point
-                    continue;
-                }
-
-                if !target_system.is_exclusive() && self.no_sync_edges.contains(&(*node, target)) {
+                let mut edge_needs_sync = add_sync_after;
+                if !graph.systems[target.index()].get().unwrap().is_exclusive()
+                    && self.no_sync_edges.contains(&(*node, target))
+                {
                     // `node` has deferred commands to apply, but this edge is a no sync edge
                     // Mark the `target` node as 'delaying' those commands to a future edge
                     *target_pending_sync = true;
+                    edge_needs_sync = false;
+                }
+
+                if edge_needs_sync || is_valid_explicit_sync_point(target) {
+                    *target_distance = (node_distance + 1).max(*target_distance);
+                }
+            }
+        }
+
+        // Find any edges which have a different number of sync points between them and make sure
+        // there is a sync point between them.
+        for node in &topo {
+            let (node_distance, _) = distances_and_pending_sync
+                .get(&node.index())
+                .copied()
+                .unwrap_or_default();
+
+            for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
+                let (target_distance, _) = distances_and_pending_sync
+                    .get(&target.index())
+                    .copied()
+                    .unwrap_or_default();
+
+                if node_distance == target_distance {
+                    // These nodes are the same distance, so they don't need an edge between them.
                     continue;
                 }
 
-                // add sync point at this edge, target distance may increase
-                *target_distance = (node_distance + 1).max(*target_distance);
+                if is_apply_deferred(graph.systems[target.index()].get().unwrap()) {
+                    // We don't need to insert a sync point since ApplyDeferred is a sync point
+                    // already!
+                    continue;
+                }
+                let sync_point = distance_to_explicit_sync_node
+                    .get(&target_distance)
+                    .copied()
+                    .unwrap_or_else(|| self.get_sync_point(graph, target_distance));
 
-                let sync_point = self.get_sync_point(graph, *target_distance);
                 sync_point_graph.add_edge(*node, sync_point);
                 sync_point_graph.add_edge(sync_point, target);
 
-                // edge is now redundant
                 sync_point_graph.remove_edge(*node, target);
             }
         }
