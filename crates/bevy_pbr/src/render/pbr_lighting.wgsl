@@ -695,10 +695,11 @@ fn spot_light(
             let decal_uv = (local_position.xy / (local_position.z * (*light).spot_light_tan_angle)) * vec2(-0.5, 0.5) + 0.5;
             let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
 
-            cookie_sample = textureSample(
+            cookie_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
                 view_bindings::clustered_decal_sampler,
                 decal_uv,
+                0.0
             ).r;
         }
     }
@@ -775,10 +776,11 @@ fn directional_light(
         {
             let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
 
-            cookie_sample = textureSample(
+            cookie_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
                 view_bindings::clustered_decal_sampler,
                 decal_uv - floor(decal_uv),
+                0.0
             ).r;                    
         } else {
             cookie_sample = 0f;
