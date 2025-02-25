@@ -36,7 +36,7 @@ use derive_more::derive::From;
 ///     ));
 /// }
 /// ```
-#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
+#[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, From)]
 #[reflect(Component, Default)]
 pub struct MeshMaterial3d<M: Material>(pub Handle<M>);
 
@@ -45,6 +45,14 @@ impl<M: Material> Default for MeshMaterial3d<M> {
         Self(Handle::default())
     }
 }
+
+impl<M: Material> PartialEq for MeshMaterial3d<M> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl<M: Material> Eq for MeshMaterial3d<M> {}
 
 impl<M: Material> From<MeshMaterial3d<M>> for AssetId<M> {
     fn from(material: MeshMaterial3d<M>) -> Self {

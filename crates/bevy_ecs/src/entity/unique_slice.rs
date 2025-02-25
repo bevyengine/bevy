@@ -1,4 +1,5 @@
 use core::{
+    array::TryFromSliceError,
     borrow::Borrow,
     cmp::Ordering,
     fmt::Debug,
@@ -22,7 +23,7 @@ use alloc::{
 
 use super::{
     unique_vec, EntitySet, EntitySetIterator, FromEntitySetIterator, TrustedEntityBorrow,
-    UniqueEntityIter, UniqueEntityVec,
+    UniqueEntityArray, UniqueEntityIter, UniqueEntityVec,
 };
 
 /// A slice that contains only unique entities.
@@ -126,6 +127,64 @@ impl<T: TrustedEntityBorrow> UniqueEntitySlice<T> {
         };
         // SAFETY: All elements in the original slice are unique.
         Some((last, unsafe { Self::from_slice_unchecked(rest) }))
+    }
+
+    /// Returns an array reference to the first `N` items in the slice.
+    ///
+    /// Equivalent to [`[T]::first_chunk`](slice::first_chunk).
+    pub const fn first_chunk<const N: usize>(&self) -> Option<&UniqueEntityArray<T, N>> {
+        let Some(chunk) = self.0.first_chunk() else {
+            return None;
+        };
+        // SAFETY: All elements in the original slice are unique.
+        Some(unsafe { UniqueEntityArray::from_array_ref_unchecked(chunk) })
+    }
+
+    /// Returns an array reference to the first `N` items in the slice and the remaining slice.
+    ///
+    /// Equivalent to [`[T]::split_first_chunk`](slice::split_first_chunk).
+    pub const fn split_first_chunk<const N: usize>(
+        &self,
+    ) -> Option<(&UniqueEntityArray<T, N>, &UniqueEntitySlice<T>)> {
+        let Some((chunk, rest)) = self.0.split_first_chunk() else {
+            return None;
+        };
+        // SAFETY: All elements in the original slice are unique.
+        unsafe {
+            Some((
+                UniqueEntityArray::from_array_ref_unchecked(chunk),
+                Self::from_slice_unchecked(rest),
+            ))
+        }
+    }
+
+    /// Returns an array reference to the last `N` items in the slice and the remaining slice.
+    ///
+    /// Equivalent to [`[T]::split_last_chunk`](slice::split_last_chunk).
+    pub const fn split_last_chunk<const N: usize>(
+        &self,
+    ) -> Option<(&UniqueEntitySlice<T>, &UniqueEntityArray<T, N>)> {
+        let Some((rest, chunk)) = self.0.split_last_chunk() else {
+            return None;
+        };
+        // SAFETY: All elements in the original slice are unique.
+        unsafe {
+            Some((
+                Self::from_slice_unchecked(rest),
+                UniqueEntityArray::from_array_ref_unchecked(chunk),
+            ))
+        }
+    }
+
+    /// Returns an array reference to the last `N` items in the slice.
+    ///
+    /// Equivalent to [`[T]::last_chunk`](slice::last_chunk).
+    pub const fn last_chunk<const N: usize>(&self) -> Option<&UniqueEntityArray<T, N>> {
+        let Some(chunk) = self.0.last_chunk() else {
+            return None;
+        };
+        // SAFETY: All elements in the original slice are unique.
+        Some(unsafe { UniqueEntityArray::from_array_ref_unchecked(chunk) })
     }
 
     /// Returns a reference to a subslice.
@@ -949,6 +1008,15 @@ impl<'a, T: TrustedEntityBorrow + Clone> From<&'a UniqueEntitySlice<T>>
     }
 }
 
+impl<T: TrustedEntityBorrow + Clone, const N: usize> From<UniqueEntityArray<T, N>>
+    for Box<UniqueEntitySlice<T>>
+{
+    fn from(value: UniqueEntityArray<T, N>) -> Self {
+        // SAFETY: All elements in the original slice are unique.
+        unsafe { UniqueEntitySlice::from_boxed_slice_unchecked(Box::new(value.into_inner())) }
+    }
+}
+
 impl<'a, T: TrustedEntityBorrow + Clone> From<Cow<'a, UniqueEntitySlice<T>>>
     for Box<UniqueEntitySlice<T>>
 {
@@ -1134,6 +1202,30 @@ impl<T: TrustedEntityBorrow + PartialEq<U>, U, const N: usize> PartialEq<[U; N]>
     }
 }
 
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+    PartialEq<UniqueEntityArray<U, N>> for &UniqueEntitySlice<T>
+{
+    fn eq(&self, other: &UniqueEntityArray<U, N>) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+    PartialEq<UniqueEntityArray<U, N>> for &mut UniqueEntitySlice<T>
+{
+    fn eq(&self, other: &UniqueEntityArray<U, N>) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
+impl<T: TrustedEntityBorrow + PartialEq<U>, U: TrustedEntityBorrow, const N: usize>
+    PartialEq<UniqueEntityArray<U, N>> for UniqueEntitySlice<T>
+{
+    fn eq(&self, other: &UniqueEntityArray<U, N>) -> bool {
+        self.0.eq(&other.0)
+    }
+}
+
 impl<T: TrustedEntityBorrow + PartialEq<U>, U> PartialEq<Vec<U>> for &UniqueEntitySlice<T> {
     fn eq(&self, other: &Vec<U>) -> bool {
         self.0.eq(other)
@@ -1158,6 +1250,38 @@ impl<T: TrustedEntityBorrow + Clone> ToOwned for UniqueEntitySlice<T> {
     fn to_owned(&self) -> Self::Owned {
         // SAFETY: All elements in the original slice are unique.
         unsafe { UniqueEntityVec::from_vec_unchecked(self.0.to_owned()) }
+    }
+}
+
+impl<'a, T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&'a UniqueEntitySlice<T>>
+    for &'a UniqueEntityArray<T, N>
+{
+    type Error = TryFromSliceError;
+
+    fn try_from(value: &'a UniqueEntitySlice<T>) -> Result<Self, Self::Error> {
+        <&[T; N]>::try_from(&value.0).map(|array|
+                // SAFETY: All elements in the original slice are unique.
+                unsafe { UniqueEntityArray::from_array_ref_unchecked(array) })
+    }
+}
+
+impl<T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&UniqueEntitySlice<T>>
+    for UniqueEntityArray<T, N>
+{
+    type Error = TryFromSliceError;
+
+    fn try_from(value: &UniqueEntitySlice<T>) -> Result<Self, Self::Error> {
+        <&Self>::try_from(value).copied()
+    }
+}
+
+impl<T: TrustedEntityBorrow + Copy, const N: usize> TryFrom<&mut UniqueEntitySlice<T>>
+    for UniqueEntityArray<T, N>
+{
+    type Error = TryFromSliceError;
+
+    fn try_from(value: &mut UniqueEntitySlice<T>) -> Result<Self, Self::Error> {
+        <Self>::try_from(&*value)
     }
 }
 
@@ -1280,7 +1404,6 @@ impl<T: TrustedEntityBorrow> IndexMut<RangeToInclusive<usize>> for UniqueEntityS
 /// the [`IntoIterator`] impls on it and [`UniqueEntityVec`].
 ///
 /// [`iter`]: `UniqueEntitySlice::iter`
-/// [`into_iter`]: UniqueEntitySlice::into_iter
 pub type Iter<'a, T> = UniqueEntityIter<slice::Iter<'a, T>>;
 
 impl<'a, T: TrustedEntityBorrow> UniqueEntityIter<slice::Iter<'a, T>> {

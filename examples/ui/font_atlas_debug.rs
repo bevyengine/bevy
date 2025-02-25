@@ -74,7 +74,7 @@ fn text_update_system(
     }
 
     for mut text in &mut query {
-        let c = seeded_rng.gen::<u8>() as char;
+        let c = seeded_rng.r#gen::<u8>() as char;
         let string = &mut **text;
         if !string.contains(c) {
             string.push(c);

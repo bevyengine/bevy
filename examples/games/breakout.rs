@@ -356,8 +356,8 @@ fn check_for_collisions(
         );
 
         if let Some(collision) = collision {
-            // Sends a collision event so that other systems can react to the collision
-            collision_events.send_default();
+            // Writes a collision event so that other systems can react to the collision
+            collision_events.write_default();
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {

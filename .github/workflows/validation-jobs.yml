@@ -219,13 +219,6 @@ jobs:
             target/
           key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
 
-      - name: install xvfb, llvmpipe and lavapipe
-        run: |
-          sudo apt-get update -y -qq
-          sudo add-apt-repository ppa:kisak/turtle -y
-          sudo apt-get update
-          sudo apt install -y xvfb libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
-
       - name: Install wasm-bindgen
         run: cargo install --force wasm-bindgen-cli
 

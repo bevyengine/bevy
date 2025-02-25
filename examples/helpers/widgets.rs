@@ -171,7 +171,7 @@ pub fn handle_ui_interactions<T>(
 {
     for (interaction, click_event) in interactions.iter_mut() {
         if *interaction == Interaction::Pressed {
-            widget_click_events.send(WidgetClickEvent((**click_event).clone()));
+            widget_click_events.write(WidgetClickEvent((**click_event).clone()));
         }
     }
 }

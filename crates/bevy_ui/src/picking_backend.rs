@@ -212,6 +212,6 @@ pub fn ui_picking(
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 
-        output.send(PointerHits::new(*pointer, picks, order));
+        output.write(PointerHits::new(*pointer, picks, order));
     }
 }

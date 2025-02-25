@@ -579,7 +579,7 @@ impl<A: Asset> Assets<A> {
                 };
             }
         }
-        events.send_batch(assets.queued_events.drain(..));
+        events.write_batch(assets.queued_events.drain(..));
     }
 
     /// A run condition for [`asset_events`]. The system will not run if there are no events to

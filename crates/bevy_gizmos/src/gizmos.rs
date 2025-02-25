@@ -820,8 +820,7 @@ where
         let polymorphic_color: Color = color.into();
         let linear_color = LinearRgba::from(polymorphic_color);
 
-        self.list_colors
-            .extend(iter::repeat(linear_color).take(count));
+        self.list_colors.extend(iter::repeat_n(linear_color, count));
     }
 
     #[inline]

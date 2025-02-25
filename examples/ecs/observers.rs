@@ -52,10 +52,10 @@ impl Mine {
     fn random(rand: &mut ChaCha8Rng) -> Self {
         Mine {
             pos: Vec2::new(
-                (rand.gen::<f32>() - 0.5) * 1200.0,
-                (rand.gen::<f32>() - 0.5) * 600.0,
+                (rand.r#gen::<f32>() - 0.5) * 1200.0,
+                (rand.r#gen::<f32>() - 0.5) * 600.0,
             ),
-            size: 4.0 + rand.gen::<f32>() * 16.0,
+            size: 4.0 + rand.r#gen::<f32>() * 16.0,
         }
     }
 }

@@ -746,10 +746,9 @@ impl<P: VectorSpace> CubicNurbs<P> {
         }
         let last_knots_value = control_points - 3;
         Some(
-            core::iter::repeat(0.0)
-                .take(4)
+            core::iter::repeat_n(0.0, 4)
                 .chain((1..last_knots_value).map(|v| v as f32))
-                .chain(core::iter::repeat(last_knots_value as f32).take(4))
+                .chain(core::iter::repeat_n(last_knots_value as f32, 4))
                 .collect(),
         )
     }

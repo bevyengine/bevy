@@ -75,8 +75,8 @@ fn concrete_list_apply(criterion: &mut Criterion) {
     let mut group = create_group(criterion, bench!("concrete_list_apply"));
 
     let empty_base = |_: usize| Vec::<u64>::new;
-    let full_base = |size: usize| move || iter::repeat(0).take(size).collect::<Vec<u64>>();
-    let patch = |size: usize| iter::repeat(1).take(size).collect::<Vec<u64>>();
+    let full_base = |size: usize| move || iter::repeat_n(0, size).collect::<Vec<u64>>();
+    let patch = |size: usize| iter::repeat_n(1, size).collect::<Vec<u64>>();
 
     list_apply(&mut group, "empty_base_concrete_patch", empty_base, patch);
 
@@ -103,7 +103,7 @@ fn concrete_list_clone_dynamic(criterion: &mut Criterion) {
             BenchmarkId::from_parameter(size),
             &size,
             |bencher, &size| {
-                let v = iter::repeat(0).take(size).collect::<Vec<_>>();
+                let v = iter::repeat_n(0, size).collect::<Vec<_>>();
 
                 bencher.iter(|| black_box(&v).clone_dynamic());
             },
@@ -123,7 +123,7 @@ fn dynamic_list_push(criterion: &mut Criterion) {
             BenchmarkId::from_parameter(size),
             &size,
             |bencher, &size| {
-                let src = iter::repeat(()).take(size).collect::<Vec<_>>();
+                let src = iter::repeat_n((), size).collect::<Vec<_>>();
                 let dst = DynamicList::default();
 
                 bencher.iter_batched(
@@ -146,8 +146,8 @@ fn dynamic_list_apply(criterion: &mut Criterion) {
     let mut group = create_group(criterion, bench!("dynamic_list_apply"));
 
     let empty_base = |_: usize| || Vec::<u64>::new().clone_dynamic();
-    let full_base = |size: usize| move || iter::repeat(0).take(size).collect::<Vec<u64>>();
-    let patch = |size: usize| iter::repeat(1).take(size).collect::<Vec<u64>>();
+    let full_base = |size: usize| move || iter::repeat_n(0, size).collect::<Vec<u64>>();
+    let patch = |size: usize| iter::repeat_n(1, size).collect::<Vec<u64>>();
 
     list_apply(&mut group, "empty_base_concrete_patch", empty_base, patch);
 

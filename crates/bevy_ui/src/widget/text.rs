@@ -242,9 +242,9 @@ fn create_text_measure<'a>(
 ///
 /// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedNodeTarget`].
 /// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
-///     is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
-///     color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
-///     method should be called when only changing the `Text`'s colors.
+///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
+///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
+///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
     fonts: Res<Assets<Font>>,
     mut text_query: Query<

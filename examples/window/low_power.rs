@@ -87,7 +87,7 @@ fn update_winit(
             // when there are no inputs, so you send redraw requests while the animation is playing.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
             // way as continuous
-            redraw_request_events.send(RequestRedraw);
+            redraw_request_events.write(RequestRedraw);
             WinitSettings::desktop_app()
         }
         ApplicationWithWakeUp => {
@@ -184,7 +184,7 @@ pub(crate) mod test_setup {
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
-        event.send(RequestRedraw);
+        event.write(RequestRedraw);
         commands
             .spawn((
                 Text::default(),

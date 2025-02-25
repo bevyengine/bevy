@@ -152,7 +152,8 @@ impl ViewNode for BloomNode {
         render_context.command_encoder().push_debug_group("bloom");
 
         let diagnostics = render_context.diagnostic_recorder();
-        let time_span = diagnostics.time_span(render_context.command_encoder(), "bloom");
+        let command_encoder = render_context.command_encoder();
+        let time_span = diagnostics.time_span(command_encoder, "bloom");
 
         // First downsample pass
         {

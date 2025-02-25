@@ -247,6 +247,10 @@ impl World {
     }
 
     /// Registers a new [`Component`] type and returns the [`ComponentId`] created for it.
+    ///
+    /// # Usage Notes
+    /// In most cases, you don't need to call this method directly since component registration
+    /// happens automatically during system initialization.
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
         self.components.register_component::<T>()
     }

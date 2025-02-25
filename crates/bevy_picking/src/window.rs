@@ -39,7 +39,7 @@ pub fn update_window_hits(
         {
             let entity = window_ref.entity();
             let hit_data = HitData::new(entity, 0.0, None, None);
-            output_events.send(PointerHits::new(
+            output_events.write(PointerHits::new(
                 *pointer_id,
                 vec![(entity, hit_data)],
                 f32::NEG_INFINITY,

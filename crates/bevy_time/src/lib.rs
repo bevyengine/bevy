@@ -294,13 +294,13 @@ mod tests {
             .add_event::<TestEvent<i32>>()
             .add_event::<TestEvent<()>>()
             .add_systems(Startup, move |mut ev2: EventWriter<TestEvent<()>>| {
-                ev2.send(TestEvent {
+                ev2.write(TestEvent {
                     sender: tx2.clone(),
                 });
             })
             .add_systems(Update, move |mut ev1: EventWriter<TestEvent<i32>>| {
                 // Keep adding events so this event type is processed every update
-                ev1.send(TestEvent {
+                ev1.write(TestEvent {
                     sender: tx1.clone(),
                 });
             })

@@ -118,7 +118,7 @@ fn take_damage(
     } else {
         warn!("💀 {} has died a gruesome death", name);
         commands.entity(trigger.target()).despawn();
-        app_exit.send(AppExit::Success);
+        app_exit.write(AppExit::Success);
     }
 
     info!("(propagation reached root)\n");

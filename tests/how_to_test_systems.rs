@@ -27,7 +27,7 @@ fn despawn_dead_enemies(
     for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
             commands.entity(entity).despawn();
-            dead_enemies.send(EnemyDied(enemy.score_value));
+            dead_enemies.write(EnemyDied(enemy.score_value));
         }
     }
 }

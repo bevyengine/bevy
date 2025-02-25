@@ -64,7 +64,7 @@
 //!             commands.entity(trigger.target()).despawn();
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
-//!             events.send(Greeting);
+//!             events.write(Greeting);
 //!         });
 //! }
 //! ```
