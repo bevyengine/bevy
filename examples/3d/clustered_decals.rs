@@ -1,15 +1,20 @@
 //! Demonstrates clustered decals, which affix decals to surfaces.
 
-use std::f32::consts::{FRAC_PI_3, PI};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI};
 use std::fmt::{self, Formatter};
 use std::process;
 
 use bevy::{
-    color::palettes::css::{LIME, ORANGE_RED, SILVER},
+    color::palettes::css::{LIME, ORANGE_RED, SILVER, YELLOW},
     input::mouse::AccumulatedMouseMotion,
     pbr::{
-        decal::{self, clustered::ClusteredDecal},
-        ExtendedMaterial, MaterialExtension,
+        decal::{
+            self,
+            clustered::{
+                ClusteredDecal, DirectionalLightCookie, PointLightCookie, SpotLightCookie,
+            },
+        },
+        ExtendedMaterial, MaterialExtension, NotShadowCaster,
     },
     prelude::*,
     render::{
@@ -19,6 +24,7 @@ use bevy::{
     window::SystemCursorIcon,
     winit::cursor::CursorIcon,
 };
+use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use ops::{acos, cos, sin};
 use widgets::{
     WidgetClickEvent, WidgetClickSender, BUTTON_BORDER, BUTTON_BORDER_COLOR,
@@ -66,6 +72,12 @@ enum Selection {
     DecalA,
     /// The second decal, which a lime green bounding box surrounds.
     DecalB,
+    /// The spotlight, which uses a torch-like light cookie
+    SpotLight,
+    /// The point light, which uses a light cookie cubemap constructed from the faces mesh
+    PointLight,
+    /// The directional light, which uses a caustic-like cookie
+    DirectionalLight,
 }
 
 impl fmt::Display for Selection {
@@ -74,6 +86,9 @@ impl fmt::Display for Selection {
             Selection::Camera => f.write_str("camera"),
             Selection::DecalA => f.write_str("decal A"),
             Selection::DecalB => f.write_str("decal B"),
+            Selection::SpotLight => f.write_str("spotlight"),
+            Selection::PointLight => f.write_str("point light"),
+            Selection::DirectionalLight => f.write_str("directional light"),
         }
     }
 }
@@ -135,15 +150,21 @@ fn main() {
         >::default())
         .init_resource::<AppStatus>()
         .add_event::<WidgetClickEvent<Selection>>()
+        .add_event::<WidgetClickEvent<Visibility>>()
         .add_systems(Startup, setup)
         .add_systems(Update, draw_gizmos)
         .add_systems(Update, rotate_cube)
+        .add_systems(Update, hide_shadows)
         .add_systems(Update, widgets::handle_ui_interactions::<Selection>)
+        .add_systems(Update, widgets::handle_ui_interactions::<Visibility>)
         .add_systems(
             Update,
             (handle_selection_change, update_radio_buttons)
-                .after(widgets::handle_ui_interactions::<Selection>),
+                .after(widgets::handle_ui_interactions::<Selection>)
+                .after(widgets::handle_ui_interactions::<Visibility>),
         )
+        .add_systems(Update, toggle_visibility)
+        .add_systems(Update, update_directional_light)
         .add_systems(Update, process_move_input)
         .add_systems(Update, process_scale_input)
         .add_systems(Update, process_roll_input)
@@ -169,16 +190,20 @@ fn setup(
         process::exit(1);
     }
 
-    spawn_cube(&mut commands, &mut meshes, &mut materials);
+    spawn_cubes(&mut commands, &mut meshes, &mut materials);
     spawn_camera(&mut commands);
-    spawn_light(&mut commands);
+    spawn_light(&mut commands, &asset_server);
     spawn_decals(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands, &app_status);
+    spawn_light_cookies(&mut commands, &asset_server, &mut meshes, &mut materials);
 }
 
+#[derive(Component)]
+struct Rotate;
+
 /// Spawns the cube onto which the decals are projected.
-fn spawn_cube(
+fn spawn_cubes(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<ExtendedMaterial<StandardMaterial, CustomDecalExtension>>,
@@ -197,15 +222,41 @@ fn spawn_cube(
             extension: CustomDecalExtension {},
         })),
         transform,
+        Rotate,
+    ));
+
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(-13.0, -13.0, -13.0))),
+        MeshMaterial3d(materials.add(ExtendedMaterial {
+            base: StandardMaterial {
+                base_color: SILVER.into(),
+                ..default()
+            },
+            extension: CustomDecalExtension {},
+        })),
+        transform,
     ));
 }
 
 /// Spawns the directional light.
-fn spawn_light(commands: &mut Commands) {
-    commands.spawn((
-        DirectionalLight::default(),
-        Transform::from_xyz(4.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
-    ));
+fn spawn_light(commands: &mut Commands, asset_server: &AssetServer) {
+    commands
+        .spawn((
+            Visibility::Hidden,
+            Transform::from_xyz(8.0, 8.0, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Selection::DirectionalLight,
+        ))
+        .with_child((
+            DirectionalLight {
+                illuminance: AMBIENT_DAYLIGHT,
+                ..default()
+            },
+            DirectionalLightCookie {
+                image: asset_server.load("lightmaps/caustic_directional_cookie.png"),
+                tiled: true,
+            },
+            Visibility::Visible,
+        ));
 }
 
 /// Spawns the camera.
@@ -242,6 +293,66 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
     ));
 }
 
+fn spawn_light_cookies(
+    commands: &mut Commands,
+    asset_server: &AssetServer,
+    meshes: &mut Assets<Mesh>,
+    materials: &mut Assets<ExtendedMaterial<StandardMaterial, CustomDecalExtension>>,
+) {
+    commands.spawn((
+        SpotLight {
+            color: Color::srgb(1.0, 1.0, 0.8),
+            intensity: 10e6,
+            outer_angle: 0.25,
+            inner_angle: 0.25,
+            shadows_enabled: true,
+            ..default()
+        },
+        Transform::from_translation(Vec3::new(-6.0, 1.0, 2.0)).looking_at(Vec3::ZERO, Vec3::Y),
+        SpotLightCookie {
+            image: asset_server.load("lightmaps/torch_spotlight_cookie.png"),
+        },
+        Visibility::Hidden,
+        Selection::SpotLight,
+    ));
+
+    commands
+        .spawn((
+            Visibility::Inherited,
+            Transform::from_translation(Vec3::new(0.0, 1.8, 0.01)).with_scale(Vec3::splat(0.1)),
+            Selection::PointLight,
+        ))
+        .with_children(|parent| {
+            parent.spawn(SceneRoot(asset_server.load(
+                GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
+            )));
+
+            parent.spawn((
+                Mesh3d(meshes.add(Sphere::new(1.0))),
+                MeshMaterial3d(materials.add(ExtendedMaterial {
+                    base: StandardMaterial {
+                        emissive: Color::srgb(0.0, 0.0, 300.0).to_linear(),
+                        ..default()
+                    },
+                    extension: CustomDecalExtension {},
+                })),
+            ));
+
+            parent.spawn((
+                PointLight {
+                    color: Color::srgb(0.0, 0.0, 1.0),
+                    intensity: 1e6,
+                    shadows_enabled: true,
+                    ..default()
+                },
+                PointLightCookie {
+                    image: asset_server.load("lightmaps/faces_pointlight_cookie_blurred.png"),
+                    cubemap_layout: decal::clustered::CubemapLayout::CrossVertical,
+                },
+            ));
+        });
+}
+
 /// Spawns the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
@@ -256,6 +367,9 @@ fn spawn_buttons(commands: &mut Commands) {
                     (Selection::Camera, "Camera"),
                     (Selection::DecalA, "Decal A"),
                     (Selection::DecalB, "Decal B"),
+                    (Selection::SpotLight, "Spotlight"),
+                    (Selection::PointLight, "Point Light"),
+                    (Selection::DirectionalLight, "Directional Light"),
                 ],
             );
         });
@@ -272,6 +386,14 @@ fn spawn_buttons(commands: &mut Commands) {
             ..default()
         })
         .with_children(|parent| {
+            widgets::spawn_option_buttons(
+                parent,
+                "",
+                &[
+                    (Visibility::Inherited, "Show"),
+                    (Visibility::Hidden, "Hide"),
+                ],
+            );
             spawn_drag_button(parent, "Scale").insert(DragMode::Scale);
             spawn_drag_button(parent, "Roll").insert(DragMode::Roll);
         });
@@ -318,13 +440,19 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
 /// Draws the outlines that show the bounds of the clustered decals.
 fn draw_gizmos(
     mut gizmos: Gizmos,
-    decals: Query<(&GlobalTransform, &Selection), With<ClusteredDecal>>,
+    decals: Query<(&GlobalTransform, &Selection, &Visibility), With<ClusteredDecal>>,
+    spotlight: Query<(&GlobalTransform, &SpotLight, &Visibility)>,
 ) {
-    for (global_transform, selection) in &decals {
+    for (global_transform, selection, visibility) in &decals {
+        if visibility == Visibility::Hidden {
+            continue;
+        }
+
         let color = match *selection {
             Selection::Camera => continue,
             Selection::DecalA => ORANGE_RED,
             Selection::DecalB => LIME,
+            _ => unreachable!(),
         };
 
         gizmos.primitive_3d(
@@ -340,6 +468,19 @@ fn draw_gizmos(
             color,
         );
     }
+
+    if let Ok((global_transform, spotlight, visibility)) = spotlight.get_single() {
+        if visibility != Visibility::Hidden {
+            gizmos.primitive_3d(
+                &Cone::new(7.0 * spotlight.outer_angle, 7.0),
+                Isometry3d {
+                    rotation: global_transform.rotation() * Quat::from_rotation_x(FRAC_PI_2),
+                    translation: global_transform.translation_vec3a() * 0.5,
+                },
+                YELLOW,
+            );
+        }
+    }
 }
 
 /// Calculates the initial transform of the clustered decal.
@@ -352,9 +493,19 @@ fn calculate_initial_decal_transform(start: Vec3, looking_at: Vec3, size: Vec2) 
 }
 
 /// Rotates the cube a bit every frame.
-fn rotate_cube(mut meshes: Query<&mut Transform, With<Mesh3d>>) {
+fn rotate_cube(mut meshes: Query<&mut Transform, With<Rotate>>) {
     for mut transform in &mut meshes {
         transform.rotate_y(CUBE_ROTATION_SPEED);
+    }
+}
+
+/// Hide shadows on all meshes except the main cube
+fn hide_shadows(
+    mut commands: Commands,
+    meshes: Query<Entity, (With<Mesh3d>, Without<NotShadowCaster>, Without<Rotate>)>,
+) {
+    for ent in &meshes {
+        commands.entity(ent).insert(NotShadowCaster);
     }
 }
 
@@ -368,6 +519,16 @@ fn update_radio_buttons(
     )>,
     app_status: Res<AppStatus>,
     mut writer: TextUiWriter,
+    visible: Query<(&Visibility, &Selection)>,
+    mut visibility_widgets: Query<
+        (
+            Entity,
+            Option<&mut BackgroundColor>,
+            Has<Text>,
+            &WidgetClickSender<Visibility>,
+        ),
+        Without<WidgetClickSender<Selection>>,
+    >,
 ) {
     for (entity, maybe_bg_color, has_text, sender) in &mut widgets {
         let selected = app_status.selection == **sender;
@@ -376,6 +537,21 @@ fn update_radio_buttons(
         }
         if has_text {
             widgets::update_ui_radio_button_text(entity, &mut writer, selected);
+        }
+    }
+
+    let visibility = visible
+        .iter()
+        .filter(|(_, selection)| **selection == app_status.selection)
+        .map(|(visibility, _)| *visibility)
+        .next()
+        .unwrap_or_default();
+    for (entity, maybe_bg_color, has_text, sender) in &mut visibility_widgets {
+        if let Some(mut bg_color) = maybe_bg_color {
+            widgets::update_ui_radio_button(&mut bg_color, **sender == visibility);
+        }
+        if has_text {
+            widgets::update_ui_radio_button_text(entity, &mut writer, **sender == visibility);
         }
     }
 }
@@ -387,6 +563,20 @@ fn handle_selection_change(
 ) {
     for event in events.read() {
         app_status.selection = **event;
+    }
+}
+
+fn toggle_visibility(
+    mut events: EventReader<WidgetClickEvent<Visibility>>,
+    app_status: Res<AppStatus>,
+    mut visibility: Query<(&mut Visibility, &Selection)>,
+) {
+    if let Some(vis) = events.read().last() {
+        for (mut visibility, selection) in visibility.iter_mut() {
+            if selection == &app_status.selection {
+                *visibility = **vis;
+            }
+        }
     }
 }
 
@@ -407,6 +597,13 @@ fn process_move_input(
             continue;
         }
 
+        // ues simple movement for the point light
+        if *selection == Selection::PointLight {
+            transform.translation +=
+                (mouse_motion.delta * Vec2::new(1.0, -1.0) * MOVE_SPEED).extend(0.0);
+            return;
+        }
+
         let position = transform.translation;
 
         // Convert to spherical coordinates.
@@ -417,7 +614,7 @@ fn process_move_input(
         // Camera movement is the inverse of object movement.
         let (phi_factor, theta_factor) = match *selection {
             Selection::Camera => (1.0, -1.0),
-            Selection::DecalA | Selection::DecalB => (-1.0, 1.0),
+            _ => (-1.0, 1.0),
         };
 
         // Adjust the spherical coordinates. Clamp the inclination to (0, π).
@@ -442,7 +639,8 @@ fn process_move_input(
 
 /// Processes a drag event that scales the selected target.
 fn process_scale_input(
-    mut selections: Query<(&mut Transform, &Selection)>,
+    mut scale_selections: Query<(&mut Transform, &Selection)>,
+    mut spotlight_selections: Query<(&mut SpotLight, &Selection)>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mouse_motion: Res<AccumulatedMouseMotion>,
     app_status: Res<AppStatus>,
@@ -452,9 +650,17 @@ fn process_scale_input(
         return;
     }
 
-    for (mut transform, selection) in &mut selections {
+    for (mut transform, selection) in &mut scale_selections {
         if app_status.selection == *selection {
             transform.scale *= 1.0 + mouse_motion.delta.x * SCALE_SPEED;
+        }
+    }
+
+    for (mut spotlight, selection) in &mut spotlight_selections {
+        if app_status.selection == *selection {
+            spotlight.outer_angle =
+                (spotlight.outer_angle * (1.0 + mouse_motion.delta.x * SCALE_SPEED)).min(FRAC_PI_4);
+            spotlight.inner_angle = spotlight.outer_angle;
         }
     }
 }
@@ -541,13 +747,58 @@ fn update_help_text(mut help_text: Query<&mut Text, With<HelpText>>, app_status:
 /// Updates the visibility of the drag mode buttons so that they aren't visible
 /// if the camera is selected.
 fn update_button_visibility(
-    mut nodes: Query<&mut Visibility, With<DragMode>>,
+    mut nodes: Query<&mut Visibility, Or<(With<DragMode>, With<WidgetClickSender<Visibility>>)>>,
     app_status: Res<AppStatus>,
 ) {
     for mut visibility in &mut nodes {
         *visibility = match app_status.selection {
             Selection::Camera => Visibility::Hidden,
-            Selection::DecalA | Selection::DecalB => Visibility::Visible,
+            _ => Visibility::Visible,
         };
+    }
+}
+
+fn update_directional_light(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    selections: Query<(&Selection, &Visibility)>,
+    mut light: Query<(
+        Entity,
+        &mut DirectionalLight,
+        Option<&DirectionalLightCookie>,
+    )>,
+) {
+    let directional_visible = selections
+        .iter()
+        .filter(|(selection, _)| **selection == Selection::DirectionalLight)
+        .any(|(_, visiblity)| visiblity != Visibility::Hidden);
+    let any_cookie_light_visible = selections
+        .iter()
+        .filter(|(selection, _)| {
+            **selection == Selection::PointLight || **selection == Selection::SpotLight
+        })
+        .any(|(_, visiblity)| visiblity != Visibility::Hidden);
+
+    if directional_visible {
+        let (entity, mut light, maybe_cookie) = light.single_mut();
+        light.illuminance = AMBIENT_DAYLIGHT;
+        if maybe_cookie.is_none() {
+            commands.entity(entity).insert(DirectionalLightCookie {
+                image: asset_server.load("lightmaps/caustic_directional_cookie.png"),
+                tiled: true,
+            });
+        }
+    } else if any_cookie_light_visible {
+        let (entity, mut light, maybe_cookie) = light.single_mut();
+        light.illuminance = CLEAR_SUNRISE;
+        if maybe_cookie.is_some() {
+            commands.entity(entity).remove::<DirectionalLightCookie>();
+        }
+    } else {
+        let (entity, mut light, maybe_cookie) = light.single_mut();
+        light.illuminance = AMBIENT_DAYLIGHT;
+        if maybe_cookie.is_some() {
+            commands.entity(entity).remove::<DirectionalLightCookie>();
+        }
     }
 }
