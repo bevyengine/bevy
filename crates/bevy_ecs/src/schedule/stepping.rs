@@ -1348,7 +1348,9 @@ mod tests {
         //
         // first system will be configured as `run_if(|| false)`, so it can
         // just panic if called
-        let first_system = move || panic!("first_system should not be run");
+        let first_system: fn() = move || {
+            panic!("first_system should not be run");
+        };
 
         // The second system, we need to know when it has been called, so we'll
         // add a resource for tracking if it has been run.  The system will

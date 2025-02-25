@@ -217,11 +217,6 @@ impl_reflect_opaque!(::core::num::Wrapping<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::core::num::Saturating<T: Clone + Send + Sync>());
 impl_reflect_opaque!(::bevy_platform_support::sync::Arc<T: Send + Sync + ?Sized>);
 
-// We check despite `portable-atomic` being enabled, if the standard library `Arc` is
-// also available, and implement Reflect for it.
-#[cfg(all(feature = "portable-atomic", target_has_atomic = "ptr"))]
-impl_reflect_opaque!(::alloc::sync::Arc<T: Send + Sync + ?Sized>);
-
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
 #[cfg(all(any(unix, windows), feature = "std"))]
