@@ -59,7 +59,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ut labore et dolore magna aliqua.",
             ),
             TextFont {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 30.0,
                 ..default()
             },
