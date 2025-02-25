@@ -90,7 +90,7 @@ fn move_cursor(
         if keys.just_pressed(KeyCode::ArrowDown) {
             cursor.line += 1;
         }
-        if keys.just_pressed(KeyCode::Insert) {
+        if keys.just_pressed(KeyCode::Space) {
             style.width = match style.width {
                 TextCursorWidth::All => TextCursorWidth::Px(CURSOR_WIDTH),
                 TextCursorWidth::Px(_) => TextCursorWidth::All,
