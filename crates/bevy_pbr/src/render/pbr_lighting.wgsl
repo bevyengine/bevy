@@ -456,10 +456,93 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
+// this must align with CubemapLayout in decal/clustered.rs
+const CUBEMAP_TYPE_CROSS_VERTICAL: u32 = 0;
+const CUBEMAP_TYPE_CROSS_HORIZONTAL: u32 = 1;
+const CUBEMAP_TYPE_SEQUENCE_VERTICAL: u32 = 2;
+const CUBEMAP_TYPE_SEQUENCE_HORIZONTAL: u32 = 3;
+
+const X_PLUS: u32 = 0;
+const X_MINUS: u32 = 1;
+const Y_PLUS: u32 = 2;
+const Y_MINUS: u32 = 3;
+const Z_MINUS: u32 = 4;
+const Z_PLUS: u32 = 5;
+
+fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
+    let abs_direction = abs(direction);
+    let max_axis = max(abs_direction.x, max(abs_direction.y, abs_direction.z));
+
+    let face_index = select(
+        select(X_PLUS, X_MINUS, direction.x < 0.0),
+        select(
+            select(Y_PLUS, Y_MINUS, direction.y < 0.0),
+            select(Z_PLUS, Z_MINUS, direction.z < 0.0),
+            max_axis != abs_direction.y
+        ),
+        max_axis != abs_direction.x
+    );
+    
+    var face_uv: vec2<f32>;
+    var corner_uv: vec2<u32> = vec2(0, 0);
+    var face_size: vec2<f32>;
+
+    switch face_index {
+        case X_PLUS:  { face_uv = vec2<f32>(direction.z, -direction.y) / direction.x; }
+        case X_MINUS: { face_uv = vec2<f32>(-direction.z, -direction.y) / -direction.x; }
+        case Y_PLUS:  { face_uv = vec2<f32>(direction.x,  -direction.z) / direction.y; }
+        case Y_MINUS: { face_uv = vec2<f32>(direction.x, direction.z) / -direction.y; }
+        case Z_PLUS:  { face_uv = vec2<f32>(direction.x, direction.y) / direction.z; }
+        case Z_MINUS: { face_uv = vec2<f32>(direction.x, -direction.y) / -direction.z; }
+        default: {}
+    }
+
+    face_uv = face_uv * 0.5 + 0.5;
+
+    switch cubemap_type {
+        case CUBEMAP_TYPE_CROSS_VERTICAL: { 
+            face_size = vec2(1.0/3.0, 1.0/4.0); 
+            switch face_index {
+                case X_PLUS:  { corner_uv = vec2(2, 1); }
+                case X_MINUS: { corner_uv = vec2(0, 1); }
+                case Y_PLUS:  { corner_uv = vec2(1, 0); }
+                case Y_MINUS: { corner_uv = vec2(1, 2); }
+                case Z_PLUS:  { corner_uv = vec2(1, 3); }
+                case Z_MINUS: { corner_uv = vec2(1, 1); }
+                default: {}
+            }
+        }
+        case CUBEMAP_TYPE_CROSS_HORIZONTAL: { 
+            face_size = vec2(1.0/4.0, 1.0/3.0); 
+            switch face_index {
+                case X_PLUS:  { corner_uv = vec2(2, 1); }
+                case X_MINUS: { corner_uv = vec2(0, 1); }
+                case Y_PLUS:  { corner_uv = vec2(1, 0); }
+                case Y_MINUS: { corner_uv = vec2(1, 2); }
+                case Z_PLUS:  { corner_uv = vec2(3, 1); }
+                case Z_MINUS: { corner_uv = vec2(1, 1); }
+                default: {}
+            }
+        }
+        case CUBEMAP_TYPE_SEQUENCE_HORIZONTAL: {
+            face_size = vec2(1.0/6.0, 1.0);
+            corner_uv.x = face_index;
+        }
+        case CUBEMAP_TYPE_SEQUENCE_VERTICAL: {
+            face_size = vec2(1.0, 1.0/6.0);
+            corner_uv.y = face_index;
+        }
+        default: {}
+    }
+
+    return (vec2<f32>(corner_uv) + face_uv) * face_size;
+}
+
 fn point_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
-    enable_diffuse: bool
+    enable_diffuse: bool,
+    enable_cookie: bool,
 ) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
@@ -555,8 +638,26 @@ fn point_light(
     color = diffuse + specular_light;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
+    var cookie_sample = 1f;
+
+#ifdef CLUSTERED_DECALS_ARE_USABLE
+    if enable_cookie && (*light).decal_index != 0xFFFFFFFFu {
+        let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
+        let cubemap_type = view_bindings::clustered_decals.decals[(*light).decal_index].tag;
+        let decal_uv = cubemap_uv(relative_position, cubemap_type);
+        let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+
+        cookie_sample = textureSampleLevel(
+            view_bindings::clustered_decal_textures[image_index],
+            view_bindings::clustered_decal_sampler,
+            decal_uv,
+            0.0
+        ).r;
+    }
+#endif
+
     return color * (*light).color_inverse_square_range.rgb *
-        (rangeAttenuation * derived_input.NdotL);
+        (rangeAttenuation * derived_input.NdotL) * cookie_sample;
 }
 
 fn spot_light(
@@ -565,7 +666,7 @@ fn spot_light(
     enable_diffuse: bool
 ) -> vec3<f32> {
     // reuse the point light calculations
-    let point_light = point_light(light_id, input, enable_diffuse);
+    let point_light = point_light(light_id, input, enable_diffuse, false);
 
     let light = &view_bindings::clusterable_objects.data[light_id];
 
@@ -584,7 +685,26 @@ fn spot_light(
     let attenuation = saturate(cd * (*light).light_custom_data.z + (*light).light_custom_data.w);
     let spot_attenuation = attenuation * attenuation;
 
-    return point_light * spot_attenuation;
+    var cookie_sample = 1f;
+
+#ifdef CLUSTERED_DECALS_ARE_USABLE
+    if (*light).decal_index != 0xFFFFFFFFu {
+        let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
+            vec4((*input).P, 1.0)).xyz;
+        if local_position.z < 0.0 {
+            let decal_uv = (local_position.xy / (local_position.z * (*light).spot_light_tan_angle)) * vec2(-0.5, 0.5) + 0.5;
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+
+            cookie_sample = textureSample(
+                view_bindings::clustered_decal_textures[image_index],
+                view_bindings::clustered_decal_sampler,
+                decal_uv,
+            ).r;
+        }
+    }
+#endif
+
+    return point_light * spot_attenuation * cookie_sample;
 }
 
 fn directional_light(
@@ -641,5 +761,30 @@ fn directional_light(
     color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    return color * (*light).color.rgb;
+    var cookie_sample = 1f;
+
+#ifdef CLUSTERED_DECALS_ARE_USABLE
+    if (*light).decal_index != 0xFFFFFFFFu {
+        let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
+            vec4((*input).P, 1.0)).xyz;
+        let decal_uv = local_position.xy * vec2(-0.5, 0.5) + 0.5;
+
+        // if tiled or within tile
+        if (view_bindings::clustered_decals.decals[(*light).decal_index].tag != 0u)
+                || all(clamp(decal_uv, vec2(0.0), vec2(1.0)) == decal_uv)
+        {
+            let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
+
+            cookie_sample = textureSample(
+                view_bindings::clustered_decal_textures[image_index],
+                view_bindings::clustered_decal_sampler,
+                decal_uv - floor(decal_uv),
+            ).r;                    
+        } else {
+            cookie_sample = 0f;
+        }
+    }
+#endif
+
+    return color * (*light).color.rgb * cookie_sample;
 }

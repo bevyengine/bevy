@@ -13,7 +13,7 @@ struct ClusterableObject {
     spot_light_tan_angle: f32,
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
-    texture_index: u32,
+    decal_index: u32,
     pad: f32,
 };
 
@@ -40,6 +40,7 @@ struct DirectionalLight {
     num_cascades: u32,
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
+    decal_index: u32,
 };
 
 const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u << 0u;

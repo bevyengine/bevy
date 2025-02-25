@@ -50,7 +50,8 @@ use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bytemuck::{Pod, Zeroable};
 
 use crate::{
-    binding_arrays_are_usable, prepare_lights, GlobalClusterableObjectMeta, LightVisibilityClass,
+    binding_arrays_are_usable, prepare_lights, DirectionalLight, GlobalClusterableObjectMeta,
+    LightVisibilityClass, PointLight, SpotLight,
 };
 
 /// The maximum number of decals that can be present in a view.
@@ -94,6 +95,67 @@ pub struct ClusteredDecal {
     pub tag: u32,
 }
 
+/// Cubemap layout defines the order of images in a packed cubemap image.
+#[derive(Default, Reflect, Debug, Clone, Copy)]
+pub enum CubemapLayout {
+    /// layout in a vertical cross format
+    ///    +y
+    /// -x -z +x
+    ///    -y
+    ///    +z
+    #[default]
+    CrossVertical = 0,
+    /// layout in a horizontal cross format
+    ///    +y
+    /// -x -z +x
+    ///    -y
+    ///    +z
+    CrossHorizontal = 1,
+    /// layout in a horizontal sequence
+    /// +x -y +y -y -z +z
+    SequenceVertical = 2,
+    /// layout in a vertical sequence
+    ///   +x
+    ///   -y
+    ///   +y
+    ///   -y
+    ///   -z
+    ///   +z
+    SequenceHorizontal = 3,
+}
+
+/// Add to a [`PointLight`] to add a light cookie effect.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(PointLight)]
+pub struct PointLightCookie {
+    /// The cookie image. Only the R channel is read.
+    pub image: Handle<Image>,
+    /// The cubemap layout. The image should be a packed cubemap in one of the formats described by the [`CubemapLayout`] enum.
+    pub cubemap_layout: CubemapLayout,
+}
+
+/// Add to a [`SpotLight`] to add a light cookie effect.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(SpotLight)]
+pub struct SpotLightCookie {
+    /// The cookie image. Only the R channel is read.
+    /// Note the border of the image should be entirely black to avoid leaking light.
+    pub image: Handle<Image>,
+}
+
+/// Add to a [`DirectionalLight`] to add a light cookie effect.
+#[derive(Clone, Component, Debug, Reflect)]
+#[reflect(Component, Debug)]
+#[require(DirectionalLight)]
+pub struct DirectionalLightCookie {
+    /// The cookie image. Only the R channel is read.
+    pub image: Handle<Image>,
+    /// Whether to tile the image infinitely, or use only a single tile centered at the light's translation
+    pub tiled: bool,
+}
+
 /// Stores information about all the clustered decals in the scene.
 #[derive(Resource, Default)]
 pub struct RenderClusteredDecals {
@@ -120,6 +182,29 @@ impl RenderClusteredDecals {
         self.texture_to_binding_index.clear();
         self.decals.clear();
         self.entity_to_decal_index.clear();
+    }
+
+    pub fn insert_decal(
+        &mut self,
+        entity: Entity,
+        image: &AssetId<Image>,
+        local_from_world: Mat4,
+        tag: u32,
+    ) {
+        let image_index = self.get_or_insert_image(image);
+        let decal_index = self.decals.len();
+        self.decals.push(RenderClusteredDecal {
+            local_from_world,
+            image_index,
+            tag,
+            pad_a: 0,
+            pad_b: 0,
+        });
+        self.entity_to_decal_index.insert(entity, decal_index);
+    }
+
+    pub fn get(&self, entity: Entity) -> Option<usize> {
+        self.entity_to_decal_index.get(&entity).copied()
     }
 }
 
@@ -204,6 +289,30 @@ pub fn extract_decals(
             &ViewVisibility,
         )>,
     >,
+    spot_light_cookies: Extract<
+        Query<(
+            RenderEntity,
+            &SpotLightCookie,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    point_light_cookies: Extract<
+        Query<(
+            RenderEntity,
+            &PointLightCookie,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
+    directional_light_cookies: Extract<
+        Query<(
+            RenderEntity,
+            &DirectionalLightCookie,
+            &GlobalTransform,
+            &ViewVisibility,
+        )>,
+    >,
     mut render_decals: ResMut<RenderClusteredDecals>,
 ) {
     // Clear out the `RenderDecals` in preparation for a new frame.
@@ -216,22 +325,54 @@ pub fn extract_decals(
             continue;
         }
 
-        // Insert or add the image.
-        let image_index = render_decals.get_or_insert_image(&clustered_decal.image.id());
+        render_decals.insert_decal(
+            decal_entity,
+            &clustered_decal.image.id(),
+            global_transform.affine().inverse().into(),
+            clustered_decal.tag,
+        );
+    }
 
-        // Record the decal.
-        let decal_index = render_decals.decals.len();
-        render_decals
-            .entity_to_decal_index
-            .insert(decal_entity, decal_index);
+    for (decal_entity, cookie, global_transform, view_visibility) in &spot_light_cookies {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
 
-        render_decals.decals.push(RenderClusteredDecal {
-            local_from_world: global_transform.affine().inverse().into(),
-            image_index,
-            tag: clustered_decal.tag,
-            pad_a: 0,
-            pad_b: 0,
-        });
+        render_decals.insert_decal(
+            decal_entity,
+            &cookie.image.id(),
+            global_transform.affine().inverse().into(),
+            0,
+        );
+    }
+
+    for (decal_entity, cookie, global_transform, view_visibility) in &point_light_cookies {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
+
+        render_decals.insert_decal(
+            decal_entity,
+            &cookie.image.id(),
+            global_transform.affine().inverse().into(),
+            cookie.cubemap_layout as u32,
+        );
+    }
+
+    for (decal_entity, cookie, global_transform, view_visibility) in &directional_light_cookies {
+        // If the decal is invisible, skip it.
+        if !view_visibility.get() {
+            continue;
+        }
+
+        render_decals.insert_decal(
+            decal_entity,
+            &cookie.image.id(),
+            global_transform.affine().inverse().into(),
+            if cookie.tiled { 1 } else { 0 },
+        );
     }
 }
 
