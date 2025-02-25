@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Outline {
                 color: Color::WHITE,
                 width: Val::Px(2.),
-                offset: Val::Px(25.),
+                offset: Val::Px(15.),
             },
         ))
         .with_child((
@@ -66,7 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Outline {
                 color: Color::WHITE,
                 width: Val::Px(2.),
-                ..Default::default()
+                offset: Val::Px(25.),
             },
         ))
         .with_child(Text::new(
