@@ -1396,7 +1396,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         since = "0.16.0",
         note = "Use `get(entities)?` or `get(entities).unwrap()` instead, which now supports arrays."
     )]
-    pub fn many<E: WorldEntityFetch>(&self, entities: E) -> E::Data<'_, D::ReadOnly> {
+    pub fn many<const N: usize>(&self, entities: [Entity; N]) -> [ROQueryItem<'_, D>; N] {
         match self.get(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query results: {error}"),
@@ -1736,7 +1736,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         since = "0.16.0",
         note = "Use `get_mut(entities)?` or `get_mut(entities).unwrap()` instead, which now supports arrays."
     )]
-    pub fn many_mut<E: WorldEntityFetch>(&mut self, entities: E) -> E::Data<'_, D> {
+    pub fn many_mut<const N: usize>(&mut self, entities: [Entity; N]) -> [D::Item<'_>; N] {
         match self.get_mut(entities) {
             Ok(items) => items,
             Err(error) => panic!("Cannot get query result: {error}"),
