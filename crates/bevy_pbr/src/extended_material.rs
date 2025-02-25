@@ -2,15 +2,15 @@ use alloc::borrow::Cow;
 
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::system::SystemParamItem;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform_support::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     alpha::AlphaMode,
     mesh::MeshVertexBufferLayoutRef,
     render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroupLayout, BindlessDescriptor, BindlessResourceType,
-        BindlessSlabResourceLimit, RenderPipelineDescriptor, Shader, ShaderRef,
-        SpecializedMeshPipelineError, UnpreparedBindGroup,
+        AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
+        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, Shader,
+        ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
 };
@@ -217,7 +217,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     fn bind_group_layout_entries(
         render_device: &RenderDevice,
         mut force_non_bindless: bool,
-    ) -> Vec<bevy_render::render_resource::BindGroupLayoutEntry>
+    ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized,
     {
@@ -228,7 +228,8 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         // when bindless mode is on, because of the common bindless resource
         // arrays, and we need to eliminate the duplicates or `wgpu` will
         // complain.
-        let (mut entries, mut seen_bindings) = (vec![], HashSet::new());
+        let mut entries = vec![];
+        let mut seen_bindings = HashSet::<_>::with_hasher(FixedHasher);
         for entry in B::bind_group_layout_entries(render_device, force_non_bindless)
             .into_iter()
             .chain(E::bind_group_layout_entries(render_device, force_non_bindless).into_iter())
