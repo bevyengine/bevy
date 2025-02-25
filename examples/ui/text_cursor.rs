@@ -1,9 +1,7 @@
 //! This example illustrates how to create and control a UI text cursor
 
 use bevy::{
-    diagnostic::FrameTimeDiagnosticsPlugin,
-    prelude::*,
-    ui::widget::{TextCursor, TextCursorStyle, TextCursorWidth},
+    color::palettes::css::GOLDENROD, diagnostic::FrameTimeDiagnosticsPlugin, prelude::*, ui::widget::{TextCursor, TextCursorStyle, TextCursorWidth}
 };
 
 const CURSOR_WIDTH: f32 = 4.;
@@ -39,14 +37,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 font_size: 30.0,
                 ..default()
             },
+            TextColor(GOLDENROD.into()),
             TextCursor {
-                index: 5,
-            },
-            TextCursorStyle {
-                color: Srgba::hex("AEAFAD").unwrap().into(),
-                width: TextCursorWidth::Px(4.),
-                radius: 2.,
-                height: 1.,
+                index: 0,
             },
             // Set the justification of the Text
             TextLayout::new_with_justify(JustifyText::Center),
@@ -68,21 +61,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             TextCursor {
-                index: 5,
+                index: 0,
             },            
-            TextCursorStyle {
-                color: Srgba::hex("AEAFAD").unwrap().into(),
-                width: TextCursorWidth::Px(CURSOR_WIDTH),
-                radius: 2.,
-                height: 1.,
-            },
+            TextColor(GOLDENROD.into()),
             // Set the justification of the Text
             TextLayout::new_with_justify(JustifyText::Center),
             // Set the style of the Node itself.
             Outline {
                 color: Color::WHITE,
                 width: Val::Px(2.),
-                offset: Val::Px(10.),
+                ..Default::default()
             },
         ))
         ;

@@ -3,7 +3,7 @@ use crate::{
     NodeMeasure,
 };
 use bevy_asset::Assets;
-use bevy_color::Color;
+use bevy_color::{palettes::tailwind::GRAY_400, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -399,7 +399,9 @@ pub fn text_system(
 }
 
 /// Add to a [`Text`] entity to draw a cursor for a block of text.
-#[derive(Component, Copy, Clone, Debug, PartialEq)]
+#[derive(Component, Default, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
+#[require(TextCursorStyle)]
 pub struct TextCursor {
     /// Index of the glyph where the cursor will be drawn.
     /// If the index is out of bounds the cursor isn't shown.
@@ -407,7 +409,8 @@ pub struct TextCursor {
 }
 
 /// Styling for a text cursor
-#[derive(Component, Copy, Clone, Debug, PartialEq)]
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
 pub struct TextCursorStyle {
     /// Color of the cursor
     pub color: Color,
@@ -422,8 +425,8 @@ pub struct TextCursorStyle {
 impl Default for TextCursorStyle {
     fn default() -> Self {
         Self {
-            color: Color::WHITE,
-            width: TextCursorWidth::Px(4.),
+            color: GRAY_400.into(),
+            width: TextCursorWidth::Px(3.),
             radius: 0.,
             height: 1.,
         }
@@ -431,7 +434,8 @@ impl Default for TextCursorStyle {
 }
 
 /// Width of a text cursor
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, Debug, PartialEq)]
 pub enum TextCursorWidth {
     /// Cover whole glyph
     All,
