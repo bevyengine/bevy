@@ -26,8 +26,8 @@ mod once;
 mod poison;
 mod rwlock;
 
-#[cfg(all(feature = "alloc", feature = "portable-atomic"))]
+#[cfg(all(feature = "alloc", not(target_has_atomic = "ptr")))]
 use portable_atomic_util as arc;
 
-#[cfg(all(feature = "alloc", not(feature = "portable-atomic")))]
+#[cfg(all(feature = "alloc", target_has_atomic = "ptr"))]
 use alloc::sync as arc;
