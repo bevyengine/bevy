@@ -323,9 +323,9 @@ fn spawn_light_cookies(
             Selection::PointLight,
         ))
         .with_children(|parent| {
-            parent.spawn(SceneRoot(asset_server.load(
-                GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
-            )));
+            parent.spawn(SceneRoot(
+                asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb")),
+            ));
 
             parent.spawn((
                 Mesh3d(meshes.add(Sphere::new(1.0))),
@@ -771,13 +771,13 @@ fn update_directional_light(
     let directional_visible = selections
         .iter()
         .filter(|(selection, _)| **selection == Selection::DirectionalLight)
-        .any(|(_, visiblity)| visiblity != Visibility::Hidden);
+        .any(|(_, visibility)| visibility != Visibility::Hidden);
     let any_cookie_light_visible = selections
         .iter()
         .filter(|(selection, _)| {
             **selection == Selection::PointLight || **selection == Selection::SpotLight
         })
-        .any(|(_, visiblity)| visiblity != Visibility::Hidden);
+        .any(|(_, visibility)| visibility != Visibility::Hidden);
 
     if directional_visible {
         let (entity, mut light, maybe_cookie) = light.single_mut();
