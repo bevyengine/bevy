@@ -398,14 +398,17 @@ pub fn text_system(
     }
 }
 
-/// Add to a [`Text`] entity to draw a cursor for a block of text.
+/// Add to a UI [`Text`] entity to display a cursor for  block of text.
+/// Does nothing if added to a [`TextSpan`].
+/// Not supported by [`Text2d`].
 #[derive(Component, Default, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq)]
 #[require(TextCursorStyle)]
 pub struct TextCursor {
     /// Line index
     pub line: usize,
-    /// First-byte-index of glyph at cursor (will insert behind this glyph)
+    /// Index of the character the cursor is over.
+    /// This is a single-byte offset into the line's string, not a glyph index.
     pub index: usize,
 }
 
@@ -434,7 +437,7 @@ impl Default for TextCursorStyle {
     }
 }
 
-/// Width of a text cursor
+/// Width of the text cursor
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Default, Debug, PartialEq)]
 pub enum TextCursorWidth {
