@@ -462,9 +462,15 @@ pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 
+/// All allowed attribute value expression kinds for component hooks
 enum HookAttributeKind {
+    /// expressions like function or struct names
+    ///
+    /// structs will throw compile errors on the code generation so this is safe
     Path(ExprPath),
+    /// function call like expressions
     Call(ExprCall),
+    /// closure like expressions
     Closure(ExprClosure),
 }
 
@@ -474,6 +480,7 @@ impl HookAttributeKind {
             Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
             Expr::Call(call) => Ok(HookAttributeKind::Call(call)),
             Expr::Closure(closure) => Ok(HookAttributeKind::Closure(closure)),
+            // throw meaningful error on all other expressions
             _ => Err(syn::Error::new(
                 value.span(),
                 [
