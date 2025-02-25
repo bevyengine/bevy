@@ -113,25 +113,25 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         }
     }
 
-    let on_insert_fn = match syn::parse::<HookKind>(
+    let on_insert_fn = match syn::parse::<HookAttributeKind>(
         quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert).into(),
     ) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
     };
-    let on_replace_fn = match syn::parse::<HookKind>(
+    let on_replace_fn = match syn::parse::<HookAttributeKind>(
         quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace).into(),
     ) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
     };
-    let on_replace_target_fn = match syn::parse::<HookKind>(
+    let on_replace_target_fn = match syn::parse::<HookAttributeKind>(
         quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace).into(),
     ) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
     };
-    let on_despawn_target_fn = match syn::parse::<HookKind>(
+    let on_despawn_target_fn = match syn::parse::<HookAttributeKind>(
         quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn).into(),
     ) {
         Ok(value) => value,
@@ -462,18 +462,18 @@ pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 
-enum HookKind {
+enum HookAttributeKind {
     Path(ExprPath),
     Call(ExprCall),
     Closure(ExprClosure),
 }
 
-impl HookKind {
+impl HookAttributeKind {
     fn from_expr(value: Expr) -> Result<Self> {
         match value {
-            Expr::Path(path) => Ok(HookKind::Path(path)),
-            Expr::Call(call) => Ok(HookKind::Call(call)),
-            Expr::Closure(closure) => Ok(HookKind::Closure(closure)),
+            Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
+            Expr::Call(call) => Ok(HookAttributeKind::Call(call)),
+            Expr::Closure(closure) => Ok(HookAttributeKind::Closure(closure)),
             _ => Err(syn::Error::new(
                 value.span(),
                 [
@@ -488,7 +488,7 @@ impl HookKind {
     }
 }
 
-impl Parse for HookKind {
+impl Parse for HookAttributeKind {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         input.parse::<Expr>().and_then(Self::from_expr)
     }
@@ -497,11 +497,11 @@ impl Parse for HookKind {
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
-    on_add: Option<HookKind>,
-    on_insert: Option<HookKind>,
-    on_replace: Option<HookKind>,
-    on_remove: Option<HookKind>,
-    on_despawn: Option<HookKind>,
+    on_add: Option<HookAttributeKind>,
+    on_insert: Option<HookAttributeKind>,
+    on_replace: Option<HookAttributeKind>,
+    on_remove: Option<HookAttributeKind>,
+    on_despawn: Option<HookAttributeKind>,
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
@@ -570,7 +570,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         nested
                             .value()?
                             .parse::<Expr>()
-                            .and_then(HookKind::from_expr)?,
+                            .and_then(HookAttributeKind::from_expr)?,
                     );
                     Ok(())
                 } else if nested.path.is_ident(ON_INSERT) {
@@ -578,7 +578,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         nested
                             .value()?
                             .parse::<Expr>()
-                            .and_then(HookKind::from_expr)?,
+                            .and_then(HookAttributeKind::from_expr)?,
                     );
                     Ok(())
                 } else if nested.path.is_ident(ON_REPLACE) {
@@ -586,7 +586,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         nested
                             .value()?
                             .parse::<Expr>()
-                            .and_then(HookKind::from_expr)?,
+                            .and_then(HookAttributeKind::from_expr)?,
                     );
                     Ok(())
                 } else if nested.path.is_ident(ON_REMOVE) {
@@ -594,7 +594,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         nested
                             .value()?
                             .parse::<Expr>()
-                            .and_then(HookKind::from_expr)?,
+                            .and_then(HookAttributeKind::from_expr)?,
                     );
                     Ok(())
                 } else if nested.path.is_ident(ON_DESPAWN) {
@@ -602,7 +602,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         nested
                             .value()?
                             .parse::<Expr>()
-                            .and_then(HookKind::from_expr)?,
+                            .and_then(HookAttributeKind::from_expr)?,
                     );
                     Ok(())
                 } else if nested.path.is_ident(IMMUTABLE) {
@@ -671,17 +671,17 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
 fn hook_register_function_call(
     bevy_ecs_path: &Path,
     hook: TokenStream2,
-    function: Option<HookKind>,
+    function: Option<HookAttributeKind>,
 ) -> Option<TokenStream2> {
     function.map(|hook_kind| match hook_kind {
-        HookKind::Path(path) => {
+        HookAttributeKind::Path(path) => {
             quote! {
                 fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
                     ::core::option::Option::Some(#path)
                 }
             }
         }
-        HookKind::Call(call) => {
+        HookAttributeKind::Call(call) => {
             quote! {
                 fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
                     fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
@@ -691,7 +691,7 @@ fn hook_register_function_call(
                 }
             }
         }
-        HookKind::Closure(closure) => {
+        HookAttributeKind::Closure(closure) => {
             quote! {
                 fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
                     fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
