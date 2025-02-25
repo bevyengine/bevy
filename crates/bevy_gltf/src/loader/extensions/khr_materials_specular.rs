@@ -28,20 +28,20 @@ use {
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_specular/README.md>
 #[derive(Default)]
 pub(crate) struct SpecularExtension {
-    pub specular_factor: Option<f64>,
+    pub(crate) specular_factor: Option<f64>,
     #[cfg(feature = "pbr_specular_textures")]
-    pub specular_channel: UvChannel,
+    pub(crate) specular_channel: UvChannel,
     #[cfg(feature = "pbr_specular_textures")]
-    pub specular_texture: Option<Handle<Image>>,
-    pub specular_color_factor: Option<[f64; 3]>,
+    pub(crate) specular_texture: Option<Handle<Image>>,
+    pub(crate) specular_color_factor: Option<[f64; 3]>,
     #[cfg(feature = "pbr_specular_textures")]
-    pub specular_color_channel: UvChannel,
+    pub(crate) specular_color_channel: UvChannel,
     #[cfg(feature = "pbr_specular_textures")]
-    pub specular_color_texture: Option<Handle<Image>>,
+    pub(crate) specular_color_texture: Option<Handle<Image>>,
 }
 
 impl SpecularExtension {
-    pub fn parse(
+    pub(crate) fn parse(
         _load_context: &mut LoadContext,
         _document: &Document,
         material: &Material,

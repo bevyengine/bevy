@@ -20,12 +20,12 @@ use {
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_anisotropy/README.md>
 #[derive(Default)]
 pub(crate) struct AnisotropyExtension {
-    pub anisotropy_strength: Option<f64>,
-    pub anisotropy_rotation: Option<f64>,
+    pub(crate) anisotropy_strength: Option<f64>,
+    pub(crate) anisotropy_rotation: Option<f64>,
     #[cfg(feature = "pbr_anisotropy_texture")]
-    pub anisotropy_channel: UvChannel,
+    pub(crate) anisotropy_channel: UvChannel,
     #[cfg(feature = "pbr_anisotropy_texture")]
-    pub anisotropy_texture: Option<Handle<Image>>,
+    pub(crate) anisotropy_texture: Option<Handle<Image>>,
 }
 
 impl AnisotropyExtension {
@@ -37,7 +37,7 @@ impl AnisotropyExtension {
         unused_variables,
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
-    pub fn parse(
+    pub(crate) fn parse(
         load_context: &mut LoadContext,
         document: &Document,
         material: &Material,

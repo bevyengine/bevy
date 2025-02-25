@@ -16,20 +16,20 @@ use {
 /// <https://github.com/KhronosGroup/glTF/blob/main/extensions/2.0/Khronos/KHR_materials_clearcoat/README.md>
 #[derive(Default)]
 pub(crate) struct ClearcoatExtension {
-    pub clearcoat_factor: Option<f64>,
+    pub(crate) clearcoat_factor: Option<f64>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
-    pub clearcoat_channel: UvChannel,
+    pub(crate) clearcoat_channel: UvChannel,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
-    pub clearcoat_texture: Option<Handle<Image>>,
-    pub clearcoat_roughness_factor: Option<f64>,
+    pub(crate) clearcoat_texture: Option<Handle<Image>>,
+    pub(crate) clearcoat_roughness_factor: Option<f64>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
-    pub clearcoat_roughness_channel: UvChannel,
+    pub(crate) clearcoat_roughness_channel: UvChannel,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
-    pub clearcoat_roughness_texture: Option<Handle<Image>>,
+    pub(crate) clearcoat_roughness_texture: Option<Handle<Image>>,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
-    pub clearcoat_normal_channel: UvChannel,
+    pub(crate) clearcoat_normal_channel: UvChannel,
     #[cfg(feature = "pbr_multi_layer_material_textures")]
-    pub clearcoat_normal_texture: Option<Handle<Image>>,
+    pub(crate) clearcoat_normal_texture: Option<Handle<Image>>,
 }
 
 impl ClearcoatExtension {
@@ -41,7 +41,7 @@ impl ClearcoatExtension {
         unused_variables,
         reason = "Depending on what features are used to compile this crate, certain parameters may end up unused."
     )]
-    pub fn parse(
+    pub(crate) fn parse(
         load_context: &mut LoadContext,
         document: &Document,
         material: &Material,
