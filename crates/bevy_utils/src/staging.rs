@@ -5,7 +5,7 @@
 //! Provides an abstracted system for staging modifications to data structures that rarely change.
 //! See [`StageOnWrite`] as a starting point.
 //!
-//! # Rational
+//! # Rationale
 //!
 //! Lets say you want to have a collection of items that is read from often but rarely written to.
 //! This comes up a lot in registries, like components, bundles, reflection, assets, etc.
