@@ -15,6 +15,12 @@ use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
 
+#[derive(Component)]
+pub struct B;
+
+#[derive(Component)]
+pub struct A;
+
 fn main() {
     // Create a new empty World to hold our Entities, Components and Resources
     let mut world = World::new();
@@ -28,6 +34,7 @@ fn main() {
     // Add systems to the Schedule to execute our app logic
     // We can label our systems to force a specific run-order between some of them
     schedule.add_systems((
+        |_: Query<&mut A>, _: Query<(), Or<(Changed<A>,)>>|{},
         spawn_entities.in_set(SimulationSet::Spawn),
         print_counter_when_changed.after(SimulationSet::Spawn),
         age_all_entities.in_set(SimulationSet::Age),

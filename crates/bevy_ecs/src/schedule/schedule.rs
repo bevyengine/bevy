@@ -2,6 +2,15 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17344."
 )]
+use crate::{
+    component::{ComponentId, Components, Tick},
+    prelude::Component,
+    resource::Resource,
+    result::{DefaultSystemErrorHandler, Error, SystemErrorContext},
+    schedule::*,
+    system::ScheduleSystem,
+    world::World,
+};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -10,6 +19,7 @@ use alloc::{
     vec,
     vec::Vec,
 };
+use bevy_ecs::system::const_param_checking::AccessType;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use core::{
@@ -23,16 +33,6 @@ use pass::ScheduleBuildPassObj;
 use thiserror::Error;
 #[cfg(feature = "trace")]
 use tracing::info_span;
-
-use crate::{
-    component::{ComponentId, Components, Tick},
-    prelude::Component,
-    resource::Resource,
-    result::{DefaultSystemErrorHandler, Error, SystemErrorContext},
-    schedule::*,
-    system::ScheduleSystem,
-    world::World,
-};
 
 use crate::{query::AccessConflicts, storage::SparseSetIndex};
 pub use stepping::Stepping;
@@ -334,7 +334,28 @@ impl Schedule {
     }
 
     /// Add a collection of systems to the schedule.
-    pub fn add_systems<M>(&mut self, systems: impl IntoSystemConfigs<M>) -> &mut Self {
+    pub fn add_systems<M, IntoSystemConfig: IntoSystemConfigs<M>>(
+        &mut self,
+        systems: IntoSystemConfig,
+    ) -> &mut Self {
+        const {
+            match IntoSystemConfig::INTO_SYSTEM_CONFIGS_PANIC_CHECKER {
+                None => {}
+                Some(owo) => {
+                    let lhs_access_type = match owo.lhs_access_type {
+                        AccessType::Ref => "&",
+                        AccessType::Mut => "&mut",
+                    };
+                    let rhs_access_type = match owo.rhs_access_type {
+                        AccessType::Ref => "&",
+                        AccessType::Mut => "&mut",
+                    };
+                    let lhs_name = owo.lhs_name;
+                    let rhs_name = owo.rhs_name;
+                    const_panic::concat_panic!(const_panic::FmtArg::DISPLAY; "\nInvalid System Queries, ", lhs_access_type," ", lhs_name, " conflicts with ", rhs_access_type," ", rhs_name, " in the same system\n");
+                }
+            }
+        };
         self.graph.process_configs(systems.into_configs(), false);
         self
     }
