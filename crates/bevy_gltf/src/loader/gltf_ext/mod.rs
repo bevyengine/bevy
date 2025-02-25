@@ -4,7 +4,6 @@ pub mod extras;
 pub mod material;
 pub mod mesh;
 pub mod scene;
-pub mod skin;
 pub mod texture;
 
 use bevy_platform_support::collections::HashSet;

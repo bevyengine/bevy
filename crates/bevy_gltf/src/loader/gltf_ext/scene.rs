@@ -2,7 +2,7 @@ use bevy_ecs::name::Name;
 use bevy_math::{Mat4, Vec3};
 use bevy_transform::components::Transform;
 
-use gltf::{scene::Node, Scene};
+use gltf::scene::Node;
 
 use fixedbitset::FixedBitSet;
 use itertools::Itertools;
@@ -10,12 +10,7 @@ use itertools::Itertools;
 #[cfg(feature = "bevy_animation")]
 use bevy_platform_support::collections::{HashMap, HashSet};
 
-use crate::{GltfAssetLabel, GltfError};
-
-/// Returns the label for the glTF [`Scene`].
-pub(crate) fn scene_label(scene: &Scene<'_>) -> GltfAssetLabel {
-    GltfAssetLabel::Scene(scene.index())
-}
+use crate::GltfError;
 
 pub(crate) fn node_name(node: &Node) -> Name {
     let name = node

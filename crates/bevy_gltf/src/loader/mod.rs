@@ -75,8 +75,7 @@ use self::{
             warn_on_differing_texture_transforms,
         },
         mesh::{primitive_name, primitive_topology},
-        scene::{collect_path, node_name, node_transform, scene_label},
-        skin::{inverse_bind_matrices_label, skin_label},
+        scene::{collect_path, node_name, node_transform},
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
     image_or_path::ImageOrPath,
@@ -739,7 +738,7 @@ async fn load_gltf<'a, 'b, 'c>(
 
             load_context
                 .add_labeled_asset(
-                    inverse_bind_matrices_label(&gltf_skin).to_string(),
+                    GltfAssetLabel::InverseBindMatrices(gltf_skin.index()).to_string(),
                     SkinnedMeshInverseBindposes::from(local_to_bone_bind_matrices),
                 )
                 .expect("inverse bind matrix indices are unique, so the label is unique")
@@ -791,7 +790,7 @@ async fn load_gltf<'a, 'b, 'c>(
                     );
 
                     let handle = load_context
-                        .add_labeled_asset(skin_label(&skin).to_string(), gltf_skin)
+                        .add_labeled_asset(gltf_skin.asset_label().to_string(), gltf_skin)
                         .expect("skin indices are unique, so the label is unique");
 
                     if let Some(name) = skin.name() {
@@ -917,7 +916,10 @@ async fn load_gltf<'a, 'b, 'c>(
         }
         let loaded_scene = scene_load_context.finish(Scene::new(world));
         let scene_handle = load_context
-            .add_loaded_labeled_asset(scene_label(&scene).to_string(), loaded_scene)
+            .add_loaded_labeled_asset(
+                GltfAssetLabel::Scene(scene.index()).to_string(),
+                loaded_scene,
+            )
             .expect("scene indices are unique, so the label is unique");
 
         if let Some(name) = scene.name() {
