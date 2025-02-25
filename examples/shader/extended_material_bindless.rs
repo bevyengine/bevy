@@ -4,9 +4,9 @@ use bevy::{
     color::palettes::{css::RED, tailwind::GRAY_600},
     pbr::{ExtendedMaterial, MaterialExtension, MeshMaterial3d},
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
     utils::default,
 };
-use bevy_render::render_resource::{AsBindGroup, ShaderRef, ShaderType};
 
 /// The path to the example material shader.
 static SHADER_ASSET_PATH: &str = "shaders/extended_material_bindless.wgsl";
