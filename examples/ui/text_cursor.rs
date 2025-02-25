@@ -19,7 +19,7 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
-    // Text with one section
+
     commands
         .spawn(Node {
             width: Val::Percent(100.),
@@ -31,24 +31,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         })
         .with_child((
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
             Text::new(
-                "Lorem ipsum dolor sit amet,\nconsectetur adipiscing elit,\nsed do eiusmod tempor incididunt\nut labore et dolore magna aliqua."
+                "Lorem ipsum dolor sit amet,\n\
+                consectetur adipiscing elit,\n\
+                sed do eiusmod tempor incididunt\n\
+                ut labore et dolore magna aliqua.",
             ),
             TextFont {
-                // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 30.0,
                 ..default()
             },
             TextColor(GOLDENROD.into()),
-            TextCursor {
-                line: 0,
-                index: 0,
-            },
-            // Set the justification of the Text
+            TextCursor { line: 0, index: 0 },
             TextLayout::new_with_justify(JustifyText::Center),
-            // Set the style of the Node itself.
             Outline {
                 color: Color::WHITE,
                 width: Val::Px(2.),
@@ -56,30 +52,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             },
         ))
         .with_child((
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
             Text::new(
-                "Lorem ipsum dolor sit amet,\nconsectetur adipiscing elit,\nsed do eiusmod tempor incididunt\nut labore et dolore magna aliqua."),
+                "Lorem ipsum dolor sit amet,\n\
+                consectetur adipiscing elit,\n\
+                sed do eiusmod tempor incididunt\n\
+                ut labore et dolore magna aliqua.",
+            ),
             TextFont {
-                // This font is loaded and will be used instead of the default font.
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 30.0,
                 ..default()
             },
-            TextCursor {
-                line: 0,
-                index: 0,
-            },            
+            TextCursor { line: 0, index: 0 },
             TextColor(GOLDENROD.into()),
-            // Set the justification of the Text
             TextLayout::new_with_justify(JustifyText::Center),
-            // Set the style of the Node itself.
             Outline {
                 color: Color::WHITE,
                 width: Val::Px(2.),
                 ..Default::default()
             },
-        ))
-        ;
+        ));
 }
 
 fn move_cursor(
