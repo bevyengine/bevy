@@ -257,7 +257,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
     match data {
-        Data::Struct(DataStruct { ref fields, .. }) => {
+        Data::Struct(DataStruct { fields, .. }) => {
             let mut visited_fields = Vec::new();
             let mut visited_indices = Vec::new();
             match fields {
@@ -343,8 +343,8 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                         let field_member = ident_or_index(field.ident.as_ref(), index);
                         let field_ident = format_ident!("field_{}", field_member);
 
-                        variant_fields.push(quote!(#field_member: ref #field_ident));
-                        variant_fields_mut.push(quote!(#field_member: ref mut #field_ident));
+                        variant_fields.push(quote!(#field_member: #field_ident));
+                        variant_fields_mut.push(quote!(#field_member: #field_ident));
 
                         visit_variant_fields.push(quote!(#field_ident.visit_entities(&mut func);));
                         visit_variant_fields_mut

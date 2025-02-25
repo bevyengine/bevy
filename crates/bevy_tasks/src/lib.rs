@@ -33,8 +33,8 @@ pub use conditional_send::*;
 
 /// Use [`ConditionalSendFuture`] for a future with an optional Send trait bound, as on certain platforms (eg. Wasm),
 /// futures aren't Send.
-pub trait ConditionalSendFuture: core::future::Future + ConditionalSend {}
-impl<T: core::future::Future + ConditionalSend> ConditionalSendFuture for T {}
+pub trait ConditionalSendFuture: Future + ConditionalSend {}
+impl<T: Future + ConditionalSend> ConditionalSendFuture for T {}
 
 use alloc::boxed::Box;
 

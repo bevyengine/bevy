@@ -107,7 +107,7 @@ impl<'w> EntityRef<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.cell.contains_id(component_id)
@@ -512,7 +512,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.cell.contains_id(component_id)
@@ -1136,7 +1136,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     ///
     /// # Panics
     ///
@@ -2655,34 +2655,29 @@ unsafe fn trigger_on_replace_and_on_remove_hooks_and_observers(
     bundle_info: &BundleInfo,
     caller: MaybeLocation,
 ) {
+    let bundle_components_in_archetype = || {
+        bundle_info
+            .iter_explicit_components()
+            .filter(|component_id| archetype.contains(*component_id))
+    };
     if archetype.has_replace_observer() {
         deferred_world.trigger_observers(
             ON_REPLACE,
             entity,
-            bundle_info.iter_explicit_components(),
+            bundle_components_in_archetype(),
             caller,
         );
     }
-    deferred_world.trigger_on_replace(
-        archetype,
-        entity,
-        bundle_info.iter_explicit_components(),
-        caller,
-    );
+    deferred_world.trigger_on_replace(archetype, entity, bundle_components_in_archetype(), caller);
     if archetype.has_remove_observer() {
         deferred_world.trigger_observers(
             ON_REMOVE,
             entity,
-            bundle_info.iter_explicit_components(),
+            bundle_components_in_archetype(),
             caller,
         );
     }
-    deferred_world.trigger_on_remove(
-        archetype,
-        entity,
-        bundle_info.iter_explicit_components(),
-        caller,
-    );
+    deferred_world.trigger_on_remove(archetype, entity, bundle_components_in_archetype(), caller);
 }
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
@@ -3054,7 +3049,7 @@ impl<'w> FilteredEntityRef<'w> {
     /// # Safety
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
     /// - If `access` takes read access to a component no mutable reference to that
-    ///     component can exist at the same time as the returned [`FilteredEntityMut`]
+    ///   component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
@@ -3105,7 +3100,7 @@ impl<'w> FilteredEntityRef<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.entity.contains_id(component_id)
@@ -3384,9 +3379,9 @@ impl<'w> FilteredEntityMut<'w> {
     /// # Safety
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
     /// - If `access` takes read access to a component no mutable reference to that
-    ///     component can exist at the same time as the returned [`FilteredEntityMut`]
+    ///   component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes write access to a component, no reference to that component
-    ///     may exist at the same time as the returned [`FilteredEntityMut`]
+    ///   may exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
     pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
@@ -3450,7 +3445,7 @@ impl<'w> FilteredEntityMut<'w> {
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.entity.contains_id(component_id)
@@ -3814,7 +3809,7 @@ where
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.entity.contains_id(component_id)
@@ -4039,7 +4034,7 @@ where
     ///
     /// - If you know the concrete type of the component, you should prefer [`Self::contains`].
     /// - If you know the component's [`TypeId`] but not its [`ComponentId`], consider using
-    ///     [`Self::contains_type_id`].
+    ///   [`Self::contains_type_id`].
     #[inline]
     pub fn contains_id(&self, component_id: ComponentId) -> bool {
         self.entity.contains_id(component_id)
@@ -4148,7 +4143,7 @@ where
 /// # Safety
 ///
 /// - [`OwningPtr`] and [`StorageType`] iterators must correspond to the
-///     [`BundleInfo`] used to construct [`BundleInserter`]
+///   [`BundleInfo`] used to construct [`BundleInserter`]
 /// - [`Entity`] must correspond to [`EntityLocation`]
 unsafe fn insert_dynamic_bundle<
     'a,
@@ -5901,5 +5896,43 @@ mod tests {
         assert_eq!(INSERT_COUNT.load(Ordering::Relaxed), 2);
 
         assert_eq!(archetype_pointer_before, archetype_pointer_after);
+    }
+
+    #[test]
+    fn bundle_remove_only_triggers_for_present_components() {
+        let mut world = World::default();
+
+        #[derive(Component)]
+        struct A;
+
+        #[derive(Component)]
+        struct B;
+
+        #[derive(Resource, PartialEq, Eq, Debug)]
+        struct Tracker {
+            a: bool,
+            b: bool,
+        }
+
+        world.insert_resource(Tracker { a: false, b: false });
+        let entity = world.spawn(A).id();
+
+        world.add_observer(|_: Trigger<OnRemove, A>, mut tracker: ResMut<Tracker>| {
+            tracker.a = true;
+        });
+        world.add_observer(|_: Trigger<OnRemove, B>, mut tracker: ResMut<Tracker>| {
+            tracker.b = true;
+        });
+
+        world.entity_mut(entity).remove::<(A, B)>();
+
+        assert_eq!(
+            world.resource::<Tracker>(),
+            &Tracker {
+                a: true,
+                // The entity didn't have a B component, so it should not have been triggered.
+                b: false,
+            }
+        );
     }
 }

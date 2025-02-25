@@ -228,7 +228,7 @@ pub fn prepare_material_meshlet_meshes_main_opaque_pass<M: Material>(
             else {
                 continue;
             };
-            let Some(bind_group) = material_bind_group.get_bind_group() else {
+            let Some(bind_group) = material_bind_group.bind_group() else {
                 continue;
             };
 
@@ -399,7 +399,7 @@ pub fn prepare_material_meshlet_meshes_prepass<M: Material>(
             else {
                 continue;
             };
-            let Some(bind_group) = material_bind_group.get_bind_group() else {
+            let Some(bind_group) = material_bind_group.bind_group() else {
                 continue;
             };
 
