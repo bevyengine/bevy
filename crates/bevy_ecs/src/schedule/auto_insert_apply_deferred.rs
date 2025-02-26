@@ -128,7 +128,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
             if is_valid_explicit_sync_point(*node) {
                 // The distance of this sync point does not change anymore as the iteration order
                 // makes sure that this node is no unvisited target of another node.
-                // Because of this, the sync point can be stored for thsi distance to be reused as
+                // Because of this, the sync point can be stored for this distance to be reused as
                 // automatically added sync points later.
                 distance_to_explicit_sync_node.insert(node_distance, *node);
 
