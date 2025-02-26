@@ -6,7 +6,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use rand::Rng;
-use rand_distr::{Distribution, WeightedAliasIndex, WeightedError};
+use rand_distr::{Distribution, weighted::{WeightedAliasIndex, Error as WeightedError}};
 
 /// A [distribution] that caches data to allow fast sampling from a collection of triangles.
 /// Generally used through [`sample`] or [`sample_iter`].
