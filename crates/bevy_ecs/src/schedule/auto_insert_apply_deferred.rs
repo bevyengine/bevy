@@ -147,7 +147,8 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .or_default();
 
                 let mut edge_needs_sync = node_needs_sync;
-                if !graph.systems[target.index()].get().unwrap().is_exclusive()
+                if node_needs_sync 
+                    && !graph.systems[target.index()].get().unwrap().is_exclusive()
                     && self.no_sync_edges.contains(&(*node, target))
                 {
                     // The node has deferred params to apply, but this edge is ignoring sync points.
