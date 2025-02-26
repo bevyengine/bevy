@@ -1659,7 +1659,7 @@ pub(crate) trait ComponentsInternalWriter: ComponentsReader {
 }
 
 /// This trait provides low level access to [`Component`] collections intended for use only within this module.
-trait ComponentsPrivateWriter: ComponentsInternalWriter {
+trait ComponentsPrivateWriter {
     /// # Safety
     ///
     /// The [`ComponentDescriptor`] must match the [`TypeId`]
