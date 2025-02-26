@@ -17,9 +17,9 @@ use bevy_ecs::{
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{
     prelude::ReflectDefault,
-    serde::{ReflectSerializer, TypedReflectDeserializer},
-    GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize,
-    TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    serde::{ReflectSerializer, TypedReflectDeserializer, TypedReflectSerializer},
+    GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectFromPtr,
+    ReflectSerialize, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
@@ -52,6 +52,15 @@ pub const BRP_LIST_METHOD: &str = "bevy/list";
 
 /// The method path for a `bevy/mutate_component` request.
 pub const BRP_MUTATE_COMPONENT_METHOD: &str = "bevy/mutate_component";
+
+/// The method path for a `bevy/resources/list` request.
+pub const BRP_LIST_RESOURCES_METHOD: &str = "bevy/resources/list";
+
+/// The method path for a `bevy/resources/get` request.
+pub const BRP_GET_RESOURCE_METHOD: &str = "bevy/resources/get";
+
+/// The method path for a `bevy/resources/mutate` request.
+pub const BRP_MUTATE_RESOURCE_METHOD: &str = "bevy/resources/mutate";
 
 /// The method path for a `bevy/get+watch` request.
 pub const BRP_GET_AND_WATCH_METHOD: &str = "bevy/get+watch";
@@ -198,6 +207,33 @@ pub struct BrpReparentParams {
 pub struct BrpListParams {
     /// The entity to query.
     pub entity: Entity,
+}
+
+/// `bevy/resources/get`: Returns a state of a resource (params provided).
+///
+/// The server responds with a json value with the state of the resource
+///
+/// [full path]: bevy_reflect::TypePath::type_path
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpResourceGetParams(pub String);
+
+/// `bevy/resources/mutate`:
+///
+/// The server responds with a null.
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
+pub struct BrpMutateResourceParams {
+    /// The [full path] of the resource to mutate.
+    ///
+    /// [full path]: bevy_reflect::TypePath::type_path
+    pub resource: String,
+
+    /// The [path] of the field within the component.
+    ///
+    /// [path]: bevy_reflect::GetPath
+    pub path: String,
+
+    /// The value to insert at `path`.
+    pub value: Value,
 }
 
 /// `bevy/mutate_component`:
@@ -925,6 +961,140 @@ pub fn process_remote_list_watching_request(
             serde_json::to_value(response).map_err(BrpError::internal)?,
         ))
     }
+}
+
+/// Handles a `bevy/list_resources` request (list all resources) coming from a client.
+pub fn process_remote_resources_list_request(
+    In(_params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+
+    let mut response = BrpListResponse::default();
+
+    for registered_type in type_registry.iter() {
+        if registered_type.data::<ReflectResource>().is_some() {
+            response.push(registered_type.type_info().type_path().to_owned());
+        }
+    }
+
+    // Sort both for cleanliness and to reduce the risk that clients start
+    // accidentally depending on the order.
+    response.sort();
+
+    serde_json::to_value(response).map_err(BrpError::internal)
+}
+
+#[allow(unsafe_code)]
+/// Handles a `bevy/resources/get` request (get resource) coming from a client.
+pub fn process_remote_get_resources_list_request(
+    In(params): In<Option<Value>>,
+    world: &World,
+) -> BrpResult {
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+    let par: BrpResourceGetParams = parse_some(params)?;
+
+    // Get the fully-qualified type names of the component to be mutated.
+    let component_type: &TypeRegistration = type_registry
+        .get_with_type_path(&par.0)
+        .ok_or_else(|| BrpError::component_error(anyhow!("Unknown component type: `{}`", par.0)))?;
+
+    let Some(id) = world.components().get_resource_id(component_type.type_id()) else {
+        return Err(BrpError::component_error(anyhow!(
+            "Unknown component type: `{}`",
+            par.0
+        )));
+    };
+    let res = world
+        .get_resource_by_id(id)
+        .ok_or_else(|| BrpError::component_error(anyhow!("Unknown component type: `{}`", par.0)))?;
+    let Some(_reflect_resource) = component_type.data::<ReflectResource>() else {
+        return Err(BrpError::component_error(anyhow!(
+            "Unknown component type: `{}`",
+            par.0
+        )));
+    };
+    let Some(reflect_from_ptr) = component_type.data::<ReflectFromPtr>() else {
+        return Err(BrpError::component_error(anyhow!(
+            "Unknown component type: `{}`",
+            par.0
+        )));
+    };
+    let value = unsafe { reflect_from_ptr.as_reflect(res).as_partial_reflect() };
+
+    let reflect_serializer = TypedReflectSerializer::new(value, &type_registry);
+
+    serde_json::to_value(reflect_serializer).map_err(BrpError::internal)
+}
+
+#[allow(unsafe_code)]
+/// Handles a `bevy/resources/mutate` request coming from a client.
+///
+/// This method allows you to mutate a single field inside an Resource
+pub fn process_remote_mutate_resource_request(
+    In(params): In<Option<Value>>,
+    world: &mut World,
+) -> BrpResult {
+    let BrpMutateResourceParams {
+        resource,
+        path,
+        value,
+    } = parse_some(params)?;
+    let app_type_registry = world.resource::<AppTypeRegistry>().clone();
+    let type_registry = app_type_registry.read();
+
+    // Get the fully-qualified type names of the component to be mutated.
+    let component_type: &TypeRegistration =
+        type_registry.get_with_type_path(&resource).ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component type: `{}`", resource))
+        })?;
+    let Some(reflect_from_ptr) = component_type.data::<ReflectFromPtr>() else {
+        return Err(BrpError::component_error(anyhow!(
+            "Unknown component type: `{}`",
+            resource
+        )));
+    };
+    let Some(id) = world.components().get_resource_id(component_type.type_id()) else {
+        return Err(BrpError::component_error(anyhow!(
+            "Unknown component type: `{}`",
+            resource
+        )));
+    };
+    let mut res = world.get_resource_mut_by_id(id).ok_or_else(|| {
+        BrpError::component_error(anyhow!("Unknown component type: `{}`", resource))
+    })?;
+
+    let reflected = unsafe { reflect_from_ptr.as_reflect_mut(res.as_mut()) };
+
+    // Get the type of the field in the resource that is to be
+    // mutated.
+    let value_type: &TypeRegistration = type_registry
+        .get_with_type_path(
+            reflected
+                .reflect_path(path.as_str())
+                .map_err(BrpError::component_error)?
+                .reflect_type_path(),
+        )
+        .ok_or_else(|| {
+            BrpError::component_error(anyhow!("Unknown component field type: `{}`", resource))
+        })?;
+
+    // Get the reflected representation of the value to be inserted
+    // into the resource.
+    let value: Box<dyn PartialReflect> = TypedReflectDeserializer::new(value_type, &type_registry)
+        .deserialize(&value)
+        .map_err(BrpError::component_error)?;
+
+    // Apply the mutation.
+    reflected
+        .reflect_path_mut(path.as_str())
+        .map_err(BrpError::component_error)?
+        .try_apply(value.as_ref())
+        .map_err(BrpError::component_error)?;
+
+    Ok(Value::Null)
 }
 
 /// Handles a `bevy/registry/schema` request (list all registry types in form of schema) coming from a client.

@@ -425,6 +425,18 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_request,
             )
             .with_method(
+                builtin_methods::BRP_LIST_RESOURCES_METHOD,
+                builtin_methods::process_remote_resources_list_request,
+            )
+            .with_method(
+                builtin_methods::BRP_GET_RESOURCE_METHOD,
+                builtin_methods::process_remote_get_resources_list_request,
+            )
+            .with_method(
+                builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
+                builtin_methods::process_remote_mutate_resource_request,
+            )
+            .with_method(
                 builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
                 builtin_methods::export_registry_types,
             )
