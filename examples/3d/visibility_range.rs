@@ -176,7 +176,7 @@ fn set_visibility_ranges(
     mut commands: Commands,
     mut new_meshes: Query<Entity, Added<Mesh3d>>,
     children: Query<(Option<&ChildOf>, Option<&MainModel>)>,
-) {
+) -> Result {
     // Loop over each newly-added mesh.
     for new_mesh in new_meshes.iter_mut() {
         // Search for the nearest ancestor `MainModel` component.
@@ -196,19 +196,21 @@ fn set_visibility_ranges(
         match main_model {
             Some(MainModel::HighPoly) => {
                 commands
-                    .entity(new_mesh)
+                    .entity(new_mesh)?
                     .insert(NORMAL_VISIBILITY_RANGE_HIGH_POLY.clone())
                     .insert(MainModel::HighPoly);
             }
             Some(MainModel::LowPoly) => {
                 commands
-                    .entity(new_mesh)
+                    .entity(new_mesh)?
                     .insert(NORMAL_VISIBILITY_RANGE_LOW_POLY.clone())
                     .insert(MainModel::LowPoly);
             }
             None => {}
         }
     }
+
+    Ok(())
 }
 
 // Process the movement controls.
@@ -298,9 +300,9 @@ fn toggle_prepass(
     cameras: Query<Entity, With<Camera3d>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-) {
+) -> Result {
     if !keyboard_input.just_pressed(KeyCode::Space) {
-        return;
+        return Ok(());
     }
 
     app_status.prepass = !app_status.prepass;
@@ -308,16 +310,18 @@ fn toggle_prepass(
     for camera in cameras.iter() {
         if app_status.prepass {
             commands
-                .entity(camera)
+                .entity(camera)?
                 .insert(DepthPrepass)
                 .insert(NormalPrepass);
         } else {
             commands
-                .entity(camera)
+                .entity(camera)?
                 .remove::<DepthPrepass>()
                 .remove::<NormalPrepass>();
         }
     }
+
+    Ok(())
 }
 
 // A system that updates the help text.

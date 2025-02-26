@@ -5,6 +5,7 @@ use bevy::{
     asset::{AssetServer, Assets},
     audio::AudioPlugin,
     color::{palettes, Color},
+    ecs::result::Result,
     gltf::GltfAssetLabel,
     math::{Dir3, Vec3},
     pbr::{DirectionalLight, MeshMaterial3d, StandardMaterial},
@@ -63,10 +64,10 @@ fn change_material(
     color_override: Query<&ColorOverride>,
     mesh_materials: Query<&MeshMaterial3d<StandardMaterial>>,
     mut asset_materials: ResMut<Assets<StandardMaterial>>,
-) {
+) -> Result {
     // Get the `ColorOverride` of the entity, if it does not have a color override, skip
     let Ok(color_override) = color_override.get(trigger.target()) else {
-        return;
+        return Ok(());
     };
 
     // Iterate over all children recursively
@@ -86,8 +87,10 @@ fn change_material(
 
             // Override `MeshMaterial3d` with new material
             commands
-                .entity(descendants)
+                .entity(descendants)?
                 .insert(MeshMaterial3d(asset_materials.add(new_material)));
         }
     }
+
+    Ok(())
 }

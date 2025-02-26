@@ -98,20 +98,20 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_ecs::prelude::{Commands, Trigger};
+    /// # use bevy_ecs::prelude::{Commands, Result, Trigger};
     /// #
     /// # struct MyEvent {
     /// #   done: bool,
     /// # }
     /// #
     /// /// Handle `MyEvent` and if it is done, stop observation.
-    /// fn my_observer(trigger: Trigger<MyEvent>, mut commands: Commands) {
+    /// fn my_observer(trigger: Trigger<MyEvent>, mut commands: Commands) -> Result {
     ///     if trigger.event().done {
-    ///         commands.entity(trigger.observer()).despawn();
-    ///         return;
+    ///         commands.entity(trigger.observer())?.despawn();
+    ///         return Ok(());
     ///     }
-    ///
     ///     // ...
+    ///     Ok(())
     /// }
     /// ```
     pub fn observer(&self) -> Entity {
@@ -1006,20 +1006,20 @@ mod tests {
         world.add_observer(
             |obs: Trigger<OnAdd, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.target()).insert(B);
+                commands.entity(obs.target()).unwrap().insert(B);
             },
         );
         world.add_observer(
             |obs: Trigger<OnRemove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.target()).remove::<B>();
+                commands.entity(obs.target()).unwrap().remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: Trigger<OnAdd, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.target()).remove::<A>();
+                commands.entity(obs.target()).unwrap().remove::<A>();
             },
         );
         world.add_observer(|_: Trigger<OnRemove, B>, mut res: ResMut<Order>| {

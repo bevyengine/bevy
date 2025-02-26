@@ -49,7 +49,7 @@ struct ComputeTransform(Task<CommandQueue>);
 /// work that potentially spans multiple frames/ticks. A separate
 /// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
-fn spawn_tasks(mut commands: Commands) {
+fn spawn_tasks(mut commands: Commands) -> Result {
     let thread_pool = AsyncComputeTaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
@@ -98,10 +98,12 @@ fn spawn_tasks(mut commands: Commands) {
                 });
 
                 // Spawn new entity and add our new task as a component
-                commands.entity(entity).insert(ComputeTransform(task));
+                commands.entity(entity)?.insert(ComputeTransform(task));
             }
         }
     }
+
+    Ok(())
 }
 
 /// This system queries for entities that have our Task<Transform> component. It polls the

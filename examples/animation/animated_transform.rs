@@ -25,7 +25,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animations: ResMut<Assets<AnimationClip>>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
-) {
+) -> Result {
     // Camera
     commands.spawn((
         Camera3d::default(),
@@ -152,7 +152,7 @@ fn setup(
         ))
         .id();
     commands
-        .entity(planet_entity)
+        .entity(planet_entity)?
         .insert(AnimationTarget {
             id: planet_animation_target_id,
             player: planet_entity,
@@ -182,4 +182,6 @@ fn setup(
                 ));
             });
         });
+
+    Ok(())
 }

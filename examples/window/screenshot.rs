@@ -33,18 +33,20 @@ fn screenshot_saving(
     mut commands: Commands,
     screenshot_saving: Query<Entity, With<Capturing>>,
     window: Single<Entity, With<Window>>,
-) {
+) -> Result {
     match screenshot_saving.iter().count() {
         0 => {
-            commands.entity(*window).remove::<CursorIcon>();
+            commands.entity(*window)?.remove::<CursorIcon>();
         }
         x if x > 0 => {
             commands
-                .entity(*window)
+                .entity(*window)?
                 .insert(CursorIcon::from(SystemCursorIcon::Progress));
         }
         _ => {}
     }
+
+    Ok(())
 }
 
 /// set up a simple 3D scene

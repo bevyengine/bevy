@@ -20,7 +20,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, Entity, EntityClonerBuilder},
+    entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -402,14 +402,14 @@ impl<'w, 's> Commands<'w, 's> {
         entity
     }
 
-    /// Returns the [`EntityCommands`] for the requested [`Entity`].
+    /// Returns the [`EntityCommands`] for the requested [`Entity`] if it exists.
     ///
-    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// This method panics if the requested entity does not exist.
+    /// Returns [`EntityDoesNotExistError`] if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -423,42 +423,29 @@ impl<'w, 's> Commands<'w, 's> {
     /// #[derive(Component)]
     /// struct Agility(u32);
     ///
-    /// fn example_system(mut commands: Commands) {
+    /// fn example_system(mut commands: Commands) -> Result {
     ///     // Create a new, empty entity
     ///     let entity = commands.spawn_empty().id();
     ///
-    ///     commands.entity(entity)
+    ///     commands.entity(entity)?
     ///         // adds a new component bundle to the entity
     ///         .insert((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
     ///         .insert(Label("hello world"));
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_entity`](Self::get_entity) for the fallible version.
     #[inline]
     #[track_caller]
-    pub fn entity(&mut self, entity: Entity) -> EntityCommands {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
-            panic!(
-                "Attempting to create an EntityCommands for entity {entity}, which {}",
-                entities.entity_does_not_exist_error_details(entity)
-            );
-        }
-
-        if self.get_entity(entity).is_some() {
-            EntityCommands {
+    pub fn entity(&mut self, entity: Entity) -> Result<EntityCommands, EntityDoesNotExistError> {
+        if self.entities.contains(entity) {
+            Ok(EntityCommands {
                 entity,
                 commands: self.reborrow(),
-            }
+            })
         } else {
-            panic_no_entity(self.entities, entity)
+            Err(EntityDoesNotExistError::new(entity, self.entities))
         }
     }
 
@@ -488,12 +475,9 @@ impl<'w, 's> Commands<'w, 's> {
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`entity`](Self::entity) for the panicking version.
     #[inline]
     #[track_caller]
+    #[deprecated(since = "0.16.0", note = "Use `Commands::entity` instead")]
     pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
         self.entities.contains(entity).then_some(EntityCommands {
             entity,
@@ -983,9 +967,8 @@ impl<'w, 's> Commands<'w, 's> {
         I: SystemInput + Send + 'static,
         O: Send + 'static,
     {
-        let entity = self.spawn_empty().id();
         let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
-        self.entity(entity).insert(system);
+        let entity = self.spawn(system).id();
         SystemId::from_entity(entity)
     }
 
@@ -1218,14 +1201,15 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Level(u32);
     ///
-    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         .entry::<Level>()
     ///         // Modify the component if it exists
     ///         .and_modify(|mut lvl| lvl.0 += 1)
     ///         // Otherwise insert a default value
     ///         .or_insert(Level(0));
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
@@ -1266,9 +1250,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can insert individual components:
     ///         .insert(Defense(10))
     ///         // You can also insert pre-defined bundles of components:
@@ -1285,6 +1269,7 @@ impl<'a> EntityCommands<'a> {
     ///                 strength: Strength(40),
     ///             },
     ///         ));
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
@@ -1314,11 +1299,12 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
-    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         .insert_if(Health(10), || !player.is_spectator())
     ///         .remove::<StillLoadingStats>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
@@ -1449,8 +1435,8 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///   commands.entity(player.entity)
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///   commands.entity(player.entity)?
     ///    // You can try_insert individual components:
     ///     .try_insert(Defense(10))
     ///
@@ -1461,12 +1447,14 @@ impl<'a> EntityCommands<'a> {
     ///     });
     ///
     ///    // Suppose this occurs in a parallel adjacent system or process
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///      .despawn();
     ///
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///    // This will not panic nor will it add the component
     ///      .try_insert(Defense(5));
+    ///
+    ///    Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
@@ -1490,14 +1478,16 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
-    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///   commands.entity(player.entity)
+    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///    commands.entity(player.entity)?
     ///     .try_insert_if(Health(10), || !player.is_spectator())
     ///     .remove::<StillLoadingStats>();
     ///
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///    // This will not panic nor will it add the component
     ///      .try_insert_if(Health(5), || !player.is_spectator());
+    ///
+    ///    Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
@@ -1537,14 +1527,16 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
-    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///   commands.entity(player.entity)
+    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///    commands.entity(player.entity)?
     ///     .try_insert_if(Health(10), || player.is_spectator())
     ///     .remove::<StillLoadingStats>();
     ///
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///    // This will not panic nor will it overwrite the component
     ///      .try_insert_if_new_and(Health(5), || player.is_spectator());
+    ///
+    ///    Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
@@ -1599,9 +1591,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can remove individual components:
     ///         .remove::<Defense>()
     ///         // You can also remove pre-defined Bundles of components:
@@ -1609,6 +1601,7 @@ impl<'a> EntityCommands<'a> {
     ///         // You can also remove tuples of components and bundles.
     ///         // This is equivalent to the calls above:
     ///         .remove::<(Defense, CombatBundle)>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
@@ -1646,9 +1639,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can remove individual components:
     ///         .try_remove::<Defense>()
     ///         // You can also remove pre-defined Bundles of components:
@@ -1656,6 +1649,7 @@ impl<'a> EntityCommands<'a> {
     ///         // You can also remove tuples of components and bundles.
     ///         // This is equivalent to the calls above:
     ///         .try_remove::<(Defense, CombatBundle)>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
@@ -1682,11 +1676,12 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Resource)]
     /// struct PlayerEntity { entity: Entity }
     ///
-    /// fn remove_with_requires_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_with_requires_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // Remove both A and B components from the entity, because B is required by A
     ///         .remove_with_requires::<A>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
@@ -1733,9 +1728,9 @@ impl<'a> EntityCommands<'a> {
     /// fn remove_character_system(
     ///     mut commands: Commands,
     ///     character_to_remove: Res<CharacterToRemove>
-    /// )
-    /// {
-    ///     commands.entity(character_to_remove.entity).despawn();
+    /// ) -> Result {
+    ///     commands.entity(character_to_remove.entity)?.despawn();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_character_system);
     /// ```
@@ -1869,9 +1864,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can retain a pre-defined Bundle of components,
     ///         // with this removing only the Defense component
     ///         .retain::<CombatBundle>()
@@ -1879,6 +1874,7 @@ impl<'a> EntityCommands<'a> {
     ///         .retain::<Health>()
     ///         // And you can remove all the components by passing in an empty Bundle
     ///         .retain::<()>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
@@ -2194,9 +2190,9 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// #[derive(Component)]
     /// struct Level(u32);
     ///
-    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         .entry::<Level>()
     ///         // Modify the component if it exists
     ///         .and_modify(|mut lvl| lvl.0 += 1)
@@ -2206,6 +2202,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     ///         .entity()
     ///         // And continue chaining method calls
     ///         .insert(Name::new("Player"));
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
@@ -2273,6 +2270,7 @@ mod tests {
         let entity = commands.spawn_empty().id();
         commands
             .entity(entity)
+            .unwrap()
             .entry::<W<u32>>()
             .and_modify(|_| unreachable!());
         queue.apply(&mut world);
@@ -2280,6 +2278,7 @@ mod tests {
         let mut commands = Commands::new(&mut queue, &world);
         commands
             .entity(entity)
+            .unwrap()
             .entry::<W<u32>>()
             .or_insert(W(0))
             .and_modify(|mut val| {
@@ -2290,6 +2289,7 @@ mod tests {
         let mut commands = Commands::new(&mut queue, &world);
         commands
             .entity(entity)
+            .unwrap()
             .entry::<W<u64>>()
             .and_modify(|_| unreachable!())
             .or_insert(W(42));
@@ -2297,11 +2297,20 @@ mod tests {
         assert_eq!(42, world.get::<W<u64>>(entity).unwrap().0);
         world.insert_resource(W(5_usize));
         let mut commands = Commands::new(&mut queue, &world);
-        commands.entity(entity).entry::<W<String>>().or_from_world();
+        commands
+            .entity(entity)
+            .unwrap()
+            .entry::<W<String>>()
+            .or_from_world();
         queue.apply(&mut world);
         assert_eq!("*****", &world.get::<W<String>>(entity).unwrap().0);
         let mut commands = Commands::new(&mut queue, &world);
-        let id = commands.entity(entity).entry::<W<u64>>().entity().id();
+        let id = commands
+            .entity(entity)
+            .unwrap()
+            .entry::<W<u64>>()
+            .entity()
+            .id();
         queue.apply(&mut world);
         assert_eq!(id, entity);
     }
@@ -2324,8 +2333,8 @@ mod tests {
         // test entity despawn
         {
             let mut commands = Commands::new(&mut command_queue, &world);
-            commands.entity(entity).despawn();
-            commands.entity(entity).despawn(); // double despawn shouldn't panic
+            commands.entity(entity).unwrap().despawn();
+            commands.entity(entity).unwrap().despawn(); // double despawn shouldn't panic
         }
         command_queue.apply(&mut world);
         let results2 = world
@@ -2386,11 +2395,13 @@ mod tests {
         // in another command queue
         Commands::new(&mut command_queue1, &world)
             .entity(entity)
+            .unwrap()
             .try_insert_if_new_and(W(1u64), || true);
 
         let mut command_queue2 = CommandQueue::default();
         Commands::new(&mut command_queue2, &world)
             .entity(entity)
+            .unwrap()
             .despawn();
         command_queue2.apply(&mut world);
         command_queue1.apply(&mut world);
@@ -2419,6 +2430,7 @@ mod tests {
         // test component removal
         Commands::new(&mut command_queue, &world)
             .entity(entity)
+            .unwrap()
             .remove::<W<u32>>()
             .remove::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
 
@@ -2465,6 +2477,7 @@ mod tests {
         // test component removal
         Commands::new(&mut command_queue, &world)
             .entity(entity)
+            .unwrap()
             .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
@@ -2545,7 +2558,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.entity(e).remove_with_requires::<X>();
+            commands.entity(e).unwrap().remove_with_requires::<X>();
         }
         queue.apply(&mut world);
 

@@ -43,16 +43,17 @@ pub fn close_when_requested(
     mut commands: Commands,
     mut closed: EventReader<WindowCloseRequested>,
     closing: Query<Entity, With<ClosingWindow>>,
-) {
+) -> Result {
     // This was inserted by us on the last frame so now we can despawn the window
     for window in closing.iter() {
-        commands.entity(window).despawn();
+        commands.entity(window)?.despawn();
     }
     // Mark the window as closing so we can despawn it on the next frame
     for event in closed.read() {
         // When spamming the window close button on windows (other platforms too probably)
         // we may receive a `WindowCloseRequested` for a window we've just despawned in the above
         // loop.
-        commands.entity(event.window).try_insert(ClosingWindow);
+        commands.entity(event.window)?.try_insert(ClosingWindow);
     }
+    Ok(())
 }

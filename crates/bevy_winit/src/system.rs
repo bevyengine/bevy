@@ -80,12 +80,15 @@ pub fn create_windows<F: QueryFilter + 'static>(
             .resolution
             .set_scale_factor_and_apply_to_physical_size(winit_window.scale_factor() as f32);
 
-        commands.entity(entity).insert(CachedWindow {
+        commands.entity(entity).unwrap().insert(CachedWindow {
             window: window.clone(),
         });
 
         if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
-            commands.entity(entity).insert(handle_wrapper.clone());
+            commands
+                .entity(entity)
+                .unwrap()
+                .insert(handle_wrapper.clone());
             if let Some(handle_holder) = handle_holder {
                 *handle_holder.0.lock().unwrap() = Some(handle_wrapper);
             }
@@ -181,7 +184,7 @@ pub fn create_monitors(
             .id();
 
         if primary_monitor.as_ref() == Some(&monitor) {
-            commands.entity(entity).insert(PrimaryMonitor);
+            commands.entity(entity).unwrap().insert(PrimaryMonitor);
         }
 
         seen_monitors.push(true);
@@ -195,7 +198,7 @@ pub fn create_monitors(
             true
         } else {
             info!("Monitor removed {}", entity);
-            commands.entity(*entity).despawn();
+            commands.entity(*entity).unwrap().despawn();
             idx += 1;
             false
         }

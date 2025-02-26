@@ -3,6 +3,7 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res, ResMut},
     world::FromWorld,
 };
@@ -156,7 +157,7 @@ pub(crate) fn prepare_motion_blur_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<MotionBlurPipeline>>,
     pipeline: Res<MotionBlurPipeline>,
     views: Query<(Entity, &ExtractedView, &Msaa), With<MotionBlur>>,
-) {
+) -> Result {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -168,7 +169,8 @@ pub(crate) fn prepare_motion_blur_pipelines(
         );
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(MotionBlurPipelineId(pipeline_id));
     }
+    Ok(())
 }

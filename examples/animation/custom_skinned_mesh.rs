@@ -42,7 +42,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut skinned_mesh_inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
-) {
+) -> Result {
     // Create a camera
     commands.spawn((
         Camera3d::default(),
@@ -159,7 +159,7 @@ fn setup(
         let joint_1 = commands.spawn((AnimatedJoint(i), Transform::IDENTITY)).id();
 
         // Set joint_1 as a child of joint_0.
-        commands.entity(joint_0).add_children(&[joint_1]);
+        commands.entity(joint_0)?.add_children(&[joint_1]);
 
         // Each joint in this vector corresponds to each inverse bindpose matrix in `SkinnedMeshInverseBindposes`.
         let joint_entities = vec![joint_0, joint_1];
@@ -182,6 +182,8 @@ fn setup(
             },
         ));
     }
+
+    Ok(())
 }
 
 /// Animate the joint marked with [`AnimatedJoint`] component.

@@ -125,7 +125,7 @@ fn prepare_msaa_writeback_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, &ExtractedCamera, &Msaa)>,
-) {
+) -> Result {
     for (entity, view_target, camera, msaa) in view_targets.iter() {
         // only do writeback if writeback is enabled for the camera and this isn't the first camera in the target,
         // as there is nothing to write back for the first camera.
@@ -139,14 +139,15 @@ fn prepare_msaa_writeback_pipelines(
 
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(MsaaWritebackBlitPipeline(pipeline));
         } else {
             // This isn't strictly necessary now, but if we move to retained render entity state I don't
             // want this to silently break
             commands
-                .entity(entity)
+                .entity(entity)?
                 .remove::<MsaaWritebackBlitPipeline>();
         }
     }
+    Ok(())
 }

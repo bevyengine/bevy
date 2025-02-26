@@ -29,6 +29,7 @@ use bevy_ecs::{
     query::Has,
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res, ResMut},
     world::DeferredWorld,
 };
@@ -1064,7 +1065,7 @@ pub fn extract_cameras(
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mapper: Extract<Query<&RenderEntity>>,
-) {
+) -> Result {
     let primary_window = primary_window.iter().next();
     for (
         main_entity,
@@ -1083,7 +1084,7 @@ pub fn extract_cameras(
     ) in query.iter()
     {
         if !camera.is_active {
-            commands.entity(render_entity).remove::<(
+            commands.entity(render_entity)?.remove::<(
                 ExtractedCamera,
                 ExtractedView,
                 RenderVisibleEntities,
@@ -1135,7 +1136,7 @@ pub fn extract_cameras(
                     .collect(),
             };
 
-            let mut commands = commands.entity(render_entity);
+            let mut commands = commands.entity(render_entity)?;
             commands.insert((
                 ExtractedCamera {
                     target: camera.target.normalize(primary_window),
@@ -1194,6 +1195,7 @@ pub fn extract_cameras(
             }
         };
     }
+    Ok(())
 }
 
 /// Cameras sorted by their order field. This is updated in the [`sort_cameras`] system.

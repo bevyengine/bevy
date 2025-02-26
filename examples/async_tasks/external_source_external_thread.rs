@@ -64,11 +64,13 @@ fn move_text(
     mut commands: Commands,
     mut texts: Query<(Entity, &mut Transform), With<Text2d>>,
     time: Res<Time>,
-) {
+) -> Result {
     for (entity, mut position) in &mut texts {
         position.translation -= Vec3::new(0.0, 100.0 * time.delta_secs(), 0.0);
         if position.translation.y < -300.0 {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
+
+    Ok(())
 }

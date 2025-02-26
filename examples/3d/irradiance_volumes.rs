@@ -416,21 +416,21 @@ fn toggle_irradiance_volumes(
     mut app_status: ResMut<AppStatus>,
     assets: Res<ExampleAssets>,
     mut ambient_light: ResMut<AmbientLight>,
-) {
+) -> Result {
     if !keyboard.just_pressed(KeyCode::Space) {
-        return;
+        return Ok(());
     };
 
     let Some(light_probe) = light_probe_query.iter().next() else {
-        return;
+        return Ok(());
     };
 
     if app_status.irradiance_volume_present {
-        commands.entity(light_probe).remove::<IrradianceVolume>();
+        commands.entity(light_probe)?.remove::<IrradianceVolume>();
         ambient_light.brightness = AMBIENT_LIGHT_BRIGHTNESS * IRRADIANCE_VOLUME_INTENSITY;
         app_status.irradiance_volume_present = false;
     } else {
-        commands.entity(light_probe).insert(IrradianceVolume {
+        commands.entity(light_probe)?.insert(IrradianceVolume {
             voxels: assets.irradiance_volume.clone(),
             intensity: IRRADIANCE_VOLUME_INTENSITY,
             ..default()
@@ -438,6 +438,8 @@ fn toggle_irradiance_volumes(
         ambient_light.brightness = 0.0;
         app_status.irradiance_volume_present = true;
     }
+
+    Ok(())
 }
 
 fn toggle_rotation(keyboard: Res<ButtonInput<KeyCode>>, mut app_status: ResMut<AppStatus>) {
@@ -514,13 +516,15 @@ fn play_animations(
     mut commands: Commands,
     assets: Res<ExampleAssets>,
     mut players: Query<(Entity, &mut AnimationPlayer), Without<AnimationGraphHandle>>,
-) {
+) -> Result {
     for (entity, mut player) in players.iter_mut() {
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(AnimationGraphHandle(assets.fox_animation_graph.clone()));
         player.play(assets.fox_animation_node).repeat();
     }
+
+    Ok(())
 }
 
 fn create_cubes(
@@ -531,14 +535,14 @@ fn create_cubes(
     voxel_cubes: Query<Entity, With<VoxelCube>>,
     example_assets: Res<ExampleAssets>,
     mut voxel_visualization_material_assets: ResMut<Assets<VoxelVisualizationMaterial>>,
-) {
+) -> Result {
     // If voxel cubes have already been spawned, don't do anything.
     if !voxel_cubes.is_empty() {
-        return;
+        return Ok(());
     }
 
     let Some(voxel_cube_parent) = voxel_cube_parents.iter().next() else {
-        return;
+        return Ok(());
     };
 
     for (irradiance_volume, global_transform) in irradiance_volumes.iter() {
@@ -587,11 +591,13 @@ fn create_cubes(
                         .insert(NotShadowCaster)
                         .id();
 
-                    commands.entity(voxel_cube_parent).add_child(voxel_cube);
+                    commands.entity(voxel_cube_parent)?.add_child(voxel_cube);
                 }
             }
         }
     }
+
+    Ok(())
 }
 
 // Draws a gizmo showing the bounds of the irradiance volume.

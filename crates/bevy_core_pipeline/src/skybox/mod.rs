@@ -5,6 +5,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut},
 };
@@ -252,7 +253,7 @@ fn prepare_skybox_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPipeline>>,
     pipeline: Res<SkyboxPipeline>,
     views: Query<(Entity, &ExtractedView, &Msaa), With<Skybox>>,
-) {
+) -> Result {
     for (entity, view, msaa) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -265,9 +266,10 @@ fn prepare_skybox_pipelines(
         );
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(SkyboxPipelineId(pipeline_id));
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -281,7 +283,7 @@ fn prepare_skybox_bind_groups(
     images: Res<RenderAssets<GpuImage>>,
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &Skybox, &DynamicUniformIndex<SkyboxUniforms>)>,
-) {
+) -> Result {
     for (entity, skybox, skybox_uniform_index) in &views {
         if let (Some(skybox), Some(view_uniforms), Some(skybox_uniforms)) = (
             images.get(&skybox.image),
@@ -300,8 +302,9 @@ fn prepare_skybox_bind_groups(
             );
 
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(SkyboxBindGroup((bind_group, skybox_uniform_index.index())));
         }
     }
+    Ok(())
 }

@@ -124,7 +124,7 @@ fn unload_current_level(
 ) {
     *loading_state = LoadingState::LevelLoading;
     for entity in entities.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity).unwrap().despawn();
     }
 }
 

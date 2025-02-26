@@ -5476,7 +5476,10 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|trigger: Trigger<TestEvent>, mut commands: Commands| {
-                commands.entity(trigger.target()).insert(TestComponent(0));
+                commands
+                    .entity(trigger.target())
+                    .unwrap()
+                    .insert(TestComponent(0));
             })
             .id();
 
@@ -5496,7 +5499,7 @@ mod tests {
         let mut world = World::new();
         world.add_observer(
             |trigger: Trigger<OnAdd, TestComponent>, mut commands: Commands| {
-                commands.entity(trigger.target()).despawn();
+                commands.entity(trigger.target()).unwrap().despawn();
             },
         );
         let entity = world.spawn_empty().id();
@@ -5562,7 +5565,7 @@ mod tests {
 
     fn ord_a_hook_on_add(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         world.resource_mut::<TestVec>().0.push("OrdA hook on_add");
-        world.commands().entity(entity).insert(OrdB);
+        world.commands().entity(entity).unwrap().insert(OrdB);
     }
 
     fn ord_a_hook_on_insert(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
@@ -5570,8 +5573,8 @@ mod tests {
             .resource_mut::<TestVec>()
             .0
             .push("OrdA hook on_insert");
-        world.commands().entity(entity).remove::<OrdA>();
-        world.commands().entity(entity).remove::<OrdB>();
+        world.commands().entity(entity).unwrap().remove::<OrdA>();
+        world.commands().entity(entity).unwrap().remove::<OrdB>();
     }
 
     fn ord_a_hook_on_replace(mut world: DeferredWorld, _: HookContext) {

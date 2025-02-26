@@ -112,7 +112,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     foxes: Res<Foxes>,
-) {
+) -> Result {
     warn!(include_str!("warning_string.txt"));
 
     // Insert a resource with the current scene information
@@ -172,7 +172,7 @@ fn setup(
             let (s, c) = ops::sin_cos(fox_angle);
             let (x, z) = (radius * c, radius * s);
 
-            commands.entity(ring_parent).with_children(|builder| {
+            commands.entity(ring_parent)?.with_children(|builder| {
                 builder.spawn((
                     SceneRoot(fox_handle.clone()),
                     Transform::from_xyz(x, 0.0, z)
@@ -226,6 +226,8 @@ fn setup(
     println!("  - arrow up / down: speed up / slow down animation playback");
     println!("  - arrow left / right: seek backward / forward");
     println!("  - return: change animation");
+
+    Ok(())
 }
 
 // Once the scene is loaded, start the animation
@@ -235,11 +237,11 @@ fn setup_scene_once_loaded(
     mut commands: Commands,
     mut player: Query<(Entity, &mut AnimationPlayer)>,
     mut done: Local<bool>,
-) {
+) -> Result {
     if !*done && player.iter().len() == foxes.count {
         for (entity, mut player) in &mut player {
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(AnimationGraphHandle(animations.graph.clone()))
                 .insert(AnimationTransitions::new());
 
@@ -250,6 +252,8 @@ fn setup_scene_once_loaded(
         }
         *done = true;
     }
+
+    Ok(())
 }
 
 fn update_fox_rings(

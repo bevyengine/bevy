@@ -83,8 +83,9 @@ fn menu(
     }
 }
 
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn();
+fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) -> Result {
+    commands.entity(menu_data.button_entity)?.despawn();
+    Ok(())
 }
 
 const SPEED: f32 = 100.0;

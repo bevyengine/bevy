@@ -6,6 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     query::With,
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -389,7 +390,7 @@ pub(super) fn queue_render_sky_pipelines(
     layouts: Res<RenderSkyBindGroupLayouts>,
     mut specializer: ResMut<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>,
     mut commands: Commands,
-) {
+) -> Result {
     for (entity, camera, msaa) in &views {
         let id = specializer.specialize(
             &pipeline_cache,
@@ -399,8 +400,9 @@ pub(super) fn queue_render_sky_pipelines(
                 hdr: camera.hdr,
             },
         );
-        commands.entity(entity).insert(RenderSkyPipelineId(id));
+        commands.entity(entity)?.insert(RenderSkyPipelineId(id));
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -416,7 +418,7 @@ pub(super) fn prepare_atmosphere_textures(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut commands: Commands,
-) {
+) -> Result {
     for (entity, lut_settings) in &views {
         let transmittance_lut = texture_cache.get(
             &render_device,
@@ -490,7 +492,7 @@ pub(super) fn prepare_atmosphere_textures(
             },
         );
 
-        commands.entity(entity).insert({
+        commands.entity(entity)?.insert({
             AtmosphereTextures {
                 transmittance_lut,
                 multiscattering_lut,
@@ -499,6 +501,7 @@ pub(super) fn prepare_atmosphere_textures(
             }
         });
     }
+    Ok(())
 }
 
 #[derive(Resource, Default)]
@@ -537,14 +540,14 @@ pub(super) fn prepare_atmosphere_transforms(
     render_queue: Res<RenderQueue>,
     mut atmo_uniforms: ResMut<AtmosphereTransforms>,
     mut commands: Commands,
-) {
+) -> Result {
     let atmo_count = views.iter().len();
     let Some(mut writer) =
         atmo_uniforms
             .uniforms
             .get_writer(atmo_count, &render_device, &render_queue)
     else {
-        return;
+        return Ok(());
     };
 
     for (entity, view) in &views {
@@ -566,13 +569,14 @@ pub(super) fn prepare_atmosphere_transforms(
 
         let atmosphere_from_world = world_from_atmosphere.inverse();
 
-        commands.entity(entity).insert(AtmosphereTransformsOffset {
+        commands.entity(entity)?.insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {
                 world_from_atmosphere,
                 atmosphere_from_world,
             }),
         });
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -600,9 +604,9 @@ pub(super) fn prepare_atmosphere_bind_groups(
     settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
 
     mut commands: Commands,
-) {
+) -> Result {
     if views.iter().len() == 0 {
-        return;
+        return Ok(());
     }
 
     let atmosphere_binding = atmosphere_uniforms
@@ -707,7 +711,7 @@ pub(super) fn prepare_atmosphere_bind_groups(
             )),
         );
 
-        commands.entity(entity).insert(AtmosphereBindGroups {
+        commands.entity(entity)?.insert(AtmosphereBindGroups {
             transmittance_lut,
             multiscattering_lut,
             sky_view_lut,
@@ -715,4 +719,5 @@ pub(super) fn prepare_atmosphere_bind_groups(
             render_sky,
         });
     }
+    Ok(())
 }

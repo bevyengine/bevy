@@ -22,7 +22,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut animation_clips: ResMut<Assets<AnimationClip>>,
-) {
+) -> Result {
     // Create the animation:
     let AnimationInfo {
         target_name: animation_target_name,
@@ -47,7 +47,7 @@ fn setup(
         ))
         .id();
 
-    commands.entity(cube_entity).insert(AnimationTarget {
+    commands.entity(cube_entity)?.insert(AnimationTarget {
         id: animation_target_id,
         player: cube_entity,
     });
@@ -74,6 +74,8 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(0., 6., 12.).looking_at(Vec3::new(0., 1.5, 0.), Vec3::Y),
     ));
+
+    Ok(())
 }
 
 // Holds information about the animation we programmatically create.

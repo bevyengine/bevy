@@ -203,7 +203,7 @@ fn move_player(
     mut game: ResMut<Game>,
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
-) {
+) -> Result {
     if game.player.move_cooldown.tick(time.delta()).finished() {
         let mut moved = false;
         let mut rotation = 0.0;
@@ -257,10 +257,12 @@ fn move_player(
         if game.player.i == game.bonus.i && game.player.j == game.bonus.j {
             game.score += 2;
             game.cake_eaten += 1;
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
             game.bonus.entity = None;
         }
     }
+
+    Ok(())
 }
 
 // change the focus of the camera
@@ -313,19 +315,19 @@ fn spawn_bonus(
     mut commands: Commands,
     mut game: ResMut<Game>,
     mut rng: ResMut<Random>,
-) {
+) -> Result {
     // make sure we wait enough time before spawning the next cake
     if !timer.0.tick(time.delta()).finished() {
-        return;
+        return Ok(());
     }
 
     if let Some(entity) = game.bonus.entity {
         game.score -= 3;
-        commands.entity(entity).despawn();
+        commands.entity(entity)?.despawn();
         game.bonus.entity = None;
         if game.score <= -5 {
             next_state.set(GameState::GameOver);
-            return;
+            return Ok(());
         }
     }
 
@@ -359,6 +361,8 @@ fn spawn_bonus(
             ))
             .id(),
     );
+
+    Ok(())
 }
 
 // let the cake turn on itself

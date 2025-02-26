@@ -9,7 +9,6 @@ use std::{
     any::TypeId,
     f32::consts::PI,
     fmt::Write as _,
-    result::Result,
     sync::{Arc, Mutex},
 };
 
@@ -22,6 +21,7 @@ use bevy::{
         },
         prepass::DepthPrepass,
     },
+    ecs::result::Result,
     pbr::PbrPlugin,
     prelude::*,
     render::{
@@ -272,12 +272,13 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    spawn_small_cubes(&mut commands, &mut meshes, &mut materials);
+) -> Result {
+    spawn_small_cubes(&mut commands, &mut meshes, &mut materials)?;
     spawn_large_cube(&mut commands, &asset_server, &mut meshes, &mut materials);
     spawn_light(&mut commands);
     spawn_camera(&mut commands);
     spawn_help_text(&mut commands);
+    Ok(())
 }
 
 /// Spawns the rotating sphere of small cubes.
@@ -285,7 +286,7 @@ fn spawn_small_cubes(
     commands: &mut Commands,
     meshes: &mut Assets<Mesh>,
     materials: &mut Assets<StandardMaterial>,
-) {
+) -> Result {
     // Add the cube mesh.
     let small_cube = meshes.add(Cuboid::new(
         SMALL_CUBE_SIZE,
@@ -328,8 +329,10 @@ fn spawn_small_cubes(
             .insert(MeshMaterial3d(small_cube_material.clone()))
             .insert(Transform::from_translation(sphere_position))
             .id();
-        commands.entity(sphere_parent).add_child(small_cube);
+        commands.entity(sphere_parent)?.add_child(small_cube);
     }
+
+    Ok(())
 }
 
 /// Spawns the large cube at the center of the screen.
@@ -421,7 +424,7 @@ impl render_graph::Node for ReadbackIndirectParametersNode {
         _: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
         world: &'w World,
-    ) -> Result<(), NodeRunError> {
+    ) -> std::result::Result<(), NodeRunError> {
         // Extract the buffers that hold the GPU indirect draw parameters from
         // the world resources. We're going to read those buffers to determine
         // how many meshes were actually drawn.
@@ -671,10 +674,10 @@ fn toggle_occlusion_culling_on_request(
     input: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
     cameras: Query<Entity, With<Camera3d>>,
-) {
+) -> Result {
     // Only run when the user presses the spacebar.
     if !input.just_pressed(KeyCode::Space) {
-        return;
+        return Ok(());
     }
 
     // Toggle the occlusion culling flag in `AppStatus`.
@@ -685,14 +688,16 @@ fn toggle_occlusion_culling_on_request(
     for camera in &cameras {
         if app_status.occlusion_culling {
             commands
-                .entity(camera)
+                .entity(camera)?
                 .insert(DepthPrepass)
                 .insert(OcclusionCulling);
         } else {
             commands
-                .entity(camera)
+                .entity(camera)?
                 .remove::<DepthPrepass>()
                 .remove::<OcclusionCulling>();
         }
     }
+
+    Ok(())
 }

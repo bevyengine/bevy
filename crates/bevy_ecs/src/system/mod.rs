@@ -1546,8 +1546,8 @@ mod tests {
         run_system(
             &mut world,
             move |mut commands_set: ParamSet<(Commands, Commands)>| {
-                commands_set.p0().entity(entity).insert(A);
-                commands_set.p1().entity(entity).insert(B);
+                commands_set.p0().entity(entity).unwrap().insert(A);
+                commands_set.p1().entity(entity).unwrap().insert(B);
             },
         );
 

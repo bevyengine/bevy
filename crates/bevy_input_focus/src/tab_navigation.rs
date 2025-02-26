@@ -32,6 +32,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     observer::Trigger,
     query::{With, Without},
+    result::Result,
     system::{Commands, Query, Res, ResMut, SystemParam},
 };
 use bevy_input::{
@@ -310,10 +311,14 @@ impl Plugin for TabNavigationPlugin {
     }
 }
 
-fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<PrimaryWindow>>) {
+fn setup_tab_navigation(
+    mut commands: Commands,
+    window: Query<Entity, With<PrimaryWindow>>,
+) -> Result {
     for window in window.iter() {
-        commands.entity(window).observe(handle_tab_navigation);
+        commands.entity(window)?.observe(handle_tab_navigation);
     }
+    Ok(())
 }
 
 /// Observer function which handles tab navigation.

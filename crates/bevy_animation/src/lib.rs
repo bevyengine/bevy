@@ -328,7 +328,7 @@ impl AnimationClip {
         self.add_event_fn(
             time,
             move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.entity(entity).trigger(event.clone());
+                commands.entity(entity).unwrap().trigger(event.clone());
             },
         );
     }
@@ -349,7 +349,7 @@ impl AnimationClip {
             target_id,
             time,
             move |commands: &mut Commands, entity: Entity, _time: f32, _weight: f32| {
-                commands.entity(entity).trigger(event.clone());
+                commands.entity(entity).unwrap().trigger(event.clone());
             },
         );
     }

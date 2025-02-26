@@ -33,14 +33,14 @@ fn setup_cursor_icon(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     window: Single<Entity, With<Window>>,
-) {
+) -> Result {
     let layout =
         TextureAtlasLayout::from_grid(UVec2::splat(64), 20, 10, Some(UVec2::splat(5)), None);
     let texture_atlas_layout = texture_atlas_layouts.add(layout);
 
     let animation_config = AnimationConfig::new(0, 199, 1, 4);
 
-    commands.entity(*window).insert((
+    commands.entity(*window)?.insert((
         CursorIcon::Custom(CustomCursor::Image(CustomCursorImage {
             // Image to use as the cursor.
             handle: asset_server
@@ -61,6 +61,8 @@ fn setup_cursor_icon(
         })),
         animation_config,
     ));
+
+    Ok(())
 }
 
 fn setup_camera(mut commands: Commands) {

@@ -16,6 +16,7 @@ use bevy_ecs::{
     prelude::{resource_exists, Without},
     query::{Or, QueryState, With},
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -711,9 +712,9 @@ pub fn prepare_view_depth_pyramids(
     mut texture_cache: ResMut<TextureCache>,
     depth_pyramid_dummy_texture: Res<DepthPyramidDummyTexture>,
     views: Query<(Entity, &ExtractedView), (With<OcclusionCulling>, Without<NoIndirectDrawing>)>,
-) {
+) -> Result {
     for (view_entity, view) in &views {
-        commands.entity(view_entity).insert(ViewDepthPyramid::new(
+        commands.entity(view_entity)?.insert(ViewDepthPyramid::new(
             &render_device,
             &mut texture_cache,
             &depth_pyramid_dummy_texture,
@@ -722,6 +723,7 @@ pub fn prepare_view_depth_pyramids(
             "view depth pyramid texture view",
         ));
     }
+    Ok(())
 }
 
 /// The bind group that we use to attach the depth buffer and depth pyramid for
@@ -746,14 +748,14 @@ fn prepare_downsample_depth_view_bind_groups(
         ),
         Or<(With<ViewDepthTexture>, With<OcclusionCullingSubview>)>,
     >,
-) {
+) -> Result {
     for (view_entity, view_depth_pyramid, view_depth_texture, shadow_occlusion_culling) in
         &view_depth_textures
     {
         let is_multisampled = view_depth_texture
             .is_some_and(|view_depth_texture| view_depth_texture.texture.sample_count() > 1);
         commands
-            .entity(view_entity)
+            .entity(view_entity)?
             .insert(ViewDownsampleDepthBindGroup(
                 view_depth_pyramid.create_bind_group(
                     &render_device,
@@ -780,4 +782,5 @@ fn prepare_downsample_depth_view_bind_groups(
                 ),
             ));
     }
+    Ok(())
 }

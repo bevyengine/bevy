@@ -424,13 +424,13 @@ fn handle_keypress(
     mut counter: ResMut<PointCounter>,
     mut text_menus: Query<&mut Visibility, With<Text>>,
     mut camera_rig: Single<&mut CameraRig>,
-) {
+) -> Result {
     // R => restart, deleting all samples
     if keyboard.just_pressed(KeyCode::KeyR) {
         // Don't forget to zero out the counter!
         counter.0 = 0;
         for entity in &samples {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
 
@@ -506,6 +506,8 @@ fn handle_keypress(
             camera_rig.target = shapes.0[closest + 1].1;
         }
     }
+
+    Ok(())
 }
 
 // Handle user mouse input for panning the camera around:
@@ -624,6 +626,7 @@ fn despawn_points(
         .map(|entity| {
             commands
                 .entity(entity)
+                .unwrap()
                 .insert(DespawningPoint { progress: 0.0 })
                 .remove::<SpawningPoint>()
                 .remove::<SamplePoint>();
@@ -635,23 +638,25 @@ fn animate_spawning(
     mut commands: Commands,
     time: Res<Time>,
     mut samples: Query<(Entity, &mut Transform, &mut SpawningPoint)>,
-) {
+) -> Result {
     let dt = time.delta_secs();
 
     for (entity, mut transform, mut point) in samples.iter_mut() {
         point.progress += dt / ANIMATION_TIME;
         transform.scale = Vec3::splat(point.progress.min(1.0));
         if point.progress >= 1.0 {
-            commands.entity(entity).remove::<SpawningPoint>();
+            commands.entity(entity)?.remove::<SpawningPoint>();
         }
     }
+
+    Ok(())
 }
 
 fn animate_despawning(
     mut commands: Commands,
     time: Res<Time>,
     mut samples: Query<(Entity, &mut Transform, &mut DespawningPoint)>,
-) {
+) -> Result {
     let dt = time.delta_secs();
 
     for (entity, mut transform, mut point) in samples.iter_mut() {
@@ -660,9 +665,11 @@ fn animate_despawning(
         point.progress = f32::max(point.progress, 1.0 - transform.scale.x);
         transform.scale = Vec3::splat((1.0 - point.progress).max(0.0));
         if point.progress >= 1.0 {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
+
+    Ok(())
 }
 
 fn update_camera(mut camera: Query<(&mut Transform, &CameraRig), Changed<CameraRig>>) {

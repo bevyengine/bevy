@@ -339,9 +339,10 @@ struct Explode;
 let mut world = World::new();
 let entity = world.spawn_empty().id();
 
-world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| {
+world.add_observer(|trigger: Trigger<Explode>, mut commands: Commands| -> Result {
     println!("Entity {} goes BOOM!", trigger.target());
-    commands.entity(trigger.target()).despawn();
+    commands.entity(trigger.target())?.despawn();
+    Ok(())
 });
 
 world.flush();

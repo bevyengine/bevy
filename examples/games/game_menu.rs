@@ -353,16 +353,18 @@ mod menu {
         selected_query: Single<(Entity, &mut BackgroundColor), With<SelectedOption>>,
         mut commands: Commands,
         mut setting: ResMut<T>,
-    ) {
+    ) -> Result {
         let (previous_button, mut previous_button_color) = selected_query.into_inner();
         for (interaction, button_setting, entity) in &interaction_query {
             if *interaction == Interaction::Pressed && *setting != *button_setting {
                 *previous_button_color = NORMAL_BUTTON.into();
-                commands.entity(previous_button).remove::<SelectedOption>();
-                commands.entity(entity).insert(SelectedOption);
+                commands.entity(previous_button)?.remove::<SelectedOption>();
+                commands.entity(entity)?.insert(SelectedOption);
                 *setting = *button_setting;
             }
         }
+
+        Ok(())
     }
 
     fn menu_setup(mut menu_state: ResMut<NextState<MenuState>>) {
@@ -730,8 +732,13 @@ mod menu {
 }
 
 // Generic system that takes a component as a parameter, and will despawn all entities with that component
-fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands: Commands) {
+fn despawn_screen<T: Component>(
+    to_despawn: Query<Entity, With<T>>,
+    mut commands: Commands,
+) -> Result {
     for entity in &to_despawn {
-        commands.entity(entity).despawn();
+        commands.entity(entity)?.despawn();
     }
+
+    Ok(())
 }

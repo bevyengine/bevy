@@ -42,7 +42,7 @@ fn main() {
         .run();
 }
 
-fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
     commands.spawn(Camera2d);
 
     let text_font = TextFont {
@@ -114,15 +114,17 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             ];
 
             for (j, message) in messages.into_iter().enumerate() {
-                commands.entity(column_id).with_child((
+                commands.entity(column_id)?.with_child((
                     Text(message.clone()),
                     text_font.clone(),
                     TextLayout::new(JustifyText::Left, linebreak),
                     BackgroundColor(Color::srgb(0.8 - j as f32 * 0.2, 0., 0.)),
                 ));
             }
-            commands.entity(row_id).add_child(column_id);
+            commands.entity(row_id)?.add_child(column_id);
         }
-        commands.entity(root).add_child(row_id);
+        commands.entity(root)?.add_child(row_id);
     }
+
+    Ok(())
 }

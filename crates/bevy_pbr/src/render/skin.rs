@@ -598,12 +598,13 @@ pub fn no_automatic_skin_batching(
     mut commands: Commands,
     query: Query<Entity, (With<SkinnedMesh>, Without<NoAutomaticBatching>)>,
     render_device: Res<RenderDevice>,
-) {
+) -> Result {
     if !skins_use_uniform_buffers(&render_device) {
-        return;
+        return Ok(());
     }
 
     for entity in &query {
-        commands.entity(entity).try_insert(NoAutomaticBatching);
+        commands.entity(entity)?.try_insert(NoAutomaticBatching);
     }
+    Ok(())
 }

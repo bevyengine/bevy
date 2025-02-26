@@ -95,13 +95,15 @@ fn bubbling_text(
     mut commands: Commands,
     mut bubbles: Query<(Entity, &mut Transform, &mut Bubble)>,
     time: Res<Time>,
-) {
+) -> Result {
     for (entity, mut transform, mut bubble) in bubbles.iter_mut() {
         if bubble.timer.tick(time.delta()).just_finished() {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
         transform.translation.y += time.delta_secs() * 100.0;
     }
+
+    Ok(())
 }
 
 fn listen_ime_events(

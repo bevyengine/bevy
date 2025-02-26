@@ -138,23 +138,25 @@ fn toggle_shadows(
         Query<Entity, (With<Mesh3d>, Without<NotShadowCaster>)>,
         Query<Entity, (With<Mesh3d>, Without<NotShadowReceiver>)>,
     )>,
-) {
+) -> Result {
     if input.just_pressed(KeyCode::KeyC) {
         println!("Toggling casters");
         for entity in queries.p0().iter() {
-            commands.entity(entity).remove::<NotShadowCaster>();
+            commands.entity(entity)?.remove::<NotShadowCaster>();
         }
         for entity in queries.p2().iter() {
-            commands.entity(entity).insert(NotShadowCaster);
+            commands.entity(entity)?.insert(NotShadowCaster);
         }
     }
     if input.just_pressed(KeyCode::KeyR) {
         println!("Toggling receivers");
         for entity in queries.p1().iter() {
-            commands.entity(entity).remove::<NotShadowReceiver>();
+            commands.entity(entity)?.remove::<NotShadowReceiver>();
         }
         for entity in queries.p3().iter() {
-            commands.entity(entity).insert(NotShadowReceiver);
+            commands.entity(entity)?.insert(NotShadowReceiver);
         }
     }
+
+    Ok(())
 }

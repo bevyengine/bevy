@@ -37,7 +37,7 @@ struct ParallelCommandQueue {
 ///     query.par_iter().for_each(|(entity, velocity)| {
 ///         if velocity.magnitude() > 10.0 {
 ///             par_commands.command_scope(|mut commands| {
-///                 commands.entity(entity).despawn();
+///                 commands.entity(entity).unwrap().despawn();
 ///             });
 ///         }
 ///     });

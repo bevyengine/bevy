@@ -109,12 +109,13 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     ear_positions: EarPositions,
     default_spatial_scale: Res<DefaultSpatialScale>,
     mut commands: Commands,
-) where
+) -> Result
+where
     f32: rodio::cpal::FromSample<Source::DecoderItem>,
 {
     let Some(stream_handle) = audio_output.stream_handle.as_ref() else {
         // audio output unavailable; cannot play sound
-        return;
+        return Ok(());
     };
 
     for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
@@ -177,13 +178,13 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             match settings.mode {
-                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity).insert(sink),
+                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity)?.insert(sink),
                 PlaybackMode::Despawn => commands
-                    .entity(entity)
+                    .entity(entity)?
                     // PERF: insert as bundle to reduce archetype moves
                     .insert((sink, PlaybackDespawnMarker)),
                 PlaybackMode::Remove => commands
-                    .entity(entity)
+                    .entity(entity)?
                     // PERF: insert as bundle to reduce archetype moves
                     .insert((sink, PlaybackRemoveMarker)),
             };
@@ -217,18 +218,19 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             }
 
             match settings.mode {
-                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity).insert(sink),
+                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity)?.insert(sink),
                 PlaybackMode::Despawn => commands
-                    .entity(entity)
+                    .entity(entity)?
                     // PERF: insert as bundle to reduce archetype moves
                     .insert((sink, PlaybackDespawnMarker)),
                 PlaybackMode::Remove => commands
-                    .entity(entity)
+                    .entity(entity)?
                     // PERF: insert as bundle to reduce archetype moves
                     .insert((sink, PlaybackRemoveMarker)),
             };
         }
     }
+    Ok(())
 }
 
 pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
@@ -249,20 +251,20 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
         (Entity, &SpatialAudioSink),
         (With<PlaybackRemoveMarker>, With<AudioPlayer<T>>),
     >,
-) {
+) -> Result {
     for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
     for (entity, sink) in &query_spatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
     for (entity, sink) in &query_nonspatial_remove {
         if sink.sink.empty() {
-            commands.entity(entity).remove::<(
+            commands.entity(entity)?.remove::<(
                 AudioPlayer<T>,
                 AudioSink,
                 PlaybackSettings,
@@ -272,7 +274,7 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
     }
     for (entity, sink) in &query_spatial_remove {
         if sink.sink.empty() {
-            commands.entity(entity).remove::<(
+            commands.entity(entity)?.remove::<(
                 AudioPlayer<T>,
                 SpatialAudioSink,
                 PlaybackSettings,
@@ -280,6 +282,7 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
             )>();
         }
     }
+    Ok(())
 }
 
 /// Run Condition to only play audio if the audio output is available

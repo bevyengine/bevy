@@ -3,6 +3,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -144,7 +145,7 @@ pub fn prepare_downsampling_pipeline(
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomDownsamplingPipeline>>,
     pipeline: Res<BloomDownsamplingPipeline>,
     views: Query<(Entity, &Bloom)>,
-) {
+) -> Result {
     for (entity, bloom) in &views {
         let prefilter = bloom.prefilter.threshold > 0.0;
 
@@ -169,10 +170,11 @@ pub fn prepare_downsampling_pipeline(
         );
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(BloomDownsamplingPipelineIds {
                 first: pipeline_first_id,
                 main: pipeline_id,
             });
     }
+    Ok(())
 }

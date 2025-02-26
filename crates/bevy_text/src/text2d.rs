@@ -8,6 +8,7 @@ use bevy_asset::Assets;
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::hash_set::EntityHashSet;
+use bevy_ecs::result::Result;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::{require, Component},
@@ -340,7 +341,7 @@ pub fn calculate_bounds_text2d(
         ),
         (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
     >,
-) {
+) -> Result {
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
         let size = Vec2::new(
             text_bounds.width.unwrap_or(layout_info.size.x),
@@ -358,12 +359,13 @@ pub fn calculate_bounds_text2d(
                 half_extents,
             };
         } else {
-            commands.entity(entity).try_insert(Aabb {
+            commands.entity(entity)?.try_insert(Aabb {
                 center,
                 half_extents,
             });
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]

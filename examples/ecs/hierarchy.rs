@@ -16,7 +16,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) -> Result {
     commands.spawn(Camera2d);
     let texture = asset_server.load("branding/icon.png");
 
@@ -55,7 +55,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .id();
 
     // Add child to the parent.
-    commands.entity(parent).add_child(child);
+    commands.entity(parent)?.add_child(child);
+
+    Ok(())
 }
 
 // A simple system to rotate the root entity, and rotate all its children separately
@@ -64,7 +66,7 @@ fn rotate(
     time: Res<Time>,
     mut parents_query: Query<(Entity, &Children), With<Sprite>>,
     mut transform_query: Query<&mut Transform, With<Sprite>>,
-) {
+) -> Result {
     for (parent, children) in &mut parents_query {
         if let Ok(mut transform) = transform_query.get_mut(parent) {
             transform.rotate_z(-PI / 2. * time.delta_secs());
@@ -81,13 +83,15 @@ fn rotate(
         // To demonstrate removing children, we'll remove a child after a couple of seconds.
         if time.elapsed_secs() >= 2.0 && children.len() == 2 {
             let child = children.last().unwrap();
-            commands.entity(*child).despawn();
+            commands.entity(*child)?.despawn();
         }
 
         if time.elapsed_secs() >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
-            commands.entity(parent).despawn();
+            commands.entity(parent)?.despawn();
         }
     }
+
+    Ok(())
 }

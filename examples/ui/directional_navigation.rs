@@ -104,7 +104,7 @@ fn setup_ui(
     mut commands: Commands,
     mut directional_nav_map: ResMut<DirectionalNavigationMap>,
     mut input_focus: ResMut<InputFocus>,
-) {
+) -> Result {
     const N_ROWS: u16 = 5;
     const N_COLS: u16 = 3;
 
@@ -152,7 +152,7 @@ fn setup_ui(
 
     // Add the instructions and grid to the root node
     commands
-        .entity(root_node)
+        .entity(root_node)?
         .add_children(&[instructions, grid_root_entity]);
 
     let mut button_entities: HashMap<(u16, u16), Entity> = HashMap::default();
@@ -193,7 +193,7 @@ fn setup_ui(
                 .id();
 
             // Add the button to the grid
-            commands.entity(grid_root_entity).add_child(button_entity);
+            commands.entity(grid_root_entity)?.add_child(button_entity);
 
             // Keep track of the button entities so we can set up our navigation graph
             button_entities.insert((row, col), button_entity);
@@ -225,6 +225,8 @@ fn setup_ui(
     // When changing scenes, remember to set an initial focus!
     let top_left_entity = *button_entities.get(&(0, 0)).unwrap();
     input_focus.set(top_left_entity);
+
+    Ok(())
 }
 
 // The indirection between inputs and actions allows us to easily remap inputs

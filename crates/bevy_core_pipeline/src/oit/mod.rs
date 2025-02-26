@@ -251,7 +251,7 @@ pub fn prepare_oit_buffers(
     >,
     camera_oit_uniforms: Query<(Entity, &OrderIndependentTransparencySettings)>,
     mut buffers: ResMut<OitBuffers>,
-) {
+) -> Result {
     // Get the max buffer size for any OIT enabled camera
     let mut max_layer_ids_size = usize::MIN;
     let mut max_layers_size = usize::MIN;
@@ -310,8 +310,9 @@ pub fn prepare_oit_buffers(
         for (entity, settings) in &camera_oit_uniforms {
             let offset = writer.write(settings);
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(OrderIndependentTransparencySettingsOffset { offset });
         }
     }
+    Ok(())
 }

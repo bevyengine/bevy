@@ -25,6 +25,7 @@ use bevy_ecs::{
     observer::Trigger,
     query::With,
     reflect::ReflectComponent,
+    result::Result,
     system::{Commands, Local, Query},
     world::{OnRemove, Ref},
 };
@@ -83,7 +84,7 @@ fn update_cursors(
     #[cfg(feature = "custom_cursor")] images: Res<Assets<Image>>,
     #[cfg(feature = "custom_cursor")] texture_atlases: Res<Assets<TextureAtlasLayout>>,
     mut queue: Local<HashSet<Entity>>,
-) {
+) -> Result {
     for (entity, cursor) in windows.iter() {
         if !(queue.remove(&entity) || cursor.is_changed()) {
             continue;
@@ -178,17 +179,19 @@ fn update_cursors(
         };
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(PendingCursor(Some(cursor_source)));
     }
+    Ok(())
 }
 
 /// Resets the cursor to the default icon when `CursorIcon` is removed.
-fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) {
+fn on_remove_cursor_icon(trigger: Trigger<OnRemove, CursorIcon>, mut commands: Commands) -> Result {
     // Use `try_insert` to avoid panic if the window is being destroyed.
     commands
-        .entity(trigger.target())
+        .entity(trigger.target())?
         .try_insert(PendingCursor(Some(CursorSource::System(
             convert_system_cursor_icon(SystemCursorIcon::Default),
         ))));
+    Ok(())
 }

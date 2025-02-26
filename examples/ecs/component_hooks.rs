@@ -125,7 +125,7 @@ fn setup(world: &mut World) {
                         .unwrap_or_default()
                 );
                 // You can also issue commands through `.commands()`
-                world.commands().entity(entity).despawn();
+                world.commands().entity(entity).unwrap().despawn();
             },
         );
 }
@@ -134,13 +134,15 @@ fn trigger_hooks(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
     index: Res<MyComponentIndex>,
-) {
+) -> Result {
     for (key, entity) in index.iter() {
         if !keys.pressed(*key) {
-            commands.entity(*entity).remove::<MyComponent>();
+            commands.entity(*entity)?.remove::<MyComponent>();
         }
     }
     for key in keys.get_just_pressed() {
         commands.spawn(MyComponent(*key));
     }
+
+    Ok(())
 }

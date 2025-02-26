@@ -245,9 +245,9 @@ fn prepare_cas_pipelines(
         Or<(Added<CasUniform>, Changed<DenoiseCas>)>,
     >,
     mut removals: RemovedComponents<CasUniform>,
-) {
+) -> Result {
     for entity in removals.read() {
-        commands.entity(entity).remove::<ViewCasPipeline>();
+        commands.entity(entity)?.remove::<ViewCasPipeline>();
     }
 
     for (entity, view, denoise_cas) in &views {
@@ -264,8 +264,11 @@ fn prepare_cas_pipelines(
             },
         );
 
-        commands.entity(entity).insert(ViewCasPipeline(pipeline_id));
+        commands
+            .entity(entity)?
+            .insert(ViewCasPipeline(pipeline_id));
     }
+    Ok(())
 }
 
 #[derive(Component)]

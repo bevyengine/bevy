@@ -163,7 +163,7 @@ fn apply_wireframe_material(
     global_material: Res<GlobalWireframe2dMaterial>,
 ) {
     for e in removed_wireframes.read().chain(no_wireframes.iter()) {
-        if let Some(mut commands) = commands.get_entity(e) {
+        if let Ok(mut commands) = commands.entity(e) {
             commands.remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }
@@ -201,7 +201,7 @@ fn apply_global_wireframe_material(
         (Wireframe2dFilter, With<MeshMaterial2d<Wireframe2dMaterial>>),
     >,
     global_material: Res<GlobalWireframe2dMaterial>,
-) {
+) -> Result {
     if config.global {
         let mut material_to_spawn = vec![];
         for e in &meshes_without_material {
@@ -213,10 +213,11 @@ fn apply_global_wireframe_material(
     } else {
         for e in &meshes_with_global_material {
             commands
-                .entity(e)
+                .entity(e)?
                 .remove::<MeshMaterial2d<Wireframe2dMaterial>>();
         }
     }
+    Ok(())
 }
 
 #[derive(Default, AsBindGroup, Debug, Clone, Asset, Reflect)]

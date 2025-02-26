@@ -45,17 +45,17 @@ fn assign_clips(
     mut graphs: ResMut<Assets<AnimationGraph>>,
     mut commands: Commands,
     mut setup: Local<bool>,
-) {
+) -> Result {
     if scene_handle.is_loaded && !*setup {
         *setup = true;
     } else {
-        return;
+        return Ok(());
     }
 
     let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
     let animations = &gltf.animations;
     if animations.is_empty() {
-        return;
+        return Ok(());
     }
 
     let count = animations.len();
@@ -144,10 +144,12 @@ fn assign_clips(
         let animations = Clips::new(clips);
         player.play(animations.current()).repeat();
         commands
-            .entity(player_entity)
+            .entity(player_entity)?
             .insert(animations)
             .insert(AnimationGraphHandle(graph));
     }
+
+    Ok(())
 }
 
 fn handle_inputs(

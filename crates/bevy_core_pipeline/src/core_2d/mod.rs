@@ -456,7 +456,7 @@ pub fn prepare_core_2d_depth_textures(
     transparent_2d_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_2d_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     views_2d: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa), (With<Camera2d>,)>,
-) {
+) -> Result {
     let mut textures = <HashMap<_, _>>::default();
     for (view, camera, extracted_view, msaa) in &views_2d {
         if !opaque_2d_phases.contains_key(&extracted_view.retained_view_entity)
@@ -495,7 +495,8 @@ pub fn prepare_core_2d_depth_textures(
             .clone();
 
         commands
-            .entity(view)
+            .entity(view)?
             .insert(ViewDepthTexture::new(cached_texture, Some(0.0)));
     }
+    Ok(())
 }

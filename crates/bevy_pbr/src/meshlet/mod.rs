@@ -69,6 +69,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     reflect::ReflectComponent,
+    result::Result,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
 };
@@ -316,7 +317,7 @@ fn configure_meshlet_views(
         Has<DeferredPrepass>,
     )>,
     mut commands: Commands,
-) {
+) -> Result {
     for (entity, msaa, normal_prepass, motion_vector_prepass, deferred_prepass) in &mut views_3d {
         if *msaa != Msaa::Off {
             error!("MeshletPlugin can't be used with MSAA. Add Msaa::Off to your camera to use this plugin.");
@@ -325,15 +326,16 @@ fn configure_meshlet_views(
 
         if !(normal_prepass || motion_vector_prepass || deferred_prepass) {
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(MeshletViewMaterialsMainOpaquePass::default());
         } else {
             // TODO: Should we add both Prepass and DeferredGBufferPrepass materials here, and in other systems/nodes?
-            commands.entity(entity).insert((
+            commands.entity(entity)?.insert((
                 MeshletViewMaterialsMainOpaquePass::default(),
                 MeshletViewMaterialsPrepass::default(),
                 MeshletViewMaterialsDeferredGBufferPrepass::default(),
             ));
         }
     }
+    Ok(())
 }

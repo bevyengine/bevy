@@ -170,10 +170,10 @@ fn add_environment_map_to_camera(
     mut commands: Commands,
     query: Query<Entity, Added<Camera3d>>,
     cubemaps: Res<Cubemaps>,
-) {
+) -> Result {
     for camera_entity in query.iter() {
         commands
-            .entity(camera_entity)
+            .entity(camera_entity)?
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
                 image: cubemaps.skybox.clone(),
@@ -181,6 +181,8 @@ fn add_environment_map_to_camera(
                 ..default()
             });
     }
+
+    Ok(())
 }
 
 // A system that handles switching between different reflection modes.
@@ -191,10 +193,10 @@ fn change_reflection_type(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
     cubemaps: Res<Cubemaps>,
-) {
+) -> Result {
     // Only do anything if space was pressed.
     if !keyboard.just_pressed(KeyCode::Space) {
-        return;
+        return Ok(());
     }
 
     // Switch reflection mode.
@@ -203,7 +205,7 @@ fn change_reflection_type(
 
     // Add or remove the light probe.
     for light_probe in light_probe_query.iter() {
-        commands.entity(light_probe).despawn();
+        commands.entity(light_probe)?.despawn();
     }
     match app_status.reflection_mode {
         ReflectionMode::None | ReflectionMode::EnvironmentMap => {}
@@ -214,15 +216,17 @@ fn change_reflection_type(
     for camera in camera_query.iter() {
         match app_status.reflection_mode {
             ReflectionMode::None => {
-                commands.entity(camera).remove::<EnvironmentMapLight>();
+                commands.entity(camera)?.remove::<EnvironmentMapLight>();
             }
             ReflectionMode::EnvironmentMap | ReflectionMode::ReflectionProbe => {
                 commands
-                    .entity(camera)
+                    .entity(camera)?
                     .insert(create_camera_environment_map_light(&cubemaps));
             }
         }
     }
+
+    Ok(())
 }
 
 // A system that handles enabling and disabling rotation.

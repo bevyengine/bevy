@@ -162,8 +162,9 @@ fn menu(
     }
 }
 
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn();
+fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) -> Result {
+    commands.entity(menu_data.button_entity)?.despawn();
+    Ok(())
 }
 
 const SPEED: f32 = 100.0;
@@ -227,9 +228,10 @@ fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Setup game");
 }
 
-fn teardown_game(mut commands: Commands, player: Single<Entity, With<Sprite>>) {
-    commands.entity(*player).despawn();
+fn teardown_game(mut commands: Commands, player: Single<Entity, With<Sprite>>) -> Result {
+    commands.entity(*player)?.despawn();
     info!("Teardown game");
+    Ok(())
 }
 
 #[derive(Resource)]

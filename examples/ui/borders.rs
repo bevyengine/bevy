@@ -9,7 +9,7 @@ fn main() {
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands) -> Result {
     commands.spawn(Camera2d);
     let root = commands
         .spawn((
@@ -169,7 +169,7 @@ fn setup(mut commands: Commands) {
             })
             .add_children(&[border_node, label_node])
             .id();
-        commands.entity(root).add_child(container);
+        commands.entity(root)?.add_child(container);
     }
 
     for (label, border) in border_labels.into_iter().zip(borders) {
@@ -231,7 +231,7 @@ fn setup(mut commands: Commands) {
             })
             .add_children(&[border_node, label_node])
             .id();
-        commands.entity(root_rounded).add_child(container);
+        commands.entity(root_rounded)?.add_child(container);
     }
 
     let border_label = commands
@@ -301,4 +301,6 @@ fn setup(mut commands: Commands) {
         .add_child(root)
         .add_child(border_rounded_label)
         .add_child(root_rounded);
+
+    Ok(())
 }

@@ -11,6 +11,7 @@ use bevy_ecs::{
     entity::{hash_map::EntityHashMap, Entity},
     query::AnyOf,
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{UVec2, Vec4Swizzles};
@@ -373,9 +374,9 @@ pub fn prepare_meshlet_per_frame_resources(
     render_queue: Res<RenderQueue>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
-) {
+) -> Result {
     if instance_manager.scene_cluster_count == 0 {
-        return;
+        return Ok(());
     }
 
     let instance_manager = instance_manager.as_mut();
@@ -590,7 +591,7 @@ pub fn prepare_meshlet_per_frame_resources(
             view_formats: &[],
         };
 
-        commands.entity(view_entity).insert(MeshletViewResources {
+        commands.entity(view_entity)?.insert(MeshletViewResources {
             scene_instance_count: instance_manager.scene_instance_count,
             scene_cluster_count: instance_manager.scene_cluster_count,
             second_pass_candidates_buffer,
@@ -610,6 +611,7 @@ pub fn prepare_meshlet_per_frame_resources(
             not_shadow_view,
         });
     }
+    Ok(())
 }
 
 pub fn prepare_meshlet_view_bind_groups(
@@ -621,7 +623,7 @@ pub fn prepare_meshlet_view_bind_groups(
     previous_view_uniforms: Res<PreviousViewUniforms>,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
-) {
+) -> Result {
     let (
         Some(cluster_instance_ids),
         Some(cluster_meshlet_ids),
@@ -634,7 +636,7 @@ pub fn prepare_meshlet_view_bind_groups(
         previous_view_uniforms.uniforms.binding(),
     )
     else {
-        return;
+        return Ok(());
     };
 
     let first_node = Arc::new(AtomicBool::new(true));
@@ -845,7 +847,7 @@ pub fn prepare_meshlet_view_bind_groups(
                 )
             });
 
-        commands.entity(view_entity).insert(MeshletViewBindGroups {
+        commands.entity(view_entity)?.insert(MeshletViewBindGroups {
             first_node: Arc::clone(&first_node),
             fill_cluster_buffers,
             clear_visibility_buffer,
@@ -859,4 +861,5 @@ pub fn prepare_meshlet_view_bind_groups(
             remap_1d_to_2d_dispatch,
         });
     }
+    Ok(())
 }

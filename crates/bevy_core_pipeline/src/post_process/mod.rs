@@ -11,6 +11,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -438,7 +439,7 @@ pub fn prepare_post_processing_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<PostProcessingPipeline>>,
     post_processing_pipeline: Res<PostProcessingPipeline>,
     views: Query<(Entity, &ExtractedView), With<ChromaticAberration>>,
-) {
+) -> Result {
     for (entity, view) in views.iter() {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -453,9 +454,10 @@ pub fn prepare_post_processing_pipelines(
         );
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(PostProcessingPipelineId(pipeline_id));
     }
+    Ok(())
 }
 
 /// Gathers the built-in postprocessing settings for every view and uploads them
@@ -466,7 +468,7 @@ pub fn prepare_post_processing_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut views: Query<(Entity, &ChromaticAberration)>,
-) {
+) -> Result {
     post_processing_uniform_buffers.clear();
 
     // Gather up all the postprocessing settings.
@@ -479,7 +481,7 @@ pub fn prepare_post_processing_uniforms(
                 unused_2: 0,
             });
         commands
-            .entity(view_entity)
+            .entity(view_entity)?
             .insert(PostProcessingUniformBufferOffsets {
                 chromatic_aberration: chromatic_aberration_uniform_buffer_offset,
             });
@@ -487,6 +489,7 @@ pub fn prepare_post_processing_uniforms(
 
     // Upload to the GPU.
     post_processing_uniform_buffers.write_buffer(&render_device, &render_queue);
+    Ok(())
 }
 
 impl ExtractComponent for ChromaticAberration {

@@ -106,7 +106,7 @@ fn setup_scene_once_loaded(
     mut commands: Commands,
     animations: Res<Animations>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-) {
+) -> Result {
     for (entity, mut player) in &mut players {
         let mut transitions = AnimationTransitions::new();
 
@@ -119,10 +119,12 @@ fn setup_scene_once_loaded(
             .repeat();
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(AnimationGraphHandle(animations.graph_handle.clone()))
             .insert(transitions);
     }
+
+    Ok(())
 }
 
 fn keyboard_control(

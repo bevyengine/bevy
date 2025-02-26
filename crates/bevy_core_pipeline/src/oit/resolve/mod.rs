@@ -140,7 +140,7 @@ pub fn queue_oit_resolve_pipeline(
     // Store the key with the id to make the clean up logic easier.
     // This also means it will always replace the entry if the key changes so nothing to clean up.
     mut cached_pipeline_id: Local<EntityHashMap<(OitResolvePipelineKey, CachedRenderPipelineId)>>,
-) {
+) -> Result {
     let mut current_view_entities = EntityHashSet::default();
     for (e, view, oit_settings) in &views {
         current_view_entities.insert(e);
@@ -151,7 +151,7 @@ pub fn queue_oit_resolve_pipeline(
 
         if let Some((cached_key, id)) = cached_pipeline_id.get(&e) {
             if *cached_key == key {
-                commands.entity(e).insert(OitResolvePipelineId(*id));
+                commands.entity(e)?.insert(OitResolvePipelineId(*id));
                 continue;
             }
         }
@@ -159,7 +159,9 @@ pub fn queue_oit_resolve_pipeline(
         let desc = specialize_oit_resolve_pipeline(key, &resolve_pipeline);
 
         let pipeline_id = pipeline_cache.queue_render_pipeline(desc);
-        commands.entity(e).insert(OitResolvePipelineId(pipeline_id));
+        commands
+            .entity(e)?
+            .insert(OitResolvePipelineId(pipeline_id));
         cached_pipeline_id.insert(e, (key, pipeline_id));
     }
 
@@ -169,6 +171,7 @@ pub fn queue_oit_resolve_pipeline(
             cached_pipeline_id.remove(&e);
         }
     }
+    Ok(())
 }
 
 fn specialize_oit_resolve_pipeline(

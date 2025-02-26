@@ -595,9 +595,9 @@ pub fn prepare_sprite_view_bind_groups(
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
-) {
+) -> Result {
     let Some(view_binding) = view_uniforms.uniforms.binding() else {
-        return;
+        return Ok(());
     };
 
     for (entity, tonemapping) in &views {
@@ -613,10 +613,11 @@ pub fn prepare_sprite_view_bind_groups(
             )),
         );
 
-        commands.entity(entity).insert(SpriteViewBindGroup {
+        commands.entity(entity)?.insert(SpriteViewBindGroup {
             value: view_bind_group,
         });
     }
+    Ok(())
 }
 
 pub fn prepare_sprite_image_bind_groups(

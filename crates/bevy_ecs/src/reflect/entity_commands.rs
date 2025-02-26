@@ -150,13 +150,14 @@ pub trait ReflectCommandExt {
     /// fn remove_reflect_component(
     ///     mut commands: Commands,
     ///     prefab: Res<Prefab>
-    ///     ) {
+    ///     ) -> Result {
     ///     // Prefab can hold any boxed reflect component or bundle. In this case either
     ///     // ComponentA, ComponentB, or BundleA. No matter which component or bundle is in the resource though,
     ///     // we can attempt to remove any component (or set of components in the case of a bundle)
     ///     // of that same type from an entity.
-    ///     commands.entity(prefab.entity)
+    ///     commands.entity(prefab.entity)?
     ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
+    ///     Ok(())
     /// }
     /// ```
     fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;
@@ -448,9 +449,11 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .insert_reflect(boxed_reflect_component_a);
         commands
             .entity(entity2)
+            .unwrap()
             .insert_reflect(boxed_reflect_component_a_clone);
         system_state.apply(&mut world);
 
@@ -483,6 +486,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .insert_reflect_with_registry::<TypeRegistryResource>(boxed_reflect_component_a);
         system_state.apply(&mut world);
 
@@ -513,6 +517,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect(boxed_reflect_component_a.reflect_type_path().to_owned());
         system_state.apply(&mut world);
 
@@ -542,6 +547,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect_with_registry::<TypeRegistryResource>(
                 boxed_reflect_component_a.reflect_type_path().to_owned(),
             );
@@ -570,7 +576,7 @@ mod tests {
             a: ComponentA(31),
             b: ComponentB(20),
         }) as Box<dyn PartialReflect>;
-        commands.entity(entity).insert_reflect(bundle);
+        commands.entity(entity).unwrap().insert_reflect(bundle);
 
         system_state.apply(&mut world);
 
@@ -603,6 +609,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .insert_reflect_with_registry::<TypeRegistryResource>(bundle);
         system_state.apply(&mut world);
 
@@ -639,6 +646,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect(boxed_reflect_bundle_a.reflect_type_path().to_owned());
         system_state.apply(&mut world);
 
@@ -677,6 +685,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect_with_registry::<TypeRegistryResource>(
                 boxed_reflect_bundle_a.reflect_type_path().to_owned(),
             );

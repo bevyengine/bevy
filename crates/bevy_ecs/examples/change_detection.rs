@@ -98,13 +98,14 @@ fn age_all_entities(mut entities: Query<&mut Age>) {
 }
 
 // This system iterates over all entities in every frame and despawns entities older than 2 frames
-fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) {
+fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) -> Result {
     for (entity, age) in &entities {
         if age.frames > 2 {
             println!("    despawning {entity} due to age > 2");
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
+    Ok(())
 }
 
 // This system will print the new counter value every time it was changed since

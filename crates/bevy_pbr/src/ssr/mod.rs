@@ -17,6 +17,7 @@ use bevy_ecs::{
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -428,7 +429,7 @@ pub fn prepare_ssr_pipelines(
             With<DeferredPrepass>,
         ),
     >,
-) {
+) -> Result {
     for (
         entity,
         extracted_view,
@@ -464,9 +465,10 @@ pub fn prepare_ssr_pipelines(
 
         // Note which pipeline ID was used.
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(ScreenSpaceReflectionsPipelineId(pipeline_id));
     }
+    Ok(())
 }
 
 /// Gathers up screen space reflection settings for each applicable view and
@@ -477,11 +479,11 @@ pub fn prepare_ssr_settings(
     mut ssr_settings_buffer: ResMut<ScreenSpaceReflectionsBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-) {
+) -> Result {
     let Some(mut writer) =
         ssr_settings_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
     else {
-        return;
+        return Ok(());
     };
 
     for (view, ssr_uniform) in views.iter() {
@@ -490,9 +492,10 @@ pub fn prepare_ssr_settings(
             Some(ssr_uniform) => writer.write(ssr_uniform),
         };
         commands
-            .entity(view)
+            .entity(view)?
             .insert(ViewScreenSpaceReflectionsUniformOffset(uniform_offset));
     }
+    Ok(())
 }
 
 impl ExtractComponent for ScreenSpaceReflections {

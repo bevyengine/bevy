@@ -141,7 +141,7 @@ fn setup_scene_once_loaded(
     graphs: Res<Assets<AnimationGraph>>,
     mut clips: ResMut<Assets<AnimationClip>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-) {
+) -> Result {
     fn get_clip<'a>(
         node: AnimationNodeIndex,
         graph: &AnimationGraph,
@@ -182,21 +182,23 @@ fn setup_scene_once_loaded(
             .repeat();
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(AnimationGraphHandle(animations.graph_handle.clone()))
             .insert(transitions);
     }
+
+    Ok(())
 }
 
 fn simulate_particles(
     mut commands: Commands,
     mut query: Query<(Entity, &mut Transform, &mut Particle)>,
     time: Res<Time>,
-) {
+) -> Result {
     for (entity, mut transform, mut particle) in &mut query {
         if particle.lifetime_timer.tick(time.delta()).just_finished() {
-            commands.entity(entity).despawn();
-            return;
+            commands.entity(entity)?.despawn();
+            return Ok(());
         }
 
         transform.translation += particle.velocity * time.delta_secs();
@@ -205,6 +207,8 @@ fn simulate_particles(
             .velocity
             .smooth_nudge(&Vec3::ZERO, 4.0, time.delta_secs());
     }
+
+    Ok(())
 }
 
 #[derive(Component)]
