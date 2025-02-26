@@ -102,9 +102,9 @@ fn draw(
     if *i == 0 {
         // Generate a random color on first run.
         *draw_color = Color::linear_rgb(
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
         );
     }
 
@@ -129,9 +129,9 @@ fn draw(
     let tolerance = 1.0 / 255.0;
     if old_color.distance(&draw_color) <= tolerance {
         *draw_color = Color::linear_rgb(
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
-            seeded_rng.0.r#gen(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
+            seeded_rng.0.random(),
         );
     }
 

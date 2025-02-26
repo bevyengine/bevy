@@ -64,9 +64,9 @@ fn setup(
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for i in 0..num_obs {
         for j in 0..num_obs {
-            let rotation_axis: [f32; 3] = rng.r#gen();
+            let rotation_axis: [f32; 3] = rng.random();
             let rotation_vec: Vec3 = rotation_axis.into();
-            let rotation: u32 = rng.gen_range(0..360);
+            let rotation: u32 = rng.random_range(0..360);
             let transform = Transform::from_xyz(
                 (-num_obs + 1) as f32 / 2.0 + i as f32,
                 -0.2,

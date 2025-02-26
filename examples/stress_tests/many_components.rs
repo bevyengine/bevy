@@ -27,7 +27,7 @@ use bevy::{
     MinimalPlugins,
 };
 
-use rand::prelude::{Rng, SeedableRng, SliceRandom};
+use rand::prelude::{Rng, SeedableRng, IndexedRandom};
 use rand_chacha::ChaCha8Rng;
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 
@@ -105,7 +105,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
     // fill the schedule with systems
     let mut schedule = Schedule::new(Update);
     for _ in 1..=num_systems {
-        let num_access_components = rng.gen_range(1..10);
+        let num_access_components = rng.random_range(1..10);
         let access_components: Vec<ComponentId> = component_ids
             .choose_multiple(&mut rng, num_access_components)
             .copied()
@@ -126,7 +126,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
 
     // spawn a bunch of entities
     for _ in 1..=num_entities {
-        let num_components = rng.gen_range(1..10);
+        let num_components = rng.random_range(1..10);
         let components: Vec<ComponentId> = component_ids
             .choose_multiple(&mut rng, num_components)
             .copied()
@@ -138,7 +138,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
         // But we do want to deallocate the memory when values is dropped.
         let mut values: Vec<ManuallyDrop<u8>> = components
             .iter()
-            .map(|_id| ManuallyDrop::new(rng.gen_range(0..255)))
+            .map(|_id| ManuallyDrop::new(rng.random_range(0..255)))
             .collect();
         let ptrs: Vec<OwningPtr> = values
             .iter_mut()

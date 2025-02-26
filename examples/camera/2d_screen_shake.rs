@@ -138,11 +138,11 @@ fn screen_shake(
     mut screen_shake: ResMut<ScreenShake>,
     mut query: Query<(&mut Camera, &mut Transform)>,
 ) {
-    let mut rng = ChaCha8Rng::from_entropy();
+    let mut rng = ChaCha8Rng::from_os_rng();
     let shake = screen_shake.trauma * screen_shake.trauma;
-    let angle = (screen_shake.max_angle * shake).to_radians() * rng.gen_range(-1.0..1.0);
-    let offset_x = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
-    let offset_y = screen_shake.max_offset * shake * rng.gen_range(-1.0..1.0);
+    let angle = (screen_shake.max_angle * shake).to_radians() * rng.random_range(-1.0..1.0);
+    let offset_x = screen_shake.max_offset * shake * rng.random_range(-1.0..1.0);
+    let offset_y = screen_shake.max_offset * shake * rng.random_range(-1.0..1.0);
 
     if shake > 0.0 {
         for (mut camera, mut transform) in query.iter_mut() {

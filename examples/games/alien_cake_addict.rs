@@ -110,7 +110,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         ChaCha8Rng::seed_from_u64(19878367467713)
     } else {
-        ChaCha8Rng::from_entropy()
+        ChaCha8Rng::from_os_rng()
     };
 
     // reset the game state
@@ -138,7 +138,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rng.gen_range(-0.1..0.1);
+                    let height = rng.random_range(-0.1..0.1);
                     commands.spawn((
                         DespawnOnExitState(GameState::Playing),
                         Transform::from_xyz(i as f32, height - 0.2, j as f32),
@@ -331,8 +331,8 @@ fn spawn_bonus(
 
     // ensure bonus doesn't spawn on the player
     loop {
-        game.bonus.i = rng.gen_range(0..BOARD_SIZE_I);
-        game.bonus.j = rng.gen_range(0..BOARD_SIZE_J);
+        game.bonus.i = rng.random_range(0..BOARD_SIZE_I);
+        game.bonus.j = rng.random_range(0..BOARD_SIZE_J);
         if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
             break;
         }

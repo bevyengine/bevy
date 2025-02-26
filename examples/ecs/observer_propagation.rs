@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
-use rand::{seq::IteratorRandom, thread_rng, Rng};
+use rand::{seq::IteratorRandom, rng, Rng};
 
 fn main() {
     App::new()
@@ -69,9 +69,9 @@ struct Armor(u16);
 
 /// A normal bevy system that attacks a piece of the goblin's armor on a timer.
 fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     if let Some(target) = entities.iter().choose(&mut rng) {
-        let damage = rng.gen_range(1..20);
+        let damage = rng.random_range(1..20);
         commands.trigger_targets(Attack { damage }, target);
         info!("⚔️  Attack for {} damage", damage);
     }
