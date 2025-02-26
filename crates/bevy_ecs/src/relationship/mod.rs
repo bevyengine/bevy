@@ -277,7 +277,7 @@ pub fn clone_relationship_target<T: RelationshipTarget>(
     if let Some(component) = context.read_source_component::<T>() {
         if context.is_recursive() && T::LINKED_SPAWN {
             for entity in component.iter() {
-                context.queue_entity_clone(entity);
+                context.queue_entity_clone_once(entity);
             }
         }
         context.write_target_component(T::with_capacity(component.len()));
