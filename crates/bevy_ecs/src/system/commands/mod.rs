@@ -465,7 +465,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     let entity = commands.spawn_empty().id();
     ///
     ///     // Get the entity if it still exists, which it will in this case.
-    ///     // If it didn't, the `?` operator would propogate the returned error
+    ///     // If it didn't, the `?` operator would propagate the returned error
     ///     // to the system, and the system would pass it to an error handler.
     ///     entity_commands = commands.get_entity(entity)?;
     ///
