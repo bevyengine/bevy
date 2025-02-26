@@ -591,8 +591,8 @@ mod test {
         let root = commands.spawn(offset_transform(3.3)).id();
         let parent = commands.spawn(offset_transform(4.4)).id();
         let child = commands.spawn(offset_transform(5.5)).id();
-        commands.entity(parent).insert(ChildOf(root));
-        commands.entity(child).insert(ChildOf(parent));
+        commands.entity(parent).insert(ChildOf { parent: root });
+        commands.entity(child).insert(ChildOf { parent });
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
