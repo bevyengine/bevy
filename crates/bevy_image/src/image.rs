@@ -1055,7 +1055,7 @@ impl Image {
     }
 
     /// Returns an iterator over the image's pixels.
-    /// 
+    ///
     /// An image with uninitialized data will return an empty iterator.
     pub fn pixels(&self) -> Pixels {
         let format = self.texture_descriptor.format;
@@ -1067,33 +1067,33 @@ impl Image {
     }
 
     /// Returns a mutable iterator over the image's pixels.
-    /// 
+    ///
     /// An image with uninitialized data will return an empty iterator.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// Replace a specific color:
-    /// 
+    ///
     /// ```rust
     /// # use bevy_image::Image;
     /// # let mut image = Image::default_uninit();
     /// let match_bytes = [255, 0, 255, 255];
     /// let replace_bytes = [0, 0, 0, 0];
-    /// 
+    ///
     /// for mut px in image.pixels_mut() {
     ///     if px.bytes() == &match_bytes {
     ///         px.bytes_mut().copy_from_slice(&replace_bytes);
     ///     }
     /// }
     /// ```
-    /// 
+    ///
     /// Lighten an image:
-    /// 
+    ///
     /// ```rust
     /// # use bevy_image::Image;
     /// # let mut image = Image::default_uninit();
     /// use bevy_color::Luminance;
-    /// 
+    ///
     /// for mut px in image.pixels_mut() {
     ///     // `edit_color` lets us get and set the pixel's `Color` at the same time
     ///     px.edit_color(|c| c.lighter(0.1));
