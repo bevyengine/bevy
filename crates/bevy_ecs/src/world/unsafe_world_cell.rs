@@ -674,7 +674,9 @@ impl<'w> UnsafeWorldCell<'w> {
     pub(crate) unsafe fn increment_trigger_id(self) {
         self.assert_allows_mutable_access();
         // SAFETY: Caller ensure there are no outstanding references
-        unsafe { (*self.ptr).last_trigger_id += 1 }
+        unsafe {
+            (*self.ptr).last_trigger_id = (*self.ptr).last_trigger_id.wrapping_add(1);
+        }
     }
 }
 
