@@ -201,9 +201,9 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// [`with_children`]: EntityWorldMut::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        let id = self.id();
+        let parent = self.id();
         self.world_scope(|world| {
-            world.spawn((bundle, ChildOf { parent: id }));
+            world.spawn((bundle, ChildOf { parent }));
         });
         self
     }
