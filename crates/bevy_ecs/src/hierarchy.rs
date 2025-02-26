@@ -249,8 +249,8 @@ impl<'a> EntityCommands<'a> {
     ///
     /// [`with_children`]: EntityCommands::with_children
     pub fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        let id = self.id();
-        self.commands.spawn((bundle, ChildOf { parent: id }));
+        let parent = self.id();
+        self.commands.spawn((bundle, ChildOf { parent }));
         self
     }
 
