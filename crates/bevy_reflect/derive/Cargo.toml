@@ -26,6 +26,7 @@ syn = { version = "2.0", features = ["full"] }
 uuid = { version = "1.13.1", features = ["v4"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }
 
 [lints]
