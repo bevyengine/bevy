@@ -4,7 +4,7 @@ use core::any::TypeId;
 
 use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
-    component::ComponentId,
+    component::{ComponentId, ComponentsReader},
     entity::Entity,
     event::EventCursor,
     hierarchy::ChildOf,

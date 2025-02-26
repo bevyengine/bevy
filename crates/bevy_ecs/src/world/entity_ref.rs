@@ -5,7 +5,9 @@ use crate::{
         DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType},
+    component::{
+        Component, ComponentId, ComponentTicks, Components, ComponentsReader, Mutable, StorageType,
+    },
     entity::{
         Entities, Entity, EntityBorrow, EntityCloner, EntityClonerBuilder, EntityLocation,
         TrustedEntityBorrow,
@@ -4483,7 +4485,7 @@ mod tests {
     use core::panic::AssertUnwindSafe;
     use std::sync::OnceLock;
 
-    use crate::component::HookContext;
+    use crate::component::{ComponentsReader, HookContext};
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
