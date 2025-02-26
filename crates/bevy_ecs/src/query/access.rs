@@ -806,7 +806,9 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn try_iter_component_access(
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccessError> {
-        if self.component_writes_inverted || self.component_read_and_writes_inverted {
+        // component_writes_inverted is only ever true when component_read_and_writes_inverted is
+        // also true. Therefore it is sufficient to check just component_read_and_writes_inverted.
+        if self.component_read_and_writes_inverted {
             return Err(UnboundedAccessError {
                 writes_inverted: self.component_writes_inverted,
                 read_and_writes_inverted: self.component_read_and_writes_inverted,
@@ -1721,7 +1723,7 @@ mod tests {
     }
 
     #[test]
-    fn try_iter_component_access_unbounded() {
+    fn try_iter_component_access_unbounded_write_all() {
         let mut access = Access::<usize>::default();
 
         access.add_component_read(1);
@@ -1736,6 +1738,27 @@ mod tests {
             result,
             Err(UnboundedAccessError {
                 writes_inverted: true,
+                read_and_writes_inverted: true
+            }),
+        );
+    }
+
+    #[test]
+    fn try_iter_component_access_unbounded_read_all() {
+        let mut access = Access::<usize>::default();
+
+        access.add_component_read(1);
+        access.add_component_read(2);
+        access.read_all();
+
+        let result = access
+            .try_iter_component_access()
+            .map(Iterator::collect::<Vec<_>>);
+
+        assert_eq!(
+            result,
+            Err(UnboundedAccessError {
+                writes_inverted: false,
                 read_and_writes_inverted: true
             }),
         );
