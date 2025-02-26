@@ -13,8 +13,7 @@ use crate::{CosmicFontSystem, Font, TextPipeline};
 /// Provides a method for finding [fonts](`Font`) based on their [`FaceInfo`].
 ///
 /// Note that this is most useful with the `system_font` feature, which exposes
-/// fonts installed on the end-users device. Without this feature, the only fonts
-/// available are ones explicitly added within Bevy anyway.
+/// fonts installed on the end-users device.
 #[derive(SystemParam)]
 pub struct FontLibrary<'w> {
     text_pipeline: ResMut<'w, TextPipeline>,
