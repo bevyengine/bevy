@@ -527,7 +527,7 @@ pub fn extract_clusters(
 ) {
     for (entity, clusters, camera) in &views {
         let mut entity_commands = commands
-            .get_entity(entity)
+            .entity(entity)
             .expect("Clusters entity wasn't synced.");
         if !camera.is_active {
             entity_commands.remove::<(ExtractedClusterableObjects, ExtractedClusterConfig)>();

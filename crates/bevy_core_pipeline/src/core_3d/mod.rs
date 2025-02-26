@@ -728,7 +728,7 @@ pub fn extract_camera_prepass_phase(
         // Add or remove prepasses as appropriate.
 
         let mut camera_commands = commands
-            .get_entity(entity)
+            .entity(entity)
             .expect("Camera entity wasn't synced.");
 
         if depth_prepass {

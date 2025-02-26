@@ -829,7 +829,7 @@ fn extract_depth_of_field_settings(
 
     for (entity, depth_of_field, projection) in query.iter_mut() {
         let mut entity_commands = commands
-            .get_entity(entity)
+            .entity(entity)
             .expect("Depth of field entity wasn't synced.");
 
         // Depth of field is nonsensical without a perspective projection.

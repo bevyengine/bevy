@@ -407,7 +407,7 @@ fn gather_environment_map_uniform(
             EnvironmentMapUniform::default()
         };
         commands
-            .get_entity(view_entity)
+            .entity(view_entity)
             .expect("Environment map light entity wasn't synced.")
             .insert(environment_map_uniform);
     }
@@ -461,12 +461,12 @@ fn gather_light_probes<C>(
         // Record the per-view light probes.
         if render_view_light_probes.is_empty() {
             commands
-                .get_entity(view_entity)
+                .entity(view_entity)
                 .expect("View entity wasn't synced.")
                 .remove::<RenderViewLightProbes<C>>();
         } else {
             commands
-                .get_entity(view_entity)
+                .entity(view_entity)
                 .expect("View entity wasn't synced.")
                 .insert(render_view_light_probes);
         }

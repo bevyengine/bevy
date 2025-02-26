@@ -445,15 +445,40 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
-    /// Returns the [`EntityCommands`] for the requested [`Entity`] without checking
-    /// whether the entity exists.
+    /// Returns the [`EntityCommands`] for the requested [`Entity`], if it exists.
+    ///
+    /// Returns `None` if the entity does not exist.
+    ///
+    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// will be successful, since the entity could be despawned before they are executed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct Label(&'static str);
+    /// fn example_system(mut commands: Commands) {
+    ///     // Create a new, empty entity
+    ///     let entity = commands.spawn_empty().id();
+    ///
+    ///     // Get the entity if it still exists, which it will in this case
+    ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
+    ///         // adds a single component to the entity
+    ///         entity_commands.insert(Label("hello world"));
+    ///     }
+    /// }
+    /// # bevy_ecs::system::assert_is_system(example_system);
+    /// ```
     #[inline]
     #[track_caller]
-    pub fn get_entity(&mut self, entity: Entity) -> EntityCommands {
-        EntityCommands {
+    #[deprecated(since = "0.16.0", note = "Use `Commands::entity` instead")]
+    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
+        self.entities.contains(entity).then_some(EntityCommands {
             entity,
             commands: self.reborrow(),
-        }
+        })
     }
 
     /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
@@ -2215,14 +2240,16 @@ mod tests {
         let mut commands = Commands::new(&mut queue, &world);
         let entity = commands.spawn_empty().id();
         commands
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .entry::<W<u32>>()
             .and_modify(|_| unreachable!());
         queue.apply(&mut world);
         assert!(!world.entity(entity).contains::<W<u32>>());
         let mut commands = Commands::new(&mut queue, &world);
         commands
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .entry::<W<u32>>()
             .or_insert(W(0))
             .and_modify(|mut val| {
@@ -2232,7 +2259,8 @@ mod tests {
         assert_eq!(21, world.get::<W<u32>>(entity).unwrap().0);
         let mut commands = Commands::new(&mut queue, &world);
         commands
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .entry::<W<u64>>()
             .and_modify(|_| unreachable!())
             .or_insert(W(42));
@@ -2241,13 +2269,19 @@ mod tests {
         world.insert_resource(W(5_usize));
         let mut commands = Commands::new(&mut queue, &world);
         commands
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .entry::<W<String>>()
             .or_from_world();
         queue.apply(&mut world);
         assert_eq!("*****", &world.get::<W<String>>(entity).unwrap().0);
         let mut commands = Commands::new(&mut queue, &world);
-        let id = commands.get_entity(entity).entry::<W<u64>>().entity().id();
+        let id = commands
+            .entity(entity)
+            .unwrap()
+            .entry::<W<u64>>()
+            .entity()
+            .id();
         queue.apply(&mut world);
         assert_eq!(id, entity);
     }
@@ -2270,8 +2304,8 @@ mod tests {
         // test entity despawn
         {
             let mut commands = Commands::new(&mut command_queue, &world);
-            commands.get_entity(entity).despawn();
-            commands.get_entity(entity).despawn(); // double despawn shouldn't panic
+            commands.entity(entity).unwrap().despawn();
+            commands.entity(entity).unwrap().despawn(); // double despawn shouldn't panic
         }
         command_queue.apply(&mut world);
         let results2 = world
@@ -2331,12 +2365,14 @@ mod tests {
         // try to insert components after despawning entity
         // in another command queue
         Commands::new(&mut command_queue1, &world)
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .try_insert_if_new_and(W(1u64), || true);
 
         let mut command_queue2 = CommandQueue::default();
         Commands::new(&mut command_queue2, &world)
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .despawn();
         command_queue2.apply(&mut world);
         command_queue1.apply(&mut world);
@@ -2364,7 +2400,8 @@ mod tests {
 
         // test component removal
         Commands::new(&mut command_queue, &world)
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .remove::<W<u32>>()
             .remove::<(W<u32>, W<u64>, SparseDropCk, DropCk)>();
 
@@ -2410,7 +2447,8 @@ mod tests {
 
         // test component removal
         Commands::new(&mut command_queue, &world)
-            .get_entity(entity)
+            .entity(entity)
+            .unwrap()
             .remove_by_id(world.components().get_id(TypeId::of::<W<u32>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<W<u64>>()).unwrap())
             .remove_by_id(world.components().get_id(TypeId::of::<DropCk>()).unwrap())
@@ -2491,7 +2529,7 @@ mod tests {
 
         {
             let mut commands = Commands::new(&mut queue, &world);
-            commands.get_entity(e).remove_with_requires::<X>();
+            commands.entity(e).unwrap().remove_with_requires::<X>();
         }
         queue.apply(&mut world);
 

@@ -628,7 +628,7 @@ pub fn extract_ui_camera_view(
         // ignore inactive cameras
         if !camera.is_active {
             commands
-                .get_entity(render_entity)
+                .entity(render_entity)
                 .expect("Camera entity wasn't synced.")
                 .remove::<(UiCameraView, UiAntiAlias, BoxShadowSamples)>();
             continue;
@@ -674,7 +674,7 @@ pub fn extract_ui_camera_view(
                 .id();
 
             let mut entity_commands = commands
-                .get_entity(render_entity)
+                .entity(render_entity)
                 .expect("Camera entity wasn't synced.");
             // Link from the main 2D/3D camera view to the UI view.
             entity_commands.insert(UiCameraView(ui_camera_view));

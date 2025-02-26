@@ -710,7 +710,7 @@ pub fn extract_camera_previous_view_data(
 ) {
     for (entity, camera, maybe_previous_view_data) in cameras_3d.iter() {
         let mut entity = commands
-            .get_entity(entity)
+            .entity(entity)
             .expect("Camera entity wasn't synced.");
         if camera.is_active {
             if let Some(previous_view_data) = maybe_previous_view_data {

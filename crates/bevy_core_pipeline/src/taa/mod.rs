@@ -362,7 +362,7 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
-            .get_entity(entity)
+            .entity(entity)
             .expect("Camera entity wasn't synced.");
         if camera.is_active && has_perspective_projection {
             entity_commands.insert(taa_settings.clone());

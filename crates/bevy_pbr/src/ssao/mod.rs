@@ -522,9 +522,7 @@ fn extract_ssao_settings(
             );
             return;
         }
-        let mut entity_commands = commands
-            .get_entity(entity)
-            .expect("SSAO entity wasn't synced.");
+        let mut entity_commands = commands.entity(entity).expect("SSAO entity wasn't synced.");
         if camera.is_active {
             entity_commands.insert(ssao_settings.clone());
         } else {
