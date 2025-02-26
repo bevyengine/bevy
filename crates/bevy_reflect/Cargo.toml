@@ -20,9 +20,6 @@ documentation = ["bevy_reflect_derive/documentation"]
 ## Enables function reflection
 functions = ["bevy_reflect_derive/functions"]
 
-# When enabled, provides Bevy-related reflection implementations
-bevy = ["smallvec", "smol_str"]
-
 # Debugging Features
 
 ## Enables features useful for debugging reflection
