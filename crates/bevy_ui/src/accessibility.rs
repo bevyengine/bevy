@@ -1,5 +1,5 @@
 use crate::{
-    experimental::UiChildren,
+    navigation::UiChildren,
     prelude::{Button, Label},
     widget::{ImageNode, TextUiReader},
     ComputedNode,
@@ -69,7 +69,7 @@ fn button_changed(
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
+        let label = calc_label(&mut text_reader, ui_children.iter_actual_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Button);
             if let Some(name) = label {
@@ -99,7 +99,7 @@ fn image_changed(
     mut text_reader: TextUiReader,
 ) {
     for (entity, accessible) in &mut query {
-        let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
+        let label = calc_label(&mut text_reader, ui_children.iter_actual_children(entity));
         if let Some(mut accessible) = accessible {
             accessible.set_role(Role::Image);
             if let Some(label) = label {

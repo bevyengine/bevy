@@ -11,7 +11,7 @@ use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::{Rect, Vec2};
 use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera, view::InheritedVisibility};
+use bevy_render::{camera::NormalizedRenderTarget, prelude::Camera};
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
@@ -138,7 +138,6 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
-    inherited_visibility: Option<&'static InheritedVisibility>,
     target_camera: &'static ComputedNodeTarget,
 }
 
@@ -222,9 +221,8 @@ pub fn ui_focus_system(
                 return None;
             };
 
-            let inherited_visibility = node.inherited_visibility?;
             // Nodes that are not rendered should not be interactable
-            if !inherited_visibility.get() {
+            if !node.node.is_visible {
                 // Reset their interaction to None to avoid strange stuck state
                 if let Some(mut interaction) = node.interaction {
                     // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
