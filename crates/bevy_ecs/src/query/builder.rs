@@ -89,6 +89,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
         component_accesses
             .map(|access| *access.index())
             .all(is_dense)
+            && !self.access.access().has_read_all_components()
             && self.access.with_filters().all(is_dense)
             && self.access.without_filters().all(is_dense)
     }
