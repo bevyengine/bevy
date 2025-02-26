@@ -1399,7 +1399,12 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue(entity_command::insert_by_id(component_id, value))
+        self.queue(
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
+        )
     }
 
     /// Attempts to add a dynamic component to an entity.
@@ -1417,7 +1422,10 @@ impl<'a> EntityCommands<'a> {
         value: T,
     ) -> &mut Self {
         self.queue_handled(
-            entity_command::insert_by_id(component_id, value),
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
             error_handler::silent(),
         )
     }

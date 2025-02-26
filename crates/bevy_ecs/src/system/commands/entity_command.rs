@@ -172,15 +172,24 @@ pub fn insert_if_new(bundle: impl Bundle) -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that adds a dynamic component to an entity.
+///
+/// # Safety
+///
+/// - [`ComponentId`] must be from the same world as the target entity.
+/// - `T` must have the same layout as the one passed during `component_id` creation.
 #[track_caller]
-pub fn insert_by_id<T: Send + 'static>(component_id: ComponentId, value: T) -> impl EntityCommand {
+pub unsafe fn insert_by_id<T: Send + 'static>(
+    component_id: ComponentId,
+    value: T,
+    mode: InsertMode,
+) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         // SAFETY:
         // - `component_id` safety is ensured by the caller
         // - `ptr` is valid within the `make` block
         OwningPtr::make(value, |ptr| unsafe {
-            entity.insert_by_id_with_caller(component_id, ptr, caller);
+            entity.insert_by_id_with_caller(component_id, ptr, mode, caller);
         });
     }
 }

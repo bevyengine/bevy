@@ -1585,16 +1585,24 @@ impl<'w> EntityWorldMut<'w> {
         component_id: ComponentId,
         component: OwningPtr<'_>,
     ) -> &mut Self {
-        self.insert_by_id_with_caller(component_id, component, MaybeLocation::caller())
+        self.insert_by_id_with_caller(
+            component_id,
+            component,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+        )
     }
 
     /// # Safety
-    /// See [`EntityWorldMut::insert_by_id`]
+    ///
+    /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
+    /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
     #[inline]
     pub(crate) unsafe fn insert_by_id_with_caller(
         &mut self,
         component_id: ComponentId,
         component: OwningPtr<'_>,
+        mode: InsertMode,
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
@@ -1619,6 +1627,7 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             Some(component).into_iter(),
             Some(storage_type).iter().cloned(),
+            mode,
             caller,
         );
         self.world.flush();
@@ -1670,6 +1679,7 @@ impl<'w> EntityWorldMut<'w> {
             self.location,
             iter_components,
             (*storage_types).iter().cloned(),
+            InsertMode::Replace,
             MaybeLocation::caller(),
         );
         *self.world.bundles.get_storages_unchecked(bundle_id) = core::mem::take(&mut storage_types);
@@ -4153,6 +4163,7 @@ unsafe fn insert_dynamic_bundle<
     location: EntityLocation,
     components: I,
     storage_types: S,
+    mode: InsertMode,
     caller: MaybeLocation,
 ) -> EntityLocation {
     struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
@@ -4175,7 +4186,7 @@ unsafe fn insert_dynamic_bundle<
     // SAFETY: location matches current entity.
     unsafe {
         bundle_inserter
-            .insert(entity, location, bundle, InsertMode::Replace, caller)
+            .insert(entity, location, bundle, mode, caller)
             .0
     }
 }
