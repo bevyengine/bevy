@@ -783,7 +783,10 @@ impl<T: SparseSetIndex> Access<T> {
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccess> {
         if self.component_writes_inverted || self.component_read_and_writes_inverted {
-            return Err(UnboundedAccess);
+            return Err(UnboundedAccess {
+                writes_inverted: self.component_writes_inverted,
+                read_and_writes_inverted: self.component_read_and_writes_inverted,
+            });
         }
 
         let reads_and_writes = self.component_read_and_writes.ones().map(|index| {
@@ -813,7 +816,14 @@ impl<T: SparseSetIndex> Access<T> {
 /// if the access excludes items rather than including them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Error)]
 #[error("Access is unbounded")]
-pub struct UnboundedAccess;
+pub struct UnboundedAccess {
+    /// [`Access`] is defined in terms of _excluding_ [exclusive](ComponentAccessKind::Exclusive)
+    /// access.
+    pub writes_inverted: bool,
+    /// [`Access`] is defined in terms of _excluding_ [shared](ComponentAccessKind::Shared) and
+    /// [exclusive](ComponentAccessKind::Exclusive) access.
+    pub read_and_writes_inverted: bool,
+}
 
 /// Describes the level of access for a particular component as defined in an [`Access`].
 pub enum ComponentAccessKind<T> {
