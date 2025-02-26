@@ -75,66 +75,37 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    if relationship.is_some() {
-        if attrs.on_insert.is_some() {
-            return syn::Error::new(
-                    ast.span(),
-                    "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
-                ).into_compile_error().into();
-        }
-
-        if attrs.on_replace.is_some() {
-            return syn::Error::new(
-                ast.span(),
-                "Custom on_replace hooks are not supported as Relationships already define an on_replace hook",
-            )
+    if let Some(err_msg) = [
+        (relationship.is_some() && attrs.on_insert.is_some())
+            .then_some("Custom on_insert hooks are not supported as Relationships already define an on_insert hook"),
+        (relationship.is_some() && attrs.on_replace.is_some())
+            .then_some("Custom on_replace hooks are not supported as Relationships already define an on_replace hook"),
+        (relationship_target.is_some() && attrs.on_replace.is_some())
+            .then_some("Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook"),
+        (relationship_target.is_some() && attrs.on_despawn.is_some())
+            .then_some("Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute"),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
+    {
+        return syn::Error::new(ast.span(), err_msg)
             .into_compile_error()
             .into();
-        }
     }
 
-    if relationship_target.is_some() {
-        if attrs.on_replace.is_some() {
-            return syn::Error::new(
-                ast.span(),
-                "Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook",
-            )
-            .into_compile_error()
-            .into();
-        }
-
-        if attrs.on_despawn.is_some() {
-            return syn::Error::new(
-                ast.span(),
-                "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute",
-            )
-            .into_compile_error()
-            .into();
-        }
-    }
-
-    let on_insert_fn = match syn::parse::<HookAttributeKind>(
+    let [on_insert_fn, on_replace_fn, on_replace_target_fn, on_despawn_target_fn] = match [
         quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert).into(),
-    ) {
-        Ok(value) => value,
-        Err(err) => return err.into_compile_error().into(),
-    };
-    let on_replace_fn = match syn::parse::<HookAttributeKind>(
         quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace).into(),
-    ) {
-        Ok(value) => value,
-        Err(err) => return err.into_compile_error().into(),
-    };
-    let on_replace_target_fn = match syn::parse::<HookAttributeKind>(
         quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace).into(),
-    ) {
-        Ok(value) => value,
-        Err(err) => return err.into_compile_error().into(),
-    };
-    let on_despawn_target_fn = match syn::parse::<HookAttributeKind>(
         quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn).into(),
-    ) {
-        Ok(value) => value,
+    ]
+    .map(syn::parse::<HookAttributeKind>)
+    .into_iter()
+    .collect::<Result<Vec<_>>>()
+    .map(|fns| TryInto::<[_; 4]>::try_into(fns).expect("statically known size"))
+    {
+        Ok(fns) => fns,
         Err(err) => return err.into_compile_error().into(),
     };
 
@@ -463,6 +434,7 @@ pub const ON_DESPAWN: &str = "on_despawn";
 pub const IMMUTABLE: &str = "immutable";
 
 /// All allowed attribute value expression kinds for component hooks
+#[derive(Debug)]
 enum HookAttributeKind {
     /// expressions like function or struct names
     ///
