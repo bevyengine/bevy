@@ -14,7 +14,7 @@ use bevy_render::{
     primitives::{Aabb, Frustum, HalfSpace, Sphere},
     render_resource::BufferBindingType,
     renderer::{RenderAdapter, RenderDevice},
-    view::{RenderLayers, ViewVisibility},
+    view::{InheritedVisibleLayers, RenderLayers, ViewVisibility},
 };
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
@@ -153,14 +153,14 @@ pub(crate) fn assign_objects_to_clusters(
         &Frustum,
         &ClusterConfig,
         &mut Clusters,
-        Option<&RenderLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&mut VisibleClusterableObjects>,
     )>,
     point_lights_query: Query<(
         Entity,
         &GlobalTransform,
         &PointLight,
-        Option<&RenderLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
@@ -168,7 +168,7 @@ pub(crate) fn assign_objects_to_clusters(
         Entity,
         &GlobalTransform,
         &SpotLight,
-        Option<&RenderLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&VolumetricLight>,
         &ViewVisibility,
     )>,
@@ -203,7 +203,7 @@ pub(crate) fn assign_objects_to_clusters(
                             shadows_enabled: point_light.shadows_enabled,
                             volumetric: volumetric.is_some(),
                         },
-                        render_layers: maybe_layers.unwrap_or_default().clone(),
+                        render_layers: maybe_layers.unwrap_or_default().0.clone(),
                     }
                 },
             ),
@@ -223,7 +223,7 @@ pub(crate) fn assign_objects_to_clusters(
                             shadows_enabled: spot_light.shadows_enabled,
                             volumetric: volumetric.is_some(),
                         },
-                        render_layers: maybe_layers.unwrap_or_default().clone(),
+                        render_layers: maybe_layers.unwrap_or_default().0.clone(),
                     }
                 },
             ),

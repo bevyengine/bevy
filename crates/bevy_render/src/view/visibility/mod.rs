@@ -35,7 +35,7 @@ use crate::{
 /// `Visibility` to set the values of each entity's [`InheritedVisibility`] component.
 #[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default, Debug, PartialEq)]
-#[require(InheritedVisibility, ViewVisibility)]
+#[require(InheritedVisibility, ViewVisibility, VisibleLayers)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`ChildOf`] target.
     ///
@@ -315,7 +315,7 @@ pub enum VisibilitySystems {
     CalculateBounds,
     /// Label for [`update_frusta`] in [`CameraProjectionPlugin`](crate::camera::CameraProjectionPlugin).
     UpdateFrusta,
-    /// Label for the system propagating the [`InheritedVisibility`] in a
+    /// Label for the systems propagating [`InheritedVisibility`] and [`InheritedVisibleLayers`] in the
     /// [`ChildOf`] / [`Children`] hierarchy.
     VisibilityPropagate,
     /// Label for the [`check_visibility`] system updating [`ViewVisibility`]
@@ -353,7 +353,7 @@ impl Plugin for VisibilityPlugin {
                 PostUpdate,
                 (
                     calculate_bounds.in_set(CalculateBounds),
-                    (visibility_propagate_system, reset_view_visibility)
+                    (visibility_propagate_system, visible_layers_propagate_system, reset_view_visibility)
                         .in_set(VisibilityPropagate),
                     check_visibility.in_set(CheckVisibility),
                     mark_newly_hidden_entities_invisible.in_set(MarkNewlyHiddenEntitiesInvisible),
@@ -503,7 +503,7 @@ pub fn check_visibility(
         Entity,
         &mut VisibleEntities,
         &Frustum,
-        Option<&RenderLayers>,
+        Option<&InheritedVisibleLayers>,
         &Camera,
         Has<NoCpuCulling>,
     )>,
@@ -512,7 +512,7 @@ pub fn check_visibility(
         &InheritedVisibility,
         &mut ViewVisibility,
         &VisibilityClass,
-        Option<&RenderLayers>,
+        Option<&InheritedVisibleLayers>,
         Option<&Aabb>,
         &GlobalTransform,
         Has<NoFrustumCulling>,

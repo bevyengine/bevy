@@ -21,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
-use bevy_render::sync_world::MainEntity;
+use bevy_render::{sync_world::MainEntity, view::InheritedVisibleLayers};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -29,7 +29,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSet,
 };
 use tracing::error;
@@ -296,7 +296,7 @@ fn queue_line_gizmos_3d(
     views: Query<(
         &ExtractedView,
         &Msaa,
-        Option<&RenderLayers>,
+        Option<&InheritedVisibleLayers>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
@@ -416,7 +416,7 @@ fn queue_line_joint_gizmos_3d(
     views: Query<(
         &ExtractedView,
         &Msaa,
-        Option<&RenderLayers>,
+        Option<&InheritedVisibleLayers>,
         (
             Has<NormalPrepass>,
             Has<DepthPrepass>,
