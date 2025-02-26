@@ -455,7 +455,7 @@ pub fn prepare_meshlet_per_frame_resources(
                 let index = instance_index / 32;
                 let bit = instance_index - index * 32;
                 if vec.len() <= index {
-                    vec.extend(iter::repeat(0).take(index - vec.len() + 1));
+                    vec.extend(iter::repeat_n(0, index - vec.len() + 1));
                 }
                 vec[index] |= 1 << bit;
             }

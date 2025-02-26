@@ -12,7 +12,7 @@ use crate::{
     resource::Resource,
     system::{Commands, Query},
     traversal::Traversal,
-    world::{error::EntityFetchError, WorldEntityFetch},
+    world::{error::EntityMutableFetchError, WorldEntityFetch},
 };
 
 use super::{unsafe_world_cell::UnsafeWorldCell, Mut, World, ON_INSERT, ON_REPLACE};
@@ -94,24 +94,13 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         entity: Entity,
         f: impl FnOnce(&mut T) -> R,
-    ) -> Result<Option<R>, EntityFetchError> {
+    ) -> Result<Option<R>, EntityMutableFetchError> {
         // If the component is not registered, then it doesn't exist on this entity, so no action required.
         let Some(component_id) = self.component_id::<T>() else {
             return Ok(None);
         };
 
-        let entity_cell = match self.get_entity_mut(entity) {
-            Ok(cell) => cell,
-            Err(EntityFetchError::AliasedMutability(..)) => {
-                return Err(EntityFetchError::AliasedMutability(entity))
-            }
-            Err(EntityFetchError::NoSuchEntity(..)) => {
-                return Err(EntityFetchError::NoSuchEntity(
-                    entity,
-                    self.entities().entity_does_not_exist_error_details(entity),
-                ))
-            }
-        };
+        let entity_cell = self.get_entity_mut(entity)?;
 
         if !entity_cell.contains::<T>() {
             return Ok(None);
@@ -201,9 +190,9 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityFetchError::NoSuchEntity`] if any of the given `entities` do not exist in the world.
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
     ///
     /// # Examples
     ///
@@ -217,7 +206,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
         entities: F,
-    ) -> Result<F::DeferredMut<'_>, EntityFetchError> {
+    ) -> Result<F::DeferredMut<'_>, EntityMutableFetchError> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
@@ -685,7 +674,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event: ComponentId,
         mut target: Entity,
-        components: &[ComponentId],
+        components: impl Iterator<Item = ComponentId> + Clone,
         data: &mut E,
         mut propagate: bool,
         caller: MaybeLocation,
@@ -697,7 +686,7 @@ impl<'w> DeferredWorld<'w> {
                 self.reborrow(),
                 event,
                 target,
-                components.iter().copied(),
+                components.clone(),
                 data,
                 &mut propagate,
                 caller,

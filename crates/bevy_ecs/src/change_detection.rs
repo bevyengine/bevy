@@ -223,7 +223,7 @@ pub trait DetectChangesMut: DetectChanges {
     ///     let new_score = 0;
     ///     if let Some(Score(previous_score)) = score.replace_if_neq(Score(new_score)) {
     ///         // If `score` change, emit a `ScoreChanged` event.
-    ///         score_changed.send(ScoreChanged {
+    ///         score_changed.write(ScoreChanged {
     ///             current: new_score,
     ///             previous: previous_score,
     ///         });
@@ -811,7 +811,7 @@ impl<'w, T: ?Sized> Ref<'w, T> {
     /// - `added` - A [`Tick`] that stores the tick when the wrapped value was created.
     /// - `changed` - A [`Tick`] that stores the last time the wrapped value was changed.
     /// - `last_run` - A [`Tick`], occurring before `this_run`, which is used
-    ///    as a reference to determine whether the wrapped value is newly added or changed.
+    ///   as a reference to determine whether the wrapped value is newly added or changed.
     /// - `this_run` - A [`Tick`] corresponding to the current point in time -- "now".
     pub fn new(
         value: &'w T,
