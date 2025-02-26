@@ -24,7 +24,7 @@ use core::{fmt::Debug, hash::Hash, ops::Deref};
 /// the same [`Interner`] instance.
 // NOTE: This type must NEVER implement Borrow since it does not obey that trait's invariants.
 /// ```
-/// # use bevy_ecs::intern::*;
+/// # use bevy_label::intern::*;
 /// #[derive(PartialEq, Eq, Hash, Debug)]
 /// struct Value(i32);
 /// impl Internable for Value {

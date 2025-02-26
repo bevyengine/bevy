@@ -105,6 +105,7 @@ bevy_ecs_macros = { path = "macros", version = "0.16.0-dev" }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
 ] }
+bevy_label = { path = "../bevy_label", version = "0.16.0-dev" }
 
 bitflags = { version = "2.3", default-features = false }
 concurrent-queue = { version = "2.5.0", default-features = false }

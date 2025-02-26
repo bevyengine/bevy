@@ -6,17 +6,15 @@ use core::{
     marker::PhantomData,
 };
 
-pub use crate::label::DynEq;
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
 
-use crate::{
-    define_label,
-    intern::Interned,
-    system::{
-        ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
-        IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
-    },
+use crate::system::{
+    ExclusiveFunctionSystem, ExclusiveSystemParamFunction, FunctionSystem,
+    IsExclusiveFunctionSystem, IsFunctionSystem, SystemParamFunction,
 };
+
+pub use bevy_label::DynEq;
+use bevy_label::{define_label, intern::Interned};
 
 define_label!(
     /// A strongly-typed class of labels used to identify a [`Schedule`](crate::schedule::Schedule).
