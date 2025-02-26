@@ -2275,7 +2275,7 @@ mod tests {
                 // <- sync point is added here because the following system is exclusive which expects to see all commands to that point
                 |world: &mut World| assert!(world.contains_resource::<Resource1>()),
                 // <- no sync point is added here because the previous system has no deferred parameters
-                |_: &mut World| {}
+                |_: &mut World| {},
                 // <- no sync point is added here because the following system is not exclusive
                 |_: Commands| {},
             )
