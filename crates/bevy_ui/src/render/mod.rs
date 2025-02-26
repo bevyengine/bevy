@@ -811,6 +811,7 @@ pub fn extract_text_sections(
         let (glyph_x, glyph_width) = if let Some(last_glyph) = line.glyphs.last() {
             line.glyphs
                 .iter()
+                // Find the width of the glyph the cursor is over
                 .find_map(|glyph| {
                     if cursor.index <= glyph.end {
                         Some((glyph.x, glyph.w))
@@ -818,14 +819,16 @@ pub fn extract_text_sections(
                         None
                     }
                 })
+                // If the cursor is past the end of the line, use the width of the last glyph.
                 .unwrap_or((last_glyph.x + last_glyph.w, last_glyph.w))
         } else {
+            // Used with `TextCursorWidth::All` if the string is empty and there is no previous glyph to base the width on.
             (0., 3. * target.scale_factor)
         };
 
         let width = match cursor_style.width {
-            TextCursorWidth::All => glyph_width,
-            TextCursorWidth::Px(width) => width * target.scale_factor,
+            TextCursorWidth::Block => glyph_width,
+            TextCursorWidth::Line(width) => width * target.scale_factor,
         };
 
         let x = glyph_x + width * 0.5;

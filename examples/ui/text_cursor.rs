@@ -101,8 +101,8 @@ fn move_cursor(
             // Toggle between a narrow line cursor and a block
             // cursor that covers the entire glyph.
             style.width = match style.width {
-                TextCursorWidth::All => TextCursorWidth::Px(3.),
-                TextCursorWidth::Px(_) => TextCursorWidth::All,
+                TextCursorWidth::Block => TextCursorWidth::Line(3.),
+                TextCursorWidth::Line(_) => TextCursorWidth::Block,
             };
         }
     }
