@@ -49,7 +49,11 @@ fn main() {
                 deferred::remove_prepass.run_if(resource_removed::<deferred::RemovePrepassTimer>),
                 deferred::remove_prepass_timer_tick
                     .run_if(resource_exists::<deferred::RemovePrepassTimer>),
-            ),
+            )
+                .run_if(
+                    in_state(Scene::RemoveDeferredPrepass)
+                        .or(in_state(Scene::RemoveForwardPrepass)),
+                ),
         );
 
     #[cfg(feature = "bevy_ci_testing")]
