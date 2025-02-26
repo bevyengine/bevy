@@ -269,6 +269,14 @@ pub struct GltfExtras {
     pub value: String,
 }
 
+impl From<&serde_json::value::RawValue> for GltfExtras {
+    fn from(value: &serde_json::value::RawValue) -> Self {
+        GltfExtras {
+            value: value.get().to_string(),
+        }
+    }
+}
+
 /// Additional untyped data that can be present on most glTF types at the scene level.
 ///
 /// See [the relevant glTF specification section](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#reference-extras).

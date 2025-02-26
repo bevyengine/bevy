@@ -1,6 +1,5 @@
 //! Methods to access information from [`gltf`] types
 
-pub mod extras;
 pub mod material;
 pub mod mesh;
 pub mod scene;

@@ -69,9 +69,7 @@ use crate::{
 use self::{
     extensions::{AnisotropyExtension, ClearcoatExtension, SpecularExtension},
     gltf_ext::{
-        check_for_cycles,
-        extras::as_gltf_extras,
-        get_linear_textures,
+        check_for_cycles, get_linear_textures,
         material::{
             alpha_mode, material_label, needs_tangents, uv_channel,
             warn_on_differing_texture_transforms,
@@ -710,12 +708,20 @@ async fn load_gltf<'a, 'b, 'c>(
                     .material()
                     .index()
                     .and_then(|i| materials.get(i).cloned()),
-                as_gltf_extras(primitive.extras()),
-                as_gltf_extras(primitive.material().extras()),
+                primitive.extras().as_deref().map(GltfExtras::from),
+                primitive
+                    .material()
+                    .extras()
+                    .as_deref()
+                    .map(GltfExtras::from),
             ));
         }
 
-        let mesh = super::GltfMesh::new(&gltf_mesh, primitives, as_gltf_extras(gltf_mesh.extras()));
+        let mesh = super::GltfMesh::new(
+            &gltf_mesh,
+            primitives,
+            gltf_mesh.extras().as_deref().map(GltfExtras::from),
+        );
 
         let handle = load_context
             .add_labeled_asset(mesh.asset_label().to_string(), mesh)
@@ -786,7 +792,7 @@ async fn load_gltf<'a, 'b, 'c>(
                         &skin,
                         joints,
                         skinned_mesh_inverse_bindposes[skin.index()].clone(),
-                        as_gltf_extras(skin.extras()),
+                        skin.extras().as_deref().map(GltfExtras::from),
                     );
 
                     let handle = load_context
@@ -818,7 +824,7 @@ async fn load_gltf<'a, 'b, 'c>(
             mesh,
             node_transform(&node),
             skin,
-            as_gltf_extras(node.extras()),
+            node.extras().as_deref().map(GltfExtras::from),
         );
 
         #[cfg(feature = "bevy_animation")]
