@@ -1,0 +1,39 @@
+error[E0599]: the method `into_function` exists for fn item `fn() -> Foo {return_not_reflect}`, but its trait bounds were not satisfied
+  --> tests/into_function/return_fail.rs:LL:CC
+   |
+LL |     let _ = return_not_reflect.into_function();
+   |                                ^^^^^^^^^^^^^ method cannot be called on `fn() -> Foo {return_not_reflect}` due to unsatisfied trait bounds
+   |
+   = note: the following trait bounds were not satisfied:
+           `fn() -> Foo {return_not_reflect}: ReflectFn<'_, _>`
+           which is required by `fn() -> Foo {return_not_reflect}: IntoFunction<'_, (_, _)>`
+           `fn() -> Foo {return_not_reflect}: TypedFunction<_>`
+           which is required by `fn() -> Foo {return_not_reflect}: IntoFunction<'_, (_, _)>`
+           `&fn() -> Foo {return_not_reflect}: ReflectFn<'_, _>`
+           which is required by `&fn() -> Foo {return_not_reflect}: IntoFunction<'_, (_, _)>`
+           `&fn() -> Foo {return_not_reflect}: TypedFunction<_>`
+           which is required by `&fn() -> Foo {return_not_reflect}: IntoFunction<'_, (_, _)>`
+           `&mut fn() -> Foo {return_not_reflect}: ReflectFn<'_, _>`
+           which is required by `&mut fn() -> Foo {return_not_reflect}: IntoFunction<'_, (_, _)>`
+           `&mut fn() -> Foo {return_not_reflect}: TypedFunction<_>`
+           which is required by `&mut fn() -> Foo {return_not_reflect}: IntoFunction<'_, (_, _)>`
+
+error[E0599]: the method `into_function` exists for fn item `fn(&String, &String) -> &String {return_with_invalid_lifetime}`, but its trait bounds were not satisfied
+  --> tests/into_function/return_fail.rs:LL:CC
+   |
+LL |     let _ = return_with_invalid_lifetime.into_function();
+   |                                          ^^^^^^^^^^^^^ method cannot be called due to unsatisfied trait bounds
+   |
+   = note: the full type name has been written to 'BEVY_ROOT/bevy_reflect/compile_fail/target/ui/0/tests/into_function/long-type.sr''
+   = note: consider using `--verbose` to print the full type name to the console
+   = note: the following trait bounds were not satisfied:
+           `for<'a, 'b> fn(&'a std::string::String, &'b std::string::String) -> &'b std::string::String {return_with_invalid_lifetime}: ReflectFn<'_, _>`
+           which is required by `for<'a, 'b> fn(&'a std::string::String, &'b std::string::String) -> &'b std::string::String {return_with_invalid_lifetime}: IntoFunction<'_, (_, _)>`
+           `&for<'a, 'b> fn(&'a std::string::String, &'b std::string::String) -> &'b std::string::String {return_with_invalid_lifetime}: ReflectFn<'_, _>`
+           which is required by `&for<'a, 'b> fn(&'a std::string::String, &'b std::string::String) -> &'b std::string::String {return_with_invalid_lifetime}: IntoFunction<'_, (_, _)>`
+           `&mut for<'a, 'b> fn(&'a std::string::String, &'b std::string::String) -> &'b std::string::String {return_with_invalid_lifetime}: ReflectFn<'_, _>`
+           which is required by `&mut for<'a, 'b> fn(&'a std::string::String, &'b std::string::String) -> &'b std::string::String {return_with_invalid_lifetime}: IntoFunction<'_, (_, _)>`
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0599`.

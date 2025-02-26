@@ -1,0 +1,18 @@
+error[E0597]: `value` does not live long enough
+  --> tests/into_function/closure_fail.rs:LL:CC
+   |
+LL |     let value = String::from("Hello, World!");
+   |         ----- binding `value` declared here
+LL |     let closure_capture_reference = || println!("{}", value);
+   |                                     --                ^^^^^ borrowed value does not live long enough
+   |                                     |
+   |                                     value captured here
+...
+LL |     let _: DynamicFunction<'static> = closure_capture_reference.into_function();
+   |            ------------------------ type annotation requires that `value` is borrowed for `'static`
+LL | }
+   | - `value` dropped here while still borrowed
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0597`.
