@@ -320,7 +320,7 @@ pub use bevy_ecs_macros::require;
 /// }
 /// ```
 ///
-/// This  also supports
+/// This also supports
 /// - function calls that yield closures
 /// - closures directly
 ///
