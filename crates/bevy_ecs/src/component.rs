@@ -320,7 +320,7 @@ pub use bevy_ecs_macros::require;
 /// }
 /// ```
 ///
-/// This doesn't only support static functions but also
+/// This  also supports
 /// - function calls that yield closures
 /// - closures directly
 ///
