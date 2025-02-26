@@ -9,7 +9,7 @@
 //!
 //! In order to use [`GhostNode`]s you must enable the `ghost_nodes` feature flag.
 
-use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
+use bevy::{prelude::*, ui::navigation::UiNode, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     // Ghost UI root
-    commands.spawn(GhostNode).with_children(|ghost_root| {
+    commands.spawn(UiNode).with_children(|ghost_root| {
         ghost_root.spawn(Node::default()).with_child(create_label(
             "This text node is rendered under a ghost root",
             font_handle.clone(),
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .spawn((Node::default(), Counter(0)))
                 .with_children(|layout_parent| {
                     layout_parent
-                        .spawn((GhostNode, Counter(0)))
+                        .spawn((UiNode, Counter(0)))
                         .with_children(|ghost_parent| {
                             // Ghost children using a separate counter state
                             // These buttons are being treated as children of layout_parent in the context of UI
