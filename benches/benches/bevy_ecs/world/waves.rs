@@ -23,24 +23,22 @@ struct WaveBench {
     entities: u32,
 }
 
-pub fn world_spawn(criterion: &mut Criterion) {
-    let mut group = criterion.benchmark_group("spawn_waves");
-    group.warm_up_time(core::time::Duration::from_millis(500));
-    group.measurement_time(core::time::Duration::from_secs(16));
-
-    for bench in WAVES {
-        group.bench_function(
+macro_rules! expand_benches {
+    ($bench:ident, $group:ident, $bench_name:literal, $component:ty) => {
+        $group.bench_function(
             format!(
-                "{0}_waves_of_{1} `EmptyComponent` spawn_batch",
-                bench.waves, bench.entities
+                "{0}_waves_of_{1} `{2}` spawn_batch",
+                $bench.waves, $bench.entities, $bench_name
             ),
             |bencher| {
                 let mut world = World::default();
                 bencher.iter(|| {
-                    let mut entities = Vec::with_capacity(bench.entities as usize);
-                    for _ in 0..(bench.waves - 1) {
+                    let mut entities = Vec::with_capacity($bench.entities as usize);
+                    for _ in 0..($bench.waves - 1) {
                         entities
-                            .extend(world.spawn_batch((0..bench.entities).map(|_| EmptyComponent)));
+                            .extend(world.spawn_batch(
+                                (0..$bench.entities).map(|_| <$component>::default()),
+                            ));
                         for entity in entities.drain(..) {
                             world.despawn(entity);
                         }
@@ -48,6 +46,48 @@ pub fn world_spawn(criterion: &mut Criterion) {
                 });
             },
         );
+
+        $group.bench_function(
+            format!(
+                "{0}_waves_of_{1} `{2}` insert_or_spawn_batch",
+                $bench.waves, $bench.entities, $bench_name
+            ),
+            |bencher| {
+                let mut world = World::default();
+                bencher.iter(|| {
+                    let entities = world
+                        .spawn_batch((0..$bench.entities).map(|_| <$component>::default()))
+                        .collect::<Vec<_>>();
+                    for _ in 0..($bench.waves - 1) {
+                        for entity in entities.iter().copied() {
+                            world.despawn(entity);
+                        }
+                        world
+                            .insert_or_spawn_batch(
+                                entities
+                                    .iter()
+                                    .copied()
+                                    .map(|e| (e, <$component>::default())),
+                            )
+                            .unwrap();
+                    }
+                    for entity in entities {
+                        world.despawn(entity);
+                    }
+                });
+            },
+        );
+    };
+}
+
+pub fn world_wave_spawn(criterion: &mut Criterion) {
+    let mut group = criterion.benchmark_group("spawn_waves");
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(16));
+
+    for bench in WAVES {
+        expand_benches!(bench, group, "EmptyComponent", EmptyComponent);
+        expand_benches!(bench, group, "LargeComponent", LargeComponent);
     }
 
     group.finish();

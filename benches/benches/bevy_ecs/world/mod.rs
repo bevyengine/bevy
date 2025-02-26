@@ -36,4 +36,5 @@ criterion_group!(
     query_get_many::<5>,
     query_get_many::<10>,
     entity_set_build_and_lookup,
+    waves::world_wave_spawn,
 );
