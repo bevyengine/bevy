@@ -175,7 +175,7 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
              mut lighting_mode_change_event_writer: EventWriter<LightingModeChanged>| {
                 // When the scene loads, send a `LightingModeChanged` event so
                 // that we set up the lightmaps.
-                lighting_mode_change_event_writer.send(LightingModeChanged);
+                lighting_mode_change_event_writer.write(LightingModeChanged);
             },
         );
 }
@@ -393,7 +393,7 @@ fn handle_lighting_mode_change(
 ) {
     for event in widget_click_event_reader.read() {
         app_status.lighting_mode = **event;
-        lighting_mode_change_event_writer.send(LightingModeChanged);
+        lighting_mode_change_event_writer.write(LightingModeChanged);
     }
 }
 

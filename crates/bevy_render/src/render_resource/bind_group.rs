@@ -12,7 +12,11 @@ pub use bevy_render_macros::AsBindGroup;
 use core::ops::Deref;
 use encase::ShaderType;
 use thiserror::Error;
-use wgpu::{BindGroupEntry, BindGroupLayoutEntry, BindingResource, TextureViewDimension};
+use wgpu::{
+    BindGroupEntry, BindGroupLayoutEntry, BindingResource, SamplerBindingType, TextureViewDimension,
+};
+
+use super::{BindlessDescriptor, BindlessSlabResourceLimit};
 
 define_atomic_id!(BindGroupId);
 
@@ -144,16 +148,16 @@ impl Deref for BindGroup {
 /// ## `uniform(BINDING_INDEX)`
 ///
 ///  * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
-///      [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
-///      [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
+///    [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
+///    [`LinearRgba`](bevy_color::LinearRgba). It can also be derived for custom structs.
 ///
 /// ## `texture(BINDING_INDEX, arguments)`
 ///
 ///  * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
-///      GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///      most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///      [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
-///      (with a different binding index) if a binding of the sampler for the [`Image`](bevy_image::Image) is also required.
+///    GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///    most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///    [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
+///    (with a different binding index) if a binding of the sampler for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments             | Values                                                                  | Default              |
 /// |-----------------------|-------------------------------------------------------------------------|----------------------|
@@ -166,9 +170,9 @@ impl Deref for BindGroup {
 /// ## `storage_texture(BINDING_INDEX, arguments)`
 ///
 /// * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
-///     GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///     [`None`], the [`crate::texture::FallbackImage`] resource will be used instead.
+///   GPU resource, which will be bound as a storage texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///   most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///   [`None`], the [`crate::texture::FallbackImage`] resource will be used instead.
 ///
 /// | Arguments              | Values                                                                                     | Default       |
 /// |------------------------|--------------------------------------------------------------------------------------------|---------------|
@@ -180,10 +184,10 @@ impl Deref for BindGroup {
 /// ## `sampler(BINDING_INDEX, arguments)`
 ///
 /// * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`] GPU
-///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
-///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
-///     [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
-///     (with a different binding index) if a binding of the texture for the [`Image`](bevy_image::Image) is also required.
+///   resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
+///   most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
+///   [`None`], the [`crate::texture::FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
+///   (with a different binding index) if a binding of the texture for the [`Image`](bevy_image::Image) is also required.
 ///
 /// | Arguments              | Values                                                                  | Default                |
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
@@ -259,44 +263,161 @@ impl Deref for BindGroup {
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
 /// ## `uniform(BINDING_INDEX, ConvertedShaderType)`
 ///
-/// * This also creates a [`Buffer`] using [`ShaderType`] and binds it as a uniform, much
-///     like the field-level `uniform` attribute. The difference is that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
-///     which must implement [`ShaderType`], instead of a specific field implementing [`ShaderType`]. This is useful if more complicated conversion
-///     logic is required. The conversion is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait, which is automatically implemented
-///     if `&Self` implements [`Into<ConvertedShaderType>`]. Only use [`AsBindGroupShaderType`] if access to resources like [`RenderAssets<GpuImage>`] is
-///     required.
+/// * This also creates a [`Buffer`] using [`ShaderType`] and binds it as a
+///   uniform, much like the field-level `uniform` attribute. The difference is
+///   that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
+///   which must implement [`ShaderType`], instead of a specific field
+///   implementing [`ShaderType`]. This is useful if more complicated conversion
+///   logic is required, or when using bindless mode (see below). The conversion
+///   is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait,
+///   which is automatically implemented if `&Self` implements
+///   [`Into<ConvertedShaderType>`]. Outside of bindless mode, only use
+///   [`AsBindGroupShaderType`] if access to resources like
+///   [`RenderAssets<GpuImage>`] is required.
+///
+/// * In bindless mode (see `bindless(COUNT)`), this attribute becomes
+///   `uniform(BINDLESS_INDEX, ConvertedShaderType,
+///   binding_array(BINDING_INDEX))`. The resulting uniform buffers will be
+///   available in the shader as a binding array at the given `BINDING_INDEX`. The
+///   `BINDLESS_INDEX` specifies the offset of the buffer in the bindless index
+///   table.
+///
+///   For example, suppose that the material slot is stored in a variable named
+///   `slot`, the bindless index table is named `material_indices`, and that the
+///   first field (index 0) of the bindless index table type is named
+///   `material`. Then specifying `#[uniform(0, StandardMaterialUniform,
+///   binding_array(10)]` will create a binding array buffer declared in the
+///   shader as `var<storage> material_array:
+///   binding_array<StandardMaterialUniform>` and accessible as
+///   `material_array[material_indices[slot].material]`.
+///
+/// ## `data(BINDING_INDEX, ConvertedShaderType, binding_array(BINDING_INDEX))`
+///
+/// * This is very similar to `uniform(BINDING_INDEX, ConvertedShaderType,
+///   binding_array(BINDING_INDEX)` and in fact is identical if bindless mode
+///   isn't being used. The difference is that, in bindless mode, the `data`
+///   attribute produces a single buffer containing an array, not an array of
+///   buffers. For example, suppose you had the following declaration:
+///
+/// ```ignore
+/// #[uniform(0, StandardMaterialUniform, binding_array(10))]
+/// struct StandardMaterial { ... }
+/// ```
+///
+/// In bindless mode, this will produce a binding matching the following WGSL
+/// declaration:
+///
+/// ```wgsl
+/// @group(2) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
+/// ```
+///
+/// On the other hand, if you write this declaration:
+///
+/// ```ignore
+/// #[data(0, StandardMaterialUniform, binding_array(10))]
+/// struct StandardMaterial { ... }
+/// ```
+///
+/// Then Bevy produces a binding that matches this WGSL declaration instead:
+///
+/// ```wgsl
+/// @group(2) @binding(10) var<storage> material_array: array<StandardMaterial>;
+/// ```
+///
+/// * Just as with the structure-level `uniform` attribute, Bevy converts the
+///   entire [`AsBindGroup`] to `ConvertedShaderType`, using the
+///   [`AsBindGroupShaderType<ConvertedShaderType>`] trait.
+///
+/// * In non-bindless mode, the structure-level `data` attribute is the same as
+///   the structure-level `uniform` attribute and produces a single uniform buffer
+///   in the shader. The above example would result in a binding that looks like
+///   this in WGSL in non-bindless mode:
+///
+/// ```wgsl
+/// @group(2) @binding(0) var<uniform> material: StandardMaterial;
+/// ```
+///
+/// * For efficiency reasons, `data` is generally preferred over `uniform`
+///   unless you need to place your data in individual buffers.
 ///
 /// ## `bind_group_data(DataType)`
 ///
 /// * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
-///     as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
-///     the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
-///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+///   as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
+///   the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
+///   is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
 ///
-/// ## `bindless(COUNT)`
+/// ## `bindless`
 ///
 /// * This switch enables *bindless resources*, which changes the way Bevy
-///   supplies resources (uniforms, textures, and samplers) to the shader.
-///   When bindless resources are enabled, and the current platform supports
-///   them, instead of presenting a single instance of a resource to your
-///   shader Bevy will instead present a *binding array* of `COUNT` elements.
-///   In your shader, the index of the element of each binding array
-///   corresponding to the mesh currently being drawn can be retrieved with
-///   `mesh[in.instance_index].material_and_lightmap_bind_group_slot &
-///   0xffffu`.
-/// * Bindless uniforms don't exist, so in bindless mode all uniforms and
-///   uniform buffers are automatically replaced with read-only storage
-///   buffers.
-/// * The purpose of bindless mode is to improve performance by reducing
-///   state changes. By grouping resources together into binding arrays, Bevy
-///   doesn't have to modify GPU state as often, decreasing API and driver
-///   overhead.
+///   supplies resources (textures, and samplers) to the shader.  When bindless
+///   resources are enabled, and the current platform supports them, Bevy will
+///   allocate textures, and samplers into *binding arrays*, separated based on
+///   type and will supply your shader with indices into those arrays.
+/// * Bindless textures and samplers are placed into the appropriate global
+///   array defined in `bevy_render::bindless` (`bindless.wgsl`).
+/// * Bevy doesn't currently support bindless buffers, except for those created
+///   with the `uniform(BINDLESS_INDEX, ConvertedShaderType,
+///   binding_array(BINDING_INDEX))` attribute. If you need to include a buffer in
+///   your object, and you can't create the data in that buffer with the `uniform`
+///   attribute, consider a non-bindless object instead.
 /// * If bindless mode is enabled, the `BINDLESS` definition will be
 ///   available. Because not all platforms support bindless resources, you
 ///   should check for the presence of this definition via `#ifdef` and fall
 ///   back to standard bindings if it isn't present.
+/// * In bindless mode, binding 0 becomes the *bindless index table*, which is
+///   an array of structures, each of which contains as many fields of type `u32`
+///   as the highest binding number in the structure annotated with
+///   `#[derive(AsBindGroup)]`. The *i*th field of the bindless index table
+///   contains the index of the resource with binding *i* within the appropriate
+///   binding array.
+/// * In the case of materials, the index of the applicable table within the
+///   bindless index table list corresponding to the mesh currently being drawn
+///   can be retrieved with
+///   `mesh[in.instance_index].material_and_lightmap_bind_group_slot & 0xffffu`.
+/// * You can limit the size of the bindless slabs to N resources with the
+///   `limit(N)` declaration. For example, `#[bindless(limit(16))]` ensures that
+///   each slab will have no more than 16 total resources in it. If you don't
+///   specify a limit, Bevy automatically picks a reasonable one for the current
+///   platform.
+/// * The purpose of bindless mode is to improve performance by reducing
+///   state changes. By grouping resources together into binding arrays, Bevy
+///   doesn't have to modify GPU state as often, decreasing API and driver
+///   overhead.
 /// * See the `shaders/shader_material_bindless` example for an example of
 ///   how to use bindless mode.
+/// * The following diagram illustrates how bindless mode works using a subset
+///   of `StandardMaterial`:
+///
+/// ```text
+///      Shader Bindings                          Sampler Binding Array
+///     +----+-----------------------------+     +-----------+-----------+-----+
+/// +---|  0 | material_indices            |  +->| sampler 0 | sampler 1 | ... |
+/// |   +----+-----------------------------+  |  +-----------+-----------+-----+
+/// |   |  1 | bindless_samplers_filtering +--+        ^
+/// |   +----+-----------------------------+           +-------------------------------+
+/// |   | .. |            ...              |                                           |
+/// |   +----+-----------------------------+      Texture Binding Array                |
+/// |   |  5 | bindless_textures_2d        +--+  +-----------+-----------+-----+       |
+/// |   +----+-----------------------------+  +->| texture 0 | texture 1 | ... |       |
+/// |   | .. |            ...              |     +-----------+-----------+-----+       |
+/// |   +----+-----------------------------+           ^                               |
+/// |   + 10 | material_array              +--+        +---------------------------+   |
+/// |   +----+-----------------------------+  |                                    |   |
+/// |                                         |   Buffer Binding Array             |   |
+/// |                                         |  +----------+----------+-----+     |   |
+/// |                                         +->| buffer 0 | buffer 1 | ... |     |   |
+/// |    Material Bindless Indices               +----------+----------+-----+     |   |
+/// |   +----+-----------------------------+          ^                            |   |
+/// +-->|  0 | material                    +----------+                            |   |
+///     +----+-----------------------------+                                       |   |
+///     |  1 | base_color_texture          +---------------------------------------+   |
+///     +----+-----------------------------+                                           |
+///     |  2 | base_color_sampler          +-------------------------------------------+
+///     +----+-----------------------------+
+///     | .. |            ...              |
+///     +----+-----------------------------+
+/// ```
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
@@ -364,7 +485,7 @@ pub trait AsBindGroup {
     /// Note that the *actual* slot count may be different from this value, due
     /// to platform limitations. For example, if bindless resources aren't
     /// supported on this platform, the actual slot count will be 1.
-    fn bindless_slot_count() -> Option<u32> {
+    fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
         None
     }
 
@@ -451,6 +572,10 @@ pub trait AsBindGroup {
     ) -> Vec<BindGroupLayoutEntry>
     where
         Self: Sized;
+
+    fn bindless_descriptor() -> Option<BindlessDescriptor> {
+        None
+    }
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
@@ -490,15 +615,30 @@ pub struct BindingResources(pub Vec<(u32, OwnedBindingResource)>);
 pub enum OwnedBindingResource {
     Buffer(Buffer),
     TextureView(TextureViewDimension, TextureView),
-    Sampler(Sampler),
+    Sampler(SamplerBindingType, Sampler),
+    Data(OwnedData),
 }
 
+/// Data that will be copied into a GPU buffer.
+///
+/// This corresponds to the `#[data]` attribute in `AsBindGroup`.
+#[derive(Debug, Deref, DerefMut)]
+pub struct OwnedData(pub Vec<u8>);
+
 impl OwnedBindingResource {
+    /// Creates a [`BindingResource`] reference to this
+    /// [`OwnedBindingResource`].
+    ///
+    /// Note that this operation panics if passed a
+    /// [`OwnedBindingResource::Data`], because [`OwnedData`] doesn't itself
+    /// correspond to any binding and instead requires the
+    /// `MaterialBindGroupAllocator` to pack it into a buffer.
     pub fn get_binding(&self) -> BindingResource {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
             OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),
-            OwnedBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
+            OwnedBindingResource::Sampler(_, sampler) => BindingResource::Sampler(sampler),
+            OwnedBindingResource::Data(_) => panic!("`OwnedData` has no binding resource"),
         }
     }
 }
