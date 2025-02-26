@@ -147,7 +147,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .or_default();
 
                 let mut edge_needs_sync = node_needs_sync;
-                if node_needs_sync 
+                if node_needs_sync
                     && !graph.systems[target.index()].get().unwrap().is_exclusive()
                     && self.no_sync_edges.contains(&(*node, target))
                 {
