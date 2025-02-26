@@ -467,7 +467,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     // Get the entity if it still exists, which it will in this case.
     ///     // If it didn't, the `?` operator would propagate the returned error
     ///     // to the system, and the system would pass it to an error handler.
-    ///     entity_commands = commands.get_entity(entity)?;
+    ///     let mut entity_commands = commands.get_entity(entity)?;
     ///
     ///     // Add a single component to the entity.
     ///     entity_commands.insert(Label("hello world"));
