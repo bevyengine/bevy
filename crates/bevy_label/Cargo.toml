@@ -26,7 +26,7 @@ critical-section = ["bevy_platform_support/critical-section"]
 
 [dependencies]
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
-    "alloc",
+  "alloc",
 ] }
 
 [lints]
