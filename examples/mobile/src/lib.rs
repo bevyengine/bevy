@@ -6,6 +6,7 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
     window::{AppLifecycle, WindowMode},
+    winit::WinitSettings,
 };
 
 // the `bevy_main` proc_macro generates the required boilerplate for iOS and Android
@@ -29,23 +30,41 @@ fn main() {
                     recognize_rotation_gesture: true,
                     // Only has an effect on iOS
                     prefers_home_indicator_hidden: true,
+                    // Only has an effect on iOS
+                    prefers_status_bar_hidden: true,
                     ..default()
                 }),
                 ..default()
             }),
     )
+    // Make the winit loop wait more aggressively when no user input is received
+    // This can help reduce cpu usage on mobile devices
+    .insert_resource(WinitSettings::mobile())
     .add_systems(Startup, (setup_scene, setup_music))
-    .add_systems(Update, (touch_camera, button_handler, handle_lifetime))
+    .add_systems(
+        Update,
+        (
+            touch_camera,
+            button_handler,
+            // Only run the lifetime handler when an [`AudioSink`] component exists in the world.
+            // This ensures we don't try to manage audio that hasn't been initialized yet.
+            handle_lifetime.run_if(any_with_component::<AudioSink>),
+        ),
+    )
     .run();
 }
 
 fn touch_camera(
-    window: Single<&Window>,
+    window: Query<&Window>,
     mut touches: EventReader<TouchInput>,
     mut camera_transform: Single<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
     mut rotations: EventReader<RotationGesture>,
 ) {
+    let Ok(window) = window.get_single() else {
+        return;
+    };
+
     for touch in touches.read() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;

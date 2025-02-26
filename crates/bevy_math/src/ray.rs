@@ -1,4 +1,5 @@
 use crate::{
+    ops,
     primitives::{InfinitePlane3d, Plane2d},
     Dir2, Dir3, Vec2, Vec3,
 };
@@ -40,7 +41,7 @@ impl Ray2d {
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec2, plane: Plane2d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
-        if denominator.abs() > f32::EPSILON {
+        if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);
@@ -82,7 +83,7 @@ impl Ray3d {
     #[inline]
     pub fn intersect_plane(&self, plane_origin: Vec3, plane: InfinitePlane3d) -> Option<f32> {
         let denominator = plane.normal.dot(*self.direction);
-        if denominator.abs() > f32::EPSILON {
+        if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
             if distance > f32::EPSILON {
                 return Some(distance);

@@ -440,7 +440,11 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
-fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+fn point_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool
+) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
     let P = (*input).P;
@@ -507,7 +511,10 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
     // Diffuse.
     // Comes after specular since its N⋅L is used in the lighting equation.
     var derived_input = derive_lighting_input(N, V, L);
-    let diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    var diffuse = vec3(0.0);
+    if (enable_diffuse) {
+        diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    }
 
     // See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminanceEquation
     // Lout = f(v,l) Φ / { 4 π d^2 }⟨n⋅l⟩
@@ -536,9 +543,13 @@ fn point_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> 
         (rangeAttenuation * derived_input.NdotL);
 }
 
-fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+fn spot_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool
+) -> vec3<f32> {
     // reuse the point light calculations
-    let point_light = point_light(light_id, input);
+    let point_light = point_light(light_id, input, enable_diffuse);
 
     let light = &view_bindings::clusterable_objects.data[light_id];
 
@@ -560,7 +571,11 @@ fn spot_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
     return point_light * spot_attenuation;
 }
 
-fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3<f32> {
+fn directional_light(
+    light_id: u32,
+    input: ptr<function, LightingInput>,
+    enable_diffuse: bool
+) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
@@ -573,7 +588,10 @@ fn directional_light(light_id: u32, input: ptr<function, LightingInput>) -> vec3
     let L = (*light).direction_to_light.xyz;
     var derived_input = derive_lighting_input(N, V, L);
 
-    let diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    var diffuse = vec3(0.0);
+    if (enable_diffuse) {
+        diffuse = diffuse_color * Fd_Burley(input, &derived_input);
+    }
 
 #ifdef STANDARD_MATERIAL_ANISOTROPY
     let specular_light = specular_anisotropy(input, &derived_input, L, 1.0);

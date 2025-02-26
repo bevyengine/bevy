@@ -5,14 +5,15 @@ use bevy::prelude::*;
 use crossbeam_channel::{bounded, Receiver};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
-use std::time::{Duration, Instant};
 
 fn main() {
     App::new()
         .add_event::<StreamEvent>()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, (read_stream, spawn_text, move_text))
+        .add_systems(Update, (spawn_text, move_text))
+        .add_systems(FixedUpdate, read_stream)
+        .insert_resource(Time::<Fixed>::from_seconds(0.5))
         .run();
 }
 
@@ -25,7 +26,7 @@ struct StreamEvent(u32);
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let (tx, rx) = bounded::<u32>(10);
+    let (tx, rx) = bounded::<u32>(1);
     std::thread::spawn(move || {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
@@ -33,12 +34,8 @@ fn setup(mut commands: Commands) {
         loop {
             // Everything here happens in another thread
             // This is where you could connect to an external data source
-            let start_time = Instant::now();
-            let duration = Duration::from_secs_f32(rng.gen_range(0.0..0.2));
-            while start_time.elapsed() < duration {
-                // Spinning for 'duration', simulating doing hard work!
-            }
 
+            // This will block until the previous value has been read in system `read_stream`
             tx.send(rng.gen_range(0..2000)).unwrap();
         }
     });
@@ -49,7 +46,7 @@ fn setup(mut commands: Commands) {
 // This system reads from the receiver and sends events to Bevy
 fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
     for from_stream in receiver.try_iter() {
-        events.send(StreamEvent(from_stream));
+        events.write(StreamEvent(from_stream));
     }
 }
 

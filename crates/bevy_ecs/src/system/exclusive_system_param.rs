@@ -4,8 +4,9 @@ use crate::{
     system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
-use bevy_utils::{all_tuples, synccell::SyncCell};
+use bevy_utils::synccell::SyncCell;
 use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 /// A parameter that can be used in an exclusive system (a system with an `&mut World` parameter).
 /// Any parameters implementing this trait must come after the `&mut World` parameter.
@@ -87,26 +88,38 @@ impl<S: ?Sized> ExclusiveSystemParam for PhantomData<S> {
 
 macro_rules! impl_exclusive_system_param_tuple {
     ($(#[$meta:meta])* $($param: ident),*) => {
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         impl<$($param: ExclusiveSystemParam),*> ExclusiveSystemParam for ($($param,)*) {
             type State = ($($param::State,)*);
             type Item<'s> = ($($param::Item<'s>,)*);
 
             #[inline]
-            fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-                (($($param::init(_world, _system_meta),)*))
+            fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+                (($($param::init(world, system_meta),)*))
             }
 
             #[inline]
-            #[allow(clippy::unused_unit)]
             fn get_param<'s>(
                 state: &'s mut Self::State,
                 system_meta: &SystemMeta,
             ) -> Self::Item<'s> {
-
                 let ($($param,)*) = state;
+                #[allow(
+                    clippy::unused_unit,
+                    reason = "Zero-length tuples won't have any params to get."
+                )]
                 ($($param::get_param($param, system_meta),)*)
             }
         }
@@ -123,8 +136,8 @@ all_tuples!(
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_ecs;
     use crate::{schedule::Schedule, system::Local, world::World};
+    use alloc::vec::Vec;
     use bevy_ecs_macros::Resource;
     use core::marker::PhantomData;
 

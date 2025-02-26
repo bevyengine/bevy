@@ -3,7 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
+    animation::{animated_field, AnimationTarget, AnimationTargetId},
     color::palettes::css::{ORANGE, SILVER},
     math::vec3,
     prelude::*,
@@ -106,7 +106,7 @@ impl AnimationInfo {
 
         // The easing curve is parametrized over [0, 1], so we reparametrize it and
         // then ping-pong, which makes it spend another 3 seconds on the return journey.
-        let translation_curve = easing_curve(
+        let translation_curve = EasingCurve::new(
             vec3(-6., 2., 0.),
             vec3(6., 2., 0.),
             EaseFunction::CubicInOut,
@@ -119,7 +119,7 @@ impl AnimationInfo {
         // Something similar for rotation. The repetition here is an illusion caused
         // by the symmetry of the cube; it rotates on the forward journey and never
         // rotates back.
-        let rotation_curve = easing_curve(
+        let rotation_curve = EasingCurve::new(
             Quat::IDENTITY,
             Quat::from_rotation_y(FRAC_PI_2),
             EaseFunction::ElasticInOut,
@@ -127,9 +127,14 @@ impl AnimationInfo {
         .reparametrize_linear(interval(0.0, 4.0).unwrap())
         .expect("this curve has bounded domain, so this should never fail");
 
-        animation_clip
-            .add_curve_to_target(animation_target_id, TranslationCurve(translation_curve));
-        animation_clip.add_curve_to_target(animation_target_id, RotationCurve(rotation_curve));
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(animated_field!(Transform::translation), translation_curve),
+        );
+        animation_clip.add_curve_to_target(
+            animation_target_id,
+            AnimatableCurve::new(animated_field!(Transform::rotation), rotation_curve),
+        );
 
         // Save our animation clip as an asset.
         let animation_clip_handle = animation_clips.add(animation_clip);

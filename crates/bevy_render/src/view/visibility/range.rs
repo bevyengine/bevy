@@ -9,16 +9,19 @@ use core::{
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     component::Component,
-    entity::{Entity, EntityHashMap},
+    entity::{hash_map::EntityHashMap, Entity},
     query::{Changed, With},
     reflect::ReflectComponent,
+    removal_detection::RemovedComponents,
+    resource::Resource,
     schedule::IntoSystemConfigs as _,
-    system::{Query, Res, ResMut, Resource},
+    system::{Query, Res, ResMut},
 };
 use bevy_math::{vec4, FloatOrd, Vec4};
+use bevy_platform_support::collections::HashMap;
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::{prelude::default, HashMap};
+use bevy_utils::prelude::default;
 use nonmax::NonMaxU16;
 use wgpu::{BufferBindingType, BufferUsages};
 
@@ -26,7 +29,6 @@ use super::{check_visibility, VisibilitySystems};
 use crate::sync_world::{MainEntity, MainEntityHashMap};
 use crate::{
     camera::Camera,
-    mesh::Mesh3d,
     primitives::Aabb,
     render_resource::BufferVec,
     renderer::{RenderDevice, RenderQueue},
@@ -58,7 +60,7 @@ impl Plugin for VisibilityRangePlugin {
                 PostUpdate,
                 check_visibility_ranges
                     .in_set(VisibilitySystems::CheckVisibility)
-                    .before(check_visibility::<With<Mesh3d>>),
+                    .before(check_visibility),
             );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -111,7 +113,7 @@ impl Plugin for VisibilityRangePlugin {
 /// that the `end_margin` of a higher LOD is always identical to the
 /// `start_margin` of the next lower LOD; this is important for the crossfade
 /// effect to function properly.
-#[derive(Component, Clone, PartialEq, Reflect)]
+#[derive(Component, Clone, PartialEq, Default, Reflect)]
 #[reflect(Component, PartialEq, Hash)]
 pub struct VisibilityRange {
     /// The range of distances, in world units, between which this entity will
@@ -131,6 +133,20 @@ pub struct VisibilityRange {
     ///
     /// `end_margin.start` must be greater than or equal to `start_margin.end`.
     pub end_margin: Range<f32>,
+
+    /// If set to true, Bevy will use the center of the axis-aligned bounding
+    /// box ([`Aabb`]) as the position of the mesh for the purposes of
+    /// visibility range computation.
+    ///
+    /// Otherwise, if this field is set to false, Bevy will use the origin of
+    /// the mesh as the mesh's position.
+    ///
+    /// Usually you will want to leave this set to false, because different LODs
+    /// may have different AABBs, and smooth crossfades between LOD levels
+    /// require that all LODs of a mesh be at *precisely* the same position. If
+    /// you aren't using crossfading, however, and your meshes aren't centered
+    /// around their origins, then this flag may be useful.
+    pub use_aabb: bool,
 }
 
 impl Eq for VisibilityRange {}
@@ -160,6 +176,7 @@ impl VisibilityRange {
         Self {
             start_margin: start..start,
             end_margin: end..end,
+            use_aabb: false,
         }
     }
 
@@ -390,14 +407,17 @@ pub fn check_visibility_ranges(
     for (entity, entity_transform, maybe_model_aabb, visibility_range) in entity_query.iter_mut() {
         let mut visibility = 0;
         for (view_index, &(_, view_position)) in views.iter().enumerate() {
-            let model_pos = if let Some(model_aabb) = maybe_model_aabb {
-                let world_from_local = entity_transform.affine();
-                world_from_local.transform_point3a(model_aabb.center)
-            } else {
-                entity_transform.translation_vec3a()
+            // If instructed to use the AABB and the model has one, use its
+            // center as the model position. Otherwise, use the model's
+            // translation.
+            let model_position = match (visibility_range.use_aabb, maybe_model_aabb) {
+                (true, Some(model_aabb)) => entity_transform
+                    .affine()
+                    .transform_point3a(model_aabb.center),
+                _ => entity_transform.translation_vec3a(),
             };
 
-            if visibility_range.is_visible_at_all((view_position - model_pos).length()) {
+            if visibility_range.is_visible_at_all((view_position - model_position).length()) {
                 visibility |= 1 << view_index;
             }
         }
@@ -416,8 +436,9 @@ pub fn extract_visibility_ranges(
     mut render_visibility_ranges: ResMut<RenderVisibilityRanges>,
     visibility_ranges_query: Extract<Query<(Entity, &VisibilityRange)>>,
     changed_ranges_query: Extract<Query<Entity, Changed<VisibilityRange>>>,
+    mut removed_visibility_ranges: Extract<RemovedComponents<VisibilityRange>>,
 ) {
-    if changed_ranges_query.is_empty() {
+    if changed_ranges_query.is_empty() && removed_visibility_ranges.read().next().is_none() {
         return;
     }
 

@@ -3,7 +3,7 @@
 //! This example demonstrates:
 //! - Transparent windows that can be clicked through.
 //! - Drag-and-drop operations in 2D.
-//! - Using entity hierarchy and [`SpatialBundle`]s to create simple animations.
+//! - Using entity hierarchy, Transform, and Visibility to create simple animations.
 //! - Creating simple 2D meshes based on shape primitives.
 
 use bevy::{
@@ -136,6 +136,9 @@ fn setup(
         .with_children(|commands| {
             // For each bird eye
             for (x, y, radius) in BIRDS_EYES {
+                let pupil_radius = radius * 0.6;
+                let pupil_highlight_radius = radius * 0.3;
+                let pupil_highlight_offset = radius * 0.3;
                 // eye outline
                 commands.spawn((
                     Mesh2d(circle.clone()),
@@ -145,33 +148,28 @@ fn setup(
                 ));
 
                 // sclera
-                commands
-                    .spawn((Transform::from_xyz(x, y, 2.0), Visibility::default()))
-                    .with_children(|commands| {
+                commands.spawn((
+                    Transform::from_xyz(x, y, 2.0),
+                    Visibility::default(),
+                    children![
                         // sclera
-                        commands.spawn((
+                        (
                             Mesh2d(circle.clone()),
                             MeshMaterial2d(sclera_material.clone()),
                             Transform::from_scale(Vec3::new(radius, radius, 0.0)),
-                        ));
-
-                        let pupil_radius = radius * 0.6;
-                        let pupil_highlight_radius = radius * 0.3;
-                        let pupil_highlight_offset = radius * 0.3;
+                        ),
                         // pupil
-                        commands
-                            .spawn((
-                                Transform::from_xyz(0.0, 0.0, 1.0),
-                                Visibility::default(),
-                                Pupil {
-                                    eye_radius: radius,
-                                    pupil_radius,
-                                    velocity: Vec2::ZERO,
-                                },
-                            ))
-                            .with_children(|commands| {
+                        (
+                            Transform::from_xyz(0.0, 0.0, 1.0),
+                            Visibility::default(),
+                            Pupil {
+                                eye_radius: radius,
+                                pupil_radius,
+                                velocity: Vec2::ZERO,
+                            },
+                            children![
                                 // pupil main
-                                commands.spawn((
+                                (
                                     Mesh2d(circle.clone()),
                                     MeshMaterial2d(pupil_material.clone()),
                                     Transform::from_xyz(0.0, 0.0, 0.0).with_scale(Vec3::new(
@@ -179,10 +177,9 @@ fn setup(
                                         pupil_radius,
                                         1.0,
                                     )),
-                                ));
-
+                                ),
                                 // pupil highlight
-                                commands.spawn((
+                                (
                                     Mesh2d(circle.clone()),
                                     MeshMaterial2d(pupil_highlight_material.clone()),
                                     Transform::from_xyz(
@@ -195,9 +192,11 @@ fn setup(
                                         pupil_highlight_radius,
                                         1.0,
                                     )),
-                                ));
-                            });
-                    });
+                                )
+                            ],
+                        )
+                    ],
+                ));
             }
         });
 }
@@ -316,7 +315,7 @@ fn quit(
         .distance(cursor_world_pos)
         < BEVY_LOGO_RADIUS
     {
-        app_exit.send(AppExit::Success);
+        app_exit.write(AppExit::Success);
     }
 }
 

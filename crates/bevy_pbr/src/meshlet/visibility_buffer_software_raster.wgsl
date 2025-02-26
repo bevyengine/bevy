@@ -57,10 +57,7 @@ fn rasterize_cluster(
             // Project vertex to viewport space
             let world_position = mesh_position_local_to_world(world_from_local, vec4(vertex_position, 1.0));
             let clip_position = view.clip_from_world * vec4(world_position.xyz, 1.0);
-            var ndc_position = clip_position.xyz / clip_position.w;
-#ifdef DEPTH_CLAMP_ORTHO
-            ndc_position.z = 1.0 / clip_position.z;
-#endif
+            let ndc_position = clip_position.xyz / clip_position.w;
             let viewport_position_xy = ndc_to_uv(ndc_position.xy) * view.viewport.zw;
 
             // Write vertex to workgroup shared memory
@@ -170,19 +167,13 @@ fn rasterize_cluster(
 }
 
 fn write_visibility_buffer_pixel(x: f32, y: f32, z: f32, packed_ids: u32) {
-    let frag_coord_1d = u32(y * view.viewport.z + x);
-
+    let depth = bitcast<u32>(z);
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-    let depth = bitcast<u32>(z);
     let visibility = (u64(depth) << 32u) | u64(packed_ids);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
-#else ifdef DEPTH_CLAMP_ORTHO
-    let depth = bitcast<u32>(1.0 / z);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
 #else
-    let depth = bitcast<u32>(z);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+    let visibility = depth;
 #endif
+    textureAtomicMax(meshlet_visibility_buffer, vec2(u32(x), u32(y)), visibility);
 }
 
 fn edge_function(a: vec2<f32>, b: vec2<f32>, c: vec2<f32>) -> f32 {

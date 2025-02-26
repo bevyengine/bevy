@@ -58,7 +58,7 @@ fn setup(
     let atlas_layout_handle = texture_atlases.add(atlas_layout);
 
     let slicer = TextureSlicer {
-        border: BorderRect::square(24.0),
+        border: BorderRect::all(24.0),
         center_scale_mode: SliceScaleMode::Stretch,
         sides_scale_mode: SliceScaleMode::Stretch,
         max_corner_scale: 1.0,

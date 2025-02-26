@@ -4,21 +4,47 @@ use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
 use core::marker::Copy;
-use derive_more::derive::{Display, Error, From};
+use thiserror::Error;
 
 define_atomic_id!(ShaderId);
 
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum ShaderReflectError {
-    WgslParse(naga::front::wgsl::ParseError),
+    #[error(transparent)]
+    WgslParse(#[from] naga::front::wgsl::ParseError),
     #[cfg(feature = "shader_format_glsl")]
-    #[display("GLSL Parse Error: {_0:?}")]
-    #[error(ignore)]
+    #[error("GLSL Parse Error: {0:?}")]
     GlslParse(Vec<naga::front::glsl::Error>),
     #[cfg(feature = "shader_format_spirv")]
-    SpirVParse(naga::front::spv::Error),
-    Validation(naga::WithSpan<naga::valid::ValidationError>),
+    #[error(transparent)]
+    SpirVParse(#[from] naga::front::spv::Error),
+    #[error(transparent)]
+    Validation(#[from] naga::WithSpan<naga::valid::ValidationError>),
 }
+
+/// Describes whether or not to perform runtime checks on shaders.
+/// Runtime checks can be enabled for safety at the cost of speed.
+/// By default no runtime checks will be performed.
+///
+/// # Panics
+/// Because no runtime checks are performed for spirv,
+/// enabling `ValidateShader` for spirv will cause a panic
+#[derive(Clone, Debug, Default)]
+pub enum ValidateShader {
+    #[default]
+    /// No runtime checks for soundness (e.g. bound checking) are performed.
+    ///
+    /// This is suitable for trusted shaders, written by your program or dependencies you trust.
+    Disabled,
+    /// Enable's runtime checks for soundness (e.g. bound checking).
+    ///
+    /// While this can have a meaningful impact on performance,
+    /// this setting should *always* be enabled when loading untrusted shaders.
+    /// This might occur if you are creating a shader playground, running user-generated shaders
+    /// (as in `VRChat`), or writing a web browser in Bevy.
+    Enabled,
+}
+
 /// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
 /// This is an "unprocessed" shader. It can contain preprocessor directives.
 #[derive(Asset, TypePath, Debug, Clone)]
@@ -34,6 +60,10 @@ pub struct Shader {
     // we must store strong handles to our dependencies to stop them
     // from being immediately dropped if we are the only user.
     pub file_dependencies: Vec<Handle<Shader>>,
+    /// Enable or disable runtime shader validation, trading safety against speed.
+    ///
+    /// Please read the [`ValidateShader`] docs for a discussion of the tradeoffs involved.
+    pub validate_shader: ValidateShader,
 }
 
 impl Shader {
@@ -76,6 +106,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
         }
     }
 
@@ -106,6 +137,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
         }
     }
 
@@ -119,6 +151,7 @@ impl Shader {
             additional_imports: Default::default(),
             shader_defs: Default::default(),
             file_dependencies: Default::default(),
+            validate_shader: ValidateShader::Disabled,
         }
     }
 
@@ -244,12 +277,12 @@ impl From<&Source> for naga_oil::compose::ShaderType {
 pub struct ShaderLoader;
 
 #[non_exhaustive]
-#[derive(Debug, Error, Display, From)]
+#[derive(Debug, Error)]
 pub enum ShaderLoaderError {
-    #[display("Could not load shader: {_0}")]
-    Io(std::io::Error),
-    #[display("Could not parse shader: {_0}")]
-    Parse(alloc::string::FromUtf8Error),
+    #[error("Could not load shader: {0}")]
+    Io(#[from] std::io::Error),
+    #[error("Could not parse shader: {0}")]
+    Parse(#[from] alloc::string::FromUtf8Error),
 }
 
 impl AssetLoader for ShaderLoader {

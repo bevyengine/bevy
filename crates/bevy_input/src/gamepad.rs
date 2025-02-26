@@ -1,24 +1,30 @@
 //! The gamepad input functionality.
 
+use core::{ops::RangeInclusive, time::Duration};
+
 use crate::{Axis, ButtonInput, ButtonState};
-use bevy_core::Name;
+use alloc::string::String;
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
     event::{Event, EventReader, EventWriter},
+    name::Name,
+    prelude::require,
     system::{Commands, Query},
 };
+use bevy_math::ops;
 use bevy_math::Vec2;
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
-use bevy_utils::{
-    tracing::{info, warn},
-    Duration, HashMap,
-};
-use derive_more::derive::{Display, Error, From};
+use derive_more::derive::From;
+use log::{info, warn};
+use thiserror::Error;
 
 /// A gamepad event.
 ///
@@ -26,7 +32,7 @@ use derive_more::derive::{Display, Error, From};
 /// [`GamepadButtonChangedEvent`] and [`GamepadAxisChangedEvent`] when
 /// the in-frame relative ordering of events is important.
 ///
-/// This event is produced by `bevy_input`
+/// This event is produced by `bevy_input`.
 #[derive(Event, Debug, Clone, PartialEq, From)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -50,11 +56,11 @@ pub enum GamepadEvent {
 /// the in-frame relative ordering of events is important.
 ///
 /// This event type is used by `bevy_input` to feed its components.
-#[derive(Event, Debug, Clone, PartialEq, Reflect, From)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq, From)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum RawGamepadEvent {
@@ -66,12 +72,12 @@ pub enum RawGamepadEvent {
     Axis(RawGamepadAxisChangedEvent),
 }
 
-/// [`GamepadButton`] changed event unfiltered by [`GamepadSettings`]
-#[derive(Event, Debug, Copy, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+/// [`GamepadButton`] changed event unfiltered by [`GamepadSettings`].
+#[derive(Event, Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct RawGamepadButtonChangedEvent {
@@ -94,12 +100,12 @@ impl RawGamepadButtonChangedEvent {
     }
 }
 
-/// [`GamepadAxis`] changed event unfiltered by [`GamepadSettings`]
-#[derive(Event, Debug, Copy, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+/// [`GamepadAxis`] changed event unfiltered by [`GamepadSettings`].
+#[derive(Event, Debug, Copy, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct RawGamepadAxisChangedEvent {
@@ -124,11 +130,11 @@ impl RawGamepadAxisChangedEvent {
 
 /// A Gamepad connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Event, Debug, Clone, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Event, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadConnectionEvent {
@@ -147,23 +153,23 @@ impl GamepadConnectionEvent {
         }
     }
 
-    /// Is the gamepad connected?
+    /// Whether the gamepad is connected.
     pub fn connected(&self) -> bool {
         matches!(self.connection, GamepadConnection::Connected { .. })
     }
 
-    /// Is the gamepad disconnected?
+    /// Whether the gamepad is disconnected.
     pub fn disconnected(&self) -> bool {
         !self.connected()
     }
 }
 
-/// [`GamepadButton`] event triggered by a digital state change
-#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect)]
-#[reflect(Debug, PartialEq)]
+/// [`GamepadButton`] event triggered by a digital state change.
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonStateChangedEvent {
@@ -176,7 +182,7 @@ pub struct GamepadButtonStateChangedEvent {
 }
 
 impl GamepadButtonStateChangedEvent {
-    /// Creates a new [`GamepadButtonStateChangedEvent`]
+    /// Creates a new [`GamepadButtonStateChangedEvent`].
     pub fn new(entity: Entity, button: GamepadButton, state: ButtonState) -> Self {
         Self {
             entity,
@@ -186,12 +192,12 @@ impl GamepadButtonStateChangedEvent {
     }
 }
 
-/// [`GamepadButton`] event triggered by an analog state change
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+/// [`GamepadButton`] event triggered by an analog state change.
+#[derive(Event, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadButtonChangedEvent {
@@ -201,12 +207,12 @@ pub struct GamepadButtonChangedEvent {
     pub button: GamepadButton,
     /// The pressed state of the button.
     pub state: ButtonState,
-    /// The analog value of the button.
+    /// The analog value of the button (rescaled to be in the 0.0..=1.0 range).
     pub value: f32,
 }
 
 impl GamepadButtonChangedEvent {
-    /// Creates a new [`GamepadButtonChangedEvent`]
+    /// Creates a new [`GamepadButtonChangedEvent`].
     pub fn new(entity: Entity, button: GamepadButton, state: ButtonState, value: f32) -> Self {
         Self {
             entity,
@@ -217,12 +223,12 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// [`GamepadAxis`] event triggered by an analog state change
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+/// [`GamepadAxis`] event triggered by an analog state change.
+#[derive(Event, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    all(feature = "bevy_reflect", feature = "serialize"),
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadAxisChangedEvent {
@@ -230,12 +236,12 @@ pub struct GamepadAxisChangedEvent {
     pub entity: Entity,
     /// The gamepad axis assigned to the event.
     pub axis: GamepadAxis,
-    /// The value of this axis.
+    /// The value of this axis (rescaled to account for axis settings).
     pub value: f32,
 }
 
 impl GamepadAxisChangedEvent {
-    /// Creates a new [`GamepadAxisChangedEvent`]
+    /// Creates a new [`GamepadAxisChangedEvent`].
     pub fn new(entity: Entity, axis: GamepadAxis, value: f32) -> Self {
         Self {
             entity,
@@ -246,26 +252,22 @@ impl GamepadAxisChangedEvent {
 }
 
 /// Errors that occur when setting axis settings for gamepad input.
-#[derive(Error, Display, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum AxisSettingsError {
     /// The given parameter `livezone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid livezone_lowerbound {_0}, expected value [-1.0..=0.0]")]
-    #[error(ignore)]
+    #[error("invalid livezone_lowerbound {0}, expected value [-1.0..=0.0]")]
     LiveZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid deadzone_lowerbound {_0}, expected value [-1.0..=0.0]")]
-    #[error(ignore)]
+    #[error("invalid deadzone_lowerbound {0}, expected value [-1.0..=0.0]")]
     DeadZoneLowerBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid deadzone_upperbound {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid deadzone_upperbound {0}, expected value [0.0..=1.0]")]
     DeadZoneUpperBoundOutOfRange(f32),
     /// The given parameter `deadzone_lowerbound` was not in range -1.0..=0.0.
-    #[display("invalid livezone_upperbound {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid livezone_upperbound {0}, expected value [0.0..=1.0]")]
     LiveZoneUpperBoundOutOfRange(f32),
     /// Parameter `livezone_lowerbound` was not less than or equal to parameter `deadzone_lowerbound`.
-    #[display("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
+    #[error("invalid parameter values livezone_lowerbound {} deadzone_lowerbound {}, expected livezone_lowerbound <= deadzone_lowerbound", livezone_lowerbound, deadzone_lowerbound)]
     LiveZoneLowerBoundGreaterThanDeadZoneLowerBound {
         /// The value of the `livezone_lowerbound` parameter.
         livezone_lowerbound: f32,
@@ -273,7 +275,7 @@ pub enum AxisSettingsError {
         deadzone_lowerbound: f32,
     },
     ///  Parameter `deadzone_upperbound` was not less than or equal to parameter `livezone_upperbound`.
-    #[display("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
+    #[error("invalid parameter values livezone_upperbound {} deadzone_upperbound {}, expected deadzone_upperbound <= livezone_upperbound", livezone_upperbound, deadzone_upperbound)]
     DeadZoneUpperBoundGreaterThanLiveZoneUpperBound {
         /// The value of the `livezone_upperbound` parameter.
         livezone_upperbound: f32,
@@ -281,24 +283,21 @@ pub enum AxisSettingsError {
         deadzone_upperbound: f32,
     },
     /// The given parameter was not in range 0.0..=2.0.
-    #[display("invalid threshold {_0}, expected 0.0 <= threshold <= 2.0")]
-    #[error(ignore)]
+    #[error("invalid threshold {0}, expected 0.0 <= threshold <= 2.0")]
     Threshold(f32),
 }
 
 /// Errors that occur when setting button settings for gamepad input.
-#[derive(Error, Display, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq)]
 pub enum ButtonSettingsError {
     /// The given parameter was not in range 0.0..=1.0.
-    #[display("invalid release_threshold {_0}, expected value [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid release_threshold {0}, expected value [0.0..=1.0]")]
     ReleaseThresholdOutOfRange(f32),
     /// The given parameter was not in range 0.0..=1.0.
-    #[display("invalid press_threshold {_0}, expected [0.0..=1.0]")]
-    #[error(ignore)]
+    #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
     PressThresholdOutOfRange(f32),
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
-    #[display("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
+    #[error("invalid parameter values release_threshold {} press_threshold {}, expected release_threshold <= press_threshold", release_threshold, press_threshold)]
     ReleaseThresholdGreaterThanPressThreshold {
         /// The value of the `press_threshold` parameter.
         press_threshold: f32,
@@ -307,7 +306,7 @@ pub enum ButtonSettingsError {
     },
 }
 
-/// Stores a connected gamepad's state and any metadata such as the device name.
+/// Stores a connected gamepad's metadata such as the name and its [`GamepadButton`] and [`GamepadAxis`].
 ///
 /// An entity with this component is spawned automatically after [`GamepadConnectionEvent`]
 /// and updated by [`gamepad_event_processing_system`].
@@ -319,66 +318,191 @@ pub enum ButtonSettingsError {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadAxis, GamepadButton};
 /// # use bevy_ecs::system::Query;
-/// # use bevy_core::Name;
+/// # use bevy_ecs::name::Name;
 /// #
 /// fn gamepad_usage_system(gamepads: Query<(&Name, &Gamepad)>) {
 ///     for (name, gamepad) in &gamepads {
 ///         println!("{name}");
 ///
-///         if gamepad.digital.just_pressed(GamepadButton::North) {
-///             println!("{name} just pressed North")
+///         if gamepad.just_pressed(GamepadButton::North) {
+///             println!("{} just pressed North", name)
 ///         }
 ///
-///         if let Some(left_stick_x) = gamepad.analog.get(GamepadAxis::LeftStickX)  {
+///         if let Some(left_stick_x) = gamepad.get(GamepadAxis::LeftStickX)  {
 ///             println!("left stick X: {}", left_stick_x)
 ///         }
 ///     }
 /// }
 /// ```
 #[derive(Component, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Component))]
 #[require(GamepadSettings)]
 pub struct Gamepad {
     /// The USB vendor ID as assigned by the USB-IF, if available.
-    pub vendor_id: Option<u16>,
+    pub(crate) vendor_id: Option<u16>,
 
-    /// The USB product ID as assigned by the [vendor], if available.
-    ///
-    /// [vendor]: Self::vendor_id
-    pub product_id: Option<u16>,
+    /// The USB product ID as assigned by the [vendor][Self::vendor_id], if available.
+    pub(crate) product_id: Option<u16>,
 
-    /// [`ButtonInput`] of [`GamepadButton`] representing their digital state
-    pub digital: ButtonInput<GamepadButton>,
+    /// [`ButtonInput`] of [`GamepadButton`] representing their digital state.
+    pub(crate) digital: ButtonInput<GamepadButton>,
 
     /// [`Axis`] of [`GamepadButton`] representing their analog state.
-    pub analog: Axis<GamepadInput>,
+    pub(crate) analog: Axis<GamepadInput>,
 }
 
 impl Gamepad {
-    /// Returns the left stick as a [`Vec2`]
+    /// Returns the USB vendor ID as assigned by the USB-IF, if available.
+    pub fn vendor_id(&self) -> Option<u16> {
+        self.vendor_id
+    }
+
+    /// Returns the USB product ID as assigned by the [vendor], if available.
+    ///
+    /// [vendor]: Self::vendor_id
+    pub fn product_id(&self) -> Option<u16> {
+        self.product_id
+    }
+
+    /// Returns the analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
+    ///
+    /// This will be clamped between [[`Axis::MIN`],[`Axis::MAX`]].
+    pub fn get(&self, input: impl Into<GamepadInput>) -> Option<f32> {
+        self.analog.get(input.into())
+    }
+
+    /// Returns the unclamped analog data of the provided [`GamepadAxis`] or [`GamepadButton`].
+    ///
+    /// This value may be outside the [`Axis::MIN`] and [`Axis::MAX`] range.
+    pub fn get_unclamped(&self, input: impl Into<GamepadInput>) -> Option<f32> {
+        self.analog.get_unclamped(input.into())
+    }
+
+    /// Returns the left stick as a [`Vec2`].
     pub fn left_stick(&self) -> Vec2 {
         Vec2 {
-            x: self.analog.get(GamepadAxis::LeftStickX).unwrap_or(0.0),
-            y: self.analog.get(GamepadAxis::LeftStickY).unwrap_or(0.0),
+            x: self.get(GamepadAxis::LeftStickX).unwrap_or(0.0),
+            y: self.get(GamepadAxis::LeftStickY).unwrap_or(0.0),
         }
     }
 
-    /// Returns the right stick as a [`Vec2`]
+    /// Returns the right stick as a [`Vec2`].
     pub fn right_stick(&self) -> Vec2 {
         Vec2 {
-            x: self.analog.get(GamepadAxis::RightStickX).unwrap_or(0.0),
-            y: self.analog.get(GamepadAxis::RightStickY).unwrap_or(0.0),
+            x: self.get(GamepadAxis::RightStickX).unwrap_or(0.0),
+            y: self.get(GamepadAxis::RightStickY).unwrap_or(0.0),
         }
     }
 
-    /// Returns the directional pad as a [`Vec2`]
+    /// Returns the directional pad as a [`Vec2`].
     pub fn dpad(&self) -> Vec2 {
         Vec2 {
-            x: self.analog.get(GamepadButton::DPadRight).unwrap_or(0.0)
-                - self.analog.get(GamepadButton::DPadLeft).unwrap_or(0.0),
-            y: self.analog.get(GamepadButton::DPadUp).unwrap_or(0.0)
-                - self.analog.get(GamepadButton::DPadDown).unwrap_or(0.0),
+            x: self.get(GamepadButton::DPadRight).unwrap_or(0.0)
+                - self.get(GamepadButton::DPadLeft).unwrap_or(0.0),
+            y: self.get(GamepadButton::DPadUp).unwrap_or(0.0)
+                - self.get(GamepadButton::DPadDown).unwrap_or(0.0),
         }
+    }
+
+    /// Returns `true` if the [`GamepadButton`] has been pressed.
+    pub fn pressed(&self, button_type: GamepadButton) -> bool {
+        self.digital.pressed(button_type)
+    }
+
+    /// Returns `true` if any item in the [`GamepadButton`] iterator has been pressed.
+    pub fn any_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
+        self.digital.any_pressed(button_inputs)
+    }
+
+    /// Returns `true` if all items in the [`GamepadButton`] iterator have been pressed.
+    pub fn all_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
+        self.digital.all_pressed(button_inputs)
+    }
+
+    /// Returns `true` if the [`GamepadButton`] has been pressed during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_released`].
+    pub fn just_pressed(&self, button_type: GamepadButton) -> bool {
+        self.digital.just_pressed(button_type)
+    }
+
+    /// Returns `true` if any item in the [`GamepadButton`] iterator has been pressed during the current frame.
+    pub fn any_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
+        self.digital.any_just_pressed(button_inputs)
+    }
+
+    /// Returns `true` if all items in the [`GamepadButton`] iterator have been just pressed.
+    pub fn all_just_pressed(&self, button_inputs: impl IntoIterator<Item = GamepadButton>) -> bool {
+        self.digital.all_just_pressed(button_inputs)
+    }
+
+    /// Returns `true` if the [`GamepadButton`] has been released during the current frame.
+    ///
+    /// Note: This function does not imply information regarding the current state of [`ButtonInput::pressed`] or [`ButtonInput::just_pressed`].
+    pub fn just_released(&self, button_type: GamepadButton) -> bool {
+        self.digital.just_released(button_type)
+    }
+
+    /// Returns `true` if any item in the [`GamepadButton`] iterator has just been released.
+    pub fn any_just_released(
+        &self,
+        button_inputs: impl IntoIterator<Item = GamepadButton>,
+    ) -> bool {
+        self.digital.any_just_released(button_inputs)
+    }
+
+    /// Returns `true` if all items in the [`GamepadButton`] iterator have just been released.
+    pub fn all_just_released(
+        &self,
+        button_inputs: impl IntoIterator<Item = GamepadButton>,
+    ) -> bool {
+        self.digital.all_just_released(button_inputs)
+    }
+
+    /// Returns an iterator over all digital [button]s that are pressed.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_pressed()
+    }
+
+    /// Returns an iterator over all digital [button]s that were just pressed.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_just_pressed(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_just_pressed()
+    }
+
+    /// Returns an iterator over all digital [button]s that were just released.
+    ///
+    /// [button]: GamepadButton
+    pub fn get_just_released(&self) -> impl Iterator<Item = &GamepadButton> {
+        self.digital.get_just_released()
+    }
+
+    /// Returns an iterator over all analog [axes][GamepadInput].
+    pub fn get_analog_axes(&self) -> impl Iterator<Item = &GamepadInput> {
+        self.analog.all_axes()
+    }
+
+    /// [`ButtonInput`] of [`GamepadButton`] representing their digital state.
+    pub fn digital(&self) -> &ButtonInput<GamepadButton> {
+        &self.digital
+    }
+
+    /// Mutable [`ButtonInput`] of [`GamepadButton`] representing their digital state. Useful for mocking inputs.
+    pub fn digital_mut(&mut self) -> &mut ButtonInput<GamepadButton> {
+        &mut self.digital
+    }
+
+    /// [`Axis`] of [`GamepadButton`] representing their analog state.
+    pub fn analog(&self) -> &Axis<GamepadInput> {
+        &self.analog
+    }
+
+    /// Mutable [`Axis`] of [`GamepadButton`] representing their analog state. Useful for mocking inputs.
+    pub fn analog_mut(&mut self) -> &mut Axis<GamepadInput> {
+        &mut self.analog
     }
 }
 
@@ -405,7 +529,7 @@ impl Default for Gamepad {
 ///
 /// ## Usage
 ///
-/// This is used to determine which button has changed its value when receiving gamepad button events
+/// This is used to determine which button has changed its value when receiving gamepad button events.
 /// It is also used in the [`Gamepad`] component.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(
@@ -467,7 +591,7 @@ pub enum GamepadButton {
 }
 
 impl GamepadButton {
-    /// Returns an array of all the standard [`GamepadButton`]
+    /// Returns an array of all the standard [`GamepadButton`].
     pub const fn all() -> [GamepadButton; 19] {
         [
             GamepadButton::South,
@@ -493,7 +617,7 @@ impl GamepadButton {
     }
 }
 
-/// Represents gamepad input types that are mapped in the range [-1.0, 1.0]
+/// Represents gamepad input types that are mapped in the range [-1.0, 1.0].
 ///
 /// ## Usage
 ///
@@ -539,14 +663,14 @@ impl GamepadAxis {
     }
 }
 
-/// Encapsulation over [`GamepadAxis`] and [`GamepadButton`]
+/// Encapsulation over [`GamepadAxis`] and [`GamepadButton`].
 // This is done so Gamepad can share a single Axis<T> and simplifies the API by having only one get/get_unclamped method
 #[derive(Debug, Copy, Clone, Eq, Hash, PartialEq, From)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, PartialEq))]
 pub enum GamepadInput {
-    /// A [`GamepadAxis`]
+    /// A [`GamepadAxis`].
     Axis(GamepadAxis),
-    /// A [`GamepadButton`]
+    /// A [`GamepadButton`].
     Button(GamepadButton),
 }
 
@@ -564,7 +688,11 @@ pub enum GamepadInput {
 /// should register. Events that don't meet the change thresholds defined in [`GamepadSettings`]
 /// will not register. To modify these settings, mutate the corresponding component.
 #[derive(Component, Clone, Default, Debug)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Default))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Default, Component)
+)]
 pub struct GamepadSettings {
     /// The default button settings.
     pub default_button_settings: ButtonSettings,
@@ -798,9 +926,9 @@ impl ButtonSettings {
 /// threshold for an axis.
 /// Values that are higher than `livezone_upperbound` will be rounded up to 1.0.
 /// Values that are lower than `livezone_lowerbound` will be rounded down to -1.0.
-/// Values that are in-between `deadzone_lowerbound` and `deadzone_upperbound` will be rounded
-/// to 0.0.
-/// Otherwise, values will not be rounded.
+/// Values that are in-between `deadzone_lowerbound` and `deadzone_upperbound` will be rounded to 0.0.
+/// Otherwise, values will be linearly rescaled to fit into the sensitivity range.
+/// For example, a value that is one fourth of the way from `deadzone_upperbound` to `livezone_upperbound` will be scaled to 0.25.
 ///
 /// The valid range is `[-1.0, 1.0]`.
 #[derive(Debug, Clone, PartialEq)]
@@ -911,7 +1039,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than the dead zone upper bound,
+    /// If the value passed is less than the deadzone upper bound,
     /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
     /// If the value passed is not in range [0.0..=1.0], returns `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
     pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
@@ -987,7 +1115,7 @@ impl AxisSettings {
     ///
     /// # Errors
     ///
-    /// If the value passed is less than the dead zone lower bound,
+    /// If the value passed is less than the deadzone lower bound,
     /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
     /// If the value passed is not in range [-1.0..=0.0], returns `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
     pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
@@ -1083,39 +1211,135 @@ impl AxisSettings {
     }
 
     /// Clamps the `raw_value` according to the `AxisSettings`.
-    pub fn clamp(&self, new_value: f32) -> f32 {
-        if self.deadzone_lowerbound <= new_value && new_value <= self.deadzone_upperbound {
+    pub fn clamp(&self, raw_value: f32) -> f32 {
+        if self.deadzone_lowerbound <= raw_value && raw_value <= self.deadzone_upperbound {
             0.0
-        } else if new_value >= self.livezone_upperbound {
+        } else if raw_value >= self.livezone_upperbound {
             1.0
-        } else if new_value <= self.livezone_lowerbound {
+        } else if raw_value <= self.livezone_lowerbound {
             -1.0
         } else {
-            new_value
+            raw_value
         }
     }
 
-    /// Determines whether the change from `old_value` to `new_value` should
+    /// Determines whether the change from `old_raw_value` to `new_raw_value` should
     /// be registered as a change, according to the [`AxisSettings`].
-    fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
-        if old_value.is_none() {
-            return true;
+    fn should_register_change(&self, new_raw_value: f32, old_raw_value: Option<f32>) -> bool {
+        match old_raw_value {
+            None => true,
+            Some(old_raw_value) => ops::abs(new_raw_value - old_raw_value) >= self.threshold,
         }
-
-        f32::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
-    /// Filters the `new_value` based on the `old_value`, according to the [`AxisSettings`].
+    /// Filters the `new_raw_value` based on the `old_raw_value`, according to the [`AxisSettings`].
     ///
-    /// Returns the clamped `new_value` if the change exceeds the settings threshold,
+    /// Returns the clamped and scaled `new_raw_value` if the change exceeds the settings threshold,
     /// and `None` otherwise.
-    pub fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = self.clamp(new_value);
-
-        if self.should_register_change(new_value, old_value) {
-            return Some(new_value);
+    fn filter(
+        &self,
+        new_raw_value: f32,
+        old_raw_value: Option<f32>,
+    ) -> Option<FilteredAxisPosition> {
+        let clamped_unscaled = self.clamp(new_raw_value);
+        match self.should_register_change(clamped_unscaled, old_raw_value) {
+            true => Some(FilteredAxisPosition {
+                scaled: self.get_axis_position_from_value(clamped_unscaled),
+                raw: new_raw_value,
+            }),
+            false => None,
         }
-        None
+    }
+
+    #[inline(always)]
+    fn get_axis_position_from_value(&self, value: f32) -> ScaledAxisWithDeadZonePosition {
+        if value < self.deadzone_upperbound && value > self.deadzone_lowerbound {
+            ScaledAxisWithDeadZonePosition::Dead
+        } else if value > self.livezone_upperbound {
+            ScaledAxisWithDeadZonePosition::AboveHigh
+        } else if value < self.livezone_lowerbound {
+            ScaledAxisWithDeadZonePosition::BelowLow
+        } else if value >= self.deadzone_upperbound {
+            ScaledAxisWithDeadZonePosition::High(linear_remapping(
+                value,
+                self.deadzone_upperbound..=self.livezone_upperbound,
+                0.0..=1.0,
+            ))
+        } else if value <= self.deadzone_lowerbound {
+            ScaledAxisWithDeadZonePosition::Low(linear_remapping(
+                value,
+                self.livezone_lowerbound..=self.deadzone_lowerbound,
+                -1.0..=0.0,
+            ))
+        } else {
+            unreachable!();
+        }
+    }
+}
+
+/// A linear remapping of `value` from `old` to `new`.
+fn linear_remapping(value: f32, old: RangeInclusive<f32>, new: RangeInclusive<f32>) -> f32 {
+    // https://stackoverflow.com/a/929104
+    ((value - old.start()) / (old.end() - old.start())) * (new.end() - new.start()) + new.start()
+}
+
+#[derive(Debug, Clone, Copy)]
+/// Deadzone-aware axis position.
+enum ScaledAxisWithDeadZonePosition {
+    /// The input clipped below the valid range of the axis.
+    BelowLow,
+    /// The input is lower than the deadzone.
+    Low(f32),
+    /// The input falls within the deadzone, meaning it is counted as 0.
+    Dead,
+    /// The input is higher than the deadzone.
+    High(f32),
+    /// The input clipped above the valid range of the axis.
+    AboveHigh,
+}
+
+struct FilteredAxisPosition {
+    scaled: ScaledAxisWithDeadZonePosition,
+    raw: f32,
+}
+
+impl ScaledAxisWithDeadZonePosition {
+    /// Converts the value into a float in the range [-1, 1].
+    fn to_f32(self) -> f32 {
+        match self {
+            ScaledAxisWithDeadZonePosition::BelowLow => -1.,
+            ScaledAxisWithDeadZonePosition::Low(scaled)
+            | ScaledAxisWithDeadZonePosition::High(scaled) => scaled,
+            ScaledAxisWithDeadZonePosition::Dead => 0.,
+            ScaledAxisWithDeadZonePosition::AboveHigh => 1.,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+/// Low/High-aware axis position.
+enum ScaledAxisPosition {
+    /// The input fell short of the "low" value.
+    ClampedLow,
+    /// The input was in the normal range.
+    Scaled(f32),
+    /// The input surpassed the "high" value.
+    ClampedHigh,
+}
+
+struct FilteredButtonAxisPosition {
+    scaled: ScaledAxisPosition,
+    raw: f32,
+}
+
+impl ScaledAxisPosition {
+    /// Converts the value into a float in the range [0, 1].
+    fn to_f32(self) -> f32 {
+        match self {
+            ScaledAxisPosition::ClampedLow => 0.,
+            ScaledAxisPosition::Scaled(scaled) => scaled,
+            ScaledAxisPosition::ClampedHigh => 1.,
+        }
     }
 }
 
@@ -1170,27 +1394,48 @@ impl ButtonAxisSettings {
         raw_value
     }
 
-    /// Determines whether the change from an `old_value` to a `new_value` should
+    /// Determines whether the change from an `old_raw_value` to a `new_raw_value` should
     /// be registered as a change event, according to the specified settings.
-    fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
-        if old_value.is_none() {
-            return true;
+    fn should_register_change(&self, new_raw_value: f32, old_raw_value: Option<f32>) -> bool {
+        match old_raw_value {
+            None => true,
+            Some(old_raw_value) => ops::abs(new_raw_value - old_raw_value) >= self.threshold,
         }
-
-        f32::abs(new_value - old_value.unwrap()) > self.threshold
     }
 
-    /// Filters the `new_value` based on the `old_value`, according to the [`ButtonAxisSettings`].
+    /// Filters the `new_raw_value` based on the `old_raw_value`, according to the [`ButtonAxisSettings`].
     ///
-    /// Returns the clamped `new_value`, according to the [`ButtonAxisSettings`], if the change
+    /// Returns the clamped and scaled `new_raw_value`, according to the [`ButtonAxisSettings`], if the change
     /// exceeds the settings threshold, and `None` otherwise.
-    pub fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = self.clamp(new_value);
-
-        if self.should_register_change(new_value, old_value) {
-            return Some(new_value);
+    fn filter(
+        &self,
+        new_raw_value: f32,
+        old_raw_value: Option<f32>,
+    ) -> Option<FilteredButtonAxisPosition> {
+        let clamped_unscaled = self.clamp(new_raw_value);
+        match self.should_register_change(clamped_unscaled, old_raw_value) {
+            true => Some(FilteredButtonAxisPosition {
+                scaled: self.get_axis_position_from_value(clamped_unscaled),
+                raw: new_raw_value,
+            }),
+            false => None,
         }
-        None
+    }
+
+    /// Clamps and scales the `value` according to the specified settings.
+    ///
+    /// If the `value` is:
+    /// - lower than or equal to `low` it will be rounded to 0.0.
+    /// - higher than or equal to `high` it will be rounded to 1.0.
+    /// - Otherwise, it will be scaled from (low, high) to (0, 1).
+    fn get_axis_position_from_value(&self, value: f32) -> ScaledAxisPosition {
+        if value <= self.low {
+            ScaledAxisPosition::ClampedLow
+        } else if value >= self.high {
+            ScaledAxisPosition::ClampedHigh
+        } else {
+            ScaledAxisPosition::Scaled(linear_remapping(value, self.low..=self.high, 0.0..=1.0))
+        }
     }
 }
 
@@ -1198,7 +1443,7 @@ impl ButtonAxisSettings {
 ///
 /// On connection, adds the components representing a [`Gamepad`] to the entity.
 /// On disconnection, removes the [`Gamepad`] and other related components.
-/// Entities are left alive and might leave components like [`GamepadSettings`] to preserve state in the case of a reconnection
+/// Entities are left alive and might leave components like [`GamepadSettings`] to preserve state in the case of a reconnection.
 ///
 /// ## Note
 ///
@@ -1216,7 +1461,7 @@ pub fn gamepad_connection_system(
                 product_id,
             } => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling connection event.", id);
+                    warn!("Gamepad {} removed before handling connection event.", id);
                     continue;
                 };
                 gamepad.insert((
@@ -1227,18 +1472,18 @@ pub fn gamepad_connection_system(
                         ..Default::default()
                     },
                 ));
-                info!("Gamepad {:?} connected.", id);
+                info!("Gamepad {} connected.", id);
             }
             GamepadConnection::Disconnected => {
                 let Some(mut gamepad) = commands.get_entity(id) else {
-                    warn!("Gamepad {:} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
+                    warn!("Gamepad {} removed before handling disconnection event. You can ignore this if you manually removed it.", id);
                     continue;
                 };
                 // Gamepad entities are left alive to preserve their state (e.g. [`GamepadSettings`]).
                 // Instead of despawning, we remove Gamepad components that don't need to preserve state
                 // and re-add them if they ever reconnect.
                 gamepad.remove::<Gamepad>();
-                info!("Gamepad {:} disconnected.", id);
+                info!("Gamepad {} disconnected.", id);
             }
         }
     }
@@ -1294,7 +1539,7 @@ pub fn gamepad_event_processing_system(
         match event {
             // Connections require inserting/removing components so they are done in a separate system
             RawGamepadEvent::Connection(send_event) => {
-                processed_events.send(GamepadEvent::from(send_event.clone()));
+                processed_events.write(GamepadEvent::from(send_event.clone()));
             }
             RawGamepadEvent::Axis(RawGamepadAxisChangedEvent {
                 gamepad,
@@ -1307,15 +1552,15 @@ pub fn gamepad_event_processing_system(
                 };
                 let Some(filtered_value) = gamepad_settings
                     .get_axis_settings(axis)
-                    .filter(value, gamepad_axis.analog.get(axis))
+                    .filter(value, gamepad_axis.get(axis))
                 else {
                     continue;
                 };
-
-                gamepad_axis.analog.set(axis, filtered_value);
-                let send_event = GamepadAxisChangedEvent::new(gamepad, axis, filtered_value);
-                processed_axis_events.send(send_event);
-                processed_events.send(GamepadEvent::from(send_event));
+                gamepad_axis.analog.set(axis, filtered_value.raw);
+                let send_event =
+                    GamepadAxisChangedEvent::new(gamepad, axis, filtered_value.scaled.to_f32());
+                processed_axis_events.write(send_event);
+                processed_events.write(GamepadEvent::from(send_event));
             }
             RawGamepadEvent::Button(RawGamepadButtonChangedEvent {
                 gamepad,
@@ -1328,17 +1573,17 @@ pub fn gamepad_event_processing_system(
                 };
                 let Some(filtered_value) = settings
                     .get_button_axis_settings(button)
-                    .filter(value, gamepad_buttons.analog.get(button))
+                    .filter(value, gamepad_buttons.get(button))
                 else {
                     continue;
                 };
                 let button_settings = settings.get_button_settings(button);
-                gamepad_buttons.analog.set(button, filtered_value);
+                gamepad_buttons.analog.set(button, filtered_value.raw);
 
-                if button_settings.is_released(filtered_value) {
+                if button_settings.is_released(filtered_value.raw) {
                     // Check if button was previously pressed
-                    if gamepad_buttons.digital.pressed(button) {
-                        processed_digital_events.send(GamepadButtonStateChangedEvent::new(
+                    if gamepad_buttons.pressed(button) {
+                        processed_digital_events.write(GamepadButtonStateChangedEvent::new(
                             gamepad,
                             button,
                             ButtonState::Released,
@@ -1347,10 +1592,10 @@ pub fn gamepad_event_processing_system(
                     // We don't have to check if the button was previously pressed here
                     // because that check is performed within Input<T>::release()
                     gamepad_buttons.digital.release(button);
-                } else if button_settings.is_pressed(filtered_value) {
+                } else if button_settings.is_pressed(filtered_value.raw) {
                     // Check if button was previously not pressed
-                    if !gamepad_buttons.digital.pressed(button) {
-                        processed_digital_events.send(GamepadButtonStateChangedEvent::new(
+                    if !gamepad_buttons.pressed(button) {
+                        processed_digital_events.write(GamepadButtonStateChangedEvent::new(
                             gamepad,
                             button,
                             ButtonState::Pressed,
@@ -1364,10 +1609,14 @@ pub fn gamepad_event_processing_system(
                 } else {
                     ButtonState::Released
                 };
-                let send_event =
-                    GamepadButtonChangedEvent::new(gamepad, button, button_state, filtered_value);
-                processed_analog_events.send(send_event);
-                processed_events.send(GamepadEvent::from(send_event));
+                let send_event = GamepadButtonChangedEvent::new(
+                    gamepad,
+                    button,
+                    button_state,
+                    filtered_value.scaled.to_f32(),
+                );
+                processed_analog_events.write(send_event);
+                processed_events.write(GamepadEvent::from(send_event));
             }
         }
     }
@@ -1444,13 +1693,13 @@ impl GamepadRumbleIntensity {
 /// ```
 /// # use bevy_input::gamepad::{Gamepad, GamepadRumbleRequest, GamepadRumbleIntensity};
 /// # use bevy_ecs::prelude::{EventWriter, Res, Query, Entity, With};
-/// # use bevy_utils::Duration;
+/// # use core::time::Duration;
 /// fn rumble_gamepad_system(
 ///     mut rumble_requests: EventWriter<GamepadRumbleRequest>,
 ///     gamepads: Query<Entity, With<Gamepad>>,
 /// ) {
 ///     for entity in gamepads.iter() {
-///         rumble_requests.send(GamepadRumbleRequest::Add {
+///         rumble_requests.write(GamepadRumbleRequest::Add {
 ///             gamepad: entity,
 ///             intensity: GamepadRumbleIntensity::MAX,
 ///             duration: Duration::from_secs_f32(0.5),
@@ -1511,6 +1760,7 @@ mod tests {
         RawGamepadButtonChangedEvent, RawGamepadEvent,
     };
     use crate::ButtonState;
+    use alloc::string::ToString;
     use bevy_app::{App, PreUpdate};
     use bevy_ecs::entity::Entity;
     use bevy_ecs::event::Events;
@@ -1518,130 +1768,161 @@ mod tests {
 
     fn test_button_axis_settings_filter(
         settings: ButtonAxisSettings,
-        new_value: f32,
-        old_value: Option<f32>,
+        new_raw_value: f32,
+        old_raw_value: Option<f32>,
         expected: Option<f32>,
     ) {
-        let actual = settings.filter(new_value, old_value);
+        let actual = settings
+            .filter(new_raw_value, old_raw_value)
+            .map(|f| f.scaled.to_f32());
         assert_eq!(
             expected, actual,
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
+            "Testing filtering for {settings:?} with new_raw_value = {new_raw_value:?}, old_raw_value = {old_raw_value:?}",
         );
     }
 
     #[test]
     fn test_button_axis_settings_default_filter() {
         let cases = [
+            // clamped
             (1.0, None, Some(1.0)),
             (0.99, None, Some(1.0)),
             (0.96, None, Some(1.0)),
             (0.95, None, Some(1.0)),
-            (0.9499, None, Some(0.9499)),
-            (0.84, None, Some(0.84)),
-            (0.43, None, Some(0.43)),
-            (0.05001, None, Some(0.05001)),
+            // linearly rescaled from 0.05..=0.95 to 0.0..=1.0
+            (0.9499, None, Some(0.9998889)),
+            (0.84, None, Some(0.87777776)),
+            (0.43, None, Some(0.42222223)),
+            (0.05001, None, Some(0.000011109644)),
+            // clamped
             (0.05, None, Some(0.0)),
             (0.04, None, Some(0.0)),
             (0.01, None, Some(0.0)),
             (0.0, None, Some(0.0)),
         ];
 
-        for (new_value, old_value, expected) in cases {
+        for (new_raw_value, old_raw_value, expected) in cases {
             let settings = ButtonAxisSettings::default();
-            test_button_axis_settings_filter(settings, new_value, old_value, expected);
+            test_button_axis_settings_filter(settings, new_raw_value, old_raw_value, expected);
         }
     }
 
     #[test]
-    fn test_button_axis_settings_default_filter_with_old_value() {
+    fn test_button_axis_settings_default_filter_with_old_raw_value() {
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
+            // 0.43 gets rescaled to 0.42222223 (0.05..=0.95 -> 0.0..=1.0)
+            (0.43, Some(0.44001), Some(0.42222223)),
             (0.43, Some(0.44), None),
             (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
+            (0.43, Some(0.41999), Some(0.42222223)),
+            (0.43, Some(0.17), Some(0.42222223)),
+            (0.43, Some(0.84), Some(0.42222223)),
             (0.05, Some(0.055), Some(0.0)),
             (0.95, Some(0.945), Some(1.0)),
         ];
 
-        for (new_value, old_value, expected) in cases {
+        for (new_raw_value, old_raw_value, expected) in cases {
             let settings = ButtonAxisSettings::default();
-            test_button_axis_settings_filter(settings, new_value, old_value, expected);
+            test_button_axis_settings_filter(settings, new_raw_value, old_raw_value, expected);
         }
     }
 
     fn test_axis_settings_filter(
         settings: AxisSettings,
-        new_value: f32,
-        old_value: Option<f32>,
+        new_raw_value: f32,
+        old_raw_value: Option<f32>,
         expected: Option<f32>,
     ) {
-        let actual = settings.filter(new_value, old_value);
+        let actual = settings.filter(new_raw_value, old_raw_value);
         assert_eq!(
-            expected, actual,
-            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
+            expected, actual.map(|f| f.scaled.to_f32()),
+            "Testing filtering for {settings:?} with new_raw_value = {new_raw_value:?}, old_raw_value = {old_raw_value:?}",
         );
     }
 
     #[test]
     fn test_axis_settings_default_filter() {
+        // new (raw), expected (rescaled linearly)
         let cases = [
+            // high enough to round to 1.0
             (1.0, Some(1.0)),
             (0.99, Some(1.0)),
             (0.96, Some(1.0)),
             (0.95, Some(1.0)),
-            (0.9499, Some(0.9499)),
-            (0.84, Some(0.84)),
-            (0.43, Some(0.43)),
-            (0.05001, Some(0.05001)),
+            // for the following, remember that 0.05 is the "low" value and 0.95 is the "high" value
+            // barely below the high value means barely below 1 after scaling
+            (0.9499, Some(0.9998889)), // scaled as: (0.9499 - 0.05) / (0.95 - 0.05)
+            (0.84, Some(0.87777776)),  // scaled as: (0.84 - 0.05) / (0.95 - 0.05)
+            (0.43, Some(0.42222223)),  // scaled as: (0.43 - 0.05) / (0.95 - 0.05)
+            // barely above the low value means barely above 0 after scaling
+            (0.05001, Some(0.000011109644)), // scaled as: (0.05001 - 0.05) / (0.95 - 0.05)
+            // low enough to be rounded to 0 (dead zone)
             (0.05, Some(0.0)),
             (0.04, Some(0.0)),
             (0.01, Some(0.0)),
             (0.0, Some(0.0)),
+            // same exact tests as above, but below 0 (bottom half of the dead zone and live zone)
+            // low enough to be rounded to -1
             (-1.0, Some(-1.0)),
             (-0.99, Some(-1.0)),
             (-0.96, Some(-1.0)),
             (-0.95, Some(-1.0)),
-            (-0.9499, Some(-0.9499)),
-            (-0.84, Some(-0.84)),
-            (-0.43, Some(-0.43)),
-            (-0.05001, Some(-0.05001)),
+            // scaled inputs
+            (-0.9499, Some(-0.9998889)), // scaled as: (-0.9499 - -0.05) / (-0.95 - -0.05)
+            (-0.84, Some(-0.87777776)),  // scaled as: (-0.84 - -0.05) / (-0.95 - -0.05)
+            (-0.43, Some(-0.42222226)),  // scaled as: (-0.43 - -0.05) / (-0.95 - -0.05)
+            (-0.05001, Some(-0.000011146069)), // scaled as: (-0.05001 - -0.05) / (-0.95 - -0.05)
+            // high enough to be rounded to 0 (dead zone)
             (-0.05, Some(0.0)),
             (-0.04, Some(0.0)),
             (-0.01, Some(0.0)),
         ];
 
-        for (new_value, expected) in cases {
+        for (new_raw_value, expected) in cases {
             let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
-            test_axis_settings_filter(settings, new_value, None, expected);
+            test_axis_settings_filter(settings, new_raw_value, None, expected);
         }
     }
 
     #[test]
-    fn test_axis_settings_default_filter_with_old_values() {
+    fn test_axis_settings_default_filter_with_old_raw_values() {
+        let threshold = 0.01;
+        // expected values are hardcoded to be rescaled to from 0.05..=0.95 to 0.0..=1.0
+        // new (raw), old (raw), expected
         let cases = [
-            (0.43, Some(0.44001), Some(0.43)),
-            (0.43, Some(0.44), None),
-            (0.43, Some(0.43), None),
-            (0.43, Some(0.41999), Some(0.43)),
-            (0.43, Some(0.17), Some(0.43)),
-            (0.43, Some(0.84), Some(0.43)),
-            (0.05, Some(0.055), Some(0.0)),
-            (0.95, Some(0.945), Some(1.0)),
-            (-0.43, Some(-0.44001), Some(-0.43)),
-            (-0.43, Some(-0.44), None),
-            (-0.43, Some(-0.43), None),
-            (-0.43, Some(-0.41999), Some(-0.43)),
-            (-0.43, Some(-0.17), Some(-0.43)),
-            (-0.43, Some(-0.84), Some(-0.43)),
-            (-0.05, Some(-0.055), Some(0.0)),
-            (-0.95, Some(-0.945), Some(-1.0)),
+            // enough increase to change
+            (0.43, Some(0.43 + threshold * 1.1), Some(0.42222223)),
+            // enough decrease to change
+            (0.43, Some(0.43 - threshold * 1.1), Some(0.42222223)),
+            // not enough increase to change
+            (0.43, Some(0.43 + threshold * 0.9), None),
+            // not enough decrease to change
+            (0.43, Some(0.43 - threshold * 0.9), None),
+            // enough increase to change
+            (-0.43, Some(-0.43 + threshold * 1.1), Some(-0.42222226)),
+            // enough decrease to change
+            (-0.43, Some(-0.43 - threshold * 1.1), Some(-0.42222226)),
+            // not enough increase to change
+            (-0.43, Some(-0.43 + threshold * 0.9), None),
+            // not enough decrease to change
+            (-0.43, Some(-0.43 - threshold * 0.9), None),
+            // test upper deadzone logic
+            (0.05, Some(0.0), None),
+            (0.06, Some(0.0), Some(0.0111111095)),
+            // test lower deadzone logic
+            (-0.05, Some(0.0), None),
+            (-0.06, Some(0.0), Some(-0.011111081)),
+            // test upper livezone logic
+            (0.95, Some(1.0), None),
+            (0.94, Some(1.0), Some(0.9888889)),
+            // test lower livezone logic
+            (-0.95, Some(-1.0), None),
+            (-0.94, Some(-1.0), Some(-0.9888889)),
         ];
 
-        for (new_value, old_value, expected) in cases {
-            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.01).unwrap();
-            test_axis_settings_filter(settings, new_value, old_value, expected);
+        for (new_raw_value, old_raw_value, expected) in cases {
+            let settings = AxisSettings::new(-0.95, -0.05, 0.05, 0.95, threshold).unwrap();
+            test_axis_settings_filter(settings, new_raw_value, old_raw_value, expected);
         }
     }
 
@@ -2403,8 +2684,13 @@ mod tests {
             assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Pressed);
         }
-        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
-        assert!(gamepad.digital.pressed(GamepadButton::DPadDown));
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
 
         ctx.app
             .world_mut()
@@ -2419,8 +2705,13 @@ mod tests {
                 .len(),
             0
         );
-        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
-        assert!(gamepad.digital.pressed(GamepadButton::DPadDown));
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
     }
 
     #[test]
@@ -2439,13 +2730,23 @@ mod tests {
         ctx.update();
 
         // Check it is flagged for this frame
-        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
-        assert!(gamepad.digital.just_pressed(GamepadButton::DPadDown));
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_pressed(GamepadButton::DPadDown));
         ctx.update();
 
         //Check it clears next frame
-        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
-        assert!(!gamepad.digital.just_pressed(GamepadButton::DPadDown));
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_pressed(GamepadButton::DPadDown));
     }
     #[test]
     fn gamepad_buttons_released() {
@@ -2488,8 +2789,13 @@ mod tests {
             assert_eq!(event.button, GamepadButton::DPadDown);
             assert_eq!(event.state, ButtonState::Released);
         }
-        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
-        assert!(!gamepad.digital.pressed(GamepadButton::DPadDown));
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .pressed(GamepadButton::DPadDown));
         ctx.app
             .world_mut()
             .resource_mut::<Events<GamepadButtonStateChangedEvent>>()
@@ -2528,13 +2834,23 @@ mod tests {
         ctx.update();
 
         // Check it is flagged for this frame
-        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
-        assert!(gamepad.digital.just_released(GamepadButton::DPadDown));
+        assert!(ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_released(GamepadButton::DPadDown));
         ctx.update();
 
-        // Check it clears next frame
-        let gamepad = ctx.app.world_mut().get::<Gamepad>(entity).unwrap();
-        assert!(!gamepad.digital.just_released(GamepadButton::DPadDown));
+        //Check it clears next frame
+        assert!(!ctx
+            .app
+            .world_mut()
+            .query::<&Gamepad>()
+            .get(ctx.app.world(), entity)
+            .unwrap()
+            .just_released(GamepadButton::DPadDown));
     }
 
     #[test]

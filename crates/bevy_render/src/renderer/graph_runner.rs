@@ -1,11 +1,11 @@
 use bevy_ecs::{prelude::Entity, world::World};
+use bevy_platform_support::collections::HashMap;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::HashMap;
+use tracing::info_span;
 
 use alloc::{borrow::Cow, collections::VecDeque};
-use derive_more::derive::{Display, Error, From};
 use smallvec::{smallvec, SmallVec};
+use thiserror::Error;
 
 use crate::{
     diagnostic::internal::{DiagnosticsRecorder, RenderDiagnosticsMutex},
@@ -29,29 +29,30 @@ use crate::{
 /// [`CommandBuffer`]: wgpu::CommandBuffer
 pub(crate) struct RenderGraphRunner;
 
-#[derive(Error, Display, Debug, From)]
+#[derive(Error, Debug)]
 pub enum RenderGraphRunnerError {
-    NodeRunError(NodeRunError),
-    #[display("node output slot not set (index {slot_index}, name {slot_name})")]
+    #[error(transparent)]
+    NodeRunError(#[from] NodeRunError),
+    #[error("node output slot not set (index {slot_index}, name {slot_name})")]
     EmptyNodeOutputSlot {
         type_name: &'static str,
         slot_index: usize,
         slot_name: Cow<'static, str>,
     },
-    #[display("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[error("graph '{sub_graph:?}' could not be run because slot '{slot_name}' at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
         sub_graph: Option<InternedRenderSubGraph>,
     },
-    #[display("attempted to use the wrong type for input slot")]
+    #[error("attempted to use the wrong type for input slot")]
     MismatchedInputSlotType {
         slot_index: usize,
         label: SlotLabel,
         expected: SlotType,
         actual: SlotType,
     },
-    #[display(
+    #[error(
         "node (name: '{node_name:?}') has {slot_count} input slots, but was provided {value_count} values"
     )]
     MismatchedInputCount {
@@ -67,6 +68,7 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
+        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
@@ -75,8 +77,12 @@ impl RenderGraphRunner {
             recorder.begin_frame();
         }
 
-        let mut render_context =
-            RenderContext::new(render_device, adapter.get_info(), diagnostics_recorder);
+        let mut render_context = RenderContext::new(
+            render_device,
+            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+            adapter.get_info(),
+            diagnostics_recorder,
+        );
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 

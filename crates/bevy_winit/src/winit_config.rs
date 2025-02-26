@@ -1,5 +1,5 @@
-use bevy_ecs::system::Resource;
-use bevy_utils::Duration;
+use bevy_ecs::resource::Resource;
+use core::time::Duration;
 
 /// Settings for the [`WinitPlugin`](super::WinitPlugin).
 #[derive(Debug, Resource, Clone)]
@@ -35,6 +35,19 @@ impl WinitSettings {
         }
     }
 
+    /// Default settings for mobile.
+    ///
+    /// [`Reactive`](UpdateMode::Reactive) if windows have focus,
+    /// [`reactive_low_power`](UpdateMode::reactive_low_power) otherwise.
+    ///
+    /// Use the [`EventLoopProxy`](crate::EventLoopProxy) to request a redraw from outside bevy.
+    pub fn mobile() -> Self {
+        WinitSettings {
+            focused_mode: UpdateMode::reactive(Duration::from_secs_f32(1.0 / 60.0)),
+            unfocused_mode: UpdateMode::reactive_low_power(Duration::from_secs(1)),
+        }
+    }
+
     /// Returns the current [`UpdateMode`].
     ///
     /// **Note:** The output depends on whether the window has focus or not.
@@ -67,7 +80,7 @@ pub enum UpdateMode {
     /// - `wait` time has elapsed since the previous update
     /// - a redraw has been requested by [`RequestRedraw`](bevy_window::RequestRedraw)
     /// - new [window](`winit::event::WindowEvent`), [raw input](`winit::event::DeviceEvent`), or custom
-    ///     events have appeared
+    ///   events have appeared
     /// - a redraw has been requested with the [`EventLoopProxy`](crate::EventLoopProxy)
     Reactive {
         /// The approximate time from the start of one update to the next.

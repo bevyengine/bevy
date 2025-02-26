@@ -1,9 +1,14 @@
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use core::panic::AssertUnwindSafe;
 use fixedbitset::FixedBitSet;
 
+#[cfg(feature = "trace")]
+use tracing::info_span;
+
+#[cfg(feature = "std")]
+use std::eprintln;
+
 use crate::{
+    result::{Error, SystemErrorContext},
     schedule::{is_apply_deferred, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
@@ -45,6 +50,7 @@ impl SystemExecutor for SingleThreadedExecutor {
         schedule: &mut SystemSchedule,
         world: &mut World,
         _skip_systems: Option<&FixedBitSet>,
+        error_handler: fn(Error, SystemErrorContext),
     ) {
         // If stepping is enabled, make sure we skip those systems that should
         // not be run.
@@ -106,22 +112,50 @@ impl SystemExecutor for SingleThreadedExecutor {
                 continue;
             }
 
-            let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            let f = AssertUnwindSafe(|| {
                 if system.is_exclusive() {
-                    __rust_begin_short_backtrace::run(&mut **system, world);
+                    if let Err(err) = __rust_begin_short_backtrace::run(system, world) {
+                        error_handler(
+                            err,
+                            SystemErrorContext {
+                                name: system.name(),
+                                last_run: system.get_last_run(),
+                            },
+                        );
+                    }
                 } else {
                     // Use run_unsafe to avoid immediately applying deferred buffers
                     let world = world.as_unsafe_world_cell();
                     system.update_archetype_component_access(world);
                     // SAFETY: We have exclusive, single-threaded access to the world and
                     // update_archetype_component_access is being called immediately before this.
-                    unsafe { __rust_begin_short_backtrace::run_unsafe(&mut **system, world) };
+                    unsafe {
+                        if let Err(err) = __rust_begin_short_backtrace::run_unsafe(system, world) {
+                            error_handler(
+                                err,
+                                SystemErrorContext {
+                                    name: system.name(),
+                                    last_run: system.get_last_run(),
+                                },
+                            );
+                        }
+                    };
                 }
-            }));
-            if let Err(payload) = res {
-                eprintln!("Encountered a panic in system `{}`!", &*system.name());
-                std::panic::resume_unwind(payload);
+            });
+
+            #[cfg(feature = "std")]
+            {
+                if let Err(payload) = std::panic::catch_unwind(f) {
+                    eprintln!("Encountered a panic in system `{}`!", &*system.name());
+                    std::panic::resume_unwind(payload);
+                }
             }
+
+            #[cfg(not(feature = "std"))]
+            {
+                (f)();
+            }
+
             self.unapplied_systems.insert(system_index);
         }
 
@@ -161,8 +195,10 @@ impl SingleThreadedExecutor {
 }
 
 fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
-    // not short-circuiting is intentional
-    #[allow(clippy::unnecessary_fold)]
+    #[expect(
+        clippy::unnecessary_fold,
+        reason = "Short-circuiting here would prevent conditions from mutating their own state as needed."
+    )]
     conditions
         .iter_mut()
         .map(|condition| {

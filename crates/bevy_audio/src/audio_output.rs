@@ -4,13 +4,12 @@ use crate::{
 };
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_hierarchy::DespawnRecursiveExt;
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+use tracing::warn;
 
-use crate::AudioSink;
+use crate::{AudioSink, AudioSinkPlayback};
 
 /// Used internally to play audio on the current "audio device"
 ///
@@ -47,11 +46,11 @@ impl Default for AudioOutput {
 }
 
 /// Marker for internal use, to despawn entities when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackDespawnMarker;
 
 /// Marker for internal use, to remove audio components when playback finishes.
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct PlaybackRemoveMarker;
 
 #[derive(SystemParam)]
@@ -130,7 +129,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
             // the user may have made a mistake.
             if ear_positions.multiple_listeners() {
                 warn!(
-                    "Multiple SpatialListeners found. Using {:?}.",
+                    "Multiple SpatialListeners found. Using {}.",
                     ear_positions.query.iter().next().unwrap().0
                 );
             }
@@ -157,36 +156,36 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
             };
 
+            match settings.mode {
+                PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
+                PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
+                    sink.append(audio_source.decoder());
+                }
+            };
+
+            let mut sink = SpatialAudioSink::new(sink);
+
+            if settings.muted {
+                sink.mute();
+            }
+
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume.0 * global_volume.volume.0);
+            sink.set_volume(settings.volume * global_volume.volume);
 
             if settings.paused {
                 sink.pause();
             }
 
             match settings.mode {
-                PlaybackMode::Loop => {
-                    sink.append(audio_source.decoder().repeat_infinite());
-                    commands.entity(entity).insert(SpatialAudioSink { sink });
-                }
-                PlaybackMode::Once => {
-                    sink.append(audio_source.decoder());
-                    commands.entity(entity).insert(SpatialAudioSink { sink });
-                }
-                PlaybackMode::Despawn => {
-                    sink.append(audio_source.decoder());
-                    commands
-                        .entity(entity)
-                        // PERF: insert as bundle to reduce archetype moves
-                        .insert((SpatialAudioSink { sink }, PlaybackDespawnMarker));
-                }
-                PlaybackMode::Remove => {
-                    sink.append(audio_source.decoder());
-                    commands
-                        .entity(entity)
-                        // PERF: insert as bundle to reduce archetype moves
-                        .insert((SpatialAudioSink { sink }, PlaybackRemoveMarker));
-                }
+                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity).insert(sink),
+                PlaybackMode::Despawn => commands
+                    .entity(entity)
+                    // PERF: insert as bundle to reduce archetype moves
+                    .insert((sink, PlaybackDespawnMarker)),
+                PlaybackMode::Remove => commands
+                    .entity(entity)
+                    // PERF: insert as bundle to reduce archetype moves
+                    .insert((sink, PlaybackRemoveMarker)),
             };
         } else {
             let sink = match Sink::try_new(stream_handle) {
@@ -197,36 +196,36 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 }
             };
 
+            match settings.mode {
+                PlaybackMode::Loop => sink.append(audio_source.decoder().repeat_infinite()),
+                PlaybackMode::Once | PlaybackMode::Despawn | PlaybackMode::Remove => {
+                    sink.append(audio_source.decoder());
+                }
+            };
+
+            let mut sink = AudioSink::new(sink);
+
+            if settings.muted {
+                sink.mute();
+            }
+
             sink.set_speed(settings.speed);
-            sink.set_volume(settings.volume.0 * global_volume.volume.0);
+            sink.set_volume(settings.volume * global_volume.volume);
 
             if settings.paused {
                 sink.pause();
             }
 
             match settings.mode {
-                PlaybackMode::Loop => {
-                    sink.append(audio_source.decoder().repeat_infinite());
-                    commands.entity(entity).insert(AudioSink { sink });
-                }
-                PlaybackMode::Once => {
-                    sink.append(audio_source.decoder());
-                    commands.entity(entity).insert(AudioSink { sink });
-                }
-                PlaybackMode::Despawn => {
-                    sink.append(audio_source.decoder());
-                    commands
-                        .entity(entity)
-                        // PERF: insert as bundle to reduce archetype moves
-                        .insert((AudioSink { sink }, PlaybackDespawnMarker));
-                }
-                PlaybackMode::Remove => {
-                    sink.append(audio_source.decoder());
-                    commands
-                        .entity(entity)
-                        // PERF: insert as bundle to reduce archetype moves
-                        .insert((AudioSink { sink }, PlaybackRemoveMarker));
-                }
+                PlaybackMode::Loop | PlaybackMode::Once => commands.entity(entity).insert(sink),
+                PlaybackMode::Despawn => commands
+                    .entity(entity)
+                    // PERF: insert as bundle to reduce archetype moves
+                    .insert((sink, PlaybackDespawnMarker)),
+                PlaybackMode::Remove => commands
+                    .entity(entity)
+                    // PERF: insert as bundle to reduce archetype moves
+                    .insert((sink, PlaybackRemoveMarker)),
             };
         }
     }
@@ -253,12 +252,12 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 ) {
     for (entity, sink) in &query_nonspatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_spatial_despawn {
         if sink.sink.empty() {
-            commands.entity(entity).despawn_recursive();
+            commands.entity(entity).despawn();
         }
     }
     for (entity, sink) in &query_nonspatial_remove {

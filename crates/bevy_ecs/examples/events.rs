@@ -45,7 +45,7 @@ struct MyEvent {
 fn sending_system(mut event_writer: EventWriter<MyEvent>) {
     let random_value: f32 = rand::random();
     if random_value > 0.5 {
-        event_writer.send(MyEvent {
+        event_writer.write(MyEvent {
             message: "A random event with value > 0.5".to_string(),
             random_value,
         });
@@ -57,7 +57,7 @@ fn sending_system(mut event_writer: EventWriter<MyEvent>) {
 fn receiving_system(mut event_reader: EventReader<MyEvent>) {
     for my_event in event_reader.read() {
         println!(
-            "    Received message {:?}, with random value of {}",
+            "    Received message {}, with random value of {}",
             my_event.message, my_event.random_value
         );
     }

@@ -2,7 +2,7 @@ use super::config::*;
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
 use bevy_render::view::screenshot::{save_to_disk, Screenshot};
-use bevy_utils::tracing::{debug, info};
+use tracing::{debug, info};
 
 pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
     let mut config = world.resource_mut::<CiTestingConfig>();
@@ -27,6 +27,16 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
                     .spawn(Screenshot::primary_window())
                     .observe(save_to_disk(path));
                 info!("Took a screenshot at frame {}.", *current_frame);
+            }
+            CiTestingEvent::NamedScreenshot(name) => {
+                let path = format!("./screenshot-{}.png", name);
+                world
+                    .spawn(Screenshot::primary_window())
+                    .observe(save_to_disk(path));
+                info!(
+                    "Took a screenshot at frame {} for {}.",
+                    *current_frame, name
+                );
             }
             // Custom events are forwarded to the world.
             CiTestingEvent::Custom(event_string) => {

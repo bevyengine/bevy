@@ -1,4 +1,3 @@
-use bevy_hierarchy::Children;
 use bevy_math::Vec3;
 pub use bevy_mesh::*;
 use morph::{MeshMorphWeights, MorphWeights};
@@ -9,25 +8,51 @@ use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
     render_resource::TextureView,
     texture::GpuImage,
+    view::VisibilitySystems,
     RenderApp,
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, RenderAssetUsages};
+use bevy_asset::{AssetApp, AssetEvents, AssetId, RenderAssetUsages};
 use bevy_ecs::{
-    entity::Entity,
-    query::{Changed, With},
-    system::Query,
-};
-use bevy_ecs::{
-    query::Without,
+    prelude::*,
     system::{
         lifetimeless::{SRes, SResMut},
         SystemParamItem,
     },
 };
-pub use components::{Mesh2d, Mesh3d};
+pub use components::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
 use wgpu::IndexFormat;
+
+/// Registers all [`MeshBuilder`] types.
+pub struct MeshBuildersPlugin;
+
+impl Plugin for MeshBuildersPlugin {
+    fn build(&self, app: &mut App) {
+        // 2D Mesh builders
+        app.register_type::<CircleMeshBuilder>()
+            .register_type::<CircularSectorMeshBuilder>()
+            .register_type::<CircularSegmentMeshBuilder>()
+            .register_type::<RegularPolygonMeshBuilder>()
+            .register_type::<EllipseMeshBuilder>()
+            .register_type::<AnnulusMeshBuilder>()
+            .register_type::<RhombusMeshBuilder>()
+            .register_type::<Triangle2dMeshBuilder>()
+            .register_type::<RectangleMeshBuilder>()
+            .register_type::<Capsule2dMeshBuilder>()
+            // 3D Mesh builders
+            .register_type::<Capsule3dMeshBuilder>()
+            .register_type::<ConeMeshBuilder>()
+            .register_type::<ConicalFrustumMeshBuilder>()
+            .register_type::<CuboidMeshBuilder>()
+            .register_type::<CylinderMeshBuilder>()
+            .register_type::<PlaneMeshBuilder>()
+            .register_type::<SphereMeshBuilder>()
+            .register_type::<TetrahedronMeshBuilder>()
+            .register_type::<TorusMeshBuilder>()
+            .register_type::<Triangle3dMeshBuilder>();
+    }
+}
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct MeshPlugin;
@@ -40,9 +65,16 @@ impl Plugin for MeshPlugin {
             .register_type::<Mesh3d>()
             .register_type::<skinning::SkinnedMesh>()
             .register_type::<Vec<Entity>>()
+            .add_plugins(MeshBuildersPlugin)
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
-            .add_plugins(MeshAllocatorPlugin);
+            .add_plugins(MeshAllocatorPlugin)
+            .add_systems(
+                PostUpdate,
+                mark_3d_meshes_as_changed_if_their_assets_changed
+                    .ambiguous_with(VisibilitySystems::CalculateBounds)
+                    .before(AssetEvents),
+            );
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -130,6 +162,12 @@ impl RenderMesh {
     pub fn primitive_topology(&self) -> PrimitiveTopology {
         self.key_bits.primitive_topology()
     }
+
+    /// Returns true if this mesh uses an index buffer or false otherwise.
+    #[inline]
+    pub fn indexed(&self) -> bool {
+        matches!(self.buffer_info, RenderMeshBufferInfo::Indexed { .. })
+    }
 }
 
 /// The index/vertex buffer info of a [`RenderMesh`].
@@ -158,7 +196,7 @@ impl RenderAsset for RenderMesh {
         let mut vertex_size = 0;
         for attribute_data in mesh.attributes() {
             let vertex_format = attribute_data.0.format;
-            vertex_size += vertex_format.get_size() as usize;
+            vertex_size += vertex_format.size() as usize;
         }
 
         let vertex_count = mesh.count_vertices();
@@ -169,7 +207,8 @@ impl RenderAsset for RenderMesh {
     /// Converts the extracted mesh into a [`RenderMesh`].
     fn prepare_asset(
         mesh: Self::SourceAsset,
-        (images, ref mut mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
+        _: AssetId<Self::SourceAsset>,
+        (images, mesh_vertex_buffer_layouts): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let morph_targets = match mesh.morph_targets() {
             Some(mt) => {

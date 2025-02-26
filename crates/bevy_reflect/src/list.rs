@@ -1,3 +1,4 @@
+use alloc::{boxed::Box, vec::Vec};
 use core::{
     any::Any,
     fmt::{Debug, Formatter},
@@ -8,9 +9,9 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
-    FromReflect, Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut,
-    ReflectOwned, ReflectRef, Type, TypeInfo, TypePath,
+    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, FromReflect, Generics,
+    MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type,
+    TypeInfo, TypePath,
 };
 
 /// A trait used to power [list-like] operations via [reflection].
@@ -534,6 +535,7 @@ pub fn list_debug(dyn_list: &dyn List, f: &mut Formatter<'_>) -> core::fmt::Resu
 mod tests {
     use super::DynamicList;
     use crate::Reflect;
+    use alloc::{boxed::Box, vec};
     use core::assert_eq;
 
     #[test]

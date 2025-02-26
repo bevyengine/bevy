@@ -13,13 +13,14 @@ struct ClusterableObject {
     spot_light_tan_angle: f32,
     soft_shadow_size: f32,
     shadow_map_near_z: f32,
-    pad_a: f32,
-    pad_b: f32,
+    texture_index: u32,
+    pad: f32,
 };
 
-const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32   = 1u;
-const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32 = 2u;
-const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32        = 4u;
+const POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                    = 1u;
+const POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE: u32                  = 2u;
+const POINT_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                         = 4u;
+const POINT_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32   = 8u;
 
 struct DirectionalCascade {
     clip_from_world: mat4x4<f32>,
@@ -42,8 +43,9 @@ struct DirectionalLight {
     skip: u32,
 };
 
-const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
-const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32      = 2u;
+const DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32                  = 1u;
+const DIRECTIONAL_LIGHT_FLAGS_VOLUMETRIC_BIT: u32                       = 2u;
+const DIRECTIONAL_LIGHT_FLAGS_AFFECTS_LIGHTMAPPED_MESH_DIFFUSE_BIT: u32 = 4u;
 
 struct Lights {
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
@@ -101,7 +103,7 @@ struct ClusterLightIndexLists {
     data: array<u32>,
 };
 struct ClusterOffsetsAndCounts {
-    data: array<vec4<u32>>,
+    data: array<array<vec4<u32>, 2>>,
 };
 #else
 struct ClusterableObjects {
@@ -124,6 +126,8 @@ struct LightProbe {
     light_from_world_transposed: mat3x4<f32>,
     cubemap_index: i32,
     intensity: f32,
+    // Whether this light probe contributes diffuse light to lightmapped meshes.
+    affects_lightmapped_mesh_diffuse: u32,
 };
 
 struct LightProbes {
@@ -140,6 +144,9 @@ struct LightProbes {
     smallest_specular_mip_level_for_view: u32,
     // The intensity of the environment map associated with the view.
     intensity_for_view: f32,
+    // Whether the environment map attached to the view affects the diffuse
+    // lighting for lightmapped meshes.
+    view_environment_map_affects_lightmapped_mesh_diffuse: u32,
 };
 
 // Settings for screen space reflections.
@@ -165,3 +172,15 @@ struct OrderIndependentTransparencySettings {
   layers_count: i32,
   alpha_threshold: f32,
 };
+
+struct ClusteredDecal {
+    local_from_world: mat4x4<f32>,
+    image_index: i32,
+    tag: u32,
+    pad_a: u32,
+    pad_b: u32,
+}
+
+struct ClusteredDecals {
+    decals: array<ClusteredDecal>,
+}

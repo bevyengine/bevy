@@ -89,9 +89,6 @@ struct Ball;
 #[derive(Component, Deref, DerefMut)]
 struct Velocity(Vec2);
 
-#[derive(Component)]
-struct Collider;
-
 #[derive(Event, Default)]
 struct CollisionEvent;
 
@@ -101,15 +98,14 @@ struct Brick;
 #[derive(Resource, Deref)]
 struct CollisionSound(Handle<AudioSource>);
 
-// This bundle is a collection of the components that define a "wall" in our game
-#[derive(Bundle)]
-struct WallBundle {
-    // You can nest bundles inside of other bundles like this
-    // Allowing you to compose their functionality
-    sprite: Sprite,
-    transform: Transform,
-    collider: Collider,
-}
+// Default must be implemented to define this as a required component for the Wall component below
+#[derive(Component, Default)]
+struct Collider;
+
+// This is a collection of the components that define a "Wall" in our game
+#[derive(Component)]
+#[require(Sprite, Transform, Collider)]
+struct Wall;
 
 /// Which side of the arena is this wall located on?
 enum WallLocation {
@@ -149,13 +145,15 @@ impl WallLocation {
     }
 }
 
-impl WallBundle {
+impl Wall {
     // This "builder method" allows us to reuse logic across our wall entities,
     // making our code easier to read and less prone to bugs when we change the logic
-    fn new(location: WallLocation) -> WallBundle {
-        WallBundle {
-            sprite: Sprite::from_color(WALL_COLOR, Vec2::ONE),
-            transform: Transform {
+    // Notice the use of Sprite and Transform alongside Wall, overwriting the default values defined for the required components
+    fn new(location: WallLocation) -> (Wall, Sprite, Transform) {
+        (
+            Wall,
+            Sprite::from_color(WALL_COLOR, Vec2::ONE),
+            Transform {
                 // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
                 // This is used to determine the order of our sprites
                 translation: location.position().extend(0.0),
@@ -165,8 +163,7 @@ impl WallBundle {
                 scale: location.size().extend(1.0),
                 ..default()
             },
-            collider: Collider,
-        }
+        )
     }
 }
 
@@ -216,36 +213,35 @@ fn setup(
     ));
 
     // Scoreboard
-    commands
-        .spawn((
-            Text::new("Score: "),
-            TextFont {
-                font_size: SCOREBOARD_FONT_SIZE,
-                ..default()
-            },
-            TextColor(TEXT_COLOR),
-            ScoreboardUi,
-            Node {
-                position_type: PositionType::Absolute,
-                top: SCOREBOARD_TEXT_PADDING,
-                left: SCOREBOARD_TEXT_PADDING,
-                ..default()
-            },
-        ))
-        .with_child((
+    commands.spawn((
+        Text::new("Score: "),
+        TextFont {
+            font_size: SCOREBOARD_FONT_SIZE,
+            ..default()
+        },
+        TextColor(TEXT_COLOR),
+        ScoreboardUi,
+        Node {
+            position_type: PositionType::Absolute,
+            top: SCOREBOARD_TEXT_PADDING,
+            left: SCOREBOARD_TEXT_PADDING,
+            ..default()
+        },
+        children![(
             TextSpan::default(),
             TextFont {
                 font_size: SCOREBOARD_FONT_SIZE,
                 ..default()
             },
             TextColor(SCORE_COLOR),
-        ));
+        )],
+    ));
 
     // Walls
-    commands.spawn(WallBundle::new(WallLocation::Left));
-    commands.spawn(WallBundle::new(WallLocation::Right));
-    commands.spawn(WallBundle::new(WallLocation::Bottom));
-    commands.spawn(WallBundle::new(WallLocation::Top));
+    commands.spawn(Wall::new(WallLocation::Left));
+    commands.spawn(Wall::new(WallLocation::Right));
+    commands.spawn(Wall::new(WallLocation::Bottom));
+    commands.spawn(Wall::new(WallLocation::Top));
 
     // Bricks
     let total_width_of_bricks = (RIGHT_WALL - LEFT_WALL) - 2. * GAP_BETWEEN_BRICKS_AND_SIDES;
@@ -360,8 +356,8 @@ fn check_for_collisions(
         );
 
         if let Some(collision) = collision {
-            // Sends a collision event so that other systems can react to the collision
-            collision_events.send_default();
+            // Writes a collision event so that other systems can react to the collision
+            collision_events.write_default();
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {

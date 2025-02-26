@@ -10,9 +10,9 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
-use alloc::borrow::Cow;
-use bevy_utils::all_tuples;
+use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
+use variadics_please::all_tuples;
 
 /// A function system that runs with exclusive [`World`] access.
 ///
@@ -219,7 +219,14 @@ pub struct HasExclusiveSystemInput;
 
 macro_rules! impl_exclusive_system_function {
     ($($param: ident),*) => {
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<fn($($param,)*) -> Out> for Func
         where
             Func: Send + Sync + 'static,
@@ -236,7 +243,6 @@ macro_rules! impl_exclusive_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<Out, $($param,)*>(
                     mut f: impl FnMut(&mut World, $($param,)*) -> Out,
                     world: &mut World,
@@ -249,7 +255,14 @@ macro_rules! impl_exclusive_system_function {
             }
         }
 
-        #[allow(non_snake_case)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is within a macro, and as such, the below lints may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "Certain variable names are provided by the caller, not by us."
+        )]
         impl<In, Out, Func, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<(HasExclusiveSystemInput, fn(In, $($param,)*) -> Out)> for Func
         where
             Func: Send + Sync + 'static,
@@ -267,7 +280,6 @@ macro_rules! impl_exclusive_system_function {
                 // Yes, this is strange, but `rustc` fails to compile this impl
                 // without using this function. It fails to recognize that `func`
                 // is a function, potentially because of the multiple impls of `FnMut`
-                #[allow(clippy::too_many_arguments)]
                 fn call_inner<In: SystemInput, Out, $($param,)*>(
                     mut f: impl FnMut(In::Param<'_>, &mut World, $($param,)*) -> Out,
                     input: In::Inner<'_>,

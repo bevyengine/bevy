@@ -3,13 +3,15 @@ use bevy_app::{App, SubApp};
 use bevy_ecs::{
     entity::Entity,
     query::{QueryEntityError, QueryState, ROQueryItem, ReadOnlyQueryData},
-    system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
+    resource::Resource,
+    system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
-use bevy_utils::{all_tuples, TypeIdMap};
+use bevy_utils::TypeIdMap;
 use core::{any::TypeId, fmt::Debug, hash::Hash};
-use derive_more::derive::{Display, Error};
 use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
+use thiserror::Error;
+use variadics_please::all_tuples;
 
 /// A draw function used to draw [`PhaseItem`]s.
 ///
@@ -21,7 +23,10 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Prepares the draw function to be used. This is called once and only once before the phase
     /// begins. There may be zero or more [`draw`](Draw::draw) calls following a call to this function.
     /// Implementing this is optional.
-    #[allow(unused_variables)]
+    #[expect(
+        unused_variables,
+        reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
+    )]
     fn prepare(&mut self, world: &'_ World) {}
 
     /// Draws a [`PhaseItem`] by issuing zero or more `draw` calls via the [`TrackedRenderPass`].
@@ -34,14 +39,13 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     ) -> Result<(), DrawError>;
 }
 
-#[derive(Error, Display, Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum DrawError {
-    #[display("Failed to execute render command {_0:?}")]
-    #[error(ignore)]
+    #[error("Failed to execute render command {0:?}")]
     RenderCommandFailure(&'static str),
-    #[display("Failed to get execute view query")]
+    #[error("Failed to get execute view query")]
     InvalidViewQuery,
-    #[display("View entity not found")]
+    #[error("View entity not found")]
     ViewEntityNotFound,
 }
 
@@ -232,7 +236,14 @@ macro_rules! render_command_tuple_impl {
             type ViewQuery = ($($name::ViewQuery,)*);
             type ItemQuery = ($($name::ItemQuery,)*);
 
-            #[allow(non_snake_case)]
+            #[expect(
+                clippy::allow_attributes,
+                reason = "We are in a macro; as such, `non_snake_case` may not always lint."
+            )]
+            #[allow(
+                non_snake_case,
+                reason = "Parameter and variable names are provided by the macro invocation, not by us."
+            )]
             fn render<'w>(
                 _item: &P,
                 ($($view,)*): ROQueryItem<'w, Self::ViewQuery>,
@@ -321,7 +332,9 @@ where
         let view = match self.view.get_manual(world, view) {
             Ok(view) => view,
             Err(err) => match err {
-                QueryEntityError::NoSuchEntity(_) => return Err(DrawError::ViewEntityNotFound),
+                QueryEntityError::EntityDoesNotExist(_) => {
+                    return Err(DrawError::ViewEntityNotFound)
+                }
                 QueryEntityError::QueryDoesNotMatch(_, _)
                 | QueryEntityError::AliasedMutability(_) => {
                     return Err(DrawError::InvalidViewQuery)

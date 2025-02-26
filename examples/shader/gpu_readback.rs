@@ -86,10 +86,11 @@ fn setup(
         height: 1,
         ..default()
     };
-    let mut image = Image::new_fill(
+    // We create an uninitialized image since this texture will only be used for getting data out
+    // of the compute shader, not getting data in, so there's no reason for it to exist on the CPU
+    let mut image = Image::new_uninit(
         size,
         TextureDimension::D2,
-        &[0, 0, 0, 0],
         TextureFormat::R32Uint,
         RenderAssetUsages::RENDER_WORLD,
     );

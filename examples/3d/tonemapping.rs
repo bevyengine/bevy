@@ -3,13 +3,13 @@
 use bevy::{
     core_pipeline::tonemapping::Tonemapping,
     pbr::CascadeShadowConfigBuilder,
+    platform_support::collections::HashMap,
     prelude::*,
     reflect::TypePath,
     render::{
         render_resource::{AsBindGroup, ShaderRef},
         view::{ColorGrading, ColorGradingGlobal, ColorGradingSection},
     },
-    utils::HashMap,
 };
 use std::f32::consts::PI;
 
@@ -572,7 +572,7 @@ impl PerMethodSettings {
 
 impl Default for PerMethodSettings {
     fn default() -> Self {
-        let mut settings = HashMap::new();
+        let mut settings = <HashMap<_, _>>::default();
 
         for method in [
             Tonemapping::None,

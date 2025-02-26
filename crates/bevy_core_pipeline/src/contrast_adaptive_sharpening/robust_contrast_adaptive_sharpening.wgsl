@@ -65,7 +65,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let b = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, -1)).rgb;
     let d = textureSample(screenTexture, samp, in.uv, vec2<i32>(-1, 0)).rgb;
     // We need the alpha value of the pixel we're working on for the output
-    let e = textureSample(screenTexture, samp, in.uv).rgbw;
+    let e = textureSample(screenTexture, samp, in.uv).rgba;
     let f = textureSample(screenTexture, samp, in.uv, vec2<i32>(1, 0)).rgb;
     let h = textureSample(screenTexture, samp, in.uv, vec2<i32>(0, 1)).rgb;
     // Min and max of ring.

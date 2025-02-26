@@ -5,9 +5,8 @@ use bevy_image::Image;
 use bevy_math::Vec3;
 use bevy_reflect::prelude::*;
 use bytemuck::{Pod, Zeroable};
-use core::iter;
-use derive_more::derive::{Display, Error};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use thiserror::Error;
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 const MAX_TEXTURE_WIDTH: u32 = 2048;
 // NOTE: "component" refers to the element count of math objects,
@@ -17,9 +16,9 @@ const MAX_COMPONENTS: u32 = MAX_TEXTURE_WIDTH * MAX_TEXTURE_WIDTH;
 /// Max target count available for [morph targets](MorphWeights).
 pub const MAX_MORPH_WEIGHTS: usize = 64;
 
-#[derive(Error, Display, Clone, Debug)]
+#[derive(Error, Clone, Debug)]
 pub enum MorphBuildError {
-    #[display(
+    #[error(
         "Too many vertex×components in morph target, max is {MAX_COMPONENTS}, \
         got {vertex_count}×{component_count} = {}",
         *vertex_count * *component_count as usize
@@ -28,7 +27,7 @@ pub enum MorphBuildError {
         vertex_count: usize,
         component_count: u32,
     },
-    #[display(
+    #[error(
         "Bevy only supports up to {} morph targets (individual poses), tried to \
         create a model with {target_count} morph targets",
         MAX_MORPH_WEIGHTS
@@ -77,7 +76,7 @@ impl MorphTargetImage {
                     buffer.extend_from_slice(bytemuck::bytes_of(&to_add));
                 }
                 // Pad each layer so that they fit width * height
-                buffer.extend(iter::repeat(0).take(padding as usize * size_of::<f32>()));
+                buffer.extend(core::iter::repeat_n(0, padding as usize * size_of::<f32>()));
                 debug_assert_eq!(buffer.len(), layer_byte_count);
                 buffer
             })

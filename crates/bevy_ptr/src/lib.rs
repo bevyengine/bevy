@@ -289,7 +289,9 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
     /// # Safety
-    /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
+    /// * The data pointed to by this `Ptr` must be valid for writes.
+    /// * There must be no active references (mutable or otherwise) to the data underlying this `Ptr`.
+    /// * Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
     pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
         PtrMut(self.0, PhantomData)
@@ -411,9 +413,10 @@ impl<'a> OwningPtr<'a> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
+        let mut val = ManuallyDrop::new(val);
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { Self::make_internal(&mut ManuallyDrop::new(val)) })
+        f(unsafe { Self::make_internal(&mut val) })
     }
 }
 

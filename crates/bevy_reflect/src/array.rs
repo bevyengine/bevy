@@ -1,9 +1,10 @@
 use crate::generics::impl_generic_info_methods;
 use crate::{
-    self as bevy_reflect, type_info::impl_type_methods, utility::reflect_hasher, ApplyError,
-    Generics, MaybeTyped, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned,
-    ReflectRef, Type, TypeInfo, TypePath,
+    type_info::impl_type_methods, utility::reflect_hasher, ApplyError, Generics, MaybeTyped,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Type, TypeInfo,
+    TypePath,
 };
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect_derive::impl_type_path;
 use core::{
     any::Any,
@@ -172,11 +173,6 @@ impl DynamicArray {
             represented_type: None,
             values,
         }
-    }
-
-    #[deprecated(since = "0.15.0", note = "use from_iter")]
-    pub fn from_vec<T: PartialReflect>(values: Vec<T>) -> Self {
-        Self::from_iter(values)
     }
 
     /// Sets the [type] to be represented by this `DynamicArray`.
@@ -512,6 +508,8 @@ pub fn array_debug(dyn_array: &dyn Array, f: &mut Formatter<'_>) -> core::fmt::R
 #[cfg(test)]
 mod tests {
     use crate::Reflect;
+    use alloc::boxed::Box;
+
     #[test]
     fn next_index_increment() {
         const SIZE: usize = if cfg!(debug_assertions) {

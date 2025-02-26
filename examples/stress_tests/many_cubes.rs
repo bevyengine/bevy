@@ -20,7 +20,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{GpuCulling, NoCpuCulling, NoFrustumCulling},
+        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
@@ -59,9 +59,9 @@ struct Args {
     #[argh(switch)]
     no_automatic_batching: bool,
 
-    /// whether to enable GPU culling.
+    /// whether to disable indirect drawing.
     #[argh(switch)]
-    gpu_culling: bool,
+    no_indirect_drawing: bool,
 
     /// whether to disable CPU culling.
     #[argh(switch)]
@@ -70,6 +70,10 @@ struct Args {
     /// whether to enable directional light cascaded shadow mapping.
     #[argh(switch)]
     shadows: bool,
+
+    /// animate the cube materials by updating the material from the cpu each frame
+    #[argh(switch)]
+    animate_materials: bool,
 }
 
 #[derive(Default, Clone)]
@@ -100,28 +104,31 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    App::new()
-        .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    present_mode: PresentMode::AutoNoVsync,
-                    resolution: WindowResolution::new(1920.0, 1080.0)
-                        .with_scale_factor_override(1.0),
-                    ..default()
-                }),
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
-            LogDiagnosticsPlugin::default(),
-        ))
-        .insert_resource(WinitSettings {
-            focused_mode: UpdateMode::Continuous,
-            unfocused_mode: UpdateMode::Continuous,
-        })
-        .insert_resource(args)
-        .add_systems(Startup, setup)
-        .add_systems(Update, (move_camera, print_mesh_count))
-        .run();
+            ..default()
+        }),
+        FrameTimeDiagnosticsPlugin::default(),
+        LogDiagnosticsPlugin::default(),
+    ))
+    .insert_resource(WinitSettings {
+        focused_mode: UpdateMode::Continuous,
+        unfocused_mode: UpdateMode::Continuous,
+    })
+    .add_systems(Startup, setup)
+    .add_systems(Update, (move_camera, print_mesh_count));
+
+    if args.animate_materials {
+        app.add_systems(Update, update_materials);
+    }
+
+    app.insert_resource(args).run();
 }
 
 const WIDTH: usize = 200;
@@ -176,8 +183,8 @@ fn setup(
 
             // camera
             let mut camera = commands.spawn(Camera3d::default());
-            if args.gpu_culling {
-                camera.insert(GpuCulling);
+            if args.no_indirect_drawing {
+                camera.insert(NoIndirectDrawing);
             }
             if args.no_cpu_culling {
                 camera.insert(NoCpuCulling);
@@ -255,7 +262,7 @@ fn init_textures(args: &Args, images: &mut Assets<Image>) -> Vec<Handle<Image>> 
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     let color_bytes: Vec<u8> = (0..(args.material_texture_count * 4))
-        .map(|i| if (i % 4) == 3 { 255 } else { color_rng.gen() })
+        .map(|i| if (i % 4) == 3 { 255 } else { color_rng.r#gen() })
         .collect();
     color_bytes
         .chunks(4)
@@ -304,7 +311,7 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(StandardMaterial {
-                base_color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                base_color: Color::srgb_u8(color_rng.r#gen(), color_rng.r#gen(), color_rng.r#gen()),
                 base_color_texture: textures.choose(&mut texture_rng).cloned(),
                 ..default()
             })
@@ -474,4 +481,19 @@ impl Default for PrintingTimer {
     fn default() -> Self {
         Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
+}
+
+fn update_materials(mut materials: ResMut<Assets<StandardMaterial>>, time: Res<Time>) {
+    let elapsed = time.elapsed_secs();
+    for (i, (_, material)) in materials.iter_mut().enumerate() {
+        let hue = (elapsed + i as f32 * 0.005).rem_euclid(1.0);
+        // This is much faster than using base_color.set_hue(hue), and in a tight loop it shows.
+        let color = fast_hue_to_rgb(hue);
+        material.base_color = Color::linear_rgb(color.x, color.y, color.z);
+    }
+}
+
+#[inline]
+fn fast_hue_to_rgb(hue: f32) -> Vec3 {
+    (hue * 6.0 - vec3(3.0, 2.0, 4.0)).abs() * vec3(1.0, -1.0, -1.0) + vec3(-1.0, 2.0, 2.0)
 }

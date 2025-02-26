@@ -1,8 +1,6 @@
-use crate as bevy_ecs;
 #[cfg(feature = "multi_threaded")]
 use bevy_ecs::batching::BatchingStrategy;
 use bevy_ecs::event::{Event, EventCursor, EventId, EventInstance, Events};
-use bevy_utils::detailed_trace;
 use core::{iter::Chain, slice::Iter};
 
 /// An iterator that yields any unread events from an [`EventReader`](super::EventReader) or [`EventCursor`].
@@ -92,7 +90,8 @@ impl<'a, E: Event> Iterator for EventIteratorWithId<'a, E> {
             .map(|instance| (&instance.event, instance.event_id))
         {
             Some(item) => {
-                detailed_trace!("EventReader::iter() -> {}", item.1);
+                #[cfg(feature = "detailed_trace")]
+                tracing::trace!("EventReader::iter() -> {}", item.1);
                 self.reader.last_event_count += 1;
                 self.unread -= 1;
                 Some(item)
@@ -145,6 +144,7 @@ pub struct EventParIter<'a, E: Event> {
     reader: &'a mut EventCursor<E>,
     slices: [&'a [EventInstance<E>]; 2],
     batching_strategy: BatchingStrategy,
+    #[cfg(not(target_arch = "wasm32"))]
     unread: usize,
 }
 
@@ -170,6 +170,7 @@ impl<'a, E: Event> EventParIter<'a, E> {
             reader,
             slices: [a, b],
             batching_strategy: BatchingStrategy::default(),
+            #[cfg(not(target_arch = "wasm32"))]
             unread: unread_count,
         }
     }
@@ -206,6 +207,10 @@ impl<'a, E: Event> EventParIter<'a, E> {
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    #[cfg_attr(
+        target_arch = "wasm32",
+        expect(unused_mut, reason = "not mutated on this target")
+    )]
     pub fn for_each_with_id<FN: Fn(&'a E, EventId<E>) + Send + Sync + Clone>(mut self, func: FN) {
         #[cfg(target_arch = "wasm32")]
         {

@@ -7,8 +7,8 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use bevy_utils::all_tuples;
 use core::{cell::UnsafeCell, marker::PhantomData};
+use variadics_please::all_tuples;
 
 /// Types that filter the results of a [`Query`].
 ///
@@ -66,10 +66,7 @@ use core::{cell::UnsafeCell, marker::PhantomData};
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 ///
-/// [`fetch`]: Self::fetch
-/// [`matches_component_set`]: Self::matches_component_set
 /// [`Query`]: crate::system::Query
-/// [`State`]: Self::State
 ///
 /// # Safety
 ///
@@ -86,6 +83,8 @@ pub unsafe trait QueryFilter: WorldQuery {
     ///
     /// This enables optimizations for [`crate::query::QueryIter`] that rely on knowing exactly how
     /// many elements are being iterated (such as `Iterator::collect()`).
+    ///
+    /// If this is `true`, then [`QueryFilter::filter_fetch`] must always return true.
     const IS_ARCHETYPAL: bool;
 
     /// Returns true if the provided [`Entity`] and [`TableRow`] should be included in the query results.
@@ -94,11 +93,13 @@ pub unsafe trait QueryFilter: WorldQuery {
     /// Note that this is called after already restricting the matched [`Table`]s and [`Archetype`]s to the
     /// ones that are compatible with the Filter's access.
     ///
+    /// Implementors of this method will generally either have a trivial `true` body (required for archetypal filters),
+    /// or access the necessary data within this function to make the final decision on filter inclusion.
+    ///
     /// # Safety
     ///
     /// Must always be called _after_ [`WorldQuery::set_table`] or [`WorldQuery::set_archetype`]. `entity` and
     /// `table_row` must be in the range of the current table and archetype.
-    #[allow(unused_variables)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
@@ -137,15 +138,12 @@ pub struct With<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because `fetch` does not access any components.
+/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
 /// `update_component_access` adds a `With` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set contains the component.
 unsafe impl<T: Component> WorldQuery for With<T> {
-    type Item<'w> = ();
     type Fetch<'w> = ();
     type State = ComponentId;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
@@ -176,14 +174,6 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 
     #[inline]
     unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
-
-    #[inline(always)]
-    unsafe fn fetch<'w>(
-        _fetch: &mut Self::Fetch<'w>,
-        _entity: Entity,
-        _table_row: TableRow,
-    ) -> Self::Item<'w> {
-    }
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
@@ -248,15 +238,12 @@ pub struct Without<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
-/// This is sound because `fetch` does not access any components.
+/// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
 /// `update_component_access` adds a `Without` filter for `T`.
 /// This is sound because `matches_component_set` returns whether the set does not contain the component.
 unsafe impl<T: Component> WorldQuery for Without<T> {
-    type Item<'w> = ();
     type Fetch<'w> = ();
     type State = ComponentId;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(_: Self::Item<'wlong>) -> Self::Item<'wshort> {}
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(_: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {}
 
@@ -287,14 +274,6 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 
     #[inline]
     unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
-
-    #[inline(always)]
-    unsafe fn fetch<'w>(
-        _fetch: &mut Self::Fetch<'w>,
-        _entity: Entity,
-        _table_row: TableRow,
-    ) -> Self::Item<'w> {
-    }
 
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
@@ -356,7 +335,7 @@ unsafe impl<T: Component> QueryFilter for Without<T> {
 /// #
 /// fn print_cool_entity_system(query: Query<Entity, Or<(Changed<Color>, Changed<Node>)>>) {
 ///     for entity in &query {
-///         println!("Entity {:?} got a new style or color", entity);
+///         println!("Entity {} got a new style or color", entity);
 ///     }
 /// }
 /// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
@@ -381,22 +360,30 @@ impl<T: WorldQuery> Clone for OrFetch<'_, T> {
 macro_rules! impl_or_query_filter {
     ($(#[$meta:meta])* $(($filter: ident, $state: ident)),*) => {
         $(#[$meta])*
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        #[allow(
+            clippy::unused_unit,
+            reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+        )]
         /// SAFETY:
-        /// `fetch` accesses are a subset of the subqueries' accesses
+        /// [`QueryFilter::filter_fetch`] accesses are a subset of the subqueries' accesses
         /// This is sound because `update_component_access` adds accesses according to the implementations of all the subqueries.
         /// `update_component_access` replace the filters with a disjunction where every element is a conjunction of the previous filters and the filters of one of the subqueries.
         /// This is sound because `matches_component_set` returns a disjunction of the results of the subqueries' implementations.
         unsafe impl<$($filter: QueryFilter),*> WorldQuery for Or<($($filter,)*)> {
             type Fetch<'w> = ($(OrFetch<'w, $filter>,)*);
-            type Item<'w> = bool;
             type State = ($($filter::State,)*);
-
-            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-                item
-            }
 
             fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
                 let ($($filter,)*) = fetch;
@@ -414,7 +401,7 @@ macro_rules! impl_or_query_filter {
             unsafe fn init_fetch<'w>(world: UnsafeWorldCell<'w>, state: &Self::State, last_run: Tick, this_run: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
-                    // SAFETY: The invariants are uphold by the caller.
+                    // SAFETY: The invariants are upheld by the caller.
                     fetch: unsafe { $filter::init_fetch(world, $filter, last_run, this_run) },
                     matches: false,
                 },)*)
@@ -427,7 +414,7 @@ macro_rules! impl_or_query_filter {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| table.has_column(id));
                     if $filter.matches {
-                        // SAFETY: The invariants are uphold by the caller.
+                        // SAFETY: The invariants are upheld by the caller.
                         unsafe { $filter::set_table(&mut $filter.fetch, $state, table); }
                     }
                 )*
@@ -445,43 +432,32 @@ macro_rules! impl_or_query_filter {
                 $(
                     $filter.matches = $filter::matches_component_set($state, &|id| archetype.contains(id));
                     if $filter.matches {
-                        // SAFETY: The invariants are uphold by the caller.
+                        // SAFETY: The invariants are upheld by the caller.
                        unsafe { $filter::set_archetype(&mut $filter.fetch, $state, archetype, table); }
                     }
                 )*
             }
 
-            #[inline(always)]
-            unsafe fn fetch<'w>(
-                fetch: &mut Self::Fetch<'w>,
-                _entity: Entity,
-                _table_row: TableRow
-            ) -> Self::Item<'w> {
-                let ($($filter,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
-                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row) }))*
-            }
-
             fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
                 let ($($filter,)*) = state;
 
-                let mut _new_access = FilteredAccess::matches_nothing();
+                let mut new_access = FilteredAccess::matches_nothing();
 
                 $(
                     // Create an intermediate because `access`'s value needs to be preserved
                     // for the next filter, and `_new_access` has to be modified only by `append_or` to it.
                     let mut intermediate = access.clone();
                     $filter::update_component_access($filter, &mut intermediate);
-                    _new_access.append_or(&intermediate);
+                    new_access.append_or(&intermediate);
                     // Also extend the accesses required to compute the filter. This is required because
                     // otherwise a `Query<(), Or<(Changed<Foo>,)>` won't conflict with `Query<&mut Foo>`.
-                    _new_access.extend_access(&intermediate);
+                    new_access.extend_access(&intermediate);
                 )*
 
                 // The required components remain the same as the original `access`.
-                _new_access.required = core::mem::take(&mut access.required);
+                new_access.required = core::mem::take(&mut access.required);
 
-                *access = _new_access;
+                *access = new_access;
             }
 
             fn init_state(world: &mut World) -> Self::State {
@@ -492,15 +468,27 @@ macro_rules! impl_or_query_filter {
                 Some(($($filter::get_state(components)?,)*))
             }
 
-            fn matches_component_set(_state: &Self::State, _set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
-                let ($($filter,)*) = _state;
-                false $(|| $filter::matches_component_set($filter, _set_contains_id))*
+            fn matches_component_set(state: &Self::State, set_contains_id: &impl Fn(ComponentId) -> bool) -> bool {
+                let ($($filter,)*) = state;
+                false $(|| $filter::matches_component_set($filter, set_contains_id))*
             }
         }
 
-            $(#[$meta])*
-            // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
-            unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        $(#[$meta])*
+        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        unsafe impl<$($filter: QueryFilter),*> QueryFilter for Or<($($filter,)*)> {
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
             #[inline(always)]
@@ -509,8 +497,9 @@ macro_rules! impl_or_query_filter {
                 entity: Entity,
                 table_row: TableRow
             ) -> bool {
-                // SAFETY: The invariants are uphold by the caller.
-                unsafe { Self::fetch(fetch, entity, table_row) }
+                let ($($filter,)*) = fetch;
+                // SAFETY: The invariants are upheld by the caller.
+                false $(|| ($filter.matches && unsafe { $filter::filter_fetch(&mut $filter.fetch, entity, table_row) }))*
             }
         }
     };
@@ -518,9 +507,18 @@ macro_rules! impl_or_query_filter {
 
 macro_rules! impl_tuple_query_filter {
     ($(#[$meta:meta])* $($name: ident),*) => {
-        #[allow(unused_variables)]
-        #[allow(non_snake_case)]
-        #[allow(clippy::unused_unit)]
+        #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such the lints below may not always apply."
+        )]
+        #[allow(
+            non_snake_case,
+            reason = "The names of some variables are provided by the macro's caller, not by us."
+        )]
+        #[allow(
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
         $(#[$meta])*
         // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
         unsafe impl<$($name: QueryFilter),*> QueryFilter for ($($name,)*) {
@@ -529,12 +527,12 @@ macro_rules! impl_tuple_query_filter {
             #[inline(always)]
             unsafe fn filter_fetch(
                 fetch: &mut Self::Fetch<'_>,
-                _entity: Entity,
-                _table_row: TableRow
+                entity: Entity,
+                table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = fetch;
-                // SAFETY: The invariants are uphold by the caller.
-                true $(&& unsafe { $name::filter_fetch($name, _entity, _table_row) })*
+                // SAFETY: The invariants are upheld by the caller.
+                true $(&& unsafe { $name::filter_fetch($name, entity, table_row) })*
             }
         }
 
@@ -630,7 +628,8 @@ pub struct AddedFetch<'w, T: Component> {
         // T::STORAGE_TYPE = StorageType::Table
         Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
         // T::STORAGE_TYPE = StorageType::SparseSet
-        &'w ComponentSparseSet,
+        // Can be `None` when the component has never been inserted
+        Option<&'w ComponentSparseSet>,
     >,
     last_run: Tick,
     this_run: Tick,
@@ -647,18 +646,13 @@ impl<T: Component> Clone for AddedFetch<'_, T> {
 }
 
 /// SAFETY:
-/// `fetch` accesses a single component in a readonly way.
+/// [`QueryFilter::filter_fetch`] accesses a single component in a readonly way.
 /// This is sound because `update_component_access` adds read access for that component and panics when appropriate.
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Added<T> {
-    type Item<'w> = bool;
     type Fetch<'w> = AddedFetch<'w, T>;
     type State = ComponentId;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -679,7 +673,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components' ticks in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
-                    unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() }
+                    unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
             last_run,
@@ -725,32 +719,6 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
         unsafe { fetch.ticks.set_table(table_ticks) };
     }
 
-    #[inline(always)]
-    unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> Self::Item<'w> {
-        fetch.ticks.extract(
-            |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-            |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    ComponentSparseSet::get_added_tick(sparse_set, entity).debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-        )
-    }
-
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
@@ -784,8 +752,28 @@ unsafe impl<T: Component> QueryFilter for Added<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        // SAFETY: The invariants are uphold by the caller.
-        unsafe { Self::fetch(fetch, entity, table_row) }
+        // SAFETY: The invariants are upheld by the caller.
+        fetch.ticks.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_added_tick(entity)
+                        .debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
     }
 }
 
@@ -864,7 +852,12 @@ pub struct Changed<T>(PhantomData<T>);
 
 #[doc(hidden)]
 pub struct ChangedFetch<'w, T: Component> {
-    ticks: StorageSwitch<T, Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>, &'w ComponentSparseSet>,
+    ticks: StorageSwitch<
+        T,
+        Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        // Can be `None` when the component has never been inserted
+        Option<&'w ComponentSparseSet>,
+    >,
     last_run: Tick,
     this_run: Tick,
 }
@@ -885,13 +878,8 @@ impl<T: Component> Clone for ChangedFetch<'_, T> {
 /// `update_component_access` adds a `With` filter for a component.
 /// This is sound because `matches_component_set` returns whether the set contains that component.
 unsafe impl<T: Component> WorldQuery for Changed<T> {
-    type Item<'w> = bool;
     type Fetch<'w> = ChangedFetch<'w, T>;
     type State = ComponentId;
-
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
-        item
-    }
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -912,7 +900,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
                     // which we are allowed to access since we registered it in `update_archetype_component_access`.
                     // Note that we do not actually access any components' ticks in this function, we just get a shared
                     // reference to the sparse set, which is used to access the components' ticks in `Self::fetch`.
-                    unsafe { world.storages().sparse_sets.get(id).debug_checked_unwrap() }
+                    unsafe { world.storages().sparse_sets.get(id) }
                 },
             ),
             last_run,
@@ -958,32 +946,6 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
         unsafe { fetch.ticks.set_table(table_ticks) };
     }
 
-    #[inline(always)]
-    unsafe fn fetch<'w>(
-        fetch: &mut Self::Fetch<'w>,
-        entity: Entity,
-        table_row: TableRow,
-    ) -> Self::Item<'w> {
-        fetch.ticks.extract(
-            |table| {
-                // SAFETY: set_table was previously called
-                let table = unsafe { table.debug_checked_unwrap() };
-                // SAFETY: The caller ensures `table_row` is in range.
-                let tick = unsafe { table.get(table_row.as_usize()) };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-            |sparse_set| {
-                // SAFETY: The caller ensures `entity` is in range.
-                let tick = unsafe {
-                    ComponentSparseSet::get_changed_tick(sparse_set, entity).debug_checked_unwrap()
-                };
-
-                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
-            },
-        )
-    }
-
     #[inline]
     fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
         if access.access().has_component_write(id) {
@@ -1018,8 +980,28 @@ unsafe impl<T: Component> QueryFilter for Changed<T> {
         entity: Entity,
         table_row: TableRow,
     ) -> bool {
-        // SAFETY: The invariants are uphold by the caller.
-        unsafe { Self::fetch(fetch, entity, table_row) }
+        // SAFETY: The invariants are upheld by the caller.
+        fetch.ticks.extract(
+            |table| {
+                // SAFETY: set_table was previously called
+                let table = unsafe { table.debug_checked_unwrap() };
+                // SAFETY: The caller ensures `table_row` is in range.
+                let tick = unsafe { table.get(table_row.as_usize()) };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+            |sparse_set| {
+                // SAFETY: The caller ensures `entity` is in range.
+                let tick = unsafe {
+                    sparse_set
+                        .debug_checked_unwrap()
+                        .get_changed_tick(entity)
+                        .debug_checked_unwrap()
+                };
+
+                tick.deref().is_newer_than(fetch.last_run, fetch.this_run)
+            },
+        )
     }
 }
 

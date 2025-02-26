@@ -16,29 +16,44 @@ on:
         required: true
         type: string
 
+env:
+  # Unfortunately, we can't check secrets in `if:` conditionals. However, Github's own documentation
+  # suggests a workaround: Putting the secret in an environment variable, and checking that instead.
+  PIXELEAGLE_TOKEN_EXISTS: ${{ secrets.PIXELEAGLE_TOKEN != '' }}
+
 jobs:
   send-to-pixel-eagle:
     name: Send screenshots to Pixel Eagle
     runs-on: ubuntu-24.04
+    # Pixel Eagle is irrelevant for most forks, even of those that allow workflows to run. Thus, we
+    # disable this job for any forks. Any forks where Pixel Eagle is relevant can comment out the
+    # `if:` conditional below.
+    if: ${{ github.repository == 'bevyengine/bevy' }}
     steps:
-      
+      - name: Notify user on non-existent token
+        if: ${{ ! fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
+        run: |
+          echo "The PIXELEAGLE_TOKEN secret does not exist, so uploading screenshots to Pixel Eagle was skipped." >> $GITHUB_STEP_SUMMARY
+
       - name: Download artifact
+        if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
         uses: actions/download-artifact@v4
         with:
           pattern: ${{ inputs.artifact }}
-      
+
       - name: Send to Pixel Eagle
+        if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
         env:
           project: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
         run: |
           # Create a new run with its associated metadata
           metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "${{ inputs.branch }}"}'
-          run=`curl https://pixel-eagle.vleue.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
-          
+          run=`curl https://pixel-eagle.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
+
           SAVEIFS=$IFS
-          
+
           cd ${{ inputs.artifact }}
-          
+
           # Read the hashes of the screenshot for fast comparison when they are equal
           IFS=$'\n'
           # Build a json array of screenshots and their hashes
@@ -52,24 +67,24 @@ jobs:
           done
           hashes=`echo $hashes | rev | cut -c 2- | rev`
           hashes="$hashes]"
-          
+
           IFS=$SAVEIFS
 
           # Upload screenshots with unknown hashes
-          curl https://pixel-eagle.vleue.com/$project/runs/$run/hashes --json "$hashes" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.[]|[.name] | @tsv' |
+          curl https://pixel-eagle.com/$project/runs/$run/hashes --json "$hashes" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.[]|[.name] | @tsv' |
             while IFS=$'\t' read -r name; do
               name=`echo $name | tr -d '"'`
               echo "Uploading $name"
-              curl https://pixel-eagle.vleue.com/$project/runs/$run/screenshots -F "data=@./screenshots-$name" -F "screenshot=$name" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }}
+              curl https://pixel-eagle.com/$project/runs/$run/screenshots -F "data=@./screenshots-$name" -F "screenshot=$name" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }}
               echo
             done
-          
+
           IFS=$SAVEIFS
 
           cd ..
 
           # Trigger comparison with the main branch on the same os
-          curl https://pixel-eagle.vleue.com/$project/runs/$run/compare/auto --json '{"os":"<equal>", "branch": "main"}' --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} > pixeleagle.json
+          curl https://pixel-eagle.com/$project/runs/$run/compare/auto --json '{"os":"<equal>", "branch": "main"}' --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} > pixeleagle.json
 
           # Log results
           compared_with=`cat pixeleagle.json | jq '.to'`
@@ -78,17 +93,17 @@ jobs:
           missing=`cat pixeleagle.json | jq '.missing | length'`
           if [ ! $missing -eq 0 ]; then
             echo "There are $missing missing screenshots"
-            echo "::warning title=$missing missing screenshots on ${{ inputs.os }}::https://pixel-eagle.vleue.com/$project/runs/$run/compare/$compared_with"
+            echo "::warning title=$missing missing screenshots on ${{ inputs.os }}::https://pixel-eagle.com/project/$project/run/$run/compare/$compared_with"
             status=1
           fi
 
           diff=`cat pixeleagle.json | jq '.diff | length'`
           if [ ! $diff -eq 0 ]; then
             echo "There are $diff screenshots with a difference"
-            echo "::warning title=$diff different screenshots on ${{ inputs.os }}::https://pixel-eagle.vleue.com/$project/runs/$run/compare/$compared_with"
+            echo "::warning title=$diff different screenshots on ${{ inputs.os }}::https://pixel-eagle.com/project/$project/run/$run/compare/$compared_with"
             status=1
           fi
 
-          echo "created run $run: https://pixel-eagle.vleue.com/$project/runs/$run/compare/$compared_with"
+          echo "created run $run: https://pixel-eagle.com/project/$project/run/$run/compare/$compared_with"
 
           exit $status

@@ -35,7 +35,7 @@ fn print_system(input: Res<Input>) {
 
 fn exit_system(input: Res<Input>, mut exit_event: EventWriter<AppExit>) {
     if input.0 == "exit" {
-        exit_event.send(AppExit::Success);
+        exit_event.write(AppExit::Success);
     }
 }
 

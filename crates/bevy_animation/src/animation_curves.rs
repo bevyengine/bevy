@@ -7,9 +7,9 @@
 //! `Curve<Vec3>` that we want to use to animate something. That could be defined in
 //! a number of different ways, but let's imagine that we've defined it [using a function]:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, function_curve};
+//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
-//!     let wobble_curve = function_curve(
+//!     let wobble_curve = FunctionCurve::new(
 //!         Interval::UNIT,
 //!         |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     );
@@ -22,30 +22,32 @@
 //!
 //! For instance, let's imagine that we want to use the `Vec3` output
 //! from our curve to animate the [translation component of a `Transform`]. For this, there is
-//! the adaptor [`TranslationCurve`], which wraps any `Curve<Vec3>` and turns it into an
-//! [`AnimationCurve`] that will use the given curve to animate the entity's translation:
+//! the adaptor [`AnimatableCurve`], which wraps any [`Curve`] and [`AnimatableProperty`] and turns it into an
+//! [`AnimationCurve`] that will use the given curve to animate the entity's property:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, function_curve};
+//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
 //!     # use bevy_math::vec3;
-//!     # use bevy_animation::animation_curves::*;
-//!     # let wobble_curve = function_curve(
+//!     # use bevy_transform::components::Transform;
+//!     # use bevy_animation::{animated_field, animation_curves::*};
+//!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
 //!     #     |t| vec3(t.cos(), 0.0, 0.0)
 //!     # );
-//!     let wobble_animation = TranslationCurve(wobble_curve);
+//!     let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
 //!
-//! And finally, this `AnimationCurve` needs to be added to an [`AnimationClip`] in order to
+//! And finally, this [`AnimationCurve`] needs to be added to an [`AnimationClip`] in order to
 //! actually animate something. This is what that looks like:
 //!
-//!     # use bevy_math::curve::{Curve, Interval, function_curve};
-//!     # use bevy_animation::{AnimationClip, AnimationTargetId, animation_curves::*};
-//!     # use bevy_core::Name;
+//!     # use bevy_math::curve::{Curve, Interval, FunctionCurve};
+//!     # use bevy_animation::{AnimationClip, AnimationTargetId, animated_field, animation_curves::*};
+//!     # use bevy_transform::components::Transform;
+//!     # use bevy_ecs::name::Name;
 //!     # use bevy_math::vec3;
-//!     # let wobble_curve = function_curve(
+//!     # let wobble_curve = FunctionCurve::new(
 //!     #     Interval::UNIT,
 //!     #     |t| { vec3(t.cos(), 0.0, 0.0) },
 //!     # );
-//!     # let wobble_animation = TranslationCurve(wobble_curve);
+//!     # let wobble_animation = AnimatableCurve::new(animated_field!(Transform::translation), wobble_curve);
 //!     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
 //!     let mut animation_clip = AnimationClip::default();
 //!     animation_clip.add_curve_to_target(
@@ -59,22 +61,27 @@
 //! a [`Curve`], which produces time-related data of some kind, to an [`AnimationCurve`], which
 //! knows how to apply that data to an entity.
 //!
-//! ## `Transform`
+//! ## Animated Fields
 //!
-//! [`Transform`] is special and has its own adaptors:
-//!     - [`TranslationCurve`], which uses `Vec3` output to animate [`Transform::translation`]
-//!     - [`RotationCurve`], which uses `Quat` output to animate [`Transform::rotation`]
-//!     - [`ScaleCurve`], which uses `Vec3` output to animate [`Transform::scale`]
+//! The [`animated_field`] macro (which returns an [`AnimatedField`]), in combination with [`AnimatableCurve`]
+//! is the easiest way to make an animation curve (see the example above).
 //!
-//! ## Animatable properties
+//! This will select a field on a component and pass it to a [`Curve`] with a type that matches the field.
 //!
-//! Animation of arbitrary components can be accomplished using [`AnimatableProperty`] in
+//! ## Animatable Properties
+//!
+//! Animation of arbitrary aspects of entities can be accomplished using [`AnimatableProperty`] in
 //! conjunction with [`AnimatableCurve`]. See the documentation [there] for details.
 //!
-//! [using a function]: bevy_math::curve::function_curve
+//! ## Custom [`AnimationCurve`] and [`AnimationCurveEvaluator`]
+//!
+//! This is the lowest-level option with the most control, but it is also the most complicated.
+//!
+//! [using a function]: bevy_math::curve::FunctionCurve
 //! [translation component of a `Transform`]: bevy_transform::prelude::Transform::translation
 //! [`AnimationClip`]: crate::AnimationClip
 //! [there]: AnimatableProperty
+//! [`animated_field`]: crate::animated_field
 
 use core::{
     any::TypeId,
@@ -82,24 +89,21 @@ use core::{
     marker::PhantomData,
 };
 
-use bevy_ecs::{component::Component, world::Mut};
-use bevy_math::{
-    curve::{
-        cores::{UnevenCore, UnevenCoreError},
-        iterable::IterableCurve,
-        Curve, Interval,
-    },
-    Quat, Vec3,
-};
-use bevy_reflect::{FromReflect, Reflect, Reflectable, TypePath};
-use bevy_render::mesh::morph::MorphWeights;
-use bevy_transform::prelude::Transform;
-
 use crate::{
     graph::AnimationNodeIndex,
     prelude::{Animatable, BlendInput},
     AnimationEntityMut, AnimationEvaluationError,
 };
+use bevy_ecs::component::{Component, Mutable};
+use bevy_math::curve::{
+    cores::{UnevenCore, UnevenCoreError},
+    iterable::IterableCurve,
+    Curve, Interval,
+};
+use bevy_platform_support::hash::Hashed;
+use bevy_reflect::{FromReflect, Reflect, Reflectable, TypeInfo, Typed};
+use bevy_render::mesh::morph::MorphWeights;
+use downcast_rs::{impl_downcast, Downcast};
 
 /// A value on a component that Bevy can animate.
 ///
@@ -109,68 +113,172 @@ use crate::{
 /// to define the animation itself).
 /// For example, in order to animate field of view, you might use:
 ///
-///     # use bevy_animation::prelude::AnimatableProperty;
+///     # use bevy_animation::{prelude::AnimatableProperty, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_reflect::Reflect;
-///     # use bevy_render::camera::PerspectiveProjection;
+///     # use std::any::TypeId;
+///     # use bevy_render::camera::{Projection, PerspectiveProjection};
 ///     #[derive(Reflect)]
 ///     struct FieldOfViewProperty;
 ///
 ///     impl AnimatableProperty for FieldOfViewProperty {
-///         type Component = PerspectiveProjection;
 ///         type Property = f32;
-///         fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-///             Some(&mut component.fov)
+///         fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
+///             let component = entity
+///                 .get_mut::<Projection>()
+///                 .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+///                     Projection,
+///                 >(
+///                 )))?
+///                 .into_inner();
+///             match component {
+///                 Projection::Perspective(perspective) => Ok(&mut perspective.fov),
+///                 _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+///                     PerspectiveProjection,
+///                 >(
+///                 ))),
+///             }
+///         }
+///
+///         fn evaluator_id(&self) -> EvaluatorId {
+///             EvaluatorId::Type(TypeId::of::<Self>())
 ///         }
 ///     }
 ///
 /// You can then create an [`AnimationClip`] to animate this property like so:
 ///
-///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve};
+///     # use bevy_animation::{AnimationClip, AnimationTargetId, VariableCurve, AnimationEntityMut, AnimationEvaluationError, animation_curves::EvaluatorId};
 ///     # use bevy_animation::prelude::{AnimatableProperty, AnimatableKeyframeCurve, AnimatableCurve};
-///     # use bevy_core::Name;
+///     # use bevy_ecs::name::Name;
 ///     # use bevy_reflect::Reflect;
-///     # use bevy_render::camera::PerspectiveProjection;
+///     # use bevy_render::camera::{Projection, PerspectiveProjection};
+///     # use std::any::TypeId;
 ///     # let animation_target_id = AnimationTargetId::from(&Name::new("Test"));
-///     # #[derive(Reflect)]
+///     # #[derive(Reflect, Clone)]
 ///     # struct FieldOfViewProperty;
 ///     # impl AnimatableProperty for FieldOfViewProperty {
-///     #     type Component = PerspectiveProjection;
-///     #     type Property = f32;
-///     #     fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property> {
-///     #         Some(&mut component.fov)
-///     #     }
+///     #    type Property = f32;
+///     #    fn get_mut<'a>(&self, entity: &'a mut AnimationEntityMut) -> Result<&'a mut Self::Property, AnimationEvaluationError> {
+///     #        let component = entity
+///     #            .get_mut::<Projection>()
+///     #            .ok_or(AnimationEvaluationError::ComponentNotPresent(TypeId::of::<
+///     #                Projection,
+///     #            >(
+///     #            )))?
+///     #            .into_inner();
+///     #        match component {
+///     #            Projection::Perspective(perspective) => Ok(&mut perspective.fov),
+///     #            _ => Err(AnimationEvaluationError::PropertyNotPresent(TypeId::of::<
+///     #                PerspectiveProjection,
+///     #            >(
+///     #            ))),
+///     #        }
+///     #    }
+///     #    fn evaluator_id(&self) -> EvaluatorId {
+///     #        EvaluatorId::Type(TypeId::of::<Self>())
+///     #    }
 ///     # }
 ///     let mut animation_clip = AnimationClip::default();
 ///     animation_clip.add_curve_to_target(
 ///         animation_target_id,
-///         AnimatableKeyframeCurve::new(
-///             [
+///         AnimatableCurve::new(
+///             FieldOfViewProperty,
+///             AnimatableKeyframeCurve::new([
 ///                 (0.0, core::f32::consts::PI / 4.0),
 ///                 (1.0, core::f32::consts::PI / 3.0),
-///             ]
+///             ]).expect("Failed to create font size curve")
 ///         )
-///         .map(AnimatableCurve::<FieldOfViewProperty, _>::from_curve)
-///         .expect("Failed to create font size curve")
 ///     );
 ///
 /// Here, the use of [`AnimatableKeyframeCurve`] creates a curve out of the given keyframe time-value
 /// pairs, using the [`Animatable`] implementation of `f32` to interpolate between them. The
-/// invocation of [`AnimatableCurve::from_curve`] with `FieldOfViewProperty` indicates that the `f32`
+/// invocation of [`AnimatableCurve::new`] with `FieldOfViewProperty` indicates that the `f32`
 /// output from that curve is to be used to animate the font size of a `PerspectiveProjection` component (as
 /// configured above).
 ///
 /// [`AnimationClip`]: crate::AnimationClip
-pub trait AnimatableProperty: Reflect + TypePath {
-    /// The type of the component that the property lives on.
-    type Component: Component;
+pub trait AnimatableProperty: Send + Sync + 'static {
+    /// The animated property type.
+    type Property: Animatable;
 
-    /// The type of the property to be animated.
-    type Property: Animatable + FromReflect + Reflectable + Clone + Sync + Debug;
+    /// Retrieves the property from the given `entity`.
+    fn get_mut<'a>(
+        &self,
+        entity: &'a mut AnimationEntityMut,
+    ) -> Result<&'a mut Self::Property, AnimationEvaluationError>;
 
-    /// Given a reference to the component, returns a reference to the property.
+    /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`AnimatableProperty`].
+    /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
+    fn evaluator_id(&self) -> EvaluatorId;
+}
+
+/// A [`Component`] field that can be animated, defined by a function that reads the component and returns
+/// the accessed field / property.
+///
+/// The best way to create an instance of this type is via the [`animated_field`] macro.
+///
+/// `C` is the component being animated, `A` is the type of the [`Animatable`] field on the component, and `F` is an accessor
+/// function that accepts a reference to `C` and retrieves the field `A`.
+///
+/// [`animated_field`]: crate::animated_field
+#[derive(Clone)]
+pub struct AnimatedField<C, A, F: Fn(&mut C) -> &mut A> {
+    func: F,
+    /// A pre-hashed (component-type-id, reflected-field-index) pair, uniquely identifying a component field
+    evaluator_id: Hashed<(TypeId, usize)>,
+    marker: PhantomData<(C, A)>,
+}
+
+impl<C, A, F> AnimatableProperty for AnimatedField<C, A, F>
+where
+    C: Component<Mutability = Mutable>,
+    A: Animatable + Clone + Sync + Debug,
+    F: Fn(&mut C) -> &mut A + Send + Sync + 'static,
+{
+    type Property = A;
+    fn get_mut<'a>(
+        &self,
+        entity: &'a mut AnimationEntityMut,
+    ) -> Result<&'a mut A, AnimationEvaluationError> {
+        let c = entity
+            .get_mut::<C>()
+            .ok_or_else(|| AnimationEvaluationError::ComponentNotPresent(TypeId::of::<C>()))?;
+        Ok((self.func)(c.into_inner()))
+    }
+
+    fn evaluator_id(&self) -> EvaluatorId {
+        EvaluatorId::ComponentField(&self.evaluator_id)
+    }
+}
+
+impl<C: Typed, P, F: Fn(&mut C) -> &mut P + 'static> AnimatedField<C, P, F> {
+    /// Creates a new instance of [`AnimatedField`]. This operates under the assumption that
+    /// `C` is a reflect-able struct, and that `field_name` is a valid field on that struct.
     ///
-    /// If the property couldn't be found, returns `None`.
-    fn get_mut(component: &mut Self::Component) -> Option<&mut Self::Property>;
+    /// # Panics
+    /// If the type of `C` is not a struct or if the `field_name` does not exist.
+    pub fn new_unchecked(field_name: &str, func: F) -> Self {
+        let field_index;
+        if let TypeInfo::Struct(struct_info) = C::type_info() {
+            field_index = struct_info
+                .index_of(field_name)
+                .expect("Field name should exist");
+        } else if let TypeInfo::TupleStruct(struct_info) = C::type_info() {
+            field_index = field_name
+                .parse()
+                .expect("Field name should be a valid tuple index");
+            if field_index >= struct_info.field_len() {
+                panic!("Field name should be a valid tuple index");
+            }
+        } else {
+            panic!("Only structs are supported in `AnimatedField::new_unchecked`")
+        }
+
+        Self {
+            func,
+            evaluator_id: Hashed::new((TypeId::of::<C>(), field_index)),
+            marker: PhantomData,
+        }
+    }
 }
 
 /// This trait collects the additional requirements on top of [`Curve<T>`] needed for a
@@ -187,12 +295,14 @@ impl<T, C> AnimationCompatibleCurve<T> for C where C: Curve<T> + Debug + Clone +
 #[derive(Reflect, FromReflect)]
 #[reflect(from_reflect = false)]
 pub struct AnimatableCurve<P, C> {
+    /// The property selector, which defines what component to access and how to access
+    /// a property on that component.
+    pub property: P,
+
     /// The inner [curve] whose values are used to animate the property.
     ///
     /// [curve]: Curve
     pub curve: C,
-    #[reflect(ignore)]
-    _phantom: PhantomData<P>,
 }
 
 /// An [`AnimatableCurveEvaluator`] for [`AnimatableProperty`] instances.
@@ -200,13 +310,9 @@ pub struct AnimatableCurve<P, C> {
 /// You shouldn't ordinarily need to instantiate one of these manually. Bevy
 /// will automatically do so when you use an [`AnimatableCurve`] instance.
 #[derive(Reflect)]
-pub struct AnimatableCurveEvaluator<P>
-where
-    P: AnimatableProperty,
-{
-    evaluator: BasicAnimationCurveEvaluator<P::Property>,
-    #[reflect(ignore)]
-    phantom: PhantomData<P>,
+pub struct AnimatableCurveEvaluator<A: Animatable> {
+    evaluator: BasicAnimationCurveEvaluator<A>,
+    property: Box<dyn AnimatableProperty<Property = A>>,
 }
 
 impl<P, C> AnimatableCurve<P, C>
@@ -218,22 +324,20 @@ where
     /// valued in an [animatable property].
     ///
     /// [animatable property]: AnimatableProperty::Property
-    pub fn from_curve(curve: C) -> Self {
-        Self {
-            curve,
-            _phantom: PhantomData,
-        }
+    pub fn new(property: P, curve: C) -> Self {
+        Self { property, curve }
     }
 }
 
 impl<P, C> Clone for AnimatableCurve<P, C>
 where
     C: Clone,
+    P: Clone,
 {
     fn clone(&self) -> Self {
         Self {
             curve: self.curve.clone(),
-            _phantom: PhantomData,
+            property: self.property.clone(),
         }
     }
 }
@@ -249,10 +353,10 @@ where
     }
 }
 
-impl<P, C> AnimationCurve for AnimatableCurve<P, C>
+impl<P: Send + Sync + 'static, C> AnimationCurve for AnimatableCurve<P, C>
 where
-    P: AnimatableProperty,
-    C: AnimationCompatibleCurve<P::Property>,
+    P: AnimatableProperty + Clone,
+    C: AnimationCompatibleCurve<P::Property> + Clone,
 {
     fn clone_value(&self) -> Box<dyn AnimationCurve> {
         Box::new(self.clone())
@@ -262,14 +366,14 @@ where
         self.curve.domain()
     }
 
-    fn evaluator_type(&self) -> TypeId {
-        TypeId::of::<AnimatableCurveEvaluator<P>>()
+    fn evaluator_id(&self) -> EvaluatorId {
+        self.property.evaluator_id()
     }
 
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(AnimatableCurveEvaluator {
+        Box::new(AnimatableCurveEvaluator::<P::Property> {
             evaluator: BasicAnimationCurveEvaluator::default(),
-            phantom: PhantomData::<P>,
+            property: Box::new(self.property.clone()),
         })
     }
 
@@ -280,8 +384,8 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
-            .downcast_mut::<AnimatableCurveEvaluator<P>>()
+        let curve_evaluator = curve_evaluator
+            .downcast_mut::<AnimatableCurveEvaluator<P::Property>>()
             .unwrap();
         let value = self.curve.sample_clamped(t);
         curve_evaluator
@@ -296,10 +400,7 @@ where
     }
 }
 
-impl<P> AnimationCurveEvaluator for AnimatableCurveEvaluator<P>
-where
-    P: AnimatableProperty,
-{
+impl<A: Animatable> AnimationCurveEvaluator for AnimatableCurveEvaluator<A> {
     fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
         self.evaluator.combine(graph_node, /*additive=*/ false)
     }
@@ -318,310 +419,14 @@ where
 
     fn commit<'a>(
         &mut self,
-        _: Option<Mut<'a, Transform>>,
         mut entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
-        let mut component = entity.get_mut::<P::Component>().ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<P::Component>())
-        })?;
-        let property = P::get_mut(&mut component)
-            .ok_or_else(|| AnimationEvaluationError::PropertyNotPresent(TypeId::of::<P>()))?;
+        let property = self.property.get_mut(&mut entity)?;
         *property = self
             .evaluator
             .stack
             .pop()
-            .ok_or_else(inconsistent::<AnimatableCurveEvaluator<P>>)?
-            .value;
-        Ok(())
-    }
-}
-
-/// This type allows a [curve] valued in `Vec3` to become an [`AnimationCurve`] that animates
-/// the translation component of a transform.
-///
-/// [curve]: Curve
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
-pub struct TranslationCurve<C>(pub C);
-
-/// An [`AnimationCurveEvaluator`] for use with [`TranslationCurve`]s.
-///
-/// You shouldn't need to instantiate this manually; Bevy will automatically do
-/// so.
-#[derive(Reflect)]
-pub struct TranslationCurveEvaluator {
-    evaluator: BasicAnimationCurveEvaluator<Vec3>,
-}
-
-impl<C> AnimationCurve for TranslationCurve<C>
-where
-    C: AnimationCompatibleCurve<Vec3>,
-{
-    fn clone_value(&self) -> Box<dyn AnimationCurve> {
-        Box::new(self.clone())
-    }
-
-    fn domain(&self) -> Interval {
-        self.0.domain()
-    }
-
-    fn evaluator_type(&self) -> TypeId {
-        TypeId::of::<TranslationCurveEvaluator>()
-    }
-
-    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(TranslationCurveEvaluator {
-            evaluator: BasicAnimationCurveEvaluator::default(),
-        })
-    }
-
-    fn apply(
-        &self,
-        curve_evaluator: &mut dyn AnimationCurveEvaluator,
-        t: f32,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
-            .downcast_mut::<TranslationCurveEvaluator>()
-            .unwrap();
-        let value = self.0.sample_clamped(t);
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
-        Ok(())
-    }
-}
-
-impl AnimationCurveEvaluator for TranslationCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ false)
-    }
-
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ true)
-    }
-
-    fn push_blend_register(
-        &mut self,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.push_blend_register(weight, graph_node)
-    }
-
-    fn commit<'a>(
-        &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        component.translation = self
-            .evaluator
-            .stack
-            .pop()
-            .ok_or_else(inconsistent::<TranslationCurveEvaluator>)?
-            .value;
-        Ok(())
-    }
-}
-
-/// This type allows a [curve] valued in `Quat` to become an [`AnimationCurve`] that animates
-/// the rotation component of a transform.
-///
-/// [curve]: Curve
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
-pub struct RotationCurve<C>(pub C);
-
-/// An [`AnimationCurveEvaluator`] for use with [`RotationCurve`]s.
-///
-/// You shouldn't need to instantiate this manually; Bevy will automatically do
-/// so.
-#[derive(Reflect)]
-pub struct RotationCurveEvaluator {
-    evaluator: BasicAnimationCurveEvaluator<Quat>,
-}
-
-impl<C> AnimationCurve for RotationCurve<C>
-where
-    C: AnimationCompatibleCurve<Quat>,
-{
-    fn clone_value(&self) -> Box<dyn AnimationCurve> {
-        Box::new(self.clone())
-    }
-
-    fn domain(&self) -> Interval {
-        self.0.domain()
-    }
-
-    fn evaluator_type(&self) -> TypeId {
-        TypeId::of::<RotationCurveEvaluator>()
-    }
-
-    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(RotationCurveEvaluator {
-            evaluator: BasicAnimationCurveEvaluator::default(),
-        })
-    }
-
-    fn apply(
-        &self,
-        curve_evaluator: &mut dyn AnimationCurveEvaluator,
-        t: f32,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
-            .downcast_mut::<RotationCurveEvaluator>()
-            .unwrap();
-        let value = self.0.sample_clamped(t);
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
-        Ok(())
-    }
-}
-
-impl AnimationCurveEvaluator for RotationCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ false)
-    }
-
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ true)
-    }
-
-    fn push_blend_register(
-        &mut self,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.push_blend_register(weight, graph_node)
-    }
-
-    fn commit<'a>(
-        &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        component.rotation = self
-            .evaluator
-            .stack
-            .pop()
-            .ok_or_else(inconsistent::<RotationCurveEvaluator>)?
-            .value;
-        Ok(())
-    }
-}
-
-/// This type allows a [curve] valued in `Vec3` to become an [`AnimationCurve`] that animates
-/// the scale component of a transform.
-///
-/// [curve]: Curve
-#[derive(Debug, Clone, Reflect, FromReflect)]
-#[reflect(from_reflect = false)]
-pub struct ScaleCurve<C>(pub C);
-
-/// An [`AnimationCurveEvaluator`] for use with [`ScaleCurve`]s.
-///
-/// You shouldn't need to instantiate this manually; Bevy will automatically do
-/// so.
-#[derive(Reflect)]
-pub struct ScaleCurveEvaluator {
-    evaluator: BasicAnimationCurveEvaluator<Vec3>,
-}
-
-impl<C> AnimationCurve for ScaleCurve<C>
-where
-    C: AnimationCompatibleCurve<Vec3>,
-{
-    fn clone_value(&self) -> Box<dyn AnimationCurve> {
-        Box::new(self.clone())
-    }
-
-    fn domain(&self) -> Interval {
-        self.0.domain()
-    }
-
-    fn evaluator_type(&self) -> TypeId {
-        TypeId::of::<ScaleCurveEvaluator>()
-    }
-
-    fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
-        Box::new(ScaleCurveEvaluator {
-            evaluator: BasicAnimationCurveEvaluator::default(),
-        })
-    }
-
-    fn apply(
-        &self,
-        curve_evaluator: &mut dyn AnimationCurveEvaluator,
-        t: f32,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
-            .downcast_mut::<ScaleCurveEvaluator>()
-            .unwrap();
-        let value = self.0.sample_clamped(t);
-        curve_evaluator
-            .evaluator
-            .stack
-            .push(BasicAnimationCurveEvaluatorStackElement {
-                value,
-                weight,
-                graph_node,
-            });
-        Ok(())
-    }
-}
-
-impl AnimationCurveEvaluator for ScaleCurveEvaluator {
-    fn blend(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ false)
-    }
-
-    fn add(&mut self, graph_node: AnimationNodeIndex) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.combine(graph_node, /*additive=*/ true)
-    }
-
-    fn push_blend_register(
-        &mut self,
-        weight: f32,
-        graph_node: AnimationNodeIndex,
-    ) -> Result<(), AnimationEvaluationError> {
-        self.evaluator.push_blend_register(weight, graph_node)
-    }
-
-    fn commit<'a>(
-        &mut self,
-        transform: Option<Mut<'a, Transform>>,
-        _: AnimationEntityMut<'a>,
-    ) -> Result<(), AnimationEvaluationError> {
-        let mut component = transform.ok_or_else(|| {
-            AnimationEvaluationError::ComponentNotPresent(TypeId::of::<Transform>())
-        })?;
-        component.scale = self
-            .evaluator
-            .stack
-            .pop()
-            .ok_or_else(inconsistent::<ScaleCurveEvaluator>)?
+            .ok_or_else(inconsistent::<AnimatableCurveEvaluator<A>>)?
             .value;
         Ok(())
     }
@@ -683,8 +488,8 @@ where
         self.0.domain()
     }
 
-    fn evaluator_type(&self) -> TypeId {
-        TypeId::of::<WeightsCurveEvaluator>()
+    fn evaluator_id(&self) -> EvaluatorId {
+        EvaluatorId::Type(TypeId::of::<WeightsCurveEvaluator>())
     }
 
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator> {
@@ -704,7 +509,7 @@ where
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError> {
-        let curve_evaluator = (*Reflect::as_any_mut(curve_evaluator))
+        let curve_evaluator = curve_evaluator
             .downcast_mut::<WeightsCurveEvaluator>()
             .unwrap();
 
@@ -802,7 +607,6 @@ impl AnimationCurveEvaluator for WeightsCurveEvaluator {
 
     fn commit<'a>(
         &mut self,
-        _: Option<Mut<'a, Transform>>,
         mut entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError> {
         if self.stack_morph_target_weights.is_empty() {
@@ -968,7 +772,7 @@ where
 /// mutated in the implementation of [`apply`].
 ///
 /// [`apply`]: AnimationCurve::apply
-pub trait AnimationCurve: Reflect + Debug + Send + Sync {
+pub trait AnimationCurve: Debug + Send + Sync + 'static {
     /// Returns a boxed clone of this value.
     fn clone_value(&self) -> Box<dyn AnimationCurve>;
 
@@ -979,14 +783,14 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
     ///
     /// This must match the type returned by [`Self::create_evaluator`]. It must
     /// be a single type that doesn't depend on the type of the curve.
-    fn evaluator_type(&self) -> TypeId;
+    fn evaluator_id(&self) -> EvaluatorId;
 
     /// Returns a newly-instantiated [`AnimationCurveEvaluator`] for use with
     /// this curve.
     ///
     /// All curve types must return the same type of
     /// [`AnimationCurveEvaluator`]. The returned value must match the type
-    /// returned by [`Self::evaluator_type`].
+    /// returned by [`Self::evaluator_id`].
     fn create_evaluator(&self) -> Box<dyn AnimationCurveEvaluator>;
 
     /// Samples the curve at the given time `t`, and pushes the sampled value
@@ -996,7 +800,7 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
     /// [`Self::create_evaluator`], upcast to an `&mut dyn
     /// AnimationCurveEvaluator`. Typically, implementations of [`Self::apply`]
     /// will want to downcast the `curve_evaluator` parameter to the concrete
-    /// type [`Self::evaluator_type`] in order to push values of the appropriate
+    /// type [`Self::evaluator_id`] in order to push values of the appropriate
     /// type onto its evaluation stack.
     ///
     /// Be sure not to confuse the `t` and `weight` values. The former
@@ -1010,6 +814,22 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
         weight: f32,
         graph_node: AnimationNodeIndex,
     ) -> Result<(), AnimationEvaluationError>;
+}
+
+/// The [`EvaluatorId`] is used to look up the [`AnimationCurveEvaluator`] for an [`AnimatableProperty`].
+/// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
+#[derive(Clone)]
+pub enum EvaluatorId<'a> {
+    /// Corresponds to a specific field on a specific component type.
+    /// The `TypeId` should correspond to the component type, and the `usize`
+    /// should correspond to the Reflect-ed field index of the field.
+    //
+    // IMPLEMENTATION NOTE: The Hashed<(TypeId, usize) is intentionally cheap to clone, as it will be cloned per frame by the evaluator
+    // Switching the field index `usize` for something like a field name `String` would probably be too expensive to justify
+    ComponentField(&'a Hashed<(TypeId, usize)>),
+    /// Corresponds to a custom property of a given type. This should be the [`TypeId`]
+    /// of the custom [`AnimatableProperty`].
+    Type(TypeId),
 }
 
 /// A low-level trait for use in [`crate::VariableCurve`] that provides fine
@@ -1031,7 +851,9 @@ pub trait AnimationCurve: Reflect + Debug + Send + Sync {
 /// translation keyframes.  The stack stores intermediate values generated while
 /// evaluating the [`crate::graph::AnimationGraph`], while the blend register
 /// stores the result of a blend operation.
-pub trait AnimationCurveEvaluator: Reflect {
+///
+/// [`Vec3`]: bevy_math::Vec3
+pub trait AnimationCurveEvaluator: Downcast + Send + Sync + 'static {
     /// Blends the top element of the stack with the blend register.
     ///
     /// The semantics of this method are as follows:
@@ -1094,10 +916,11 @@ pub trait AnimationCurveEvaluator: Reflect {
     /// the stack, not blended with it.
     fn commit<'a>(
         &mut self,
-        transform: Option<Mut<'a, Transform>>,
         entity: AnimationEntityMut<'a>,
     ) -> Result<(), AnimationEvaluationError>;
 }
+
+impl_downcast!(AnimationCurveEvaluator);
 
 /// A [curve] defined by keyframes with values in an [animatable] type.
 ///
@@ -1152,4 +975,53 @@ where
     P: 'static + ?Sized,
 {
     AnimationEvaluationError::InconsistentEvaluatorImplementation(TypeId::of::<P>())
+}
+
+/// Returns an [`AnimatedField`] with a given `$component` and `$field`.
+///
+/// This can be used in the following way:
+///
+/// ```
+/// # use bevy_animation::{animation_curves::AnimatedField, animated_field};
+/// # use bevy_color::Srgba;
+/// # use bevy_ecs::component::Component;
+/// # use bevy_math::Vec3;
+/// # use bevy_reflect::Reflect;
+/// #[derive(Component, Reflect)]
+/// struct Transform {
+///     translation: Vec3,
+/// }
+///
+/// let field = animated_field!(Transform::translation);
+///
+/// #[derive(Component, Reflect)]
+/// struct Color(Srgba);
+///
+/// let tuple_field = animated_field!(Color::0);
+/// ```
+#[macro_export]
+macro_rules! animated_field {
+    ($component:ident::$field:tt) => {
+        AnimatedField::new_unchecked(stringify!($field), |component: &mut $component| {
+            &mut component.$field
+        })
+    };
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_animated_field_tuple_struct_simple_uses() {
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct A(f32);
+        let _ = AnimatedField::new_unchecked("0", |a: &mut A| &mut a.0);
+
+        #[derive(Clone, Debug, Component, Reflect)]
+        struct B(f32, f64, f32);
+        let _ = AnimatedField::new_unchecked("0", |b: &mut B| &mut b.0);
+        let _ = AnimatedField::new_unchecked("1", |b: &mut B| &mut b.1);
+        let _ = AnimatedField::new_unchecked("2", |b: &mut B| &mut b.2);
+    }
 }

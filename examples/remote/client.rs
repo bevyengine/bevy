@@ -57,6 +57,7 @@ fn main() -> AnyhowResult<()> {
                     option: Vec::default(),
                     has: Vec::default(),
                 },
+                strict: false,
                 filter: BrpQueryFilter::default(),
             })
             .expect("Unable to convert query parameters to a valid JSON value"),

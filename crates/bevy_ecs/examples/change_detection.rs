@@ -6,7 +6,10 @@
 //! To demonstrate change detection, there are some console outputs based on changes in
 //! the `EntityCounter` resource and updated Age components
 
-#![expect(clippy::std_instead_of_core)]
+#![expect(
+    clippy::std_instead_of_core,
+    reason = "Examples should not follow this lint"
+)]
 
 use bevy_ecs::prelude::*;
 use rand::Rng;
@@ -80,10 +83,10 @@ fn print_changed_entities(
     entity_with_mutated_component: Query<(Entity, &Age), Changed<Age>>,
 ) {
     for entity in &entity_with_added_component {
-        println!("    {entity:?} has it's first birthday!");
+        println!("    {entity} has it's first birthday!");
     }
     for (entity, value) in &entity_with_mutated_component {
-        println!("    {entity:?} is now {value:?} frames old");
+        println!("    {entity} is now {value:?} frames old");
     }
 }
 
@@ -98,7 +101,7 @@ fn age_all_entities(mut entities: Query<&mut Age>) {
 fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) {
     for (entity, age) in &entities {
         if age.frames > 2 {
-            println!("    despawning {entity:?} due to age > 2");
+            println!("    despawning {entity} due to age > 2");
             commands.entity(entity).despawn();
         }
     }

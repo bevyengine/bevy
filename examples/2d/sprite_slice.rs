@@ -38,7 +38,7 @@ fn spawn_sprites(
             style.clone(),
             Vec2::new(100.0, 200.0),
             SpriteImageMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: BorderRect::all(slice_border),
                 center_scale_mode: SliceScaleMode::Stretch,
                 ..default()
             }),
@@ -49,7 +49,7 @@ fn spawn_sprites(
             style.clone(),
             Vec2::new(100.0, 200.0),
             SpriteImageMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: BorderRect::all(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.5 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 ..default()
@@ -61,7 +61,7 @@ fn spawn_sprites(
             style.clone(),
             Vec2::new(300.0, 200.0),
             SpriteImageMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: BorderRect::all(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.3 },
                 ..default()
@@ -73,7 +73,7 @@ fn spawn_sprites(
             style,
             Vec2::new(300.0, 200.0),
             SpriteImageMode::Sliced(TextureSlicer {
-                border: BorderRect::square(slice_border),
+                border: BorderRect::all(slice_border),
                 center_scale_mode: SliceScaleMode::Tile { stretch_value: 0.1 },
                 sides_scale_mode: SliceScaleMode::Tile { stretch_value: 0.2 },
                 max_corner_scale: 0.2,
@@ -107,6 +107,7 @@ fn spawn_sprites(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let style = TextFont {
         font: font.clone(),
@@ -120,7 +121,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_sprites(
         &mut commands,
         handle_1,
-        Vec3::new(-600.0, 200.0, 0.0),
+        Vec3::new(-600.0, 150.0, 0.0),
         200.0,
         style.clone(),
         40.,
@@ -129,7 +130,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_sprites(
         &mut commands,
         handle_2,
-        Vec3::new(-600.0, -200.0, 0.0),
+        Vec3::new(-600.0, -150.0, 0.0),
         80.0,
         style,
         40.,
