@@ -7,7 +7,7 @@ use bevy::{
     core_pipeline::{tonemapping::Tonemapping::AcesFitted, Skybox},
     image::ImageLoaderSettings,
     prelude::*,
-    render::mesh::TangentStrategy,
+    render::mesh::TangentCalculationStrategy,
 };
 
 /// Entry point.
@@ -52,7 +52,7 @@ fn create_sphere_mesh(meshes: &mut Assets<Mesh>) -> Handle<Mesh> {
 
     let mut sphere_mesh = Sphere::new(1.0).mesh().build();
     sphere_mesh
-        .compute_tangents(TangentStrategy::HighQuality)
+        .compute_tangents(TangentCalculationStrategy::HighQuality)
         .expect("Failed to generate tangents");
     meshes.add(sphere_mesh)
 }

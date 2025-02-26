@@ -11,7 +11,7 @@ use bevy::ecs::{
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
-use bevy::render::mesh::TangentStrategy;
+use bevy::render::mesh::TangentCalculationStrategy;
 use rand::distributions::Distribution;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
@@ -96,7 +96,7 @@ fn setup(
 
     // Create a new sphere mesh:
     let mut sphere_mesh = Sphere::new(1.0).mesh().ico(7)?;
-    sphere_mesh.compute_tangents(TangentStrategy::HighQuality)?;
+    sphere_mesh.compute_tangents(TangentCalculationStrategy::HighQuality)?;
 
     // Spawn the mesh into the scene:
     let mut sphere = commands.spawn((

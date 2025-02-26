@@ -12,7 +12,7 @@ use bevy::{
         NotShadowCaster, NotShadowReceiver, OpaqueRendererMethod,
     },
     prelude::*,
-    render::mesh::TangentStrategy,
+    render::mesh::TangentCalculationStrategy,
 };
 
 fn main() {
@@ -234,7 +234,7 @@ fn setup_parallax(
 
     // NOTE: for normal maps and depth maps to work, the mesh
     // needs tangents generated.
-    cube.compute_tangents(TangentStrategy::FastApproximation)
+    cube.compute_tangents(TangentCalculationStrategy::FastApproximation)
         .unwrap();
 
     let parallax_material = materials.add(StandardMaterial {
