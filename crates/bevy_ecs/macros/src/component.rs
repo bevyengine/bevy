@@ -529,69 +529,91 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         immutable: false,
     };
 
-    let mut require_paths = HashSet::new();
-    for attr in ast.attrs.iter() {
-        if attr.path().is_ident(COMPONENT) {
-            attr.parse_nested_meta(|nested| {
-                if nested.path.is_ident(STORAGE) {
-                    attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
-                        s if s == TABLE => StorageTy::Table,
-                        s if s == SPARSE_SET => StorageTy::SparseSet,
-                        s => {
-                            return Err(nested.error(format!(
-                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
-                            )));
+    ast.attrs
+        .iter()
+        .try_fold(HashSet::new(), |mut require_paths, attr| {
+            let outer = attr
+                .path()
+                .get_ident()
+                .ok_or_else(|| syn::Error::new(attr.path().span(), "Expected identifier"))?;
+            match outer {
+                _ if outer == COMPONENT => {
+                    attr.parse_nested_meta(|nested| {
+                        let inner = nested
+                            .path
+                            .get_ident()
+                            .ok_or_else(|| nested.error("Expected identifier"))?;
+                        match inner {
+                            _ if inner == STORAGE => {
+                                attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                                    s if s == TABLE => StorageTy::Table,
+                                    s if s == SPARSE_SET => StorageTy::SparseSet,
+                                    s => {
+                                        return Err(nested.error(
+                                            format!("Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.")
+                                        ));
+                                    }
+                                };
+                            }
+                            _ if inner == ON_ADD => {
+                                attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_INSERT => {
+                                attrs.on_insert =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_REPLACE => {
+                                attrs.on_replace =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_REMOVE => {
+                                attrs.on_remove =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_DESPAWN => {
+                                attrs.on_despawn =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == IMMUTABLE => {
+                                attrs.immutable = true;
+                            }
+                            _ => return Err(nested.error("Unsupported attribute")),
                         }
-                    };
-                    Ok(())
-                } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<HookAttributeKind>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<HookAttributeKind>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<HookAttributeKind>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<HookAttributeKind>()?);
-                    Ok(())
-                } else if nested.path.is_ident(IMMUTABLE) {
-                    attrs.immutable = true;
-                    Ok(())
-                } else {
-                    Err(nested.error("Unsupported attribute"))
+                        Ok(())
+                    })?;
                 }
-            })?;
-        } else if attr.path().is_ident(REQUIRE) {
-            let punctuated =
-                attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
-            for require in punctuated.iter() {
-                if !require_paths.insert(require.path.to_token_stream().to_string()) {
-                    return Err(syn::Error::new(
-                        require.path.span(),
-                        "Duplicate required components are not allowed.",
-                    ));
+                _ if outer == REQUIRE => {
+                    let punctuated =
+                        attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
+                    for require in punctuated.iter() {
+                        if !require_paths.insert(require.path.to_token_stream().to_string()) {
+                            return Err(syn::Error::new(
+                                require.path.span(),
+                                "Duplicate required components are not allowed.",
+                            ));
+                        }
+                    }
+                    if let Some(current) = &mut attrs.requires {
+                        current.extend(punctuated);
+                    } else {
+                        attrs.requires = Some(punctuated);
+                    }
+                }
+                _ if outer == RELATIONSHIP => {
+                    let relationship = attr.parse_args::<Relationship>()?;
+                    attrs.relationship = Some(relationship);
+                }
+                _ if outer == RELATIONSHIP_TARGET => {
+                    let relationship_target = attr.parse_args::<RelationshipTarget>()?;
+                    attrs.relationship_target = Some(relationship_target);
+                }
+                _ => {
+                    // ignored
                 }
             }
-            if let Some(current) = &mut attrs.requires {
-                current.extend(punctuated);
-            } else {
-                attrs.requires = Some(punctuated);
-            }
-        } else if attr.path().is_ident(RELATIONSHIP) {
-            let relationship = attr.parse_args::<Relationship>()?;
-            attrs.relationship = Some(relationship);
-        } else if attr.path().is_ident(RELATIONSHIP_TARGET) {
-            let relationship_target = attr.parse_args::<RelationshipTarget>()?;
-            attrs.relationship_target = Some(relationship_target);
-        }
-    }
-
-    Ok(attrs)
+            Ok(require_paths)
+        })
+        .map(|_| attrs)
 }
 
 impl Parse for Require {
