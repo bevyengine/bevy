@@ -62,12 +62,23 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
         r"[^ \n`]*/(?:rust[^/]*|checkout|[0-9a-fA-F]*)/library/",
         "RUSTLIB/",
     );
+    config.stderr_filter(
+        r"[^ \n`]*\/registry(?:\/[a-zA-Z0-9\.-]+)+\/([a-zA-Z0-9_-]+[0-9]+\.[0-9]+\.[0-9]+[a-zA-Z]*)",
+        "CARGO_REGISTRY/$1",
+    );
     // Replace long type file names since they contain random numbers
     config.stderr_filter(r"[\p{L}\p{N}_]+\.long-type-\d+\.txt", "long-type.sr'");
     // The number of spaces in diagnostics isn't consistent across platforms
     config.stderr_filter(r"\n +-->", "\n  -->");
     config.stderr_filter(r"\n\d+ +\|", "\nLL |");
     config.stderr_filter(r"\n +\|", "\n   |");
+    // Normalize line endings
+    config.stderr_filter(r"\r\n", "\n");
+    config.stderr_filter(r"\r", "\n");
+    // Some tests output 2 newlines at the end.
+    config.stderr_filter(r"\n\n$", "\n");
+    // I don't know at this point..
+    config.stderr_filter(r"^[\n ]", "");
 
     let bevy_root = "..";
 

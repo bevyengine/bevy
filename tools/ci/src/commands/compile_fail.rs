@@ -49,6 +49,15 @@ impl Prepare for CompileFailCommand {
             .with_subdir("crates/bevy_reflect/compile_fail"),
         );
 
+        // Compile fail utils Compile Fail Tests
+        commands.push(
+            PreparedCommand::new::<Self>(
+                cmd!(sh, "cargo test --target-dir ../../target {no_fail_fast}"),
+                "Compiler errors of the Compile fail utils compile fail tests seem to be different than expected! Check locally and compare rust versions.",
+            )
+            .with_subdir("tools/compile_fail_utils")
+        );
+
         commands
     }
 }

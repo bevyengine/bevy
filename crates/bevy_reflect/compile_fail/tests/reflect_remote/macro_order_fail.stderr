@@ -1,0 +1,23 @@
+error[E0609]: no field `value` on type `&MyType`
+  --> tests/reflect_remote/macro_order_fail.rs:LL:CC
+   |
+LL |     pub value: String,
+   |         ^^^^^ unknown field
+   |
+help: one of the expressions' fields has a field of the same name
+   |
+LL |     pub 0.value: String,
+   |         ++
+
+error[E0560]: struct `MyType` has no field named `value`
+  --> tests/reflect_remote/macro_order_fail.rs:LL:CC
+   |
+LL | struct MyType {
+   |        ------ `MyType` defined here
+LL |     pub value: String,
+   |     ^^^^^^^^^^^^^^^^^ field does not exist
+
+error: aborting due to 2 previous errors
+
+Some errors have detailed explanations: E0560, E0609.
+For more information about an error, try `rustc --explain E0560`.

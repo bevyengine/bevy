@@ -1,19 +1,19 @@
 error: `from_reflect` already set to false
- --> tests/reflect_derive/from_reflect_fail.rs:6:26
-  |
-6 | #[reflect(from_reflect = true)]
-  |                          ^^^^
+  --> tests/reflect_derive/from_reflect_fail.rs:LL:CC
+   |
+LL | #[reflect(from_reflect = true)]
+   |                          ^^^^
 
 error: `from_reflect` already set to true
-  --> tests/reflect_derive/from_reflect_fail.rs:15:26
+  --> tests/reflect_derive/from_reflect_fail.rs:LL:CC
    |
-15 | #[reflect(from_reflect = false)]
+LL | #[reflect(from_reflect = false)]
    |                          ^^^^^
 
 error[E0119]: conflicting implementations of trait `FromReflect` for type `Baz`
-  --> tests/reflect_derive/from_reflect_fail.rs:22:19
+  --> tests/reflect_derive/from_reflect_fail.rs:LL:CC
    |
-22 | #[derive(Reflect, FromReflect)]
+LL | #[derive(Reflect, FromReflect)]
    |          -------  ^^^^^^^^^^^ conflicting implementation for `Baz`
    |          |
    |          first implementation here
