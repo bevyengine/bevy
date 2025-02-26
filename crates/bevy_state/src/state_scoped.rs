@@ -4,6 +4,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
+    result::Result,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -71,22 +72,23 @@ pub fn clear_state_scoped_entities<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
     query: Query<(Entity, &StateScoped<S>)>,
-) {
+) -> Result {
     // We use the latest event, because state machine internals generate at most 1
     // transition event (per type) each frame. No event means no change happened
     // and we skip iterating all entities.
     let Some(transition) = transitions.read().last() else {
-        return;
+        return Ok(());
     };
     if transition.entered == transition.exited {
-        return;
+        return Ok(());
     }
     let Some(exited) = &transition.exited else {
-        return;
+        return Ok(());
     };
     for (entity, binding) in &query {
         if binding.0 == *exited {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
+    Ok(())
 }

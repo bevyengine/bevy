@@ -143,8 +143,9 @@ pub fn extract_morphs(
 pub fn no_automatic_morph_batching(
     mut commands: Commands,
     query: Query<Entity, (With<MeshMorphWeights>, Without<NoAutomaticBatching>)>,
-) {
+) -> Result {
     for entity in &query {
-        commands.entity(entity).try_insert(NoAutomaticBatching);
+        commands.entity(entity)?.try_insert(NoAutomaticBatching);
     }
+    Ok(())
 }

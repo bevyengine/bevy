@@ -48,9 +48,9 @@ fn modify_aa(
         With<Camera>,
     >,
     mut commands: Commands,
-) {
+) -> Result {
     let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
-    let mut camera = commands.entity(camera_entity);
+    let mut camera = commands.entity(camera_entity)?;
 
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
@@ -150,6 +150,8 @@ fn modify_aa(
             .remove::<Smaa>()
             .insert(TemporalAntiAliasing::default());
     }
+
+    Ok(())
 }
 
 fn modify_sharpening(

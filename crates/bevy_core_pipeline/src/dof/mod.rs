@@ -23,6 +23,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -542,7 +543,7 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
     mut commands: Commands,
     view_targets: Query<(Entity, &DepthOfField, &Msaa)>,
     render_device: Res<RenderDevice>,
-) {
+) -> Result {
     for (view, depth_of_field, msaa) in view_targets.iter() {
         // Create the bind group layout for the passes that take one input.
         let single_input = render_device.create_bind_group_layout(
@@ -584,12 +585,13 @@ pub fn prepare_depth_of_field_view_bind_group_layouts(
         };
 
         commands
-            .entity(view)
+            .entity(view)?
             .insert(ViewDepthOfFieldBindGroupLayouts {
                 single_input,
                 dual_input,
             });
     }
+    Ok(())
 }
 
 /// Configures depth textures so that the depth of field shader can read from
@@ -638,7 +640,7 @@ pub fn prepare_auxiliary_depth_of_field_textures(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     mut view_targets: Query<(Entity, &ViewTarget, &DepthOfField)>,
-) {
+) -> Result {
     for (entity, view_target, depth_of_field) in view_targets.iter_mut() {
         // An auxiliary texture is only needed for bokeh.
         if depth_of_field.mode != DepthOfFieldMode::Bokeh {
@@ -660,9 +662,10 @@ pub fn prepare_auxiliary_depth_of_field_textures(
         let texture = texture_cache.get(&render_device, texture_descriptor);
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(AuxiliaryDepthOfFieldTexture(texture));
     }
+    Ok(())
 }
 
 /// Specializes the depth of field pipelines specific to a view.
@@ -678,7 +681,7 @@ pub fn prepare_depth_of_field_pipelines(
         &ViewDepthOfFieldBindGroupLayouts,
         &Msaa,
     )>,
-) {
+) -> Result {
     for (entity, view, depth_of_field, view_bind_group_layouts, msaa) in view_targets.iter() {
         let dof_pipeline = DepthOfFieldPipeline {
             view_bind_group_layouts: view_bind_group_layouts.clone(),
@@ -692,7 +695,7 @@ pub fn prepare_depth_of_field_pipelines(
         match depth_of_field.mode {
             DepthOfFieldMode::Gaussian => {
                 commands
-                    .entity(entity)
+                    .entity(entity)?
                     .insert(DepthOfFieldPipelines::Gaussian {
                         horizontal: pipelines.specialize(
                             &pipeline_cache,
@@ -717,7 +720,7 @@ pub fn prepare_depth_of_field_pipelines(
 
             DepthOfFieldMode::Bokeh => {
                 commands
-                    .entity(entity)
+                    .entity(entity)?
                     .insert(DepthOfFieldPipelines::Bokeh {
                         pass_0: pipelines.specialize(
                             &pipeline_cache,
@@ -741,6 +744,7 @@ pub fn prepare_depth_of_field_pipelines(
             }
         }
     }
+    Ok(())
 }
 
 impl SpecializedRenderPipeline for DepthOfFieldPipeline {

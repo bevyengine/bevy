@@ -39,13 +39,15 @@ fn remove_component(
     time: Res<Time>,
     mut commands: Commands,
     query: Query<Entity, With<MyComponent>>,
-) {
+) -> Result {
     // After two seconds have passed the `Component` is removed.
     if time.elapsed_secs() > 2.0 {
         if let Some(entity) = query.iter().next() {
-            commands.entity(entity).remove::<MyComponent>();
+            commands.entity(entity)?.remove::<MyComponent>();
         }
     }
+
+    Ok(())
 }
 
 fn react_on_removal(trigger: Trigger<OnRemove, MyComponent>, mut query: Query<&mut Sprite>) {

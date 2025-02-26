@@ -206,8 +206,8 @@ mod test {
         let root = commands.spawn(offset_transform(3.3)).id();
         let parent = commands.spawn(offset_transform(4.4)).id();
         let child = commands.spawn(offset_transform(5.5)).id();
-        commands.entity(parent).insert(ChildOf(root));
-        commands.entity(child).insert(ChildOf(parent));
+        commands.entity(parent).unwrap().insert(ChildOf(root));
+        commands.entity(child).unwrap().insert(ChildOf(parent));
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -220,7 +220,7 @@ mod test {
         // Remove parent of `parent`
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
-        commands.entity(parent).remove::<ChildOf>();
+        commands.entity(parent).unwrap().remove::<ChildOf>();
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -233,7 +233,7 @@ mod test {
         // Remove parent of `child`
         let mut command_queue = CommandQueue::default();
         let mut commands = Commands::new(&mut command_queue, &world);
-        commands.entity(child).remove::<ChildOf>();
+        commands.entity(child).unwrap().remove::<ChildOf>();
         command_queue.apply(&mut world);
         schedule.run(&mut world);
 
@@ -320,7 +320,7 @@ mod test {
             let mut command_queue = CommandQueue::default();
             let mut commands = Commands::new(&mut command_queue, &world);
             let parent = commands.spawn(Transform::from_xyz(1.0, 0.0, 0.0)).id();
-            commands.entity(parent).with_children(|parent| {
+            commands.entity(parent).unwrap().with_children(|parent| {
                 children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
                 children.push(parent.spawn(Transform::from_xyz(0.0, 3.0, 0.0)).id());
             });
@@ -342,7 +342,7 @@ mod test {
         {
             let mut command_queue = CommandQueue::default();
             let mut commands = Commands::new(&mut command_queue, &world);
-            commands.entity(children[1]).add_child(children[0]);
+            commands.entity(children[1]).unwrap().add_child(children[0]);
             command_queue.apply(&mut world);
             schedule.run(&mut world);
         }

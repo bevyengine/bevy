@@ -40,7 +40,7 @@ impl Component for ObservedBy {
 
                 // Despawn Observer if it has no more active sources.
                 if total_entities == despawned_watched_entities {
-                    world.commands().entity(e).despawn();
+                    world.commands().entity(e).unwrap().despawn();
                 }
             }
         })

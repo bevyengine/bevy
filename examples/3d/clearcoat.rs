@@ -259,9 +259,9 @@ fn handle_input(
     mut light_query: Query<Entity, Or<(With<PointLight>, With<DirectionalLight>)>>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut light_mode: ResMut<LightMode>,
-) {
+) -> Result {
     if !keyboard.just_pressed(KeyCode::Space) {
-        return;
+        return Ok(());
     }
 
     for light in light_query.iter_mut() {
@@ -269,19 +269,21 @@ fn handle_input(
             LightMode::Point => {
                 *light_mode = LightMode::Directional;
                 commands
-                    .entity(light)
+                    .entity(light)?
                     .remove::<PointLight>()
                     .insert(create_directional_light());
             }
             LightMode::Directional => {
                 *light_mode = LightMode::Point;
                 commands
-                    .entity(light)
+                    .entity(light)?
                     .remove::<DirectionalLight>()
                     .insert(create_point_light());
             }
         }
     }
+
+    Ok(())
 }
 
 /// Updates the help text at the bottom of the screen.

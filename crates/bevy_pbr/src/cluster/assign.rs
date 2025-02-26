@@ -3,6 +3,7 @@
 use bevy_ecs::{
     entity::Entity,
     query::{Has, With},
+    result::Result,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{
@@ -181,9 +182,9 @@ pub(crate) fn assign_objects_to_clusters(
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_clusterable_objects_warning_emitted: Local<bool>,
     (render_device, render_adapter): (Option<Res<RenderDevice>>, Option<Res<RenderAdapter>>),
-) {
+) -> Result {
     let (Some(render_device), Some(render_adapter)) = (render_device, render_adapter) else {
-        return;
+        return Ok(());
     };
 
     global_clusterable_objects.entities.clear();
@@ -336,7 +337,7 @@ pub(crate) fn assign_objects_to_clusters(
         if matches!(config, ClusterConfig::None) {
             if visible_clusterable_objects.is_some() {
                 commands
-                    .entity(view_entity)
+                    .entity(view_entity)?
                     .remove::<VisibleClusterableObjects>();
             }
             clusters.clear();
@@ -873,13 +874,14 @@ pub(crate) fn assign_objects_to_clusters(
             let mut entities = Vec::new();
             update_from_object_intersections(&mut entities);
             commands
-                .entity(view_entity)
+                .entity(view_entity)?
                 .insert(VisibleClusterableObjects {
                     entities,
                     ..Default::default()
                 });
         }
     }
+    Ok(())
 }
 
 fn compute_aabb_for_cluster(

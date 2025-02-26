@@ -103,13 +103,13 @@ fn update(
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-) {
+) -> Result {
     sphere.translation.y = ops::sin(time.elapsed_secs() / 1.7) * 0.7;
 
     let (camera_entity, ssao, temporal_jitter) = *camera;
     let current_ssao = ssao.cloned().unwrap_or_default();
 
-    let mut commands = commands.entity(camera_entity);
+    let mut commands = commands.entity(camera_entity)?;
     commands
         .insert_if(
             ScreenSpaceAmbientOcclusion {
@@ -195,6 +195,8 @@ fn update(
         Some(_) => "(Space) Enabled",
         None => "(Space) Disabled",
     });
+
+    Ok(())
 }
 
 #[derive(Component)]

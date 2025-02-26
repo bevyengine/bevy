@@ -143,11 +143,11 @@ fn handle_keypress(
     sample_mesh: Res<PointMesh>,
     sample_material: Res<PointMaterial>,
     samples: Query<Entity, With<SamplePoint>>,
-) {
+) -> Result {
     // R => restart, deleting all samples
     if keyboard.just_pressed(KeyCode::KeyR) {
         for entity in &samples {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
 
@@ -215,6 +215,8 @@ fn handle_keypress(
             Mode::Boundary => *mode = Mode::Interior,
         }
     }
+
+    Ok(())
 }
 
 // Handle user mouse input for panning the camera around:

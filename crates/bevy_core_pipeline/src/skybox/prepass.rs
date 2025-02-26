@@ -6,6 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{Has, With},
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -119,7 +120,7 @@ pub fn prepare_skybox_prepass_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<SkyboxPrepassPipeline>>,
     pipeline: Res<SkyboxPrepassPipeline>,
     views: Query<(Entity, Has<NormalPrepass>, &Msaa), (With<Skybox>, With<MotionVectorPrepass>)>,
-) {
+) -> Result {
     for (entity, normal_prepass, msaa) in &views {
         let pipeline_key = SkyboxPrepassPipelineKey {
             samples: msaa.samples(),
@@ -129,9 +130,10 @@ pub fn prepare_skybox_prepass_pipelines(
         let render_skybox_prepass_pipeline =
             pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(RenderSkyboxPrepassPipeline(render_skybox_prepass_pipeline));
     }
+    Ok(())
 }
 
 /// Creates the required bind groups for the [`SkyboxPrepassPipeline`]. This binds the view uniforms
@@ -144,7 +146,7 @@ pub fn prepare_skybox_prepass_bind_groups(
     prev_view_uniforms: Res<PreviousViewUniforms>,
     render_device: Res<RenderDevice>,
     views: Query<Entity, (With<Skybox>, With<MotionVectorPrepass>)>,
-) {
+) -> Result {
     for entity in &views {
         let (Some(view_uniforms), Some(prev_view_uniforms)) = (
             view_uniforms.uniforms.binding(),
@@ -159,7 +161,8 @@ pub fn prepare_skybox_prepass_bind_groups(
         );
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(SkyboxPrepassBindGroup(bind_group));
     }
+    Ok(())
 }

@@ -325,7 +325,7 @@ fn prepare_bloom_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &ExtractedCamera, &Bloom)>,
-) {
+) -> Result {
     for (entity, camera, bloom) in &views {
         if let Some(UVec2 {
             x: width,
@@ -380,10 +380,11 @@ fn prepare_bloom_textures(
                 .collect();
 
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(BloomTexture { texture, mip_count });
         }
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -400,7 +401,7 @@ fn prepare_bloom_bind_groups(
     upsampling_pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &BloomTexture)>,
     uniforms: Res<ComponentUniforms<BloomUniforms>>,
-) {
+) -> Result {
     let sampler = &downsampling_pipeline.sampler;
 
     for (entity, bloom_texture) in &views {
@@ -432,12 +433,13 @@ fn prepare_bloom_bind_groups(
             ));
         }
 
-        commands.entity(entity).insert(BloomBindGroups {
+        commands.entity(entity)?.insert(BloomBindGroups {
             downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
             upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
             sampler: sampler.clone(),
         });
     }
+    Ok(())
 }
 
 /// Calculates blend intensities of blur pyramid levels

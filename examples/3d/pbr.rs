@@ -129,7 +129,7 @@ fn environment_map_load_finish(
     asset_server: Res<AssetServer>,
     environment_map: Single<&EnvironmentMapLight>,
     label_entity: Option<Single<Entity, With<EnvironmentMapLabel>>>,
-) {
+) -> Result {
     if asset_server
         .load_state(&environment_map.diffuse_map)
         .is_loaded()
@@ -139,9 +139,11 @@ fn environment_map_load_finish(
     {
         // Do not attempt to remove `label_entity` if it has already been removed.
         if let Some(label_entity) = label_entity {
-            commands.entity(*label_entity).despawn();
+            commands.entity(*label_entity)?.despawn();
         }
     }
+
+    Ok(())
 }
 
 #[derive(Component)]

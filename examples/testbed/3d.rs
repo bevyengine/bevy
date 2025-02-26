@@ -281,7 +281,7 @@ mod animation {
         mut commands: Commands,
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
-    ) {
+    ) -> Result {
         for child in children.iter_descendants(trigger.target()) {
             if let Ok((entity, mut player)) = players.get_mut(child) {
                 let mut transitions = AnimationTransitions::new();
@@ -291,10 +291,12 @@ mod animation {
                     .pause();
 
                 commands
-                    .entity(entity)
+                    .entity(entity)?
                     .insert(AnimationGraphHandle(animation.graph.clone()))
                     .insert(transitions);
             }
         }
+
+        Ok(())
     }
 }

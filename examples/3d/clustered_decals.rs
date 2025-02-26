@@ -502,9 +502,9 @@ fn switch_drag_mode(
     mut windows: Query<Entity, With<Window>>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     mut app_status: ResMut<AppStatus>,
-) {
+) -> Result {
     if mouse_buttons.pressed(MouseButton::Left) {
-        return;
+        return Ok(());
     }
 
     for (interaction, drag_mode) in &mut interactions {
@@ -517,17 +517,19 @@ fn switch_drag_mode(
         // Set the cursor to provide the user with a nice visual hint.
         for window in &mut windows {
             commands
-                .entity(window)
+                .entity(window)?
                 .insert(CursorIcon::from(SystemCursorIcon::EwResize));
         }
-        return;
+        return Ok(());
     }
 
     app_status.drag_mode = DragMode::Move;
 
     for window in &mut windows {
-        commands.entity(window).remove::<CursorIcon>();
+        commands.entity(window)?.remove::<CursorIcon>();
     }
+
+    Ok(())
 }
 
 /// Updates the help text in the top left of the screen to reflect the current

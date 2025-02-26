@@ -78,7 +78,7 @@ fn update_bloom_settings(
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-) {
+) -> Result {
     let (camera_entity, tonemapping, bloom) = camera.into_inner();
 
     match bloom {
@@ -112,7 +112,7 @@ fn update_bloom_settings(
             text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(camera_entity).remove::<Bloom>();
+                commands.entity(camera_entity)?.remove::<Bloom>();
             }
 
             let dt = time.delta_secs();
@@ -186,7 +186,7 @@ fn update_bloom_settings(
             text.0 = "Bloom: Off (Toggle: Space)\n".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(camera_entity).insert(Bloom::default());
+                commands.entity(camera_entity)?.insert(Bloom::default());
             }
         }
     }
@@ -194,9 +194,11 @@ fn update_bloom_settings(
     text.push_str(&format!("(O) Tonemapping: {:?}\n", tonemapping));
     if keycode.just_pressed(KeyCode::KeyO) {
         commands
-            .entity(camera_entity)
+            .entity(camera_entity)?
             .insert(next_tonemap(tonemapping));
     }
+
+    Ok(())
 }
 
 /// Get the next Tonemapping algorithm

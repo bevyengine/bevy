@@ -23,13 +23,15 @@ fn despawn_dead_enemies(
     mut commands: Commands,
     mut dead_enemies: EventWriter<EnemyDied>,
     enemies: Query<(Entity, &Enemy)>,
-) {
+) -> Result {
     for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
             dead_enemies.send(EnemyDied(enemy.score_value));
         }
     }
+
+    Ok(())
 }
 
 fn hurt_enemies(mut enemies: Query<&mut Enemy>) {

@@ -65,11 +65,11 @@ fn change_track(
     soundtrack_player: Res<SoundtrackPlayer>,
     soundtrack: Query<Entity, With<AudioSink>>,
     game_state: Res<GameState>,
-) {
+) -> Result {
     if game_state.is_changed() {
         // Fade out all currently running tracks
         for track in soundtrack.iter() {
-            commands.entity(track).insert(FadeOut);
+            commands.entity(track)?.insert(FadeOut);
         }
 
         // Spawn a new `AudioPlayer` with the appropriate soundtrack based on
@@ -101,6 +101,8 @@ fn change_track(
             }
         }
     }
+
+    Ok(())
 }
 
 // Fade effect duration
@@ -112,15 +114,17 @@ fn fade_in(
     mut commands: Commands,
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeIn>>,
     time: Res<Time>,
-) {
+) -> Result {
     for (mut audio, entity) in audio_sink.iter_mut() {
         let current_volume = audio.volume();
         audio.set_volume(current_volume + Volume::Linear(time.delta_secs() / FADE_TIME));
         if audio.volume().to_linear() >= 1.0 {
             audio.set_volume(Volume::Linear(1.0));
-            commands.entity(entity).remove::<FadeIn>();
+            commands.entity(entity)?.remove::<FadeIn>();
         }
     }
+
+    Ok(())
 }
 
 // Fades out the audio of entities that has the FadeOut component. Despawns the entities once audio
@@ -129,14 +133,16 @@ fn fade_out(
     mut commands: Commands,
     mut audio_sink: Query<(&mut AudioSink, Entity), With<FadeOut>>,
     time: Res<Time>,
-) {
+) -> Result {
     for (mut audio, entity) in audio_sink.iter_mut() {
         let current_volume = audio.volume();
         audio.set_volume(current_volume - Volume::Linear(time.delta_secs() / FADE_TIME));
         if audio.volume().to_linear() <= 0.0 {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
+
+    Ok(())
 }
 
 // Every time the timer ends, switches between the "Peaceful" and "Battle" state.

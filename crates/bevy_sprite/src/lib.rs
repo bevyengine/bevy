@@ -187,11 +187,11 @@ pub fn calculate_bounds_2d(
             Without<NoFrustumCulling>,
         ),
     >,
-) {
+) -> Result {
     for (entity, mesh_handle) in &meshes_without_aabb {
         if let Some(mesh) = meshes.get(&mesh_handle.0) {
             if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
+                commands.entity(entity)?.try_insert(aabb);
             }
         }
     }
@@ -212,9 +212,10 @@ pub fn calculate_bounds_2d(
                 center: (-sprite.anchor.as_vec() * size).extend(0.0).into(),
                 half_extents: (0.5 * size).extend(0.0).into(),
             };
-            commands.entity(entity).try_insert(aabb);
+            commands.entity(entity)?.try_insert(aabb);
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]

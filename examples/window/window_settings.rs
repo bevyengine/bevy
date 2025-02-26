@@ -179,11 +179,11 @@ fn cycle_cursor_icon(
     input: Res<ButtonInput<MouseButton>>,
     mut index: Local<usize>,
     cursor_icons: Res<CursorIcons>,
-) {
+) -> Result {
     if input.just_pressed(MouseButton::Left) {
         *index = (*index + 1) % cursor_icons.0.len();
         commands
-            .entity(*window)
+            .entity(*window)?
             .insert(cursor_icons.0[*index].clone());
     } else if input.just_pressed(MouseButton::Right) {
         *index = if *index == 0 {
@@ -192,7 +192,9 @@ fn cycle_cursor_icon(
             *index - 1
         };
         commands
-            .entity(*window)
+            .entity(*window)?
             .insert(cursor_icons.0[*index].clone());
     }
+
+    Ok(())
 }

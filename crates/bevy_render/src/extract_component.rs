@@ -202,17 +202,18 @@ fn extract_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, C::QueryData), C::QueryFilter>>,
-) {
+) -> Result {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
         if let Some(component) = C::extract_component(query_item) {
             values.push((entity, component));
         } else {
-            commands.entity(entity).remove::<C::Out>();
+            commands.entity(entity)?.remove::<C::Out>();
         }
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
+    Ok(())
 }
 
 /// This system extracts all components of the corresponding [`ExtractComponent`], for entities that are visible and synced via [`crate::sync_world::SyncToRenderWorld`].
@@ -220,17 +221,18 @@ fn extract_visible_components<C: ExtractComponent>(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(RenderEntity, &ViewVisibility, C::QueryData), C::QueryFilter>>,
-) {
+) -> Result {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, view_visibility, query_item) in &query {
         if view_visibility.get() {
             if let Some(component) = C::extract_component(query_item) {
                 values.push((entity, component));
             } else {
-                commands.entity(entity).remove::<C::Out>();
+                commands.entity(entity)?.remove::<C::Out>();
             }
         }
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
+    Ok(())
 }

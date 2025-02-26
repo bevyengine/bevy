@@ -165,18 +165,20 @@ fn update_dof_settings(
     mut commands: Commands,
     view_targets: Query<Entity, With<Camera>>,
     app_settings: Res<AppSettings>,
-) {
+) -> Result {
     let depth_of_field: Option<DepthOfField> = (*app_settings).into();
     for view in view_targets.iter() {
         match depth_of_field {
             None => {
-                commands.entity(view).remove::<DepthOfField>();
+                commands.entity(view)?.remove::<DepthOfField>();
             }
             Some(depth_of_field) => {
-                commands.entity(view).insert(depth_of_field);
+                commands.entity(view)?.insert(depth_of_field);
             }
         }
     }
+
+    Ok(())
 }
 
 /// Makes one-time adjustments to the scene that can't be encoded in glTF.
@@ -189,7 +191,7 @@ fn tweak_scene(
         (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
-) {
+) -> Result {
     // Turn on shadows.
     for mut light in lights.iter_mut() {
         light.shadows_enabled = true;
@@ -199,12 +201,14 @@ fn tweak_scene(
     for (entity, name, material) in named_entities.iter_mut() {
         if &**name == "CircuitBoard" {
             materials.get_mut(material).unwrap().lightmap_exposure = 10000.0;
-            commands.entity(entity).insert(Lightmap {
+            commands.entity(entity)?.insert(Lightmap {
                 image: asset_server.load("models/DepthOfFieldExample/CircuitBoardLightmap.hdr"),
                 ..default()
             });
         }
     }
+
+    Ok(())
 }
 
 /// Update the help text entity per the current app settings.

@@ -265,13 +265,18 @@ fn get_async_loading_state(
 }
 
 // This showcases how to react to asynchronous world mutations synchronously.
-fn despawn_loading_state_entities(mut commands: Commands, loading: Query<Entity, With<Loading>>) {
+fn despawn_loading_state_entities(
+    mut commands: Commands,
+    loading: Query<Entity, With<Loading>>,
+) -> Result {
     // Despawn entities in the loading phase.
     for entity in loading.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity)?.despawn();
     }
 
     // Despawn resources used in the loading phase.
     commands.remove_resource::<AssetBarrier>();
     commands.remove_resource::<AsyncLoadingState>();
+
+    Ok(())
 }

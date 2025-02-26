@@ -139,10 +139,11 @@ fn setup_assets(
     }
 }
 
-fn setup_ui(mut commands: Commands) {
+fn setup_ui(mut commands: Commands) -> Result {
     setup_help_text(&mut commands);
-    setup_node_rects(&mut commands);
+    setup_node_rects(&mut commands)?;
     setup_node_lines(&mut commands);
+    Ok(())
 }
 
 /// Creates the assets programmatically, including the animation graph.
@@ -262,7 +263,7 @@ fn setup_help_text(commands: &mut Commands) {
 }
 
 /// Initializes the node UI widgets.
-fn setup_node_rects(commands: &mut Commands) {
+fn setup_node_rects(commands: &mut Commands) -> Result {
     for (node_rect, node_type) in NODE_RECTS.iter().zip(NODE_TYPES.iter()) {
         let node_string = match *node_type {
             NodeType::Clip(ref clip) => clip.text,
@@ -326,11 +327,13 @@ fn setup_node_rects(commands: &mut Commands) {
                 ))
                 .id();
 
-            commands.entity(container).add_child(background);
+            commands.entity(container)?.add_child(background);
         }
 
-        commands.entity(container).add_child(text);
+        commands.entity(container)?.add_child(text);
     }
+
+    Ok(())
 }
 
 /// Creates boxes for the horizontal and vertical lines.
@@ -375,13 +378,13 @@ fn init_animations(
     mut query: Query<(Entity, &mut AnimationPlayer)>,
     animation_graph: Res<ExampleAnimationGraph>,
     mut done: Local<bool>,
-) {
+) -> Result {
     if *done {
-        return;
+        return Ok(());
     }
 
     for (entity, mut player) in query.iter_mut() {
-        commands.entity(entity).insert((
+        commands.entity(entity)?.insert((
             AnimationGraphHandle(animation_graph.0.clone()),
             ExampleAnimationWeights::default(),
         ));
@@ -391,6 +394,8 @@ fn init_animations(
 
         *done = true;
     }
+
+    Ok(())
 }
 
 /// Read cursor position relative to clip nodes, allowing the user to change weights

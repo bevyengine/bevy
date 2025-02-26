@@ -11,6 +11,7 @@ use bevy_ecs::{
     prelude::{require, Component, Entity, ReflectComponent},
     query::{QueryItem, With},
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -383,7 +384,7 @@ fn prepare_taa_jitter_and_mip_bias(
     frame_count: Res<FrameCount>,
     mut query: Query<(Entity, &mut TemporalJitter, Option<&MipBias>), With<TemporalAntiAliasing>>,
     mut commands: Commands,
-) {
+) -> Result {
     // Halton sequence (2, 3) - 0.5, skipping i = 0
     let halton_sequence = [
         vec2(0.0, -0.16666666),
@@ -402,9 +403,10 @@ fn prepare_taa_jitter_and_mip_bias(
         jitter.offset = offset;
 
         if mip_bias.is_none() {
-            commands.entity(entity).insert(MipBias(-1.0));
+            commands.entity(entity)?.insert(MipBias(-1.0));
         }
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -419,7 +421,7 @@ fn prepare_taa_history_textures(
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
     views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntiAliasing>>,
-) {
+) -> Result {
     for (entity, camera, view) in &views {
         if let Some(physical_target_size) = camera.physical_target_size {
             let mut texture_descriptor = TextureDescriptor {
@@ -459,9 +461,10 @@ fn prepare_taa_history_textures(
                 }
             };
 
-            commands.entity(entity).insert(textures);
+            commands.entity(entity)?.insert(textures);
         }
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -473,7 +476,7 @@ fn prepare_taa_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<TaaPipeline>>,
     pipeline: Res<TaaPipeline>,
     views: Query<(Entity, &ExtractedView, &TemporalAntiAliasing)>,
-) {
+) -> Result {
     for (entity, view, taa_settings) in &views {
         let mut pipeline_key = TaaPipelineKey {
             hdr: view.hdr,
@@ -488,7 +491,8 @@ fn prepare_taa_pipelines(
         }
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(TemporalAntiAliasPipelineId(pipeline_id));
     }
+    Ok(())
 }

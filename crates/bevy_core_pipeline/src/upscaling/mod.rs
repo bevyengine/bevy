@@ -42,7 +42,7 @@ fn prepare_view_upscaling_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
-) {
+) -> Result {
     let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
         let out_texture_id = view_target.out_texture().id();
@@ -84,7 +84,8 @@ fn prepare_view_upscaling_pipelines(
         pipeline_cache.block_on_render_pipeline(pipeline);
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(ViewUpscalingPipeline(pipeline));
     }
+    Ok(())
 }

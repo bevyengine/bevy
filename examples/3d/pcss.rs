@@ -279,7 +279,7 @@ fn handle_light_type_change(
     mut lights: Query<Entity, Or<(With<DirectionalLight>, With<PointLight>, With<SpotLight>)>>,
     mut events: EventReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
-) {
+) -> Result {
     for event in events.read() {
         let AppSetting::LightType(light_type) = **event else {
             continue;
@@ -287,7 +287,7 @@ fn handle_light_type_change(
         app_status.light_type = light_type;
 
         for light in lights.iter_mut() {
-            let mut light_commands = commands.entity(light);
+            let mut light_commands = commands.entity(light)?;
             light_commands
                 .remove::<DirectionalLight>()
                 .remove::<PointLight>()
@@ -305,6 +305,8 @@ fn handle_light_type_change(
             }
         }
     }
+
+    Ok(())
 }
 
 /// Handles requests from the user to change the shadow filter method.
@@ -316,7 +318,7 @@ fn handle_shadow_filter_change(
     mut cameras: Query<(Entity, &mut ShadowFilteringMethod)>,
     mut events: EventReader<WidgetClickEvent<AppSetting>>,
     mut app_status: ResMut<AppStatus>,
-) {
+) -> Result {
     for event in events.read() {
         let AppSetting::ShadowFilter(shadow_filter) = **event else {
             continue;
@@ -327,17 +329,19 @@ fn handle_shadow_filter_change(
             match shadow_filter {
                 ShadowFilter::NonTemporal => {
                     *shadow_filtering_method = ShadowFilteringMethod::Gaussian;
-                    commands.entity(camera).remove::<TemporalAntiAliasing>();
+                    commands.entity(camera)?.remove::<TemporalAntiAliasing>();
                 }
                 ShadowFilter::Temporal => {
                     *shadow_filtering_method = ShadowFilteringMethod::Temporal;
                     commands
-                        .entity(camera)
+                        .entity(camera)?
                         .insert(TemporalAntiAliasing::default());
                 }
             }
         }
     }
+
+    Ok(())
 }
 
 /// Handles requests from the user to toggle soft shadows on and off.

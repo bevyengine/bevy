@@ -4,6 +4,7 @@ use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_ecs::result::Result;
 use bevy_picking::backend::HitData;
 use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::{Location, PointerId, PointerPress};
@@ -14,7 +15,7 @@ use bevy_render::prelude::*;
 use bevy_text::prelude::*;
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;
-use core::fmt::{Debug, Display, Formatter, Result};
+use core::fmt::{self, Debug, Display, Formatter};
 use tracing::{debug, trace};
 
 /// This resource determines the runtime behavior of the debug plugin.
@@ -150,10 +151,11 @@ pub fn log_pointer_event_trace<E: Debug + Clone + Reflect>(
 pub fn add_pointer_debug(
     mut commands: Commands,
     pointers: Query<Entity, (With<PointerId>, Without<PointerDebug>)>,
-) {
+) -> Result {
     for entity in &pointers {
-        commands.entity(entity).insert(PointerDebug::default());
+        commands.entity(entity)?.insert(PointerDebug::default());
     }
+    Ok(())
 }
 
 /// Hide text from pointers.
@@ -183,12 +185,12 @@ pub struct PointerDebug {
     pub hits: Vec<(String, HitData)>,
 }
 
-fn bool_to_icon(f: &mut Formatter, prefix: &str, input: bool) -> Result {
+fn bool_to_icon(f: &mut Formatter, prefix: &str, input: bool) -> fmt::Result {
     write!(f, "{prefix}{}", if input { "[X]" } else { "[ ]" })
 }
 
 impl Display for PointerDebug {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         if let Some(location) = &self.location {
             writeln!(f, "Location: {:.2?}", location.position)?;
         }
@@ -247,7 +249,7 @@ pub fn debug_draw(
     primary_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
     pointers: Query<(Entity, &PointerId, &PointerDebug)>,
     scale: Res<UiScale>,
-) {
+) -> Result {
     let font_handle: Handle<Font> = Default::default();
     for (entity, id, debug) in pointers.iter() {
         let Some(pointer_location) = &debug.location else {
@@ -277,7 +279,7 @@ pub fn debug_draw(
             }
 
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert((
                     Text::new(text.clone()),
                     TextFont {
@@ -297,4 +299,5 @@ pub fn debug_draw(
                 .insert(UiTargetCamera(camera));
         }
     }
+    Ok(())
 }

@@ -246,15 +246,16 @@ struct AnyPrepassPluginLoaded;
 pub fn update_previous_view_data(
     mut commands: Commands,
     query: Query<(Entity, &Camera, &GlobalTransform), Or<(With<Camera3d>, With<ShadowView>)>>,
-) {
+) -> Result {
     for (entity, camera, camera_transform) in &query {
         let view_from_world = camera_transform.compute_matrix().inverse();
-        commands.entity(entity).try_insert(PreviousViewData {
+        commands.entity(entity)?.try_insert(PreviousViewData {
             view_from_world,
             clip_from_world: camera.clip_from_view() * view_from_world,
             clip_from_view: camera.clip_from_view(),
         });
     }
+    Ok(())
 }
 
 #[derive(Component, PartialEq, Default)]
@@ -269,7 +270,7 @@ pub fn update_mesh_previous_global_transforms(
     mut commands: Commands,
     views: Query<&Camera, Or<(With<Camera3d>, With<ShadowView>)>>,
     meshes: Query<(Entity, &GlobalTransform, Option<&PreviousGlobalTransform>), PreviousMeshFilter>,
-) {
+) -> Result {
     let should_run = views.iter().any(|camera| camera.is_active);
 
     if should_run {
@@ -279,10 +280,11 @@ pub fn update_mesh_previous_global_transforms(
             // `PreviousGlobalTransform` if the previous transform hasn't
             // changed.
             if old_previous_transform != Some(&new_previous_transform) {
-                commands.entity(entity).try_insert(new_previous_transform);
+                commands.entity(entity)?.try_insert(new_previous_transform);
             }
         }
     }
+    Ok(())
 }
 
 #[derive(Resource)]
@@ -731,7 +733,7 @@ pub fn prepare_previous_view_uniforms(
         (Entity, &ExtractedView, Option<&PreviousViewData>),
         Or<(With<Camera3d>, With<ShadowView>)>,
     >,
-) {
+) -> Result {
     let views_iter = views.iter();
     let view_count = views_iter.len();
     let Some(mut writer) =
@@ -739,7 +741,7 @@ pub fn prepare_previous_view_uniforms(
             .uniforms
             .get_writer(view_count, &render_device, &render_queue)
     else {
-        return;
+        return Ok(());
     };
 
     for (entity, camera, maybe_previous_view_uniforms) in views_iter {
@@ -755,10 +757,11 @@ pub fn prepare_previous_view_uniforms(
             }
         };
 
-        commands.entity(entity).insert(PreviousViewUniformOffset {
+        commands.entity(entity)?.insert(PreviousViewUniformOffset {
             offset: writer.write(&prev_view_data),
         });
     }
+    Ok(())
 }
 
 #[derive(Default, Resource)]

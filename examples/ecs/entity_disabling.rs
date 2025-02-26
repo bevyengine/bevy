@@ -39,7 +39,7 @@ fn disable_entities_on_click(
     trigger: Trigger<Pointer<Click>>,
     valid_query: Query<&DisableOnClick>,
     mut commands: Commands,
-) {
+) -> Result {
     let clicked_entity = trigger.target();
     // Windows and text are entities and can be clicked!
     // We definitely don't want to disable the window itself,
@@ -48,8 +48,10 @@ fn disable_entities_on_click(
         // Just add the `Disabled` component to the entity to disable it.
         // Note that the `Disabled` component is *only* added to the entity,
         // its children are not affected.
-        commands.entity(clicked_entity).insert(Disabled);
+        commands.entity(clicked_entity)?.insert(Disabled);
     }
+
+    Ok(())
 }
 
 #[derive(Component)]
@@ -91,13 +93,15 @@ fn reenable_entities_on_space(
     // because it explicitly includes the `Disabled` component.
     disabled_entities: Query<Entity, With<Disabled>>,
     input: Res<ButtonInput<KeyCode>>,
-) {
+) -> Result {
     if input.just_pressed(KeyCode::Space) {
         for entity in disabled_entities.iter() {
             // To re-enable an entity, just remove the `Disabled` component.
-            commands.entity(entity).remove::<Disabled>();
+            commands.entity(entity)?.remove::<Disabled>();
         }
     }
+
+    Ok(())
 }
 
 const X_EXTENT: f32 = 900.;

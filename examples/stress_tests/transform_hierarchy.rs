@@ -427,7 +427,10 @@ fn spawn_tree(
             cmd.id()
         };
 
-        commands.entity(ents[parent_idx]).add_child(child_entity);
+        commands
+            .entity(ents[parent_idx])
+            .unwrap()
+            .add_child(child_entity);
 
         ents.push(child_entity);
     }

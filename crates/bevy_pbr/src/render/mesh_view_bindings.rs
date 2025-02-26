@@ -13,6 +13,7 @@ use bevy_ecs::{
     entity::Entity,
     query::Has,
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
@@ -540,7 +541,7 @@ pub fn prepare_mesh_view_bind_groups(
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
     oit_buffers: Res<OitBuffers>,
     (decals_buffer, render_decals): (Res<DecalsBuffer>, Res<RenderClusteredDecals>),
-) {
+) -> Result {
     if let (
         Some(view_binding),
         Some(light_binding),
@@ -762,9 +763,10 @@ pub fn prepare_mesh_view_bind_groups(
                 }
             }
 
-            commands.entity(entity).insert(MeshViewBindGroup {
+            commands.entity(entity)?.insert(MeshViewBindGroup {
                 value: render_device.create_bind_group("mesh_view_bind_group", layout, &entries),
             });
         }
     }
+    Ok(())
 }

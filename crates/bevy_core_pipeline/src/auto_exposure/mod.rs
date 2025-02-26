@@ -114,18 +114,19 @@ fn queue_view_auto_exposure_pipelines(
     mut compute_pipelines: ResMut<SpecializedComputePipelines<AutoExposurePipeline>>,
     pipeline: Res<AutoExposurePipeline>,
     view_targets: Query<(Entity, &AutoExposure)>,
-) {
+) -> Result {
     for (entity, auto_exposure) in view_targets.iter() {
         let histogram_pipeline =
             compute_pipelines.specialize(&pipeline_cache, &pipeline, AutoExposurePass::Histogram);
         let average_pipeline =
             compute_pipelines.specialize(&pipeline_cache, &pipeline, AutoExposurePass::Average);
 
-        commands.entity(entity).insert(ViewAutoExposurePipeline {
+        commands.entity(entity)?.insert(ViewAutoExposurePipeline {
             histogram_pipeline,
             mean_luminance_pipeline: average_pipeline,
             compensation_curve: auto_exposure.compensation_curve.clone(),
             metering_mask: auto_exposure.metering_mask.clone(),
         });
     }
+    Ok(())
 }

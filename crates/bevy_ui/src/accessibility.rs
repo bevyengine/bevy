@@ -9,6 +9,7 @@ use bevy_app::{App, Plugin, PostUpdate};
 use bevy_ecs::{
     prelude::{DetectChanges, Entity},
     query::{Changed, Without},
+    result::Result,
     schedule::IntoSystemConfigs,
     system::{Commands, Query},
     world::Ref,
@@ -67,7 +68,7 @@ fn button_changed(
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Button>>,
     ui_children: UiChildren,
     mut text_reader: TextUiReader,
-) {
+) -> Result {
     for (entity, accessible) in &mut query {
         let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
@@ -83,10 +84,11 @@ fn button_changed(
                 node.set_label(label);
             }
             commands
-                .entity(entity)
+                .entity(entity)?
                 .try_insert(AccessibilityNode::from(node));
         }
     }
+    Ok(())
 }
 
 fn image_changed(
@@ -97,7 +99,7 @@ fn image_changed(
     >,
     ui_children: UiChildren,
     mut text_reader: TextUiReader,
-) {
+) -> Result {
     for (entity, accessible) in &mut query {
         let label = calc_label(&mut text_reader, ui_children.iter_ui_children(entity));
         if let Some(mut accessible) = accessible {
@@ -113,17 +115,18 @@ fn image_changed(
                 node.set_label(label);
             }
             commands
-                .entity(entity)
+                .entity(entity)?
                 .try_insert(AccessibilityNode::from(node));
         }
     }
+    Ok(())
 }
 
 fn label_changed(
     mut commands: Commands,
     mut query: Query<(Entity, Option<&mut AccessibilityNode>), Changed<Label>>,
     mut text_reader: TextUiReader,
-) {
+) -> Result {
     for (entity, accessible) in &mut query {
         let values = text_reader
             .iter(entity)
@@ -143,10 +146,11 @@ fn label_changed(
                 node.set_value(label);
             }
             commands
-                .entity(entity)
+                .entity(entity)?
                 .try_insert(AccessibilityNode::from(node));
         }
     }
+    Ok(())
 }
 
 /// `AccessKit` integration for `bevy_ui`.

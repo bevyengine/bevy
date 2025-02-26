@@ -145,7 +145,7 @@ fn update_volumes(
         (Entity, &DesiredVolume, &Shape, &Transform),
         Or<(Changed<DesiredVolume>, Changed<Shape>, Changed<Transform>)>,
     >,
-) {
+) -> Result {
     for (entity, desired_volume, shape, transform) in query.iter() {
         let translation = transform.translation.xy();
         let rotation = transform.rotation.to_euler(EulerRot::YXZ).2;
@@ -160,7 +160,7 @@ fn update_volumes(
                     Shape::Capsule(c) => c.aabb_2d(isometry),
                     Shape::Polygon(p) => p.aabb_2d(isometry),
                 };
-                commands.entity(entity).insert(CurrentVolume::Aabb(aabb));
+                commands.entity(entity)?.insert(CurrentVolume::Aabb(aabb));
             }
             DesiredVolume::Circle => {
                 let circle = match shape {
@@ -172,11 +172,13 @@ fn update_volumes(
                     Shape::Polygon(p) => p.bounding_circle(isometry),
                 };
                 commands
-                    .entity(entity)
+                    .entity(entity)?
                     .insert(CurrentVolume::Circle(circle));
             }
         }
     }
+
+    Ok(())
 }
 
 fn render_volumes(mut gizmos: Gizmos, query: Query<(&CurrentVolume, &Intersects)>) {

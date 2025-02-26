@@ -290,7 +290,7 @@ fn switch_mode(
     mut pause: ResMut<Pause>,
     mut hide_ui: Local<bool>,
     mut mode: Local<DefaultRenderMode>,
-) {
+) -> Result {
     text.clear();
 
     if keys.just_pressed(KeyCode::Space) {
@@ -303,10 +303,10 @@ fn switch_mode(
         println!("DefaultOpaqueRendererMethod: Deferred");
         for _ in materials.iter_mut() {}
         for camera in &cameras {
-            commands.entity(camera).remove::<NormalPrepass>();
-            commands.entity(camera).insert(DepthPrepass);
-            commands.entity(camera).insert(MotionVectorPrepass);
-            commands.entity(camera).insert(DeferredPrepass);
+            commands.entity(camera)?.remove::<NormalPrepass>();
+            commands.entity(camera)?.insert(DepthPrepass);
+            commands.entity(camera)?.insert(MotionVectorPrepass);
+            commands.entity(camera)?.insert(DeferredPrepass);
         }
     }
     if keys.just_pressed(KeyCode::Digit2) {
@@ -315,10 +315,10 @@ fn switch_mode(
         println!("DefaultOpaqueRendererMethod: Forward");
         for _ in materials.iter_mut() {}
         for camera in &cameras {
-            commands.entity(camera).remove::<NormalPrepass>();
-            commands.entity(camera).remove::<DepthPrepass>();
-            commands.entity(camera).remove::<MotionVectorPrepass>();
-            commands.entity(camera).remove::<DeferredPrepass>();
+            commands.entity(camera)?.remove::<NormalPrepass>();
+            commands.entity(camera)?.remove::<DepthPrepass>();
+            commands.entity(camera)?.remove::<MotionVectorPrepass>();
+            commands.entity(camera)?.remove::<DeferredPrepass>();
         }
     }
     if keys.just_pressed(KeyCode::Digit3) {
@@ -327,10 +327,10 @@ fn switch_mode(
         println!("DefaultOpaqueRendererMethod: Forward + Prepass");
         for _ in materials.iter_mut() {}
         for camera in &cameras {
-            commands.entity(camera).insert(NormalPrepass);
-            commands.entity(camera).insert(DepthPrepass);
-            commands.entity(camera).insert(MotionVectorPrepass);
-            commands.entity(camera).remove::<DeferredPrepass>();
+            commands.entity(camera)?.insert(NormalPrepass);
+            commands.entity(camera)?.insert(DepthPrepass);
+            commands.entity(camera)?.insert(MotionVectorPrepass);
+            commands.entity(camera)?.remove::<DeferredPrepass>();
         }
     }
 
@@ -368,4 +368,6 @@ fn switch_mode(
             }
         ));
     }
+
+    Ok(())
 }

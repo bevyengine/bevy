@@ -197,14 +197,14 @@ fn drag_drop_image(
     mut drop_events: EventReader<FileDragAndDrop>,
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-) {
+) -> Result {
     let Some(new_image) = drop_events.read().find_map(|e| match e {
         FileDragAndDrop::DroppedFile { path_buf, .. } => {
             Some(asset_server.load(path_buf.to_string_lossy().to_string()))
         }
         _ => None,
     }) else {
-        return;
+        return Ok(());
     };
 
     for mat_h in &image_mat {
@@ -213,10 +213,12 @@ fn drag_drop_image(
 
             // Despawn the image viewer instructions
             if let Ok(text_entity) = text.get_single() {
-                commands.entity(text_entity).despawn();
+                commands.entity(text_entity)?.despawn();
             }
         }
     }
+
+    Ok(())
 }
 
 fn resize_image(

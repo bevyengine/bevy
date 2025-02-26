@@ -361,7 +361,7 @@ pub fn prepare_view_tonemapping_pipelines(
         ),
         With<ViewTarget>,
     >,
-) {
+) -> Result {
     for (entity, view, tonemapping, dither) in view_targets.iter() {
         // As an optimization, we omit parts of the shader that are unneeded.
         let mut flags = TonemappingPipelineKeyFlags::empty();
@@ -388,9 +388,10 @@ pub fn prepare_view_tonemapping_pipelines(
         let pipeline = pipelines.specialize(&pipeline_cache, &upscaling_pipeline, key);
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(ViewTonemappingPipeline(pipeline));
     }
+    Ok(())
 }
 /// Enables a debanding shader that applies dithering to mitigate color banding in the final image for a given [`Camera`] entity.
 #[derive(

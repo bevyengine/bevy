@@ -778,7 +778,7 @@ pub fn prepare_core_3d_depth_textures(
         &Camera3d,
         &Msaa,
     )>,
-) {
+) -> Result {
     let mut render_target_usage = <HashMap<_, _>>::default();
     for (_, camera, extracted_view, depth_prepass, camera_3d, _msaa) in &views_3d {
         if !opaque_3d_phases.contains_key(&extracted_view.retained_view_entity)
@@ -836,7 +836,7 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture::new(
+        commands.entity(entity)?.insert(ViewDepthTexture::new(
             cached_texture,
             match camera_3d.depth_load_op {
                 Camera3dDepthLoadOp::Clear(v) => Some(v),
@@ -844,6 +844,7 @@ pub fn prepare_core_3d_depth_textures(
             },
         ));
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -862,7 +863,7 @@ pub fn prepare_core_3d_transmission_textures(
     transmissive_3d_phases: Res<ViewSortedRenderPhases<Transmissive3d>>,
     transparent_3d_phases: Res<ViewSortedRenderPhases<Transparent3d>>,
     views_3d: Query<(Entity, &ExtractedCamera, &Camera3d, &ExtractedView)>,
-) {
+) -> Result {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, camera_3d, view) in &views_3d {
         if !opaque_3d_phases.contains_key(&view.retained_view_entity)
@@ -931,12 +932,13 @@ pub fn prepare_core_3d_transmission_textures(
             ..Default::default()
         });
 
-        commands.entity(entity).insert(ViewTransmissionTexture {
+        commands.entity(entity)?.insert(ViewTransmissionTexture {
             texture: cached_texture.texture,
             view: cached_texture.default_view,
             sampler,
         });
     }
+    Ok(())
 }
 
 /// Sets the `TEXTURE_BINDING` flag on the depth texture if necessary for
@@ -992,7 +994,7 @@ pub fn prepare_prepass_textures(
         Has<MotionVectorPrepass>,
         Has<DeferredPrepass>,
     )>,
-) {
+) -> Result {
     let mut depth_textures = <HashMap<_, _>>::default();
     let mut normal_textures = <HashMap<_, _>>::default();
     let mut deferred_textures = <HashMap<_, _>>::default();
@@ -1014,7 +1016,7 @@ pub fn prepare_prepass_textures(
             && !opaque_3d_deferred_phases.contains_key(&view.retained_view_entity)
             && !alpha_mask_3d_deferred_phases.contains_key(&view.retained_view_entity)
         {
-            commands.entity(entity).remove::<ViewPrepassTextures>();
+            commands.entity(entity)?.remove::<ViewPrepassTextures>();
             continue;
         };
 
@@ -1137,7 +1139,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        commands.entity(entity).insert(ViewPrepassTextures {
+        commands.entity(entity)?.insert(ViewPrepassTextures {
             depth: cached_depth_texture
                 .map(|t| ColorAttachment::new(t, None, Some(LinearRgba::BLACK))),
             normal: cached_normals_texture
@@ -1154,4 +1156,5 @@ pub fn prepare_prepass_textures(
             size,
         });
     }
+    Ok(())
 }

@@ -87,6 +87,7 @@ pub fn insert_commands(criterion: &mut Criterion) {
             for entity in &entities {
                 commands
                     .entity(*entity)
+                    .unwrap()
                     .insert((Matrix::default(), Vec3::default()));
             }
             command_queue.apply(&mut world);

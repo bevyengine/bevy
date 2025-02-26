@@ -9,6 +9,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     query::With,
     removal_detection::RemovedComponents,
+    result::Result,
     system::{Commands, Query, ResMut},
     world::Ref,
 };
@@ -95,7 +96,7 @@ pub fn ui_layout_system(
     mut removed_children: RemovedComponents<Children>,
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
-) {
+) -> Result {
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
@@ -180,7 +181,7 @@ with UI components as a child of an entity without UI components, your UI layout
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
-        );
+        )?;
     }
 
     // Returns the combined bounding box of the node and any of its overflowing children.
@@ -203,7 +204,7 @@ with UI components as a child of an entity without UI components, your UI layout
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
         parent_scroll_position: Vec2,
-    ) {
+    ) -> Result {
         if let Ok((
             mut node,
             mut transform,
@@ -219,7 +220,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 .unwrap_or(inherited_use_rounding);
 
             let Ok((layout, unrounded_size)) = ui_surface.get_layout(entity, use_rounding) else {
-                return;
+                return Ok(());
             };
 
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
@@ -317,7 +318,7 @@ with UI components as a child of an entity without UI components, your UI layout
 
             if clamped_scroll_position != scroll_position {
                 commands
-                    .entity(entity)
+                    .entity(entity)?
                     .insert(ScrollPosition::from(clamped_scroll_position));
             }
 
@@ -336,10 +337,12 @@ with UI components as a child of an entity without UI components, your UI layout
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
-                );
+                )?;
             }
         }
+        Ok(())
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -762,6 +765,7 @@ mod tests {
             for moving_ui_entity in moving_ui_query.iter() {
                 commands
                     .entity(moving_ui_entity)
+                    .unwrap()
                     .insert(UiTargetCamera(target_camera_entity))
                     .insert(Node {
                         position_type: PositionType::Absolute,

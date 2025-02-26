@@ -370,14 +370,15 @@ pub fn calculate_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
     without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
-) {
+) -> Result {
     for (entity, mesh_handle) in &without_aabb {
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
+                commands.entity(entity)?.try_insert(aabb);
             }
         }
     }
+    Ok(())
 }
 
 /// Updates [`Frustum`].

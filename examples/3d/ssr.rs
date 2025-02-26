@@ -346,7 +346,7 @@ fn adjust_app_settings(
     mut cube_models: Query<&mut Visibility, (With<CubeModel>, Without<FlightHelmetModel>)>,
     mut flight_helmet_models: Query<&mut Visibility, (Without<CubeModel>, With<FlightHelmetModel>)>,
     mut text: Query<&mut Text>,
-) {
+) -> Result {
     // If there are no changes, we're going to bail for efficiency. Record that
     // here.
     let mut any_changes = false;
@@ -368,17 +368,17 @@ fn adjust_app_settings(
 
     // If there were no changes, bail.
     if !any_changes {
-        return;
+        return Ok(());
     }
 
     // Update SSR settings.
     for camera in cameras.iter_mut() {
         if app_settings.ssr_on {
             commands
-                .entity(camera)
+                .entity(camera)?
                 .insert(ScreenSpaceReflections::default());
         } else {
-            commands.entity(camera).remove::<ScreenSpaceReflections>();
+            commands.entity(camera)?.remove::<ScreenSpaceReflections>();
         }
     }
 
@@ -402,6 +402,8 @@ fn adjust_app_settings(
     for mut text in text.iter_mut() {
         *text = create_text(&app_settings);
     }
+
+    Ok(())
 }
 
 impl Default for AppSettings {

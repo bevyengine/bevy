@@ -9,6 +9,7 @@ use bevy_ecs::{
     query::{With, Without},
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res},
     world::{FromWorld, World},
 };
@@ -383,7 +384,7 @@ impl Clusters {
 pub fn add_clusters(
     mut commands: Commands,
     cameras: Query<(Entity, Option<&ClusterConfig>, &Camera), (Without<Clusters>, With<Camera3d>)>,
-) {
+) -> Result {
     for (entity, config, camera) in &cameras {
         if !camera.is_active {
             continue;
@@ -393,9 +394,10 @@ pub fn add_clusters(
         // actual settings here don't matter - they will be overwritten in
         // `assign_objects_to_clusters``
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert((Clusters::default(), config));
     }
+    Ok(())
 }
 
 impl VisibleClusterableObjects {
@@ -571,7 +573,7 @@ pub fn prepare_clusters(
     mesh_pipeline: Res<MeshPipeline>,
     global_clusterable_object_meta: Res<GlobalClusterableObjectMeta>,
     views: Query<(Entity, &ExtractedClusterableObjects)>,
-) {
+) -> Result {
     let render_device = render_device.into_inner();
     let supports_storage_buffers = matches!(
         mesh_pipeline.clustered_forward_buffer_binding_type,
@@ -609,8 +611,9 @@ pub fn prepare_clusters(
 
         view_clusters_bindings.write_buffers(render_device, &render_queue);
 
-        commands.entity(entity).insert(view_clusters_bindings);
+        commands.entity(entity)?.insert(view_clusters_bindings);
     }
+    Ok(())
 }
 
 impl ViewClusterBindings {

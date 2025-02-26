@@ -1873,18 +1873,26 @@ mod tests {
             .register_component_hooks::<A>()
             .on_add(|mut world, context| {
                 world.resource_mut::<R>().assert_order(0);
-                world.commands().entity(context.entity).insert(B);
+                world.commands().entity(context.entity).unwrap().insert(B);
             })
             .on_remove(|mut world, context| {
                 world.resource_mut::<R>().assert_order(2);
-                world.commands().entity(context.entity).remove::<B>();
+                world
+                    .commands()
+                    .entity(context.entity)
+                    .unwrap()
+                    .remove::<B>();
             });
 
         world
             .register_component_hooks::<B>()
             .on_add(|mut world, context| {
                 world.resource_mut::<R>().assert_order(1);
-                world.commands().entity(context.entity).remove::<A>();
+                world
+                    .commands()
+                    .entity(context.entity)
+                    .unwrap()
+                    .remove::<A>();
             })
             .on_remove(|mut world, _| {
                 world.resource_mut::<R>().assert_order(3);
@@ -1905,14 +1913,19 @@ mod tests {
             .register_component_hooks::<A>()
             .on_add(|mut world, context| {
                 world.resource_mut::<R>().assert_order(0);
-                world.commands().entity(context.entity).insert(B).insert(C);
+                world
+                    .commands()
+                    .entity(context.entity)
+                    .unwrap()
+                    .insert(B)
+                    .insert(C);
             });
 
         world
             .register_component_hooks::<B>()
             .on_add(|mut world, context| {
                 world.resource_mut::<R>().assert_order(1);
-                world.commands().entity(context.entity).insert(D);
+                world.commands().entity(context.entity).unwrap().insert(D);
             });
 
         world

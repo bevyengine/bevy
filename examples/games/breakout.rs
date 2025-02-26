@@ -343,7 +343,7 @@ fn check_for_collisions(
     ball_query: Single<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
-) {
+) -> Result {
     let (mut ball_velocity, ball_transform) = ball_query.into_inner();
 
     for (collider_entity, collider_transform, maybe_brick) in &collider_query {
@@ -361,7 +361,7 @@ fn check_for_collisions(
 
             // Bricks should be despawned and increment the scoreboard on collision
             if maybe_brick.is_some() {
-                commands.entity(collider_entity).despawn();
+                commands.entity(collider_entity)?.despawn();
                 **score += 1;
             }
 
@@ -389,6 +389,8 @@ fn check_for_collisions(
             }
         }
     }
+
+    Ok(())
 }
 
 fn play_collision_sound(

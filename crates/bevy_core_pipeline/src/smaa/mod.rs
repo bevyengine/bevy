@@ -46,6 +46,7 @@ use bevy_ecs::{
     query::{QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -616,7 +617,7 @@ fn prepare_smaa_pipelines(
     mut specialized_render_pipelines: ResMut<SmaaSpecializedRenderPipelines>,
     smaa_pipelines: Res<SmaaPipelines>,
     view_targets: Query<(Entity, &ExtractedView, &Smaa)>,
-) {
+) -> Result {
     for (entity, view, smaa) in &view_targets {
         let edge_detection_pipeline_id = specialized_render_pipelines.edge_detection.specialize(
             &pipeline_cache,
@@ -647,12 +648,13 @@ fn prepare_smaa_pipelines(
                 },
             );
 
-        commands.entity(entity).insert(ViewSmaaPipelines {
+        commands.entity(entity)?.insert(ViewSmaaPipelines {
             edge_detection_pipeline_id,
             blending_weight_calculation_pipeline_id,
             neighborhood_blending_pipeline_id,
         });
     }
+    Ok(())
 }
 
 /// A system, part of the render app, that builds the [`SmaaInfoUniform`] data
@@ -663,7 +665,7 @@ fn prepare_smaa_uniforms(
     render_queue: Res<RenderQueue>,
     view_targets: Query<(Entity, &ExtractedView), With<Smaa>>,
     mut smaa_info_buffer: ResMut<SmaaInfoUniformBuffer>,
-) {
+) -> Result {
     smaa_info_buffer.clear();
     for (entity, view) in &view_targets {
         let offset = smaa_info_buffer.push(&SmaaInfoUniform {
@@ -675,11 +677,12 @@ fn prepare_smaa_uniforms(
             ),
         });
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(SmaaInfoUniformOffset(offset));
     }
 
     smaa_info_buffer.write_buffer(&render_device, &render_queue);
+    Ok(())
 }
 
 /// A system, part of the render app, that builds the intermediate textures for
@@ -693,7 +696,7 @@ fn prepare_smaa_textures(
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
     view_targets: Query<(Entity, &ExtractedCamera), (With<ExtractedView>, With<Smaa>)>,
-) {
+) -> Result {
     for (entity, camera) in &view_targets {
         let Some(texture_size) = camera.physical_target_size else {
             continue;
@@ -751,12 +754,13 @@ fn prepare_smaa_textures(
             },
         );
 
-        commands.entity(entity).insert(SmaaTextures {
+        commands.entity(entity)?.insert(SmaaTextures {
             edge_detection_color_texture,
             edge_detection_stencil_texture,
             blend_texture,
         });
     }
+    Ok(())
 }
 
 /// A system, part of the render app, that builds the SMAA bind groups for each
@@ -767,13 +771,13 @@ fn prepare_smaa_bind_groups(
     smaa_pipelines: Res<SmaaPipelines>,
     images: Res<RenderAssets<GpuImage>>,
     view_targets: Query<(Entity, &SmaaTextures), (With<ExtractedView>, With<Smaa>)>,
-) {
+) -> Result {
     // Fetch the two lookup textures. These are bundled in this library.
     let (Some(search_texture), Some(area_texture)) = (
         images.get(&SMAA_SEARCH_LUT_TEXTURE_HANDLE),
         images.get(&SMAA_AREA_LUT_TEXTURE_HANDLE),
     ) else {
-        return;
+        return Ok(());
     };
 
     for (entity, smaa_textures) in &view_targets {
@@ -789,7 +793,7 @@ fn prepare_smaa_bind_groups(
             ..default()
         });
 
-        commands.entity(entity).insert(SmaaBindGroups {
+        commands.entity(entity)?.insert(SmaaBindGroups {
             edge_detection_bind_group: render_device.create_bind_group(
                 Some("SMAA edge detection bind group"),
                 &smaa_pipelines
@@ -821,6 +825,7 @@ fn prepare_smaa_bind_groups(
             ),
         });
     }
+    Ok(())
 }
 
 impl ViewNode for SmaaNode {

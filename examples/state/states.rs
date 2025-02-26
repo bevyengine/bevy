@@ -112,8 +112,9 @@ fn menu(
     }
 }
 
-fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
-    commands.entity(menu_data.button_entity).despawn();
+fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) -> Result {
+    commands.entity(menu_data.button_entity)?.despawn();
+    Ok(())
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {

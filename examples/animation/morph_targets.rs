@@ -66,9 +66,9 @@ fn setup_animations(
     mut players: Query<(Entity, &Name, &mut AnimationPlayer)>,
     morph_data: Res<MorphData>,
     mut graphs: ResMut<Assets<AnimationGraph>>,
-) {
+) -> Result {
     if *has_setup {
-        return;
+        return Ok(());
     }
     for (entity, name, mut player) in &mut players {
         // The name of the entity in the GLTF scene containing the AnimationPlayer for our morph targets is "Main"
@@ -78,12 +78,14 @@ fn setup_animations(
 
         let (graph, animation) = AnimationGraph::from_clip(morph_data.the_wave.clone());
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(AnimationGraphHandle(graphs.add(graph)));
 
         player.play(animation).repeat();
         *has_setup = true;
     }
+
+    Ok(())
 }
 
 /// You can get the target names in their corresponding [`Mesh`].

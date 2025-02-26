@@ -82,7 +82,7 @@ pub trait Relationship: Component + Sized {
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
-            world.commands().entity(entity).remove::<Self>();
+            world.commands().entity(entity).unwrap().remove::<Self>();
             return;
         }
         if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
@@ -93,7 +93,11 @@ pub trait Relationship: Component + Sized {
             } else {
                 let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
                 target.collection_mut_risky().add(entity);
-                world.commands().entity(target_entity).insert(target);
+                world
+                    .commands()
+                    .entity(target_entity)
+                    .unwrap()
+                    .insert(target);
             }
         } else {
             warn!(
@@ -102,7 +106,7 @@ pub trait Relationship: Component + Sized {
                 core::any::type_name::<Self>(),
                 core::any::type_name::<Self>()
             );
-            world.commands().entity(entity).remove::<Self>();
+            world.commands().entity(entity).unwrap().remove::<Self>();
         }
     }
 

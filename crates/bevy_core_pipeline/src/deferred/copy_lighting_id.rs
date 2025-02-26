@@ -180,7 +180,7 @@ fn prepare_deferred_lighting_id_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &ExtractedCamera), With<DeferredPrepass>>,
-) {
+) -> Result {
     for (entity, camera) in &views {
         if let Some(UVec2 {
             x: width,
@@ -203,8 +203,9 @@ fn prepare_deferred_lighting_id_textures(
             };
             let texture = texture_cache.get(&render_device, texture_descriptor);
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(DeferredLightingIdDepthTexture { texture });
         }
     }
+    Ok(())
 }

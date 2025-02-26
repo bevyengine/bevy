@@ -183,21 +183,23 @@ pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(Trigger<ScreenshotCapt
     }
 }
 
-fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Captured>>) {
+fn clear_screenshots(mut commands: Commands, screenshots: Query<Entity, With<Captured>>) -> Result {
     for entity in screenshots.iter() {
-        commands.entity(entity).despawn();
+        commands.entity(entity)?.despawn();
     }
+    Ok(())
 }
 
 pub fn trigger_screenshots(
     mut commands: Commands,
     captured_screenshots: ResMut<CapturedScreenshots>,
-) {
+) -> Result {
     let captured_screenshots = captured_screenshots.lock().unwrap();
     while let Ok((entity, image)) = captured_screenshots.try_recv() {
-        commands.entity(entity).insert(Captured);
+        commands.entity(entity)?.insert(Captured);
         commands.trigger_targets(ScreenshotCaptured(image), entity);
     }
+    Ok(())
 }
 
 fn extract_screenshots(
@@ -213,7 +215,7 @@ fn extract_screenshots(
         >,
     >,
     mut seen_targets: Local<HashSet<NormalizedRenderTarget>>,
-) {
+) -> Result {
     if system_state.is_none() {
         *system_state = Some(SystemState::new(&mut main_world));
     }
@@ -240,15 +242,16 @@ fn extract_screenshots(
                 entity, render_target
             );
             // If we don't despawn the entity here, it will be captured again in the next frame
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
             continue;
         }
         seen_targets.insert(render_target.clone());
         targets.insert(entity, render_target);
-        commands.entity(entity).insert(Capturing);
+        commands.entity(entity)?.insert(Capturing);
     }
 
     system_state.apply(&mut main_world);
+    Ok(())
 }
 
 fn prepare_screenshots(

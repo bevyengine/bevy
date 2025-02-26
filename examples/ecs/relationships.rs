@@ -44,7 +44,7 @@ fn main() {
     //
     // Then, we'll spawn Devon, who will target Charlie,
     // creating a more complex graph with a branching structure.
-    fn spawning_entities_with_relationships(mut commands: Commands) {
+    fn spawning_entities_with_relationships(mut commands: Commands) -> Result {
         // Calling .id() after spawning an entity will return the `Entity` identifier of the spawned entity,
         // even though the entity itself is not yet instantiated in the world.
         // This works because Commands will reserve the entity ID before actually spawning the entity,
@@ -66,11 +66,14 @@ fn main() {
 
         // Simply inserting the `Targeting` component will automatically create and update the `TargetedBy` component on the target entity.
         // We can do this at any point; not just when the entity is spawned.
-        commands.entity(alice).insert(Targeting(charlie));
+        commands.entity(alice)?.insert(Targeting(charlie));
+
+        Ok(())
     }
 
     world
         .run_system_once(spawning_entities_with_relationships)
+        .unwrap()
         .unwrap();
 
     fn debug_relationships(
@@ -112,7 +115,7 @@ fn main() {
     // but we can insert a new `Targeting` component to replace the old one.
     // This allows the hooks on the `Targeting` component to update the `TargetedBy` component correctly.
     // The `TargetedBy` component will be updated automatically!
-    fn mutate_relationships(name_query: Query<(Entity, &Name)>, mut commands: Commands) {
+    fn mutate_relationships(name_query: Query<(Entity, &Name)>, mut commands: Commands) -> Result {
         // Let's find Devon by doing a linear scan of the entity names.
         let devon = name_query
             .iter()
@@ -127,10 +130,15 @@ fn main() {
             .0;
 
         println!("Making Devon target Alice.\n");
-        commands.entity(devon).insert(Targeting(alice));
+        commands.entity(devon)?.insert(Targeting(alice));
+
+        Ok(())
     }
 
-    world.run_system_once(mutate_relationships).unwrap();
+    world
+        .run_system_once(mutate_relationships)
+        .unwrap()
+        .unwrap();
     world.run_system_once(debug_relationships).unwrap();
 
     // Systems can return errors,
@@ -190,7 +198,7 @@ fn main() {
     assert!(cycle_result.is_err());
 
     // Now, let's demonstrate removing relationships and break the cycle.
-    fn untarget(mut commands: Commands, name_query: Query<(Entity, &Name)>) {
+    fn untarget(mut commands: Commands, name_query: Query<(Entity, &Name)>) -> Result {
         // Let's find Charlie by doing a linear scan of the entity names.
         let charlie = name_query
             .iter()
@@ -201,10 +209,12 @@ fn main() {
         // We can remove the `Targeting` component to remove the relationship
         // and break the cycle we saw earlier.
         println!("Removing Charlie's targeting relationship.\n");
-        commands.entity(charlie).remove::<Targeting>();
+        commands.entity(charlie)?.remove::<Targeting>();
+
+        Ok(())
     }
 
-    world.run_system_once(untarget).unwrap();
+    world.run_system_once(untarget).unwrap().unwrap();
     world.run_system_once(debug_relationships).unwrap();
     // Cycle free!
     let cycle_result = world.run_system_once(check_for_cycles).unwrap();

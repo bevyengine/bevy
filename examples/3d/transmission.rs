@@ -399,7 +399,7 @@ fn example_control_system(
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<ButtonInput<KeyCode>>,
-) {
+) -> Result {
     if input.pressed(KeyCode::Digit2) {
         state.diffuse_transmission = (state.diffuse_transmission + time.delta_secs()).min(1.0);
     } else if input.pressed(KeyCode::Digit1) {
@@ -474,9 +474,9 @@ fn example_control_system(
     #[cfg(not(all(feature = "webgl2", target_arch = "wasm32")))]
     if input.just_pressed(KeyCode::KeyD) {
         if depth_prepass.is_none() {
-            commands.entity(camera_entity).insert(DepthPrepass);
+            commands.entity(camera_entity)?.insert(DepthPrepass);
         } else {
-            commands.entity(camera_entity).remove::<DepthPrepass>();
+            commands.entity(camera_entity)?.remove::<DepthPrepass>();
         }
     }
 
@@ -484,11 +484,11 @@ fn example_control_system(
     if input.just_pressed(KeyCode::KeyT) {
         if temporal_jitter.is_none() {
             commands
-                .entity(camera_entity)
+                .entity(camera_entity)?
                 .insert((TemporalJitter::default(), TemporalAntiAliasing::default()));
         } else {
             commands
-                .entity(camera_entity)
+                .entity(camera_entity)?
                 .remove::<(TemporalJitter, TemporalAntiAliasing)>();
         }
     }
@@ -595,6 +595,8 @@ fn example_control_system(
             "N/A (WebGL)"
         },
     );
+
+    Ok(())
 }
 
 fn flicker_system(

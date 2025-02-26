@@ -448,9 +448,11 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .insert_reflect(boxed_reflect_component_a);
         commands
             .entity(entity2)
+            .unwrap()
             .insert_reflect(boxed_reflect_component_a_clone);
         system_state.apply(&mut world);
 
@@ -483,6 +485,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .insert_reflect_with_registry::<TypeRegistryResource>(boxed_reflect_component_a);
         system_state.apply(&mut world);
 
@@ -513,6 +516,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect(boxed_reflect_component_a.reflect_type_path().to_owned());
         system_state.apply(&mut world);
 
@@ -542,6 +546,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect_with_registry::<TypeRegistryResource>(
                 boxed_reflect_component_a.reflect_type_path().to_owned(),
             );
@@ -570,7 +575,7 @@ mod tests {
             a: ComponentA(31),
             b: ComponentB(20),
         }) as Box<dyn PartialReflect>;
-        commands.entity(entity).insert_reflect(bundle);
+        commands.entity(entity).unwrap().insert_reflect(bundle);
 
         system_state.apply(&mut world);
 
@@ -603,6 +608,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .insert_reflect_with_registry::<TypeRegistryResource>(bundle);
         system_state.apply(&mut world);
 
@@ -639,6 +645,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect(boxed_reflect_bundle_a.reflect_type_path().to_owned());
         system_state.apply(&mut world);
 
@@ -677,6 +684,7 @@ mod tests {
 
         commands
             .entity(entity)
+            .unwrap()
             .remove_reflect_with_registry::<TypeRegistryResource>(
                 boxed_reflect_bundle_a.reflect_type_path().to_owned(),
             );

@@ -12,6 +12,7 @@ use bevy_ecs::{
     entity::{hash_set::EntityHashSet, Entity},
     hierarchy::ChildOf,
     query::{Changed, With},
+    result::Result,
     system::{Commands, Local, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -30,7 +31,7 @@ pub fn update_clipping_system(
         Option<&mut CalculatedClip>,
     )>,
     ui_children: UiChildren,
-) {
+) -> Result {
     for root_node in root_nodes.iter() {
         update_clipping(
             &mut commands,
@@ -38,8 +39,9 @@ pub fn update_clipping_system(
             &mut node_query,
             root_node,
             None,
-        );
+        )?;
     }
+    Ok(())
 }
 
 fn update_clipping(
@@ -53,11 +55,11 @@ fn update_clipping(
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
-) {
+) -> Result {
     let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
         node_query.get_mut(entity)
     else {
-        return;
+        return Ok(());
     };
 
     // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
@@ -76,11 +78,11 @@ fn update_clipping(
             }
         } else {
             // No inherited clipping rect, remove the component
-            commands.entity(entity).remove::<CalculatedClip>();
+            commands.entity(entity)?.remove::<CalculatedClip>();
         }
     } else if let Some(inherited_clip) = maybe_inherited_clip {
         // No previous calculated clip, add a new CalculatedClip component with the inherited clipping rect
-        commands.entity(entity).try_insert(CalculatedClip {
+        commands.entity(entity)?.try_insert(CalculatedClip {
             clip: inherited_clip,
         });
     }
@@ -126,8 +128,9 @@ fn update_clipping(
     };
 
     for child in ui_children.iter_ui_children(entity) {
-        update_clipping(commands, ui_children, node_query, child, children_clip);
+        update_clipping(commands, ui_children, node_query, child, children_clip)?;
     }
+    Ok(())
 }
 
 pub fn update_ui_context_system(

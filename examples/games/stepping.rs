@@ -241,27 +241,27 @@ fn update_ui(
     stepping: Res<Stepping>,
     ui: Single<(Entity, &Visibility), With<SteppingUi>>,
     mut writer: TextUiWriter,
-) {
+) -> Result {
     // ensure the UI is only visible when stepping is enabled
     let (ui, vis) = *ui;
     match (vis, stepping.is_enabled()) {
         (Visibility::Hidden, true) => {
-            commands.entity(ui).insert(Visibility::Inherited);
+            commands.entity(ui)?.insert(Visibility::Inherited);
         }
         (Visibility::Hidden, false) | (_, true) => (),
         (_, false) => {
-            commands.entity(ui).insert(Visibility::Hidden);
+            commands.entity(ui)?.insert(Visibility::Hidden);
         }
     }
 
     // if we're not stepping, there's nothing more to be done here.
     if !stepping.is_enabled() {
-        return;
+        return Ok(());
     }
 
     let (cursor_schedule, cursor_system) = match stepping.cursor() {
         // no cursor means stepping isn't enabled, so we're done here
-        None => return,
+        None => return Ok(()),
         Some(c) => c,
     };
 
@@ -273,4 +273,6 @@ fn update_ui(
         };
         *writer.text(ui, *text_index) = mark.to_string();
     }
+
+    Ok(())
 }

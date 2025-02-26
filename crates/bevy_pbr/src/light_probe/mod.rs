@@ -10,6 +10,7 @@ use bevy_ecs::{
     query::With,
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -481,11 +482,11 @@ pub fn prepare_environment_uniform_buffer(
     mut environment_uniform_buffer: ResMut<EnvironmentMapUniformBuffer>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-) {
+) -> Result {
     let Some(mut writer) =
         environment_uniform_buffer.get_writer(views.iter().len(), &render_device, &render_queue)
     else {
-        return;
+        return Ok(());
     };
 
     for (view, environment_uniform) in views.iter() {
@@ -494,9 +495,10 @@ pub fn prepare_environment_uniform_buffer(
             Some(environment_uniform) => writer.write(environment_uniform),
         };
         commands
-            .entity(view)
+            .entity(view)?
             .insert(ViewEnvironmentMapUniformOffset(uniform_offset));
     }
+    Ok(())
 }
 
 // A system that runs after [`gather_light_probes`] and populates the GPU
@@ -515,10 +517,10 @@ fn upload_light_probes(
     )>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-) {
+) -> Result {
     // If there are no views, bail.
     if views.is_empty() {
-        return;
+        return Ok(());
     }
 
     // Initialize the uniform buffer writer.
@@ -584,9 +586,10 @@ fn upload_light_probes(
         let uniform_offset = writer.write(&light_probes_uniform);
 
         commands
-            .entity(view_entity)
+            .entity(view_entity)?
             .insert(ViewLightProbesUniformOffset(uniform_offset));
     }
+    Ok(())
 }
 
 impl Default for LightProbesUniform {

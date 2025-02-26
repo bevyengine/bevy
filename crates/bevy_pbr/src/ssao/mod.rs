@@ -11,6 +11,7 @@ use bevy_ecs::{
     query::{Has, QueryItem, With},
     reflect::ReflectComponent,
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -545,7 +546,7 @@ fn prepare_ssao_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     views: Query<(Entity, &ExtractedCamera, &ScreenSpaceAmbientOcclusion)>,
-) {
+) -> Result {
     for (entity, camera, ssao_settings) in &views {
         let Some(physical_viewport_size) = camera.physical_viewport_size else {
             continue;
@@ -619,7 +620,7 @@ fn prepare_ssao_textures(
         });
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(ScreenSpaceAmbientOcclusionResources {
                 preprocessed_depth_texture,
                 ssao_noisy_texture,
@@ -628,6 +629,7 @@ fn prepare_ssao_textures(
                 thickness_buffer,
             });
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -639,7 +641,7 @@ fn prepare_ssao_pipelines(
     mut pipelines: ResMut<SpecializedComputePipelines<SsaoPipelines>>,
     pipeline: Res<SsaoPipelines>,
     views: Query<(Entity, &ScreenSpaceAmbientOcclusion, Has<TemporalJitter>)>,
-) {
+) -> Result {
     for (entity, ssao_settings, temporal_jitter) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -650,8 +652,9 @@ fn prepare_ssao_pipelines(
             },
         );
 
-        commands.entity(entity).insert(SsaoPipelineId(pipeline_id));
+        commands.entity(entity)?.insert(SsaoPipelineId(pipeline_id));
     }
+    Ok(())
 }
 
 #[derive(Component)]
@@ -673,12 +676,12 @@ fn prepare_ssao_bind_groups(
         &ScreenSpaceAmbientOcclusionResources,
         &ViewPrepassTextures,
     )>,
-) {
+) -> Result {
     let (Some(view_uniforms), Some(globals_uniforms)) = (
         view_uniforms.uniforms.binding(),
         global_uniforms.buffer.binding(),
     ) else {
-        return;
+        return Ok(());
     };
 
     for (entity, ssao_resources, prepass_textures) in &views {
@@ -745,13 +748,14 @@ fn prepare_ssao_bind_groups(
             )),
         );
 
-        commands.entity(entity).insert(SsaoBindGroups {
+        commands.entity(entity)?.insert(SsaoBindGroups {
             common_bind_group,
             preprocess_depth_bind_group,
             ssao_bind_group,
             spatial_denoise_bind_group,
         });
     }
+    Ok(())
 }
 
 fn generate_hilbert_index_lut() -> [[u16; 64]; 64] {

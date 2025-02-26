@@ -22,6 +22,7 @@ use bevy_ecs::{
     prelude::resource_exists,
     query::{Has, Or, QueryState, With, Without},
     resource::Resource,
+    result::Result,
     schedule::IntoSystemConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
@@ -1744,7 +1745,7 @@ pub fn prepare_preprocess_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     previous_view_uniforms: Res<PreviousViewUniforms>,
     pipelines: Res<PreprocessPipelines>,
-) {
+) -> Result {
     // Grab the `BatchedInstanceBuffers`.
     let BatchedInstanceBuffers {
         current_input_buffer: ref current_input_buffer_vec,
@@ -1756,7 +1757,7 @@ pub fn prepare_preprocess_bind_groups(
         current_input_buffer_vec.buffer().buffer(),
         previous_input_buffer_vec.buffer().buffer(),
     ) else {
-        return;
+        return Ok(());
     };
 
     // Record whether we have any meshes that are to be drawn indirectly. If we
@@ -1854,7 +1855,7 @@ pub fn prepare_preprocess_bind_groups(
 
         // Save the bind groups.
         commands
-            .entity(view_entity)
+            .entity(view_entity)?
             .insert(PreprocessBindGroups(bind_groups));
     }
 
@@ -1869,6 +1870,7 @@ pub fn prepare_preprocess_bind_groups(
             &indirect_parameters_buffers,
         );
     }
+    Ok(())
 }
 
 /// A temporary structure that stores all the information needed to construct

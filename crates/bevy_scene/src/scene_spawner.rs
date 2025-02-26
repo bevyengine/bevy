@@ -6,6 +6,7 @@ use bevy_ecs::{
     hierarchy::ChildOf,
     reflect::AppTypeRegistry,
     resource::Resource,
+    result::Result,
     world::{Mut, World},
 };
 use bevy_platform_support::collections::{HashMap, HashSet};
@@ -491,14 +492,14 @@ pub fn scene_spawner(
         (Changed<DynamicSceneRoot>, Without<SceneRoot>),
     >,
     mut scene_spawner: ResMut<SceneSpawner>,
-) {
+) -> Result {
     for (entity, scene, instance) in &mut scene_to_spawn {
         let new_instance = scene_spawner.spawn_as_child(scene.0.clone(), entity);
         if let Some(mut old_instance) = instance {
             scene_spawner.despawn_instance(**old_instance);
             *old_instance = SceneInstance(new_instance);
         } else {
-            commands.entity(entity).insert(SceneInstance(new_instance));
+            commands.entity(entity)?.insert(SceneInstance(new_instance));
         }
     }
     for (entity, dynamic_scene, instance) in &mut dynamic_scene_to_spawn {
@@ -507,9 +508,10 @@ pub fn scene_spawner(
             scene_spawner.despawn_instance(**old_instance);
             *old_instance = SceneInstance(new_instance);
         } else {
-            commands.entity(entity).insert(SceneInstance(new_instance));
+            commands.entity(entity)?.insert(SceneInstance(new_instance));
         }
     }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -852,7 +854,7 @@ mod tests {
             .run_system_once(
                 |mut commands: Commands, query: Query<Entity, With<ComponentF>>| {
                     for entity in query.iter() {
-                        commands.entity(entity).despawn();
+                        commands.entity(entity).unwrap().despawn();
                     }
                 },
             )

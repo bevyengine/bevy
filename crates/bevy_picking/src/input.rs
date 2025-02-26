@@ -261,7 +261,7 @@ pub fn deactivate_touch_pointers(
     mut despawn_list: Local<HashSet<(Entity, PointerId)>>,
     pointers: Query<(Entity, &PointerId)>,
     mut touches: EventReader<TouchInput>,
-) {
+) -> Result {
     for touch in touches.read() {
         if let TouchPhase::Ended | TouchPhase::Canceled = touch.phase {
             for (entity, pointer) in &pointers {
@@ -274,6 +274,7 @@ pub fn deactivate_touch_pointers(
     // A hash set is used to prevent despawning the same entity twice.
     for (entity, pointer) in despawn_list.drain() {
         debug!("Despawning pointer {:?}", pointer);
-        commands.entity(entity).despawn();
+        commands.entity(entity)?.despawn();
     }
+    Ok(())
 }

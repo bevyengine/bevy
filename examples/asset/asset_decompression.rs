@@ -117,7 +117,7 @@ fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     asset_server: Res<AssetServer>,
     mut compressed_assets: ResMut<Assets<GzAsset>>,
     query: Query<(Entity, &Compressed<A>)>,
-) {
+) -> Result {
     for (entity, Compressed { compressed, .. }) in query.iter() {
         let Some(GzAsset { uncompressed }) = compressed_assets.remove(compressed) else {
             continue;
@@ -126,8 +126,10 @@ fn decompress<T: Component + From<Handle<A>>, A: Asset>(
         let uncompressed = uncompressed.take::<A>().unwrap();
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .remove::<Compressed<A>>()
             .insert(T::from(asset_server.add(uncompressed)));
     }
+
+    Ok(())
 }

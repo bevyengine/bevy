@@ -6,6 +6,7 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,
+    result::Result,
     system::{Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -136,7 +137,7 @@ pub fn prepare_upsampling_pipeline(
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &Bloom)>,
-) {
+) -> Result {
     for (entity, bloom) in &views {
         let pipeline_id = pipelines.specialize(
             &pipeline_cache,
@@ -156,9 +157,10 @@ pub fn prepare_upsampling_pipeline(
             },
         );
 
-        commands.entity(entity).insert(UpsamplingPipelineIds {
+        commands.entity(entity)?.insert(UpsamplingPipelineIds {
             id_main: pipeline_id,
             id_final: pipeline_final_id,
         });
     }
+    Ok(())
 }

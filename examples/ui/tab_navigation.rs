@@ -62,20 +62,22 @@ fn focus_system(
     mut commands: Commands,
     focus: Res<InputFocus>,
     mut query: Query<Entity, With<Button>>,
-) {
+) -> Result {
     if focus.is_changed() {
         for button in query.iter_mut() {
             if focus.0 == Some(button) {
-                commands.entity(button).insert(Outline {
+                commands.entity(button)?.insert(Outline {
                     color: Color::WHITE,
                     width: Val::Px(2.0),
                     offset: Val::Px(2.0),
                 });
             } else {
-                commands.entity(button).remove::<Outline>();
+                commands.entity(button)?.remove::<Outline>();
             }
         }
     }
+
+    Ok(())
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {

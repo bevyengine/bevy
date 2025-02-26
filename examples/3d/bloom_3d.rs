@@ -103,7 +103,7 @@ fn update_bloom_settings(
     mut commands: Commands,
     keycode: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
-) {
+) -> Result {
     let bloom = camera.into_inner();
 
     match bloom {
@@ -137,7 +137,7 @@ fn update_bloom_settings(
             text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).remove::<Bloom>();
+                commands.entity(entity)?.remove::<Bloom>();
             }
 
             let dt = time.delta_secs();
@@ -211,10 +211,12 @@ fn update_bloom_settings(
             text.0 = "Bloom: Off (Toggle: Space)".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
-                commands.entity(entity).insert(Bloom::NATURAL);
+                commands.entity(entity)?.insert(Bloom::NATURAL);
             }
         }
     }
+
+    Ok(())
 }
 
 #[derive(Component)]

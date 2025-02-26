@@ -67,7 +67,7 @@ fn play_animation_when_ready(
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<&mut AnimationPlayer>,
-) {
+) -> Result {
     // The entity we spawned in `setup_mesh_and_animation` is the trigger's target.
     // Start by finding the AnimationToPlay component we added to that entity.
     if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
@@ -87,11 +87,13 @@ fn play_animation_when_ready(
                 // Add the animation graph. This only needs to be done once to
                 // connect the animation player to the mesh.
                 commands
-                    .entity(child)
+                    .entity(child)?
                     .insert(AnimationGraphHandle(animation_to_play.graph_handle.clone()));
             }
         }
     }
+
+    Ok(())
 }
 
 // Spawn a camera and a simple environment with a ground plane and light.

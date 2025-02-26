@@ -52,14 +52,14 @@ pub fn prepare_fog(
     render_queue: Res<RenderQueue>,
     mut fog_meta: ResMut<FogMeta>,
     views: Query<(Entity, Option<&DistanceFog>), With<ExtractedView>>,
-) {
+) -> Result {
     let views_iter = views.iter();
     let view_count = views_iter.len();
     let Some(mut writer) = fog_meta
         .gpu_fogs
         .get_writer(view_count, &render_device, &render_queue)
     else {
-        return;
+        return Ok(());
     };
     for (entity, fog) in views_iter {
         let gpu_fog = if let Some(fog) = fog {
@@ -113,10 +113,11 @@ pub fn prepare_fog(
         };
 
         // This is later read by `SetMeshViewBindGroup<I>`
-        commands.entity(entity).insert(ViewFogUniformOffset {
+        commands.entity(entity)?.insert(ViewFogUniformOffset {
             offset: writer.write(&gpu_fog),
         });
     }
+    Ok(())
 }
 
 /// Inserted on each `Entity` with an `ExtractedView` to keep track of its offset

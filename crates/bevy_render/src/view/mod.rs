@@ -892,7 +892,7 @@ pub fn prepare_view_uniforms(
         Option<&MipBias>,
     )>,
     frame_count: Res<FrameCount>,
-) {
+) -> Result {
     let view_iter = views.iter();
     let view_count = view_iter.len();
     let Some(mut writer) =
@@ -900,7 +900,7 @@ pub fn prepare_view_uniforms(
             .uniforms
             .get_writer(view_count, &render_device, &render_queue)
     else {
-        return;
+        return Ok(());
     };
     for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
         let viewport = extracted_view.viewport.as_vec4();
@@ -949,8 +949,9 @@ pub fn prepare_view_uniforms(
             }),
         };
 
-        commands.entity(entity).insert(view_uniforms);
+        commands.entity(entity)?.insert(view_uniforms);
     }
+    Ok(())
 }
 
 #[derive(Clone)]
@@ -1012,7 +1013,7 @@ pub fn prepare_view_targets(
         &Msaa,
     )>,
     view_target_attachments: Res<ViewTargetAttachments>,
-) {
+) -> Result {
     let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
@@ -1103,11 +1104,12 @@ pub fn prepare_view_targets(
             main_texture: main_texture.clone(),
         };
 
-        commands.entity(entity).insert(ViewTarget {
+        commands.entity(entity)?.insert(ViewTarget {
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
             out_texture: out_attachment.clone(),
         });
     }
+    Ok(())
 }

@@ -73,24 +73,26 @@ fn toggle_oit(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     q: Single<(Entity, Has<OrderIndependentTransparencySettings>), With<Camera3d>>,
     mut text_writer: TextUiWriter,
-) {
+) -> Result {
     if keyboard_input.just_pressed(KeyCode::KeyT) {
         let (e, has_oit) = *q;
         *text_writer.text(*text, 2) = if has_oit {
             // Removing the component will completely disable OIT for this camera
             commands
-                .entity(e)
+                .entity(e)?
                 .remove::<OrderIndependentTransparencySettings>();
             "OIT disabled".to_string()
         } else {
             // Adding the component to the camera will render any transparent meshes
             // with OIT instead of alpha blending
             commands
-                .entity(e)
+                .entity(e)?
                 .insert(OrderIndependentTransparencySettings::default());
             "OIT enabled".to_string()
         };
     }
+
+    Ok(())
 }
 
 fn cycle_scenes(
@@ -100,11 +102,11 @@ fn cycle_scenes(
     mut materials: ResMut<Assets<StandardMaterial>>,
     q: Query<Entity, With<Mesh3d>>,
     mut scene_id: Local<usize>,
-) {
+) -> Result {
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // despawn current scene
         for e in &q {
-            commands.entity(e).despawn();
+            commands.entity(e)?.despawn();
         }
         // increment scene_id
         *scene_id = (*scene_id + 1) % 2;
@@ -115,6 +117,8 @@ fn cycle_scenes(
             _ => unreachable!(),
         }
     }
+
+    Ok(())
 }
 
 /// Spawns 3 overlapping spheres

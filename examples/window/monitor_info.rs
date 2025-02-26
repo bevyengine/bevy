@@ -25,7 +25,7 @@ fn update(
     monitors_added: Query<(Entity, &Monitor), Added<Monitor>>,
     mut monitors_removed: RemovedComponents<Monitor>,
     monitor_refs: Query<(Entity, &MonitorRef)>,
-) {
+) -> Result {
     for (entity, monitor) in monitors_added.iter() {
         // Spawn a new window on each monitor
         let name = monitor.name.clone().unwrap_or_else(|| "<no name>".into());
@@ -82,24 +82,28 @@ fn update(
     for monitor_entity in monitors_removed.read() {
         for (ref_entity, monitor_ref) in monitor_refs.iter() {
             if monitor_ref.0 == monitor_entity {
-                commands.entity(ref_entity).despawn();
+                commands.entity(ref_entity)?.despawn();
             }
         }
     }
+
+    Ok(())
 }
 
 fn close_on_esc(
     mut commands: Commands,
     focused_windows: Query<(Entity, &Window)>,
     input: Res<ButtonInput<KeyCode>>,
-) {
+) -> Result {
     for (window, focus) in focused_windows.iter() {
         if !focus.focused {
             continue;
         }
 
         if input.just_pressed(KeyCode::Escape) {
-            commands.entity(window).despawn();
+            commands.entity(window)?.despawn();
         }
     }
+
+    Ok(())
 }

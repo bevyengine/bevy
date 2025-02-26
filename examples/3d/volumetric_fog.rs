@@ -157,12 +157,14 @@ fn create_text(app_settings: &AppSettings) -> Text {
 fn tweak_scene(
     mut commands: Commands,
     mut lights: Query<(Entity, &mut DirectionalLight), Changed<DirectionalLight>>,
-) {
+) -> Result {
     for (light, mut directional_light) in lights.iter_mut() {
         // Shadows are needed for volumetric lights to work.
         directional_light.shadows_enabled = true;
-        commands.entity(light).insert(VolumetricLight);
+        commands.entity(light)?.insert(VolumetricLight);
     }
+
+    Ok(())
 }
 
 /// Processes user requests to move the directional light.
@@ -225,7 +227,7 @@ fn adjust_app_settings(
     mut point_lights: Query<Entity, With<PointLight>>,
     mut spot_lights: Query<Entity, With<SpotLight>>,
     mut text: Query<&mut Text>,
-) {
+) -> Result {
     // If there are no changes, we're going to bail for efficiency. Record that
     // here.
     let mut any_changes = false;
@@ -243,22 +245,22 @@ fn adjust_app_settings(
 
     // If there were no changes, bail out.
     if !any_changes {
-        return;
+        return Ok(());
     }
 
     // Update volumetric settings.
     for point_light in point_lights.iter_mut() {
         if app_settings.volumetric_pointlight {
-            commands.entity(point_light).insert(VolumetricLight);
+            commands.entity(point_light)?.insert(VolumetricLight);
         } else {
-            commands.entity(point_light).remove::<VolumetricLight>();
+            commands.entity(point_light)?.remove::<VolumetricLight>();
         }
     }
     for spot_light in spot_lights.iter_mut() {
         if app_settings.volumetric_spotlight {
-            commands.entity(spot_light).insert(VolumetricLight);
+            commands.entity(spot_light)?.insert(VolumetricLight);
         } else {
-            commands.entity(spot_light).remove::<VolumetricLight>();
+            commands.entity(spot_light)?.remove::<VolumetricLight>();
         }
     }
 
@@ -266,4 +268,6 @@ fn adjust_app_settings(
     for mut text in text.iter_mut() {
         *text = create_text(&app_settings);
     }
+
+    Ok(())
 }

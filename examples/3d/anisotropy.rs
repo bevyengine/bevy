@@ -158,13 +158,13 @@ fn create_material_variants(
             Without<MaterialVariants>,
         ),
     >,
-) {
+) -> Result {
     for (entity, anisotropic_material_handle) in new_meshes.iter() {
         let Some(anisotropic_material) = materials.get(anisotropic_material_handle).cloned() else {
             continue;
         };
 
-        commands.entity(entity).insert(MaterialVariants {
+        commands.entity(entity)?.insert(MaterialVariants {
             anisotropic: anisotropic_material_handle.0.clone(),
             isotropic: materials.add(StandardMaterial {
                 anisotropy_texture: None,
@@ -174,6 +174,8 @@ fn create_material_variants(
             }),
         });
     }
+
+    Ok(())
 }
 
 /// A system that animates the light every frame, if there is one.
@@ -218,7 +220,7 @@ fn handle_input(
     mut scenes: Query<(&mut Visibility, &Scene)>,
     keyboard: Res<ButtonInput<KeyCode>>,
     mut app_status: ResMut<AppStatus>,
-) {
+) -> Result {
     // If Space was pressed, change the lighting.
     if keyboard.just_pressed(KeyCode::Space) {
         match app_status.light_mode {
@@ -227,7 +229,7 @@ fn handle_input(
                 // create the light point.
                 app_status.light_mode = LightMode::Point;
                 for light in lights.iter() {
-                    commands.entity(light).despawn();
+                    commands.entity(light)?.despawn();
                 }
                 spawn_point_light(&mut commands);
             }
@@ -237,10 +239,10 @@ fn handle_input(
                 // and create the skybox and environment map.
                 app_status.light_mode = LightMode::EnvironmentMap;
                 for light in lights.iter() {
-                    commands.entity(light).despawn();
+                    commands.entity(light)?.despawn();
                 }
                 for camera in cameras.iter() {
-                    add_skybox_and_environment_map(&mut commands, &asset_server, camera);
+                    add_skybox_and_environment_map(&mut commands, &asset_server, camera)?;
                 }
             }
 
@@ -250,7 +252,7 @@ fn handle_input(
                 app_status.light_mode = LightMode::Directional;
                 for camera in cameras.iter() {
                     commands
-                        .entity(camera)
+                        .entity(camera)?
                         .remove::<Skybox>()
                         .remove::<EnvironmentMapLight>();
                 }
@@ -284,6 +286,8 @@ fn handle_input(
             *visibility = new_vis;
         }
     }
+
+    Ok(())
 }
 
 /// A system that updates the help text based on the current app status.
@@ -298,9 +302,9 @@ fn add_skybox_and_environment_map(
     commands: &mut Commands,
     asset_server: &AssetServer,
     entity: Entity,
-) {
+) -> Result {
     commands
-        .entity(entity)
+        .entity(entity)?
         .insert(Skybox {
             brightness: 5000.0,
             image: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
@@ -312,6 +316,8 @@ fn add_skybox_and_environment_map(
             intensity: 2500.0,
             ..default()
         });
+
+    Ok(())
 }
 
 /// Spawns a rotating directional light.

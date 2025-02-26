@@ -224,11 +224,11 @@ fn update_lightmaps(
     meshes: Query<(Entity, &Name, &MeshMaterial3d<StandardMaterial>), With<Mesh3d>>,
     mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
     app_status: Res<AppStatus>,
-) {
+) -> Result {
     // Only run if the lighting mode changed. (Note that a change event is fired
     // when the scene first loads.)
     if lighting_mode_change_event_reader.read().next().is_none() {
-        return;
+        return Ok(());
     }
 
     // Select the lightmap to use, based on the lighting mode.
@@ -264,14 +264,14 @@ fn update_lightmaps(
             // Add or remove the lightmap.
             match lightmap {
                 Some(ref lightmap) => {
-                    commands.entity(entity).insert(Lightmap {
+                    commands.entity(entity)?.insert(Lightmap {
                         image: (*lightmap).clone(),
                         uv_rect,
                         bicubic_sampling: false,
                     });
                 }
                 None => {
-                    commands.entity(entity).remove::<Lightmap>();
+                    commands.entity(entity)?.remove::<Lightmap>();
                 }
             }
             continue 'outer;
@@ -288,18 +288,20 @@ fn update_lightmaps(
             // lightmap in fully-baked mode.
             match (&lightmap, app_status.lighting_mode) {
                 (Some(lightmap), LightingMode::Baked) => {
-                    commands.entity(entity).insert(Lightmap {
+                    commands.entity(entity)?.insert(Lightmap {
                         image: (*lightmap).clone(),
                         uv_rect: SPHERE_UV_RECT,
                         bicubic_sampling: false,
                     });
                 }
                 _ => {
-                    commands.entity(entity).remove::<Lightmap>();
+                    commands.entity(entity)?.remove::<Lightmap>();
                 }
             }
         }
     }
+
+    Ok(())
 }
 
 /// Converts a uv rectangle from the OpenGL coordinate system (origin in the
@@ -322,12 +324,14 @@ const fn uv_rect_opengl(gl_min: Vec2, size: Vec2) -> Rect {
 fn make_sphere_nonpickable(
     mut commands: Commands,
     mut query: Query<(Entity, &Name), (With<Mesh3d>, Without<Pickable>)>,
-) {
+) -> Result {
     for (sphere, name) in &mut query {
         if &**name == "Sphere" {
-            commands.entity(sphere).insert(Pickable::IGNORE);
+            commands.entity(sphere)?.insert(Pickable::IGNORE);
         }
     }
+
+    Ok(())
 }
 
 /// Updates the directional light settings as necessary when the lighting mode
@@ -487,16 +491,18 @@ fn adjust_help_text(
     help_texts: Query<Entity, With<HelpText>>,
     app_status: Res<AppStatus>,
     mut lighting_mode_change_event_reader: EventReader<LightingModeChanged>,
-) {
+) -> Result {
     if lighting_mode_change_event_reader.read().next().is_none() {
-        return;
+        return Ok(());
     }
 
     for help_text in &help_texts {
         commands
-            .entity(help_text)
+            .entity(help_text)?
             .insert(create_help_text(&app_status));
     }
+
+    Ok(())
 }
 
 /// Returns appropriate text to display at the top of the screen.

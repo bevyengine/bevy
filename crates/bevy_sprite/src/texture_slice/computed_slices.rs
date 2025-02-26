@@ -139,7 +139,7 @@ pub(crate) fn compute_slices_on_asset_event(
     images: Res<Assets<Image>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     sprites: Query<(Entity, &Sprite)>,
-) {
+) -> Result {
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
         .read()
@@ -149,7 +149,7 @@ pub(crate) fn compute_slices_on_asset_event(
         })
         .collect();
     if added_handles.is_empty() {
-        return;
+        return Ok(());
     }
     // We recompute the sprite slices for sprite entities with a matching asset handle id
     for (entity, sprite) in &sprites {
@@ -160,9 +160,10 @@ pub(crate) fn compute_slices_on_asset_event(
             continue;
         }
         if let Some(slices) = compute_sprite_slices(sprite, &images, &atlas_layouts) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity)?.insert(slices);
         }
     }
+    Ok(())
 }
 
 /// System reacting to changes on the [`Sprite`] component to compute the sprite slices
@@ -171,13 +172,14 @@ pub(crate) fn compute_slices_on_sprite_change(
     images: Res<Assets<Image>>,
     atlas_layouts: Res<Assets<TextureAtlasLayout>>,
     changed_sprites: Query<(Entity, &Sprite), Changed<Sprite>>,
-) {
+) -> Result {
     for (entity, sprite) in &changed_sprites {
         if !sprite.image_mode.uses_slices() {
             continue;
         }
         if let Some(slices) = compute_sprite_slices(sprite, &images, &atlas_layouts) {
-            commands.entity(entity).insert(slices);
+            commands.entity(entity)?.insert(slices);
         }
     }
+    Ok(())
 }

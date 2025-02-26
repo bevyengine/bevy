@@ -419,12 +419,13 @@ impl FromWorld for DeferredLightingLayout {
 pub fn insert_deferred_lighting_pass_id_component(
     mut commands: Commands,
     views: Query<Entity, (With<DeferredPrepass>, Without<PbrDeferredLightingDepthId>)>,
-) {
+) -> Result {
     for entity in views.iter() {
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(PbrDeferredLightingDepthId::default());
     }
+    Ok(())
 }
 
 pub fn prepare_deferred_lighting_pipelines(
@@ -452,7 +453,7 @@ pub fn prepare_deferred_lighting_pipelines(
         Has<RenderViewLightProbes<EnvironmentMapLight>>,
         Has<RenderViewLightProbes<IrradianceVolume>>,
     )>,
-) {
+) -> Result {
     for (
         entity,
         view,
@@ -469,7 +470,9 @@ pub fn prepare_deferred_lighting_pipelines(
         // one. This handles the case in which a view using deferred stops using
         // it.
         if !deferred_prepass {
-            commands.entity(entity).remove::<DeferredLightingPipeline>();
+            commands
+                .entity(entity)?
+                .remove::<DeferredLightingPipeline>();
             continue;
         }
 
@@ -550,7 +553,8 @@ pub fn prepare_deferred_lighting_pipelines(
             pipelines.specialize(&pipeline_cache, &deferred_lighting_layout, view_key);
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(DeferredLightingPipeline { pipeline_id });
     }
+    Ok(())
 }

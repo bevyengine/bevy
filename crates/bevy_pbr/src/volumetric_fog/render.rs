@@ -14,6 +14,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{Has, QueryItem, With},
     resource::Resource,
+    result::Result,
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -277,18 +278,18 @@ pub fn extract_volumetric_fog(
     view_targets: Extract<Query<(RenderEntity, &VolumetricFog)>>,
     fog_volumes: Extract<Query<(RenderEntity, &FogVolume, &GlobalTransform)>>,
     volumetric_lights: Extract<Query<(RenderEntity, &VolumetricLight)>>,
-) {
+) -> Result {
     if volumetric_lights.is_empty() {
         // TODO: needs better way to handle clean up in render world
         for (entity, ..) in view_targets.iter() {
             commands
-                .entity(entity)
+                .entity(entity)?
                 .remove::<(VolumetricFog, ViewVolumetricFogPipelines, ViewVolumetricFog)>();
         }
         for (entity, ..) in fog_volumes.iter() {
-            commands.entity(entity).remove::<FogVolume>();
+            commands.entity(entity)?.remove::<FogVolume>();
         }
-        return;
+        return Ok(());
     }
 
     for (entity, volumetric_fog) in view_targets.iter() {
@@ -312,6 +313,7 @@ pub fn extract_volumetric_fog(
             .expect("Volumetric light entity wasn't synced.")
             .insert(*volumetric_light);
     }
+    Ok(())
 }
 
 impl ViewNode for VolumetricFogNode {
@@ -627,7 +629,7 @@ pub fn prepare_volumetric_fog_pipelines(
         With<VolumetricFog>,
     >,
     meshes: Res<RenderAssets<RenderMesh>>,
-) {
+) -> Result {
     let plane_mesh = meshes.get(&PLANE_MESH).expect("Plane mesh not found!");
 
     for (
@@ -677,11 +679,12 @@ pub fn prepare_volumetric_fog_pipelines(
             },
         );
 
-        commands.entity(entity).insert(ViewVolumetricFogPipelines {
+        commands.entity(entity)?.insert(ViewVolumetricFogPipelines {
             textureless: textureless_pipeline_id,
             textured: textured_pipeline_id,
         });
     }
+    Ok(())
 }
 
 /// A system that converts [`VolumetricFog`] into [`VolumetricFogUniform`]s.
@@ -693,13 +696,13 @@ pub fn prepare_volumetric_fog_uniforms(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut local_from_world_matrices: Local<Vec<Mat4>>,
-) {
+) -> Result {
     let Some(mut writer) = volumetric_lighting_uniform_buffer.get_writer(
         view_targets.iter().len(),
         &render_device,
         &render_queue,
     ) else {
-        return;
+        return Ok(());
     };
 
     // Do this up front to avoid O(n^2) matrix inversion.
@@ -760,9 +763,10 @@ pub fn prepare_volumetric_fog_uniforms(
         }
 
         commands
-            .entity(view_entity)
+            .entity(view_entity)?
             .insert(ViewVolumetricFog(view_fog_volumes));
     }
+    Ok(())
 }
 
 /// A system that marks all view depth textures as readable in shaders.

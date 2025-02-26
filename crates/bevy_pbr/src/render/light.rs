@@ -752,7 +752,7 @@ pub fn prepare_lights(
     mut light_view_entities: Query<&mut LightViewEntities>,
     sorted_cameras: Res<SortedCameras>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
-) {
+) -> Result {
     let views_iter = views.iter();
     let views_count = views_iter.len();
     let Some(mut view_gpu_lights_writer) =
@@ -760,7 +760,7 @@ pub fn prepare_lights(
             .view_gpu_lights
             .get_writer(views_count, &render_device, &render_queue)
     else {
-        return;
+        return Ok(());
     };
 
     // Pre-calculate for PointLights
@@ -1274,7 +1274,7 @@ pub fn prepare_lights(
                     face_index as u32,
                 );
 
-                commands.entity(view_light_entity).insert((
+                commands.entity(view_light_entity)?.insert((
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
@@ -1305,7 +1305,9 @@ pub fn prepare_lights(
                 ));
 
                 if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
+                    commands
+                        .entity(view_light_entity)?
+                        .insert(NoIndirectDrawing);
                 }
 
                 view_lights.push(view_light_entity);
@@ -1380,7 +1382,7 @@ pub fn prepare_lights(
             let retained_view_entity =
                 RetainedViewEntity::new(*light_main_entity, Some(camera_main_entity.into()), 0);
 
-            commands.entity(view_light_entity).insert((
+            commands.entity(view_light_entity)?.insert((
                 ShadowView {
                     depth_attachment,
                     pass_name: format!("shadow pass spot light {light_index}"),
@@ -1404,7 +1406,9 @@ pub fn prepare_lights(
             ));
 
             if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                commands.entity(view_light_entity).insert(NoIndirectDrawing);
+                commands
+                    .entity(view_light_entity)?
+                    .insert(NoIndirectDrawing);
             }
 
             view_lights.push(view_light_entity);
@@ -1519,7 +1523,7 @@ pub fn prepare_lights(
                     cascade_index as u32,
                 );
 
-                commands.entity(view_light_entity).insert((
+                commands.entity(view_light_entity)?.insert((
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
@@ -1548,14 +1552,16 @@ pub fn prepare_lights(
                 ));
 
                 if !matches!(gpu_preprocessing_mode, GpuPreprocessingMode::Culling) {
-                    commands.entity(view_light_entity).insert(NoIndirectDrawing);
+                    commands
+                        .entity(view_light_entity)?
+                        .insert(NoIndirectDrawing);
                 }
 
                 view_lights.push(view_light_entity);
 
                 // If this light is using occlusion culling, add the appropriate components.
                 if light.occlusion_culling {
-                    commands.entity(view_light_entity).insert((
+                    commands.entity(view_light_entity)?.insert((
                         OcclusionCulling,
                         OcclusionCullingSubview {
                             depth_texture_view,
@@ -1574,7 +1580,7 @@ pub fn prepare_lights(
             }
         }
 
-        commands.entity(entity).insert((
+        commands.entity(entity)?.insert((
             ViewShadowBindings {
                 point_light_depth_texture: point_light_depth_texture.texture.clone(),
                 point_light_depth_texture_view: point_light_depth_texture_view.clone(),
@@ -1593,7 +1599,7 @@ pub fn prepare_lights(
         // culling enabled.
         if !view_occlusion_culling_lights.is_empty() {
             commands
-                .entity(entity)
+                .entity(entity)?
                 .insert(OcclusionCullingSubviewEntities(
                     view_occlusion_culling_lights,
                 ));
@@ -1610,6 +1616,7 @@ pub fn prepare_lights(
     }
 
     shadow_render_phases.retain(|entity, _| live_shadow_mapping_lights.contains(entity));
+    Ok(())
 }
 
 fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {

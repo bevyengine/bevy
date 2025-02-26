@@ -311,6 +311,10 @@ fn spawn_button(
     }
 }
 
-fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<ChildOf>)>) {
-    commands.entity(*root_node).despawn();
+fn despawn_ui(
+    mut commands: Commands,
+    root_node: Single<Entity, (With<Node>, Without<ChildOf>)>,
+) -> Result {
+    commands.entity(*root_node)?.despawn();
+    Ok(())
 }

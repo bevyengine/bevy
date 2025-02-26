@@ -58,25 +58,32 @@ fn trigger_system(
     query_a: Single<Entity, With<A>>,
     query_b: Single<Entity, With<B>>,
     input: Res<ButtonInput<KeyCode>>,
-) {
+) -> Result {
     if input.just_pressed(KeyCode::KeyA) {
         let entity = *query_a;
-        commands.entity(entity).insert(Triggered);
+        commands.entity(entity)?.insert(Triggered);
     }
     if input.just_pressed(KeyCode::KeyB) {
         let entity = *query_b;
-        commands.entity(entity).insert(Triggered);
+        commands.entity(entity)?.insert(Triggered);
     }
+
+    Ok(())
 }
 
 /// Runs the systems associated with each `Callback` component if the entity also has a `Triggered` component.
 ///
 /// This could be done in an exclusive system rather than using `Commands` if preferred.
-fn evaluate_callbacks(query: Query<(Entity, &Callback), With<Triggered>>, mut commands: Commands) {
+fn evaluate_callbacks(
+    query: Query<(Entity, &Callback), With<Triggered>>,
+    mut commands: Commands,
+) -> Result {
     for (entity, callback) in query.iter() {
         commands.run_system(callback.0);
-        commands.entity(entity).remove::<Triggered>();
+        commands.entity(entity)?.remove::<Triggered>();
     }
+
+    Ok(())
 }
 
 fn system_a(entity_a: Single<Entity, With<Text>>, mut writer: TextUiWriter) {

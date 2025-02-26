@@ -780,12 +780,12 @@ pub fn prepare_mesh2d_view_bind_groups(
     tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
-) {
+) -> Result {
     let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
     ) else {
-        return;
+        return Ok(());
     };
 
     for (entity, tonemapping) in &views {
@@ -802,10 +802,11 @@ pub fn prepare_mesh2d_view_bind_groups(
             )),
         );
 
-        commands.entity(entity).insert(Mesh2dViewBindGroup {
+        commands.entity(entity)?.insert(Mesh2dViewBindGroup {
             value: view_bind_group,
         });
     }
+    Ok(())
 }
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;

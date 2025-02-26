@@ -428,7 +428,8 @@ impl<'w, 's> Commands<'w, 's> {
     ///         .insert((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
     ///         .insert(Label("hello world"));
-    ///     # Ok(())
+    ///
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
@@ -960,7 +961,7 @@ impl<'w, 's> Commands<'w, 's> {
         O: Send + 'static,
     {
         let system = RegisteredSystem::<I, O>::new(Box::new(IntoSystem::into_system(system)));
-        let entity = self.spawn(system);
+        let entity = self.spawn(system).id();
         SystemId::from_entity(entity)
     }
 
@@ -2185,7 +2186,6 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
 mod tests {
     use crate::{
         component::{require, Component},
-        entity::EntityDoesNotExistError,
         resource::Resource,
         system::Commands,
         world::{CommandQueue, FromWorld, World},

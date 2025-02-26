@@ -83,7 +83,7 @@ fn user_input(
     enemies: Query<Entity, With<Enemy>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     asset_server: Res<AssetServer>,
-) {
+) -> Result {
     let mut rng = rand::thread_rng();
     if keyboard_input.just_pressed(KeyCode::KeyA) {
         let texture = asset_server.load("textures/simplespace/enemy_A.png");
@@ -105,9 +105,11 @@ fn user_input(
 
     if keyboard_input.just_pressed(KeyCode::KeyR) {
         if let Some(entity) = enemies.iter().next() {
-            commands.entity(entity).despawn();
+            commands.entity(entity)?.despawn();
         }
     }
+
+    Ok(())
 }
 
 // System that moves the enemies in a circle.

@@ -186,7 +186,7 @@ fn apply_global_wireframe_material(
     >,
     global_material: Res<GlobalWireframeMaterial>,
     mut materials: ResMut<Assets<WireframeMaterial>>,
-) {
+) -> Result {
     if config.global {
         let mut material_to_spawn = vec![];
         for (e, maybe_color) in &meshes_without_material {
@@ -199,10 +199,11 @@ fn apply_global_wireframe_material(
     } else {
         for e in &meshes_with_global_material {
             commands
-                .entity(e)
+                .entity(e)?
                 .remove::<MeshMaterial3d<WireframeMaterial>>();
         }
     }
+    Ok(())
 }
 
 /// Gets a handle to a wireframe material with a fallback on the default material

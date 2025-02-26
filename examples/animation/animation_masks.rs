@@ -354,7 +354,7 @@ fn setup_animation_graph_once_loaded(
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
     targets: Query<(Entity, &AnimationTarget)>,
-) {
+) -> Result {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
         let mut animation_graph = AnimationGraph::new();
@@ -393,7 +393,7 @@ fn setup_animation_graph_once_loaded(
         // We're doing constructing the animation graph. Add it as an asset.
         let animation_graph = animation_graphs.add(animation_graph);
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(AnimationGraphHandle(animation_graph));
 
         // Remove animation targets that aren't in any of the mask groups. If we
@@ -401,7 +401,7 @@ fn setup_animation_graph_once_loaded(
         // ugly.
         for (target_entity, target) in &targets {
             if !all_animation_target_ids.contains(&target.id) {
-                commands.entity(target_entity).remove::<AnimationTarget>();
+                commands.entity(target_entity)?.remove::<AnimationTarget>();
             }
         }
 
@@ -413,6 +413,8 @@ fn setup_animation_graph_once_loaded(
         // Record the graph nodes.
         commands.insert_resource(AnimationNodes(animation_graph_nodes));
     }
+
+    Ok(())
 }
 
 // A system that handles requests from the user to toggle mask groups on and

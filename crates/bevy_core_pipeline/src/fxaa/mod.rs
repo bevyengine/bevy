@@ -207,7 +207,7 @@ pub fn prepare_fxaa_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
     fxaa_pipeline: Res<FxaaPipeline>,
     views: Query<(Entity, &ExtractedView, &Fxaa)>,
-) {
+) -> Result {
     for (entity, view, fxaa) in &views {
         if !fxaa.enabled {
             continue;
@@ -227,7 +227,8 @@ pub fn prepare_fxaa_pipelines(
         );
 
         commands
-            .entity(entity)
+            .entity(entity)?
             .insert(CameraFxaaPipeline { pipeline_id });
     }
+    Ok(())
 }

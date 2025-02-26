@@ -143,10 +143,10 @@ fn print_logs(
     mut events: EventReader<LogEvent>,
     mut commands: Commands,
     log_viewer_root: Single<Entity, With<LogViewerRoot>>,
-) {
+) -> Result {
     let root_entity = *log_viewer_root;
 
-    commands.entity(root_entity).with_children(|child| {
+    commands.entity(root_entity)?.with_children(|child| {
         for event in events.read() {
             child.spawn(Text::default()).with_children(|child| {
                 child.spawn((
@@ -157,6 +157,8 @@ fn print_logs(
             });
         }
     });
+
+    Ok(())
 }
 
 fn level_color(level: &Level) -> Color {
