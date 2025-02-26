@@ -1,0 +1,47 @@
+warning: unused variable: `path`
+  --> tests/ui/component_hook_closure_type_mismatch.rs:10:18
+   |
+10 | fn wrong_bazzing(path: &str) -> impl Fn(bevy_ecs::world::DeferredWorld) {
+   |                  ^^^^ help: if this is intentional, prefix it with an underscore: `_path`
+   |
+   = note: `#[warn(unused_variables)]` on by default
+
+warning: unused variable: `world`
+  --> tests/ui/component_hook_closure_type_mismatch.rs:11:6
+   |
+11 |     |world| {}
+   |      ^^^^^ help: if this is intentional, prefix it with an underscore: `_world`
+
+error[E0057]: this function takes 1 argument but 2 arguments were supplied
+  --> tests/ui/component_hook_closure_type_mismatch.rs:6:14
+   |
+3  | #[derive(Component)]
+   |          --------- unexpected argument #2 of type `HookContext`
+...
+6  |     on_add = wrong_bazzing("foo"),
+   |              ^^^^^^^^^^^^^^^^^^^^
+   |
+note: opaque type defined here
+  --> tests/ui/component_hook_closure_type_mismatch.rs:10:33
+   |
+10 | fn wrong_bazzing(path: &str) -> impl Fn(bevy_ecs::world::DeferredWorld) {
+   |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error[E0057]: this function takes 1 argument but 2 arguments were supplied
+  --> tests/ui/component_hook_closure_type_mismatch.rs:17:14
+   |
+14 | #[derive(Component)]
+   |          --------- unexpected argument #2 of type `HookContext`
+...
+17 |     on_add = |w| {},
+   |              ^^^^^^
+   |
+note: closure defined here
+  --> tests/ui/component_hook_closure_type_mismatch.rs:17:14
+   |
+17 |     on_add = |w| {},
+   |              ^^^
+
+error: aborting due to 2 previous errors; 2 warnings emitted
+
+For more information about this error, try `rustc --explain E0057`.
