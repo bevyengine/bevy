@@ -120,24 +120,25 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
 
         // Determine the distance for every node and collect the explicit sync points.
         for node in &topo {
-            let (node_distance, mut add_sync_after) = distances_and_pending_sync
+            let (node_distance, mut node_needs_sync) = distances_and_pending_sync
                 .get(&node.index())
                 .copied()
                 .unwrap_or_default();
 
             if is_valid_explicit_sync_point(*node) {
-                // As the distance of this node does not change anymore due to topsorting the nodes
-                // that are iterated here, the sync point is stored with this distance to be reused
-                // by automatically added sync points later.
+                // The distance of this sync point does not change anymore as the iteration order
+                // makes sure that this node is no unvisited target of another node.
+                // Because of this, the sync point can be stored for thsi distance to be reused as
+                // automatically added sync points later.
                 distance_to_explicit_sync_node.insert(node_distance, *node);
 
                 // This node just did a sync, so the only reason to do another sync is if one was
                 // explicitly scheduled afterwards.
-                add_sync_after = false;
-            } else if !add_sync_after {
+                node_needs_sync = false;
+            } else if !node_needs_sync {
                 // No previous node has postponed sync points to add so check if the system itself
                 // has deferred params that require a sync point to apply them.
-                add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
+                node_needs_sync = graph.systems[node.index()].get().unwrap().has_deferred();
             }
 
             for target in dependency_flattened.neighbors_directed(*node, Direction::Outgoing) {
@@ -145,7 +146,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .entry(target.index())
                     .or_default();
 
-                let mut edge_needs_sync = add_sync_after;
+                let mut edge_needs_sync = node_needs_sync;
                 if !graph.systems[target.index()].get().unwrap().is_exclusive()
                     && self.no_sync_edges.contains(&(*node, target))
                 {
