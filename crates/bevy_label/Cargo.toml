@@ -11,11 +11,23 @@ categories = []
 rust-version = "1.85.0"
 
 [features]
+default = ["std"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = ["bevy_platform_support/std"]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = ["bevy_platform_support/critical-section"]
 
 [dependencies]
-bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev" }
-
-[dev-dependencies]
+bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
+    "alloc",
+] }
 
 [lints]
 workspace = true
