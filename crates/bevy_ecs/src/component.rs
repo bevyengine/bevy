@@ -1337,9 +1337,22 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
+        let mut required_components_tmp = RequiredComponents::default();
         // SAFETY: The caller ensures that the `requiree` and `required` components are valid.
-        let inherited_requirements =
-            unsafe { self.register_inherited_required_components(requiree, required) };
+        let inherited_requirements = unsafe {
+            self.register_inherited_required_components(
+                requiree,
+                required,
+                &mut required_components_tmp,
+            )
+        };
+
+        // SAFETY: The caller ensures that the `requiree` is valid.
+        let required_components = unsafe {
+            self.get_required_components_mut(requiree)
+                .debug_checked_unwrap()
+        };
+        required_components.0.extend(required_components_tmp.0);
 
         // Propagate the new required components up the chain to all components that require the requiree.
         if let Some(required_by) = self.get_required_by(requiree).cloned() {
@@ -1391,6 +1404,7 @@ impl Components {
         &mut self,
         requiree: ComponentId,
         required: ComponentId,
+        required_components: &mut RequiredComponents,
     ) -> Vec<(ComponentId, RequiredComponent)> {
         // Get required components inherited from the `required` component.
         // SAFETY: The caller ensures that the `required` component is valid.
@@ -1414,12 +1428,6 @@ impl Components {
 
         // Register the new required components.
         for (component_id, component) in inherited_requirements.iter().cloned() {
-            // SAFETY: The caller ensures that the `requiree` is valid.
-            let required_components = unsafe {
-                self.get_required_components_mut(requiree)
-                    .debug_checked_unwrap()
-            };
-
             // Register the required component for the requiree.
             // SAFETY: Component ID and constructor match the ones on the original requiree.
             unsafe {
@@ -1520,26 +1528,7 @@ impl Components {
         let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
         required_by.insert(requiree);
 
-        // Register the inherited required components for the requiree.
-        let required: Vec<(ComponentId, RequiredComponent)> = self
-            .get_info(required)
-            .unwrap()
-            .required_components()
-            .0
-            .iter()
-            .map(|(id, component)| (*id, component.clone()))
-            .collect();
-
-        for (id, component) in required {
-            // Register the inherited required components for the requiree.
-            // The inheritance depth is increased by `1` since this is a component required by the original required component.
-            required_components.register_dynamic(
-                id,
-                component.constructor.clone(),
-                component.inheritance_depth + 1,
-            );
-            self.get_required_by_mut(id).unwrap().insert(requiree);
-        }
+        self.register_inherited_required_components(requiree, required, required_components);
     }
 
     #[inline]
@@ -2060,7 +2049,7 @@ impl RequiredComponents {
             //
             // This would be resolved by https://github.com/rust-lang/rust/issues/123430
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             use alloc::boxed::Box;
 
             type Constructor = dyn for<'a, 'b> Fn(
@@ -2072,10 +2061,10 @@ impl RequiredComponents {
                 MaybeLocation,
             );
 
-            #[cfg(feature = "portable-atomic")]
+            #[cfg(not(target_has_atomic = "ptr"))]
             type Intermediate<T> = Box<T>;
 
-            #[cfg(not(feature = "portable-atomic"))]
+            #[cfg(target_has_atomic = "ptr")]
             type Intermediate<T> = Arc<T>;
 
             let boxed: Intermediate<Constructor> = Intermediate::new(

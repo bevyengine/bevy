@@ -12,7 +12,7 @@ impl Benchmark {
         let mut world = World::default();
 
         let entities = world
-            .spawn_batch(core::iter::repeat(A(0.)).take(10000))
+            .spawn_batch(core::iter::repeat_n(A(0.), 10_000))
             .collect();
         Self(world, entities)
     }

@@ -142,6 +142,7 @@ macro_rules! define_label {
             }
         }
 
+        #[diagnostic::do_not_recommend]
         impl $label_trait_name for $crate::intern::Interned<dyn $label_trait_name> {
 
             $($interned_extra_methods_impl)*
@@ -180,7 +181,7 @@ macro_rules! define_label {
 
         impl $crate::intern::Internable for dyn $label_trait_name {
             fn leak(&self) -> &'static Self {
-                Box::leak(self.dyn_clone())
+                $crate::label::Box::leak(self.dyn_clone())
             }
 
             fn ref_eq(&self, other: &Self) -> bool {
