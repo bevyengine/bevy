@@ -986,7 +986,6 @@ pub fn process_remote_resources_list_request(
     serde_json::to_value(response).map_err(BrpError::internal)
 }
 
-#[allow(unsafe_code)]
 /// Handles a `bevy/resources/get` request (get resource) coming from a client.
 pub fn process_remote_get_resources_list_request(
     In(params): In<Option<Value>>,
@@ -997,39 +996,30 @@ pub fn process_remote_get_resources_list_request(
     let par: BrpResourceGetParams = parse_some(params)?;
 
     // Get the fully-qualified type names of the component to be mutated.
-    let component_type: &TypeRegistration = type_registry
+    let res_type: &TypeRegistration = type_registry
         .get_with_type_path(&par.0)
         .ok_or_else(|| BrpError::component_error(anyhow!("Unknown component type: `{}`", par.0)))?;
 
-    let Some(id) = world.components().get_resource_id(component_type.type_id()) else {
+    let Some(reflect_resource) = res_type.data::<ReflectResource>() else {
         return Err(BrpError::component_error(anyhow!(
             "Unknown component type: `{}`",
             par.0
         )));
     };
-    let res = world
-        .get_resource_by_id(id)
-        .ok_or_else(|| BrpError::component_error(anyhow!("Unknown component type: `{}`", par.0)))?;
-    let Some(_reflect_resource) = component_type.data::<ReflectResource>() else {
-        return Err(BrpError::component_error(anyhow!(
-            "Unknown component type: `{}`",
-            par.0
-        )));
-    };
-    let Some(reflect_from_ptr) = component_type.data::<ReflectFromPtr>() else {
-        return Err(BrpError::component_error(anyhow!(
-            "Unknown component type: `{}`",
-            par.0
-        )));
-    };
-    let value = unsafe { reflect_from_ptr.as_reflect(res).as_partial_reflect() };
 
-    let reflect_serializer = TypedReflectSerializer::new(value, &type_registry);
+    let Some(resource) = reflect_resource.reflect(world) else {
+        return Err(BrpError::component_error(anyhow!(
+            "Resource doesn't exist in world: `{}`",
+            par.0
+        )));
+    };
+
+    let reflect_serializer =
+        TypedReflectSerializer::new(resource.as_partial_reflect(), &type_registry);
 
     serde_json::to_value(reflect_serializer).map_err(BrpError::internal)
 }
 
-#[allow(unsafe_code)]
 /// Handles a `bevy/resources/mutate` request coming from a client.
 ///
 /// This method allows you to mutate a single field inside an Resource
@@ -1046,28 +1036,24 @@ pub fn process_remote_mutate_resource_request(
     let type_registry = app_type_registry.read();
 
     // Get the fully-qualified type names of the component to be mutated.
-    let component_type: &TypeRegistration =
+    let res_type: &TypeRegistration =
         type_registry.get_with_type_path(&resource).ok_or_else(|| {
             BrpError::component_error(anyhow!("Unknown component type: `{}`", resource))
         })?;
-    let Some(reflect_from_ptr) = component_type.data::<ReflectFromPtr>() else {
+
+    let Some(reflect_resource) = res_type.data::<ReflectResource>() else {
         return Err(BrpError::component_error(anyhow!(
-            "Unknown component type: `{}`",
+            "Unknown resource type: `{}`",
             resource
         )));
     };
-    let Some(id) = world.components().get_resource_id(component_type.type_id()) else {
+
+    let Some(mut reflected) = reflect_resource.reflect_mut(world) else {
         return Err(BrpError::component_error(anyhow!(
-            "Unknown component type: `{}`",
+            "Resource doesn't exist in world: `{}`",
             resource
         )));
     };
-    let mut res = world.get_resource_mut_by_id(id).ok_or_else(|| {
-        BrpError::component_error(anyhow!("Unknown component type: `{}`", resource))
-    })?;
-
-    let reflected = unsafe { reflect_from_ptr.as_reflect_mut(res.as_mut()) };
-
     // Get the type of the field in the resource that is to be
     // mutated.
     let value_type: &TypeRegistration = type_registry
