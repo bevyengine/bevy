@@ -42,7 +42,7 @@ use core::f32::consts::{PI, TAU};
 
 use crate::{ops, primitives::*, NormedVectorSpace, Vec2, Vec3};
 use rand::{
-    distr::{Distribution, weighted::WeightedIndex},
+    distr::{weighted::WeightedIndex, Distribution},
     Rng,
 };
 
@@ -201,7 +201,8 @@ impl ShapeSample for Annulus {
         let outer_radius = self.outer_circle.radius;
 
         // Like random sampling for a circle, radius is weighted by the square.
-        let r_squared = rng.random_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
+        let r_squared =
+            rng.random_range((inner_radius * inner_radius)..(outer_radius * outer_radius));
         let r = ops::sqrt(r_squared);
         let theta = rng.random_range(0.0..TAU);
         let (sin, cos) = ops::sin_cos(theta);

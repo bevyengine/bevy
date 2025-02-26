@@ -98,7 +98,10 @@ fn user_input(
         let texture = asset_server.load("textures/simplespace/enemy_A.png");
         commands.spawn((
             Enemy {
-                origin: Vec2::new(rng.random_range(-200.0..200.0), rng.random_range(-200.0..200.0)),
+                origin: Vec2::new(
+                    rng.random_range(-200.0..200.0),
+                    rng.random_range(-200.0..200.0),
+                ),
                 radius: rng.random_range(50.0..150.0),
                 rotation: rng.random_range(0.0..std::f32::consts::TAU),
                 rotation_speed: rng.random_range(0.5..1.5),

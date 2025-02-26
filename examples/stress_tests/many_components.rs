@@ -27,7 +27,7 @@ use bevy::{
     MinimalPlugins,
 };
 
-use rand::prelude::{Rng, SeedableRng, IndexedRandom};
+use rand::prelude::{IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 use std::{alloc::Layout, mem::ManuallyDrop, num::Wrapping};
 

@@ -575,7 +575,12 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     while textures.len() < args.material_texture_count {
-        let pixel = [color_rng.random(), color_rng.random(), color_rng.random(), 255];
+        let pixel = [
+            color_rng.random(),
+            color_rng.random(),
+            color_rng.random(),
+            255,
+        ];
         textures.push(images.add(Image::new_fill(
             Extent3d {
                 width: BIRD_TEXTURE_SIZE as u32,

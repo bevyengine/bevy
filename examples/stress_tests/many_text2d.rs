@@ -12,7 +12,7 @@ use bevy::{
 
 use argh::FromArgs;
 use rand::{
-    seq::{IteratorRandom, IndexedRandom},
+    seq::{IndexedRandom, IteratorRandom},
     Rng, SeedableRng,
 };
 use rand_chacha::ChaCha8Rng;
