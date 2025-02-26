@@ -48,13 +48,18 @@ fn vertex(
     @location(11) @interpolate(flat) end_color: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.uv = vertex_uv;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
+    out.uv = vertex_uv;
+    out.size = size;
     out.flags = flags;
     out.radius = radius;
-    out.size = size;
     out.border = border;
     out.point = point;
+    out.dir = dir;
+    out.start_color = start_color;
+    out.start_len = start_len;
+    out.end_len = end_len;
+    out.end_color = end_color;
 
     return out;
 }
@@ -129,7 +134,7 @@ fn antialias(distance: f32) -> f32 {
 fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     // Only use the color sampled from the texture if the `TEXTURED` flag is enabled. 
     // This allows us to draw both textured and untextured shapes together in the same batch.
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
+    let color = vec4(1.);
 
     // Signed distances. The magnitude is the distance of the point from the edge of the shape.
     // * Negative values indicate that the point is inside the shape.
@@ -164,8 +169,6 @@ fn draw(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
 }
 
 fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
-    let color = select(in.color, in.color * texture_color, enabled(in.flags, TEXTURED));
-
     // When drawing the background only draw the internal area and not the border.
     let internal_distance = sd_inset_rounded_box(in.point, in.size, in.radius, in.border);
 
@@ -175,12 +178,12 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     let t = 1.0 - step(0.0, internal_distance);
 #endif
 
-    return vec4(color.rgb, saturate(color.a * t));
+    return vec4(1., 1., 1., saturate(t));
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let texture_color = textureSample(sprite_texture, sprite_sampler, in.uv);
+    let texture_color = vec4(1.);
 
     var color: vec4<f32>;
     if enabled(in.flags, BORDER) {

@@ -2,7 +2,7 @@ use core::{hash::Hash, ops::Range};
 
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{Alpha, ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -12,21 +12,17 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
-use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
-    render_asset::RenderAssets,
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::TemporaryRenderEntity,
-    texture::GpuImage,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{BorderRect, SpriteAssetEvents};
+use bevy_sprite::BorderRect;
 use bevy_transform::prelude::GlobalTransform;
-use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
 
 pub const UI_LINEAR_GRADIENT_SHADER_HANDLE: Handle<Shader> =
@@ -36,6 +32,8 @@ pub struct LinearGradientPlugin;
 
 impl Plugin for LinearGradientPlugin {
     fn build(&self, app: &mut App) {
+        app.add_systems(PostUpdate, compute_color_stops.in_set(UiSystem::PostLayout));
+
         load_internal_asset!(
             app,
             UI_LINEAR_GRADIENT_SHADER_HANDLE,
@@ -48,7 +46,6 @@ impl Plugin for LinearGradientPlugin {
                 .add_render_command::<TransparentUi, DrawLinearGradientFns>()
                 .init_resource::<ExtractedLinearGradients>()
                 .init_resource::<LinearGradientMeta>()
-                .init_resource::<UiLinearGradientImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<LinearGradientPipeline>>()
                 .add_systems(
                     ExtractSchedule,
@@ -93,15 +90,9 @@ impl Default for LinearGradientMeta {
     }
 }
 
-#[derive(Resource, Default)]
-pub struct UiLinearGradientImageBindGroups {
-    pub values: HashMap<AssetId<Image>, BindGroup>,
-}
-
 #[derive(Resource)]
 pub struct LinearGradientPipeline {
     pub view_layout: BindGroupLayout,
-    pub image_layout: BindGroupLayout,
 }
 
 impl FromWorld for LinearGradientPipeline {
@@ -109,28 +100,14 @@ impl FromWorld for LinearGradientPipeline {
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(
-            "ui_texture_slice_view_layout",
+            "ui_linear_gradient_view_layout",
             &BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX_FRAGMENT,
                 uniform_buffer::<ViewUniform>(true),
             ),
         );
 
-        let image_layout = render_device.create_bind_group_layout(
-            "ui_texture_slice_image_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                ),
-            ),
-        );
-
-        LinearGradientPipeline {
-            view_layout,
-            image_layout,
-        }
+        LinearGradientPipeline { view_layout }
     }
 }
 
@@ -157,9 +134,11 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
                 // border
                 VertexFormat::Float32x4,
                 // size
-                VertexFormat::Float32,
+                VertexFormat::Float32x2,
                 // point
-                VertexFormat::Float32x4,
+                VertexFormat::Float32x2,
+                // dir
+                VertexFormat::Float32x2,
                 // start_color
                 VertexFormat::Float32x4,
                 // start_len
@@ -193,7 +172,7 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: vec![self.view_layout.clone(), self.image_layout.clone()],
+            layout: vec![self.view_layout.clone()],
             push_constant_ranges: Vec::new(),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
@@ -210,7 +189,7 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("ui_texture_slice_pipeline".into()),
+            label: Some("ui_linear_gradient_pipeline".into()),
             zero_initialize_workgroup_memory: false,
         }
     }
@@ -247,7 +226,7 @@ pub fn extract_linear_gradients(
     mut commands: Commands,
     mut extracted_linear_gradients: ResMut<ExtractedLinearGradients>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    slicers_query: Extract<
+    gradients_query: Extract<
         Query<(
             Entity,
             &ComputedNode,
@@ -264,7 +243,7 @@ pub fn extract_linear_gradients(
     let mut camera_mapper = camera_map.get_mapper();
 
     for (entity, uinode, target, transform, inherited_visibility, clip, linear_gradient, stops) in
-        &slicers_query
+        &gradients_query
     {
         // Skip invisible images
         if !inherited_visibility.get() {
@@ -333,8 +312,8 @@ pub fn extract_linear_gradients(
     reason = "it's a system that needs a lot of them"
 )]
 pub fn queue_linear_gradient(
-    extracted_ui_slicers: ResMut<ExtractedLinearGradients>,
-    ui_slicer_pipeline: Res<LinearGradientPipeline>,
+    extracted_gradients: ResMut<ExtractedLinearGradients>,
+    linear_gradients_pipeline: Res<LinearGradientPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LinearGradientPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
     mut render_views: Query<&UiCameraView, With<ExtractedView>>,
@@ -343,10 +322,8 @@ pub fn queue_linear_gradient(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
 ) {
     let draw_function = draw_functions.read().id::<DrawLinearGradientFns>();
-    for (index, extracted_slicer) in extracted_ui_slicers.items.iter().enumerate() {
-        let Ok(default_camera_view) =
-            render_views.get_mut(extracted_slicer.extracted_camera_entity)
-        else {
+    for (index, gradient) in extracted_gradients.items.iter().enumerate() {
+        let Ok(default_camera_view) = render_views.get_mut(gradient.extracted_camera_entity) else {
             continue;
         };
 
@@ -361,17 +338,17 @@ pub fn queue_linear_gradient(
 
         let pipeline = pipelines.specialize(
             &pipeline_cache,
-            &ui_slicer_pipeline,
+            &linear_gradients_pipeline,
             UiTextureSlicePipelineKey { hdr: view.hdr },
         );
 
         transparent_phase.add(TransparentUi {
             draw_function,
             pipeline,
-            entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),
+            entity: (gradient.render_entity, gradient.main_entity),
             sort_key: (
-                FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::TEXTURE_SLICE),
-                extracted_slicer.render_entity.index(),
+                FloatOrd(gradient.stack_index as f32 + stack_z_offsets::NODE),
+                gradient.render_entity.index(),
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
@@ -391,6 +368,7 @@ struct UiGradientVertex {
     border: [f32; 4],
     size: [f32; 2],
     point: [f32; 2],
+    dir: [f32; 2],
     start_color: [f32; 4],
     start_len: f32,
     end_len: f32,
@@ -540,6 +518,7 @@ pub fn prepare_linear_gradient(
                                 gradient.border.bottom,
                             ],
                             size: rect_size.xy().into(),
+                            dir: [0., 1.],
                             point: points[i].into(),
                             start_color,
                             start_len: gradient.start,

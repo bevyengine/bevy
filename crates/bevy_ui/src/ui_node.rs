@@ -2,7 +2,7 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, FloatOrd, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec2, vec4, FloatOrd, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -16,6 +16,7 @@ use bevy_window::{PrimaryWindow, WindowRef};
 use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
+use std::f32::consts::PI;
 use thiserror::Error;
 use tracing::warn;
 
@@ -2895,7 +2896,7 @@ impl ComputedColorStops {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Copy, Clone, Debug)]
 #[require(ColorStops)]
 pub struct LinearGradient {
     // angle of the gradient line in radians
@@ -2903,25 +2904,258 @@ pub struct LinearGradient {
 }
 
 impl LinearGradient {
-    pub fn compute_start_point(&self, rect: Rect) -> Vec2 {
-        let Vec2 { x: dx, y: dy } = Vec2::from_angle(self.angle);
+    pub fn compute_start_point(&self, node_rect: Rect) -> (Vec2, f32) {
+        let x = self.angle.cos();
+        let y = self.angle.sin();
+        let dir = Vec2::new(x, y);
 
+        // return the distance of point `p` from the line defined by point `o` and direction `dir`
+        fn df_line(o: Vec2, dir: Vec2, p: Vec2) -> f32 {
+            // project p onto the the o-dir line and then return the distance between p and the projection.
+            return p.distance(o + dir * (p - o).dot(dir));
+        }
+
+        fn modulo(x: f32, m: f32) -> f32 {
+            return x - m * (x / m).floor();
+        }
+
+        let reduced = modulo(self.angle, 2.0 * PI);
+        let q = (reduced * 2.0 / PI) as i32;
+        let start_point = match q {
+            0 => vec2(-1., 1.) * node_rect.size(),
+            1 => vec2(-1., -1.) * node_rect.size(),
+            2 => vec2(1., -1.) * node_rect.size(),
+            _ => vec2(1., 1.) * node_rect.size(),
+        } * 0.5f32;
+
+        let length = 2.0 * df_line(start_point, dir, Vec2::ZERO);
+        (start_point, length)
+    }
+
+    pub fn compute_start_point2(&self, node_rect: Rect) -> Vec2 {
+        // Convert CSS angle (0° = up) to mathematical angle (0° = right, counterclockwise)
+
+        // Gradient direction vector (unit vector)
+        let dx = self.angle.cos();
+        let dy = self.angle.sin();
+
+        // Compute intersection of gradient line with nearest box edge
         let scale_x = if dx != 0.0 {
-            rect.width() / (2.0 * dx.abs())
+            node_rect.width() / (2.0 * dx.abs())
         } else {
             f32::INFINITY
         };
         let scale_y = if dy != 0.0 {
-            rect.height() / (2.0 * dy.abs())
+            node_rect.height() / (2.0 * dy.abs())
         } else {
             f32::INFINITY
         };
+
+        // Use the smaller scale factor to find the intersection
         let scale = scale_x.min(scale_y);
 
-        rect.min
-            + Vec2::new(
-                rect.width() / 2.0 - dx * scale,
-                rect.height() / 2.0 - dy * scale,
-            )
+        // Compute start position (center of the box - scaled direction vector)
+        let start_x = node_rect.width() / 2.0 - dx * scale;
+        let start_y = node_rect.height() / 2.0 - dy * scale;
+
+        node_rect.min + Vec2::new(start_x, start_y)
+    }
+
+    pub fn css_linear_gradient_line(&self, width: f32, height: f32) -> (Vec2, Vec2) {
+        // 1) Shift box so that (0,0) is the *center*.
+        let half_w = width * 0.5;
+        let half_h = height * 0.5;
+
+        // 2) Convert CSS angle to a standard mathematical angle (theta),
+        //    with +y up, +x right, angles increasing counterclockwise.
+        //    "0 CSS deg" = up => that is +y in math => math angle = +pi/2.
+        //    CSS angles go clockwise => we add the angle => go CCW => we do pi/2 + angle.
+        //    Example: angle_css=45° => angle_math=3π/4 => direction is top-left.
+        let theta = PI * 0.5 + self.angle;
+
+        let dx = theta.cos();
+        let dy = theta.sin();
+
+        // 3) We do a standard "ray-vs.-AABB intersection" to find tMin, tMax.
+
+        // The box is from x in [-half_w, +half_w], y in [-half_h, +half_h].
+        // Param eq: x(t)=0+dx*t, y(t)=0+dy*t.
+        // We'll figure out *where* it intersects in both x and y, then combine.
+
+        // Because we want the entire intersection, we start with tMin=-∞, tMax=+∞
+        let mut t_min = f32::NEG_INFINITY;
+        let mut t_max = f32::INFINITY;
+
+        // --- X dimension ---
+        if dx.abs() > 1e-6 {
+            // t when x = -half_w
+            let t1 = (-half_w) / dx;
+            // t when x = +half_w
+            let t2 = (half_w) / dx;
+            let t_low = t1.min(t2);
+            let t_high = t1.max(t2);
+            // Expand t_min upward, shrink t_max downward
+            t_min = t_min.max(t_low);
+            t_max = t_max.min(t_high);
+        } else {
+            // dx=0 => line is vertical => we must check if the center x=0 is within [-half_w, half_w].
+            // It always is, because the center is 0. So we do nothing special, because it's fully inside.
+        }
+
+        // --- Y dimension ---
+        if dy.abs() > 1e-6 {
+            let t1 = (-half_h) / dy;
+            let t2 = (half_h) / dy;
+            let t_low = t1.min(t2);
+            let t_high = t1.max(t2);
+            t_min = t_min.max(t_low);
+            t_max = t_max.min(t_high);
+        } else {
+            // dy=0 => line is horizontal => center is within the top/bottom edges
+        }
+
+        // Now t_min..t_max is the segment inside the box
+        // 4) The "start" is behind the center => the smaller t if negative or zero.
+        //    The "end" is in front => the larger t if positive.
+        //
+        // However, if t_min > t_max, there's no intersection (should not happen with a box around center).
+        //
+        // Typically t_min < 0 < t_max, so the line crosses center at t=0.
+        // The negative side intersection is t_min. The positive side is t_max.
+
+        // Guarantee we produce a valid intersection:
+        if t_min > t_max {
+            // This would be weird. We'll just clamp or return center.
+            return (Vec2::new(half_w, half_h), Vec2::new(half_w, half_h));
+        }
+
+        // 5) Compute actual points in local coords
+        let start_local = Vec2::new(dx * t_min, dy * t_min);
+        let end_local = Vec2::new(dx * t_max, dy * t_max);
+
+        // 6) Shift them back to the box’s real coordinate space
+        let start = Vec2::new(half_w, half_h) + start_local;
+        let end = Vec2::new(half_w, half_h) + end_local;
+
+        (start, end)
+    }
+
+    pub fn css_linear_gradient_line2(&self, width: f32, height: f32) -> (Vec2, Vec2) {
+        // 1) Center of the box
+        let cx = width * 0.5;
+        let cy = height * 0.5;
+
+        // 2) Convert angle (deg → radians), define direction as (sin, cos)
+        //    so that:
+        //      0° => (0,1)    (down in a top-left coordinate system),
+        //      45° => (0.707,0.707) => diagonal down-right,
+        //      90° => (1,0)  => right, etc.
+        let angle_rad = self.angle;
+        let dx = angle_rad.sin();
+        let dy = angle_rad.cos();
+
+        // Parametric line:
+        //   X(t) = cx + dx * t
+        //   Y(t) = cy + dy * t
+        // We'll find t_min..t_max by intersecting with x in [0, width], y in [0, height].
+
+        let mut t_min = f32::NEG_INFINITY;
+        let mut t_max = f32::INFINITY;
+
+        // --- Intersect with left/right edges (x=0 or x=width) ---
+        if dx.abs() > 1e-6 {
+            // t when x=0
+            let t1 = (0.0 - cx) / dx;
+            // t when x=width
+            let t2 = (width - cx) / dx;
+
+            // The smaller is the lower bound, the bigger is the upper bound
+            let t_low = t1.min(t2);
+            let t_high = t1.max(t2);
+
+            t_min = t_min.max(t_low);
+            t_max = t_max.min(t_high);
+        } else {
+            // dx=0 => vertical direction => if cx not in [0,width], no intersection
+            if !(0.0 <= cx && cx <= width) {
+                return (Vec2::new(cx, cy), Vec2::new(cx, cy));
+            }
+        }
+
+        // --- Intersect with top/bottom edges (y=0 or y=height) ---
+        if dy.abs() > 1e-6 {
+            let t1 = (0.0 - cy) / dy;
+            let t2 = (height - cy) / dy;
+
+            let t_low = t1.min(t2);
+            let t_high = t1.max(t2);
+
+            t_min = t_min.max(t_low);
+            t_max = t_max.min(t_high);
+        } else {
+            // dy=0 => horizontal => if cy not in [0,height], no intersection
+            if !(0.0 <= cy && cy <= height) {
+                return (Vec2::new(cx, cy), Vec2::new(cx, cy));
+            }
+        }
+
+        // If the box doesn't get intersected properly, bail out
+        if t_max < t_min {
+            return (Vec2::new(cx, cy), Vec2::new(cx, cy));
+        }
+
+        // 3) Compute the start and end points
+        let start = Vec2::new(cx + dx * t_min, cy + dy * t_min);
+        let end = Vec2::new(cx + dx * t_max, cy + dy * t_max);
+
+        (start, end)
+    }
+
+    pub fn gradient_line_endpoints(self, width: f32, height: f32) -> (Vec2, Vec2) {
+        // The center of the box.
+        let center = Vec2::new(width * 0.5, height * 0.5);
+
+        // CSS: 0 rad means up. We define v so that:
+        // v = (sin(angle), -cos(angle)).
+        let v = Vec2::new(self.angle.sin(), -self.angle.cos());
+
+        // Determine which corners to use based on the signs of v.x and v.y.
+        let (pos_corner, neg_corner) = if v.x >= 0.0 && v.y <= 0.0 {
+            // v points up/right: positive from top-right, negative from bottom-left.
+            (Vec2::new(width, 0.0), Vec2::new(0.0, height))
+        } else if v.x >= 0.0 && v.y > 0.0 {
+            // v points down/right: positive from bottom-right, negative from top-left.
+            (Vec2::new(width, height), Vec2::new(0.0, 0.0))
+        } else if v.x < 0.0 && v.y <= 0.0 {
+            // v points up/left: positive from top-left, negative from bottom-right.
+            (Vec2::new(0.0, 0.0), Vec2::new(width, height))
+        } else {
+            // v.x < 0.0 && v.y > 0.0
+            // v points down/left: positive from bottom-left, negative from top-right.
+            (Vec2::new(0.0, height), Vec2::new(width, 0.0))
+        };
+
+        // Compute t values by projecting (corner - center) onto v.
+        let t_pos = (pos_corner - center).dot(v);
+        let t_neg = (neg_corner - center).dot(v);
+
+        // Compute the endpoints along the gradient line.
+        let start = center + v * t_neg;
+        let end = center + v * t_pos;
+
+        (start, end)
+    }
+}
+
+pub fn compute_color_stops(
+    mut color_stops_query: Query<(&ColorStops, &mut ComputedColorStops, &ComputedNodeTarget)>,
+) {
+    for (stops, mut computed_stops, target) in color_stops_query.iter_mut() {
+        computed_stops.compute_from(
+            stops.0.iter(),
+            100.,
+            target.logical_size(),
+            target.scale_factor(),
+        );
     }
 }

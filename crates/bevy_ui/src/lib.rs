@@ -170,6 +170,9 @@ impl Plugin for UiPlugin {
             .register_type::<BoxShadowSamples>()
             .register_type::<UiAntiAlias>()
             .register_type::<TextShadow>()
+            // .register_type::<LinearGradient>()
+            // .register_type::<ColorStops>()
+            // .register_type::<ComputedColorStops>()
             .configure_sets(
                 PostUpdate,
                 (

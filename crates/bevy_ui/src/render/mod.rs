@@ -50,6 +50,7 @@ use bevy_render::{
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
+use linear_gradient::LinearGradientPlugin;
 
 use crate::{Display, Node};
 use bevy_platform_support::collections::{HashMap, HashSet};
@@ -188,6 +189,7 @@ pub fn build_ui_render(app: &mut App) {
     }
 
     app.add_plugins(UiTextureSlicerPlugin);
+    app.add_plugins(LinearGradientPlugin);
     app.add_plugins(BoxShadowPlugin);
 }
 
