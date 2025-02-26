@@ -323,6 +323,7 @@ mod deferred {
             prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
         },
         gltf::GltfAssetLabel,
+        image::ImageLoaderSettings,
         math::{EulerRot, Quat, Vec3},
         pbr::{
             CascadeShadowConfigBuilder, DirectionalLight, DistanceFog, FogFalloff, MeshMaterial3d,
@@ -337,7 +338,6 @@ mod deferred {
         scene::SceneRoot,
         utils::default,
     };
-    use bevy_image::ImageLoaderSettings;
 
     pub fn setup(
         mut commands: Commands,
@@ -399,12 +399,7 @@ mod deferred {
         let helmet_scene = asset_server
             .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-        commands.spawn((SceneRoot(helmet_scene.clone()), StateScoped(*scene.get())));
-        commands.spawn((
-            SceneRoot(helmet_scene),
-            Transform::from_xyz(-4.0, 0.0, -3.0),
-            StateScoped(*scene.get()),
-        ));
+        commands.spawn((SceneRoot(helmet_scene), StateScoped(*scene.get())));
 
         let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();
         forward_mat.opaque_render_method = OpaqueRendererMethod::Forward;
@@ -458,44 +453,6 @@ mod deferred {
             sphere_pos,
             StateScoped(*scene.get()),
         ));
-
-        // Spheres
-        for i in 0..6 {
-            let j = i % 3;
-            let s_val = if i < 3 { 0.0 } else { 0.2 };
-            let material = if j == 0 {
-                materials.add(StandardMaterial {
-                    base_color: Color::srgb(s_val, s_val, 1.0),
-                    perceptual_roughness: 0.089,
-                    metallic: 0.0,
-                    ..default()
-                })
-            } else if j == 1 {
-                materials.add(StandardMaterial {
-                    base_color: Color::srgb(s_val, 1.0, s_val),
-                    perceptual_roughness: 0.089,
-                    metallic: 0.0,
-                    ..default()
-                })
-            } else {
-                materials.add(StandardMaterial {
-                    base_color: Color::srgb(1.0, s_val, s_val),
-                    perceptual_roughness: 0.089,
-                    metallic: 0.0,
-                    ..default()
-                })
-            };
-            commands.spawn((
-                Mesh3d(sphere_h.clone()),
-                MeshMaterial3d(material),
-                Transform::from_xyz(
-                    j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } - 0.4,
-                    0.125,
-                    -j as f32 * 0.25 + if i < 3 { -0.15 } else { 0.15 } + 0.4,
-                ),
-                StateScoped(*scene.get()),
-            ));
-        }
 
         // sky
         commands.spawn((
