@@ -92,6 +92,7 @@ The default feature set enables most of the expected features of a game engine, 
 |qoi|QOI image format support|
 |reflect_documentation|Enable documentation reflection|
 |reflect_functions|Enable function reflection|
+|remote_websocket|Enable WebSocket support for Bevy Remote Protocol|
 |serialize|Enable serialization support through serde|
 |shader_format_glsl|Enable support for shaders in GLSL|
 |shader_format_spirv|Enable support for shaders in SPIR-V|
