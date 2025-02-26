@@ -805,9 +805,9 @@ impl<T: SparseSetIndex> Access<T> {
     /// ```
     pub fn try_iter_component_access(
         &self,
-    ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccess> {
+    ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccessError> {
         if self.component_writes_inverted || self.component_read_and_writes_inverted {
-            return Err(UnboundedAccess {
+            return Err(UnboundedAccessError {
                 writes_inverted: self.component_writes_inverted,
                 read_and_writes_inverted: self.component_read_and_writes_inverted,
             });
@@ -840,7 +840,7 @@ impl<T: SparseSetIndex> Access<T> {
 /// if the access excludes items rather than including them.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Error)]
 #[error("Access is unbounded")]
-pub struct UnboundedAccess {
+pub struct UnboundedAccessError {
     /// [`Access`] is defined in terms of _excluding_ [exclusive](ComponentAccessKind::Exclusive)
     /// access.
     pub writes_inverted: bool,
@@ -1421,7 +1421,7 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 mod tests {
     use crate::query::{
         access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, FilteredAccess,
-        FilteredAccessSet, UnboundedAccess,
+        FilteredAccessSet, UnboundedAccessError,
     };
     use alloc::{vec, vec::Vec};
     use core::marker::PhantomData;
@@ -1734,7 +1734,7 @@ mod tests {
 
         assert_eq!(
             result,
-            Err(UnboundedAccess {
+            Err(UnboundedAccessError {
                 writes_inverted: true,
                 read_and_writes_inverted: true
             }),
