@@ -13,6 +13,10 @@ const WAVES: &[WaveBench] = &[
         entities: 100_000,
     },
     WaveBench {
+        waves: 2,
+        entities: 100_000,
+    },
+    WaveBench {
         waves: 16,
         entities: 100_000,
     },
