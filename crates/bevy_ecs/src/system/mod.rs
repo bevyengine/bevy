@@ -411,7 +411,7 @@ mod tests {
             let entities_array: [Entity; ENTITIES_COUNT] =
                 entities_array.0.clone().try_into().unwrap();
 
-            for (i, w) in (0..ENTITIES_COUNT).zip(q.get_many(entities_array).unwrap()) {
+            for (i, w) in (0..ENTITIES_COUNT).zip(q.get(entities_array).unwrap()) {
                 assert_eq!(i, w.0);
             }
 
@@ -426,7 +426,7 @@ mod tests {
             let entities_array: [Entity; ENTITIES_COUNT] =
                 entities_array.0.clone().try_into().unwrap();
 
-            for (i, w) in (0..ENTITIES_COUNT).zip(q.get_many_mut(entities_array).unwrap()) {
+            for (i, w) in (0..ENTITIES_COUNT).zip(q.get_mut(entities_array).unwrap()) {
                 assert_eq!(i, w.0);
             }
 
