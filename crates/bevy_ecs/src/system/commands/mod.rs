@@ -685,10 +685,6 @@ impl<'w, 's> Commands<'w, 's> {
     /// This method should generally only be used for sharing entities across apps, and only when they have a scheme
     /// worked out to share an ID space (which doesn't happen by default).
     #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use `Commands::insert_batch` or `Commands::spawn_batch` instead"
-    )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, bundles_iter: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,

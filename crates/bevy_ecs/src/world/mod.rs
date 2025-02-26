@@ -2153,10 +2153,6 @@ impl World {
     /// assert_eq!(world.get::<B>(e0), Some(&B(0.0)));
     /// ```
     #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "Use `World::insert_batch` or `World::spawn_batch` instead"
-    )]
     pub fn insert_or_spawn_batch<I, B>(&mut self, iter: I) -> Result<(), Vec<Entity>>
     where
         I: IntoIterator,
