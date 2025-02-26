@@ -792,7 +792,7 @@ impl<T: SparseSetIndex> Access<T> {
     ///
     /// let result = access
     ///     .try_iter_component_access()
-    ///     .map(|iter| iter.collect::<Vec<_>>());
+    ///     .map(Iterator::collect::<Vec<_>>);
     ///
     /// assert_eq!(
     ///     result,
@@ -1707,7 +1707,7 @@ mod tests {
 
         let result = access
             .try_iter_component_access()
-            .map(|iter| iter.collect::<Vec<_>>());
+            .map(Iterator::collect::<Vec<_>>);
 
         assert_eq!(
             result,
@@ -1730,7 +1730,7 @@ mod tests {
 
         let result = access
             .try_iter_component_access()
-            .map(|iter| iter.collect::<Vec<_>>());
+            .map(Iterator::collect::<Vec<_>>);
 
         assert_eq!(
             result,
