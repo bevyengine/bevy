@@ -1055,6 +1055,8 @@ impl Image {
     }
 
     /// Returns an iterator over the image's pixels.
+    /// 
+    /// An image with uninitialized data will return an empty iterator.
     pub fn pixels(&self) -> Pixels {
         let format = self.texture_descriptor.format;
         let data = self.data.as_ref().map(Vec::as_slice).unwrap_or(&[]);
@@ -1065,6 +1067,38 @@ impl Image {
     }
 
     /// Returns a mutable iterator over the image's pixels.
+    /// 
+    /// An image with uninitialized data will return an empty iterator.
+    /// 
+    /// # Examples
+    /// 
+    /// Replace a specific color:
+    /// 
+    /// ```rust
+    /// # use bevy_image::Image;
+    /// # let mut image = Image::default_uninit();
+    /// let match_bytes = [255, 0, 255, 255];
+    /// let replace_bytes = [0, 0, 0, 0];
+    /// 
+    /// for mut px in image.pixels_mut() {
+    ///     if px.bytes() == &match_bytes {
+    ///         px.bytes_mut().copy_from_slice(&replace_bytes);
+    ///     }
+    /// }
+    /// ```
+    /// 
+    /// Lighten an image:
+    /// 
+    /// ```rust
+    /// # use bevy_image::Image;
+    /// # let mut image = Image::default_uninit();
+    /// use bevy_color::Luminance;
+    /// 
+    /// for mut px in image.pixels_mut() {
+    ///     // `edit_color` lets us get and set the pixel's `Color` at the same time
+    ///     px.edit_color(|c| c.lighter(0.1));
+    /// }
+    /// ```
     pub fn pixels_mut(&mut self) -> PixelsMut {
         let format = self.texture_descriptor.format;
         let data = self.data.as_mut().map(Vec::as_mut_slice).unwrap_or(&mut []);
@@ -1964,5 +1998,31 @@ mod test {
         assert!(matches!(image.get_color_at_3d(2, 3, 1), Ok(Color::WHITE)));
         image.set_color_at_3d(4, 9, 2, Color::WHITE).unwrap();
         assert!(matches!(image.get_color_at_3d(4, 9, 2), Ok(Color::WHITE)));
+    }
+
+    #[test]
+    fn iter_pixels() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 5,
+                height: 10,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::MAIN_WORLD,
+        );
+
+        for mut px in image.pixels_mut() {
+            px.edit_color(|c| {
+                assert!(matches!(c, Color::BLACK));
+                Color::WHITE
+            });
+        }
+
+        for px in image.pixels() {
+            assert!(matches!(px.get_color(), Color::WHITE));
+        }
     }
 }
