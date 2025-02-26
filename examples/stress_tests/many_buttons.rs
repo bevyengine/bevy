@@ -54,6 +54,10 @@ struct Args {
     /// spawn the layout without a camera
     #[argh(switch)]
     no_camera: bool,
+
+    /// a layout with a separate camera for each button
+    #[argh(switch)]
+    many_cameras: bool,
 }
 
 /// This example shows what happens when there is a lot of buttons on screen.
@@ -92,7 +96,9 @@ fn main() {
         });
     }
 
-    if args.grid {
+    if args.many_cameras {
+        app.add_systems(Startup, setup_many_cameras);
+    } else if args.grid {
         app.add_systems(Startup, setup_grid);
     } else {
         app.add_systems(Startup, setup_flex);
@@ -313,4 +319,78 @@ fn spawn_button(
 
 fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Without<ChildOf>)>) {
     commands.entity(*root_node).despawn();
+}
+
+fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+    let image = if 0 < args.image_freq {
+        Some(asset_server.load("branding/icon.png"))
+    } else {
+        None
+    };
+
+    let buttons_f = args.buttons as f32;
+    let border = if args.no_borders {
+        UiRect::ZERO
+    } else {
+        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+    };
+
+    let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
+    for column in 0..args.buttons {
+        for row in 0..args.buttons {
+            let color = as_rainbow(row % column.max(1));
+            let border_color = Color::WHITE.with_alpha(0.5).into();
+            let camera = commands
+                .spawn((
+                    Camera2d,
+                    Camera {
+                        order: (column * args.buttons + row) as isize + 1,
+                        ..Default::default()
+                    },
+                ))
+                .id();
+            commands
+                .spawn((
+                    Node {
+                        display: if args.display_none {
+                            Display::None
+                        } else {
+                            Display::Flex
+                        },
+                        flex_direction: FlexDirection::Column,
+                        justify_content: JustifyContent::Center,
+                        align_items: AlignItems::Center,
+                        width: Val::Percent(100.),
+                        height: Val::Percent(100.),
+                        ..default()
+                    },
+                    UiTargetCamera(camera),
+                ))
+                .with_children(|commands| {
+                    commands
+                        .spawn(Node {
+                            position_type: PositionType::Absolute,
+                            top: Val::Vh(column as f32 * 100. / buttons_f),
+                            left: Val::Vw(row as f32 * 100. / buttons_f),
+                            ..Default::default()
+                        })
+                        .with_children(|commands| {
+                            spawn_button(
+                                commands,
+                                color,
+                                buttons_f,
+                                column,
+                                row,
+                                !args.no_text,
+                                border,
+                                border_color,
+                                image
+                                    .as_ref()
+                                    .filter(|_| (column + row) % args.image_freq == 0)
+                                    .cloned(),
+                            );
+                        });
+                });
+        }
+    }
 }
