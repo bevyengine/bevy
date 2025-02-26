@@ -108,15 +108,17 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .or_insert_with(|| system_has_conditions(graph, system))
         };
 
-        // calculate the number of sync points each sync point is from the beginning of the graph
-        // use the same sync point if the distance is the same
-        // distance means here how many sync points are placed between the schedule start and a node
-        // if a sync point is ignored for an edge, add it to a later edge
+        // Calculate the distance for each node.
+        // The "distance" is the number of sync points between a node and the beginning of the graph.
+        // Also store if a preceding edge would have added a sync point but was ignored to add it at
+        // a later edge that is not ignored.
         let mut distances_and_pending_sync: HashMap<usize, (u32, bool)> =
             HashMap::with_capacity_and_hasher(topo.len(), Default::default());
+
         // Keep track of any explicit sync nodes for a specific distance.
         let mut distance_to_explicit_sync_node: HashMap<u32, NodeId> = HashMap::default();
 
+        // Determine the distance for every node and collect the explicit sync points.
         for node in &topo {
             let (node_distance, mut add_sync_after) = distances_and_pending_sync
                 .get(&node.index())
@@ -124,12 +126,17 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 .unwrap_or_default();
 
             if is_valid_explicit_sync_point(*node) {
+                // As the distance of this node does not change anymore due to topsorting the nodes
+                // that are iterated here, the sync point is stored with this distance to be reused
+                // by automatically added sync points later.
                 distance_to_explicit_sync_node.insert(node_distance, *node);
 
                 // This node just did a sync, so the only reason to do another sync is if one was
                 // explicitly scheduled afterwards.
                 add_sync_after = false;
             } else if !add_sync_after {
+                // No previous node has postponed sync points to add so check if the system itself
+                // has deferred params that require a sync point to apply them.
                 add_sync_after = graph.systems[node.index()].get().unwrap().has_deferred();
             }
 
@@ -138,21 +145,27 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     .entry(target.index())
                     .or_default();
 
-                *target_distance = node_distance.max(*target_distance);
-
                 let mut edge_needs_sync = add_sync_after;
                 if !graph.systems[target.index()].get().unwrap().is_exclusive()
                     && self.no_sync_edges.contains(&(*node, target))
                 {
-                    // `node` has deferred commands to apply, but this edge is a no sync edge
-                    // Mark the `target` node as 'delaying' those commands to a future edge
+                    // The node has deferred params to apply, but this edge is ignoring sync points.
+                    // Mark the target as 'delaying' those commands to a future edge and the current
+                    // edge as not needing a sync point.
                     *target_pending_sync = true;
                     edge_needs_sync = false;
                 }
 
+                let mut weight = 0;
                 if edge_needs_sync || is_valid_explicit_sync_point(target) {
-                    *target_distance = (node_distance + 1).max(*target_distance);
+                    // The target distance grows if a sync point is added between it and the node.
+                    // Also raise the distance if the target is a sync point itself so it then again
+                    // raises the distance of following nodes as that is what the distance is about.
+                    weight = 1;
                 }
+
+                // The target cannot have fewer sync points in front of it than the preceding node.
+                *target_distance = (node_distance + weight).max(*target_distance);
             }
         }
 
@@ -180,6 +193,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                     // already!
                     continue;
                 }
+
                 let sync_point = distance_to_explicit_sync_node
                     .get(&target_distance)
                     .copied()
@@ -188,6 +202,7 @@ impl ScheduleBuildPass for AutoInsertApplyDeferredPass {
                 sync_point_graph.add_edge(*node, sync_point);
                 sync_point_graph.add_edge(sync_point, target);
 
+                // The edge without the sync point is now redundant.
                 sync_point_graph.remove_edge(*node, target);
             }
         }
