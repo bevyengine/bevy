@@ -402,6 +402,9 @@ where
 }
 
 /// The size of the buffer that we assign to unused buffer slots, in bytes.
+///
+/// This is essentially arbitrary, as it doesn't seem to matter to `wgpu` what
+/// the size is.
 const DEFAULT_BINDLESS_FALLBACK_BUFFER_SIZE: u64 = 16;
 
 impl From<u32> for MaterialBindGroupSlot {
