@@ -98,20 +98,20 @@ impl<'w, E, B: Bundle> Trigger<'w, E, B> {
     /// # Examples
     ///
     /// ```rust
-    /// # use bevy_ecs::prelude::{Commands, Trigger};
+    /// # use bevy_ecs::prelude::{Commands, Result, Trigger};
     /// #
     /// # struct MyEvent {
     /// #   done: bool,
     /// # }
     /// #
     /// /// Handle `MyEvent` and if it is done, stop observation.
-    /// fn my_observer(trigger: Trigger<MyEvent>, mut commands: Commands) {
+    /// fn my_observer(trigger: Trigger<MyEvent>, mut commands: Commands) -> Result {
     ///     if trigger.event().done {
-    ///         commands.entity(trigger.observer()).despawn();
-    ///         return;
+    ///         commands.entity(trigger.observer())?.despawn();
+    ///         return Ok(());
     ///     }
-    ///
     ///     // ...
+    ///     Ok(())
     /// }
     /// ```
     pub fn observer(&self) -> Entity {

@@ -158,10 +158,11 @@ type IdCursor = isize;
 /// # #[derive(Component)]
 /// # struct Expired;
 /// #
-/// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) {
+/// fn dispose_expired_food(mut commands: Commands, query: Query<Entity, With<Expired>>) -> Result {
 ///     for food_entity in &query {
-///         commands.entity(food_entity).despawn();
+///         commands.entity(food_entity)?.despawn();
 ///     }
+///     Ok(())
 /// }
 /// #
 /// # bevy_ecs::system::assert_is_system(dispose_expired_food);

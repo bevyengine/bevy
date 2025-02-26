@@ -159,7 +159,7 @@ impl GlobalTransform {
     ///
     /// ```
     /// # use bevy_transform::prelude::{GlobalTransform, Transform};
-    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands};
+    /// # use bevy_ecs::prelude::{Entity, Query, Component, Commands, Result};
     /// #[derive(Component)]
     /// struct ToReparent {
     ///     new_parent: Entity,
@@ -168,15 +168,16 @@ impl GlobalTransform {
     ///     mut commands: Commands,
     ///     mut targets: Query<(&mut Transform, Entity, &GlobalTransform, &ToReparent)>,
     ///     transforms: Query<&GlobalTransform>,
-    /// ) {
+    /// ) -> Result {
     ///     for (mut transform, entity, initial, to_reparent) in targets.iter_mut() {
     ///         if let Ok(parent_transform) = transforms.get(to_reparent.new_parent) {
     ///             *transform = initial.reparented_to(parent_transform);
-    ///             commands.entity(entity)
+    ///             commands.entity(entity)?
     ///                 .remove::<ToReparent>()
     ///                 .set_parent(to_reparent.new_parent);
     ///         }
     ///     }
+    ///     Ok(())
     /// }
     /// ```
     ///

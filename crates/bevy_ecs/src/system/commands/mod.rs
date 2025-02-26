@@ -432,7 +432,6 @@ impl<'w, 's> Commands<'w, 's> {
     ///         .insert((Strength(1), Agility(2)))
     ///         // adds a single component to the entity
     ///         .insert(Label("hello world"));
-    ///
     ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
@@ -1202,14 +1201,15 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Level(u32);
     ///
-    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         .entry::<Level>()
     ///         // Modify the component if it exists
     ///         .and_modify(|mut lvl| lvl.0 += 1)
     ///         // Otherwise insert a default value
     ///         .or_insert(Level(0));
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
@@ -1250,9 +1250,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can insert individual components:
     ///         .insert(Defense(10))
     ///         // You can also insert pre-defined bundles of components:
@@ -1269,6 +1269,7 @@ impl<'a> EntityCommands<'a> {
     ///                 strength: Strength(40),
     ///             },
     ///         ));
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
@@ -1298,11 +1299,12 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
-    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         .insert_if(Health(10), || !player.is_spectator())
     ///         .remove::<StillLoadingStats>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
@@ -1433,8 +1435,8 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///   commands.entity(player.entity)
+    /// fn add_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///   commands.entity(player.entity)?
     ///    // You can try_insert individual components:
     ///     .try_insert(Defense(10))
     ///
@@ -1445,12 +1447,14 @@ impl<'a> EntityCommands<'a> {
     ///     });
     ///
     ///    // Suppose this occurs in a parallel adjacent system or process
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///      .despawn();
     ///
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///    // This will not panic nor will it add the component
     ///      .try_insert(Defense(5));
+    ///
+    ///    Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_combat_stats_system);
     /// ```
@@ -1474,14 +1478,16 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
-    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///   commands.entity(player.entity)
+    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///    commands.entity(player.entity)?
     ///     .try_insert_if(Health(10), || !player.is_spectator())
     ///     .remove::<StillLoadingStats>();
     ///
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///    // This will not panic nor will it add the component
     ///      .try_insert_if(Health(5), || !player.is_spectator());
+    ///
+    ///    Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
@@ -1521,14 +1527,16 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Component)]
     /// struct Health(u32);
     ///
-    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) {
-    ///   commands.entity(player.entity)
+    /// fn add_health_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
+    ///    commands.entity(player.entity)?
     ///     .try_insert_if(Health(10), || player.is_spectator())
     ///     .remove::<StillLoadingStats>();
     ///
-    ///    commands.entity(player.entity)
+    ///    commands.entity(player.entity)?
     ///    // This will not panic nor will it overwrite the component
     ///      .try_insert_if_new_and(Health(5), || player.is_spectator());
+    ///
+    ///    Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(add_health_system);
     /// ```
@@ -1583,9 +1591,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can remove individual components:
     ///         .remove::<Defense>()
     ///         // You can also remove pre-defined Bundles of components:
@@ -1593,6 +1601,7 @@ impl<'a> EntityCommands<'a> {
     ///         // You can also remove tuples of components and bundles.
     ///         // This is equivalent to the calls above:
     ///         .remove::<(Defense, CombatBundle)>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
@@ -1630,9 +1639,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can remove individual components:
     ///         .try_remove::<Defense>()
     ///         // You can also remove pre-defined Bundles of components:
@@ -1640,6 +1649,7 @@ impl<'a> EntityCommands<'a> {
     ///         // You can also remove tuples of components and bundles.
     ///         // This is equivalent to the calls above:
     ///         .try_remove::<(Defense, CombatBundle)>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
@@ -1666,11 +1676,12 @@ impl<'a> EntityCommands<'a> {
     /// #[derive(Resource)]
     /// struct PlayerEntity { entity: Entity }
     ///
-    /// fn remove_with_requires_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_with_requires_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // Remove both A and B components from the entity, because B is required by A
     ///         .remove_with_requires::<A>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
@@ -1717,9 +1728,9 @@ impl<'a> EntityCommands<'a> {
     /// fn remove_character_system(
     ///     mut commands: Commands,
     ///     character_to_remove: Res<CharacterToRemove>
-    /// )
-    /// {
-    ///     commands.entity(character_to_remove.entity).despawn();
+    /// ) -> Result {
+    ///     commands.entity(character_to_remove.entity)?.despawn();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_character_system);
     /// ```
@@ -1853,9 +1864,9 @@ impl<'a> EntityCommands<'a> {
     ///     strength: Strength,
     /// }
     ///
-    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn remove_combat_stats_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         // You can retain a pre-defined Bundle of components,
     ///         // with this removing only the Defense component
     ///         .retain::<CombatBundle>()
@@ -1863,6 +1874,7 @@ impl<'a> EntityCommands<'a> {
     ///         .retain::<Health>()
     ///         // And you can remove all the components by passing in an empty Bundle
     ///         .retain::<()>();
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
@@ -2178,9 +2190,9 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// #[derive(Component)]
     /// struct Level(u32);
     ///
-    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) {
+    /// fn level_up_system(mut commands: Commands, player: Res<PlayerEntity>) -> Result {
     ///     commands
-    ///         .entity(player.entity)
+    ///         .entity(player.entity)?
     ///         .entry::<Level>()
     ///         // Modify the component if it exists
     ///         .and_modify(|mut lvl| lvl.0 += 1)
@@ -2190,6 +2202,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     ///         .entity()
     ///         // And continue chaining method calls
     ///         .insert(Name::new("Player"));
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```

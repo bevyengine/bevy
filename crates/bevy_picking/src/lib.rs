@@ -59,9 +59,10 @@
 //!             let drag = trigger.event();
 //!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
-//!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| {
+//!         .observe(|trigger: Trigger<Pointer<Click>>, mut commands: Commands| -> Result {
 //!             println!("Entity {} goes BOOM!", trigger.target());
-//!             commands.entity(trigger.target()).despawn();
+//!             commands.entity(trigger.target())?.despawn();
+//!             Ok(())
 //!         })
 //!         .observe(|trigger: Trigger<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.write(Greeting);

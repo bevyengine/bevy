@@ -150,13 +150,14 @@ pub trait ReflectCommandExt {
     /// fn remove_reflect_component(
     ///     mut commands: Commands,
     ///     prefab: Res<Prefab>
-    ///     ) {
+    ///     ) -> Result {
     ///     // Prefab can hold any boxed reflect component or bundle. In this case either
     ///     // ComponentA, ComponentB, or BundleA. No matter which component or bundle is in the resource though,
     ///     // we can attempt to remove any component (or set of components in the case of a bundle)
     ///     // of that same type from an entity.
-    ///     commands.entity(prefab.entity)
+    ///     commands.entity(prefab.entity)?
     ///         .remove_reflect(prefab.data.reflect_type_path().to_owned());
+    ///     Ok(())
     /// }
     /// ```
     fn remove_reflect(&mut self, component_type_name: impl Into<Cow<'static, str>>) -> &mut Self;

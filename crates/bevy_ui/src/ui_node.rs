@@ -2091,7 +2091,7 @@ impl Default for BorderColor {
 /// fn outline_hovered_button_system(
 ///     mut commands: Commands,
 ///     mut node_query: Query<(Entity, &Interaction, Option<&mut Outline>), Changed<Interaction>>,
-/// ) {
+/// ) -> Result {
 ///     for (entity, interaction, mut maybe_outline) in node_query.iter_mut() {
 ///         let outline_color =
 ///             if matches!(*interaction, Interaction::Hovered) {
@@ -2102,9 +2102,10 @@ impl Default for BorderColor {
 ///         if let Some(mut outline) = maybe_outline {
 ///             outline.color = outline_color;
 ///         } else {
-///             commands.entity(entity).insert(Outline::new(Val::Px(10.), Val::ZERO, outline_color));
+///             commands.entity(entity)?.insert(Outline::new(Val::Px(10.), Val::ZERO, outline_color));
 ///         }
 ///     }
+///     Ok(())
 /// }
 /// ```
 /// Inserting and removing an [`Outline`] component repeatedly will result in table moves, so it is generally preferable to
