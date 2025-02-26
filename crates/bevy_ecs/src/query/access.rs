@@ -779,6 +779,30 @@ impl<T: SparseSetIndex> Access<T> {
     /// Returns `Err(UnboundedAccess)` if the access is unbounded.
     /// This typically occurs when an [`Access`] is marked as accessing all
     /// components, and then adding exceptions.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// # use bevy_ecs::query::{Access, ComponentAccessKind};
+    /// let mut access = Access::<usize>::default();
+    ///
+    /// access.add_component_read(1);
+    /// access.add_component_write(2);
+    /// access.add_archetypal(3);
+    ///
+    /// let result = access
+    ///     .try_iter_component_access()
+    ///     .map(|iter| iter.collect::<Vec<_>>());
+    ///
+    /// assert_eq!(
+    ///     result,
+    ///     Ok(vec![
+    ///         ComponentAccessKind::Shared(1),
+    ///         ComponentAccessKind::Exclusive(2),
+    ///         ComponentAccessKind::Archetypal(3),
+    ///     ]),
+    /// );
+    /// ```
     pub fn try_iter_component_access(
         &self,
     ) -> Result<impl Iterator<Item = ComponentAccessKind<T>> + '_, UnboundedAccess> {
@@ -826,6 +850,7 @@ pub struct UnboundedAccess {
 }
 
 /// Describes the level of access for a particular component as defined in an [`Access`].
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum ComponentAccessKind<T> {
     /// Archetypical access, such as `Has<Foo>`.
     Archetypal(T),
@@ -1395,9 +1420,10 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 #[cfg(test)]
 mod tests {
     use crate::query::{
-        access::AccessFilters, Access, AccessConflicts, FilteredAccess, FilteredAccessSet,
+        access::AccessFilters, Access, AccessConflicts, ComponentAccessKind, FilteredAccess,
+        FilteredAccessSet, UnboundedAccess,
     };
-    use alloc::vec;
+    use alloc::{vec, vec::Vec};
     use core::marker::PhantomData;
     use fixedbitset::FixedBitSet;
 
@@ -1668,5 +1694,50 @@ mod tests {
         ];
 
         assert_eq!(access_a, expected);
+    }
+
+    #[test]
+    fn try_iter_component_access_simple() {
+        let mut access = Access::<usize>::default();
+
+        access.add_component_read(1);
+        access.add_component_read(2);
+        access.add_component_write(3);
+        access.add_archetypal(5);
+
+        let result = access
+            .try_iter_component_access()
+            .map(|iter| iter.collect::<Vec<_>>());
+
+        assert_eq!(
+            result,
+            Ok(vec![
+                ComponentAccessKind::Shared(1),
+                ComponentAccessKind::Shared(2),
+                ComponentAccessKind::Exclusive(3),
+                ComponentAccessKind::Archetypal(5),
+            ]),
+        );
+    }
+
+    #[test]
+    fn try_iter_component_access_unbounded() {
+        let mut access = Access::<usize>::default();
+
+        access.add_component_read(1);
+        access.add_component_read(2);
+        access.write_all();
+
+        let result = access
+            .try_iter_component_access()
+            .map(|iter| iter.collect::<Vec<_>>());
+
+        assert_eq!(
+            result,
+            Err(UnboundedAccess {
+                writes_inverted: true,
+                read_and_writes_inverted: true
+            }),
+        );
     }
 }
