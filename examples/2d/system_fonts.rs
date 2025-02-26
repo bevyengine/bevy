@@ -29,7 +29,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             font_size: 50.0,
             ..default()
         },
-        TextLayout::new_with_justify(JustifyText::Center),
         FontName,
     ));
 }
