@@ -23,7 +23,7 @@
 //! # use bevy_math::{Vec2, ShapeSample};
 //! # use rand::SeedableRng;
 //! # use rand::rngs::StdRng;
-//! # use rand::distributions::Distribution;
+//! # use rand::distr::Distribution;
 //! # let rng1 = StdRng::from_os_rng();
 //! # let rng2 = StdRng::from_os_rng();
 //! // Use a rectangle this time:
@@ -86,7 +86,7 @@ pub trait ShapeSample {
     ///
     /// ```
     /// # use bevy_math::prelude::*;
-    /// # use rand::distributions::Distribution;
+    /// # use rand::distr::Distribution;
     /// let square = Rectangle::new(2.0, 2.0);
     /// let rng = rand::rng();
     ///
@@ -108,7 +108,7 @@ pub trait ShapeSample {
     ///
     /// ```
     /// # use bevy_math::prelude::*;
-    /// # use rand::distributions::Distribution;
+    /// # use rand::distr::Distribution;
     /// let square = Rectangle::new(2.0, 2.0);
     /// let rng = rand::rng();
     ///
