@@ -430,7 +430,7 @@ impl Default for TextCursorStyle {
     fn default() -> Self {
         Self {
             color: GRAY_400.into(),
-            width: TextCursorWidth::Px(3.),
+            width: TextCursorWidth::Line(3.),
             radius: 0.,
             height: 1.,
         }
@@ -441,14 +441,14 @@ impl Default for TextCursorStyle {
 #[derive(Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Default, Debug, PartialEq)]
 pub enum TextCursorWidth {
-    /// Cover whole glyph
-    All,
-    /// Width of cursor in logical pixels
-    Px(f32),
+    /// Cursor is a block covering the glyph
+    Block,
+    /// Cursor is a vertical line, the associated value is the line's width in logical pixels
+    Line(f32),
 }
 
 impl Default for TextCursorWidth {
     fn default() -> Self {
-        Self::Px(3.)
+        Self::Line(3.)
     }
 }
