@@ -219,7 +219,6 @@ pub struct ExtractedLinearGradient {
 #[derive(Resource, Default)]
 pub struct ExtractedLinearGradients {
     pub items: Vec<ExtractedLinearGradient>,
-    pub stops: Vec<(LinearRgba, f32)>,
 }
 
 pub fn extract_linear_gradients(
@@ -402,9 +401,6 @@ pub fn prepare_linear_gradient(
         let mut indices_index = 0;
 
         for ui_phase in phases.values_mut() {
-            let mut batch_item_index = 0;
-            let mut batch_image_size = Vec2::ZERO;
-
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
                 if let Some(gradient) = extracted_gradients
@@ -412,18 +408,7 @@ pub fn prepare_linear_gradient(
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 {
-                    let mut existing_batch = batches.last_mut();
-
-                    if existing_batch.is_none() {
-                        let new_batch = LinearGradientBatch {
-                            range: vertices_index..vertices_index,
-                        };
-
-                        batches.push((item.entity(), new_batch));
-
-                        existing_batch = batches.last_mut();
-                    }
-
+                    item.batch_range_mut().end = 1;
                     let uinode_rect = gradient.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
@@ -540,8 +525,6 @@ pub fn prepare_linear_gradient(
 
                     vertices_index += 6;
                     indices_index += 4;
-
-                    ui_phase.items[batch_item_index].batch_range_mut().end = 1;
                 }
             }
         }
