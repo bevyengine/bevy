@@ -30,22 +30,9 @@ pub struct CosmicFontSystem(pub cosmic_text::FontSystem);
 
 impl Default for CosmicFontSystem {
     fn default() -> Self {
-        #[cfg(feature = "system_font")]
-        return {
-            let mut font_system = cosmic_text::FontSystem::new();
-
-            // This is a no-op on unsupported platforms.
-            font_system.db_mut().load_system_fonts();
-
-            Self(font_system)
-        };
-
-        #[cfg(not(feature = "system_font"))]
-        return {
-            let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
-            let db = cosmic_text::fontdb::Database::new();
-            Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
-        };
+        let locale = sys_locale::get_locale().unwrap_or_else(|| String::from("en-US"));
+        let db = cosmic_text::fontdb::Database::new();
+        Self(cosmic_text::FontSystem::new_with_locale_and_db(locale, db))
     }
 }
 
