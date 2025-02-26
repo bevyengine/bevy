@@ -46,7 +46,7 @@ struct StandardMaterialBindings {
 }
 
 @group(2) @binding(0) var<storage> material_indices: array<StandardMaterialBindings>;
-@group(2) @binding(10) var<storage> material_array: binding_array<StandardMaterial>;
+@group(2) @binding(10) var<storage> material_array: array<StandardMaterial>;
 
 #else   // BINDLESS
 

@@ -29,6 +29,7 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_platform_support::collections::hash_map::Entry;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
@@ -1035,6 +1036,11 @@ pub fn queue_material_meshes<M: Material>(
                 }
                 RenderPhaseType::Opaque => {
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        opaque_phase.update_cache(*visible_entity, None, current_change_tick);
                         continue;
                     }
                     let batch_set_key = Opaque3dBatchSetKey {
@@ -1228,8 +1234,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             render_device,
             pipeline,
             default_opaque_render_method,
-            ref mut bind_group_allocator,
-            ref mut render_material_bindings,
+            bind_group_allocator,
+            render_material_bindings,
             opaque_draw_functions,
             alpha_mask_draw_functions,
             transmissive_draw_functions,
@@ -1238,7 +1244,7 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             alpha_mask_prepass_draw_functions,
             opaque_deferred_draw_functions,
             alpha_mask_deferred_draw_functions,
-            ref mut material_param,
+            material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
@@ -1306,12 +1312,24 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             false,
         ) {
             Ok(unprepared) => {
-                let binding = *render_material_bindings
-                    .entry(material_id.into())
-                    .or_insert_with(|| {
+                // Allocate or update the material.
+                let binding = match render_material_bindings.entry(material_id.into()) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        // TODO: Have a fast path that doesn't require
+                        // recreating the bind group if only buffer contents
+                        // change. For now, we just delete and recreate the bind
+                        // group.
+                        bind_group_allocator.free(*occupied_entry.get());
+                        let new_binding = bind_group_allocator
+                            .allocate_unprepared(unprepared, &pipeline.material_layout);
+                        *occupied_entry.get_mut() = new_binding;
+                        new_binding
+                    }
+                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
                         bind_group_allocator
-                            .allocate_unprepared(unprepared, &pipeline.material_layout)
-                    });
+                            .allocate_unprepared(unprepared, &pipeline.material_layout),
+                    ),
+                };
 
                 Ok(PreparedMaterial {
                     binding,
@@ -1381,14 +1399,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (
-            _,
-            _,
-            _,
-            ref mut bind_group_allocator,
-            ref mut render_material_bindings,
-            ..,
-        ): &mut SystemParamItem<Self::Param>,
+        (_, _, _, bind_group_allocator, render_material_bindings, ..): &mut SystemParamItem<
+            Self::Param,
+        >,
     ) {
         let Some(material_binding_id) = render_material_bindings.remove(&source_asset.untyped())
         else {

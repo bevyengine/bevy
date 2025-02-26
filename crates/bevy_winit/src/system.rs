@@ -118,7 +118,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
             }
         }
 
-        window_created_events.send(WindowCreated { window: entity });
+        window_created_events.write(WindowCreated { window: entity });
     }
 }
 
@@ -138,7 +138,7 @@ pub(crate) fn check_keyboard_focus_lost(
         }
     }
     if focus_lost & !focus_gained {
-        keyboard_focus.send(KeyboardFocusLost);
+        keyboard_focus.write(KeyboardFocusLost);
     }
 }
 
@@ -218,7 +218,7 @@ pub(crate) fn despawn_windows(
     // Drop all the windows that are waiting to be closed
     windows_to_drop.clear();
     for window in closing.iter() {
-        closing_events.send(WindowClosing { window });
+        closing_events.write(WindowClosing { window });
     }
     for window in closed.read() {
         info!("Closing window {}", window);
@@ -233,7 +233,7 @@ pub(crate) fn despawn_windows(
                 // Keeping the wrapper and dropping it next frame in this system ensure its dropped in the main thread
                 windows_to_drop.push(window);
             }
-            closed_events.send(WindowClosed { window });
+            closed_events.write(WindowClosed { window });
         }
     }
 
@@ -242,7 +242,7 @@ pub(crate) fn despawn_windows(
     if !exit_events.is_empty() {
         exit_events.clear();
         for window in window_entities.iter() {
-            closing_events.send(WindowClosing { window });
+            closing_events.write(WindowClosing { window });
         }
     }
 }
