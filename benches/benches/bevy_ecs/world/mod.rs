@@ -3,6 +3,7 @@ mod despawn;
 mod despawn_recursive;
 mod entity_hash;
 mod spawn;
+mod waves;
 mod world_get;
 
 use commands::*;
