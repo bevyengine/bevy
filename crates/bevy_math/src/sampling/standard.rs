@@ -5,7 +5,7 @@
 //!
 //! For instance:
 //! ```
-//! # use rand::{random, Rng, SeedableRng, rngs::StdRng, distributions::StandardUniform};
+//! # use rand::{random, Rng, SeedableRng, rngs::StdRng, distr::StandardUniform};
 //! # use bevy_math::{Dir3, sampling::FromRng};
 //! let mut rng = StdRng::seed_from_u64(7313429298);
 //! // Random direction using thread-local rng

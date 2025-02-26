@@ -19,7 +19,7 @@ use rand_distr::{Distribution, weighted::{WeightedAliasIndex, Error as WeightedE
 /// ```
 /// # use bevy_math::{Vec3, primitives::*};
 /// # use bevy_math::sampling::mesh_sampling::UniformMeshSampler;
-/// # use rand::{SeedableRng, rngs::StdRng, distributions::Distribution};
+/// # use rand::{SeedableRng, rngs::StdRng, distr::Distribution};
 /// let faces = Tetrahedron::default().faces();
 /// let sampler = UniformMeshSampler::try_new(faces).unwrap();
 /// let rng = StdRng::seed_from_u64(8765309);
