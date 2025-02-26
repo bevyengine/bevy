@@ -347,7 +347,7 @@ pub fn extract_lights(
         ));
     }
     *previous_point_lights_len = point_lights_values.len();
-    commands.insert_or_spawn_batch(point_lights_values);
+    commands.try_insert_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
@@ -410,7 +410,7 @@ pub fn extract_lights(
         }
     }
     *previous_spot_lights_len = spot_lights_values.len();
-    commands.insert_or_spawn_batch(spot_lights_values);
+    commands.try_insert_batch(spot_lights_values);
 
     for (
         main_entity,

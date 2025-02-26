@@ -180,7 +180,7 @@ fn apply_wireframe_material(
         };
         wireframes_to_spawn.push((e, MeshMaterial2d(material)));
     }
-    commands.insert_or_spawn_batch(wireframes_to_spawn);
+    commands.try_insert_batch(wireframes_to_spawn);
 }
 
 type Wireframe2dFilter = (With<Mesh2d>, Without<Wireframe2d>, Without<NoWireframe2d>);
@@ -209,7 +209,7 @@ fn apply_global_wireframe_material(
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
             material_to_spawn.push((e, MeshMaterial2d(global_material.handle.clone())));
         }
-        commands.insert_or_spawn_batch(material_to_spawn);
+        commands.try_insert_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands
