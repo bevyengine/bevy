@@ -425,7 +425,6 @@ pub const COMPONENT: &str = "component";
 pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
-pub const RELATIONSHIP_TARGET: &str = "target";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
@@ -469,7 +468,7 @@ struct Relationship {
 }
 
 struct RelationshipTarget {
-    relationship: Ident,
+    source: Ident,
     linked_spawn: bool,
 }
 
@@ -545,11 +544,13 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                 attrs.requires = Some(punctuated);
             }
         } else if attr.path().is_ident(RELATIONSHIP) {
-            let relationship = attr.parse_args::<Relationship>()?;
-            attrs.relationship = Some(relationship);
-        } else if attr.path().is_ident(RELATIONSHIP_TARGET) {
-            let relationship_target = attr.parse_args::<RelationshipTarget>()?;
-            attrs.relationship_target = Some(relationship_target);
+            let relationship = attr.parse_args::<Relationship>();
+            if let Ok(relationship) = relationship {
+                attrs.relationship = Some(relationship);
+            } else {
+                let relationship_target = attr.parse_args::<RelationshipTarget>()?;
+                attrs.relationship_target = Some(relationship_target);
+            }
         }
     }
 
@@ -613,12 +614,12 @@ impl Parse for RelationshipTarget {
     fn parse(input: syn::parse::ParseStream) -> Result<Self> {
         let mut relationship_ident = None;
         let mut linked_spawn_exists = false;
-        syn::custom_keyword!(relationship);
+        syn::custom_keyword!(source);
         syn::custom_keyword!(linked_spawn);
         let mut done = false;
         loop {
-            if input.peek(relationship) {
-                input.parse::<relationship>()?;
+            if input.peek(source) {
+                input.parse::<source>()?;
                 input.parse::<Token![=]>()?;
                 relationship_ident = Some(input.parse::<Ident>()?);
             } else if input.peek(linked_spawn) {
@@ -635,9 +636,9 @@ impl Parse for RelationshipTarget {
             }
         }
 
-        let relationship = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship via #[target(relationship = X)"))?;
+        let source = relationship_ident.ok_or_else(|| syn::Error::new(input.span(), "RelationshipTarget derive must specify a relationship source via #[relationship(source = X)"))?;
         Ok(RelationshipTarget {
-            relationship,
+            source,
             linked_spawn: linked_spawn_exists,
         })
     }
@@ -727,14 +728,14 @@ fn derive_relationship_target(
         ));
     };
 
-    let relationship = &relationship_target.relationship;
+    let source = &relationship_target.source;
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
     let linked_spawn = relationship_target.linked_spawn;
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::RelationshipTarget for #struct_name #type_generics #where_clause {
             const LINKED_SPAWN: bool = #linked_spawn;
-            type Relationship = #relationship;
+            type Source = #source;
             type Collection = #collection;
 
             #[inline]

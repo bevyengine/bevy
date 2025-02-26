@@ -43,7 +43,7 @@ use log::warn;
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[target(relationship = ChildOf)]
+/// #[relationship(source = ChildOf)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 ///
@@ -58,13 +58,13 @@ use log::warn;
 /// pub struct ChildOf(pub Entity);
 ///
 /// #[derive(Component)]
-/// #[target(relationship = ChildOf, linked_spawn)]
+/// #[relationship(source = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
 pub trait Relationship: Component + Sized {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
     /// entities that relate to the "target".
-    type RelationshipTarget: RelationshipTarget<Relationship = Self>;
+    type RelationshipTarget: RelationshipTarget<Source = Self>;
 
     /// Gets the [`Entity`] ID of the related entity.
     fn get(&self) -> Entity;
@@ -152,7 +152,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     /// This defaults to false when derived.
     const LINKED_SPAWN: bool;
     /// The [`Relationship`] that populates this [`RelationshipTarget`] collection.
-    type Relationship: Relationship<RelationshipTarget = Self>;
+    type Source: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
     ///
     /// Check the list of types which implement [`RelationshipSourceCollection`] for the data structures that can be used inside of your component.
@@ -188,7 +188,7 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
             for source_entity in relationship_target.iter() {
                 if world.get_entity(source_entity).is_ok() {
                     commands.push(
-                        entity_command::remove::<Self::Relationship>()
+                        entity_command::remove::<Self::Source>()
                             .with_entity(source_entity)
                             .handle_error_with(error_handler::silent()),
                     );
@@ -297,7 +297,7 @@ mod tests {
         struct Likes(pub Entity);
 
         #[derive(Component)]
-        #[target(relationship = Likes)]
+        #[relationship(source = Likes)]
         struct LikedBy(Vec<Entity>);
 
         let mut world = World::new();
@@ -314,7 +314,7 @@ mod tests {
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[target(relationship = Rel)]
+        #[relationship(source = Rel)]
         struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();
@@ -331,7 +331,7 @@ mod tests {
         struct Rel(Entity);
 
         #[derive(Component)]
-        #[target(relationship = Rel)]
+        #[relationship(source = Rel)]
         struct RelTarget(Vec<Entity>);
 
         let mut world = World::new();

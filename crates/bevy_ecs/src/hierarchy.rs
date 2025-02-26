@@ -142,7 +142,7 @@ impl FromWorld for ChildOf {
 ///
 /// [`RelationshipTarget`]: crate::relationship::RelationshipTarget
 #[derive(Component, Default, Debug, PartialEq, Eq)]
-#[target(relationship = ChildOf, linked_spawn)]
+#[relationship(source = ChildOf, linked_spawn)]
 #[cfg_attr(feature = "bevy_reflect", derive(bevy_reflect::Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Component, FromWorld))]
 #[doc(alias = "IsParent")]

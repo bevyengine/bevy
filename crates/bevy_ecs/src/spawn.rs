@@ -277,9 +277,7 @@ pub trait SpawnRelated: RelationshipTarget {
     /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
     ///
     /// See [`Spawn`], [`SpawnIter`], and [`SpawnWith`] for usage examples.
-    fn spawn<L: SpawnableList<Self::Relationship>>(
-        list: L,
-    ) -> SpawnRelatedBundle<Self::Relationship, L>;
+    fn spawn<L: SpawnableList<Self::Source>>(list: L) -> SpawnRelatedBundle<Self::Source, L>;
 
     /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a single entity containing [`Bundle`] that is related to the bundle's entity
     /// via [`RelationshipTarget::Relationship`].
@@ -295,20 +293,18 @@ pub trait SpawnRelated: RelationshipTarget {
     ///     Children::spawn_one(Name::new("Child")),
     /// ));
     /// ```
-    fn spawn_one<B: Bundle>(bundle: B) -> SpawnOneRelated<Self::Relationship, B>;
+    fn spawn_one<B: Bundle>(bundle: B) -> SpawnOneRelated<Self::Source, B>;
 }
 
 impl<T: RelationshipTarget> SpawnRelated for T {
-    fn spawn<L: SpawnableList<Self::Relationship>>(
-        list: L,
-    ) -> SpawnRelatedBundle<Self::Relationship, L> {
+    fn spawn<L: SpawnableList<Self::Source>>(list: L) -> SpawnRelatedBundle<Self::Source, L> {
         SpawnRelatedBundle {
             list,
             marker: PhantomData,
         }
     }
 
-    fn spawn_one<B: Bundle>(bundle: B) -> SpawnOneRelated<Self::Relationship, B> {
+    fn spawn_one<B: Bundle>(bundle: B) -> SpawnOneRelated<Self::Source, B> {
         SpawnOneRelated {
             bundle,
             marker: PhantomData,

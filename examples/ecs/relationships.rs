@@ -30,7 +30,7 @@ struct Targeting(Entity);
 /// but can safely read its field. In a larger project, we could enforce this through the use of
 /// private fields and public getters.
 #[derive(Component, Debug)]
-#[target(relationship = Targeting)]
+#[relationship(source = Targeting)]
 struct TargetedBy(Vec<Entity>);
 
 fn main() {
