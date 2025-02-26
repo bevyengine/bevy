@@ -11,7 +11,7 @@ use bevy_ecs::{
     },
 };
 use bevy_image::prelude::*;
-use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec4Swizzles};
+use bevy_math::{FloatOrd, Mat4, Rect, Vec2, Vec3Swizzles, Vec4Swizzles};
 use bevy_platform_support::collections::HashMap;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::{
@@ -20,15 +20,14 @@ use bevy_render::{
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
     sync_world::TemporaryRenderEntity,
-    texture::{GpuImage, TRANSPARENT_IMAGE_HANDLE},
+    texture::GpuImage,
     view::*,
     Extract, ExtractSchedule, Render, RenderSet,
 };
-use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
+use bevy_sprite::{BorderRect, SpriteAssetEvents};
 use bevy_transform::prelude::GlobalTransform;
 use binding_types::{sampler, texture_2d};
 use bytemuck::{Pod, Zeroable};
-use widget::ImageNode;
 
 pub const UI_LINEAR_GRADIENT_SHADER_HANDLE: Handle<Shader> =
     weak_handle!("10cd61e3-bbf7-47fa-91c8-16cbe806378c");
@@ -72,28 +71,14 @@ impl Plugin for LinearGradientPlugin {
     }
 }
 
-#[repr(C)]
-#[derive(Copy, Clone, Pod, Zeroable)]
-struct UiTextureSliceVertex {
-    pub position: [f32; 3],
-    pub uv: [f32; 2],
-    pub color: [f32; 4],
-    pub slices: [f32; 4],
-    pub border: [f32; 4],
-    pub repeat: [f32; 4],
-    pub atlas: [f32; 4],
-}
-
 #[derive(Component)]
 pub struct LinearGradientBatch {
     pub range: Range<u32>,
-    pub image: AssetId<Image>,
-    pub camera: Entity,
 }
 
 #[derive(Resource)]
 pub struct LinearGradientMeta {
-    vertices: RawBufferVec<UiTextureSliceVertex>,
+    vertices: RawBufferVec<UiGradientVertex>,
     indices: RawBufferVec<u32>,
     view_bind_group: Option<BindGroup>,
 }
@@ -165,15 +150,23 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
                 VertexFormat::Float32x3,
                 // uv
                 VertexFormat::Float32x2,
-                // color
+                // flags
+                VertexFormat::Uint32,
+                // radius
                 VertexFormat::Float32x4,
-                // normalized texture slicing lines (left, top, right, bottom)
+                // border
                 VertexFormat::Float32x4,
-                // normalized target slicing lines (left, top, right, bottom)
+                // size
+                VertexFormat::Float32,
+                // point
                 VertexFormat::Float32x4,
-                // repeat values (horizontal side, vertical side, horizontal center, vertical center)
+                // start_color
                 VertexFormat::Float32x4,
-                // normalized texture atlas rect (left, top, right, bottom)
+                // start_len
+                VertexFormat::Float32,
+                // end_len
+                VertexFormat::Float32,
+                // end color
                 VertexFormat::Float32x4,
             ],
         );
@@ -181,13 +174,13 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: UI_LINEAR_GRADIENT_SHADER_HANDLE,
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
-                shader: UI_SLICER_SHADER_HANDLE,
+                shader: UI_LINEAR_GRADIENT_SHADER_HANDLE,
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
@@ -227,18 +220,21 @@ pub struct ExtractedLinearGradient {
     pub stack_index: u32,
     pub transform: Mat4,
     pub rect: Rect,
-    pub atlas_rect: Option<Rect>,
-    pub image: AssetId<Image>,
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
-    pub color: LinearRgba,
-    pub image_scale_mode: SpriteImageMode,
-    pub flip_x: bool,
-    pub flip_y: bool,
-    pub inverse_scale_factor: f32,
+    pub start: f32,
+    pub start_color: LinearRgba,
+    pub end: f32,
+    pub end_color: LinearRgba,
+    pub node_type: NodeType,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
-    pub stops: Range<usize>,
+    /// Border radius of the UI node.
+    /// Ordering: top left, top right, bottom right, bottom left.
+    border_radius: ResolvedBorderRadius,
+    /// Border thickness of the UI node.
+    /// Ordering: left, top, right, bottom.
+    border: BorderRect,
 }
 
 #[derive(Resource, Default)]
@@ -250,53 +246,85 @@ pub struct ExtractedLinearGradients {
 pub fn extract_linear_gradients(
     mut commands: Commands,
     mut extracted_linear_gradients: ResMut<ExtractedLinearGradients>,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     slicers_query: Extract<
         Query<(
             Entity,
             &ComputedNode,
+            &ComputedNodeTarget,
             &GlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
             &LinearGradient,
+            &ComputedColorStops,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &slicers_query {
+    for (entity, uinode, target, transform, inherited_visibility, clip, linear_gradient, stops) in
+        &slicers_query
+    {
         // Skip invisible images
         if !inherited_visibility.get() {
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
             continue;
         };
 
-        extracted_linear_gradients
-            .items
-            .push(ExtractedLinearGradient {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+        if stops.0.len() == 1 {
+            // With a single color stop there's no gradient, fill the node with the color
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index: uinode.stack_index,
-                transform: transform.compute_matrix(),
-                color: image.color.into(),
+                color: stops.0[0].0.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: uinode.size,
                 },
+                image: AssetId::default(),
                 clip: clip.map(|clip| clip.clip),
-                image: image.image.id(),
                 extracted_camera_entity,
-                image_scale_mode,
-                atlas_rect,
-                flip_x: image.flip_x,
-                flip_y: image.flip_y,
-                inverse_scale_factor: uinode.inverse_scale_factor,
+                item: ExtractedUiItem::Node {
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: uinode.border_radius,
+                    border: uinode.border,
+                    node_type: NodeType::Rect,
+                    transform: transform.compute_matrix(),
+                },
                 main_entity: entity.into(),
-                stops: 0..0,
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
             });
+            continue;
+        }
+
+        for stop_pair in stops.0.windows(2) {
+            extracted_linear_gradients
+                .items
+                .push(ExtractedLinearGradient {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    stack_index: uinode.stack_index,
+                    transform: transform.compute_matrix(),
+                    start: stop_pair[0].1,
+                    start_color: stop_pair[0].0.into(),
+                    end: stop_pair[1].1,
+                    end_color: stop_pair[0].0.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    clip: clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    main_entity: entity.into(),
+                    node_type: NodeType::Rect,
+                    border_radius: uinode.border_radius,
+                    border: uinode.border,
+                });
+        }
     }
 }
 
@@ -353,6 +381,22 @@ pub fn queue_linear_gradient(
     }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Pod, Zeroable)]
+struct UiGradientVertex {
+    position: [f32; 3],
+    uv: [f32; 2],
+    flags: u32,
+    radius: [f32; 4],
+    border: [f32; 4],
+    size: [f32; 2],
+    point: [f32; 2],
+    start_color: [f32; 4],
+    start_len: f32,
+    end_len: f32,
+    end_color: [f32; 4],
+}
+
 pub fn prepare_linear_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -361,9 +405,7 @@ pub fn prepare_linear_gradient(
     mut extracted_gradients: ResMut<ExtractedLinearGradients>,
     view_uniforms: Res<ViewUniforms>,
     linear_gradients_pipeline: Res<LinearGradientPipeline>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
     mut phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
-    events: Res<SpriteAssetEvents>,
     mut previous_len: Local<usize>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
@@ -383,94 +425,39 @@ pub fn prepare_linear_gradient(
 
         for ui_phase in phases.values_mut() {
             let mut batch_item_index = 0;
-            let mut batch_image_handle = AssetId::invalid();
             let mut batch_image_size = Vec2::ZERO;
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(texture_slices) = extracted_gradients
+                if let Some(gradient) = extracted_gradients
                     .items
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     let mut existing_batch = batches.last_mut();
 
-                    if batch_image_handle == AssetId::invalid()
-                        || existing_batch.is_none()
-                        || (batch_image_handle != AssetId::default()
-                            && texture_slices.image != AssetId::default()
-                            && batch_image_handle != texture_slices.image)
-                        || existing_batch.as_ref().map(|(_, b)| b.camera)
-                            != Some(texture_slices.extracted_camera_entity)
-                    {
-                        if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
-                            batch_item_index = item_index;
-                            batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size_2d().as_vec2();
+                    if existing_batch.is_none() {
+                        let new_batch = LinearGradientBatch {
+                            range: vertices_index..vertices_index,
+                        };
 
-                            let new_batch = LinearGradientBatch {
-                                range: vertices_index..vertices_index,
-                                image: texture_slices.image,
-                                camera: texture_slices.extracted_camera_entity,
-                            };
+                        batches.push((item.entity(), new_batch));
 
-                            batches.push((item.entity(), new_batch));
-
-                            image_bind_groups
-                                .values
-                                .entry(batch_image_handle)
-                                .or_insert_with(|| {
-                                    render_device.create_bind_group(
-                                        "ui_texture_slice_image_layout",
-                                        &linear_gradients_pipeline.image_layout,
-                                        &BindGroupEntries::sequential((
-                                            &gpu_image.texture_view,
-                                            &gpu_image.sampler,
-                                        )),
-                                    )
-                                });
-
-                            existing_batch = batches.last_mut();
-                        } else {
-                            continue;
-                        }
-                    } else if batch_image_handle == AssetId::default()
-                        && texture_slices.image != AssetId::default()
-                    {
-                        if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
-                            batch_image_handle = texture_slices.image;
-                            batch_image_size = gpu_image.size_2d().as_vec2();
-                            existing_batch.as_mut().unwrap().1.image = texture_slices.image;
-
-                            image_bind_groups
-                                .values
-                                .entry(batch_image_handle)
-                                .or_insert_with(|| {
-                                    render_device.create_bind_group(
-                                        "ui_texture_slice_image_layout",
-                                        &linear_gradients_pipeline.image_layout,
-                                        &BindGroupEntries::sequential((
-                                            &gpu_image.texture_view,
-                                            &gpu_image.sampler,
-                                        )),
-                                    )
-                                });
-                        } else {
-                            continue;
-                        }
+                        existing_batch = batches.last_mut();
                     }
 
-                    let uinode_rect = texture_slices.rect;
+                    let uinode_rect = gradient.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
 
                     // Specify the corners of the node
                     let positions = QUAD_VERTEX_POSITIONS
-                        .map(|pos| (texture_slices.transform * (pos * rect_size).extend(1.)).xyz());
+                        .map(|pos| (gradient.transform * (pos * rect_size).extend(1.)).xyz());
+                    let points = QUAD_VERTEX_POSITIONS.map(|pos| pos.xy() * rect_size.xy());
 
                     // Calculate the effect of clipping
                     // Note: this won't work with rotation/scaling, but that's much more complex (may need more that 2 quads)
-                    let positions_diff = if let Some(clip) = texture_slices.clip {
+                    let positions_diff = if let Some(clip) = gradient.clip {
                         [
                             Vec2::new(
                                 f32::max(clip.min.x - positions[0].x, 0.),
@@ -500,8 +487,14 @@ pub fn prepare_linear_gradient(
                         positions[3] + positions_diff[3].extend(0.),
                     ];
 
-                    let transformed_rect_size =
-                        texture_slices.transform.transform_vector3(rect_size);
+                    let points = [
+                        points[0] + positions_diff[0],
+                        points[1] + positions_diff[1],
+                        points[2] + positions_diff[2],
+                        points[3] + positions_diff[3],
+                    ];
+
+                    let transformed_rect_size = gradient.transform.transform_vector3(rect_size);
 
                     // Don't try to cull nodes that have a rotation
                     // In a rotation around the Z-axis, this value is 0.0 for an angle of 0.0 or π
@@ -509,7 +502,7 @@ pub fn prepare_linear_gradient(
                     // horizontal / vertical lines
                     // For all other angles, bypass the culling check
                     // This does not properly handles all rotations on all axis
-                    if texture_slices.transform.x_axis[1] == 0.0 {
+                    if gradient.transform.x_axis[1] == 0.0 {
                         // Cull nodes that are completely clipped
                         if positions_diff[0].x - positions_diff[1].x >= transformed_rect_size.x
                             || positions_diff[1].y - positions_diff[2].y >= transformed_rect_size.y
@@ -517,76 +510,41 @@ pub fn prepare_linear_gradient(
                             continue;
                         }
                     }
-                    let flags = if texture_slices.image != AssetId::default() {
-                        shader_flags::TEXTURED
+
+                    let uvs = { [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y] };
+
+                    let start_color = gradient.start_color.to_f32_array();
+                    let end_color = gradient.end_color.to_f32_array();
+
+                    let flags = if gradient.node_type == NodeType::Border {
+                        shader_flags::BORDER
                     } else {
-                        shader_flags::UNTEXTURED
+                        0
                     };
-
-                    let uvs = if flags == shader_flags::UNTEXTURED {
-                        [Vec2::ZERO, Vec2::X, Vec2::ONE, Vec2::Y]
-                    } else {
-                        let atlas_extent = uinode_rect.max;
-                        [
-                            Vec2::new(
-                                uinode_rect.min.x + positions_diff[0].x,
-                                uinode_rect.min.y + positions_diff[0].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.max.x + positions_diff[1].x,
-                                uinode_rect.min.y + positions_diff[1].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.max.x + positions_diff[2].x,
-                                uinode_rect.max.y + positions_diff[2].y,
-                            ),
-                            Vec2::new(
-                                uinode_rect.min.x + positions_diff[3].x,
-                                uinode_rect.max.y + positions_diff[3].y,
-                            ),
-                        ]
-                        .map(|pos| pos / atlas_extent)
-                    };
-
-                    let color = texture_slices.color.to_f32_array();
-
-                    let (image_size, mut atlas) = if let Some(atlas) = texture_slices.atlas_rect {
-                        (
-                            atlas.size(),
-                            [
-                                atlas.min.x / batch_image_size.x,
-                                atlas.min.y / batch_image_size.y,
-                                atlas.max.x / batch_image_size.x,
-                                atlas.max.y / batch_image_size.y,
-                            ],
-                        )
-                    } else {
-                        (batch_image_size, [0., 0., 1., 1.])
-                    };
-
-                    if texture_slices.flip_x {
-                        atlas.swap(0, 2);
-                    }
-
-                    if texture_slices.flip_y {
-                        atlas.swap(1, 3);
-                    }
-
-                    let [slices, border, repeat] = compute_texture_slices(
-                        image_size,
-                        uinode_rect.size() * texture_slices.inverse_scale_factor,
-                        &texture_slices.image_scale_mode,
-                    );
 
                     for i in 0..4 {
-                        ui_meta.vertices.push(UiTextureSliceVertex {
+                        ui_meta.vertices.push(UiGradientVertex {
                             position: positions_clipped[i].into(),
                             uv: uvs[i].into(),
-                            color,
-                            slices,
-                            border,
-                            repeat,
-                            atlas,
+                            flags: flags | shader_flags::CORNERS[i],
+                            radius: [
+                                gradient.border_radius.top_left,
+                                gradient.border_radius.top_right,
+                                gradient.border_radius.bottom_right,
+                                gradient.border_radius.bottom_left,
+                            ],
+                            border: [
+                                gradient.border.left,
+                                gradient.border.top,
+                                gradient.border.right,
+                                gradient.border.bottom,
+                            ],
+                            size: rect_size.xy().into(),
+                            point: points[i].into(),
+                            start_color,
+                            start_len: gradient.start,
+                            end_len: gradient.end,
+                            end_color,
                         });
                     }
 
@@ -594,13 +552,17 @@ pub fn prepare_linear_gradient(
                         ui_meta.indices.push(indices_index + i as u32);
                     }
 
+                    batches.push((
+                        item.entity(),
+                        LinearGradientBatch {
+                            range: vertices_index..vertices_index + 6,
+                        },
+                    ));
+
                     vertices_index += 6;
                     indices_index += 4;
 
-                    existing_batch.unwrap().1.range.end = vertices_index;
-                    ui_phase.items[batch_item_index].batch_range_mut().end += 1;
-                } else {
-                    batch_image_handle = AssetId::invalid();
+                    ui_phase.items[batch_item_index].batch_range_mut().end = 1;
                 }
             }
         }

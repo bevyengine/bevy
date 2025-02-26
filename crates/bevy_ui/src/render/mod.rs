@@ -863,7 +863,7 @@ pub fn extract_text_shadows(
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 transform: transform * Mat4::from_translation(position.extend(0.)),
                 rect,
-            });s
+            });
 
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture

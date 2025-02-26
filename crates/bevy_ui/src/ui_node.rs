@@ -2,7 +2,7 @@ use crate::{FocusPolicy, UiRect, Val};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
+use bevy_math::{vec4, FloatOrd, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
@@ -13,7 +13,7 @@ use bevy_sprite::BorderRect;
 use bevy_transform::components::Transform;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
-use core::num::NonZero;
+use core::{f32, num::NonZero};
 use derive_more::derive::From;
 use smallvec::SmallVec;
 use thiserror::Error;
@@ -2823,13 +2823,105 @@ impl Default for TextShadow {
     }
 }
 
+/// A color stop for a gradient
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub struct ColorStop {
+    /// color
     pub color: Color,
+    /// logical distance along the gradient line
     pub stop: Val,
 }
 
+impl From<(Color, Val)> for ColorStop {
+    fn from((color, stop): (Color, Val)) -> Self {
+        Self { color, stop }
+    }
+}
+
+impl From<Color> for ColorStop {
+    fn from(color: Color) -> Self {
+        Self {
+            color,
+            stop: Val::ZERO,
+        }
+    }
+}
+
+/// A list of color stops defining a gradient
+#[derive(Component, Default)]
+#[require(ComputedColorStops)]
+pub struct ColorStops(pub Vec<ColorStop>);
+
+impl ColorStops {
+    pub fn resolve(&self, extent: f32, viewport_size: Vec2, out: &mut Vec<(Color, f32)>) {
+        out.clear();
+
+        if self.0.is_empty() {
+            return;
+        }
+
+        out.extend(self.0.iter().map(|ColorStop { color, stop }| {
+            (*color, stop.resolve(extent, viewport_size).unwrap_or(0.))
+        }));
+
+        out.sort_by_key(|(_, resolved_stop)| FloatOrd(*resolved_stop));
+    }
+}
+
+/// A sorted list of physical color stops
+#[derive(Component, Default)]
+pub struct ComputedColorStops(pub Vec<(Color, f32)>);
+
+impl ComputedColorStops {
+    /// Transform a list of logical color stops to physical color stops and sort them by distance
+    pub fn compute_from<'a>(
+        &mut self,
+        stops: impl Iterator<Item = &'a ColorStop>,
+        extent: f32,
+        viewport_size: Vec2,
+        scale_factor: f32,
+    ) {
+        self.0.clear();
+
+        self.0.extend(stops.map(|ColorStop { color, stop }| {
+            (
+                *color,
+                stop.resolve(extent, viewport_size).unwrap_or(0.) * scale_factor,
+            )
+        }));
+
+        self.0
+            .sort_by_key(|(_, resolved_stop)| FloatOrd(*resolved_stop));
+    }
+}
+
 #[derive(Component)]
+#[require(ColorStops)]
 pub struct LinearGradient {
+    // angle of the gradient line in radians
     pub angle: f32,
-    pub color_stops: Vec<ColorStop>,
+}
+
+impl LinearGradient {
+    pub fn compute_start_point(&self, rect: Rect) -> Vec2 {
+        let Vec2 { x: dx, y: dy } = Vec2::from_angle(self.angle);
+
+        let scale_x = if dx != 0.0 {
+            rect.width() / (2.0 * dx.abs())
+        } else {
+            f32::INFINITY
+        };
+        let scale_y = if dy != 0.0 {
+            rect.height() / (2.0 * dy.abs())
+        } else {
+            f32::INFINITY
+        };
+        let scale = scale_x.min(scale_y);
+
+        rect.min
+            + Vec2::new(
+                rect.width() / 2.0 - dx * scale,
+                rect.height() / 2.0 - dy * scale,
+            )
+    }
 }
