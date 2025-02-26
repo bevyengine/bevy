@@ -2,10 +2,7 @@ use alloc::vec::Vec;
 use core::mem::MaybeUninit;
 
 use crate::{
-    entity::{
-        hash_map::EntityHashMap, hash_set::EntityHashSet, Entity, EntityDoesNotExistError,
-        UniqueEntitySlice,
-    },
+    entity::{hash_map::EntityHashMap, hash_set::EntityHashSet, Entity, EntityDoesNotExistError},
     query::{QueryData, QueryEntityError, QueryFilter, QueryItem},
     system::Query,
     world::{
@@ -376,9 +373,13 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
             }
         }
 
-        // SAFETY: We checked for duplicates above
-        let entities = unsafe { UniqueEntitySlice::from_slice_unchecked(self) };
-        Ok(query.iter_many_unique_inner(entities).collect())
+        let mut refs = Vec::with_capacity(self.len());
+        for &id in self {
+            // SAFETY: We ensured that every entity is distinct
+            refs.push(unsafe { query.get_inner_unsafe(id) }?);
+        }
+
+        Ok(refs)
     }
 }
 
