@@ -13,7 +13,7 @@ use ui_test::{
     run_tests_generic,
     spanned::Spanned,
     status_emitter::{Gha, StatusEmitter, Text},
-    Args, Config, OutputConflictHandling,
+    Args, Config,
 };
 
 /// Use this instead of hand rolling configs.
@@ -44,30 +44,35 @@ fn basic_config(root_dir: impl Into<PathBuf>, args: &Args) -> ui_test::Result<Co
                 .to_string(),
         ),
         output_conflict_handling: if env::var_os("BLESS").is_some() {
-            OutputConflictHandling::Bless
+            ui_test::bless_output_files
         } else {
-            // stderr output changes between rust versions so we just rely on annotations
-            OutputConflictHandling::Ignore
+            ui_test::error_on_output_conflict
         },
         ..Config::rustc(root_dir)
     };
 
     config.with_args(args);
 
+    // Window paths (cargo should already be doing this, but just in case).
+    config.stderr_filter(r"\\", "/");
+    // Replace line and column numbers (regex patterns shamelessly stolen from miri).
+    config.stderr_filter(r"\.rs:[0-9]+:[0-9]+(: [0-9]+:[0-9]+)?", ".rs:LL:CC");
+    // Replace stdlib path (stolen from miri again).
+    config.stderr_filter(
+        r"[^ \n`]*/(?:rust[^/]*|checkout|[0-9a-fA-F]*)/library/",
+        "RUSTLIB/",
+    );
+    // Replace long type file names since they contain random numbers
+    config.stderr_filter(r"[\p{L}\p{N}_]+\.long-type-\d+\.txt", "long-type.sr'");
+    // The number of spaces in diagnostics isn't consistent across platforms
+    config.stderr_filter(r"\n +-->", "\n  -->");
+    config.stderr_filter(r"\n\d+ +\|", "\nLL |");
+    config.stderr_filter(r"\n +\|", "\n   |");
+
     let bevy_root = "..";
 
     // Don't leak contributor filesystem paths
-    config.path_stderr_filter(Path::new(bevy_root), b"$BEVY_ROOT");
-    config.path_stderr_filter(Path::new(env!("RUSTUP_HOME")), b"$RUSTUP_HOME");
-
-    // ui_test doesn't compile regex with perl character classes.
-    // \pL = unicode class for letters, \pN = unicode class for numbers
-    config.stderr_filter(r"\/home\/[\pL\pN_@#\-\. ]+", "$HOME");
-    // Paths in .stderr seem to always be normalized to use /. Handle both anyway.
-    config.stderr_filter(
-        r"[a-zA-Z]:(?:\\|\/)users(?:\\|\/)[\pL\pN_@#\-\. ]+", // NOTE: [\pL\pN_@#\-\. ] is a poor attempt at handling usernames
-        "$HOME",
-    );
+    config.path_stderr_filter(Path::new(bevy_root), b"BEVY_ROOT");
 
     // Manually insert @aux-build:<dep> comments into test files. This needs to
     // be done to build and link dependencies. Dependencies will be pulled from a
