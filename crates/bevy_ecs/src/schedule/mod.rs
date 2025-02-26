@@ -29,7 +29,6 @@ mod tests {
     use alloc::{string::ToString, vec, vec::Vec};
     use core::sync::atomic::{AtomicU32, Ordering};
 
-    pub use crate as bevy_ecs;
     pub use crate::{
         prelude::World,
         resource::Resource,
@@ -730,8 +729,6 @@ mod tests {
         use alloc::collections::BTreeSet;
 
         use super::*;
-        // Required to make the derive macro behave
-        use crate as bevy_ecs;
         use crate::prelude::*;
 
         #[derive(Resource)]
@@ -1195,7 +1192,7 @@ mod tests {
                 let mut schedule = Schedule::new(TestSchedule);
                 schedule
                     .set_executor_kind($executor)
-                    .add_systems(|| panic!("Executor ignored Stepping"));
+                    .add_systems(|| -> () { panic!("Executor ignored Stepping") });
 
                 // Add our schedule to stepping & and enable stepping; this should
                 // prevent any systems in the schedule from running

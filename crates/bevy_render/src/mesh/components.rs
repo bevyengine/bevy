@@ -150,3 +150,8 @@ pub fn mark_3d_meshes_as_changed_if_their_assets_changed(
         }
     }
 }
+
+/// A component that stores an arbitrary index used to identify the mesh instance when rendering.
+#[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq)]
+#[reflect(Component, Default)]
+pub struct MeshTag(pub u32);

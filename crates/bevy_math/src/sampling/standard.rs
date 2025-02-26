@@ -12,7 +12,7 @@
 //! let random_direction1: Dir3 = random();
 //!
 //! // Random direction using the rng constructed above
-//! let random_direction2: Dir3 = rng.gen();
+//! let random_direction2: Dir3 = rng.r#gen();
 //!
 //! // The same as the previous but with different syntax
 //! let random_direction3 = Dir3::from_rng(&mut rng);
@@ -49,7 +49,7 @@ where
 {
     /// Construct a value of this type uniformly at random using `rng` as the source of randomness.
     fn from_rng<R: Rng + ?Sized>(rng: &mut R) -> Self {
-        rng.gen()
+        rng.r#gen()
     }
 }
 

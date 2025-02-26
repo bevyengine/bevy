@@ -2,12 +2,13 @@
 
 use ddsfile::{Caps2, D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::TextureViewDescriptor;
-use wgpu_types::{Extent3d, TextureDimension, TextureFormat, TextureViewDimension};
+use wgpu_types::{
+    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+};
 #[cfg(debug_assertions)]
 use {bevy_utils::once, tracing::warn};
 
-use super::{CompressedImageFormats, Image, TextureError};
+use super::{CompressedImageFormats, Image, TextureError, TranscodeFormat};
 
 #[cfg(feature = "dds")]
 pub fn dds_buffer_to_image(
@@ -19,7 +20,18 @@ pub fn dds_buffer_to_image(
     let mut cursor = Cursor::new(buffer);
     let dds = Dds::read(&mut cursor)
         .map_err(|error| TextureError::InvalidData(format!("Failed to parse DDS file: {error}")))?;
-    let texture_format = dds_format_to_texture_format(&dds, is_srgb)?;
+    let (texture_format, transcode_format) = match dds_format_to_texture_format(&dds, is_srgb) {
+        Ok(format) => (format, None),
+        Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8)) => {
+            let format = if is_srgb {
+                TextureFormat::Bgra8UnormSrgb
+            } else {
+                TextureFormat::Bgra8Unorm
+            };
+            (format, Some(TranscodeFormat::Rgb8))
+        }
+        Err(error) => return Err(error),
+    };
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
             "Format not supported by this GPU: {texture_format:?}",
@@ -65,10 +77,14 @@ pub fn dds_buffer_to_image(
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
         TextureDimension::D3
-    } else if image.is_compressed() || dds.get_height() > 1 {
-        TextureDimension::D2
-    } else {
+    // 1x1 textures should generally be interpreted as solid 2D
+    } else if ((dds.get_width() > 1 || dds.get_height() > 1)
+        && !(dds.get_width() > 1 && dds.get_height() > 1))
+        && !image.is_compressed()
+    {
         TextureDimension::D1
+    } else {
+        TextureDimension::D2
     };
     if is_cubemap {
         let dimension = if image.texture_descriptor.size.depth_or_array_layers > 6 {
@@ -81,7 +97,29 @@ pub fn dds_buffer_to_image(
             ..Default::default()
         });
     }
-    image.data = dds.data;
+
+    // DDS mipmap layout is directly compatible with wgpu's layout (Slice -> Face -> Mip):
+    // https://learn.microsoft.com/fr-fr/windows/win32/direct3ddds/dx-graphics-dds-reference
+    image.data = if let Some(transcode_format) = transcode_format {
+        match transcode_format {
+            TranscodeFormat::Rgb8 => {
+                let data = dds
+                    .data
+                    .chunks_exact(3)
+                    .flat_map(|pixel| [pixel[0], pixel[1], pixel[2], u8::MAX])
+                    .collect();
+                Some(data)
+            }
+            _ => {
+                return Err(TextureError::TranscodeError(format!(
+                    "unsupported transcode from {transcode_format:?} to {texture_format:?}"
+                )))
+            }
+        }
+    } else {
+        Some(dds.data)
+    };
+
     Ok(image)
 }
 
@@ -107,6 +145,9 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bgra8Unorm
                 }
             }
+            D3DFormat::R8G8B8 => {
+                return Err(TextureError::FormatRequiresTranscodingError(TranscodeFormat::Rgb8));
+            },
             D3DFormat::G16R16 => TextureFormat::Rg16Uint,
             D3DFormat::A2B10G10R10 => TextureFormat::Rgb10a2Unorm,
             D3DFormat::A8L8 => TextureFormat::Rg8Uint,
@@ -148,7 +189,6 @@ pub fn dds_format_to_texture_format(
             // FIXME: Map to argb format and user has to know to ignore the alpha channel?
             | D3DFormat::X8B8G8R8
             | D3DFormat::A2R10G10B10
-            | D3DFormat::R8G8B8
             | D3DFormat::X1R5G5B5
             | D3DFormat::A4R4G4B4
             | D3DFormat::X4R4G4B4
@@ -283,8 +323,7 @@ pub fn dds_format_to_texture_format(
 
 #[cfg(test)]
 mod test {
-    use wgpu::util::TextureDataOrder;
-    use wgpu_types::{TextureDescriptor, TextureDimension, TextureFormat};
+    use wgpu_types::{TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat};
 
     use crate::CompressedImageFormats;
 
@@ -373,7 +412,7 @@ mod test {
         let r = dds_buffer_to_image("".into(), &buffer, CompressedImageFormats::BC, true);
         assert!(r.is_ok());
         if let Ok(r) = r {
-            fake_wgpu_create_texture_with_data(&r.texture_descriptor, &r.data);
+            fake_wgpu_create_texture_with_data(&r.texture_descriptor, r.data.as_ref().unwrap());
         }
     }
 }
