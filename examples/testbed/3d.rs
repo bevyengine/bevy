@@ -25,7 +25,16 @@ fn main() {
             (deferred::setup, deferred::deferred_camera_setup).chain(),
         )
         .add_systems(
-            OnEnter(Scene::RemovePrepass),
+            OnEnter(Scene::RemoveForwardPrepass),
+            (
+                deferred::setup,
+                deferred::forward_prepass_camera_setup,
+                deferred::remove_prepass_timer_init,
+            )
+                .chain(),
+        )
+        .add_systems(
+            OnEnter(Scene::RemoveDeferredPrepass),
             (
                 deferred::setup,
                 deferred::deferred_camera_setup,
@@ -60,7 +69,8 @@ enum Scene {
     Forward,
     ForwardPrepass,
     Deferred,
-    RemovePrepass,
+    RemoveForwardPrepass,
+    RemoveDeferredPrepass,
 }
 
 impl Next for Scene {
@@ -72,8 +82,9 @@ impl Next for Scene {
             Scene::Animation => Scene::Forward,
             Scene::Forward => Scene::ForwardPrepass,
             Scene::ForwardPrepass => Scene::Deferred,
-            Scene::Deferred => Scene::RemovePrepass,
-            Scene::RemovePrepass => Scene::Light,
+            Scene::Deferred => Scene::RemoveForwardPrepass,
+            Scene::RemoveForwardPrepass => Scene::RemoveDeferredPrepass,
+            Scene::RemoveDeferredPrepass => Scene::Light,
         }
     }
 }
@@ -570,13 +581,25 @@ mod deferred {
         mut commands: Commands,
         camera: Single<Entity, With<Camera>>,
         mut parallax_cube: Single<&mut Transform, With<ParallaxCube>>,
+        scene: Res<State<super::Scene>>,
     ) {
-        commands
-            .entity(*camera)
-            .remove::<DepthPrepass>()
-            .remove::<MotionVectorPrepass>()
-            .remove::<DeferredPrepass>();
-
+        match scene.get() {
+            super::Scene::RemoveForwardPrepass => {
+                commands
+                    .entity(*camera)
+                    .remove::<NormalPrepass>()
+                    .remove::<DepthPrepass>()
+                    .remove::<MotionVectorPrepass>();
+            }
+            super::Scene::RemoveDeferredPrepass => {
+                commands
+                    .entity(*camera)
+                    .remove::<DepthPrepass>()
+                    .remove::<MotionVectorPrepass>()
+                    .remove::<DeferredPrepass>();
+            }
+            _ => unreachable!("This system should only run on Scene::RemoveForwardPrepass or Scene::RemoveDeferredPrepass"),
+        }
         parallax_cube.rotate_z(std::f32::consts::FRAC_PI_3);
     }
 }
