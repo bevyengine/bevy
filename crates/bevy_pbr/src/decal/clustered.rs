@@ -107,13 +107,9 @@ pub enum CubemapLayout {
     CrossVertical = 0,
     /// layout in a horizontal cross format
     ///    +y
-    /// -x -z +x
+    /// -x -z +x +z
     ///    -y
-    ///    +z
     CrossHorizontal = 1,
-    /// layout in a horizontal sequence
-    /// +x -y +y -y -z +z
-    SequenceVertical = 2,
     /// layout in a vertical sequence
     ///   +x
     ///   -y
@@ -121,6 +117,9 @@ pub enum CubemapLayout {
     ///   -y
     ///   -z
     ///   +z
+    SequenceVertical = 2,
+    /// layout in a horizontal sequence
+    /// +x -y +y -y -z +z
     SequenceHorizontal = 3,
 }
 
