@@ -3,7 +3,9 @@
 
 use std::fmt;
 
-use bevy::{image::ImageLoaderSettings, math::ops, prelude::*, render::mesh::TangentStrategy};
+use bevy::{
+    image::ImageLoaderSettings, math::ops, prelude::*, render::mesh::TangentCalculationStrategy,
+};
 
 fn main() {
     App::new()
@@ -267,7 +269,7 @@ fn setup(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
                 Mesh::from(Cuboid::default())
-                    .with_computed_tangents(TangentStrategy::HighQuality)
+                    .with_computed_tangents(TangentCalculationStrategy::HighQuality)
                     .unwrap(),
             ),
         ),
@@ -277,7 +279,7 @@ fn setup(
 
     let background_cube = meshes.add(
         Mesh::from(Cuboid::new(40.0, 40.0, 40.0))
-            .with_computed_tangents(TangentStrategy::HighQuality)
+            .with_computed_tangents(TangentCalculationStrategy::HighQuality)
             .unwrap(),
     );
 
