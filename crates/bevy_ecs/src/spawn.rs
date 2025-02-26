@@ -271,16 +271,16 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
 /// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:
 ///
 /// 1. Contains the [`RelationshipTarget`] component, pre-allocated with the necessary space for spawned entities.
-/// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Relationship`].
+/// 2. Spawns an entity (or a list of entities) that relate to the entity the [`Bundle`] is added to via the [`RelationshipTarget::Source`].
 pub trait SpawnRelated: RelationshipTarget {
     /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a [`SpawnableList`] of entities, each related to the bundle's entity
-    /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
+    /// via [`RelationshipTarget::Source`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
     ///
     /// See [`Spawn`], [`SpawnIter`], and [`SpawnWith`] for usage examples.
     fn spawn<L: SpawnableList<Self::Source>>(list: L) -> SpawnRelatedBundle<Self::Source, L>;
 
     /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a single entity containing [`Bundle`] that is related to the bundle's entity
-    /// via [`RelationshipTarget::Relationship`].
+    /// via [`RelationshipTarget::Source`].
     ///
     /// ```
     /// # use bevy_ecs::hierarchy::Children;
@@ -313,9 +313,9 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 }
 
 /// Returns a [`SpawnRelatedBundle`] that will insert the given [`RelationshipTarget`], spawn a [`SpawnableList`] of entities with given bundles that
-/// relate to the [`RelationshipTarget`] entity via the [`RelationshipTarget::Relationship`] component, and reserve space in the [`RelationshipTarget`] for each spawned entity.
+/// relate to the [`RelationshipTarget`] entity via the [`RelationshipTarget::Source`] component, and reserve space in the [`RelationshipTarget`] for each spawned entity.
 ///
-/// The first argument is the [`RelationshipTarget`] type. Any additional arguments will be interpreted as bundles to be spawned.
+/// The first argument is the [`RelationshipTarget`] type. Any additional arguments will be interp  reted as bundles to be spawned.
 ///
 /// Also see [`children`](crate::children) for a [`Children`](crate::hierarchy::Children)-specific equivalent.
 ///
