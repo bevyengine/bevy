@@ -14,6 +14,8 @@ use alloc::{borrow::Cow, vec, vec::Vec};
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
+use super::SystemMetaProvider;
+
 /// A function system that runs with exclusive [`World`] access.
 ///
 /// You get this by calling [`IntoSystem::into_system`]  on a function that only accepts
@@ -183,6 +185,32 @@ where
 
     fn set_last_run(&mut self, last_run: Tick) {
         self.system_meta.last_run = last_run;
+    }
+}
+
+impl<Marker, F> SystemMetaProvider for ExclusiveFunctionSystem<Marker, F>
+where
+    Marker: 'static,
+    F: ExclusiveSystemParamFunction<Marker>,
+{
+    fn system_metas(&self) -> Vec<&SystemMeta> {
+        let mut vec: Vec<&SystemMeta> = Vec::new();
+        self.extend_with_system_metas(&mut vec);
+        vec
+    }
+
+    fn system_metas_mut(&mut self) -> Vec<&mut SystemMeta> {
+        let mut vec: Vec<&mut SystemMeta> = Vec::new();
+        self.extend_with_system_metas_mut(&mut vec);
+        vec
+    }
+
+    fn extend_with_system_metas<'a>(&'a self, vec: &mut Vec<&'a SystemMeta>) {
+        vec.push(&self.system_meta);
+    }
+
+    fn extend_with_system_metas_mut<'a>(&'a mut self, vec_mut: &mut Vec<&'a mut SystemMeta>) {
+        vec_mut.push(&mut self.system_meta);
     }
 }
 
