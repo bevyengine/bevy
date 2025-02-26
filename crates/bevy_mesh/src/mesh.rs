@@ -2,10 +2,10 @@ use bevy_transform::components::Transform;
 pub use wgpu_types::PrimitiveTopology;
 
 use super::{
-    face_area_normal, face_normal, generate_tangents_for_mesh, scale_normal, FourIterators,
-    GenerateTangentsError, Indices, MeshAttributeData, MeshTrianglesError, MeshVertexAttribute,
-    MeshVertexAttributeId, MeshVertexBufferLayout, MeshVertexBufferLayoutRef,
-    MeshVertexBufferLayouts, MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
+    face_area_normal, face_normal, gramschmidt, mikktspace, scale_normal, FourIterators, Indices,
+    MeshAttributeData, MeshTrianglesError, MeshVertexAttribute, MeshVertexAttributeId,
+    MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts,
+    MeshWindingInvertError, VertexAttributeValues, VertexBufferLayout,
 };
 use alloc::collections::BTreeMap;
 use bevy_asset::{Asset, Handle, RenderAssetUsages};
@@ -774,8 +774,25 @@ impl Mesh {
     ///
     /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    #[deprecated(since = "0.16.0", note = "use compute_tangents")]
     pub fn generate_tangents(&mut self) -> Result<(), GenerateTangentsError> {
-        let tangents = generate_tangents_for_mesh(self)?;
+        self.compute_tangents(TangentStrategy::HighQuality)?;
+        Ok(())
+    }
+
+    /// Generate tangents for the mesh using the given algorithm.
+    ///
+    /// Sets the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    ///
+    /// See [`TangentStrategy`] for mesh topology and attribute requirements.
+    pub fn compute_tangents(
+        &mut self,
+        tangent_strategy: TangentStrategy,
+    ) -> Result<(), GenerateTangentsError> {
+        let tangents = match tangent_strategy {
+            TangentStrategy::HighQuality => mikktspace::generate_tangents_for_mesh(self)?,
+            TangentStrategy::FastApproximation => gramschmidt::generate_tangents_for_mesh(self)?,
+        };
         self.insert_attribute(Mesh::ATTRIBUTE_TANGENT, tangents);
         Ok(())
     }
@@ -787,8 +804,25 @@ impl Mesh {
     /// (Alternatively, you can use [`Mesh::generate_tangents`] to mutate an existing mesh in-place)
     ///
     /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    #[expect(deprecated, reason = "preserve old behavior until removal")]
+    #[deprecated(since = "0.16.0", note = "use with_computed_tangents")]
     pub fn with_generated_tangents(mut self) -> Result<Mesh, GenerateTangentsError> {
         self.generate_tangents()?;
+        Ok(self)
+    }
+
+    /// Consumes the mesh and returns a mesh with tangents generated using the given algorithm.
+    ///
+    /// The resulting mesh will have the [`Mesh::ATTRIBUTE_TANGENT`] attribute if successful.
+    ///
+    /// (Alternatively, you can use [`Mesh::compute_tangents`] to mutate an existing mesh in-place)
+    ///
+    /// See [`TangentStrategy`] for mesh topology and attribute requirements.
+    pub fn with_computed_tangents(
+        mut self,
+        tangent_strategy: TangentStrategy,
+    ) -> Result<Mesh, GenerateTangentsError> {
+        self.compute_tangents(tangent_strategy)?;
         Ok(self)
     }
 
@@ -1234,6 +1268,35 @@ impl core::ops::Mul<Mesh> for Transform {
     fn mul(self, rhs: Mesh) -> Self::Output {
         rhs.transformed_by(self)
     }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Default)]
+/// The strategy to use when computing mesh tangents. Defaults to `HighQuality`.
+pub enum TangentStrategy {
+    /// Uses the Morten S. Mikkelsen "mikktspace" algorithm. Produces potentially higher quality tangents, but much slower.
+    ///
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    #[default]
+    HighQuality,
+    /// Uses the Gram-Schmidt fast approximation algorithm. Produces potentially lower quality tangents, but very fast.
+    ///
+    /// Requires a [`PrimitiveTopology::TriangleList`] topology and the [`Mesh::ATTRIBUTE_POSITION`], [`Mesh::ATTRIBUTE_NORMAL`] and [`Mesh::ATTRIBUTE_UV_0`] attributes set.
+    FastApproximation,
+}
+
+#[derive(Error, Debug)]
+/// Failed to generate tangents for the mesh.
+pub enum GenerateTangentsError {
+    #[error("cannot generate tangents for {0:?}")]
+    UnsupportedTopology(PrimitiveTopology),
+    #[error("missing indices")]
+    MissingIndices,
+    #[error("missing vertex attributes '{0}'")]
+    MissingVertexAttribute(&'static str),
+    #[error("the '{0}' vertex attribute should have {1:?} format")]
+    InvalidVertexAttributeFormat(&'static str, VertexFormat),
+    #[error("mesh not suitable for tangent generation")]
+    AlgorithmError,
 }
 
 /// Error that can occur when calling [`Mesh::merge`].

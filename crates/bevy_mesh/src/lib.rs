@@ -4,6 +4,7 @@ extern crate alloc;
 extern crate core;
 
 mod conversions;
+mod gramschmidt;
 mod index;
 mod mesh;
 mod mikktspace;
@@ -14,7 +15,7 @@ mod vertex;
 use bitflags::bitflags;
 pub use index::*;
 pub use mesh::*;
-pub use mikktspace::*;
+use mikktspace::*;
 pub use primitives::*;
 pub use vertex::*;
 pub use wgpu_types::VertexFormat;
