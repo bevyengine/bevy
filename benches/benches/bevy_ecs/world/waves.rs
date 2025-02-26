@@ -38,7 +38,7 @@ macro_rules! expand_benches {
                 bencher.iter(|| {
                     let mut world = World::default();
                     let mut entities = Vec::with_capacity($bench.entities as usize);
-                    for _ in 0..($bench.waves - 1) {
+                    for _ in 0..$bench.waves {
                         entities
                             .extend(world.spawn_batch(
                                 (0..$bench.entities).map(|_| <$component>::default()),
