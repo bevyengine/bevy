@@ -24,7 +24,24 @@ fn main() {
             OnEnter(Scene::Deferred),
             (deferred::setup, deferred::deferred_camera_setup).chain(),
         )
-        .add_systems(Update, switch_scene);
+        .add_systems(
+            OnEnter(Scene::RemovePrepass),
+            (
+                deferred::setup,
+                deferred::deferred_camera_setup,
+                deferred::remove_prepass_timer_init,
+            )
+                .chain(),
+        )
+        .add_systems(Update, switch_scene)
+        .add_systems(
+            Update,
+            (
+                deferred::remove_prepass.run_if(resource_removed::<deferred::RemovePrepassTimer>),
+                deferred::remove_prepass_timer_tick
+                    .run_if(resource_exists::<deferred::RemovePrepassTimer>),
+            ),
+        );
 
     #[cfg(feature = "bevy_ci_testing")]
     app.add_systems(Update, helpers::switch_scene_in_ci::<Scene>);
@@ -43,6 +60,7 @@ enum Scene {
     Forward,
     ForwardPrepass,
     Deferred,
+    RemovePrepass,
 }
 
 impl Next for Scene {
@@ -54,7 +72,8 @@ impl Next for Scene {
             Scene::Animation => Scene::Forward,
             Scene::Forward => Scene::ForwardPrepass,
             Scene::ForwardPrepass => Scene::Deferred,
-            Scene::Deferred => Scene::Light,
+            Scene::Deferred => Scene::RemovePrepass,
+            Scene::RemovePrepass => Scene::Light,
         }
     }
 }
@@ -331,13 +350,20 @@ mod deferred {
             PointLight, StandardMaterial,
         },
         prelude::{
-            Camera, Camera3d, Commands, Cuboid, Entity, EnvironmentMapLight, Mesh, Mesh3d,
-            Meshable, Msaa, Plane3d, Res, ResMut, Single, Sphere, State, StateScoped, Transform,
-            With,
+            Camera, Camera3d, Commands, Component, Cuboid, Deref, DerefMut, Entity,
+            EnvironmentMapLight, Mesh, Mesh3d, Meshable, Msaa, Plane3d, Res, ResMut, Resource,
+            Single, Sphere, State, StateScoped, Transform, With,
         },
         scene::SceneRoot,
+        time::{Time, Timer},
         utils::default,
     };
+
+    #[derive(Resource, Deref, DerefMut)]
+    pub struct RemovePrepassTimer(Timer);
+
+    #[derive(Component)]
+    pub struct ParallaxCube;
 
     pub fn setup(
         mut commands: Commands,
@@ -501,6 +527,7 @@ mod deferred {
             Mesh3d(meshes.add(cube)),
             MeshMaterial3d(parallax_material),
             Transform::from_xyz(0.4, 0.2, -0.8),
+            ParallaxCube,
             StateScoped(*scene.get()),
         ));
     }
@@ -518,5 +545,38 @@ mod deferred {
         commands
             .entity(*camera)
             .insert((DepthPrepass, MotionVectorPrepass, DeferredPrepass));
+    }
+
+    pub fn remove_prepass_timer_init(mut commands: Commands) {
+        commands.insert_resource(RemovePrepassTimer(Timer::from_seconds(
+            0.5,
+            bevy::time::TimerMode::Once,
+        )));
+    }
+
+    pub fn remove_prepass_timer_tick(
+        mut commands: Commands,
+        time: Res<Time>,
+        mut timer: ResMut<RemovePrepassTimer>,
+    ) {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            commands.remove_resource::<RemovePrepassTimer>();
+        }
+    }
+
+    /// Remove prepass components from camera
+    pub fn remove_prepass(
+        mut commands: Commands,
+        camera: Single<Entity, With<Camera>>,
+        mut parallax_cube: Single<&mut Transform, With<ParallaxCube>>,
+    ) {
+        commands
+            .entity(*camera)
+            .remove::<DepthPrepass>()
+            .remove::<MotionVectorPrepass>()
+            .remove::<DeferredPrepass>();
+
+        parallax_cube.rotate_z(std::f32::consts::FRAC_PI_3);
     }
 }
