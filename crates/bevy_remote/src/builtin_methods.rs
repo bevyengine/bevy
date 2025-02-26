@@ -18,8 +18,8 @@ use bevy_platform_support::collections::HashMap;
 use bevy_reflect::{
     prelude::ReflectDefault,
     serde::{ReflectSerializer, TypedReflectDeserializer, TypedReflectSerializer},
-    GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectFromPtr,
-    ReflectSerialize, TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
+    GetPath as _, NamedField, OpaqueInfo, PartialReflect, ReflectDeserialize, ReflectSerialize,
+    TypeInfo, TypeRegistration, TypeRegistry, VariantInfo,
 };
 use serde::{de::DeserializeSeed as _, Deserialize, Serialize};
 use serde_json::{json, Map, Value};
