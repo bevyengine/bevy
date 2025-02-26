@@ -2270,18 +2270,20 @@ mod tests {
         schedule.add_systems(
             (
                 |_: Commands| {},
-                // no sync point is added here because the following system is not exclusive
+                // <- no sync point is added here because the following system is not exclusive
                 |mut commands: Commands| commands.insert_resource(Resource1),
-                // sync point is added here because the following system is exclusive which expects to see all commands to that point
+                // <- sync point is added here because the following system is exclusive which expects to see all commands to that point
                 |world: &mut World| assert!(world.contains_resource::<Resource1>()),
-                // no sync point is added here because the following system is not exclusive
+                // <- no sync point is added here because the previous system has no deferred parameters
+                |_: &mut World| {}
+                // <- no sync point is added here because the following system is not exclusive
                 |_: Commands| {},
             )
                 .chain_ignore_deferred(),
         );
         schedule.run(&mut world);
 
-        assert_eq!(schedule.executable.systems.len(), 5); // 4 systems + 1 sync point
+        assert_eq!(schedule.executable.systems.len(), 6); // 5 systems + 1 sync point
     }
 
     #[test]
