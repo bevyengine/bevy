@@ -1,6 +1,6 @@
 [package]
 name = "example-showcase"
-edition = "2021"
+edition = "2024"
 description = "Tool for running examples or generating a showcase page for the website."
 publish = false
 license = "MIT OR Apache-2.0"

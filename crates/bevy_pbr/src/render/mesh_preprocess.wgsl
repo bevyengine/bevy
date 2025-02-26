@@ -136,9 +136,9 @@ fn view_frustum_intersects_obb(
         let relative_radius = dot(
             abs(
                 vec3(
-                    dot(plane_normal, world_from_local[0]),
-                    dot(plane_normal, world_from_local[1]),
-                    dot(plane_normal, world_from_local[2]),
+                    dot(plane_normal.xyz, world_from_local[0].xyz),
+                    dot(plane_normal.xyz, world_from_local[1].xyz),
+                    dot(plane_normal.xyz, world_from_local[2].xyz),
                 )
             ),
             aabb_half_extents

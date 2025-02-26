@@ -1,7 +1,7 @@
 [package]
 name = "bevy_state"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Finite state machines for Bevy"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -44,16 +44,6 @@ critical-section = [
   "bevy_app?/critical-section",
   "bevy_reflect?/critical-section",
   "bevy_platform_support/critical-section",
-]
-
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = [
-  "bevy_ecs/portable-atomic",
-  "bevy_utils/portable-atomic",
-  "bevy_app?/portable-atomic",
-  "bevy_reflect?/portable-atomic",
-  "bevy_platform_support/portable-atomic",
 ]
 
 [dependencies]

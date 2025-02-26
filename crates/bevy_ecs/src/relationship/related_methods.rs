@@ -21,7 +21,9 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
-    /// Relates the given entities to this entity with the relation `R`
+    /// Relates the given entities to this entity with the relation `R`.
+    ///
+    /// See [`add_one_related`](Self::add_one_related) if you want relate only one entity.
     pub fn add_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let id = self.id();
         self.world_scope(|world| {
@@ -30,6 +32,13 @@ impl<'w> EntityWorldMut<'w> {
             }
         });
         self
+    }
+
+    /// Relates the given entity to this with the relation `R`.
+    ///
+    /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
+    pub fn add_one_related<R: Relationship>(&mut self, entity: Entity) -> &mut Self {
+        self.add_related::<R>(&[entity])
     }
 
     /// Despawns entities that relate to this one via the given [`RelationshipTarget`].
@@ -108,7 +117,9 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Relates the given entities to this entity with the relation `R`
+    /// Relates the given entities to this entity with the relation `R`.
+    ///
+    /// See [`add_one_related`](Self::add_one_related) if you want relate only one entity.
     pub fn add_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         let id = self.id();
         let related = related.to_vec();
@@ -118,6 +129,13 @@ impl<'a> EntityCommands<'a> {
             }
         });
         self
+    }
+
+    /// Relates the given entity to this with the relation `R`.
+    ///
+    /// See [`add_related`](Self::add_related) if you want to relate more than one entity.
+    pub fn add_one_related<R: Relationship>(&mut self, entity: Entity) -> &mut Self {
+        self.add_related::<R>(&[entity])
     }
 
     /// Despawns entities that relate to this one via the given [`RelationshipTarget`].

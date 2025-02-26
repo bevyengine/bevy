@@ -421,7 +421,7 @@ impl<'w> RenderContext<'w> {
 
     /// Gets the diagnostics recorder, used to track elapsed time and pipeline statistics
     /// of various render and compute passes.
-    pub fn diagnostic_recorder(&self) -> impl RecordDiagnostics {
+    pub fn diagnostic_recorder(&self) -> impl RecordDiagnostics + use<> {
         self.diagnostics_recorder.clone()
     }
 

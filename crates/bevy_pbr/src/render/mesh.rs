@@ -11,7 +11,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     prelude::*,
-    query::ROQueryItem,
+    query::{QueryData, ROQueryItem},
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
@@ -36,6 +36,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_world::MainEntityHashSet,
     texture::DefaultImageSampler,
     view::{
         self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
@@ -254,6 +255,7 @@ impl Plugin for MeshRenderPlugin {
                         MeshInputUniform
                     >>()
                     .init_resource::<RenderMeshInstanceGpuQueues>()
+                    .init_resource::<MeshesToReextractNextFrame>()
                     .add_systems(
                         ExtractSchedule,
                         extract_meshes_for_gpu_building.in_set(ExtractMeshesSet),
@@ -826,6 +828,13 @@ pub enum RenderMeshInstanceGpuQueue {
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct RenderMeshInstanceGpuQueues(Parallel<RenderMeshInstanceGpuQueue>);
 
+/// Holds a list of meshes that couldn't be extracted this frame because their
+/// materials weren't prepared yet.
+///
+/// On subsequent frames, we try to reextract those meshes.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct MeshesToReextractNextFrame(MainEntityHashSet);
+
 impl RenderMeshInstanceShared {
     fn from_components(
         previous_transform: Option<&PreviousGlobalTransform>,
@@ -1125,7 +1134,8 @@ impl RenderMeshInstanceGpuBuilder {
         render_lightmaps: &RenderLightmaps,
         skin_uniforms: &SkinUniforms,
         timestamp: FrameCount,
-    ) -> u32 {
+        meshes_to_reextract_next_frame: &mut MeshesToReextractNextFrame,
+    ) -> Option<u32> {
         let (first_vertex_index, vertex_count) =
             match mesh_allocator.mesh_vertex_slice(&self.shared.mesh_asset_id) {
                 Some(mesh_vertex_slice) => (
@@ -1148,12 +1158,18 @@ impl RenderMeshInstanceGpuBuilder {
             None => u32::MAX,
         };
 
-        // Look up the material index.
+        // Look up the material index. If we couldn't fetch the material index,
+        // then the material hasn't been prepared yet, perhaps because it hasn't
+        // yet loaded. In that case, add the mesh to
+        // `meshes_to_reextract_next_frame` and bail.
         let mesh_material = mesh_material_ids.mesh_material(entity);
-        let mesh_material_binding_id = render_material_bindings
-            .get(&mesh_material)
-            .cloned()
-            .unwrap_or_default();
+        let mesh_material_binding_id = match render_material_bindings.get(&mesh_material) {
+            Some(binding_id) => *binding_id,
+            None => {
+                meshes_to_reextract_next_frame.insert(entity);
+                return None;
+            }
+        };
         self.shared.material_bindings_index = mesh_material_binding_id;
 
         let lightmap_slot = match render_lightmaps.render_lightmaps.get(&entity) {
@@ -1230,7 +1246,7 @@ impl RenderMeshInstanceGpuBuilder {
             }
         }
 
-        current_uniform_index
+        Some(current_uniform_index)
     }
 }
 
@@ -1410,6 +1426,24 @@ pub fn extract_meshes_for_cpu_building(
     }
 }
 
+/// All the data that we need from a mesh in the main world.
+type GpuMeshExtractionQuery = (
+    Entity,
+    Read<ViewVisibility>,
+    Read<GlobalTransform>,
+    Option<Read<PreviousGlobalTransform>>,
+    Option<Read<Lightmap>>,
+    Option<Read<Aabb>>,
+    Read<Mesh3d>,
+    Option<Read<MeshTag>>,
+    Has<NoFrustumCulling>,
+    Has<NotShadowReceiver>,
+    Has<TransmittedShadowReceiver>,
+    Has<NotShadowCaster>,
+    Has<NoAutomaticBatching>,
+    Has<VisibilityRange>,
+);
+
 /// Extracts meshes from the main world into the render world and queues
 /// [`MeshInputUniform`]s to be uploaded to the GPU.
 ///
@@ -1424,22 +1458,7 @@ pub fn extract_meshes_for_gpu_building(
     mut render_mesh_instance_queues: ResMut<RenderMeshInstanceGpuQueues>,
     changed_meshes_query: Extract<
         Query<
-            (
-                Entity,
-                &ViewVisibility,
-                &GlobalTransform,
-                Option<&PreviousGlobalTransform>,
-                Option<&Lightmap>,
-                Option<&Aabb>,
-                &Mesh3d,
-                Option<&MeshTag>,
-                Has<NoFrustumCulling>,
-                Has<NotShadowReceiver>,
-                Has<TransmittedShadowReceiver>,
-                Has<NotShadowCaster>,
-                Has<NoAutomaticBatching>,
-                Has<VisibilityRange>,
-            ),
+            GpuMeshExtractionQuery,
             Or<(
                 Changed<ViewVisibility>,
                 Changed<GlobalTransform>,
@@ -1457,10 +1476,12 @@ pub fn extract_meshes_for_gpu_building(
             )>,
         >,
     >,
+    all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
+    meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
 ) {
     let any_gpu_culling = !gpu_culling_query.is_empty();
 
@@ -1482,82 +1503,37 @@ pub fn extract_meshes_for_gpu_building(
     // construct the `MeshInputUniform` for them.
     changed_meshes_query.par_iter().for_each_init(
         || render_mesh_instance_queues.borrow_local_mut(),
-        |queue,
-         (
-            entity,
-            view_visibility,
-            transform,
-            previous_transform,
-            lightmap,
-            aabb,
-            mesh,
-            tag,
-            no_frustum_culling,
-            not_shadow_receiver,
-            transmitted_receiver,
-            not_shadow_caster,
-            no_automatic_batching,
-            visibility_range,
-        )| {
-            if !view_visibility.get() {
-                queue.remove(entity.into(), any_gpu_culling);
-                return;
-            }
-
-            let mut lod_index = None;
-            if visibility_range {
-                lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
-            }
-
-            let mesh_flags = MeshFlags::from_components(
-                transform,
-                lod_index,
-                no_frustum_culling,
-                not_shadow_receiver,
-                transmitted_receiver,
-            );
-
-            let shared = RenderMeshInstanceShared::from_components(
-                previous_transform,
-                mesh,
-                tag,
-                not_shadow_caster,
-                no_automatic_batching,
-            );
-
-            let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
-
-            let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
-
-            let previous_input_index = if shared
-                .flags
-                .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM)
-            {
-                render_mesh_instances
-                    .get(&MainEntity::from(entity))
-                    .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
-            } else {
-                None
-            };
-
-            let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
-                shared,
-                world_from_local: (&transform.affine()).into(),
-                lightmap_uv_rect,
-                mesh_flags,
-                previous_input_index,
-            };
-
-            queue.push(
-                entity.into(),
-                gpu_mesh_instance_builder,
-                gpu_mesh_culling_data,
+        |queue, query_row| {
+            extract_mesh_for_gpu_building(
+                query_row,
+                &render_visibility_ranges,
+                render_mesh_instances,
+                queue,
+                any_gpu_culling,
             );
         },
     );
 
-    // Also record info about each mesh that became invisible.
+    // Process materials that `collect_meshes_for_gpu_building` marked as
+    // needing to be reextracted. This will happen when we extracted a mesh on
+    // some previous frame, but its material hadn't been prepared yet, perhaps
+    // because the material hadn't yet been loaded. We reextract such materials
+    // on subsequent frames so that `collect_meshes_for_gpu_building` will check
+    // to see if their materials have been prepared.
     let mut queue = render_mesh_instance_queues.borrow_local_mut();
+    for &mesh_entity in &**meshes_to_reextract_next_frame {
+        if let Ok(query_row) = all_meshes_query.get(*mesh_entity) {
+            extract_mesh_for_gpu_building(
+                query_row,
+                &render_visibility_ranges,
+                render_mesh_instances,
+                &mut queue,
+                any_gpu_culling,
+            );
+        }
+    }
+
+    // Also record info about each mesh that became invisible.
     for entity in removed_visibilities_query
         .read()
         .chain(removed_global_transforms_query.read())
@@ -1566,10 +1542,91 @@ pub fn extract_meshes_for_gpu_building(
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
-        if !changed_meshes_query.contains(entity) {
-            queue.remove(entity.into(), any_gpu_culling);
+        let entity = MainEntity::from(entity);
+        if !changed_meshes_query.contains(*entity)
+            && !meshes_to_reextract_next_frame.contains(&entity)
+        {
+            queue.remove(entity, any_gpu_culling);
         }
     }
+}
+
+fn extract_mesh_for_gpu_building(
+    (
+        entity,
+        view_visibility,
+        transform,
+        previous_transform,
+        lightmap,
+        aabb,
+        mesh,
+        tag,
+        no_frustum_culling,
+        not_shadow_receiver,
+        transmitted_receiver,
+        not_shadow_caster,
+        no_automatic_batching,
+        visibility_range,
+    ): <GpuMeshExtractionQuery as QueryData>::Item<'_>,
+    render_visibility_ranges: &RenderVisibilityRanges,
+    render_mesh_instances: &RenderMeshInstancesGpu,
+    queue: &mut RenderMeshInstanceGpuQueue,
+    any_gpu_culling: bool,
+) {
+    if !view_visibility.get() {
+        queue.remove(entity.into(), any_gpu_culling);
+        return;
+    }
+
+    let mut lod_index = None;
+    if visibility_range {
+        lod_index = render_visibility_ranges.lod_index_for_entity(entity.into());
+    }
+
+    let mesh_flags = MeshFlags::from_components(
+        transform,
+        lod_index,
+        no_frustum_culling,
+        not_shadow_receiver,
+        transmitted_receiver,
+    );
+
+    let shared = RenderMeshInstanceShared::from_components(
+        previous_transform,
+        mesh,
+        tag,
+        not_shadow_caster,
+        no_automatic_batching,
+    );
+
+    let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
+
+    let gpu_mesh_culling_data = any_gpu_culling.then(|| MeshCullingData::new(aabb));
+
+    let previous_input_index = if shared
+        .flags
+        .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_TRANSFORM)
+    {
+        render_mesh_instances
+            .get(&MainEntity::from(entity))
+            .map(|render_mesh_instance| render_mesh_instance.current_uniform_index)
+    } else {
+        None
+    };
+
+    let gpu_mesh_instance_builder = RenderMeshInstanceGpuBuilder {
+        shared,
+        world_from_local: (&transform.affine()).into(),
+        lightmap_uv_rect,
+        mesh_flags,
+        previous_input_index,
+    };
+
+    queue.push(
+        entity.into(),
+        gpu_mesh_instance_builder,
+        gpu_mesh_culling_data,
+    );
 }
 
 /// A system that sets the [`RenderMeshInstanceFlags`] for each mesh based on
@@ -1616,17 +1673,21 @@ pub fn collect_meshes_for_gpu_building(
     render_lightmaps: Res<RenderLightmaps>,
     skin_uniforms: Res<SkinUniforms>,
     frame_count: Res<FrameCount>,
+    mut meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
 ) {
-    let RenderMeshInstances::GpuBuilding(ref mut render_mesh_instances) =
+    let RenderMeshInstances::GpuBuilding(render_mesh_instances) =
         render_mesh_instances.into_inner()
     else {
         return;
     };
 
+    // We're going to rebuild `meshes_to_reextract_next_frame`.
+    meshes_to_reextract_next_frame.clear();
+
     // Collect render mesh instances. Build up the uniform buffer.
     let gpu_preprocessing::BatchedInstanceBuffers {
-        ref mut current_input_buffer,
-        ref mut previous_input_buffer,
+        current_input_buffer,
+        previous_input_buffer,
         ..
     } = batched_instance_buffers.into_inner();
 
@@ -1656,6 +1717,7 @@ pub fn collect_meshes_for_gpu_building(
                         &render_lightmaps,
                         &skin_uniforms,
                         *frame_count,
+                        &mut meshes_to_reextract_next_frame,
                     );
                 }
 
@@ -1673,7 +1735,7 @@ pub fn collect_meshes_for_gpu_building(
                 ref mut removed,
             } => {
                 for (entity, mesh_instance_builder, mesh_culling_builder) in changed.drain(..) {
-                    let instance_data_index = mesh_instance_builder.update(
+                    let Some(instance_data_index) = mesh_instance_builder.update(
                         entity,
                         &mut *render_mesh_instances,
                         current_input_buffer,
@@ -1684,7 +1746,10 @@ pub fn collect_meshes_for_gpu_building(
                         &render_lightmaps,
                         &skin_uniforms,
                         *frame_count,
-                    );
+                        &mut meshes_to_reextract_next_frame,
+                    ) else {
+                        continue;
+                    };
                     mesh_culling_builder
                         .update(&mut mesh_culling_data_buffer, instance_data_index as usize);
                 }
@@ -3138,7 +3203,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
                         indirect_parameters_buffer.get(&TypeId::of::<P>())
                     else {
                         warn!(
-                            "Not rendering mesh because indexed indirect parameters buffer \
+                            "Not rendering mesh because non-indexed indirect parameters buffer \
                                  wasn't present for this phase",
                         );
                         return RenderCommandResult::Skip;
