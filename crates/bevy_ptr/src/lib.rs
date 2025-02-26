@@ -267,23 +267,13 @@ macro_rules! impl_ptr {
         impl Debug for $ptr<'_, Aligned> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write! {
-                    f,
-                    "{}<Aligned>({:?})",
-                    stringify!($ptr),
-                    self.0
-                }
+                write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
             }
         }
         impl Debug for $ptr<'_, Unaligned> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write! {
-                    f,
-                    "{}<Unaligned>({:?})",
-                    stringify!($ptr),
-                    self.0
-                }
+                write!(f, "{}<Unaligned>({:?})", stringify!($ptr), self.0)
             }
         }
     };
