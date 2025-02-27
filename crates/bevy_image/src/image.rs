@@ -1059,7 +1059,7 @@ impl Image {
     /// An image with uninitialized data will return an empty iterator.
     pub fn pixels(&self) -> Pixels {
         let format = self.texture_descriptor.format;
-        let data = self.data.as_ref().map(Vec::as_slice).unwrap_or(&[]);
+        let data = self.data.as_deref().unwrap_or(&[]);
         Pixels {
             format,
             inner: data.chunks_exact(format.pixel_size()),
@@ -1101,7 +1101,7 @@ impl Image {
     /// ```
     pub fn pixels_mut(&mut self) -> PixelsMut {
         let format = self.texture_descriptor.format;
-        let data = self.data.as_mut().map(Vec::as_mut_slice).unwrap_or(&mut []);
+        let data = self.data.as_deref_mut().unwrap_or(&mut []);
         PixelsMut {
             format,
             inner: data.chunks_exact_mut(format.pixel_size()),
@@ -1649,7 +1649,7 @@ impl<'a> PixelMut<'a> {
     /// for a non-panicking version.
     #[inline(always)]
     pub fn set_color(&mut self, color: Color) {
-        self.try_set_color(color).unwrap()
+        self.try_set_color(color).unwrap();
     }
 
     /// Attempts to write the [`Color`] of this pixel.
@@ -1689,7 +1689,7 @@ impl<'a> PixelMut<'a> {
     /// for a non-panicking version.
     #[inline(always)]
     pub fn edit_color(&mut self, edit: impl FnOnce(Color) -> Color) {
-        self.try_edit_color(edit).unwrap()
+        self.try_edit_color(edit).unwrap();
     }
 
     /// Attempts to edit the [`Color`] of this pixel. See [`Self::edit_color`] for more information.
