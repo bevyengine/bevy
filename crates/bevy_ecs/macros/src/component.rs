@@ -26,7 +26,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 
     if let Some(attr) = ast.attrs.iter().find(|attr| attr.path().is_ident("event")) {
         if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
-            Some(ident) if ident == "auto_propegate" => {
+            Some(ident) if ident == "auto_propagate" => {
                 auto_propagate = true;
                 Ok(())
             }
@@ -367,7 +367,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                     }
                 }
 
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut #bevy_ecs_path::entity::Entity)) {
+                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(Entity)) {
                     use #bevy_ecs_path::entity::VisitEntitiesMut;
                     match this {
                         #(#visit_mut,)*
