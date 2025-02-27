@@ -1,12 +1,9 @@
-//! Create invalid skinned meshes to test renderer behaviour.
+//! Test that the renderer can handle invalid skinned meshes, and meshes that
+//! have skinning attributes but aren't instantiated as skinned.
 
 use bevy::{
-    core_pipeline::{
-        motion_blur::MotionBlur,
-        prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    },
+    core_pipeline::motion_blur::MotionBlur,
     math::ops,
-    pbr::DefaultOpaqueRendererMethod,
     prelude::*,
     render::{
         camera::ScalingMode,
@@ -26,17 +23,8 @@ fn main() {
             brightness: 20_000.0,
             ..default()
         })
-        .insert_resource(Globals::default())
         .add_systems(Startup, (setup_environment, setup_meshes))
-        .add_systems(
-            Update,
-            (
-                update_animated_joints,
-                update_render_mode,
-                update_motion_blur,
-                update_text,
-            ),
-        )
+        .add_systems(Update, update_animated_joints)
         .run();
 }
 
@@ -45,8 +33,14 @@ fn setup_environment(
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
 ) {
+    let description = "(left to right)\n\
+        0: Normal skinned mesh.\n\
+        1: Mesh asset is missing joint index and joint weight attributes.\n\
+        2: One joint entity has been deleted.\n\
+        3: Mesh entity is missing SkinnedMesh component.";
+
     commands.spawn((
-        Text::default(),
+        Text::new(description),
         Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
@@ -65,12 +59,18 @@ fn setup_environment(
             },
             ..OrthographicProjection::default_3d()
         }),
-        default_motion_blur(),
-        // MSAA is incompatible with deferred rendering.
-        Msaa::Off,
+        // Add motion blur so that we can check if it's working for skinned
+        // meshes. This also exercises the renderer's prepass path.
+        MotionBlur {
+            // Use an unrealistically large shutter angle so that motion blur is clearly visible.
+            shutter_angle: 3.0,
+            samples: 2,
+            #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+            _webgl2_padding: Default::default(),
+        },
     ));
 
-    // Add a directional light to make sure we exercise the renderer's lighting path.
+    // Add a directional light to make sure we exercise the renderer's shadow path.
     commands.spawn((
         Transform::from_xyz(1.0, 1.0, 3.0).looking_at(Vec3::ZERO, Vec3::Y),
         DirectionalLight {
@@ -79,7 +79,7 @@ fn setup_environment(
         },
     ));
 
-    // Add a plane behind the skinned meshes so that we can see their shadows.
+    // Add a plane behind the meshes so that we can see if shadows are working.
     commands.spawn((
         Transform::from_xyz(0.0, 0.0, -1.0),
         Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(100.0, 100.0).normal(Dir3::Z))),
@@ -97,6 +97,7 @@ fn setup_meshes(
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     mut inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
+    // Create a mesh with two squares.
     let unskinned_mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
@@ -104,10 +105,10 @@ fn setup_meshes(
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         vec![
-            [-0.35, -0.35, 0.0],
-            [0.35, -0.35, 0.0],
-            [-0.35, 0.35, 0.0],
-            [0.35, 0.35, 0.0],
+            [-0.3, -0.3, 0.0],
+            [0.3, -0.3, 0.0],
+            [-0.3, 0.3, 0.0],
+            [0.3, 0.3, 0.0],
             [-0.5, 1.0, 0.0],
             [0.5, 1.0, 0.0],
             [-0.5, 2.0, 0.0],
@@ -117,6 +118,7 @@ fn setup_meshes(
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 8])
     .with_inserted_indices(Indices::U16(vec![0, 1, 3, 0, 3, 2, 4, 5, 7, 4, 7, 6]));
 
+    // Copy the mesh and add skinning attributes that bind each square to a joint.
     let skinned_mesh = unskinned_mesh
         .clone()
         .with_inserted_attribute(
@@ -145,16 +147,8 @@ fn setup_meshes(
         Mat4::from_translation(Vec3::new(0.0, -1.5, 0.0)),
     ]);
 
-    let material_handle = material_assets.add(StandardMaterial {
-        cull_mode: None,
-        ..default()
-    });
+    let material_handle = material_assets.add(StandardMaterial::default());
 
-    // Mesh 0: Normal.
-    // Mesh 1: Mesh asset is missing joint index and joint weight attributes.
-    // Mesh 2: One joint entity has been deleted.
-    // Mesh 3: Mesh entity is missing SkinnedMesh component.
-    //for mesh_index in 0..4 {
     for mesh_index in 0..4 {
         let transform = Transform::from_xyz(((mesh_index as f32) - 1.5) * 4.0, 0.0, 0.0);
 
@@ -164,25 +158,26 @@ fn setup_meshes(
             .spawn((ChildOf(joint_0), AnimatedJoint, Transform::IDENTITY))
             .id();
 
+        // Optionally delete one joint entity.
+        if mesh_index == 2 {
+            commands.entity(joint_1).despawn();
+        }
+
+        // Optionally use the mesh without skinning attributes.
         let mesh_handle = match mesh_index {
             1 => &unskinned_mesh_handle,
             _ => &skinned_mesh_handle,
         };
 
-        let mesh_entity = commands
-            .spawn((
-                Mesh3d(mesh_handle.clone()),
-                MeshMaterial3d(material_handle.clone()),
-                transform,
-            ))
-            .id();
+        let mut entity_commands = commands.spawn((
+            Mesh3d(mesh_handle.clone()),
+            MeshMaterial3d(material_handle.clone()),
+            transform,
+        ));
 
-        if mesh_index == 2 {
-            commands.entity(joint_1).despawn();
-        }
-
+        // Optionally add the SkinnedMesh component.
         if mesh_index != 3 {
-            commands.entity(mesh_entity).insert(SkinnedMesh {
+            entity_commands.insert(SkinnedMesh {
                 inverse_bindposes: inverse_bindposes_handle.clone(),
                 joints: vec![joint_0, joint_1],
             });
@@ -190,188 +185,15 @@ fn setup_meshes(
     }
 }
 
-fn default_motion_blur() -> MotionBlur {
-    MotionBlur {
-        // Use an unrealistically large shutter angle so that motion blur is clearly visible.
-        shutter_angle: 4.0,
-        samples: 2,
-        #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
-        _webgl2_padding: Default::default(),
-    }
-}
-
 #[derive(Component)]
 struct AnimatedJoint;
 
-fn update_animated_joints(time: Res<Time>, mut query: Query<(&mut Transform, &AnimatedJoint)>) {
-    for (mut transform, _) in &mut query {
+fn update_animated_joints(time: Res<Time>, query: Query<&mut Transform, With<AnimatedJoint>>) {
+    for mut transform in query {
         let angle = TAU * 4.0 * ops::cos((time.elapsed_secs() / 8.0) * TAU);
         let rotation = Quat::from_rotation_z(angle);
 
         transform.rotation = rotation;
         transform.translation = rotation.mul_vec3(Vec3::new(0.0, 1.5, 0.0));
     }
-}
-
-#[derive(Default, Debug, Copy, Clone, PartialEq)]
-enum RenderMode {
-    #[default]
-    Forward,
-    ForwardPrepass,
-    Deferred,
-}
-
-impl RenderMode {
-    fn from_cycle(cycle: u32) -> Self {
-        match cycle % 3 {
-            0 => RenderMode::Forward,
-            1 => RenderMode::ForwardPrepass,
-            _ => RenderMode::Deferred,
-        }
-    }
-}
-
-#[derive(Resource)]
-struct Globals {
-    cycle_render_mode: bool,
-    render_mode: RenderMode,
-    motion_blur: bool,
-}
-
-impl Default for Globals {
-    fn default() -> Self {
-        Globals {
-            cycle_render_mode: true,
-            render_mode: RenderMode::default(),
-            motion_blur: true,
-        }
-    }
-}
-
-fn update_render_mode(
-    mut commands: Commands,
-    time: Res<Time>,
-    keys: Res<ButtonInput<KeyCode>>,
-    cameras: Query<Entity, With<Camera>>,
-    mut globals: ResMut<Globals>,
-    mut default_opaque_renderer_method: ResMut<DefaultOpaqueRendererMethod>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    // By default we cycle through rendering modes over time. If the user chooses
-    // a particular mode then we stop cycling.
-
-    let mut desired_render_mode = globals.render_mode;
-
-    if keys.just_pressed(KeyCode::Digit1) {
-        desired_render_mode = RenderMode::Forward;
-        globals.cycle_render_mode = false;
-    }
-
-    if keys.just_pressed(KeyCode::Digit2) {
-        desired_render_mode = RenderMode::ForwardPrepass;
-        globals.cycle_render_mode = false;
-    }
-
-    if keys.just_pressed(KeyCode::Digit3) {
-        desired_render_mode = RenderMode::Deferred;
-        globals.cycle_render_mode = false;
-    }
-
-    if globals.cycle_render_mode {
-        let cycle = (time.elapsed_secs() / 4.0) as u32;
-        desired_render_mode = RenderMode::from_cycle(cycle);
-    }
-
-    if globals.render_mode == desired_render_mode {
-        return;
-    }
-
-    println!("Switching render mode to {:?}", desired_render_mode);
-
-    for camera in cameras {
-        commands
-            .entity(camera)
-            .remove::<NormalPrepass>()
-            .remove::<DepthPrepass>()
-            .remove::<MotionVectorPrepass>()
-            .remove::<DeferredPrepass>();
-    }
-
-    match desired_render_mode {
-        RenderMode::Forward => {
-            default_opaque_renderer_method.set_to_forward();
-
-            for camera in cameras {
-                commands
-                    .entity(camera)
-                    .insert(DepthPrepass)
-                    .insert(MotionVectorPrepass);
-            }
-        }
-
-        RenderMode::ForwardPrepass => {
-            default_opaque_renderer_method.set_to_forward();
-
-            for camera in cameras {
-                commands
-                    .entity(camera)
-                    .insert(DepthPrepass)
-                    .insert(MotionVectorPrepass)
-                    .insert(NormalPrepass);
-            }
-        }
-
-        RenderMode::Deferred => {
-            default_opaque_renderer_method.set_to_deferred();
-
-            for camera in cameras {
-                commands
-                    .entity(camera)
-                    .insert(DepthPrepass)
-                    .insert(DeferredPrepass)
-                    .insert(MotionVectorPrepass);
-            }
-        }
-    }
-
-    globals.render_mode = desired_render_mode;
-
-    // If this is left out then motion blur doesn't work in deferred render mode. TODO?
-    for _ in materials.iter_mut() {}
-}
-
-fn update_motion_blur(
-    keys: Res<ButtonInput<KeyCode>>,
-    cameras: Query<(Entity, &mut MotionBlur), With<Camera>>,
-    mut globals: ResMut<Globals>,
-) {
-    if keys.just_pressed(KeyCode::KeyM) {
-        globals.motion_blur = !globals.motion_blur;
-
-        for (_, mut motion_blur) in cameras {
-            motion_blur.samples = if globals.motion_blur {
-                default_motion_blur().samples
-            } else {
-                0
-            };
-        }
-    }
-}
-
-fn update_text(mut text: Single<&mut Text>, globals: Res<Globals>) {
-    text.clear();
-
-    text.push_str(&format!(
-        "{:?}, motion blur {}\n\n",
-        globals.render_mode,
-        match globals.motion_blur {
-            true => "on",
-            false => "off",
-        }
-    ));
-
-    text.push_str("(1) Forward\n");
-    text.push_str("(2) ForwardPrepass\n");
-    text.push_str("(3) Deferred\n");
-    text.push_str("(M) Toggle motion blur");
 }
