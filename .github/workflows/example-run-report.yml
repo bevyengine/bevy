@@ -104,5 +104,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           LF=$'\n'
-          COMMENT_BODY="Your PR introduce a rendering change. ${LF}You can review it at https://pixel-eagle.com/project/$PROJECT?filter=PR-$PR ${LF} ${LF}If it's expected, add the label S-Rendering-Change."
+          COMMENT_BODY="Your PR caused a change in the graphical output of an example or rendering test. This might be intentional, but it could also mean that something broke! ${LF}You can review it at https://pixel-eagle.com/project/$PROJECT?filter=PR-$PR ${LF} ${LF}If it's expected, please add the S-Deliberate-Rendering-Change label."
           gh issue comment $PR --body "$COMMENT_BODY"
