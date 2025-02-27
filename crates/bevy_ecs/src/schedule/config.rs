@@ -106,14 +106,12 @@ pub enum NodeConfigs<T: NodeType> {
         configs: Vec<NodeConfigs<T>>,
         /// Run conditions applied to everything in the tuple.
         collective_conditions: Vec<BoxedCondition>,
-        /// Metadata for `NodeConfigs`
+        /// Metadata to be applied to all elements in the tuple.
         metadata: T::GroupMetadata,
-        /// See [`Chain`] for usage.
-        chained: Chain,
     },
 }
 
-impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
+impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> NodeConfigs<T> {
     /// Adds a new boxed system set to the systems.
     pub fn in_set_inner(&mut self, set: InternedSystemSet) {
         match self {
@@ -252,8 +250,8 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
     fn chain_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chained, .. } => {
-                chained.set_chained();
+            Self::Configs { metadata, .. } => {
+                metadata.set_chained();
             }
         };
         self
@@ -262,8 +260,8 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
     fn chain_ignore_deferred_inner(mut self) -> Self {
         match &mut self {
             Self::NodeConfig(_) => { /* no op */ }
-            Self::Configs { chained, .. } => {
-                chained.set_chained_with_config(IgnoreDeferred);
+            Self::Configs { metadata, .. } => {
+                metadata.set_chained_with_config(IgnoreDeferred);
             }
         }
         self
@@ -314,16 +312,15 @@ impl<T: NodeType<Metadata = GraphInfo>> NodeConfigs<T> {
     message = "`{Self}` does not describe a valid system configuration",
     label = "invalid system configuration"
 )]
-pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
+pub trait IntoNodeConfigs<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>, Marker>:
+    Sized
+{
     /// Convert into a [`NodeConfigs`].
     fn into_configs(self) -> NodeConfigs<T>;
 
     /// Add these systems to the provided `set`.
     #[track_caller]
-    fn in_set(self, set: impl SystemSet) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn in_set(self, set: impl SystemSet) -> NodeConfigs<T> {
         self.into_configs().in_set(set)
     }
 
@@ -335,10 +332,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     ///
     /// Calling [`.chain`](Self::chain) is often more convenient and ensures that all systems are added to the schedule.
     /// Please check the [caveats section of `.after`](Self::after) for details.
-    fn before<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn before<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
         self.into_configs().before(set)
     }
 
@@ -365,10 +359,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     /// any ordering calls between them—whether using `.before`, `.after`, or `.chain`—will be silently ignored.
     ///
     /// [`configure_sets`]: https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.configure_sets
-    fn after<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn after<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
         self.into_configs().after(set)
     }
 
@@ -376,10 +367,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     ///
     /// Unlike [`before`](Self::before), this will not cause the systems in
     /// `set` to wait for the deferred effects of `self` to be applied.
-    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn before_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
         self.into_configs().before_ignore_deferred(set)
     }
 
@@ -387,10 +375,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     ///
     /// Unlike [`after`](Self::after), this will not wait for the deferred
     /// effects of systems in `set` to be applied.
-    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn after_ignore_deferred<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
         self.into_configs().after_ignore_deferred(set)
     }
 
@@ -424,10 +409,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     /// Use [`run_if`](NodeConfigs::run_if) on a [`SystemSet`] if you want to make sure
     /// that either all or none of the systems are run, or you don't want to evaluate the run
     /// condition for each contained system separately.
-    fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn distributive_run_if<M>(self, condition: impl Condition<M> + Clone) -> NodeConfigs<T> {
         self.into_configs().distributive_run_if(condition)
     }
 
@@ -461,28 +443,19 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     ///
     /// Use [`distributive_run_if`](IntoNodeConfigs::distributive_run_if) if you want the
     /// condition to be evaluated for each individual system, right before one is run.
-    fn run_if<M>(self, condition: impl Condition<M>) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn run_if<M>(self, condition: impl Condition<M>) -> NodeConfigs<T> {
         self.into_configs().run_if(condition)
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
-    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> NodeConfigs<T> {
         self.into_configs().ambiguous_with(set)
     }
 
     /// Suppress warnings and errors that would result from these systems having ambiguities
     /// (conflicting access but indeterminate order) with any other system.
-    fn ambiguous_with_all(self) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn ambiguous_with_all(self) -> NodeConfigs<T> {
         self.into_configs().ambiguous_with_all()
     }
 
@@ -493,10 +466,7 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     /// If the preceding node on an edge has deferred parameters, an [`ApplyDeferred`](crate::schedule::ApplyDeferred)
     /// will be inserted on the edge. If this behavior is not desired consider using
     /// [`chain_ignore_deferred`](Self::chain_ignore_deferred) instead.
-    fn chain(self) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn chain(self) -> NodeConfigs<T> {
         self.into_configs().chain()
     }
 
@@ -505,16 +475,14 @@ pub trait IntoNodeConfigs<T: NodeType, Marker>: Sized {
     /// Ordering constraints will be applied between the successive elements.
     ///
     /// Unlike [`chain`](Self::chain) this will **not** add [`ApplyDeferred`](crate::schedule::ApplyDeferred) on the edges.
-    fn chain_ignore_deferred(self) -> NodeConfigs<T>
-    where
-        T: NodeType<Metadata = GraphInfo>,
-    {
+    fn chain_ignore_deferred(self) -> NodeConfigs<T> {
         self.into_configs().chain_ignore_deferred()
     }
 }
 
-impl<T: NodeType<Metadata = GraphInfo>> IntoNodeConfigs<T, ()> for NodeConfigs<T> {
-    // impl<T: NodeType<Metadata = GraphInfo>, Marker> IntoNodeConfigs<T, Marker> for NodeConfigs<T> {
+impl<T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoNodeConfigs<T, ()>
+    for NodeConfigs<T>
+{
     fn into_configs(self) -> Self {
         self
     }
@@ -631,7 +599,7 @@ pub struct NodeConfigTupleMarker;
 macro_rules! impl_node_type_collection {
     ($(#[$meta:meta])* $(($param: ident, $sys: ident)),*) => {
         $(#[$meta])*
-        impl<$($param, $sys),*, T: NodeType<GroupMetadata: Default>> IntoNodeConfigs<T, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
+        impl<$($param, $sys),*, T: NodeType<Metadata = GraphInfo, GroupMetadata = Chain>> IntoNodeConfigs<T, (NodeConfigTupleMarker, $($param,)*)> for ($($sys,)*)
         where
             $($sys: IntoNodeConfigs<T, $param>),*
         {
@@ -649,7 +617,6 @@ macro_rules! impl_node_type_collection {
                     metadata: Default::default(),
                     configs: vec![$($sys.into_configs(),)*],
                     collective_conditions: Vec::new(),
-                    chained: Default::default(),
                 }
             }
         }

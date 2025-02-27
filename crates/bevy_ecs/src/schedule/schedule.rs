@@ -825,7 +825,9 @@ impl ScheduleGraph {
         }
     }
 
-    fn apply_collective_conditions<T: ProcessNodeConfig + NodeType<Metadata = GraphInfo>>(
+    fn apply_collective_conditions<
+        T: ProcessNodeConfig + NodeType<Metadata = GraphInfo, GroupMetadata = Chain>,
+    >(
         &mut self,
         configs: &mut [NodeConfigs<T>],
         collective_conditions: Vec<BoxedCondition>,
@@ -856,7 +858,9 @@ impl ScheduleGraph {
     /// - `nodes`: a vector of all node ids contained in the nested `NodeConfigs`
     /// - `densely_chained`: a boolean that is true if all nested nodes are linearly chained (with successive `after` orderings) in the order they are defined
     #[track_caller]
-    fn process_configs<T: ProcessNodeConfig + NodeType<Metadata = GraphInfo>>(
+    fn process_configs<
+        T: ProcessNodeConfig + NodeType<Metadata = GraphInfo, GroupMetadata = Chain>,
+    >(
         &mut self,
         configs: NodeConfigs<T>,
         collect_nodes: bool,
@@ -864,14 +868,13 @@ impl ScheduleGraph {
         match configs {
             NodeConfigs::NodeConfig(config) => self.process_config(config, collect_nodes),
             NodeConfigs::Configs {
-                metadata: _,
+                metadata,
                 mut configs,
                 collective_conditions,
-                chained,
             } => {
                 self.apply_collective_conditions(&mut configs, collective_conditions);
 
-                let is_chained = matches!(chained, Chain::Chained(_));
+                let is_chained = matches!(metadata, Chain::Chained(_));
 
                 // Densely chained if
                 // * chained and all configs in the chain are densely chained, or
@@ -893,7 +896,7 @@ impl ScheduleGraph {
                     let current_result = self.process_configs(current, collect_nodes || is_chained);
                     densely_chained &= current_result.densely_chained;
 
-                    if let Chain::Chained(chain_options) = &chained {
+                    if let Chain::Chained(chain_options) = &metadata {
                         // if the current result is densely chained, we only need to chain the first node
                         let current_nodes = if current_result.densely_chained {
                             &current_result.nodes[..1]
