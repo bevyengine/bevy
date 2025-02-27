@@ -12,7 +12,6 @@ use bevy_ecs::system::ResMut;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_transform::components::GlobalTransform;
@@ -61,7 +60,6 @@ pub fn extract_debug_overlay(
         Query<(
             Entity,
             &ComputedNode,
-            &InheritedVisibility,
             Option<&CalculatedClip>,
             &GlobalTransform,
             &ComputedNodeTarget,
@@ -75,8 +73,8 @@ pub fn extract_debug_overlay(
 
     let mut camera_mapper = camera_map.get_mapper();
 
-    for (entity, uinode, visibility, maybe_clip, transform, computed_target) in &uinode_query {
-        if !debug_options.show_hidden && !visibility.get() {
+    for (entity, uinode, maybe_clip, transform, computed_target) in &uinode_query {
+        if !debug_options.show_hidden && !uinode.is_visible {
             continue;
         }
 

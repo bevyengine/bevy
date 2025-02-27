@@ -7,10 +7,9 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, RenderTarget},
     view::Visibility,
-    view::VisibilityClass,
 };
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::num::NonZero;
@@ -28,6 +27,10 @@ use tracing::warn;
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct ComputedNode {
+    /// True if the node is visible
+    ///
+    /// Automatically updated by [`super::layout::ui_layout_system`].
+    pub is_visible: bool,
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
@@ -234,6 +237,7 @@ impl ComputedNode {
 
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
+        is_visible: false,
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
@@ -329,9 +333,7 @@ impl From<Vec2> for ScrollPosition {
     BorderRadius,
     FocusPolicy,
     ScrollPosition,
-    Transform,
-    Visibility,
-    VisibilityClass,
+    GlobalTransform,
     ZIndex
 )]
 #[reflect(Component, Default, PartialEq, Debug)]
@@ -620,6 +622,11 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/grid-column>
     pub grid_column: GridPlacement,
+
+    /// Rotate, scale, skew, or translate an element.
+    pub transform: Transform,
+
+    pub visibility: Visibility,
 }
 
 impl Node {
@@ -663,6 +670,8 @@ impl Node {
         grid_auto_columns: Vec::new(),
         grid_column: GridPlacement::DEFAULT,
         grid_row: GridPlacement::DEFAULT,
+        transform: Transform::IDENTITY,
+        visibility: Visibility::Inherited,
     };
 }
 
