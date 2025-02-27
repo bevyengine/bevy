@@ -44,7 +44,6 @@ bevy_debug_stepping = []
 std = [
   "bevy_reflect?/std",
   "bevy_ecs/std",
-  "bevy_label/std",
   "dep:ctrlc",
   "downcast-rs/std",
   "bevy_utils/std",

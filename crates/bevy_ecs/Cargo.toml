@@ -72,7 +72,6 @@ std = [
   "bevy_reflect?/std",
   "bevy_tasks/std",
   "bevy_utils/std",
-  "bevy_label/std",
   "bitflags/std",
   "concurrent-queue/std",
   "disqualified/alloc",

@@ -4,9 +4,6 @@
 
 pub mod intern;
 
-#[cfg(feature = "std")]
-extern crate std;
-
 extern crate alloc;
 
 use core::{
