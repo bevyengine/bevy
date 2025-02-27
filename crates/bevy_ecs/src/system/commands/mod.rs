@@ -1921,7 +1921,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Sends a [`Trigger`](crate::observer::Trigger) targeting the entity.
-    /// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching this entity.
+    /// This will run any [`Observer`] of the given [`Event`] watching this entity.
     #[track_caller]
     pub fn trigger(&mut self, event: impl Event) -> &mut Self {
         self.queue(entity_command::trigger(event))
