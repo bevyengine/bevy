@@ -20,6 +20,13 @@ use core::{
 ///
 /// This trait can be derived.
 ///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Event)]
+/// [event(auto_propagate, traversal = ChildOf)]
+/// struct MyEvent;
+/// ```
 /// Events must be thread-safe.
 ///
 /// [`World`]: crate::world::World
