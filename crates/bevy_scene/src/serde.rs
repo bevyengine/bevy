@@ -793,7 +793,7 @@ mod tests {
         deserialized_scene
             .write_to_world(&mut world, &mut EntityHashMap::default())
             .unwrap();
-        assert_eq!(&qux, world.query::<&Qux>().single(&world));
+        assert_eq!(&qux, world.query::<&Qux>().get_single(&world).unwrap());
     }
 
     #[test]

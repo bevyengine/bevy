@@ -98,7 +98,11 @@ fn test_spell_casting() {
     app.update();
 
     let expected = Player::default();
-    let actual = app.world_mut().query::<&Player>().single(app.world());
+    let actual = app
+        .world_mut()
+        .query::<&Player>()
+        .get_single(app.world())
+        .unwrap();
     assert_eq!(
         expected.mana - 1,
         actual.mana,
@@ -112,7 +116,11 @@ fn test_spell_casting() {
     app.update();
 
     // No extra spells have been cast, so no mana should have been used.
-    let after_keypress_event = app.world_mut().query::<&Player>().single(app.world());
+    let after_keypress_event = app
+        .world_mut()
+        .query::<&Player>()
+        .get_single(app.world())
+        .unwrap();
     assert_eq!(
         expected.mana - 1,
         after_keypress_event.mana,
@@ -127,6 +135,10 @@ fn test_window_title() {
 
     app.update();
 
-    let window = app.world_mut().query::<&Window>().single(app.world());
+    let window = app
+        .world_mut()
+        .query::<&Window>()
+        .get_single(app.world())
+        .unwrap();
     assert_eq!(window.title, "This is window 0!");
 }
