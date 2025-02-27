@@ -361,6 +361,10 @@ impl<'w> DeferredWorld<'w> {
     /// Use [`get_resource_mut`](DeferredWorld::get_resource_mut) instead if you want to handle this case.
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_resource_mut` instead, which returns an `Option` instead of panicking."
+    )]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,
@@ -391,6 +395,10 @@ impl<'w> DeferredWorld<'w> {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_non_send_resource_mut` instead, which returns an `Option` instead of panicking."
+    )]
     pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
         match self.get_non_send_resource_mut() {
             Some(x) => x,

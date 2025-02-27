@@ -1850,6 +1850,10 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_resource` instead, which returns an `Option` instead of panicking."
+    )]
     pub fn resource<R: Resource>(&self) -> &R {
         match self.get_resource() {
             Some(x) => x,
@@ -1874,6 +1878,10 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_resource_ref` instead, which returns an `Option` instead of panicking."
+    )]
     pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
         match self.get_resource_ref() {
             Some(x) => x,
@@ -1898,6 +1906,10 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_resource_mut` instead, which returns an `Option` instead of panicking."
+    )]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         match self.get_resource_mut() {
             Some(x) => x,

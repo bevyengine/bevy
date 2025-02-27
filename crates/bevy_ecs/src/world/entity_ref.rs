@@ -1328,6 +1328,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the resource does not exist.
     /// Use [`get_resource`](EntityWorldMut::get_resource) instead if you want to handle this case.
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_resource` instead, which returns an `Option` instead of panicking."
+    )]
     #[inline]
     #[track_caller]
     pub fn resource<R: Resource>(&self) -> &R {
@@ -1345,6 +1349,10 @@ impl<'w> EntityWorldMut<'w> {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_resource_mut` instead, which returns an `Option` instead of panicking."
+    )]
     pub fn resource_mut<R: Resource>(&mut self) -> Mut<'_, R> {
         self.world.resource_mut::<R>()
     }
