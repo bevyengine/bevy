@@ -155,7 +155,11 @@ fn setup_meshes(
         let joint_0 = commands.spawn(transform).id();
 
         let joint_1 = commands
-            .spawn((ChildOf(joint_0), AnimatedJoint, Transform::IDENTITY))
+            .spawn((
+                ChildOf { parent: joint_0 },
+                AnimatedJoint,
+                Transform::IDENTITY,
+            ))
             .id();
 
         // Optionally delete one joint entity.
