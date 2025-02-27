@@ -1,4 +1,5 @@
 use alloc::{borrow::ToOwned, string::String};
+use bevy_state::state::States;
 use core::num::NonZero;
 
 use bevy_ecs::{
@@ -1031,7 +1032,7 @@ impl From<DVec2> for WindowResolution {
 /// - **`iOS/Android`** don't have cursors.
 ///
 /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, States, Hash, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
