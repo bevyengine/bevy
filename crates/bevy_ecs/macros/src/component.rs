@@ -367,7 +367,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                     }
                 }
 
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(Entity)) {
+                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut Entity)) {
                     use #bevy_ecs_path::entity::VisitEntitiesMut;
                     match this {
                         #(#visit_mut,)*
