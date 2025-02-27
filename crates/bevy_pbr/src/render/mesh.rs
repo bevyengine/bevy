@@ -1638,7 +1638,7 @@ fn extract_mesh_for_gpu_building(
 /// in [`RenderMeshInstanceFlags`] would be to have
 /// [`crate::material::queue_material_meshes`] check the morph target tables for
 /// each mesh, but that would be too slow in the hot mesh queuing loop.
-pub fn set_mesh_motion_vector_flags(
+fn set_mesh_motion_vector_flags(
     mut render_mesh_instances: ResMut<RenderMeshInstances>,
     morph_indices: Res<MorphIndices>,
 ) {
