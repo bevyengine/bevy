@@ -1852,7 +1852,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Health(u32);
     /// #
     /// fn regenerate_player_health_system(query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.single_inner();
+    ///     let mut health = query.get_single_inner().unwrap();
     ///     health.0 += 1;
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
@@ -1864,6 +1864,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// - [`single`](Self::single) to get the read-only query item.
     /// - [`single_mut`](Self::single_mut) to get the mutable query item.
     #[track_caller]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_single_inner` instead, which returns a `Result` instead of panicking."
+    )]
     pub fn single_inner(self) -> D::Item<'w> {
         self.get_single_inner().unwrap()
     }

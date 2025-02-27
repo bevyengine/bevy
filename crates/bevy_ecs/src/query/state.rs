@@ -1608,7 +1608,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         note = "Please use `get_single` instead, which returns a `Result` instead of panicking."
     )]
     pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, D> {
-        self.query(world).single_inner()
+        self.query(world).get_single_inner().unwrap()
     }
 
     /// Returns a single immutable query result when there is exactly one entity matching
@@ -1701,7 +1701,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         note = "Please use `get_single_mut` instead, which returns a `Result` instead of panicking."
     )]
     pub fn single_mut<'w>(&mut self, world: &'w mut World) -> D::Item<'w> {
-        self.query_mut(world).single_inner()
+        self.query_mut(world).get_single_inner().unwrap()
     }
 
     /// Returns a single mutable query result when there is exactly one entity matching

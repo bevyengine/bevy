@@ -35,13 +35,13 @@ fn for_loops(mut query: Query<&mut Foo>) {
 fn single_mut_query(mut query: Query<&mut Foo>) {
     // this should fail to compile
     {
-        let mut mut_foo = query.single_mut();
+        let mut mut_foo = query.get_single_mut().unwrap();
 
         // This solves "temporary value dropped while borrowed"
         let readonly_query = query.as_readonly();
         //~^ E0502
 
-        let ref_foo = readonly_query.single();
+        let ref_foo = readonly_query.get_single().unwrap();
 
         *mut_foo = Foo;
 
