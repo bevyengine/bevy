@@ -128,7 +128,7 @@ pub trait Relationship: Component + Sized {
             {
                 relationship_target.collection_mut_risky().remove(entity);
                 if relationship_target.len() == 0 {
-                    if let Some(mut entity) = world.commands().get_entity(target_entity) {
+                    if let Ok(mut entity) = world.commands().get_entity(target_entity) {
                         // this "remove" operation must check emptiness because in the event that an identical
                         // relationship is inserted on top, this despawn would result in the removal of that identical
                         // relationship ... not what we want!
