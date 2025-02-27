@@ -1290,7 +1290,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert(bundle))
+        self.queue(entity_command::insert(bundle, InsertMode::Replace))
     }
 
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
@@ -1350,7 +1350,7 @@ impl<'a> EntityCommands<'a> {
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`] instead.
     #[track_caller]
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert_if_new(bundle))
+        self.queue(entity_command::insert(bundle, InsertMode::Keep))
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting if the
@@ -1399,7 +1399,12 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue(entity_command::insert_by_id(component_id, value))
+        self.queue(
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
+        )
     }
 
     /// Attempts to add a dynamic component to an entity.
@@ -1417,7 +1422,10 @@ impl<'a> EntityCommands<'a> {
         value: T,
     ) -> &mut Self {
         self.queue_handled(
-            entity_command::insert_by_id(component_id, value),
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
             error_handler::silent(),
         )
     }
@@ -1472,7 +1480,10 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle), error_handler::silent())
+        self.queue_handled(
+            entity_command::insert(bundle, InsertMode::Replace),
+            error_handler::silent(),
+        )
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1572,7 +1583,7 @@ impl<'a> EntityCommands<'a> {
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue_handled(
-            entity_command::insert_if_new(bundle),
+            entity_command::insert(bundle, InsertMode::Keep),
             error_handler::silent(),
         )
     }
