@@ -1627,15 +1627,21 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
+    /// use bevy_ecs::query::QuerySingleError;
     ///
     /// #[derive(Component)]
     /// struct A(usize);
     ///
     /// fn my_system(query: Query<&A>, mut commands: Commands) {
-    ///   match query.get_single() {
-    ///      Some(a) => () // Do something with `a`,
-    ///      None => commands.spawn((A(0),)),
-    ///   }
+    ///     match query.get_single() {
+    ///         Ok(a) => (), // Do something with `a`
+    ///         Err(err) => match err {
+    ///             QuerySingleError::NoEntities(_) => {
+    ///                 commands.spawn(A(0));
+    ///             }
+    ///             QuerySingleError::MultipleEntities(_) => panic!("Multiple entities found!"),
+    ///         },
+    ///     }
     /// }
     /// ```
     ///
@@ -1650,7 +1656,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// fn my_system(query: Query<&A>) {
     ///   let Ok(a) = query.get_single() else {
     ///     return;
-    ///   }
+    ///   };
     ///
     ///   // Do something with `a`
     /// }
@@ -1669,6 +1675,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///  let a = query.get_single()?;
     ///  
     ///  // Do something with `a`
+    ///  Ok(())
     /// }
     /// ```
     ///
