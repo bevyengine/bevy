@@ -1920,13 +1920,11 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends a [`Trigger`] targeting this entity. This will run any [`Observer`] of the `event` that
-    /// watches this entity.
-    ///
-    /// [`Trigger`]: crate::observer::Trigger
+    /// Sends a [`Trigger`](crate::observer::Trigger) targeting the entity.
+    /// This will run any [`Observer`](crate::observer::Observer) of the given [`Event`] watching this entity.
+    #[track_caller]
     pub fn trigger(&mut self, event: impl Event) -> &mut Self {
-        self.commands.trigger_targets(event, self.entity);
-        self
+        self.queue(entity_command::trigger(event))
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
