@@ -114,7 +114,8 @@ fn setup_meshes(
             [0.5, 2.0, 0.0],
         ],
     )
-    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 8]);
+    .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 8])
+    .with_inserted_indices(Indices::U16(vec![0, 1, 3, 0, 3, 2, 4, 5, 7, 4, 7, 6]));
 
     let skinned_mesh = unskinned_mesh
         .clone()
@@ -134,8 +135,7 @@ fn setup_meshes(
         .with_inserted_attribute(
             Mesh::ATTRIBUTE_JOINT_WEIGHT,
             vec![[1.00, 0.00, 0.0, 0.0]; 8],
-        )
-        .with_inserted_indices(Indices::U16(vec![0, 1, 3, 0, 3, 2, 4, 5, 7, 4, 7, 6]));
+        );
 
     let unskinned_mesh_handle = mesh_assets.add(unskinned_mesh);
     let skinned_mesh_handle = mesh_assets.add(skinned_mesh);
@@ -151,10 +151,10 @@ fn setup_meshes(
     });
 
     // Mesh 0: Normal.
-    // Mesh 1: Asset is missing joint index and joint weight attributes.
-    // Mesh 2: Entity is missing SkinnedMesh component.
-    // Mesh 3: One joint entity deleted.
-
+    // Mesh 1: Mesh asset is missing joint index and joint weight attributes.
+    // Mesh 2: One joint entity has been deleted.
+    // Mesh 3: Mesh entity is missing SkinnedMesh component.
+    //for mesh_index in 0..4 {
     for mesh_index in 0..4 {
         let transform = Transform::from_xyz(((mesh_index as f32) - 1.5) * 4.0, 0.0, 0.0);
 
@@ -169,21 +169,23 @@ fn setup_meshes(
             _ => &skinned_mesh_handle,
         };
 
-        let mut entity_commands = commands.spawn((
-            Mesh3d(mesh_handle.clone()),
-            MeshMaterial3d(material_handle.clone()),
-            transform,
-        ));
+        let mesh_entity = commands
+            .spawn((
+                Mesh3d(mesh_handle.clone()),
+                MeshMaterial3d(material_handle.clone()),
+                transform,
+            ))
+            .id();
 
-        if mesh_index != 2 {
-            entity_commands.insert(SkinnedMesh {
+        if mesh_index == 2 {
+            commands.entity(joint_1).despawn();
+        }
+
+        if mesh_index != 3 {
+            commands.entity(mesh_entity).insert(SkinnedMesh {
                 inverse_bindposes: inverse_bindposes_handle.clone(),
                 joints: vec![joint_0, joint_1],
             });
-        }
-
-        if mesh_index == 3 {
-            commands.entity(joint_1).despawn();
         }
     }
 }
@@ -291,7 +293,6 @@ fn update_render_mode(
             .entity(camera)
             .remove::<NormalPrepass>()
             .remove::<DepthPrepass>()
-            .remove::<DepthPrepass>()
             .remove::<MotionVectorPrepass>()
             .remove::<DeferredPrepass>();
     }
@@ -299,6 +300,13 @@ fn update_render_mode(
     match desired_render_mode {
         RenderMode::Forward => {
             default_opaque_renderer_method.set_to_forward();
+
+            for camera in cameras {
+                commands
+                    .entity(camera)
+                    .insert(DepthPrepass)
+                    .insert(MotionVectorPrepass);
+            }
         }
 
         RenderMode::ForwardPrepass => {
