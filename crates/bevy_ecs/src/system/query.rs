@@ -947,7 +947,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     ///     friends_query: Query<&Friends>,
     ///     mut counter_query: Query<&mut Counter>,
     /// ) {
-    ///     let friends = friends_query.single();
+    ///     let friends = friends_query.get_single().unwrap();
     ///     for mut counter in counter_query.iter_many_unique_inner(friends) {
     ///         println!("Friend's counter: {:?}", counter.value);
     ///         counter.value += 1;
@@ -1721,7 +1721,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # #[derive(Component)]
     /// # struct Position(f32, f32);
     /// fn player_system(query: Query<&Position, With<Player>>) {
-    ///     let player_position = query.single();
+    ///     let player_position = query.get_single().unwrap();
     ///     // do something with player_position
     /// }
     /// # bevy_ecs::system::assert_is_system(player_system);
@@ -1789,7 +1789,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # struct Health(u32);
     /// #
     /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.single_mut();
+    ///     let mut health = query.get_single_mut().unwrap();
     ///     health.0 += 1;
     /// }
     /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
@@ -2001,7 +2001,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # world.spawn((A(10), B(5)));
     /// #
     /// fn reusable_function(lens: &mut QueryLens<&A>) {
-    ///     assert_eq!(lens.query().single().0, 10);
+    ///     assert_eq!(lens.query().get_single().unwrap().0, 10);
     /// }
     ///
     /// // We can use the function in a system that takes the exact query.
@@ -2160,7 +2160,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # world.spawn((A(10), B(5)));
     /// #
     /// fn reusable_function(mut lens: QueryLens<&A>) {
-    ///     assert_eq!(lens.query().single().0, 10);
+    ///     assert_eq!(lens.query().get_single().unwrap().0, 10);
     /// }
     ///
     /// // We can use the function in a system that takes the exact query.

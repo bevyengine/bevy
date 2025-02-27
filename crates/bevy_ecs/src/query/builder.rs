@@ -33,7 +33,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 ///     .build();
 ///
 /// // Consume the QueryState
-/// let (entity, b) = query.single(&world);
+/// let (entity, b) = query.get_single(&world).unwrap();
 /// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
