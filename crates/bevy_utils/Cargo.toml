@@ -1,7 +1,7 @@
 [package]
 name = "bevy_utils"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
@@ -29,10 +29,6 @@ alloc = ["bevy_platform_support/alloc"]
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = ["bevy_platform_support/critical-section"]
-
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support. 
-portable-atomic = ["bevy_platform_support/portable-atomic"]
 
 [dependencies]
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }

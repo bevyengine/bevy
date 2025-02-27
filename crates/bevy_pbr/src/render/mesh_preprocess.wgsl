@@ -14,7 +14,9 @@
 // are known as *early mesh preprocessing* and *late mesh preprocessing*
 // respectively.
 
-#import bevy_pbr::mesh_preprocess_types::{IndirectParametersMetadata, MeshInput}
+#import bevy_pbr::mesh_preprocess_types::{
+    IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, MeshInput
+}
 #import bevy_pbr::mesh_types::{Mesh, MESH_FLAGS_NO_FRUSTUM_CULLING_BIT}
 #import bevy_pbr::mesh_view_bindings::view
 #import bevy_pbr::occlusion_culling
@@ -90,15 +92,18 @@ struct PushConstants {
 
 #ifdef INDIRECT
 // The array of indirect parameters for drawcalls.
-@group(0) @binding(7) var<storage, read_write> indirect_parameters_metadata:
-    array<IndirectParametersMetadata>;
+@group(0) @binding(7) var<storage> indirect_parameters_cpu_metadata:
+    array<IndirectParametersCpuMetadata>;
+
+@group(0) @binding(8) var<storage, read_write> indirect_parameters_gpu_metadata:
+    array<IndirectParametersGpuMetadata>;
 #endif
 
 #ifdef FRUSTUM_CULLING
 // Data needed to cull the meshes.
 //
 // At the moment, this consists only of AABBs.
-@group(0) @binding(8) var<storage> mesh_culling_data: array<MeshCullingData>;
+@group(0) @binding(9) var<storage> mesh_culling_data: array<MeshCullingData>;
 #endif  // FRUSTUM_CULLING
 
 #ifdef OCCLUSION_CULLING
@@ -131,9 +136,9 @@ fn view_frustum_intersects_obb(
         let relative_radius = dot(
             abs(
                 vec3(
-                    dot(plane_normal, world_from_local[0]),
-                    dot(plane_normal, world_from_local[1]),
-                    dot(plane_normal, world_from_local[2]),
+                    dot(plane_normal.xyz, world_from_local[0].xyz),
+                    dot(plane_normal.xyz, world_from_local[1].xyz),
+                    dot(plane_normal.xyz, world_from_local[2].xyz),
                 )
             ),
             aabb_half_extents
@@ -172,6 +177,16 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     let input_index = work_items[instance_index].input_index;
 #ifdef INDIRECT
     let indirect_parameters_index = work_items[instance_index].output_or_indirect_parameters_index;
+
+    // If we're the first mesh instance in this batch, write the index of our
+    // `MeshInput` into the appropriate slot so that the indirect parameters
+    // building shader can access it.
+#ifndef LATE_PHASE
+    if (instance_index == 0u || work_items[instance_index - 1].output_or_indirect_parameters_index != indirect_parameters_index) {
+        indirect_parameters_gpu_metadata[indirect_parameters_index].mesh_index = input_index;
+    }
+#endif  // LATE_PHASE
+
 #else   // INDIRECT
     let mesh_output_index = work_items[instance_index].output_or_indirect_parameters_index;
 #endif  // INDIRECT
@@ -194,14 +209,22 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     }
 #endif
 
-    // Look up the previous model matrix.
+    // See whether the `MeshInputUniform` was updated on this frame. If it
+    // wasn't, then we know the transforms of this mesh must be identical to
+    // those on the previous frame, and therefore we don't need to access the
+    // `previous_input_index` (in fact, we can't; that index are only valid for
+    // one frame and will be invalid).
+    let timestamp = current_input[input_index].timestamp;
+    let mesh_changed_this_frame = timestamp == view.frame_count;
+
+    // Look up the previous model matrix, if it could have been.
     let previous_input_index = current_input[input_index].previous_input_index;
     var previous_world_from_local_affine_transpose: mat3x4<f32>;
-    if (previous_input_index == 0xffffffff) {
-        previous_world_from_local_affine_transpose = world_from_local_affine_transpose;
-    } else {
+    if (mesh_changed_this_frame && previous_input_index != 0xffffffffu) {
         previous_world_from_local_affine_transpose =
             previous_input[previous_input_index].world_from_local;
+    } else {
+        previous_world_from_local_affine_transpose = world_from_local_affine_transpose;
     }
     let previous_world_from_local =
         maths::affine3_to_square(previous_world_from_local_affine_transpose);
@@ -315,18 +338,21 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     // parameters. Otherwise, this index was directly supplied to us.
 #ifdef INDIRECT
 #ifdef LATE_PHASE
-    let batch_output_index =
-        atomicLoad(&indirect_parameters_metadata[indirect_parameters_index].early_instance_count) +
-        atomicAdd(&indirect_parameters_metadata[indirect_parameters_index].late_instance_count, 1u);
+    let batch_output_index = atomicLoad(
+        &indirect_parameters_gpu_metadata[indirect_parameters_index].early_instance_count
+    ) + atomicAdd(
+        &indirect_parameters_gpu_metadata[indirect_parameters_index].late_instance_count,
+        1u
+    );
 #else   // LATE_PHASE
     let batch_output_index = atomicAdd(
-        &indirect_parameters_metadata[indirect_parameters_index].early_instance_count,
+        &indirect_parameters_gpu_metadata[indirect_parameters_index].early_instance_count,
         1u
     );
 #endif  // LATE_PHASE
 
     let mesh_output_index =
-        indirect_parameters_metadata[indirect_parameters_index].base_output_index +
+        indirect_parameters_cpu_metadata[indirect_parameters_index].base_output_index +
         batch_output_index;
 
 #endif  // INDIRECT
@@ -341,7 +367,6 @@ fn main(@builtin(global_invocation_id) global_invocation_id: vec3<u32>) {
     output[mesh_output_index].lightmap_uv_rect = current_input[input_index].lightmap_uv_rect;
     output[mesh_output_index].first_vertex_index = current_input[input_index].first_vertex_index;
     output[mesh_output_index].current_skin_index = current_input[input_index].current_skin_index;
-    output[mesh_output_index].previous_skin_index = current_input[input_index].previous_skin_index;
     output[mesh_output_index].material_and_lightmap_bind_group_slot =
         current_input[input_index].material_and_lightmap_bind_group_slot;
     output[mesh_output_index].tag = current_input[input_index].tag;
