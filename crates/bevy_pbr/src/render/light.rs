@@ -1747,7 +1747,10 @@ pub fn specialize_shadows<M: Material>(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache<M>>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
+    (entity_specialization_ticks, skin_uniforms): (
+        Res<EntitySpecializationTicks<M>>,
+        Res<SkinUniforms>,
+    ),
     ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -1860,6 +1863,10 @@ pub fn specialize_shadows<M: Material>(
                     .contains_key(&visible_entity)
                 {
                     mesh_key |= MeshPipelineKey::LIGHTMAPPED;
+                }
+
+                if skin_uniforms.contains(visible_entity) {
+                    mesh_key |= MeshPipelineKey::SKINNED;
                 }
 
                 mesh_key |= match material.properties.alpha_mode {

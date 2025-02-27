@@ -5,6 +5,7 @@ use bevy_asset::{prelude::AssetChanged, Assets};
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_platform_support::collections::hash_map::Entry;
+use bevy_render::mesh::{Mesh, Mesh3d};
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
@@ -167,9 +168,9 @@ impl SkinUniforms {
         })
     }
 
-    /// Returns an iterator over all skins in the scene.
-    pub fn all_skins(&self) -> impl Iterator<Item = &MainEntity> {
-        self.skin_uniform_info.keys()
+    /// Returns true if the given entity has a skin.
+    pub fn contains(&self, skin: MainEntity) -> bool {
+        self.skin_uniform_info.contains_key(&skin)
     }
 }
 
@@ -229,12 +230,25 @@ pub fn prepare_skins(
         } else {
             BufferUsages::STORAGE
         } | BufferUsages::COPY_DST;
+
         uniform.current_buffer = render_device.create_buffer(&BufferDescriptor {
             label: Some("skin uniform buffer"),
             usage: buffer_usages,
             size: new_size,
             mapped_at_creation: false,
         });
+        uniform.prev_buffer = render_device.create_buffer(&BufferDescriptor {
+            label: Some("skin uniform buffer"),
+            usage: buffer_usages,
+            size: new_size,
+            mapped_at_creation: false,
+        });
+        // TODO: This is wrong. We should be using last frame's data for prev_buffer.
+        render_queue.write_buffer(
+            &uniform.prev_buffer,
+            0,
+            bytemuck::must_cast_slice(&uniform.current_staging_buffer[..]),
+        );
     }
 
     // Write the data from `uniform.current_staging_buffer` into
@@ -280,17 +294,20 @@ pub fn extract_skins(
     skinned_meshes: Extract<Query<(Entity, &SkinnedMesh)>>,
     changed_skinned_meshes: Extract<
         Query<
-            (Entity, &ViewVisibility, &SkinnedMesh),
+            (Entity, &ViewVisibility, &SkinnedMesh, &Mesh3d),
             Or<(
                 Changed<ViewVisibility>,
                 Changed<SkinnedMesh>,
                 AssetChanged<SkinnedMesh>,
+                Changed<Mesh3d>,
+                AssetChanged<Mesh3d>,
             )>,
         >,
     >,
     skinned_mesh_inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     changed_transforms: Extract<Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>>,
     joints: Extract<Query<&GlobalTransform>>,
+    meshes: Extract<Res<Assets<Mesh>>>,
     mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_skinned_meshes_query: Extract<RemovedComponents<SkinnedMesh>>,
 ) {
@@ -303,6 +320,7 @@ pub fn extract_skins(
         &changed_skinned_meshes,
         &skinned_mesh_inverse_bindposes,
         &joints,
+        &meshes,
     );
 
     // Extract the transforms for all joints from the scene, and write them into
@@ -330,25 +348,36 @@ pub fn extract_skins(
     }
 }
 
+/// This should match the `is_skinned` function in `mesh.rs`, which takes a
+/// `MeshVertexBufferLayoutRef` instead of a `Mesh`.
+fn is_skinned(mesh: &Mesh) -> bool {
+    mesh.contains_attribute(Mesh::ATTRIBUTE_JOINT_INDEX)
+        && mesh.contains_attribute(Mesh::ATTRIBUTE_JOINT_WEIGHT)
+}
+
 /// Searches for all skins that have become visible or invisible this frame and
 /// allocations for them as necessary.
 fn add_or_delete_skins(
     skin_uniforms: &mut SkinUniforms,
     changed_skinned_meshes: &Query<
-        (Entity, &ViewVisibility, &SkinnedMesh),
+        (Entity, &ViewVisibility, &SkinnedMesh, &Mesh3d),
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
             AssetChanged<SkinnedMesh>,
+            Changed<Mesh3d>,
+            AssetChanged<Mesh3d>,
         )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
     joints: &Query<&GlobalTransform>,
+    meshes: &Assets<Mesh>,
 ) {
     // Find every skinned mesh that changed one of (1) visibility; (2) joint
     // entities (part of `SkinnedMesh`); (3) the associated
     // `SkinnedMeshInverseBindposes` asset.
-    for (skinned_mesh_entity, skinned_mesh_view_visibility, skinned_mesh) in changed_skinned_meshes
+    for (skinned_mesh_entity, skinned_mesh_view_visibility, skinned_mesh, mesh) in
+        changed_skinned_meshes
     {
         // Remove the skin if it existed last frame.
         let skinned_mesh_entity = MainEntity::from(skinned_mesh_entity);
@@ -357,6 +386,13 @@ fn add_or_delete_skins(
         // If the skin is invisible, we're done.
         if !(*skinned_mesh_view_visibility).get() {
             continue;
+        }
+
+        // If the mesh can't be skinned, we're done.
+        if let Some(mesh_asset) = meshes.get(mesh) {
+            if !is_skinned(mesh_asset) {
+                continue;
+            }
         }
 
         // Initialize the skin.
@@ -376,11 +412,13 @@ fn extract_joints(
     skin_uniforms: &mut SkinUniforms,
     skinned_meshes: &Query<(Entity, &SkinnedMesh)>,
     changed_skinned_meshes: &Query<
-        (Entity, &ViewVisibility, &SkinnedMesh),
+        (Entity, &ViewVisibility, &SkinnedMesh, &Mesh3d),
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
             AssetChanged<SkinnedMesh>,
+            Changed<Mesh3d>,
+            AssetChanged<Mesh3d>,
         )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,
@@ -447,11 +485,13 @@ fn extract_joints_for_skin(
     skin: &SkinnedMesh,
     skin_uniforms: &mut SkinUniforms,
     changed_skinned_meshes: &Query<
-        (Entity, &ViewVisibility, &SkinnedMesh),
+        (Entity, &ViewVisibility, &SkinnedMesh, &Mesh3d),
         Or<(
             Changed<ViewVisibility>,
             Changed<SkinnedMesh>,
             AssetChanged<SkinnedMesh>,
+            Changed<Mesh3d>,
+            AssetChanged<Mesh3d>,
         )>,
     >,
     skinned_mesh_inverse_bindposes: &Assets<SkinnedMeshInverseBindposes>,

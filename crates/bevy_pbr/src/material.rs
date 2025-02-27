@@ -827,7 +827,8 @@ pub fn specialize_material_meshes<M: Material>(
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline: Res<MaterialPipeline<M>>,
-    pipeline_cache: Res<PipelineCache>,
+    (pipeline_cache, skin_uniforms): (Res<PipelineCache>, Res<SkinUniforms>),
+
     ticks: SystemChangeTick,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -910,14 +911,17 @@ pub fn specialize_material_meshes<M: Material>(
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
             }
 
+            let is_skinned = skin_uniforms.contains(*visible_entity);
+
+            if is_skinned {
+                mesh_key |= MeshPipelineKey::SKINNED;
+            }
+
             if view_key.contains(MeshPipelineKey::MOTION_VECTOR_PREPASS) {
-                // If the previous frame have skins or morph targets, note that.
-                if mesh_instance
-                    .flags
-                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
-                {
+                if is_skinned {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                 }
+                // If the previous frame has morph targets, note that.
                 if mesh_instance
                     .flags
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)

@@ -7,7 +7,7 @@ use crate::{
     EntitySpecializationTicks, Material, MaterialPipeline, MaterialPipelineKey, MeshLayouts,
     MeshPipeline, MeshPipelineKey, OpaqueRendererMethod, PreparedMaterial, RenderLightmaps,
     RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances, RenderPhaseType,
-    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, StandardMaterial,
+    SetMaterialBindGroup, SetMeshBindGroup, ShadowView, SkinUniforms, StandardMaterial,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -589,7 +589,6 @@ where
 
         let bind_group = setup_morph_and_skinning_defs(
             &self.mesh_layouts,
-            layout,
             5,
             &key.mesh_key,
             &mut shader_defs,
@@ -901,6 +900,7 @@ pub fn specialize_prepass_material_meshes<M>(
     render_visibility_ranges: Res<RenderVisibilityRanges>,
     material_bind_group_allocator: Res<MaterialBindGroupAllocator<M>>,
     view_key_cache: Res<ViewKeyPrepassCache>,
+    skin_uniforms: Res<SkinUniforms>,
     views: Query<(
         &ExtractedView,
         &RenderVisibleEntities,
@@ -1042,14 +1042,17 @@ pub fn specialize_prepass_material_meshes<M>(
                 mesh_key |= MeshPipelineKey::VISIBILITY_RANGE_DITHER;
             }
 
-            // If the previous frame has skins or morph targets, note that.
+            let is_skinned = skin_uniforms.contains(*visible_entity);
+
+            if is_skinned {
+                mesh_key |= MeshPipelineKey::SKINNED;
+            }
+
             if motion_vector_prepass.is_some() {
-                if mesh_instance
-                    .flags
-                    .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_SKIN)
-                {
+                if is_skinned {
                     mesh_key |= MeshPipelineKey::HAS_PREVIOUS_SKIN;
                 }
+                // If the previous frame has morph targets, note that.
                 if mesh_instance
                     .flags
                     .contains(RenderMeshInstanceFlags::HAS_PREVIOUS_MORPH)
