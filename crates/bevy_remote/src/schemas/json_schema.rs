@@ -6,9 +6,9 @@ use bevy_reflect::{
     prelude::ReflectDefault, NamedField, OpaqueInfo, ReflectDeserialize, ReflectSerialize,
     TypeInfo, TypeRegistration, VariantInfo,
 };
+use core::any::TypeId;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::any::TypeId;
 
 /// Exports schema info for a given type
 pub fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {

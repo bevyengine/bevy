@@ -1,4 +1,4 @@
-//! Module with trimmed down OpenRPC document structs.
+//! Module with trimmed down `OpenRPC` document structs.
 //! It tries to follow this standard: <https://spec.open-rpc.org>
 use bevy_platform_support::collections::HashMap;
 use bevy_utils::default;
@@ -6,11 +6,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::RemoteMethods;
 
-/// Represents an OpenRPC document as defined by the OpenRPC specification.
+/// Represents an `OpenRPC` document as defined by the `OpenRPC` specification.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenRpcDocument {
-    /// The version of the OpenRPC specification being used.
+    /// The version of the `OpenRPC` specification being used.
     pub openrpc: String,
     /// Informational metadata about the document.
     pub info: InfoObject,
@@ -20,7 +20,7 @@ pub struct OpenRpcDocument {
     pub servers: Option<Vec<ServerObject>>,
 }
 
-/// Contains metadata information about the OpenRPC document.
+/// Contains metadata information about the `OpenRPC` document.
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct InfoObject {
@@ -47,7 +47,7 @@ impl Default for InfoObject {
     }
 }
 
-/// Describes a server hosting the API as specified in the OpenRPC document.
+/// Describes a server hosting the API as specified in the `OpenRPC` document.
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ServerObject {
@@ -63,7 +63,7 @@ pub struct ServerObject {
     pub extensions: HashMap<String, serde_json::Value>,
 }
 
-/// Represents an RPC method in the OpenRPC document.
+/// Represents an RPC method in the `OpenRPC` document.
 #[derive(Serialize, Deserialize, Debug, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct MethodObject {

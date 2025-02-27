@@ -637,9 +637,9 @@ impl RemoteMethods {
         self.0.get(method)
     }
 
-    /// Get a [`Vec<String>`] with method names
+    /// Get a [`Vec<String>`] with method names.
     pub fn methods(&self) -> Vec<String> {
-        self.0.keys().into_iter().cloned().collect()
+        self.0.keys().cloned().collect()
     }
 }
 
