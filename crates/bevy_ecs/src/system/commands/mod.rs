@@ -20,7 +20,7 @@ use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
-    entity::{Entities, Entity, EntityClonerBuilder},
+    entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError},
     event::Event,
     observer::{Observer, TriggerTargets},
     resource::Resource,
@@ -404,12 +404,8 @@ impl<'w, 's> Commands<'w, 's> {
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
-    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -442,32 +438,20 @@ impl<'w, 's> Commands<'w, 's> {
     #[inline]
     #[track_caller]
     pub fn entity(&mut self, entity: Entity) -> EntityCommands {
-        #[inline(never)]
-        #[cold]
-        #[track_caller]
-        fn panic_no_entity(entities: &Entities, entity: Entity) -> ! {
-            panic!(
-                "Attempting to create an EntityCommands for entity {entity}, which {}",
-                entities.entity_does_not_exist_error_details(entity)
-            );
-        }
-
-        if self.get_entity(entity).is_some() {
-            EntityCommands {
-                entity,
-                commands: self.reborrow(),
-            }
-        } else {
-            panic_no_entity(self.entities, entity)
+        EntityCommands {
+            entity,
+            commands: self.reborrow(),
         }
     }
 
     /// Returns the [`EntityCommands`] for the requested [`Entity`], if it exists.
     ///
-    /// Returns `None` if the entity does not exist.
-    ///
-    /// This method does not guarantee that commands queued by the `EntityCommands`
+    /// This method does not guarantee that commands queued by the returned `EntityCommands`
     /// will be successful, since the entity could be despawned before they are executed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`EntityDoesNotExistError`] if the requested entity does not exist.
     ///
     /// # Example
     ///
@@ -476,29 +460,41 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// #[derive(Component)]
     /// struct Label(&'static str);
-    /// fn example_system(mut commands: Commands) {
-    ///     // Create a new, empty entity
+    /// fn example_system(mut commands: Commands) -> Result {
+    ///     // Create a new, empty entity.
     ///     let entity = commands.spawn_empty().id();
     ///
-    ///     // Get the entity if it still exists, which it will in this case
-    ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
-    ///         // adds a single component to the entity
-    ///         entity_commands.insert(Label("hello world"));
-    ///     }
+    ///     // Get the entity if it still exists, which it will in this case.
+    ///     // If it didn't, the `?` operator would propagate the returned error
+    ///     // to the system, and the system would pass it to an error handler.
+    ///     let mut entity_commands = commands.get_entity(entity)?;
+    ///
+    ///     // Add a single component to the entity.
+    ///     entity_commands.insert(Label("hello world"));
+    ///
+    ///     // Return from the system with a success.
+    ///     Ok(())
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
     ///
     /// # See also
     ///
-    /// - [`entity`](Self::entity) for the panicking version.
+    /// - [`entity`](Self::entity) for the infallible version.
     #[inline]
     #[track_caller]
-    pub fn get_entity(&mut self, entity: Entity) -> Option<EntityCommands> {
-        self.entities.contains(entity).then_some(EntityCommands {
-            entity,
-            commands: self.reborrow(),
-        })
+    pub fn get_entity(
+        &mut self,
+        entity: Entity,
+    ) -> Result<EntityCommands, EntityDoesNotExistError> {
+        if self.entities.contains(entity) {
+            Ok(EntityCommands {
+                entity,
+                commands: self.reborrow(),
+            })
+        } else {
+            Err(EntityDoesNotExistError::new(entity, self.entities))
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating entities with a particular [`Bundle`] type.
@@ -1290,7 +1286,7 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert(bundle))
+        self.queue(entity_command::insert(bundle, InsertMode::Replace))
     }
 
     /// Similar to [`Self::insert`] but will only insert if the predicate returns true.
@@ -1350,7 +1346,7 @@ impl<'a> EntityCommands<'a> {
     /// To avoid a panic in this case, use the command [`Self::try_insert_if_new`] instead.
     #[track_caller]
     pub fn insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue(entity_command::insert_if_new(bundle))
+        self.queue(entity_command::insert(bundle, InsertMode::Keep))
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting if the
@@ -1399,7 +1395,12 @@ impl<'a> EntityCommands<'a> {
         component_id: ComponentId,
         value: T,
     ) -> &mut Self {
-        self.queue(entity_command::insert_by_id(component_id, value))
+        self.queue(
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
+        )
     }
 
     /// Attempts to add a dynamic component to an entity.
@@ -1417,7 +1418,10 @@ impl<'a> EntityCommands<'a> {
         value: T,
     ) -> &mut Self {
         self.queue_handled(
-            entity_command::insert_by_id(component_id, value),
+            // SAFETY:
+            // - `ComponentId` safety is ensured by the caller.
+            // - `T` safety is ensured by the caller.
+            unsafe { entity_command::insert_by_id(component_id, value, InsertMode::Replace) },
             error_handler::silent(),
         )
     }
@@ -1472,7 +1476,10 @@ impl<'a> EntityCommands<'a> {
     /// ```
     #[track_caller]
     pub fn try_insert(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.queue_handled(entity_command::insert(bundle), error_handler::silent())
+        self.queue_handled(
+            entity_command::insert(bundle, InsertMode::Replace),
+            error_handler::silent(),
+        )
     }
 
     /// Similar to [`Self::try_insert`] but will only try to insert if the predicate returns true.
@@ -1572,7 +1579,7 @@ impl<'a> EntityCommands<'a> {
     #[track_caller]
     pub fn try_insert_if_new(&mut self, bundle: impl Bundle) -> &mut Self {
         self.queue_handled(
-            entity_command::insert_if_new(bundle),
+            entity_command::insert(bundle, InsertMode::Keep),
             error_handler::silent(),
         )
     }
