@@ -112,6 +112,8 @@ jobs:
           cd ../..
 
       - name: First Wasm build
+        env:
+          RUSTFLAGS: --cfg getrandom_backend="wasm_js"
         run: |
           cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 
