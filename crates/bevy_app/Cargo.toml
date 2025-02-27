@@ -44,6 +44,7 @@ bevy_debug_stepping = []
 std = [
   "bevy_reflect?/std",
   "bevy_ecs/std",
+  "bevy_label/std",
   "dep:ctrlc",
   "downcast-rs/std",
   "bevy_utils/std",
@@ -70,7 +71,7 @@ bevy_utils = { path = "../bevy_utils", version = "0.16.0-dev", default-features 
 ] }
 bevy_tasks = { path = "../bevy_tasks", version = "0.16.0-dev", default-features = false, optional = true }
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false }
-bevy_label = { path = "../bevy_label", version = "0.16.0-dev" }
+bevy_label = { path = "../bevy_label", version = "0.16.0-dev", default-features = false }
 
 # other
 downcast-rs = { version = "2", default-features = false }

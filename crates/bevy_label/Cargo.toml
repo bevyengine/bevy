@@ -20,10 +20,6 @@ default = ["std"]
 ## supported platforms.
 std = ["bevy_platform_support/std"]
 
-## `critical-section` provides the building blocks for synchronization primitives
-## on all platforms, including `no_std`.
-critical-section = ["bevy_platform_support/critical-section"]
-
 [dependencies]
 bevy_platform_support = { path = "../bevy_platform_support", version = "0.16.0-dev", default-features = false, features = [
   "alloc",
