@@ -99,22 +99,6 @@ pub struct ChildOf {
     pub parent: Entity,
 }
 
-impl ChildOf {
-    /// Returns the parent entity, which is the "target" of this relationship.
-    pub fn get(&self) -> Entity {
-        self.parent
-    }
-}
-
-impl Deref for ChildOf {
-    type Target = Entity;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.parent
-    }
-}
-
 // TODO: We need to impl either FromWorld or Default so ChildOf can be registered as Reflect.
 // This is because Reflect deserialize by creating an instance and apply a patch on top.
 // However ChildOf should only ever be set with a real user-defined entity.  Its worth looking into
@@ -280,7 +264,7 @@ pub fn validate_parent_has_component<C: Component>(
         return;
     };
     if !world
-        .get_entity(child_of.get())
+        .get_entity(child_of.parent)
         .is_ok_and(|e| e.contains::<C>())
     {
         // TODO: print name here once Name lives in bevy_ecs

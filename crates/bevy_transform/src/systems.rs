@@ -52,8 +52,8 @@ pub fn compute_transform_leaves(
 ) {
     leaves
         .par_iter_mut()
-        .for_each(|(transform, mut global_transform, parent)| {
-            let Ok(parent_transform) = parents.get(parent.get()) else {
+        .for_each(|(transform, mut global_transform, child_of)| {
+            let Ok(parent_transform) = parents.get(child_of.parent) else {
                 return;
             };
             if parent_transform.is_changed()
@@ -115,9 +115,9 @@ mod serial {
                 *global_transform = GlobalTransform::from(*transform);
             }
 
-            for (child, actual_parent) in parent_query.iter_many(children) {
+            for (child, child_of) in child_query.iter_many(children) {
                 assert_eq!(
-                    actual_parent.get(), entity,
+                    child_of.parent, entity,
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
                 );
                 // SAFETY:
@@ -137,9 +137,9 @@ mod serial {
                     propagate_recursive(
                         &global_transform,
                         &transform_query,
-                        &parent_query,
+                        &child_query,
                         child,
-                        changed || actual_parent.is_changed(),
+                        changed || child_of.is_changed(),
                     );
                 }
             }
@@ -217,7 +217,7 @@ mod serial {
         let Some(children) = children else { return };
         for (child, actual_parent) in parent_query.iter_many(children) {
             assert_eq!(
-            actual_parent.get(), entity,
+            actual_parent.parent, entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
             // SAFETY: The caller guarantees that `transform_query` will not be fetched for any
@@ -463,7 +463,7 @@ mod parallel {
             let mut last_child = None;
             let new_children = children_iter.map(
                 |(child, (transform, mut global_transform), (children, child_of))| {
-                    assert_eq!(child_of.get(), parent);
+                    assert_eq!(child_of.parent, parent);
                     if p_global_transform.is_changed()
                         || transform.is_changed()
                         || global_transform.is_added()

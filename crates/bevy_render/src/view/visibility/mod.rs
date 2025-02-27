@@ -405,13 +405,13 @@ fn visibility_propagate_system(
     mut visibility_query: Query<(&Visibility, &mut InheritedVisibility)>,
     children_query: Query<&Children, (With<Visibility>, With<InheritedVisibility>)>,
 ) {
-    for (entity, visibility, parent, children) in &changed {
+    for (entity, visibility, child_of, children) in &changed {
         let is_visible = match visibility {
             Visibility::Visible => true,
             Visibility::Hidden => false,
             // fall back to true if no parent is found or parent lacks components
-            Visibility::Inherited => parent
-                .and_then(|p| visibility_query.get(p.get()).ok())
+            Visibility::Inherited => child_of
+                .and_then(|c| visibility_query.get(c.parent).ok())
                 .is_none_or(|(_, x)| x.get()),
         };
         let (_, mut inherited_visibility) = visibility_query
