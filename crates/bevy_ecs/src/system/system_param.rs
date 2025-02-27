@@ -333,6 +333,7 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam for Qu
         // SAFETY: We have registered all of the query's world accesses,
         // so the caller ensures that `world` has permission to access any
         // world data that the query needs.
+        // The caller ensures the world matches the one used in init_state.
         unsafe { state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick) }
     }
 }
@@ -401,8 +402,8 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         world: UnsafeWorldCell<'w>,
         change_tick: Tick,
     ) -> Self::Item<'w, 's> {
-        state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible somewhere elsewhere.
+        // The caller ensures the world matches the one used in init_state.
         let query = unsafe {
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
@@ -421,9 +422,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam fo
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
+        // The caller ensures the world matches the one used in init_state.
         let query = unsafe {
             state.query_unchecked_manual_with_ticks(
                 world,
@@ -469,6 +470,7 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
     ) -> Self::Item<'w, 's> {
         state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not accessible elsewhere.
+        // The caller ensures the world matches the one used in init_state.
         let query = unsafe {
             state.query_unchecked_manual_with_ticks(world, system_meta.last_run, change_tick)
         };
@@ -488,9 +490,9 @@ unsafe impl<'a, D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        state.validate_world(world.id());
         // SAFETY: State ensures that the components it accesses are not mutably accessible elsewhere
         // and the query is read only.
+        // The caller ensures the world matches the one used in init_state.
         let query = unsafe {
             state.query_unchecked_manual_with_ticks(
                 world,
@@ -558,13 +560,17 @@ unsafe impl<D: QueryData + 'static, F: QueryFilter + 'static> SystemParam
         system_meta: &SystemMeta,
         world: UnsafeWorldCell,
     ) -> bool {
-        state.validate_world(world.id());
         // SAFETY:
         // - We have read-only access to the components accessed by query.
-        // - The world has been validated.
-        !unsafe {
-            state.is_empty_unsafe_world_cell(world, system_meta.last_run, world.change_tick())
-        }
+        // - The caller ensures the world matches the one used in init_state.
+        let query = unsafe {
+            state.query_unchecked_manual_with_ticks(
+                world,
+                system_meta.last_run,
+                world.change_tick(),
+            )
+        };
+        !query.is_empty()
     }
 }
 
@@ -679,7 +685,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 ///         // ...
 ///         # let _event = event;
 ///     }
-///     set.p1().send(MyEvent::new());
+///     set.p1().write(MyEvent::new());
 ///
 ///     let entities = set.p2().entities();
 ///     // ...

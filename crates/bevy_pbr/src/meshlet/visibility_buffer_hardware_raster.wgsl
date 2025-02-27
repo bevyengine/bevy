@@ -54,16 +54,13 @@ fn vertex(@builtin(instance_index) instance_index: u32, @builtin(vertex_index) v
 
 @fragment
 fn fragment(vertex_output: VertexOutput) {
-    let frag_coord_1d = u32(vertex_output.position.y) * u32(view.viewport.z) + u32(vertex_output.position.x);
-
+    let depth = bitcast<u32>(vertex_output.position.z);
 #ifdef MESHLET_VISIBILITY_BUFFER_RASTER_PASS_OUTPUT
-    let depth = bitcast<u32>(vertex_output.position.z);
     let visibility = (u64(depth) << 32u) | u64(vertex_output.packed_ids);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], visibility);
 #else
-    let depth = bitcast<u32>(vertex_output.position.z);
-    atomicMax(&meshlet_visibility_buffer[frag_coord_1d], depth);
+    let visibility = depth;
 #endif
+    textureAtomicMax(meshlet_visibility_buffer, vec2<u32>(vertex_output.position.xy), visibility);
 }
 
 fn dummy_vertex() -> VertexOutput {

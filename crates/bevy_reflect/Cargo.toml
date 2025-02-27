@@ -1,13 +1,13 @@
 [package]
 name = "bevy_reflect"
 version = "0.16.0-dev"
-edition = "2021"
+edition = "2024"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
-rust-version = "1.81.0"
+rust-version = "1.85.0"
 
 [features]
 default = ["std", "smallvec", "debug"]
@@ -29,7 +29,7 @@ bevy = ["smallvec", "smol_str"]
 debug = ["debug_stack"]
 
 ## When enabled, keeps track of the current serialization/deserialization context for better error messages
-debug_stack = []
+debug_stack = ["std"]
 
 # Integrations
 
@@ -46,7 +46,7 @@ smallvec = ["dep:smallvec"]
 uuid = ["dep:uuid"]
 
 ## Adds reflection support to `wgpu-types` types.
-wgpu-types = ["dep:wgpu-types", "std"]
+wgpu-types = ["dep:wgpu-types"]
 
 # Platform Compatibility
 
@@ -62,6 +62,7 @@ std = [
   "smol_str?/std",
   "uuid?/std",
   "bevy_platform_support/std",
+  "wgpu-types?/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
@@ -69,13 +70,6 @@ std = [
 critical-section = [
   "bevy_platform_support/critical-section",
   "bevy_utils/critical-section",
-]
-
-## `portable-atomic` provides additional platform support for atomic types and
-## operations, even on targets without native support.
-portable-atomic = [
-  "bevy_platform_support/portable-atomic",
-  "bevy_utils/portable-atomic",
 ]
 
 [dependencies]
@@ -116,7 +110,9 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "24", features = ["serde"], optional = true }
+wgpu-types = { version = "24", features = [
+  "serde",
+], optional = true, default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 uuid = { version = "1.13.1", default-features = false, features = ["js"] }

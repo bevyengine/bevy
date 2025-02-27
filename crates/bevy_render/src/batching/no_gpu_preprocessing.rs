@@ -108,9 +108,9 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
     for phase in phases.values_mut() {
         // Prepare batchables.
 
-        for key in &phase.batchable_mesh_keys {
+        for bin in phase.batchable_meshes.values_mut() {
             let mut batch_set: SmallVec<[BinnedRenderPhaseBatch; 1]> = smallvec![];
-            for main_entity in phase.batchable_mesh_values[key].entities() {
+            for main_entity in bin.entities().keys() {
                 let Some(buffer_data) =
                     GFBD::get_binned_batch_data(&system_param_item, *main_entity)
                 else {
@@ -156,8 +156,7 @@ pub fn batch_and_prepare_binned_render_phase<BPI, GFBD>(
         }
 
         // Prepare unbatchables.
-        for key in &phase.unbatchable_mesh_keys {
-            let unbatchables = phase.unbatchable_mesh_values.get_mut(key).unwrap();
+        for unbatchables in phase.unbatchable_meshes.values_mut() {
             for main_entity in unbatchables.entities.keys() {
                 let Some(buffer_data) =
                     GFBD::get_binned_batch_data(&system_param_item, *main_entity)
