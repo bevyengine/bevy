@@ -42,13 +42,14 @@ use rand::random;
 fn main() {
     let mut app = App::new();
 
+    #[expect(
+        deprecated,
+        reason = "Once AmbientLight is removed, the resource can be removed"
+    )]
     app.add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight {
-            brightness: 0.0,
-            ..default()
-        })
+        .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, (example_control_system, flicker_system));
 
