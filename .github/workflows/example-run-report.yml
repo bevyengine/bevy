@@ -81,27 +81,28 @@ jobs:
     name: Comment on PR
     runs-on: ubuntu-latest
     needs: [make-macos-screenshots-available, compare-macos-screenshots]
-    if: ${{ needs.compare-macos-screenshots.result == 'failure' }}
+    if: ${{ always() && needs.compare-macos-screenshots.result == 'failure' }}
     steps:
+      - uses: actions/checkout@v4
       - name: "Check if PR already has label"
         id: check-label
         env:
-          PR: ${{ needs.make-macos-screenshots-available.outputs.pr-number.result }}
+          PR: ${{ needs.make-macos-screenshots-available.outputs.pr-number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [[ `gh api --jq '.labels.[].name' /repos/bevyengine/bevy/pulls/${{ PR }}` =~ "S-Rendering-Change" ]]
+          if [[ `gh api --jq '.labels.[].name' /repos/bevyengine/bevy/pulls/$PR` =~ "S-Rendering-Change" ]]
           then
             echo "result=true" >> $GITHUB_OUTPUT
           else
             echo "result=false" >> $GITHUB_OUTPUT
           fi
       - name: "Comment on PR"
-        if: ${{ steps.check-label.result == 'false' }}
+        if: ${{ steps.check-label.outputs.result == 'false' }}
         env:
           PROJECT: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
-          PR: ${{ needs.make-macos-screenshots-available.outputs.pr-number.result }}
+          PR: ${{ needs.make-macos-screenshots-available.outputs.pr-number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           LF=$'\n'
-          COMMENT_BODY="Your PR introduce a rendering change. ${LF}You can review it at https://pixel-eagle.com/project/${{ PROJECT }}?filter=PR-${{ PR }} ${LF} ${LF}If it's expected, add the label S-Rendering-Change."
-          gh issue comment ${{ PR }} --body "$COMMENT_BODY"
+          COMMENT_BODY="Your PR introduce a rendering change. ${LF}You can review it at https://pixel-eagle.com/project/$PROJECT?filter=PR-$PR ${LF} ${LF}If it's expected, add the label S-Rendering-Change."
+          gh issue comment $PR --body "$COMMENT_BODY"
