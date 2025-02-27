@@ -251,19 +251,17 @@ pub fn extract_shadows(
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
+    for (entity, uinode, transform, visibility, box_shadow, clip, target) in &box_shadow_query {
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
         }
 
-        let Some(extracted_camera_entity) = mapping.map(camera) else {
+        let Some(extracted_camera_entity) = mapping.map(target) else {
             continue;
         };
 
-        let ui_physical_viewport_size = camera.physical_size.as_vec2();
-
-        let scale_factor = uinode.inverse_scale_factor.recip();
+        let ui_physical_viewport_size = target.physical_size.as_vec2();
 
         for drop_shadow in box_shadow.iter() {
             if drop_shadow.color.is_fully_transparent() {
@@ -280,15 +278,23 @@ pub fn extract_shadows(
                 Val::VMax(percent) => percent / 100. * ui_physical_viewport_size.max_element(),
             };
 
-            let spread_x = resolve_val(drop_shadow.spread_radius, uinode.size().x, scale_factor);
+            let spread_x = resolve_val(
+                drop_shadow.spread_radius,
+                uinode.size().x,
+                target.scale_factor,
+            );
             let spread_ratio = (spread_x + uinode.size().x) / uinode.size().x;
 
             let spread = vec2(spread_x, uinode.size().y * spread_ratio - uinode.size().y);
 
-            let blur_radius = resolve_val(drop_shadow.blur_radius, uinode.size().x, scale_factor);
+            let blur_radius = resolve_val(
+                drop_shadow.blur_radius,
+                uinode.size().x,
+                target.scale_factor,
+            );
             let offset = vec2(
-                resolve_val(drop_shadow.x_offset, uinode.size().x, scale_factor),
-                resolve_val(drop_shadow.y_offset, uinode.size().y, scale_factor),
+                resolve_val(drop_shadow.x_offset, uinode.size().x, target.scale_factor),
+                resolve_val(drop_shadow.y_offset, uinode.size().y, target.scale_factor),
             );
 
             let shadow_size = uinode.size() + spread;
