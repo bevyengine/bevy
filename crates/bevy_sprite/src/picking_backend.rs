@@ -146,10 +146,10 @@ fn sprite_picking(
             continue;
         };
 
-        if !camera
+        if camera
             .target
             .normalize(primary_window)
-            .is_some_and(|x| x == location.target)
+            .is_none_or(|x| x != location.target)
         {
             continue;
         }
