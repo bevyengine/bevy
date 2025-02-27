@@ -882,16 +882,14 @@ impl PipelineCache {
                 };
             }
 
-            CachedPipelineState::Creating(ref mut task) => {
-                match bevy_tasks::futures::check_ready(task) {
-                    Some(Ok(pipeline)) => {
-                        cached_pipeline.state = CachedPipelineState::Ok(pipeline);
-                        return;
-                    }
-                    Some(Err(err)) => cached_pipeline.state = CachedPipelineState::Err(err),
-                    _ => (),
+            CachedPipelineState::Creating(task) => match bevy_tasks::futures::check_ready(task) {
+                Some(Ok(pipeline)) => {
+                    cached_pipeline.state = CachedPipelineState::Ok(pipeline);
+                    return;
                 }
-            }
+                Some(Err(err)) => cached_pipeline.state = CachedPipelineState::Err(err),
+                _ => (),
+            },
 
             CachedPipelineState::Err(err) => match err {
                 // Retry

@@ -409,7 +409,7 @@ impl MeshAllocator {
         slab_id: SlabId,
     ) -> Option<MeshBufferSlice> {
         match self.slabs.get(&slab_id)? {
-            Slab::General(ref general_slab) => {
+            Slab::General(general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;
                 Some(MeshBufferSlice {
                     buffer: general_slab.buffer.as_ref()?,
@@ -420,7 +420,7 @@ impl MeshAllocator {
                 })
             }
 
-            Slab::LargeObject(ref large_object_slab) => {
+            Slab::LargeObject(large_object_slab) => {
                 let buffer = large_object_slab.buffer.as_ref()?;
                 Some(MeshBufferSlice {
                     buffer,
@@ -555,7 +555,7 @@ impl MeshAllocator {
 
         match *slab {
             Slab::General(ref mut general_slab) => {
-                let (Some(ref buffer), Some(allocated_range)) = (
+                let (Some(buffer), Some(allocated_range)) = (
                     &general_slab.buffer,
                     general_slab.pending_allocations.remove(mesh_id),
                 ) else {
@@ -706,7 +706,7 @@ impl MeshAllocator {
         // that succeeds.
         let mut mesh_allocation = None;
         for &slab_id in &*candidate_slabs {
-            let Some(Slab::General(ref mut slab)) = self.slabs.get_mut(&slab_id) else {
+            let Some(Slab::General(slab)) = self.slabs.get_mut(&slab_id) else {
                 unreachable!("Slab not found")
             };
 
@@ -763,9 +763,7 @@ impl MeshAllocator {
         // Mark the allocation as pending. Don't copy it in just yet; further
         // meshes loaded this frame may result in its final allocation location
         // changing.
-        if let Some(Slab::General(ref mut general_slab)) =
-            self.slabs.get_mut(&mesh_allocation.slab_id)
-        {
+        if let Some(Slab::General(general_slab)) = self.slabs.get_mut(&mesh_allocation.slab_id) {
             general_slab
                 .pending_allocations
                 .insert(*mesh_id, mesh_allocation.slab_allocation);

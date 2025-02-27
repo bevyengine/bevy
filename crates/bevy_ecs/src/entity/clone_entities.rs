@@ -609,7 +609,7 @@ impl<'w> EntityClonerBuilder<'w> {
     /// will not involve required components.
     pub fn without_required_components(
         &mut self,
-        builder: impl FnOnce(&mut EntityClonerBuilder) + Send + Sync + 'static,
+        builder: impl FnOnce(&mut EntityClonerBuilder),
     ) -> &mut Self {
         self.attach_required_components = false;
         builder(self);
@@ -1189,12 +1189,40 @@ mod tests {
 
         EntityCloner::build(&mut world)
             .deny_all()
-            .without_required_components(|builder| {
-                builder.allow::<B>();
-            })
+            .allow::<B>()
             .clone_entity(e, e_clone);
 
         assert_eq!(world.entity(e_clone).get::<A>(), None);
+        assert_eq!(world.entity(e_clone).get::<B>(), Some(&B));
+        assert_eq!(world.entity(e_clone).get::<C>(), Some(&C(5)));
+    }
+
+    #[test]
+    fn clone_entity_with_default_required_components() {
+        #[derive(Component, Clone, PartialEq, Debug)]
+        #[require(B)]
+        struct A;
+
+        #[derive(Component, Clone, PartialEq, Debug, Default)]
+        #[require(C(|| C(5)))]
+        struct B;
+
+        #[derive(Component, Clone, PartialEq, Debug)]
+        struct C(u32);
+
+        let mut world = World::default();
+
+        let e = world.spawn((A, C(0))).id();
+        let e_clone = world.spawn_empty().id();
+
+        EntityCloner::build(&mut world)
+            .deny_all()
+            .without_required_components(|builder| {
+                builder.allow::<A>();
+            })
+            .clone_entity(e, e_clone);
+
+        assert_eq!(world.entity(e_clone).get::<A>(), Some(&A));
         assert_eq!(world.entity(e_clone).get::<B>(), Some(&B));
         assert_eq!(world.entity(e_clone).get::<C>(), Some(&C(5)));
     }

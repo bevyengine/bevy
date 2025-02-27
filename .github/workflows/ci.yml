@@ -5,7 +5,6 @@ on:
   pull_request:
   push:
     branches:
-      - main
       - release-*
 
 env:
@@ -244,7 +243,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.29.7
+        uses: crate-ci/typos@v1.29.9
       - name: Typos info
         if: failure()
         run: |
@@ -254,49 +253,6 @@ jobs:
           echo 'if you use VSCode, you can also install `Typos Spell Checker'
           echo 'You can find the extension here: https://marketplace.visualstudio.com/items?itemName=tekumara.typos-vscode'
 
-  run-examples-macos-metal:
-    runs-on: macos-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Disable audio
-        # Disable audio through a patch. on github m1 runners, audio timeouts after 15 minutes
-        run: git apply --ignore-whitespace tools/example-showcase/disable-audio.patch
-      - name: Run examples
-        run: |
-          for example in .github/example-run/*.ron; do
-            example_name=`basename $example .ron`
-            echo -n $example_name > last_example_run
-            echo "running $example_name - "`date`
-            time TRACE_CHROME=trace-$example_name.json CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing,trace,trace_chrome"
-            sleep 10
-            if [ `find ./ -maxdepth 1 -name 'screenshot-*.png' -print -quit` ]; then
-              mkdir screenshots-$example_name
-              mv screenshot-*.png screenshots-$example_name/
-            fi
-          done
-          mkdir traces && mv trace*.json traces/
-          mkdir screenshots && mv screenshots-* screenshots/
-      - name: save traces
-        uses: actions/upload-artifact@v4
-        with:
-          name: example-traces-macos
-          path: traces
-      - name: Save PR number
-        if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          echo ${{ github.event.number }} > ./screenshots/PR
-      - name: save screenshots
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots-macos
-          path: screenshots
-      - uses: actions/upload-artifact@v4
-        if: ${{ failure() && github.event_name == 'pull_request' }}
-        with:
-          name: example-run-macos
-          path: example-run/
   check-doc:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -335,6 +291,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: check for missing metadata
         id: missing-metadata
         run: cargo run -p build-templated-pages -- check-missing examples
@@ -369,6 +326,7 @@ jobs:
     needs: check-missing-examples-in-docs
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
       - name: check for missing features
         id: missing-features
         run: cargo run -p build-templated-pages -- check-missing features
@@ -412,6 +370,7 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-msrv-${{ hashFiles('**/Cargo.toml') }}
+      - uses: dtolnay/rust-toolchain@stable
       - name: get MSRV
         id: msrv
         run: |

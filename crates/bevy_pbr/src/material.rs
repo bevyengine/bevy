@@ -1,4 +1,6 @@
-use crate::material_bind_groups::{MaterialBindGroupAllocator, MaterialBindingId};
+use crate::material_bind_groups::{
+    FallbackBindlessResources, MaterialBindGroupAllocator, MaterialBindingId,
+};
 #[cfg(feature = "meshlet")]
 use crate::meshlet::{
     prepare_material_meshlet_meshes_main_opaque_pass, queue_material_meshlet_meshes,
@@ -27,11 +29,13 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_platform_support::collections::hash_map::Entry;
 use bevy_platform_support::collections::{HashMap, HashSet};
 use bevy_platform_support::hash::FixedHasher;
 use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
+use bevy_render::renderer::RenderQueue;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
@@ -328,7 +332,11 @@ where
                 )
                 .add_systems(
                     Render,
-                    prepare_material_bind_groups::<M>
+                    (
+                        prepare_material_bind_groups::<M>,
+                        write_material_bind_group_buffers::<M>,
+                    )
+                        .chain()
                         .in_set(RenderSet::PrepareBindGroups)
                         .after(prepare_assets::<PreparedMaterial<M>>),
                 );
@@ -509,7 +517,7 @@ impl<M: Material> FromWorld for MaterialPipeline<M> {
                 ShaderRef::Handle(handle) => Some(handle),
                 ShaderRef::Path(path) => Some(asset_server.load(path)),
             },
-            bindless: material_bind_groups::material_uses_bindless_resources::<M>(render_device),
+            bindless: material_uses_bindless_resources::<M>(render_device),
             marker: PhantomData,
         }
     }
@@ -560,7 +568,7 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
         else {
             return RenderCommandResult::Skip;
         };
-        let Some(bind_group) = material_bind_group.get_bind_group() else {
+        let Some(bind_group) = material_bind_group.bind_group() else {
             return RenderCommandResult::Skip;
         };
         pass.set_bind_group(I, bind_group, &[]);
@@ -1028,6 +1036,11 @@ pub fn queue_material_meshes<M: Material>(
                 }
                 RenderPhaseType::Opaque => {
                     if material.properties.render_method == OpaqueRendererMethod::Deferred {
+                        // Even though we aren't going to insert the entity into
+                        // a bin, we still want to update its cache entry. That
+                        // way, we know we don't need to re-examine it in future
+                        // frames.
+                        opaque_phase.update_cache(*visible_entity, None, current_change_tick);
                         continue;
                     }
                     let batch_set_key = Opaque3dBatchSetKey {
@@ -1221,8 +1234,8 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             render_device,
             pipeline,
             default_opaque_render_method,
-            ref mut bind_group_allocator,
-            ref mut render_material_bindings,
+            bind_group_allocator,
+            render_material_bindings,
             opaque_draw_functions,
             alpha_mask_draw_functions,
             transmissive_draw_functions,
@@ -1231,14 +1244,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             alpha_mask_prepass_draw_functions,
             opaque_deferred_draw_functions,
             alpha_mask_deferred_draw_functions,
-            ref mut material_param,
+            material_param,
         ): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        // Allocate a material binding ID if needed.
-        let material_binding_id = *render_material_bindings
-            .entry(material_id.into())
-            .or_insert_with(|| bind_group_allocator.allocate());
-
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
         let draw_transmissive_pbr = transmissive_draw_functions.read().id::<DrawMaterial<M>>();
@@ -1304,10 +1312,27 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
             false,
         ) {
             Ok(unprepared) => {
-                bind_group_allocator.init(render_device, material_binding_id, unprepared);
+                // Allocate or update the material.
+                let binding = match render_material_bindings.entry(material_id.into()) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        // TODO: Have a fast path that doesn't require
+                        // recreating the bind group if only buffer contents
+                        // change. For now, we just delete and recreate the bind
+                        // group.
+                        bind_group_allocator.free(*occupied_entry.get());
+                        let new_binding = bind_group_allocator
+                            .allocate_unprepared(unprepared, &pipeline.material_layout);
+                        *occupied_entry.get_mut() = new_binding;
+                        new_binding
+                    }
+                    Entry::Vacant(vacant_entry) => *vacant_entry.insert(
+                        bind_group_allocator
+                            .allocate_unprepared(unprepared, &pipeline.material_layout),
+                    ),
+                };
 
                 Ok(PreparedMaterial {
-                    binding: material_binding_id,
+                    binding,
                     properties: MaterialProperties {
                         alpha_mode: material.alpha_mode(),
                         depth_bias: material.depth_bias(),
@@ -1339,11 +1364,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
                 ) {
                     Ok(prepared_bind_group) => {
                         // Store the resulting bind group directly in the slot.
-                        bind_group_allocator.init_custom(
-                            material_binding_id,
-                            prepared_bind_group.bind_group,
-                            prepared_bind_group.data,
-                        );
+                        let material_binding_id =
+                            bind_group_allocator.allocate_prepared(prepared_bind_group);
+                        render_material_bindings.insert(material_id.into(), material_binding_id);
 
                         Ok(PreparedMaterial {
                             binding: material_binding_id,
@@ -1376,14 +1399,9 @@ impl<M: Material> RenderAsset for PreparedMaterial<M> {
 
     fn unload_asset(
         source_asset: AssetId<Self::SourceAsset>,
-        (
-            _,
-            _,
-            _,
-            ref mut bind_group_allocator,
-            ref mut render_material_bindings,
-            ..,
-        ): &mut SystemParamItem<Self::Param>,
+        (_, _, _, bind_group_allocator, render_material_bindings, ..): &mut SystemParamItem<
+            Self::Param,
+        >,
     ) {
         let Some(material_binding_id) = render_material_bindings.remove(&source_asset.untyped())
         else {
@@ -1408,8 +1426,8 @@ impl From<BindGroup> for MaterialBindGroupId {
     }
 }
 
-/// A system that creates and/or recreates any bind groups that contain
-/// materials that were modified this frame.
+/// Creates and/or recreates any bind groups that contain materials that were
+/// modified this frame.
 pub fn prepare_material_bind_groups<M>(
     mut allocator: ResMut<MaterialBindGroupAllocator<M>>,
     render_device: Res<RenderDevice>,
@@ -1418,5 +1436,20 @@ pub fn prepare_material_bind_groups<M>(
 ) where
     M: Material,
 {
-    allocator.prepare_bind_groups(&render_device, &fallback_image, &fallback_resources);
+    allocator.prepare_bind_groups(&render_device, &fallback_resources, &fallback_image);
+}
+
+/// Uploads the contents of all buffers that the [`MaterialBindGroupAllocator`]
+/// manages to the GPU.
+///
+/// Non-bindless allocators don't currently manage any buffers, so this method
+/// only has an effect for bindless allocators.
+pub fn write_material_bind_group_buffers<M>(
+    mut allocator: ResMut<MaterialBindGroupAllocator<M>>,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) where
+    M: Material,
+{
+    allocator.write_buffers(&render_device, &render_queue);
 }

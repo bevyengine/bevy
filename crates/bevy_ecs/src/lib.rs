@@ -2,13 +2,6 @@
     unsafe_op_in_unsafe_fn,
     reason = "See #11590. To be removed once all applicable unsafe code has an unsafe block with a safety comment."
 )]
-#![cfg_attr(
-    test,
-    expect(
-        dependency_on_unit_never_type_fallback,
-        reason = "See #17340. To be removed once Edition 2024 is released"
-    )
-)]
 #![doc = include_str!("../README.md")]
 #![cfg_attr(
     any(docsrs, docsrs_dep),

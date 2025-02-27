@@ -102,7 +102,7 @@
 //! in the ECS. Each of these methods uses the `bevy/` prefix, which is a namespace reserved for
 //! BRP built-in methods.
 //!
-//! ### bevy/get
+//! ### `bevy/get`
 //!
 //! Retrieve the values of one or more components from an entity.
 //!
@@ -123,7 +123,7 @@
 //!
 //! `result`: A map associating each type name to its value on the requested entity.
 //!
-//! ### bevy/query
+//! ### `bevy/query`
 //!
 //! Perform a query over components in the ECS, returning all matching entities and their associated
 //! component values.
@@ -137,7 +137,7 @@
 //!     see _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
-//!      reported as boolean values.
+//!     reported as boolean values.
 //! - `filter` (optional):
 //!   - `with` (optional): An array of fully-qualified type names of components that must be present
 //!     on entities in order for them to be included in results.
@@ -155,7 +155,7 @@
 //!
 //!
 //!
-//! ### bevy/spawn
+//! ### `bevy/spawn`
 //!
 //! Create a new entity with the provided components and return the resulting entity ID.
 //!
@@ -165,7 +165,7 @@
 //! `result`:
 //! - `entity`: The ID of the newly spawned entity.
 //!
-//! ### bevy/destroy
+//! ### `bevy/destroy`
 //!
 //! Despawn the entity with the given ID.
 //!
@@ -174,7 +174,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/remove
+//! ### `bevy/remove`
 //!
 //! Delete one or more components from an entity.
 //!
@@ -184,7 +184,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/insert
+//! ### `bevy/insert`
 //!
 //! Insert one or more components into an entity.
 //!
@@ -207,7 +207,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/reparent
+//! ### `bevy/reparent`
 //!
 //! Assign a new parent to one or more entities.
 //!
@@ -218,7 +218,7 @@
 //!
 //! `result`: null.
 //!
-//! ### bevy/list
+//! ### `bevy/list`
 //!
 //! List all registered components or all components present on an entity.
 //!
@@ -230,7 +230,7 @@
 //!
 //! `result`: An array of fully-qualified type names of components.
 //!
-//! ### bevy/get+watch
+//! ### `bevy/get+watch`
 //!
 //! Watch the values of one or more components from an entity.
 //!
@@ -258,7 +258,7 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
-//! ### bevy/list+watch
+//! ### `bevy/list+watch`
 //!
 //! Watch all components present on an entity.
 //!
@@ -274,6 +274,52 @@
 //! - `removed`: An array of fully-qualified type names of components removed from the entity
 //!   in the last tick.
 //!
+//! ### `bevy/get_resource`
+//!
+//! Extract the value of a given resource from the world.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to get.
+//!
+//! `result`:
+//! - `value`: The value of the resource in the world.
+//!
+//! ### `bevy/insert_resource`
+//!
+//! Insert the given resource into the world with the given value.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to insert.
+//! - `value`: The value of the resource to be inserted.
+//!
+//! `result`: null.
+//!
+//! ### `bevy/remove_resource`
+//!
+//! Remove the given resource from the world.
+//!
+//! `params`
+//! - `resource`: The [fully-qualified type name] of the resource to remove.
+//!
+//! `result`: null.
+//!
+//! ### `bevy/mutate_resource`
+//!
+//! Mutate a field in a resource.
+//!
+//! `params`:
+//! - `resource`: The [fully-qualified type name] of the resource to mutate.
+//! - `path`: The path of the field within the resource. See
+//!   [`GetPath`](bevy_reflect::GetPath#syntax) for more information on formatting this string.
+//! - `value`: The value to be inserted at `path`.
+//!
+//! `result`: null.
+//!
+//! ### `bevy/list_resources`
+//!
+//! List all reflectable registered resource types. This method has no parameters.
+//!
+//! `result`: An array of [fully-qualified type names] of registered resource types.
 //!
 //! ## Custom methods
 //!
@@ -425,10 +471,6 @@ impl Default for RemotePlugin {
                 builtin_methods::process_remote_list_request,
             )
             .with_method(
-                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
-                builtin_methods::export_registry_types,
-            )
-            .with_method(
                 builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
                 builtin_methods::process_remote_mutate_component_request,
             )
@@ -439,6 +481,30 @@ impl Default for RemotePlugin {
             .with_watching_method(
                 builtin_methods::BRP_LIST_AND_WATCH_METHOD,
                 builtin_methods::process_remote_list_watching_request,
+            )
+            .with_method(
+                builtin_methods::BRP_GET_RESOURCE_METHOD,
+                builtin_methods::process_remote_get_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_INSERT_RESOURCE_METHOD,
+                builtin_methods::process_remote_insert_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REMOVE_RESOURCE_METHOD,
+                builtin_methods::process_remote_remove_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_MUTATE_RESOURCE_METHOD,
+                builtin_methods::process_remote_mutate_resource_request,
+            )
+            .with_method(
+                builtin_methods::BRP_LIST_RESOURCES_METHOD,
+                builtin_methods::process_remote_list_resources_request,
+            )
+            .with_method(
+                builtin_methods::BRP_REGISTRY_SCHEMA_METHOD,
+                builtin_methods::export_registry_types,
             )
     }
 }
@@ -718,6 +784,26 @@ impl BrpError {
         }
     }
 
+    /// Resource was not present in the world.
+    #[must_use]
+    pub fn resource_not_present(resource: &str) -> Self {
+        Self {
+            code: error_codes::RESOURCE_NOT_PRESENT,
+            message: format!("Resource `{resource}` not present in the world"),
+            data: None,
+        }
+    }
+
+    /// An arbitrary resource error. Possibly related to reflection.
+    #[must_use]
+    pub fn resource_error<E: ToString>(error: E) -> Self {
+        Self {
+            code: error_codes::RESOURCE_ERROR,
+            message: error.to_string(),
+            data: None,
+        }
+    }
+
     /// An arbitrary internal error.
     #[must_use]
     pub fn internal<E: ToString>(error: E) -> Self {
@@ -772,6 +858,12 @@ pub mod error_codes {
 
     /// Cannot reparent an entity to itself.
     pub const SELF_REPARENT: i16 = -23404;
+
+    /// Could not reflect or find resource.
+    pub const RESOURCE_ERROR: i16 = -23501;
+
+    /// Could not find resource in the world.
+    pub const RESOURCE_NOT_PRESENT: i16 = -23502;
 }
 
 /// The result of a request.
