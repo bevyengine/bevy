@@ -1,0 +1,26 @@
+error: Custom on_insert hooks are not supported as Relationships already define an on_insert hook
+ --> tests/ui/component_hook_relationship.rs:4:1
+  |
+4 | #[relationship(relationship_target = FooTargets)]
+  | ^
+
+error: Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook
+  --> tests/ui/component_hook_relationship.rs:12:1
+   |
+12 | #[relationship_target(relationship = FooTargetOf)]
+   | ^
+
+error: Custom on_replace hooks are not supported as Relationships already define an on_replace hook
+  --> tests/ui/component_hook_relationship.rs:20:1
+   |
+20 | #[relationship(relationship_target = BarTargets)]
+   | ^
+
+error: Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute
+  --> tests/ui/component_hook_relationship.rs:28:1
+   |
+28 | #[relationship_target(relationship = BarTargetOf)]
+   | ^
+
+error: aborting due to 4 previous errors
+

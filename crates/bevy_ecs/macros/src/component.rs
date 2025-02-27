@@ -9,8 +9,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::{Comma, Paren},
-    Data, DataStruct, DeriveInput, ExprClosure, ExprPath, Fields, Ident, Index, LitStr, Member,
-    Path, Result, Token, Visibility,
+    Data, DataStruct, DeriveInput, Expr, ExprCall, ExprClosure, ExprPath, Fields, Ident, Index,
+    LitStr, Member, Path, Result, Token, Visibility,
 };
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
@@ -75,75 +75,73 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
-    let on_add_path = attrs.on_add.map(|path| path.to_token_stream());
-    let on_remove_path = attrs.on_remove.map(|path| path.to_token_stream());
-
-    let on_insert_path = if relationship.is_some() {
-        if attrs.on_insert.is_some() {
-            return syn::Error::new(
-                ast.span(),
-                "Custom on_insert hooks are not supported as relationships already define an on_insert hook",
-            )
-            .into_compile_error()
-            .into();
-        }
-
-        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert))
-    } else {
-        attrs.on_insert.map(|path| path.to_token_stream())
-    };
-
-    let on_replace_path = if relationship.is_some() {
-        if attrs.on_replace.is_some() {
-            return syn::Error::new(
-                ast.span(),
-                "Custom on_replace hooks are not supported as Relationships already define an on_replace hook",
-            )
-            .into_compile_error()
-            .into();
-        }
-
-        Some(quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace))
-    } else if attrs.relationship_target.is_some() {
-        if attrs.on_replace.is_some() {
-            return syn::Error::new(
-                ast.span(),
-                "Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook",
-            )
-            .into_compile_error()
-            .into();
-        }
-
-        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace))
-    } else {
-        attrs.on_replace.map(|path| path.to_token_stream())
-    };
-
-    let on_despawn_path = if attrs
-        .relationship_target
-        .is_some_and(|target| target.linked_spawn)
+    if let Some(err_msg) = [
+        (relationship.is_some() && attrs.on_insert.is_some())
+            .then_some("Custom on_insert hooks are not supported as Relationships already define an on_insert hook"),
+        (relationship.is_some() && attrs.on_replace.is_some())
+            .then_some("Custom on_replace hooks are not supported as Relationships already define an on_replace hook"),
+        (relationship_target.is_some() && attrs.on_replace.is_some())
+            .then_some("Custom on_replace hooks are not supported as RelationshipTarget already defines an on_replace hook"),
+        (relationship_target.is_some() && attrs.on_despawn.is_some())
+            .then_some("Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute"),
+    ]
+    .into_iter()
+    .flatten()
+    .next()
     {
-        if attrs.on_despawn.is_some() {
-            return syn::Error::new(
-                ast.span(),
-                "Custom on_despawn hooks are not supported as this RelationshipTarget already defines an on_despawn hook, via the 'linked_spawn' attribute",
-            )
+        return syn::Error::new(ast.span(), err_msg)
             .into_compile_error()
             .into();
-        }
+    }
 
-        Some(quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn))
-    } else {
-        attrs.on_despawn.map(|path| path.to_token_stream())
+    let [on_insert_fn, on_replace_fn, on_replace_target_fn, on_despawn_target_fn] = match [
+        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_insert).into(),
+        quote!(<Self as #bevy_ecs_path::relationship::Relationship>::on_replace).into(),
+        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_replace).into(),
+        quote!(<Self as #bevy_ecs_path::relationship::RelationshipTarget>::on_despawn).into(),
+    ]
+    .map(syn::parse::<HookAttributeKind>)
+    .into_iter()
+    .collect::<Result<Vec<_>>>()
+    .map(|fns| TryInto::<[_; 4]>::try_into(fns).expect("statically known size"))
+    {
+        Ok(fns) => fns,
+        Err(err) => return err.into_compile_error().into(),
     };
 
-    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, on_add_path);
-    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_path);
+    let [rel_insert_hook, rel_replace_hook, rel_target_replace_hook, rel_target_despawn_hook] =
+        relationship
+            .is_some()
+            .then(|| {
+                [
+                    attrs.on_insert.is_some().then_some(on_insert_fn),
+                    attrs.on_replace.is_some().then_some(on_replace_fn),
+                    attrs
+                        .relationship_target
+                        .is_some()
+                        .then_some(on_replace_target_fn),
+                    attrs
+                        .relationship_target
+                        .is_some_and(|target| target.linked_spawn)
+                        .then_some(on_despawn_target_fn),
+                ]
+            })
+            .unwrap_or([None, None, None, None]);
+
+    let on_insert_hook = rel_insert_hook.or(attrs.on_insert);
+    let on_replace_hook = rel_replace_hook
+        .or(rel_target_replace_hook)
+        .or(attrs.on_replace);
+    let on_despawn_hook = rel_target_despawn_hook.or(attrs.on_despawn);
+
+    let on_add = hook_register_function_call(&bevy_ecs_path, quote! {on_add}, attrs.on_add);
+    let on_insert = hook_register_function_call(&bevy_ecs_path, quote! {on_insert}, on_insert_hook);
     let on_replace =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_path);
-    let on_remove = hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, on_remove_path);
+        hook_register_function_call(&bevy_ecs_path, quote! {on_replace}, on_replace_hook);
+    let on_remove =
+        hook_register_function_call(&bevy_ecs_path, quote! {on_remove}, attrs.on_remove);
     let on_despawn =
-        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_path);
+        hook_register_function_call(&bevy_ecs_path, quote! {on_despawn}, on_despawn_hook);
 
     ast.generics
         .make_where_clause()
@@ -435,14 +433,54 @@ pub const ON_DESPAWN: &str = "on_despawn";
 
 pub const IMMUTABLE: &str = "immutable";
 
+/// All allowed attribute value expression kinds for component hooks
+#[derive(Debug)]
+enum HookAttributeKind {
+    /// expressions like function or struct names
+    ///
+    /// structs will throw compile errors on the code generation so this is safe
+    Path(ExprPath),
+    /// function call like expressions
+    Call(ExprCall),
+    /// closure like expressions
+    Closure(ExprClosure),
+}
+
+impl HookAttributeKind {
+    fn from_expr(value: Expr) -> Result<Self> {
+        match value {
+            Expr::Path(path) => Ok(HookAttributeKind::Path(path)),
+            Expr::Call(call) => Ok(HookAttributeKind::Call(call)),
+            Expr::Closure(closure) => Ok(HookAttributeKind::Closure(closure)),
+            // throw meaningful error on all other expressions
+            _ => Err(syn::Error::new(
+                value.span(),
+                [
+                    "Not supported in this position, please use one of the following:",
+                    "- path to function",
+                    "- closure",
+                    "- call to function yielding closure",
+                ]
+                .join("\n"),
+            )),
+        }
+    }
+}
+
+impl Parse for HookAttributeKind {
+    fn parse(input: syn::parse::ParseStream) -> Result<Self> {
+        input.parse::<Expr>().and_then(Self::from_expr)
+    }
+}
+
 struct Attrs {
     storage: StorageTy,
     requires: Option<Punctuated<Require, Comma>>,
-    on_add: Option<ExprPath>,
-    on_insert: Option<ExprPath>,
-    on_replace: Option<ExprPath>,
-    on_remove: Option<ExprPath>,
-    on_despawn: Option<ExprPath>,
+    on_add: Option<HookAttributeKind>,
+    on_insert: Option<HookAttributeKind>,
+    on_replace: Option<HookAttributeKind>,
+    on_remove: Option<HookAttributeKind>,
+    on_despawn: Option<HookAttributeKind>,
     relationship: Option<Relationship>,
     relationship_target: Option<RelationshipTarget>,
     immutable: bool,
@@ -491,69 +529,91 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
         immutable: false,
     };
 
-    let mut require_paths = HashSet::new();
-    for attr in ast.attrs.iter() {
-        if attr.path().is_ident(COMPONENT) {
-            attr.parse_nested_meta(|nested| {
-                if nested.path.is_ident(STORAGE) {
-                    attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
-                        s if s == TABLE => StorageTy::Table,
-                        s if s == SPARSE_SET => StorageTy::SparseSet,
-                        s => {
-                            return Err(nested.error(format!(
-                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
-                            )));
+    ast.attrs
+        .iter()
+        .try_fold(HashSet::new(), |mut require_paths, attr| {
+            let outer = attr
+                .path()
+                .get_ident()
+                .ok_or_else(|| syn::Error::new(attr.path().span(), "Expected identifier"))?;
+            match outer {
+                _ if outer == COMPONENT => {
+                    attr.parse_nested_meta(|nested| {
+                        let inner = nested
+                            .path
+                            .get_ident()
+                            .ok_or_else(|| nested.error("Expected identifier"))?;
+                        match inner {
+                            _ if inner == STORAGE => {
+                                attrs.storage = match nested.value()?.parse::<LitStr>()?.value() {
+                                    s if s == TABLE => StorageTy::Table,
+                                    s if s == SPARSE_SET => StorageTy::SparseSet,
+                                    s => {
+                                        return Err(nested.error(
+                                            format!("Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.")
+                                        ));
+                                    }
+                                };
+                            }
+                            _ if inner == ON_ADD => {
+                                attrs.on_add = Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_INSERT => {
+                                attrs.on_insert =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_REPLACE => {
+                                attrs.on_replace =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_REMOVE => {
+                                attrs.on_remove =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == ON_DESPAWN => {
+                                attrs.on_despawn =
+                                    Some(nested.value()?.parse::<HookAttributeKind>()?);
+                            }
+                            _ if inner == IMMUTABLE => {
+                                attrs.immutable = true;
+                            }
+                            _ => return Err(nested.error("Unsupported attribute")),
                         }
-                    };
-                    Ok(())
-                } else if nested.path.is_ident(ON_ADD) {
-                    attrs.on_add = Some(nested.value()?.parse::<ExprPath>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_INSERT) {
-                    attrs.on_insert = Some(nested.value()?.parse::<ExprPath>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_REPLACE) {
-                    attrs.on_replace = Some(nested.value()?.parse::<ExprPath>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_REMOVE) {
-                    attrs.on_remove = Some(nested.value()?.parse::<ExprPath>()?);
-                    Ok(())
-                } else if nested.path.is_ident(ON_DESPAWN) {
-                    attrs.on_despawn = Some(nested.value()?.parse::<ExprPath>()?);
-                    Ok(())
-                } else if nested.path.is_ident(IMMUTABLE) {
-                    attrs.immutable = true;
-                    Ok(())
-                } else {
-                    Err(nested.error("Unsupported attribute"))
+                        Ok(())
+                    })?;
                 }
-            })?;
-        } else if attr.path().is_ident(REQUIRE) {
-            let punctuated =
-                attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
-            for require in punctuated.iter() {
-                if !require_paths.insert(require.path.to_token_stream().to_string()) {
-                    return Err(syn::Error::new(
-                        require.path.span(),
-                        "Duplicate required components are not allowed.",
-                    ));
+                _ if outer == REQUIRE => {
+                    let punctuated =
+                        attr.parse_args_with(Punctuated::<Require, Comma>::parse_terminated)?;
+                    for require in punctuated.iter() {
+                        if !require_paths.insert(require.path.to_token_stream().to_string()) {
+                            return Err(syn::Error::new(
+                                require.path.span(),
+                                "Duplicate required components are not allowed.",
+                            ));
+                        }
+                    }
+                    if let Some(current) = &mut attrs.requires {
+                        current.extend(punctuated);
+                    } else {
+                        attrs.requires = Some(punctuated);
+                    }
+                }
+                _ if outer == RELATIONSHIP => {
+                    let relationship = attr.parse_args::<Relationship>()?;
+                    attrs.relationship = Some(relationship);
+                }
+                _ if outer == RELATIONSHIP_TARGET => {
+                    let relationship_target = attr.parse_args::<RelationshipTarget>()?;
+                    attrs.relationship_target = Some(relationship_target);
+                }
+                _ => {
+                    // ignored
                 }
             }
-            if let Some(current) = &mut attrs.requires {
-                current.extend(punctuated);
-            } else {
-                attrs.requires = Some(punctuated);
-            }
-        } else if attr.path().is_ident(RELATIONSHIP) {
-            let relationship = attr.parse_args::<Relationship>()?;
-            attrs.relationship = Some(relationship);
-        } else if attr.path().is_ident(RELATIONSHIP_TARGET) {
-            let relationship_target = attr.parse_args::<RelationshipTarget>()?;
-            attrs.relationship_target = Some(relationship_target);
-        }
-    }
-
-    Ok(attrs)
+            Ok(require_paths)
+        })
+        .map(|_| attrs)
 }
 
 impl Parse for Require {
@@ -587,12 +647,34 @@ fn storage_path(bevy_ecs_path: &Path, ty: StorageTy) -> TokenStream2 {
 fn hook_register_function_call(
     bevy_ecs_path: &Path,
     hook: TokenStream2,
-    function: Option<TokenStream2>,
+    function: Option<HookAttributeKind>,
 ) -> Option<TokenStream2> {
-    function.map(|meta| {
-        quote! {
-            fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
-                ::core::option::Option::Some(#meta)
+    function.map(|hook_kind| match hook_kind {
+        HookAttributeKind::Path(path) => {
+            quote! {
+                fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                    ::core::option::Option::Some(#path)
+                }
+            }
+        }
+        HookAttributeKind::Call(call) => {
+            quote! {
+                fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
+                        (#call)(world, ctx)
+                    }
+                    ::core::option::Option::Some(_internal_hook)
+                }
+            }
+        }
+        HookAttributeKind::Closure(closure) => {
+            quote! {
+                fn #hook() -> ::core::option::Option<#bevy_ecs_path::component::ComponentHook> {
+                    fn _internal_hook(world: #bevy_ecs_path::world::DeferredWorld, ctx: #bevy_ecs_path::component::HookContext) {
+                        (#closure)(world, ctx)
+                    }
+                    ::core::option::Option::Some(_internal_hook)
+                }
             }
         }
     })

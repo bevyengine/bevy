@@ -320,6 +320,37 @@ pub use bevy_ecs_macros::require;
 /// }
 /// ```
 ///
+/// This also supports
+/// - function calls that yield closures
+/// - closures directly
+///
+/// ```
+/// # use bevy_ecs::component::{Component, HookContext};
+/// # use bevy_ecs::world::DeferredWorld;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = my_msg_hook("hello"))]
+/// #[component(on_despawn = my_msg_hook("goodbye"))]
+/// #[component(on_replace = |mut w, mut ctx| {
+///     my_msg_hook_ref("yoink")(&mut w, &mut ctx);
+///     my_msg_hook_ref("hello new component")(&mut w, &mut ctx);
+/// })]
+/// struct ComponentA;
+///
+/// // a hook closure generating function
+/// fn my_msg_hook(message: &'static str) -> impl Fn(DeferredWorld, HookContext) {
+///     move |_world, _ctx| {
+///         println!("{message}");
+///     }
+/// }
+/// // a hook closure generating function
+/// fn my_msg_hook_ref(message: &'static str) -> impl Fn(&mut DeferredWorld, &mut HookContext) {
+///     move |_world, _ctx| {
+///         println!("{message}");
+///     }
+/// }
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
