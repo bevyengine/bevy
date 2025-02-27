@@ -2073,10 +2073,7 @@ mod tests {
 
     use crate::{
         prelude::{ApplyDeferred, Res, Resource},
-        schedule::{
-            tests::ResMut, IntoNodeConfigs, Schedule,
-            ScheduleBuildSettings, SystemSet,
-        },
+        schedule::{tests::ResMut, IntoNodeConfigs, Schedule, ScheduleBuildSettings, SystemSet},
         system::Commands,
         world::World,
     };
