@@ -1677,6 +1677,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// See the [`bevy_ecs::result`] module docs for more information!
     /// Commonly, you might want to panic on an error during development, but log the error and continue
     /// execution in production.
+    ///
+    /// Simply unwrapping the [`Result`] also works, but should generally be reserved for tests.
     #[inline]
     pub fn get_single<'w>(
         &mut self,
