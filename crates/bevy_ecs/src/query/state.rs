@@ -1619,6 +1619,64 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
+    ///
+    /// # Example
+    ///
+    /// Sometimes, you might want to handle the error in a specific way,
+    /// generally by spawning the missing entity.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct A(usize);
+    ///
+    /// fn my_system(query: Query<&A>, mut commands: Commands) {
+    ///   match query.get_single() {
+    ///      Some(a) => () // Do something with `a`,
+    ///      None => commands.spawn((A(0),)),
+    ///   }
+    /// }
+    /// ```
+    ///
+    /// However in most cases, this error can simply be handled with a graceful early return.
+    /// If this is an expected failure mode, you can do this using the `let else` pattern like so:
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct A(usize);
+    ///
+    /// fn my_system(query: Query<&A>) {
+    ///   let Ok(a) = query.get_single() else {
+    ///     return;
+    ///   }
+    ///
+    ///   // Do something with `a`
+    /// }
+    /// ```
+    ///
+    /// If this is unexpected though, you should probably use the `?` operator
+    /// in combination with Bevy's error handling apparatus.
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// #[derive(Component)]
+    /// struct A(usize);
+    ///
+    /// fn my_system(query: Query<&A>) -> Result {
+    ///  let a = query.get_single()?;
+    ///  
+    ///  // Do something with `a`
+    /// }
+    /// ```
+    ///
+    /// This allows you to globally control how errors are handled in your application,
+    /// by setting up a custom error handler.
+    /// See the [`bevy_ecs::result`] module docs for more information!
+    /// Commonly, you might want to panic on an error during development, but log the error and continue
+    /// execution in production.
     #[inline]
     pub fn get_single<'w>(
         &mut self,
@@ -1649,6 +1707,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
+    ///
+    /// # Examples
+    ///
+    /// Please see [`Query::get_single`] for advice on handling the error.
     #[inline]
     pub fn get_single_mut<'w>(
         &mut self,
