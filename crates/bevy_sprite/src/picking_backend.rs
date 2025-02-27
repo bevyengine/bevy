@@ -16,7 +16,7 @@ use bevy_image::prelude::*;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
+use bevy_render::{prelude::*, view::RenderLayers};
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
@@ -78,15 +78,14 @@ impl Plugin for SpritePickingPlugin {
 }
 
 fn sprite_picking(
-    pointers: Query<(&PointerId, &PointerLocation)>,
     cameras: Query<(
         Entity,
         &Camera,
         &GlobalTransform,
         &Projection,
+        Option<&RenderLayers>,
         Has<SpritePickingCamera>,
     )>,
-    primary_window: Query<Entity, With<PrimaryWindow>>,
     images: Res<Assets<Image>>,
     texture_atlas_layout: Res<Assets<TextureAtlasLayout>>,
     settings: Res<SpritePickingSettings>,
@@ -96,14 +95,18 @@ fn sprite_picking(
         &GlobalTransform,
         &Pickable,
         &ViewVisibility,
+        Option<&RenderLayers>,
     )>,
     mut output: EventWriter<PointerHits>,
+    ray_map: Res<RayMap>,
+    pointer_locations: Query<(&PointerId, &PointerLocation)>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
 ) {
     let mut sorted_sprites: Vec<_> = sprite_query
         .iter()
-        .filter_map(|(entity, sprite, transform, pickable, vis)| {
+        .filter_map(|(entity, sprite, transform, pickable, vis, layers)| {
             if !transform.affine().is_nan() && vis.get() {
-                Some((entity, sprite, transform, pickable))
+                Some((entity, sprite, transform, pickable, layers))
             } else {
                 None
             }
@@ -111,56 +114,70 @@ fn sprite_picking(
         .collect();
 
     // radsort is a stable radix sort that performed better than `slice::sort_by_key`
-    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _)| {
+    radsort::sort_by_key(&mut sorted_sprites, |(_, _, transform, _, _)| {
         -transform.translation().z
     });
-
     let primary_window = primary_window.get_single().ok();
 
-    for (pointer, location) in pointers.iter().filter_map(|(pointer, pointer_location)| {
-        pointer_location.location().map(|loc| (pointer, loc))
-    }) {
-        let mut blocked = false;
-        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), _)) =
-            cameras
-                .iter()
-                .filter(|(_, camera, _, _, cam_can_pick)| {
-                    let marker_requirement = !settings.require_markers || *cam_can_pick;
-                    camera.is_active && marker_requirement
-                })
-                .find(|(_, camera, _, _, _)| {
-                    camera
-                        .target
-                        .normalize(primary_window)
-                        .is_some_and(|x| x == location.target)
-                })
+    for (ray_id, ray) in ray_map.iter() {
+        let Ok((
+            cam_entity,
+            camera,
+            cam_transform,
+            Projection::Orthographic(cam_ortho),
+            cam_render_layers,
+            cam_can_pick,
+        )) = cameras.get(ray_id.camera)
         else {
             continue;
         };
 
-        let viewport_pos = camera
-            .logical_viewport_rect()
-            .map(|v| v.min)
-            .unwrap_or_default();
-        let pos_in_viewport = location.position - viewport_pos;
+        let marker_requirement = !settings.require_markers || cam_can_pick;
+        if !(camera.is_active && marker_requirement) {
+            continue;
+        }
 
-        let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, pos_in_viewport) else {
+        let Some(location) = pointer_locations.iter().find_map(|(id, loc)| {
+            if *id == ray_id.pointer {
+                return loc.location.as_ref();
+            }
+            None
+        }) else {
             continue;
         };
+
+        if !camera
+            .target
+            .normalize(primary_window)
+            .is_some_and(|x| x == location.target)
+        {
+            continue;
+        }
+
         let cursor_ray_len = cam_ortho.far - cam_ortho.near;
-        let cursor_ray_end = cursor_ray_world.origin + cursor_ray_world.direction * cursor_ray_len;
+        let cursor_ray_end = ray.origin + ray.direction * cursor_ray_len;
+
+        let mut blocked = false;
 
         let picks: Vec<(Entity, HitData)> = sorted_sprites
             .iter()
             .copied()
-            .filter_map(|(entity, sprite, sprite_transform, pickable)| {
+            .filter_map(|(entity, sprite, sprite_transform, pickable, layers)| {
                 if blocked {
                     return None;
                 }
 
+                if let Some(cam_render_layers) = cam_render_layers {
+                    if let Some(layers) = layers {
+                        if !cam_render_layers.intersects(layers) {
+                            return None;
+                        }
+                    }
+                }
+
                 // Transform cursor line segment to sprite coordinate system
                 let world_to_sprite = sprite_transform.affine().inverse();
-                let cursor_start_sprite = world_to_sprite.transform_point3(cursor_ray_world.origin);
+                let cursor_start_sprite = world_to_sprite.transform_point3(ray.origin);
                 let cursor_end_sprite = world_to_sprite.transform_point3(cursor_ray_end);
 
                 // Find where the cursor segment intersects the plane Z=0 (which is the sprite's
@@ -244,6 +261,6 @@ fn sprite_picking(
             .collect();
 
         let order = camera.order as f32;
-        output.write(PointerHits::new(*pointer, picks, order));
+        output.write(PointerHits::new(ray_id.pointer, picks, order));
     }
 }
