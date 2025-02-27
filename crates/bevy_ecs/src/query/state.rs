@@ -1603,6 +1603,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// [`get_single`](Self::get_single) to return a `Result` instead of panicking.
     #[track_caller]
     #[inline]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_single` instead, which returns a `Result` instead of panicking."
+    )]
     pub fn single<'w>(&mut self, world: &'w World) -> ROQueryItem<'w, D> {
         self.query(world).single_inner()
     }
@@ -1632,6 +1636,10 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// [`get_single_mut`](Self::get_single_mut) to return a `Result` instead of panicking.
     #[track_caller]
     #[inline]
+    #[deprecated(
+        since = "0.16.0",
+        note = "Please use `get_single_mut` instead, which returns a `Result` instead of panicking."
+    )]
     pub fn single_mut<'w>(&mut self, world: &'w mut World) -> D::Item<'w> {
         self.query_mut(world).single_inner()
     }
