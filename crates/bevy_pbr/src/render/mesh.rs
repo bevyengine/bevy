@@ -2775,8 +2775,6 @@ pub fn prepare_mesh_bind_groups(
     }
 }
 
-/// This should match the `is_skinned` function in `skin.rs`, which takes a
-/// `Mesh` instead of a `MeshVertexBufferLayoutRef`.
 fn is_skinned(layout: &MeshVertexBufferLayoutRef) -> bool {
     layout.0.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
         && layout.0.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
