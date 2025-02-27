@@ -3,7 +3,7 @@ use crate::{
     NodeMeasure,
 };
 use bevy_asset::Assets;
-use bevy_color::Color;
+use bevy_color::{palettes::tailwind::GRAY_400, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -395,5 +395,60 @@ pub fn text_system(
                 &mut swash_cache,
             );
         }
+    }
+}
+
+/// Add to a UI [`Text`] entity to display a cursor for  block of text.
+/// Does nothing if added to a [`TextSpan`].
+/// Not supported by [`Text2d`].
+#[derive(Component, Default, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
+#[require(TextCursorStyle)]
+pub struct TextCursor {
+    /// Line index
+    pub line: usize,
+    /// Index of the character the cursor is over.
+    /// This is a single-byte offset into the line's string, not a glyph index.
+    pub index: usize,
+}
+
+/// Styling for a text cursor
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, PartialEq)]
+pub struct TextCursorStyle {
+    /// Color of the cursor
+    pub color: Color,
+    /// Width of the cursor
+    pub width: TextCursorWidth,
+    /// Corner radius in logical pixels
+    pub radius: f32,
+    /// Normalized height of the cursor relative to the text block's line height.
+    pub height: f32,
+}
+
+impl Default for TextCursorStyle {
+    fn default() -> Self {
+        Self {
+            color: GRAY_400.into(),
+            width: TextCursorWidth::Line(3.),
+            radius: 0.,
+            height: 1.,
+        }
+    }
+}
+
+/// Width of the text cursor
+#[derive(Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Default, Debug, PartialEq)]
+pub enum TextCursorWidth {
+    /// Cursor is a block covering the glyph
+    Block,
+    /// Cursor is a vertical line, the associated value is the line's width in logical pixels
+    Line(f32),
+}
+
+impl Default for TextCursorWidth {
+    fn default() -> Self {
+        Self::Line(3.)
     }
 }
