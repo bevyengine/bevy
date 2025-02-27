@@ -180,6 +180,9 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// The implementor must ensure the following is true.
 /// - [`SystemParam::init_state`] correctly registers all [`World`] accesses used
 ///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
+/// - [`SystemParam::get_param`] does **not** make any structural ECS changes in the
+///   [`World`], e.g. [`World::spawn`], [`World::register_component`], and other similar
+///   methods. In case that's necessary, do that in [`SystemParam::init_state`] instead.
 /// - None of the world accesses may conflict with any prior accesses registered
 ///   on `system_meta`.
 pub unsafe trait SystemParam: Sized {
@@ -274,12 +277,17 @@ pub unsafe trait SystemParam: Sized {
 
     /// Creates a parameter to be passed into a [`SystemParamFunction`](super::SystemParamFunction).
     ///
+    /// This method guarantees no structural ECS changes to the `world`, which effectively acts like
+    /// [`DeferredWorld`] with unsafe accesses to everything requested in [`SystemParam::init_state`].
+    /// This allows, for example (but not limited to), invoking `get_param` in multiple systems to
+    /// the same world concurrently, provided all mutable accesses are disjoint.
+    ///
     /// # Safety
     ///
-    /// - The passed [`UnsafeWorldCell`] must have access to any world data
-    ///   registered in [`init_state`](SystemParam::init_state).
+    /// - The passed [`UnsafeWorldCell`] must have access to any world data registered
+    ///   in [`init_state`](SystemParam::init_state).
     /// - `world` must be the same [`World`] that was used to initialize [`state`](SystemParam::init_state).
-    /// - all `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
+    /// - All `world`'s archetypes have been processed by [`new_archetype`](SystemParam::new_archetype).
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
