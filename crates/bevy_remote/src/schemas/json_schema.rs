@@ -11,7 +11,7 @@ use serde_json::{json, Map, Value};
 use std::any::TypeId;
 
 /// Exports schema info for a given type
-pub(crate) fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
+pub fn export_type(reg: &TypeRegistration) -> (String, JsonSchemaBevyType) {
     (reg.type_info().type_path().to_owned(), reg.into())
 }
 
@@ -519,8 +519,8 @@ mod tests {
         let schema_as_value = serde_json::to_value(&schema).expect("Should serialize");
         let value = json!({
           "shortPath": "Foo",
-          "typePath": "bevy_remote::builtin_methods::tests::Foo",
-          "modulePath": "bevy_remote::builtin_methods::tests",
+          "typePath": "bevy_remote::schemas::json_schema::tests::Foo",
+          "modulePath": "bevy_remote::schemas::json_schema::tests",
           "crateName": "bevy_remote",
           "reflectTypes": [
             "Resource",
