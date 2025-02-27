@@ -79,7 +79,7 @@ pub struct Pointer<E: Debug + Clone + Reflect> {
 /// propagates to the pointer's window and stops there.
 #[derive(QueryData)]
 pub struct PointerTraversal {
-    parent: Option<&'static ChildOf>,
+    child_of: Option<&'static ChildOf>,
     window: Option<&'static Window>,
 }
 
@@ -88,11 +88,11 @@ where
     E: Debug + Clone + Reflect,
 {
     fn traverse(item: Self::Item<'_>, pointer: &Pointer<E>) -> Option<Entity> {
-        let PointerTraversalItem { parent, window } = item;
+        let PointerTraversalItem { child_of, window } = item;
 
         // Send event to parent, if it has one.
-        if let Some(parent) = parent {
-            return Some(parent.get());
+        if let Some(child_of) = child_of {
+            return Some(child_of.parent);
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
