@@ -359,7 +359,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 return quote!();
             };
             quote!(
-                fn visit_entities(this: &Self, mut func: impl FnMut(#bevy_ecs_path::entity::Entity)) {
+                fn visit_entities(this: &Self, mut func: impl FnMut(Entity)) {
                     use #bevy_ecs_path::entity::VisitEntities;
                     match this {
                         #(#visit,)*
