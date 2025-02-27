@@ -4,6 +4,7 @@
 mod as_bind_group;
 mod extract_component;
 mod extract_resource;
+mod specialize;
 
 use bevy_macro_utils::{derive_label, BevyManifest};
 use proc_macro::TokenStream;
@@ -104,4 +105,19 @@ pub fn derive_render_sub_graph(input: TokenStream) -> TokenStream {
         .push(format_ident!("RenderSubGraph").into());
     dyn_eq_path.segments.push(format_ident!("DynEq").into());
     derive_label(input, "RenderSubGraph", &trait_path, &dyn_eq_path)
+}
+
+/// Derive macro generating an impl of the trait `Specialize`
+///
+/// This only works for structs whose members all implement `Specialize`
+#[proc_macro_derive(Specialize, attributes(specialize, key))]
+pub fn derive_specialize(input: TokenStream) -> TokenStream {
+    specialize::impl_specialize(input)
+}
+
+/// Derive macro generating an impl of the trait `HasBaseDescriptor`
+/// by deferring to the `HasBaseDescriptor` impl of a chosen field.
+#[proc_macro_derive(HasBaseDescriptor, attributes(specialize, base_descriptor))]
+pub fn derive_has_base_descriptor(input: TokenStream) -> TokenStream {
+    specialize::impl_has_base_descriptor(input)
 }
