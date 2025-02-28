@@ -667,7 +667,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState,
+        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState, OutOfBoundsMode,
     };
     use alloc::{
         boxed::Box,
@@ -1885,16 +1885,89 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 
+    fn out_of_bounds_setup(mode: OutOfBoundsMode) -> (App, GateOpener) {
+        let dir = Dir::default();
+        let a_path = "../a.cool.ron";
+        let a_ron = r#"
+(
+    text: "a",
+    dependencies: [
+        "foo/b.cool.ron",
+        "c.cool.ron",
+    ],
+    embedded_dependencies: [],
+    sub_texts: [],
+)"#;
+
+        dir.insert_asset_text(Path::new(a_path), a_ron);
+        
+        let mut app = App::new();
+        let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
+        app.register_asset_source(
+            AssetSourceId::Default,
+            AssetSource::build().with_reader(move || Box::new(gated_memory_reader.clone())),
+        )
+        .add_plugins((
+            TaskPoolPlugin::default(),
+            LogPlugin::default(),
+            AssetPlugin {
+                out_of_bounds_mode: mode,
+                ..Default::default()
+            }
+        ));
+        app.init_asset::<CoolText>();
+
+        (app, gate_opener)
+    }
+
     #[test]
     #[should_panic]
-    fn out_of_bounds_should_panic() {
-        let mut app = App::new();
-        app.add_plugins(AssetPlugin::default());
-        app.init_asset::<CoolText>();
+    fn out_of_bounds_forbid_should_panic() {
+        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Forbid);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
-            let _ = assets.load::<CoolText>("../text.txt");
+            let _ = assets.load_override::<CoolText>("../a.cool.ron");
+        }
+        app.add_systems(Update, (uses_assets, load_assets));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    #[should_panic]
+    fn out_of_bounds_deny_should_panic() {
+        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        fn load_assets(assets: Res<AssetServer>) {
+            let _ = assets.load::<CoolText>("../a.cool.ron");
+        }
+        app.add_systems(Update, (uses_assets, load_assets));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn out_of_bounds_deny_should_finish() {
+        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        fn load_assets(assets: Res<AssetServer>) {
+            let _ = assets.load_override::<CoolText>("../a.cool.ron");
+        }
+        app.add_systems(Update, (uses_assets, load_assets));
+
+        app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn out_of_bounds_allow_should_finish() {
+        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Allow);
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        fn load_assets(assets: Res<AssetServer>) {
+            let _ = assets.load::<CoolText>("../a.cool.ron");
         }
         app.add_systems(Update, (uses_assets, load_assets));
 
