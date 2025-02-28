@@ -464,8 +464,7 @@ impl AssetServer {
 
         if path.is_out_of_bounds() {
             match (&self.data.out_of_bounds_mode, override_out_of_bounds) {
-                (OutOfBoundsMode::Allow, _) => {}
-                (OutOfBoundsMode::Deny, true) => {}
+                (OutOfBoundsMode::Allow, _) | (OutOfBoundsMode::Deny, true) => {}
                 (OutOfBoundsMode::Deny, false) | (OutOfBoundsMode::Forbid, _) => {
                     panic!("Asset path {path} is out of bounds. See OutOfBoundsMode for details.")
                 }
