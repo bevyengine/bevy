@@ -16,9 +16,9 @@ use core::{
     ptr::{self, NonNull},
 };
 
-/// Constant for use with the const generic in [`Ptr`], [`PtrMut`], and [`OwningPtr`]
+/// Used as a const generic in [`Ptr`], [`PtrMut`], and [`OwningPtr`] to specify that the pointer is aligned.
 pub const ALIGNED: bool = true;
-/// Constant for use with the const generic in [`Ptr`], [`PtrMut`], and [`OwningPtr`]
+/// Used as a const generic in [`Ptr`], [`PtrMut`], and [`OwningPtr`] to specify that the pointer is unaligned.
 pub const UNALIGNED: bool = false;
 
 /// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
@@ -205,8 +205,8 @@ macro_rules! impl_ptr {
             ///
             /// # Safety
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
-            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
-            ///   be unaligned for the pointee type.
+            /// - If the `IS_ALIGNED` const generic parameter is [`ALIGNED`] then the offset must not make the resulting
+            ///   pointer be unaligned for the pointee type.
             /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
@@ -227,7 +227,7 @@ macro_rules! impl_ptr {
             ///
             /// # Safety
             /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
-            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
+            /// - If the `IS_ALIGNED` const generic parameter is [`ALIGNED`] then the offset must not make the resulting pointer
             ///   be unaligned for the pointee type.
             /// - The value pointed by the resulting pointer must outlive the lifetime of this pointer.
             ///
@@ -276,7 +276,7 @@ impl<'a, const IS_ALIGNED: bool> Ptr<'a, IS_ALIGNED> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `IS_ALIGNED` const generic parameter is [`ALIGNED`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
     ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
@@ -300,7 +300,7 @@ impl<'a, const IS_ALIGNED: bool> Ptr<'a, IS_ALIGNED> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`Ptr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the const generic parameter `IS_ALIGNED` is [`UNALIGNED`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
@@ -333,7 +333,7 @@ impl<'a, const IS_ALIGNED: bool> PtrMut<'a, IS_ALIGNED> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `IS_ALIGNED` const generic parameter is [`ALIGNED`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`PtrMut`] is live.
@@ -355,7 +355,7 @@ impl<'a, const IS_ALIGNED: bool> PtrMut<'a, IS_ALIGNED> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`PtrMut`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the const generic parameter `IS_ALIGNED` is [`UNALIGNED`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
@@ -424,7 +424,7 @@ impl<'a, const IS_ALIGNED: bool> OwningPtr<'a, IS_ALIGNED> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `IS_ALIGNED` const generic parameter is [`ALIGNED`] then `inner` must be sufficiently aligned for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`OwningPtr`] is live.
@@ -437,7 +437,7 @@ impl<'a, const IS_ALIGNED: bool> OwningPtr<'a, IS_ALIGNED> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the const generic parameter `IS_ALIGNED` is [`UNALIGNED`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
@@ -450,7 +450,7 @@ impl<'a, const IS_ALIGNED: bool> OwningPtr<'a, IS_ALIGNED> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the const generic parameter `IS_ALIGNED` is [`UNALIGNED`] then this pointer must be sufficiently aligned
     ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
