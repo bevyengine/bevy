@@ -54,7 +54,7 @@ fn setup_environment(
         Transform::from_xyz(0.0, 0.0, 1.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         Projection::Orthographic(OrthographicProjection {
             scaling_mode: ScalingMode::AutoMin {
-                min_width: 18.0,
+                min_width: 19.0,
                 min_height: 6.0,
             },
             ..OrthographicProjection::default_3d()
@@ -84,7 +84,7 @@ fn setup_environment(
         Transform::from_xyz(0.0, 0.0, -1.0),
         Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(100.0, 100.0).normal(Dir3::Z))),
         MeshMaterial3d(material_assets.add(StandardMaterial {
-            base_color: Color::srgb(0.1 * 0.5, 0.3 * 0.5, 0.1 * 0.5),
+            base_color: Color::srgb(0.05, 0.05, 0.15),
             reflectance: 0.2,
             ..default()
         })),
@@ -97,7 +97,7 @@ fn setup_meshes(
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     mut inverse_bindposes_assets: ResMut<Assets<SkinnedMeshInverseBindposes>>,
 ) {
-    // Create a mesh with two squares.
+    // Create a mesh with two rectangles.
     let unskinned_mesh = Mesh::new(
         PrimitiveTopology::TriangleList,
         RenderAssetUsages::default(),
@@ -109,16 +109,16 @@ fn setup_meshes(
             [0.3, -0.3, 0.0],
             [-0.3, 0.3, 0.0],
             [0.3, 0.3, 0.0],
-            [-0.5, 1.0, 0.0],
-            [0.5, 1.0, 0.0],
-            [-0.5, 2.0, 0.0],
-            [0.5, 2.0, 0.0],
+            [-0.4, 0.8, 0.0],
+            [0.4, 0.8, 0.0],
+            [-0.4, 1.8, 0.0],
+            [0.4, 1.8, 0.0],
         ],
     )
     .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, vec![[0.0, 0.0, 1.0]; 8])
     .with_inserted_indices(Indices::U16(vec![0, 1, 3, 0, 3, 2, 4, 5, 7, 4, 7, 6]));
 
-    // Copy the mesh and add skinning attributes that bind each square to a joint.
+    // Copy the mesh and add skinning attributes that bind each rectangle to a joint.
     let skinned_mesh = unskinned_mesh
         .clone()
         .with_inserted_attribute(
@@ -144,13 +144,19 @@ fn setup_meshes(
 
     let inverse_bindposes_handle = inverse_bindposes_assets.add(vec![
         Mat4::IDENTITY,
-        Mat4::from_translation(Vec3::new(0.0, -1.5, 0.0)),
+        Mat4::from_translation(Vec3::new(0.0, -1.3, 0.0)),
     ]);
 
-    let material_handle = material_assets.add(StandardMaterial::default());
+    let mesh_material_handle = material_assets.add(StandardMaterial::default());
+
+    let background_material_handle = material_assets.add(StandardMaterial {
+        base_color: Color::srgb(0.05, 0.15, 0.05),
+        reflectance: 0.2,
+        ..default()
+    });
 
     for mesh_index in 0..4 {
-        let transform = Transform::from_xyz(((mesh_index as f32) - 1.5) * 4.0, 0.0, 0.0);
+        let transform = Transform::from_xyz(((mesh_index as f32) - 1.5) * 4.5, 0.0, 0.0);
 
         let joint_0 = commands.spawn(transform).id();
 
@@ -175,7 +181,7 @@ fn setup_meshes(
 
         let mut entity_commands = commands.spawn((
             Mesh3d(mesh_handle.clone()),
-            MeshMaterial3d(material_handle.clone()),
+            MeshMaterial3d(mesh_material_handle.clone()),
             transform,
         ));
 
@@ -186,6 +192,13 @@ fn setup_meshes(
                 joints: vec![joint_0, joint_1],
             });
         }
+
+        // Add a square behind the mesh to distinguish it from the other meshes.
+        commands.spawn((
+            Transform::from_xyz(transform.translation.x, transform.translation.y, -0.8),
+            Mesh3d(mesh_assets.add(Plane3d::default().mesh().size(4.3, 4.3).normal(Dir3::Z))),
+            MeshMaterial3d(background_material_handle.clone()),
+        ));
     }
 }
 
@@ -198,6 +211,6 @@ fn update_animated_joints(time: Res<Time>, query: Query<&mut Transform, With<Ani
         let rotation = Quat::from_rotation_z(angle);
 
         transform.rotation = rotation;
-        transform.translation = rotation.mul_vec3(Vec3::new(0.0, 1.5, 0.0));
+        transform.translation = rotation.mul_vec3(Vec3::new(0.0, 1.3, 0.0));
     }
 }
