@@ -3,6 +3,7 @@ use bevy_color::Color;
 use bevy_ecs::{
     component::{require, Component},
     reflect::ReflectComponent,
+    entity::Entity
 };
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};

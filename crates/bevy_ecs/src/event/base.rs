@@ -24,7 +24,7 @@ use core::{
 /// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Event)]
-/// [event(auto_propagate, traversal = ChildOf)]
+/// #[event(auto_propagate, traversal = ChildOf)]
 /// struct MyEvent;
 /// ```
 /// Events must be thread-safe.
