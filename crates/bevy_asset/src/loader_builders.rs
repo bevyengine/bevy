@@ -305,9 +305,12 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
     pub fn load<'c, A: Asset>(self, path: impl Into<AssetPath<'c>>) -> Handle<A> {
         let path = path.into().to_owned();
         let handle = if self.load_context.should_load_dependencies {
-            self.load_context
-                .asset_server
-                .load_with_meta_transform(path, self.meta_transform, ())
+            self.load_context.asset_server.load_with_meta_transform(
+                path,
+                self.meta_transform,
+                (),
+                true,
+            )
         } else {
             self.load_context
                 .asset_server
