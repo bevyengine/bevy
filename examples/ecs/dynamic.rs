@@ -17,7 +17,7 @@ use bevy::{
         world::FilteredEntityMut,
     },
     prelude::*,
-    ptr::{ALIGNED, OwningPtr},
+    ptr::{OwningPtr, ALIGNED},
 };
 
 const PROMPT: &str = "
