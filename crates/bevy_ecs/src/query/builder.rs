@@ -33,7 +33,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 ///     .build();
 ///
 /// // Consume the QueryState
-/// let (entity, b) = query.get_single(&world).unwrap();
+/// let (entity, b) = query.single(&world).unwrap();
 /// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
     access: FilteredAccess<ComponentId>,
@@ -297,13 +297,13 @@ mod tests {
             .with::<A>()
             .without::<C>()
             .build();
-        assert_eq!(entity_a, query_a.get_single(&world).unwrap());
+        assert_eq!(entity_a, query_a.single(&world).unwrap());
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
             .with::<A>()
             .without::<B>()
             .build();
-        assert_eq!(entity_b, query_b.get_single(&world).unwrap());
+        assert_eq!(entity_b, query_b.single(&world).unwrap());
     }
 
     #[test]
@@ -319,13 +319,13 @@ mod tests {
             .with_id(component_id_a)
             .without_id(component_id_c)
             .build();
-        assert_eq!(entity_a, query_a.get_single(&world).unwrap());
+        assert_eq!(entity_a, query_a.single(&world).unwrap());
 
         let mut query_b = QueryBuilder::<Entity>::new(&mut world)
             .with_id(component_id_a)
             .without_id(component_id_b)
             .build();
-        assert_eq!(entity_b, query_b.get_single(&world).unwrap());
+        assert_eq!(entity_b, query_b.single(&world).unwrap());
     }
 
     #[test]
@@ -385,7 +385,7 @@ mod tests {
             .data::<&B>()
             .build();
 
-        let entity_ref = query.get_single(&world).unwrap();
+        let entity_ref = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
 
@@ -408,7 +408,7 @@ mod tests {
             .ref_id(component_id_b)
             .build();
 
-        let entity_ref = query.get_single(&world).unwrap();
+        let entity_ref = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
 

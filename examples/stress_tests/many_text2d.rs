@@ -155,7 +155,7 @@ fn setup(mut commands: Commands, font: Res<FontHandle>, args: Res<Args>) {
 
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let Ok(mut camera_transform) = camera_query.get_single_mut() else {
+    let Ok(mut camera_transform) = camera_query.single_mut() else {
         return;
     };
     camera_transform.rotate_z(time.delta_secs() * 0.5);

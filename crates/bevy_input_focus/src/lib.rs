@@ -226,7 +226,7 @@ pub fn dispatch_focused_input<E: Event + Clone>(
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
 ) {
-    if let Ok(window) = windows.get_single() {
+    if let Ok(window) = windows.single() {
         // If an element has keyboard focus, then dispatch the input event to that element.
         if let Some(focused_entity) = focus.0 {
             for ev in key_events.read() {

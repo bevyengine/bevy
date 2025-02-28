@@ -1595,7 +1595,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// the query.
     ///
     /// This can only be called for read-only queries,
-    /// see [`get_single_mut`](Self::get_single_mut) for write-queries.
+    /// see [`single_mut`](Self::single_mut) for write-queries.
     ///
     /// If the number of query results is not exactly one, a [`QuerySingleError`] is returned
     /// instead.
@@ -1613,7 +1613,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// struct A(usize);
     ///
     /// fn my_system(query: Query<&A>, mut commands: Commands) {
-    ///     match query.get_single() {
+    ///     match query.single() {
     ///         Ok(a) => (), // Do something with `a`
     ///         Err(err) => match err {
     ///             QuerySingleError::NoEntities(_) => {
@@ -1634,7 +1634,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// struct A(usize);
     ///
     /// fn my_system(query: Query<&A>) {
-    ///   let Ok(a) = query.get_single() else {
+    ///   let Ok(a) = query.single() else {
     ///     return;
     ///   };
     ///
@@ -1652,7 +1652,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// struct A(usize);
     ///
     /// fn my_system(query: Query<&A>) -> Result {
-    ///  let a = query.get_single()?;
+    ///  let a = query.single()?;
     ///  
     ///  // Do something with `a`
     ///  Ok(())
@@ -1667,11 +1667,8 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// Simply unwrapping the [`Result`] also works, but should generally be reserved for tests.
     #[inline]
-    pub fn get_single<'w>(
-        &mut self,
-        world: &'w World,
-    ) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
-        self.query(world).get_single_inner()
+    pub fn single<'w>(&mut self, world: &'w World) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
+        self.query(world).single_inner()
     }
 
     /// Returns a single mutable query result when there is exactly one entity matching
@@ -1682,13 +1679,13 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     ///
     /// # Examples
     ///
-    /// Please see [`Query::get_single`] for advice on handling the error.
+    /// Please see [`Query::single`] for advice on handling the error.
     #[inline]
-    pub fn get_single_mut<'w>(
+    pub fn single_mut<'w>(
         &mut self,
         world: &'w mut World,
     ) -> Result<D::Item<'w>, QuerySingleError> {
-        self.query_mut(world).get_single_inner()
+        self.query_mut(world).single_inner()
     }
 
     /// Returns a query result when there is exactly one entity matching the query.
@@ -1701,11 +1698,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not check for mutable query correctness. To be safe, make sure mutable queries
     /// have unique access to the components they query.
     #[inline]
-    pub unsafe fn get_single_unchecked<'w>(
+    pub unsafe fn single_unchecked<'w>(
         &mut self,
         world: UnsafeWorldCell<'w>,
     ) -> Result<D::Item<'w>, QuerySingleError> {
-        self.query_unchecked(world).get_single_inner()
+        self.query_unchecked(world).single_inner()
     }
 
     /// Returns a query result when there is exactly one entity matching the query,
@@ -1721,7 +1718,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     #[inline]
-    pub unsafe fn get_single_unchecked_manual<'w>(
+    pub unsafe fn single_unchecked_manual<'w>(
         &self,
         world: UnsafeWorldCell<'w>,
         last_run: Tick,
@@ -1731,7 +1728,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // - The caller ensured we have the correct access to the world.
         // - The caller ensured that the world matches.
         self.query_unchecked_manual_with_ticks(world, last_run, this_run)
-            .get_single_inner()
+            .single_inner()
     }
 }
 
@@ -1795,7 +1792,7 @@ mod tests {
         let query_state = world.query::<(&A, &B)>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
         assert_eq!(new_query_state.iter(&world).len(), 1);
-        let a = new_query_state.get_single(&world).unwrap();
+        let a = new_query_state.single(&world).unwrap();
 
         assert_eq!(a.0, 1);
     }
@@ -1809,7 +1806,7 @@ mod tests {
         let query_state = world.query_filtered::<(&A, &B), Without<C>>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
         // even though we change the query to not have Without<C>, we do not get the component with C.
-        let a = new_query_state.get_single(&world).unwrap();
+        let a = new_query_state.single(&world).unwrap();
 
         assert_eq!(a.0, 0);
     }
@@ -1822,7 +1819,7 @@ mod tests {
 
         let q = world.query::<()>();
         let mut q = q.transmute::<Entity>(&world);
-        assert_eq!(q.get_single(&world).unwrap(), entity);
+        assert_eq!(q.single(&world).unwrap(), entity);
     }
 
     #[test]
@@ -1832,7 +1829,7 @@ mod tests {
 
         let q = world.query::<&A>();
         let mut new_q = q.transmute::<Ref<A>>(&world);
-        assert!(new_q.get_single(&world).unwrap().is_added());
+        assert!(new_q.single(&world).unwrap().is_added());
 
         let q = world.query::<Ref<A>>();
         let _ = q.transmute::<&A>(&world);
@@ -1903,7 +1900,7 @@ mod tests {
 
         let query_state = world.query::<Option<&A>>();
         let mut new_query_state = query_state.transmute::<&A>(&world);
-        let x = new_query_state.get_single(&world).unwrap();
+        let x = new_query_state.single(&world).unwrap();
         assert_eq!(x.0, 1234);
     }
 
@@ -1928,7 +1925,7 @@ mod tests {
 
         let mut query = query;
         // Our result is completely untyped
-        let entity_ref = query.get_single(&world).unwrap();
+        let entity_ref = query.single(&world).unwrap();
 
         assert_eq!(entity, entity_ref.id());
         assert_eq!(0, entity_ref.get::<A>().unwrap().0);
@@ -1943,16 +1940,16 @@ mod tests {
         let mut query = QueryState::<(Entity, &A, Has<B>)>::new(&mut world)
             .transmute_filtered::<(Entity, Has<B>), Added<A>>(&world);
 
-        assert_eq!((entity_a, false), query.get_single(&world).unwrap());
+        assert_eq!((entity_a, false), query.single(&world).unwrap());
 
         world.clear_trackers();
 
         let entity_b = world.spawn((A(0), B(0))).id();
-        assert_eq!((entity_b, true), query.get_single(&world).unwrap());
+        assert_eq!((entity_b, true), query.single(&world).unwrap());
 
         world.clear_trackers();
 
-        assert!(query.get_single(&world).is_err());
+        assert!(query.single(&world).is_err());
     }
 
     #[test]
@@ -1964,15 +1961,15 @@ mod tests {
             .transmute_filtered::<Entity, Changed<A>>(&world);
 
         let mut change_query = QueryState::<&mut A>::new(&mut world);
-        assert_eq!(entity_a, detection_query.get_single(&world).unwrap());
+        assert_eq!(entity_a, detection_query.single(&world).unwrap());
 
         world.clear_trackers();
 
-        assert!(detection_query.get_single(&world).is_err());
+        assert!(detection_query.single(&world).is_err());
 
-        change_query.get_single_mut(&mut world).unwrap().0 = 1;
+        change_query.single_mut(&mut world).unwrap().0 = 1;
 
-        assert_eq!(entity_a, detection_query.get_single(&world).unwrap());
+        assert_eq!(entity_a, detection_query.single(&world).unwrap());
     }
 
     #[test]
@@ -2059,7 +2056,7 @@ mod tests {
         let query_2 = QueryState::<&B, Without<C>>::new(&mut world);
         let mut new_query: QueryState<Entity, ()> = query_1.join_filtered(&world, &query_2);
 
-        assert_eq!(new_query.get_single(&world).unwrap(), entity_ab);
+        assert_eq!(new_query.single(&world).unwrap(), entity_ab);
     }
 
     #[test]

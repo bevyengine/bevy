@@ -39,7 +39,7 @@ fn spawn_player(mut commands: Commands) {
 
 fn spell_casting(mut player: Query<&mut Player>, keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
-        let Ok(mut player) = player.get_single_mut() else {
+        let Ok(mut player) = player.single_mut() else {
             return;
         };
 
@@ -76,7 +76,7 @@ fn test_player_spawn() {
     // Now that the startup systems have run, we can check if the player has
     // spawned as expected.
     let expected = Player::default();
-    let actual = app.world_mut().query::<&Player>().get_single(app.world());
+    let actual = app.world_mut().query::<&Player>().single(app.world());
     assert!(actual.is_ok(), "There should be exactly 1 player.");
     assert_eq!(
         expected.mana,
@@ -101,7 +101,7 @@ fn test_spell_casting() {
     let actual = app
         .world_mut()
         .query::<&Player>()
-        .get_single(app.world())
+        .single(app.world())
         .unwrap();
     assert_eq!(
         expected.mana - 1,
@@ -119,7 +119,7 @@ fn test_spell_casting() {
     let after_keypress_event = app
         .world_mut()
         .query::<&Player>()
-        .get_single(app.world())
+        .single(app.world())
         .unwrap();
     assert_eq!(
         expected.mana - 1,
@@ -138,7 +138,7 @@ fn test_window_title() {
     let window = app
         .world_mut()
         .query::<&Window>()
-        .get_single(app.world())
+        .single(app.world())
         .unwrap();
     assert_eq!(window.title, "This is window 0!");
 }

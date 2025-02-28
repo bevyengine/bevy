@@ -56,7 +56,7 @@ fn setup(
     }
 
     // cameras
-    let window = window.get_single()?;
+    let window = window.single()?;
     let width = window.resolution.width() / CAMERA_COLS as f32 * window.resolution.scale_factor();
     let height = window.resolution.height() / CAMERA_ROWS as f32 * window.resolution.scale_factor();
     let mut i = 0;

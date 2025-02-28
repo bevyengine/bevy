@@ -532,7 +532,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                 let mut query = self
                     .world_mut()
                     .query_filtered::<Entity, With<PrimaryWindow>>();
-                let entity = query.get_single(&self.world()).unwrap();
+                let entity = query.single(&self.world()).unwrap();
                 self.world_mut()
                     .entity_mut(entity)
                     .remove::<RawHandleWrapper>();
@@ -552,7 +552,7 @@ impl<T: Event> WinitAppRunnerState<T> {
                 // handle wrapper removed when the app was suspended.
                 let mut query = self.world_mut()
                     .query_filtered::<(Entity, &Window), (With<CachedWindow>, Without<bevy_window::RawHandleWrapper>)>();
-                if let Ok((entity, window)) = query.get_single(&self.world()) {
+                if let Ok((entity, window)) = query.single(&self.world()) {
                     let window = window.clone();
 
                     let mut create_window =
