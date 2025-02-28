@@ -184,6 +184,12 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ExtendedMaterial<StandardMaterial, CustomDecalExtension>>>,
 ) {
+    // Error out if the clustered decals feature isn't enabled
+    if !cfg!(feature = "pbr_clustered_decals") {
+        eprintln!("Bevy was compiled without clustered decal support. Run with `--features=pbr_clustered_decals` to enable.");
+        process::exit(1);
+    }
+
     // Error out if clustered decals aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         eprintln!("Clustered decals aren't usable on this platform.");
