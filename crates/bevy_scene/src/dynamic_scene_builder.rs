@@ -3,7 +3,7 @@ use core::any::TypeId;
 use crate::{DynamicEntity, DynamicScene, SceneFilter};
 use alloc::collections::BTreeMap;
 use bevy_ecs::{
-    component::{Component, ComponentId},
+    component::{Component, ComponentId, ComponentsReader},
     entity_disabling::DefaultQueryFilters,
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},

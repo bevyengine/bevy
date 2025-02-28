@@ -132,7 +132,10 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{require, Component, ComponentId, RequiredComponents, RequiredComponentsError},
+        component::{
+            require, Component, ComponentId, ComponentsReader, RequiredComponentsError,
+            RequiredComponentsRef,
+        },
         entity::Entity,
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
@@ -2613,10 +2616,10 @@ mod tests {
 
         /// Returns the component IDs and inheritance depths of the required components
         /// in ascending order based on the component ID.
-        fn to_vec(required: &RequiredComponents) -> Vec<(ComponentId, u16)> {
+        fn to_vec(required: RequiredComponentsRef) -> Vec<(ComponentId, u16)> {
             let mut vec = required
-                .0
                 .iter()
+                .flat_map(|requirements| requirements.0.iter())
                 .map(|(id, component)| (*id, component.inheritance_depth))
                 .collect::<Vec<_>>();
             vec.sort_by_key(|(id, _)| *id);

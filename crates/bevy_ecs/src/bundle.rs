@@ -11,8 +11,8 @@ use crate::{
     },
     change_detection::MaybeLocation,
     component::{
-        Component, ComponentId, Components, RequiredComponentConstructor, RequiredComponents,
-        StorageType, Tick,
+        Component, ComponentId, Components, ComponentsReader, ComponentsWriter,
+        RequiredComponentConstructor, RequiredComponents, StorageType, Tick,
     },
     entity::{Entities, Entity, EntityLocation},
     observer::Observers,
@@ -30,7 +30,7 @@ use variadics_please::all_tuples;
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
-/// Implementors of the `Bundle` trait are called 'bundles'.
+/// Implementers of the `Bundle` trait are called 'bundles'.
 ///
 /// Each bundle represents a static set of [`Component`] types.
 /// Currently, bundles can only contain one of each [`Component`], and will
@@ -71,7 +71,7 @@ use variadics_please::all_tuples;
 /// That is, if the entity does not have all the components of the bundle, those
 /// which are present will be removed.
 ///
-/// # Implementors
+/// # Implementers
 ///
 /// Every type which implements [`Component`] also implements `Bundle`, since
 /// [`Component`] types can be added to or removed from an entity.
@@ -508,9 +508,15 @@ impl BundleInfo {
         let mut required_components = RequiredComponents::default();
         for component_id in component_ids.iter().copied() {
             // SAFETY: caller has verified that all ids are valid
-            let info = unsafe { components.get_info_unchecked(component_id) };
-            required_components.merge(info.required_components());
+            let info = unsafe { &components.get_info_unchecked(component_id) };
             storages.prepare_component(info);
+            // SAFETY: caller has verified that all ids are valid
+            let required = unsafe {
+                &components
+                    .get_required_components(component_id)
+                    .debug_checked_unwrap()
+            };
+            required.merge_into(&mut required_components);
         }
         required_components.remove_explicit_components(&component_ids);
 
@@ -520,7 +526,7 @@ impl BundleInfo {
             .into_iter()
             .map(|(component_id, v)| {
                 // Safety: These ids came out of the passed `components`, so they must be valid.
-                let info = unsafe { components.get_info_unchecked(component_id) };
+                let info = unsafe { &components.get_info_unchecked(component_id) };
                 storages.prepare_component(info);
                 // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
                 // components. This ordering is important!

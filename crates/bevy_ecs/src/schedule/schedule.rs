@@ -25,7 +25,7 @@ use thiserror::Error;
 use tracing::info_span;
 
 use crate::{
-    component::{ComponentId, Components, Tick},
+    component::{ComponentId, Components, ComponentsReader, ComponentsWriter, Tick},
     prelude::Component,
     resource::Resource,
     result::{DefaultSystemErrorHandler, Error, SystemErrorContext},

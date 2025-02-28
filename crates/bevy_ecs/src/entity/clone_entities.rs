@@ -7,7 +7,7 @@ use core::{any::TypeId, ptr::NonNull};
 #[cfg(feature = "bevy_reflect")]
 use alloc::boxed::Box;
 
-use crate::component::{ComponentCloneBehavior, ComponentCloneFn};
+use crate::component::{ComponentCloneBehavior, ComponentCloneFn, ComponentsReader};
 use crate::entity::hash_map::EntityHashMap;
 use crate::entity::EntityMapper;
 use crate::system::Commands;
@@ -73,8 +73,8 @@ impl<'a, 'b> ComponentCloneCtx<'a, 'b> {
             target_component_written: false,
             bundle_scratch_allocator,
             components,
-            mapper,
             component_info: components.get_info_unchecked(component_id),
+            mapper,
             entity_cloner,
             type_registry,
         }
@@ -779,8 +779,8 @@ impl<'w> EntityClonerBuilder<'w> {
             self.entity_cloner.filter.remove(&id);
         }
         if self.attach_required_components {
-            if let Some(info) = self.world.components().get_info(id) {
-                for required_id in info.required_components().iter_ids() {
+            if let Some(info) = self.world.components().get_required_components(id) {
+                for required_id in info.iter_ids() {
                     if self.entity_cloner.filter_allows_components {
                         self.entity_cloner.filter.insert(required_id);
                     } else {
@@ -799,8 +799,8 @@ impl<'w> EntityClonerBuilder<'w> {
             self.entity_cloner.filter.insert(id);
         }
         if self.attach_required_components {
-            if let Some(info) = self.world.components().get_info(id) {
-                for required_id in info.required_components().iter_ids() {
+            if let Some(info) = self.world.components().get_required_components(id) {
+                for required_id in info.iter_ids() {
                     if self.entity_cloner.filter_allows_components {
                         self.entity_cloner.filter.remove(&required_id);
                     } else {
