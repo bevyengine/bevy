@@ -134,39 +134,39 @@ pub enum CubemapLayout {
     SequenceHorizontal = 3,
 }
 
-/// Add to a [`PointLight`] to add a light cookie effect.
-/// A light cookie is a texture mask applied to a light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo effects, or soft falloffs.
+/// Add to a [`PointLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
 #[require(PointLight)]
-pub struct PointLightCookie {
-    /// The cookie image. Only the R channel is read.
+pub struct PointLightTexture {
+    /// The texture image. Only the R channel is read.
     pub image: Handle<Image>,
     /// The cubemap layout. The image should be a packed cubemap in one of the formats described by the [`CubemapLayout`] enum.
     pub cubemap_layout: CubemapLayout,
 }
 
-/// Add to a [`SpotLight`] to add a light cookie effect.
-/// A light cookie is a texture mask applied to a light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo effects, or soft falloffs.
+/// Add to a [`SpotLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
 #[require(SpotLight)]
-pub struct SpotLightCookie {
-    /// The cookie image. Only the R channel is read.
+pub struct SpotLightTexture {
+    /// The texture image. Only the R channel is read.
     /// Note the border of the image should be entirely black to avoid leaking light.
     pub image: Handle<Image>,
 }
 
-/// Add to a [`DirectionalLight`] to add a light cookie effect.
-/// A light cookie is a texture mask applied to a light source to modulate its intensity,  
-/// simulating patterns like window shadows, gobo effects, or soft falloffs.
+/// Add to a [`DirectionalLight`] to add a light texture effect.
+/// A texture mask is applied to the light source to modulate its intensity,  
+/// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
 #[require(DirectionalLight)]
-pub struct DirectionalLightCookie {
-    /// The cookie image. Only the R channel is read.
+pub struct DirectionalLightTexture {
+    /// The texture image. Only the R channel is read.
     pub image: Handle<Image>,
     /// Whether to tile the image infinitely, or use only a single tile centered at the light's translation
     pub tiled: bool,
@@ -307,26 +307,26 @@ pub fn extract_decals(
             &ViewVisibility,
         )>,
     >,
-    spot_light_cookies: Extract<
+    spot_light_textures: Extract<
         Query<(
             RenderEntity,
-            &SpotLightCookie,
+            &SpotLightTexture,
             &GlobalTransform,
             &ViewVisibility,
         )>,
     >,
-    point_light_cookies: Extract<
+    point_light_textures: Extract<
         Query<(
             RenderEntity,
-            &PointLightCookie,
+            &PointLightTexture,
             &GlobalTransform,
             &ViewVisibility,
         )>,
     >,
-    directional_light_cookies: Extract<
+    directional_light_textures: Extract<
         Query<(
             RenderEntity,
-            &DirectionalLightCookie,
+            &DirectionalLightTexture,
             &GlobalTransform,
             &ViewVisibility,
         )>,
@@ -351,7 +351,7 @@ pub fn extract_decals(
         );
     }
 
-    for (decal_entity, cookie, global_transform, view_visibility) in &spot_light_cookies {
+    for (decal_entity, texture, global_transform, view_visibility) in &spot_light_textures {
         // If the decal is invisible, skip it.
         if !view_visibility.get() {
             continue;
@@ -359,13 +359,13 @@ pub fn extract_decals(
 
         render_decals.insert_decal(
             decal_entity,
-            &cookie.image.id(),
+            &texture.image.id(),
             global_transform.affine().inverse().into(),
             0,
         );
     }
 
-    for (decal_entity, cookie, global_transform, view_visibility) in &point_light_cookies {
+    for (decal_entity, texture, global_transform, view_visibility) in &point_light_textures {
         // If the decal is invisible, skip it.
         if !view_visibility.get() {
             continue;
@@ -373,13 +373,13 @@ pub fn extract_decals(
 
         render_decals.insert_decal(
             decal_entity,
-            &cookie.image.id(),
+            &texture.image.id(),
             global_transform.affine().inverse().into(),
-            cookie.cubemap_layout as u32,
+            texture.cubemap_layout as u32,
         );
     }
 
-    for (decal_entity, cookie, global_transform, view_visibility) in &directional_light_cookies {
+    for (decal_entity, texture, global_transform, view_visibility) in &directional_light_textures {
         // If the decal is invisible, skip it.
         if !view_visibility.get() {
             continue;
@@ -387,9 +387,9 @@ pub fn extract_decals(
 
         render_decals.insert_decal(
             decal_entity,
-            &cookie.image.id(),
+            &texture.image.id(),
             global_transform.affine().inverse().into(),
-            if cookie.tiled { 1 } else { 0 },
+            if texture.tiled { 1 } else { 0 },
         );
     }
 }
