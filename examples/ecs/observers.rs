@@ -175,7 +175,7 @@ fn handle_click(
     windows: Query<&Window>,
     mut commands: Commands,
 ) {
-    let Ok(windows) = windows.get_single() else {
+    let Ok(windows) = windows.single() else {
         return;
     };
 

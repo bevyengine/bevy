@@ -317,7 +317,7 @@ impl Plugin for RenderPlugin {
                     let primary_window = app
                         .world_mut()
                         .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
-                        .get_single(app.world())
+                        .single(app.world())
                         .ok()
                         .cloned();
                     let settings = render_creation.clone();

@@ -22,8 +22,8 @@ fn main() {
         let mut query_a = lens_a.query();
         let mut query_b = lens_b.query();
 
-        let a = query_a.single_mut();
-        let b = query_b.single_mut(); // oops 2 mutable references to same Foo
+        let a = query_a.single_mut().unwrap();
+        let b = query_b.single_mut().unwrap(); // oops 2 mutable references to same Foo
         assert_eq!(*a, *b);
     }
 
@@ -34,8 +34,8 @@ fn main() {
         let mut query_b = lens.query();
         //~^ E0499
 
-        let a = query_a.single_mut();
-        let b = query_b.single_mut(); // oops 2 mutable references to same Foo
+        let a = query_a.single_mut().unwrap();
+        let b = query_b.single_mut().unwrap(); // oops 2 mutable references to same Foo
         assert_eq!(*a, *b);
     }
 }
