@@ -2,20 +2,20 @@ error[E0277]: the trait bound `&mut A: ReadOnlyQueryData` is not satisfied
   --> tests/ui/query_iter_combinations_mut_iterator_safety.rs:9:17
    |
 9  |     is_iterator(iter)
-   |     ----------- ^^^^ the trait `ReadOnlyQueryData` is not implemented for `&mut A`, which is required by `QueryCombinationIter<'_, '_, &mut A, (), _>: Iterator`
+   |     ----------- ^^^^ the trait `ReadOnlyQueryData` is not implemented for `&mut A`
    |     |
    |     required by a bound introduced by this call
    |
    = help: the following other types implement trait `ReadOnlyQueryData`:
-             bevy_ecs::change_detection::Ref<'__w, T>
-             Has<T>
-             AnyOf<()>
-             AnyOf<(F0,)>
-             AnyOf<(F0, F1)>
-             AnyOf<(F0, F1, F2)>
-             AnyOf<(F0, F1, F2, F3)>
-             AnyOf<(F0, F1, F2, F3, F4)>
-           and 34 others
+             &Archetype
+             &T
+             ()
+             (F,)
+             (F0, F1)
+             (F0, F1, F2)
+             (F0, F1, F2, F3)
+             (F0, F1, F2, F3, F4)
+           and 36 others
    = note: `ReadOnlyQueryData` is implemented for `&A`, but not for `&mut A`
    = note: required for `QueryCombinationIter<'_, '_, &mut A, (), _>` to implement `Iterator`
 note: required by a bound in `is_iterator`
