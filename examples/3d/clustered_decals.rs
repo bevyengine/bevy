@@ -11,7 +11,7 @@ use bevy::{
         decal::{
             self,
             clustered::{
-                ClusteredDecal, DirectionalLightCookie, PointLightCookie, SpotLightCookie,
+                ClusteredDecal, DirectionalLightTexture, PointLightTexture, SpotLightTexture,
             },
         },
         ExtendedMaterial, MaterialExtension, NotShadowCaster,
@@ -72,11 +72,11 @@ enum Selection {
     DecalA,
     /// The second decal, which a lime green bounding box surrounds.
     DecalB,
-    /// The spotlight, which uses a torch-like light cookie
+    /// The spotlight, which uses a torch-like light texture
     SpotLight,
-    /// The point light, which uses a light cookie cubemap constructed from the faces mesh
+    /// The point light, which uses a light texture cubemap constructed from the faces mesh
     PointLight,
-    /// The directional light, which uses a caustic-like cookie
+    /// The directional light, which uses a caustic-like texture
     DirectionalLight,
 }
 
@@ -202,7 +202,7 @@ fn setup(
     spawn_decals(&mut commands, &asset_server);
     spawn_buttons(&mut commands);
     spawn_help_text(&mut commands, &app_status);
-    spawn_light_cookies(&mut commands, &asset_server, &mut meshes, &mut materials);
+    spawn_light_textures(&mut commands, &asset_server, &mut meshes, &mut materials);
 }
 
 #[derive(Component)]
@@ -257,8 +257,8 @@ fn spawn_light(commands: &mut Commands, asset_server: &AssetServer) {
                 illuminance: AMBIENT_DAYLIGHT,
                 ..default()
             },
-            DirectionalLightCookie {
-                image: asset_server.load("lightmaps/caustic_directional_cookie.png"),
+            DirectionalLightTexture {
+                image: asset_server.load("lightmaps/caustic_directional_texture.png"),
                 tiled: true,
             },
             Visibility::Visible,
@@ -299,7 +299,7 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
     ));
 }
 
-fn spawn_light_cookies(
+fn spawn_light_textures(
     commands: &mut Commands,
     asset_server: &AssetServer,
     meshes: &mut Assets<Mesh>,
@@ -315,8 +315,8 @@ fn spawn_light_cookies(
             ..default()
         },
         Transform::from_translation(Vec3::new(-6.0, 1.0, 2.0)).looking_at(Vec3::ZERO, Vec3::Y),
-        SpotLightCookie {
-            image: asset_server.load("lightmaps/torch_spotlight_cookie.png"),
+        SpotLightTexture {
+            image: asset_server.load("lightmaps/torch_spotlight_texture.png"),
         },
         Visibility::Hidden,
         Selection::SpotLight,
@@ -351,8 +351,8 @@ fn spawn_light_cookies(
                     shadows_enabled: true,
                     ..default()
                 },
-                PointLightCookie {
-                    image: asset_server.load("lightmaps/faces_pointlight_cookie_blurred.png"),
+                PointLightTexture {
+                    image: asset_server.load("lightmaps/faces_pointlight_texture_blurred.png"),
                     cubemap_layout: decal::clustered::CubemapLayout::CrossVertical,
                 },
             ));
@@ -771,14 +771,14 @@ fn update_directional_light(
     mut light: Query<(
         Entity,
         &mut DirectionalLight,
-        Option<&DirectionalLightCookie>,
+        Option<&DirectionalLightTexture>,
     )>,
 ) {
     let directional_visible = selections
         .iter()
         .filter(|(selection, _)| **selection == Selection::DirectionalLight)
         .any(|(_, visibility)| visibility != Visibility::Hidden);
-    let any_cookie_light_visible = selections
+    let any_texture_light_visible = selections
         .iter()
         .filter(|(selection, _)| {
             **selection == Selection::PointLight || **selection == Selection::SpotLight
@@ -786,25 +786,25 @@ fn update_directional_light(
         .any(|(_, visibility)| visibility != Visibility::Hidden);
 
     if directional_visible {
-        let (entity, mut light, maybe_cookie) = light.single_mut();
+        let (entity, mut light, maybe_texture) = light.single_mut();
         light.illuminance = AMBIENT_DAYLIGHT;
-        if maybe_cookie.is_none() {
-            commands.entity(entity).insert(DirectionalLightCookie {
-                image: asset_server.load("lightmaps/caustic_directional_cookie.png"),
+        if maybe_texture.is_none() {
+            commands.entity(entity).insert(DirectionalLightTexture {
+                image: asset_server.load("lightmaps/caustic_directional_texture.png"),
                 tiled: true,
             });
         }
-    } else if any_cookie_light_visible {
-        let (entity, mut light, maybe_cookie) = light.single_mut();
+    } else if any_texture_light_visible {
+        let (entity, mut light, maybe_texture) = light.single_mut();
         light.illuminance = CLEAR_SUNRISE;
-        if maybe_cookie.is_some() {
-            commands.entity(entity).remove::<DirectionalLightCookie>();
+        if maybe_texture.is_some() {
+            commands.entity(entity).remove::<DirectionalLightTexture>();
         }
     } else {
-        let (entity, mut light, maybe_cookie) = light.single_mut();
+        let (entity, mut light, maybe_texture) = light.single_mut();
         light.illuminance = AMBIENT_DAYLIGHT;
-        if maybe_cookie.is_some() {
-            commands.entity(entity).remove::<DirectionalLightCookie>();
+        if maybe_texture.is_some() {
+            commands.entity(entity).remove::<DirectionalLightTexture>();
         }
     }
 }

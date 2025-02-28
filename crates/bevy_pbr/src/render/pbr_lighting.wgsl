@@ -526,7 +526,7 @@ fn point_light(
     light_id: u32,
     input: ptr<function, LightingInput>,
     enable_diffuse: bool,
-    enable_cookie: bool,
+    enable_texture: bool,
 ) -> vec3<f32> {
     // Unpack.
     let diffuse_color = (*input).diffuse_color;
@@ -622,16 +622,16 @@ fn point_light(
     color = diffuse + specular_light;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    var cookie_sample = 1f;
+    var texture_sample = 1f;
 
 #ifdef LIGHT_TEXTURES
-    if enable_cookie && (*light).decal_index != 0xFFFFFFFFu {
+    if enable_texture && (*light).decal_index != 0xFFFFFFFFu {
         let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
         let cubemap_type = view_bindings::clustered_decals.decals[(*light).decal_index].tag;
         let decal_uv = cubemap_uv(relative_position, cubemap_type);
         let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
 
-        cookie_sample = textureSampleLevel(
+        texture_sample = textureSampleLevel(
             view_bindings::clustered_decal_textures[image_index],
             view_bindings::clustered_decal_sampler,
             decal_uv,
@@ -641,7 +641,7 @@ fn point_light(
 #endif
 
     return color * (*light).color_inverse_square_range.rgb *
-        (rangeAttenuation * derived_input.NdotL) * cookie_sample;
+        (rangeAttenuation * derived_input.NdotL) * texture_sample;
 }
 
 fn spot_light(
@@ -669,7 +669,7 @@ fn spot_light(
     let attenuation = saturate(cd * (*light).light_custom_data.z + (*light).light_custom_data.w);
     let spot_attenuation = attenuation * attenuation;
 
-    var cookie_sample = 1f;
+    var texture_sample = 1f;
 
 #ifdef LIGHT_TEXTURES
     if (*light).decal_index != 0xFFFFFFFFu {
@@ -679,7 +679,7 @@ fn spot_light(
             let decal_uv = (local_position.xy / (local_position.z * (*light).spot_light_tan_angle)) * vec2(-0.5, 0.5) + 0.5;
             let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
 
-            cookie_sample = textureSampleLevel(
+            texture_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
                 view_bindings::clustered_decal_sampler,
                 decal_uv,
@@ -689,7 +689,7 @@ fn spot_light(
     }
 #endif
 
-    return point_light * spot_attenuation * cookie_sample;
+    return point_light * spot_attenuation * texture_sample;
 }
 
 fn directional_light(
@@ -746,7 +746,7 @@ fn directional_light(
     color = (diffuse + specular_light) * derived_input.NdotL;
 #endif  // STANDARD_MATERIAL_CLEARCOAT
 
-    var cookie_sample = 1f;
+    var texture_sample = 1f;
 
 #ifdef LIGHT_TEXTURES
     if (*light).decal_index != 0xFFFFFFFFu {
@@ -760,17 +760,17 @@ fn directional_light(
         {
             let image_index = view_bindings::clustered_decals.decals[(*light).decal_index].image_index;
 
-            cookie_sample = textureSampleLevel(
+            texture_sample = textureSampleLevel(
                 view_bindings::clustered_decal_textures[image_index],
                 view_bindings::clustered_decal_sampler,
                 decal_uv - floor(decal_uv),
                 0.0
             ).r;                    
         } else {
-            cookie_sample = 0f;
+            texture_sample = 0f;
         }
     }
 #endif
 
-    return color * (*light).color.rgb * cookie_sample;
+    return color * (*light).color.rgb * texture_sample;
 }
