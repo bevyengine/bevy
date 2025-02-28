@@ -68,6 +68,9 @@ fn setup_environment(
             #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
             _webgl2_padding: Default::default(),
         },
+        // MSAA and MotionBlur together are not compatible on WebGL.
+        #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
+        Msaa::Off,
     ));
 
     // Add a directional light to make sure we exercise the renderer's shadow path.
