@@ -484,18 +484,18 @@ impl<'a> AssetPath<'a> {
         let mut simplified = PathBuf::new();
         for component in self.path.components() {
             match component {
-                Component::Prefix(_) | Component::RootDir => return false,
+                Component::Prefix(_) | Component::RootDir => return true,
                 Component::CurDir => {}
                 Component::ParentDir => {
                     if !simplified.pop() {
-                        return false;
+                        return true;
                     }
                 }
                 Component::Normal(os_str) => simplified.push(os_str),
             }
         }
 
-        true
+        false
     }
 }
 
