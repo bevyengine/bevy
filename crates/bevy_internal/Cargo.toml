@@ -134,9 +134,7 @@ pbr_transmission_textures = [
 ]
 
 # Clustered Decal support
-pbr_clustered_decals = [
-  "bevy_pbr?/pbr_clustered_decals",
-]
+pbr_clustered_decals = ["bevy_pbr?/pbr_clustered_decals"]
 
 # Light Texture support
 pbr_light_textures = [
