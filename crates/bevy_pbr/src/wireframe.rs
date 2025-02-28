@@ -167,7 +167,7 @@ fn apply_wireframe_material(
         let material = get_wireframe_material(maybe_color, &mut materials, &global_material);
         material_to_spawn.push((e, MeshMaterial3d(material)));
     }
-    commands.insert_or_spawn_batch(material_to_spawn);
+    commands.try_insert_batch(material_to_spawn);
 }
 
 type WireframeFilter = (With<Mesh3d>, Without<Wireframe>, Without<NoWireframe>);
@@ -195,7 +195,7 @@ fn apply_global_wireframe_material(
             // This makes it easy to detect which mesh is using the global material and which ones are user specified
             material_to_spawn.push((e, MeshMaterial3d(material)));
         }
-        commands.insert_or_spawn_batch(material_to_spawn);
+        commands.try_insert_batch(material_to_spawn);
     } else {
         for e in &meshes_with_global_material {
             commands
