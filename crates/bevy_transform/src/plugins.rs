@@ -1,5 +1,6 @@
 use crate::systems::{
-    compute_transform_leaves, propagate_parent_transforms, sync_simple_transforms,
+    compute_transform_leaves, mark_dirty_trees, propagate_parent_transforms,
+    sync_simple_transforms, ChangedTransforms,
 };
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
@@ -30,10 +31,12 @@ impl Plugin for TransformPlugin {
             PostStartup,
             PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
         )
+        .init_resource::<ChangedTransforms>()
         // add transform systems to startup so the first update is "correct"
         .add_systems(
             PostStartup,
             (
+                mark_dirty_trees,
                 propagate_parent_transforms,
                 (compute_transform_leaves, sync_simple_transforms)
                     .ambiguous_with(TransformSystem::TransformPropagate),
@@ -48,6 +51,7 @@ impl Plugin for TransformPlugin {
         .add_systems(
             PostUpdate,
             (
+                mark_dirty_trees,
                 propagate_parent_transforms,
                 (compute_transform_leaves, sync_simple_transforms) // TODO: Adjust the internal parallel queries to make these parallel systems more efficiently share and fill CPU time.
                     .ambiguous_with(TransformSystem::TransformPropagate),
