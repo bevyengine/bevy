@@ -116,6 +116,32 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     }
 }
 
+impl RelationshipSourceCollection for Entity {
+    type SourceIter<'a> = core::iter::Once<Entity>;
+
+    fn with_capacity(_capacity: usize) -> Self {
+        Entity::PLACEHOLDER
+    }
+
+    fn add(&mut self, entity: Entity) {
+        *self = entity;
+    }
+
+    fn remove(&mut self, entity: Entity) {
+        if *self == entity {
+            *self = Entity::PLACEHOLDER;
+        }
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        core::iter::once(*self)
+    }
+
+    fn len(&self) -> usize {
+        1
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,5 +209,26 @@ mod tests {
         let rel_target = world.get::<RelTarget>(b).unwrap();
         let collection = rel_target.collection();
         assert_eq!(collection, &SmallVec::from_buf([a]));
+    }
+
+    #[test]
+    fn entity_relationship_source_collection() {
+        #[derive(Component)]
+        #[relationship(relationship_target = RelTarget)]
+        struct Rel(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Rel)]
+        struct RelTarget(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Rel(b));
+
+        let rel_target = world.get::<RelTarget>(b).unwrap();
+        let collection = rel_target.collection();
+        assert_eq!(collection, &a);
     }
 }
