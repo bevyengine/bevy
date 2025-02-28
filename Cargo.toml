@@ -4434,6 +4434,17 @@ category = "3D Rendering"
 wasm = false
 
 [[example]]
+name = "light_textures"
+path = "examples/3d/light_textures.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.light_textures]
+name = "Light Textures"
+description = "Demonstrates light textures"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "occlusion_culling"
 path = "examples/3d/occlusion_culling.rs"
 doc-scrape-examples = true
