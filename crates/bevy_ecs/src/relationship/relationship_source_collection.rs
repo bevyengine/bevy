@@ -116,6 +116,61 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     }
 }
 
+impl RelationshipSourceCollection for Entity {
+    type SourceIter<'a> = core::iter::Copied<core::iter::Once<Entity>>;
+
+    fn with_capacity(_capacity: usize) -> Self {
+        Entity::PLACEHOLDER
+    }
+
+    fn add(&mut self, entity: Entity) {
+        *self = entity;
+    }
+
+    fn remove(&mut self, entity: Entity) {
+        if *self == entity {
+            *self = Entity::PLACEHOLDER
+        }
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        core::iter::once(*self)
+    }
+
+    fn len(&self) -> usize {
+        1
+    }
+}
+
+impl RelationshipSourceCollection for Option<Entity> {
+    type SourceIter<'a> = core::iter::Copied<core::option::Iter<'a, Entity>>;
+
+    fn with_capacity(_capacity: usize) -> Self {
+        None
+    }
+
+    fn add(&mut self, entity: Entity) {
+        *self = Some(entity);
+    }
+
+    fn remove(&mut self, entity: Entity) {
+        if self.is_none_or(|e| e == entity) {
+            *self = None
+        }
+    }
+
+    fn iter(&self) -> Self::SourceIter<'_> {
+        self.iter().copied()
+    }
+
+    fn len(&self) -> usize {
+        match self {
+            Some(_) => 1,
+            None => 0,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -183,5 +238,38 @@ mod tests {
         let rel_target = world.get::<RelTarget>(b).unwrap();
         let collection = rel_target.collection();
         assert_eq!(collection, &SmallVec::from_buf([a]));
+    }
+
+    #[test]
+    fn option_entity_relationship_source_collection() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Behind)]
+        struct InFront(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = InFront)]
+        struct Behind(Option<Entity>);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        // in front test
+        // world.entity_mut(a).insert(InFront(b));
+        //
+        // assert_eq!(world.get::<Behind>(b).unwrap().0, Some(a));
+        // world.despawn(b);
+        // assert!(world.get::<InFront>(a).is_none());
+        //
+        // let c = world.spawn_empty().id();
+        // world.despawn(a);
+        // assert!(world.get::<Behind>(c).is_none());
+
+        // test adding target and see if relationship gets added?
+        world.entity_mut(b).insert(Behind(Some(a)));
+
+        assert_eq!(world.get::<InFront>(b).unwrap().0, a);
+        // world.despawn(b);
+        // assert!(world.get::<InFront>(a).is_none());
     }
 }
