@@ -13,8 +13,8 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentInfo},
     entity::{Entity, EntityClonerBuilder},
+    error::Result,
     event::Event,
-    result::Result,
     system::{command::HandleError, Command, IntoObserverSystem},
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld, World},
 };

@@ -9,7 +9,13 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "bevy_reflect", "bevy_tasks", "bevy_ecs/default"]
+default = [
+  "std",
+  "bevy_reflect",
+  "bevy_tasks",
+  "bevy_ecs/default",
+  "error_panic_hook",
+]
 
 # Functionality
 
@@ -35,6 +41,10 @@ trace = ["dep:tracing"]
 ## Provides system stepping support, allowing them to be paused, stepped, and
 ## other debug operations which can help with diagnosing certain behaviors.
 bevy_debug_stepping = []
+
+## Will set the BevyError panic hook, which gives cleaner filtered backtraces when a BevyError
+## is hit.
+error_panic_hook = []
 
 # Platform Compatibility
 

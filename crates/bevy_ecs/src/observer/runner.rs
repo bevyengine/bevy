@@ -3,10 +3,10 @@ use core::any::Any;
 
 use crate::{
     component::{ComponentHook, ComponentId, HookContext, Mutable, StorageType},
+    error::{DefaultSystemErrorHandler, SystemErrorContext},
     observer::{ObserverDescriptor, ObserverTrigger},
     prelude::*,
     query::DebugCheckedUnwrap,
-    result::{DefaultSystemErrorHandler, SystemErrorContext},
     system::{IntoObserverSystem, ObserverSystem},
     world::DeferredWorld,
 };
@@ -273,7 +273,7 @@ pub struct Observer {
     system: Box<dyn Any + Send + Sync + 'static>,
     descriptor: ObserverDescriptor,
     hook_on_add: ComponentHook,
-    error_handler: Option<fn(Error, SystemErrorContext)>,
+    error_handler: Option<fn(BevyError, SystemErrorContext)>,
 }
 
 impl Observer {
@@ -322,7 +322,7 @@ impl Observer {
     /// Set the error handler to use for this observer.
     ///
     /// See the [`result` module-level documentation](crate::result) for more information.
-    pub fn with_error_handler(mut self, error_handler: fn(Error, SystemErrorContext)) -> Self {
+    pub fn with_error_handler(mut self, error_handler: fn(BevyError, SystemErrorContext)) -> Self {
         self.error_handler = Some(error_handler);
         self
     }
@@ -488,7 +488,7 @@ mod tests {
     #[should_panic(expected = "I failed!")]
     fn test_fallible_observer() {
         fn system(_: Trigger<TriggerEvent>) -> Result {
-            Err("I failed!".into())
+            Err(BevyError::message("I failed!"))
         }
 
         let mut world = World::default();
@@ -504,12 +504,12 @@ mod tests {
 
         fn system(_: Trigger<TriggerEvent>, mut ran: ResMut<Ran>) -> Result {
             ran.0 = true;
-            Err("I failed!".into())
+            Err(BevyError::message("I failed!"))
         }
 
         let mut world = World::default();
         world.init_resource::<Ran>();
-        let observer = Observer::new(system).with_error_handler(crate::result::ignore);
+        let observer = Observer::new(system).with_error_handler(crate::error::ignore);
         world.spawn(observer);
         Schedule::default().run(&mut world);
         world.trigger(TriggerEvent);

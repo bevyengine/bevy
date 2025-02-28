@@ -47,5 +47,7 @@ impl Plugin for PanicHandlerPlugin {
         {
             // Use the default target panic hook - Do nothing.
         }
+        #[cfg(all(feature = "error_panic_hook", feature = "std"))]
+        bevy_ecs::error::set_bevy_error_panic_hook();
     }
 }

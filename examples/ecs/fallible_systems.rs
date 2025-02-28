@@ -28,7 +28,7 @@ fn main() {
     // systems in a given `App`. Here we set the global error handler using one of the built-in
     // error handlers. Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
     // `debug`, `trace` and `ignore`.
-    app.set_system_error_handler(bevy::ecs::result::warn);
+    app.set_system_error_handler(bevy::ecs::error::warn);
 
     // Additionally, you can set a custom error handler per `Schedule`. This will take precedence
     // over the global error handler.
@@ -138,7 +138,7 @@ fn fallible_observer(
 ) -> Result {
     let mut transform = world
         .get_mut::<Transform>(trigger.target)
-        .ok_or("No transform found.")?;
+        .ok_or_message("No transform found.")?;
 
     *step = if transform.translation.x > 3. {
         -0.1
@@ -162,7 +162,7 @@ fn failing_system(world: &mut World) -> Result {
         // which we can call `?` to propagate the error.
         .get_resource::<UninitializedResource>()
         // We can provide a `str` here because `Box<dyn Error>` implements `From<&str>`.
-        .ok_or("Resource not initialized")?;
+        .ok_or_message("Resource not initialized")?;
 
     Ok(())
 }

@@ -3,8 +3,8 @@ use alloc::{borrow::Cow, vec::Vec};
 use crate::{
     archetype::ArchetypeComponentId,
     component::{ComponentId, Tick},
+    error::Result,
     query::Access,
-    result::Result,
     system::{input::SystemIn, BoxedSystem, System},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
