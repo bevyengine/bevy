@@ -64,6 +64,7 @@ impl ObserverState {
 
 impl Component for ObserverState {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const UNSTABLE_TYPE_ID: u128 = 2;
     type Mutability = Mutable;
 
     fn on_add() -> Option<ComponentHook> {
@@ -335,6 +336,7 @@ impl Observer {
 
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
+    const UNSTABLE_TYPE_ID: u128 = 3;
     type Mutability = Mutable;
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {

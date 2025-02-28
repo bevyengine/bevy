@@ -1,6 +1,7 @@
 use alloc::{boxed::Box, vec, vec::Vec};
 use variadics_please::all_tuples;
 
+use crate::system::const_param_checking::SystemPanicMessage;
 use crate::{
     result::Result,
     schedule::{
@@ -290,6 +291,10 @@ pub trait IntoSystemConfigs<Marker>
 where
     Self: Sized,
 {
+    /// Compile-time error checker for system configurations
+    /// Contains validation results from checking parameter compatibility in system configs and
+    /// if there is a resulting panic message, trickles it up the stack.
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = None;
     /// Convert into a [`SystemConfigs`].
     fn into_configs(self) -> SystemConfigs;
 
@@ -534,6 +539,8 @@ impl<F, Marker> IntoSystemConfigs<(Infallible, Marker)> for F
 where
     F: IntoSystem<(), (), Marker>,
 {
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> =
+        F::INTO_SYSTEM_PANIC_CHECKER;
     fn into_configs(self) -> SystemConfigs {
         let wrapper = InfallibleSystemWrapper::new(IntoSystem::into_system(self));
         SystemConfigs::new_system(Box::new(wrapper))
@@ -548,6 +555,8 @@ impl<F, Marker> IntoSystemConfigs<(Fallible, Marker)> for F
 where
     F: IntoSystem<(), Result, Marker>,
 {
+    const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> =
+        F::INTO_SYSTEM_PANIC_CHECKER;
     fn into_configs(self) -> SystemConfigs {
         let boxed_system = Box::new(IntoSystem::into_system(self));
         SystemConfigs::new_system(boxed_system)
@@ -570,6 +579,15 @@ macro_rules! impl_system_collection {
         where
             $($sys: IntoSystemConfigs<$param>),*
         {
+            const INTO_SYSTEM_CONFIGS_PANIC_CHECKER: Option<SystemPanicMessage> = const {
+                let mut val = None;
+                $(if let Some(awa) = $sys::INTO_SYSTEM_CONFIGS_PANIC_CHECKER {
+                    val = Some(awa);
+
+                })*
+                val
+            };
+
             #[expect(
                 clippy::allow_attributes,
                 reason = "We are inside a macro, and as such, `non_snake_case` is not guaranteed to apply."
