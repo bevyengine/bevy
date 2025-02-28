@@ -484,45 +484,29 @@ fn cubemap_uv(direction: vec3<f32>, cubemap_type: u32) -> vec2<f32> {
     );
     
     var face_uv: vec2<f32>;
+    var divisor: f32;
     var corner_uv: vec2<u32> = vec2(0, 0);
     var face_size: vec2<f32>;
 
     switch face_index {
-        case X_PLUS:  { face_uv = vec2<f32>(direction.z, -direction.y) / direction.x; }
-        case X_MINUS: { face_uv = vec2<f32>(-direction.z, -direction.y) / -direction.x; }
-        case Y_PLUS:  { face_uv = vec2<f32>(direction.x,  -direction.z) / direction.y; }
-        case Y_MINUS: { face_uv = vec2<f32>(direction.x, direction.z) / -direction.y; }
-        case Z_PLUS:  { face_uv = vec2<f32>(direction.x, direction.y) / direction.z; }
-        case Z_MINUS: { face_uv = vec2<f32>(direction.x, -direction.y) / -direction.z; }
+        case X_PLUS:  { face_uv = vec2<f32>(direction.z, -direction.y); divisor = direction.x; }
+        case X_MINUS: { face_uv = vec2<f32>(-direction.z, -direction.y); divisor = -direction.x; }
+        case Y_PLUS:  { face_uv = vec2<f32>(direction.x,  -direction.z); divisor = direction.y; }
+        case Y_MINUS: { face_uv = vec2<f32>(direction.x, direction.z); divisor = -direction.y; }
+        case Z_PLUS:  { face_uv = vec2<f32>(direction.x, direction.y); divisor = direction.z; }
+        case Z_MINUS: { face_uv = vec2<f32>(direction.x, -direction.y); divisor = -direction.z; }
         default: {}
     }
-
-    face_uv = face_uv * 0.5 + 0.5;
+    face_uv = (face_uv / divisor) * 0.5 + 0.5;
 
     switch cubemap_type {
         case CUBEMAP_TYPE_CROSS_VERTICAL: { 
             face_size = vec2(1.0/3.0, 1.0/4.0); 
-            switch face_index {
-                case X_PLUS:  { corner_uv = vec2(2, 1); }
-                case X_MINUS: { corner_uv = vec2(0, 1); }
-                case Y_PLUS:  { corner_uv = vec2(1, 0); }
-                case Y_MINUS: { corner_uv = vec2(1, 2); }
-                case Z_PLUS:  { corner_uv = vec2(1, 3); }
-                case Z_MINUS: { corner_uv = vec2(1, 1); }
-                default: {}
-            }
+            corner_uv = vec2<u32>((0x111102u >> (4 * face_index)) & 0xFu, (0x132011u >> (4 * face_index)) & 0xFu);
         }
         case CUBEMAP_TYPE_CROSS_HORIZONTAL: { 
             face_size = vec2(1.0/4.0, 1.0/3.0); 
-            switch face_index {
-                case X_PLUS:  { corner_uv = vec2(2, 1); }
-                case X_MINUS: { corner_uv = vec2(0, 1); }
-                case Y_PLUS:  { corner_uv = vec2(1, 0); }
-                case Y_MINUS: { corner_uv = vec2(1, 2); }
-                case Z_PLUS:  { corner_uv = vec2(3, 1); }
-                case Z_MINUS: { corner_uv = vec2(1, 1); }
-                default: {}
-            }
+            corner_uv = vec2<u32>((0x131102u >> (4 * face_index)) & 0xFu, (0x112011u >> (4 * face_index)) & 0xFu);
         }
         case CUBEMAP_TYPE_SEQUENCE_HORIZONTAL: {
             face_size = vec2(1.0/6.0, 1.0);
