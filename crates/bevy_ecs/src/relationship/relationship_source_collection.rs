@@ -129,7 +129,7 @@ impl RelationshipSourceCollection for Entity {
 
     fn remove(&mut self, entity: Entity) {
         if *self == entity {
-            *self = Entity::PLACEHOLDER
+            *self = Entity::PLACEHOLDER;
         }
     }
 
