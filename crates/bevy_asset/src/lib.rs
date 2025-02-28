@@ -258,6 +258,30 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
     /// How/If asset meta files should be checked.
     pub meta_check: AssetMetaCheck,
+
+    pub out_of_bounds_mode: OutOfBoundsMode,
+}
+
+/// Determines how asset paths that go out of bounds are handled.
+/// 
+/// An out of bounds asset path is one that attempts to load a file that 
+/// is not inside the default asset folder or another asset source. This usually
+/// means it is either an absolute address or it contains enough "../"s to
+/// exit the designated asset folder.
+/// 
+/// The bevy team strongly discourages using [`Allow`](OutOfBoundsMode::Allow) if your
+/// app will include scripts or modding support, as it could allow allow arbitrary file
+/// access for malitious code.
+#[derive(Clone, Default)]
+pub enum OutOfBoundsMode {
+    /// Out-of-bounds asset loading is allowed. This is 
+    Allow,
+    /// Panics if any asset load is out-of-bounds, unless an override method is used, like
+    /// [`AssetServer::load_override`]
+    Deny,
+    /// Panics if any asset load is out-of-bounds.
+    #[default]
+    Forbid,
 }
 
 /// Controls whether or not assets are pre-processed before being loaded.
@@ -311,6 +335,7 @@ impl Default for AssetPlugin {
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
             meta_check: AssetMetaCheck::default(),
+            out_of_bounds_mode: OutOfBoundsMode::default(),
         }
     }
 }
@@ -351,6 +376,7 @@ impl Plugin for AssetPlugin {
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
+                        self.out_of_bounds_mode.clone(),
                     ));
                 }
                 AssetMode::Processed => {
@@ -367,6 +393,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
+                            self.out_of_bounds_mode.clone(),
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
@@ -380,6 +407,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
+                            self.out_of_bounds_mode.clone(),
                         ));
                     }
                 }
@@ -1856,4 +1884,20 @@ mod tests {
 
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
+
+    #[test]
+    #[should_panic]
+    fn out_of_bounds_should_panic() {
+        let mut app = App::new();
+        app.add_plugins(AssetPlugin::default());
+        app.init_asset::<CoolText>();
+
+        fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
+        fn load_assets(assets: Res<AssetServer>) {
+            let _ = assets.load::<CoolText>("../text.txt");
+        }
+        app.add_systems(Update, (uses_assets, load_assets));
+
+        app.world_mut().run_schedule(Update);
+    }
 }
