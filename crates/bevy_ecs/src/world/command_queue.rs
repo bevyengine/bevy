@@ -3,7 +3,7 @@ use crate::{
     world::{DeferredWorld, World},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_ptr::{OwningPtr, Unaligned};
+use bevy_ptr::{OwningPtr, UNALIGNED};
 use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
@@ -20,7 +20,7 @@ struct CommandMeta {
     ///
     /// Advances `cursor` by the size of `T` in bytes.
     consume_command_and_get_size:
-        unsafe fn(value: OwningPtr<Unaligned>, world: Option<NonNull<World>>, cursor: &mut usize),
+        unsafe fn(value: OwningPtr<UNALIGNED>, world: Option<NonNull<World>>, cursor: &mut usize),
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -249,7 +249,7 @@ impl RawCommandQueue {
             // guarantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe {
-                OwningPtr::<Unaligned>::new(NonNull::new_unchecked(
+                OwningPtr::<UNALIGNED>::new(NonNull::new_unchecked(
                     self.bytes.as_mut().as_mut_ptr().add(local_cursor).cast(),
                 ))
             };

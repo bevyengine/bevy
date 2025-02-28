@@ -16,25 +16,10 @@ use core::{
     ptr::{self, NonNull},
 };
 
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
-#[derive(Debug, Copy, Clone)]
-pub struct Aligned;
-
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
-#[derive(Debug, Copy, Clone)]
-pub struct Unaligned;
-
-/// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
-/// to have const generics of an enum.
-pub trait IsAligned: sealed::Sealed {}
-impl IsAligned for Aligned {}
-impl IsAligned for Unaligned {}
-
-mod sealed {
-    pub trait Sealed {}
-    impl Sealed for super::Aligned {}
-    impl Sealed for super::Unaligned {}
-}
+/// Constant for use with the const generic in [`Ptr`], [`PtrMut`], and [`OwningPtr`]
+pub const ALIGNED: bool = true;
+/// Constant for use with the const generic in [`Ptr`], [`PtrMut`], and [`OwningPtr`]
+pub const UNALIGNED: bool = false;
 
 /// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
 ///
@@ -159,9 +144,9 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
 ///
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-#[derive(Copy, Clone)]
 #[repr(transparent)]
-pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>);
+#[derive(Clone, Copy)]
+pub struct Ptr<'a, const IS_ALIGNED: bool = ALIGNED>(NonNull<u8>, PhantomData<&'a u8>);
 
 /// Type-erased mutable borrow of some unknown type chosen when constructing this type.
 ///
@@ -175,7 +160,7 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
 #[repr(transparent)]
-pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
+pub struct PtrMut<'a, const IS_ALIGNED: bool = ALIGNED>(NonNull<u8>, PhantomData<&'a mut u8>);
 
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
 ///
@@ -194,24 +179,24 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
 #[repr(transparent)]
-pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
+pub struct OwningPtr<'a, const IS_ALIGNED: bool = ALIGNED>(NonNull<u8>, PhantomData<&'a mut u8>);
 
 macro_rules! impl_ptr {
     ($ptr:ident) => {
-        impl<'a> $ptr<'a, Aligned> {
+        impl<'a> $ptr<'a, ALIGNED> {
             /// Removes the alignment requirement of this pointer
-            pub fn to_unaligned(self) -> $ptr<'a, Unaligned> {
+            pub fn to_unaligned(self) -> $ptr<'a, UNALIGNED> {
                 $ptr(self.0, PhantomData)
             }
         }
 
-        impl<'a, A: IsAligned> From<$ptr<'a, A>> for NonNull<u8> {
-            fn from(ptr: $ptr<'a, A>) -> Self {
+        impl<'a, const IS_ALIGNED: bool> From<$ptr<'a, IS_ALIGNED>> for NonNull<u8> {
+            fn from(ptr: $ptr<'a, IS_ALIGNED>) -> Self {
                 ptr.0
             }
         }
 
-        impl<A: IsAligned> $ptr<'_, A> {
+        impl<const IS_ALIGNED: bool> $ptr<'_, IS_ALIGNED> {
             /// Calculates the offset from a pointer.
             /// As the pointer is type-erased, there is no size information available. The provided
             /// `count` parameter is in raw bytes.
@@ -257,23 +242,26 @@ macro_rules! impl_ptr {
             }
         }
 
-        impl<A: IsAligned> Pointer for $ptr<'_, A> {
+        impl<const IS_ALIGNED: bool> Pointer for $ptr<'_, IS_ALIGNED> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 Pointer::fmt(&self.0, f)
             }
         }
 
-        impl Debug for $ptr<'_, Aligned> {
+        impl<const IS_ALIGNED: bool> Debug for $ptr<'_, IS_ALIGNED> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
-            }
-        }
-        impl Debug for $ptr<'_, Unaligned> {
-            #[inline]
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                write!(f, "{}<Unaligned>({:?})", stringify!($ptr), self.0)
+                write!(
+                    f,
+                    "{}<{}>({:?})",
+                    stringify!($ptr),
+                    match IS_ALIGNED {
+                        ALIGNED => "Aligned",
+                        UNALIGNED => "Unaligned",
+                    },
+                    self.0
+                )
             }
         }
     };
@@ -283,7 +271,7 @@ impl_ptr!(Ptr);
 impl_ptr!(PtrMut);
 impl_ptr!(OwningPtr);
 
-impl<'a, A: IsAligned> Ptr<'a, A> {
+impl<'a, const IS_ALIGNED: bool> Ptr<'a, IS_ALIGNED> {
     /// Creates a new instance from a raw pointer.
     ///
     /// # Safety
@@ -304,7 +292,7 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     /// * There must be no active references (mutable or otherwise) to the data underlying this `Ptr`.
     /// * Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
-    pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
+    pub unsafe fn assert_unique(self) -> PtrMut<'a, IS_ALIGNED> {
         PtrMut(self.0, PhantomData)
     }
 
@@ -340,7 +328,7 @@ impl<'a, T: ?Sized> From<&'a T> for Ptr<'a> {
     }
 }
 
-impl<'a, A: IsAligned> PtrMut<'a, A> {
+impl<'a, const IS_ALIGNED: bool> PtrMut<'a, IS_ALIGNED> {
     /// Creates a new instance from a raw pointer.
     ///
     /// # Safety
@@ -359,7 +347,7 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     /// # Safety
     /// Must have right to drop or move out of [`PtrMut`].
     #[inline]
-    pub unsafe fn promote(self) -> OwningPtr<'a, A> {
+    pub unsafe fn promote(self) -> OwningPtr<'a, IS_ALIGNED> {
         OwningPtr(self.0, PhantomData)
     }
 
@@ -387,14 +375,14 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
 
     /// Gets a [`PtrMut`] from this with a smaller lifetime.
     #[inline]
-    pub fn reborrow(&mut self) -> PtrMut<'_, A> {
+    pub fn reborrow(&mut self) -> PtrMut<'_, IS_ALIGNED> {
         // SAFETY: the ptrmut we're borrowing from is assumed to be valid
         unsafe { PtrMut::new(self.0) }
     }
 
     /// Gets an immutable reference from this mutable reference
     #[inline]
-    pub fn as_ref(&self) -> Ptr<'_, A> {
+    pub fn as_ref(&self) -> Ptr<'_, IS_ALIGNED> {
         // SAFETY: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
@@ -431,7 +419,7 @@ impl<'a> OwningPtr<'a> {
     }
 }
 
-impl<'a, A: IsAligned> OwningPtr<'a, A> {
+impl<'a, const IS_ALIGNED: bool> OwningPtr<'a, IS_ALIGNED> {
     /// Creates a new instance from a raw pointer.
     ///
     /// # Safety
@@ -484,20 +472,20 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
 
     /// Gets an immutable pointer from this owned pointer.
     #[inline]
-    pub fn as_ref(&self) -> Ptr<'_, A> {
+    pub fn as_ref(&self) -> Ptr<'_, IS_ALIGNED> {
         // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 
     /// Gets a mutable pointer from this owned pointer.
     #[inline]
-    pub fn as_mut(&mut self) -> PtrMut<'_, A> {
+    pub fn as_mut(&mut self) -> PtrMut<'_, IS_ALIGNED> {
         // SAFETY: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { PtrMut::new(self.0) }
     }
 }
 
-impl<'a> OwningPtr<'a, Unaligned> {
+impl<'a> OwningPtr<'a, UNALIGNED> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
