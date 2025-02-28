@@ -263,18 +263,18 @@ pub struct AssetPlugin {
 }
 
 /// Determines how asset paths that go out of bounds are handled.
-/// 
-/// An out of bounds asset path is one that attempts to load a file that 
+///
+/// An out of bounds asset path is one that attempts to load a file that
 /// is not inside the default asset folder or another asset source. This usually
 /// means it is either an absolute address or it contains enough "../"s to
 /// exit the designated asset folder.
-/// 
+///
 /// The bevy team strongly discourages using [`Allow`](OutOfBoundsMode::Allow) if your
 /// app will include scripts or modding support, as it could allow allow arbitrary file
 /// access for malitious code.
 #[derive(Clone, Default)]
 pub enum OutOfBoundsMode {
-    /// Out-of-bounds asset loading is allowed. This is 
+    /// Out-of-bounds asset loading is allowed. This is
     Allow,
     /// Panics if any asset load is out-of-bounds, unless an override method is used, like
     /// [`AssetServer::load_override`]

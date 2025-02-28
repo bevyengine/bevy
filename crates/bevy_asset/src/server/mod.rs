@@ -2,13 +2,20 @@ mod info;
 mod loaders;
 
 use crate::{
-    folder::LoadedFolder, io::{
+    folder::LoadedFolder,
+    io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
         ErasedAssetReader, MissingAssetSourceError, MissingProcessedAssetReaderError, Reader,
-    }, loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset}, meta::{
+    },
+    loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
+    meta::{
         loader_settings_meta_transform, AssetActionMinimal, AssetMetaDyn, AssetMetaMinimal,
         MetaTransform, Settings,
-    }, path::AssetPath, Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets, CompleteErasedLoadedAsset, DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, OutOfBoundsMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle
+    },
+    path::AssetPath,
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
+    CompleteErasedLoadedAsset, DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset,
+    OutOfBoundsMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -75,7 +82,12 @@ pub enum AssetServerMode {
 impl AssetServer {
     /// Create a new instance of [`AssetServer`]. If `watch_for_changes` is true, the [`AssetReader`](crate::io::AssetReader) storage will watch for changes to
     /// asset sources and hot-reload them.
-    pub fn new(sources: AssetSources, mode: AssetServerMode, watching_for_changes: bool, out_of_bounds_mode: OutOfBoundsMode) -> Self {
+    pub fn new(
+        sources: AssetSources,
+        mode: AssetServerMode,
+        watching_for_changes: bool,
+        out_of_bounds_mode: OutOfBoundsMode,
+    ) -> Self {
         Self::new_with_loaders(
             sources,
             Default::default(),
@@ -313,9 +325,9 @@ impl AssetServer {
     }
 
     /// Same as [`load`](AssetServer::load), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode) 
+    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
     /// is [`Deny`](OutOfBoundsMode::Deny).
-    /// 
+    ///
     /// See [`OutOfBoundsMode`].
     pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.load_with_meta_transform(path, None, (), true)
@@ -346,9 +358,9 @@ impl AssetServer {
     }
 
     /// Same as [`load`](AssetServer::load_acquire), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode) 
+    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
     /// is [`Deny`](OutOfBoundsMode::Deny).
-    /// 
+    ///
     /// See [`OutOfBoundsMode`].
     pub fn load_acquire_override<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
@@ -367,20 +379,30 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), (), false)
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            (),
+            false,
+        )
     }
 
     /// Same as [`load`](AssetServer::load_with_settings), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode) 
+    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
     /// is [`Deny`](OutOfBoundsMode::Deny).
-    /// 
+    ///
     /// See [`OutOfBoundsMode`].
     pub fn load_with_settings_override<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), (), true)
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            (),
+            true,
+        )
     }
 
     /// Begins loading an [`Asset`] of type `A` stored at `path` while holding a guard item.
@@ -399,21 +421,36 @@ impl AssetServer {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), guard, false)
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            guard,
+            false,
+        )
     }
-    
+
     /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode) 
+    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
     /// is [`Deny`](OutOfBoundsMode::Deny).
-    /// 
+    ///
     /// See [`OutOfBoundsMode`].
-    pub fn load_acquire_with_settings_override<'a, A: Asset, S: Settings, G: Send + Sync + 'static>(
+    pub fn load_acquire_with_settings_override<
+        'a,
+        A: Asset,
+        S: Settings,
+        G: Send + Sync + 'static,
+    >(
         &self,
         path: impl Into<AssetPath<'a>>,
         settings: impl Fn(&mut S) + Send + Sync + 'static,
         guard: G,
     ) -> Handle<A> {
-        self.load_with_meta_transform(path, Some(loader_settings_meta_transform(settings)), guard, true)
+        self.load_with_meta_transform(
+            path,
+            Some(loader_settings_meta_transform(settings)),
+            guard,
+            true,
+        )
     }
 
     pub(crate) fn load_with_meta_transform<'a, A: Asset, G: Send + Sync + 'static>(
@@ -427,10 +464,9 @@ impl AssetServer {
 
         if path.is_out_of_bounds() {
             match (&self.data.out_of_bounds_mode, override_out_of_bounds) {
-                (OutOfBoundsMode::Allow, _) => { },
-                (OutOfBoundsMode::Deny, true) => { },
-                (OutOfBoundsMode::Deny, false) |
-                (OutOfBoundsMode::Forbid, _) => {
+                (OutOfBoundsMode::Allow, _) => {}
+                (OutOfBoundsMode::Deny, true) => {}
+                (OutOfBoundsMode::Deny, false) | (OutOfBoundsMode::Forbid, _) => {
                     panic!("Asset path {path} is out of bounds. See OutOfBoundsMode for details.")
                 }
             }

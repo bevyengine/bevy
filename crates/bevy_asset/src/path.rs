@@ -478,23 +478,20 @@ impl<'a> AssetPath<'a> {
             }
         })
     }
-    
+
     pub fn is_out_of_bounds(&self) -> bool {
         use std::path::Component;
         let mut simplified = PathBuf::new();
         for component in self.path.components() {
             match component {
-                Component::Prefix(_) |
-                Component::RootDir => { return false },
-                Component::CurDir => { },
+                Component::Prefix(_) | Component::RootDir => return false,
+                Component::CurDir => {}
                 Component::ParentDir => {
-                    if ! simplified.pop() {
-                        return false
+                    if !simplified.pop() {
+                        return false;
                     }
-                },
-                Component::Normal(os_str) => {
-                    simplified.push(os_str)
-                },
+                }
+                Component::Normal(os_str) => simplified.push(os_str),
             }
         }
 
