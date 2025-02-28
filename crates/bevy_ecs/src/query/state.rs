@@ -1671,6 +1671,16 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         self.query(world).single_inner()
     }
 
+    /// A deprecated alias for [`QueryState::single`].
+    #[deprecated(since = "0.16.0", note = "Please use `single` instead.")]
+    #[inline]
+    pub fn get_single<'w>(
+        &mut self,
+        world: &'w World,
+    ) -> Result<ROQueryItem<'w, D>, QuerySingleError> {
+        self.single(world)
+    }
+
     /// Returns a single mutable query result when there is exactly one entity matching
     /// the query.
     ///
@@ -1686,6 +1696,15 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         world: &'w mut World,
     ) -> Result<D::Item<'w>, QuerySingleError> {
         self.query_mut(world).single_inner()
+    }
+
+    /// A deprecated alias for [`QueryState::single_mut`].
+    #[deprecated(since = "0.16.0", note = "Please use `single` instead.")]
+    pub fn get_single_mut<'w>(
+        &mut self,
+        world: &'w mut World,
+    ) -> Result<D::Item<'w>, QuerySingleError> {
+        self.single_mut(world)
     }
 
     /// Returns a query result when there is exactly one entity matching the query.
