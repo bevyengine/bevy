@@ -1900,7 +1900,7 @@ mod tests {
 )"#;
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
-        
+
         let mut app = App::new();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
         app.register_asset_source(
@@ -1913,7 +1913,7 @@ mod tests {
             AssetPlugin {
                 out_of_bounds_mode: mode,
                 ..Default::default()
-            }
+            },
         ));
         app.init_asset::<CoolText>();
 
@@ -1923,7 +1923,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn out_of_bounds_forbid_should_panic() {
-        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Forbid);
+        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Forbid);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1937,7 +1937,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn out_of_bounds_deny_should_panic() {
-        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
+        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1950,7 +1950,7 @@ mod tests {
 
     #[test]
     fn out_of_bounds_deny_should_finish() {
-        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
+        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1963,7 +1963,7 @@ mod tests {
 
     #[test]
     fn out_of_bounds_allow_should_finish() {
-        let  (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Allow);
+        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Allow);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
