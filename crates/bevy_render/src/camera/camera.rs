@@ -13,8 +13,7 @@ use crate::{
     sync_world::{RenderEntity, SyncToRenderWorld},
     texture::GpuImage,
     view::{
-        ColorGrading, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderLayers,
-        RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities,
+        ColorGrading, InheritedVisibleLayers, ExtractedView, ExtractedWindows, Msaa, NoIndirectDrawing, RenderVisibleEntities, RetainedViewEntity, ViewUniformOffset, Visibility, VisibleEntities, VisibleLayers
     },
     Extract,
 };
@@ -1056,7 +1055,7 @@ pub fn extract_cameras(
             Option<&ColorGrading>,
             Option<&Exposure>,
             Option<&TemporalJitter>,
-            Option<&RenderLayers>,
+            Option<&InheritedVisibleLayers>,
             Option<&Projection>,
             Has<NoIndirectDrawing>,
         )>,
@@ -1088,7 +1087,8 @@ pub fn extract_cameras(
                 ExtractedView,
                 RenderVisibleEntities,
                 TemporalJitter,
-                RenderLayers,
+                VisibleLayers,
+                InheritedVisibleLayers,
                 Projection,
                 NoIndirectDrawing,
                 ViewUniformOffset,
