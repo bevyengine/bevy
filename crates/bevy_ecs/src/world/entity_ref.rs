@@ -1536,7 +1536,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Adds a [`Bundle`] of components to the entity.
-    /// [`Relationship`](crate::relationship::Relationship) component in the bundle will follow the configuration
+    /// [`Relationship`](crate::relationship::Relationship) components in the bundle will follow the configuration
     /// in `relationship_insert_hook_mode`.
     ///
     /// This will overwrite any previous value(s) of the same component type.
