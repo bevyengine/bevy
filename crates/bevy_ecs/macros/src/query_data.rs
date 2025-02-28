@@ -254,6 +254,7 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
                 /// SAFETY: we assert fields are readonly below
                 unsafe impl #user_impl_generics #path::query::QueryData
                 for #read_only_struct_name #user_ty_generics #user_where_clauses {
+                    const IS_READ_ONLY: bool = true;
                     type ReadOnly = #read_only_struct_name #user_ty_generics;
                     type Item<'__w> = #read_only_item_struct_name #user_ty_generics_with_world;
 
@@ -284,10 +285,13 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
             quote! {}
         };
 
+        let is_read_only = !attributes.is_mutable;
+
         quote! {
             /// SAFETY: we assert fields are readonly below
             unsafe impl #user_impl_generics #path::query::QueryData
             for #struct_name #user_ty_generics #user_where_clauses {
+                const IS_READ_ONLY: bool = #is_read_only;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
 
