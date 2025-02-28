@@ -45,10 +45,14 @@ pub fn sync_simple_transforms(
 /// Transform propagation can ignore entire subtrees of the hierarchy if it encounters an entity
 /// without the dirty bit.
 pub fn mark_dirty_trees(
-    changed_transforms: Query<Entity, Changed<Transform>>,
+    changed_transforms: Query<
+        Entity,
+        Or<(Changed<Transform>, Changed<ChildOf>, Added<GlobalTransform>)>,
+    >,
+    mut orphaned: RemovedComponents<ChildOf>,
     mut transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
 ) {
-    for entity in changed_transforms.iter() {
+    for entity in changed_transforms.iter().chain(orphaned.read()) {
         let mut next = entity;
         while let Ok((parent, mut tree)) = transforms.get_mut(next) {
             if tree.is_changed() {
@@ -593,9 +597,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -651,9 +655,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -688,9 +692,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -727,9 +731,9 @@ mod test {
         let mut schedule = Schedule::default();
         schedule.add_systems(
             (
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -807,9 +811,9 @@ mod test {
         app.add_systems(
             Update,
             (
+                mark_dirty_trees,
                 sync_simple_transforms,
                 propagate_parent_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -862,9 +866,9 @@ mod test {
         app.add_systems(
             Update,
             (
+                mark_dirty_trees,
                 propagate_parent_transforms,
                 sync_simple_transforms,
-                compute_transform_leaves,
             )
                 .chain(),
         );
@@ -926,11 +930,14 @@ mod test {
 
         // Create transform propagation schedule
         let mut schedule = Schedule::default();
-        schedule.add_systems((
-            sync_simple_transforms,
-            propagate_parent_transforms,
-            compute_transform_leaves,
-        ));
+        schedule.add_systems(
+            (
+                mark_dirty_trees,
+                propagate_parent_transforms,
+                sync_simple_transforms,
+            )
+                .chain(),
+        );
 
         // Spawn a `Transform` entity with a local translation of `Vec3::ONE`
         let mut spawn_transform_bundle =
