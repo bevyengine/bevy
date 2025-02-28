@@ -1708,36 +1708,6 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
 
     /// Returns a single read-only query item when there is exactly one entity matching the query.
     ///
-    /// # Panics
-    ///
-    /// This method panics if the number of query items is **not** exactly one.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// # #[derive(Component)]
-    /// # struct Player;
-    /// # #[derive(Component)]
-    /// # struct Position(f32, f32);
-    /// fn player_system(query: Query<&Position, With<Player>>) {
-    ///     let player_position = query.get_single().unwrap();
-    ///     // do something with player_position
-    /// }
-    /// # bevy_ecs::system::assert_is_system(player_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_single`](Self::get_single) for the non-panicking version.
-    /// - [`single_mut`](Self::single_mut) to get the mutable query item.
-    #[track_caller]
-    pub fn single(&self) -> ROQueryItem<'_, D> {
-        self.get_single().unwrap()
-    }
-
-    /// Returns a single read-only query item when there is exactly one entity matching the query.
-    ///
     /// If the number of query items is not exactly one, a [`QuerySingleError`] is returned instead.
     ///
     /// # Example
@@ -1766,42 +1736,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_single_mut`](Self::get_single_mut) to get the mutable query item.
-    /// - [`single`](Self::single) for the panicking version.
     #[inline]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, D>, QuerySingleError> {
         self.as_readonly().get_single_inner()
-    }
-
-    /// Returns a single query item when there is exactly one entity matching the query.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the number of query items is **not** exactly one.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct Player;
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// #
-    /// fn regenerate_player_health_system(mut query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.get_single_mut().unwrap();
-    ///     health.0 += 1;
-    /// }
-    /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_single_mut`](Self::get_single_mut) for the non-panicking version.
-    /// - [`single`](Self::single) to get the read-only query item.
-    #[track_caller]
-    pub fn single_mut(&mut self) -> D::Item<'_> {
-        self.get_single_mut().unwrap()
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
@@ -1828,48 +1765,9 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
     /// # See also
     ///
     /// - [`get_single`](Self::get_single) to get the read-only query item.
-    /// - [`single_mut`](Self::single_mut) for the panicking version.
     #[inline]
     pub fn get_single_mut(&mut self) -> Result<D::Item<'_>, QuerySingleError> {
         self.reborrow().get_single_inner()
-    }
-
-    /// Returns a single query item when there is exactly one entity matching the query.
-    /// This consumes the [`Query`] to return results with the actual "inner" world lifetime.
-    ///
-    /// # Panics
-    ///
-    /// This method panics if the number of query items is **not** exactly one.
-    ///
-    /// # Example
-    ///
-    /// ```
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct Player;
-    /// # #[derive(Component)]
-    /// # struct Health(u32);
-    /// #
-    /// fn regenerate_player_health_system(query: Query<&mut Health, With<Player>>) {
-    ///     let mut health = query.get_single_inner().unwrap();
-    ///     health.0 += 1;
-    /// }
-    /// # bevy_ecs::system::assert_is_system(regenerate_player_health_system);
-    /// ```
-    ///
-    /// # See also
-    ///
-    /// - [`get_single_inner`](Self::get_single_inner) for the non-panicking version.
-    /// - [`single`](Self::single) to get the read-only query item.
-    /// - [`single_mut`](Self::single_mut) to get the mutable query item.
-    #[track_caller]
-    #[deprecated(
-        since = "0.16.0",
-        note = "Please use `get_single_inner` instead, which returns a `Result` instead of panicking."
-    )]
-    pub fn single_inner(self) -> D::Item<'w> {
-        self.get_single_inner().unwrap()
     }
 
     /// Returns a single query item when there is exactly one entity matching the query.
