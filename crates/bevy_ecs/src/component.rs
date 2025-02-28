@@ -4,8 +4,9 @@ use crate::{
     archetype::ArchetypeFlags,
     bundle::BundleInfo,
     change_detection::{MaybeLocation, MAX_CHANGE_AGE},
-    entity::{ComponentCloneCtx, Entity},
+    entity::{ComponentCloneCtx, Entity, SourceComponent},
     query::DebugCheckedUnwrap,
+    relationship::RelationshipInsertHookMode,
     resource::Resource,
     storage::{SparseSetIndex, SparseSets, Table, TableRow},
     system::{Commands, Local, SystemParam},
@@ -544,6 +545,8 @@ pub struct HookContext {
     pub component_id: ComponentId,
     /// The caller location is `Some` if the `track_caller` feature is enabled.
     pub caller: MaybeLocation,
+    /// Configures how relationship hooks will run
+    pub relationship_insert_hook_mode: RelationshipInsertHookMode,
 }
 
 /// [`World`]-mutating functions that run as part of lifecycle events of a [`Component`].
@@ -1085,7 +1088,7 @@ impl ComponentDescriptor {
 }
 
 /// Function type that can be used to clone an entity.
-pub type ComponentCloneFn = fn(&mut Commands, &mut ComponentCloneCtx);
+pub type ComponentCloneFn = fn(&mut Commands, &SourceComponent, &mut ComponentCloneCtx);
 
 /// The clone behavior to use when cloning a [`Component`].
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -1097,11 +1100,6 @@ pub enum ComponentCloneBehavior {
     Ignore,
     /// Uses a custom [`ComponentCloneFn`].
     Custom(ComponentCloneFn),
-    /// Uses a [`ComponentCloneFn`] that produces an empty version of the given relationship target.
-    // TODO: this exists so that the current scene spawning code can know when to skip these components.
-    // When we move to actually cloning entities in scene spawning code, this should be removed in favor of Custom, as the
-    // distinction will no longer be necessary.
-    RelationshipTarget(ComponentCloneFn),
 }
 
 impl ComponentCloneBehavior {
@@ -1132,8 +1130,7 @@ impl ComponentCloneBehavior {
         match self {
             ComponentCloneBehavior::Default => default,
             ComponentCloneBehavior::Ignore => component_clone_ignore,
-            ComponentCloneBehavior::Custom(custom)
-            | ComponentCloneBehavior::RelationshipTarget(custom) => *custom,
+            ComponentCloneBehavior::Custom(custom) => *custom,
         }
     }
 }
@@ -2166,9 +2163,10 @@ pub fn enforce_no_required_components_recursion(
 ///
 pub fn component_clone_via_clone<C: Clone + Component>(
     _commands: &mut Commands,
+    source: &SourceComponent,
     ctx: &mut ComponentCloneCtx,
 ) {
-    if let Some(component) = ctx.read_source_component::<C>() {
+    if let Some(component) = source.read::<C>() {
         ctx.write_target_component(component.clone());
     }
 }
@@ -2189,17 +2187,21 @@ pub fn component_clone_via_clone<C: Clone + Component>(
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
 #[cfg(feature = "bevy_reflect")]
-pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentCloneCtx) {
+pub fn component_clone_via_reflect(
+    commands: &mut Commands,
+    source: &SourceComponent,
+    ctx: &mut ComponentCloneCtx,
+) {
     let Some(app_registry) = ctx.type_registry().cloned() else {
         return;
     };
-    let Some(source_component_reflect) = ctx.read_source_component_reflect() else {
+    let registry = app_registry.read();
+    let Some(source_component_reflect) = source.read_reflect(&registry) else {
         return;
     };
     let component_info = ctx.component_info();
     // checked in read_source_component_reflect
     let type_id = component_info.type_id().unwrap();
-    let registry = app_registry.read();
 
     // Try to clone using ReflectFromReflect
     if let Some(reflect_from_reflect) =
@@ -2284,7 +2286,12 @@ pub fn component_clone_via_reflect(commands: &mut Commands, ctx: &mut ComponentC
 /// Noop implementation of component clone handler function.
 ///
 /// See [`EntityClonerBuilder`](crate::entity::EntityClonerBuilder) for details.
-pub fn component_clone_ignore(_commands: &mut Commands, _ctx: &mut ComponentCloneCtx) {}
+pub fn component_clone_ignore(
+    _commands: &mut Commands,
+    _source: &SourceComponent,
+    _ctx: &mut ComponentCloneCtx,
+) {
+}
 
 /// Wrapper for components clone specialization using autoderef.
 #[doc(hidden)]
