@@ -487,6 +487,12 @@ shader_format_wesl = ["bevy_internal/shader_format_wesl"]
 # Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_transmission_textures = ["bevy_internal/pbr_transmission_textures"]
 
+# Enable support for Clustered Decals
+pbr_clustered_decals = ["bevy_internal/pbr_clustered_decals"]
+
+# Enable support for Light Textures
+pbr_light_textures = ["bevy_internal/pbr_light_textures"]
+
 # Enable support for multi-layer material textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs
 pbr_multi_layer_material_textures = [
   "bevy_internal/pbr_multi_layer_material_textures",

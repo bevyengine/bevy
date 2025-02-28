@@ -640,7 +640,7 @@ fn point_light(
 
     var cookie_sample = 1f;
 
-#ifdef CLUSTERED_DECALS_ARE_USABLE
+#ifdef LIGHT_TEXTURES
     if enable_cookie && (*light).decal_index != 0xFFFFFFFFu {
         let relative_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world * vec4(P, 1.0)).xyz;
         let cubemap_type = view_bindings::clustered_decals.decals[(*light).decal_index].tag;
@@ -687,7 +687,7 @@ fn spot_light(
 
     var cookie_sample = 1f;
 
-#ifdef CLUSTERED_DECALS_ARE_USABLE
+#ifdef LIGHT_TEXTURES
     if (*light).decal_index != 0xFFFFFFFFu {
         let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
             vec4((*input).P, 1.0)).xyz;
@@ -764,7 +764,7 @@ fn directional_light(
 
     var cookie_sample = 1f;
 
-#ifdef CLUSTERED_DECALS_ARE_USABLE
+#ifdef LIGHT_TEXTURES
     if (*light).decal_index != 0xFFFFFFFFu {
         let local_position = (view_bindings::clustered_decals.decals[(*light).decal_index].local_from_world *
             vec4((*input).P, 1.0)).xyz;
