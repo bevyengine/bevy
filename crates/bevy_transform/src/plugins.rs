@@ -1,7 +1,4 @@
-use crate::systems::{
-    compute_transform_leaves, mark_dirty_trees, propagate_parent_transforms,
-    sync_simple_transforms, ChangedTransforms,
-};
+use crate::systems::{mark_dirty_trees, propagate_parent_transforms, sync_simple_transforms};
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs, SystemSet};
 
@@ -25,21 +22,20 @@ impl Plugin for TransformPlugin {
 
         #[cfg(feature = "bevy_reflect")]
         app.register_type::<crate::components::Transform>()
+            .register_type::<crate::components::TransformTreeChanged>()
             .register_type::<crate::components::GlobalTransform>();
 
         app.configure_sets(
             PostStartup,
             PropagateTransformsSet.in_set(TransformSystem::TransformPropagate),
         )
-        .init_resource::<ChangedTransforms>()
         // add transform systems to startup so the first update is "correct"
         .add_systems(
             PostStartup,
             (
                 mark_dirty_trees,
                 propagate_parent_transforms,
-                (compute_transform_leaves, sync_simple_transforms)
-                    .ambiguous_with(TransformSystem::TransformPropagate),
+                sync_simple_transforms,
             )
                 .chain()
                 .in_set(PropagateTransformsSet),
@@ -53,8 +49,8 @@ impl Plugin for TransformPlugin {
             (
                 mark_dirty_trees,
                 propagate_parent_transforms,
-                (compute_transform_leaves, sync_simple_transforms) // TODO: Adjust the internal parallel queries to make these parallel systems more efficiently share and fill CPU time.
-                    .ambiguous_with(TransformSystem::TransformPropagate),
+                // TODO: Adjust the internal parallel queries to make this system more efficiently share and fill CPU time.
+                sync_simple_transforms,
             )
                 .chain()
                 .in_set(PropagateTransformsSet),

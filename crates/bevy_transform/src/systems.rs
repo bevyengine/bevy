@@ -1,8 +1,6 @@
-use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::entity::hash_set::EntityHashSet;
+use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 use bevy_ecs::prelude::*;
-use derive_more::Deref;
-
+use derive_more::From;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
@@ -43,53 +41,26 @@ pub fn sync_simple_transforms(
     }
 }
 
-#[derive(Default, Resource, Deref)]
-pub struct ChangedTransforms(EntityHashSet);
-
+/// Optimization for static scenes. Propagates a "dirty bit" up the hierarchy towards ancestors.
+/// Transform propagation can ignore entire subtrees of the hierarchy if it encounters an entity
+/// without the dirty bit.
 pub fn mark_dirty_trees(
-    mut changed: ResMut<ChangedTransforms>,
-    transforms: Query<(Entity, Option<&ChildOf>, Ref<Transform>)>,
+    changed_transforms: Query<Entity, Changed<Transform>>,
+    mut transforms: Query<(Option<&ChildOf>, &mut TransformTreeChanged)>,
 ) {
-    changed.0.clear();
-    'outer: for (entity, parent, _) in transforms
-        .iter()
-        .filter(|(.., transform)| transform.is_changed())
-    {
-        if !changed.0.insert(entity) {
-            continue; // Tree has already been processed
-        }
-        let mut next = parent.map(ChildOf::get);
-        while let Some((entity, parent, _)) = next.and_then(|entity| transforms.get(entity).ok()) {
-            if !changed.0.insert(entity) {
+    for entity in changed_transforms.iter() {
+        let mut next = entity;
+        while let Ok((parent, mut tree)) = transforms.get_mut(next) {
+            if tree.is_changed() {
                 break; // Tree has already been processed
+            } else {
+                tree.set_changed();
             }
-            next = parent.map(ChildOf::get);
+            if let Some(parent) = parent.map(ChildOf::get) {
+                next = parent;
+            };
         }
     }
-}
-
-/// Compute leaf [`GlobalTransform`]s in parallel.
-///
-/// This is run after [`propagate_parent_transforms`], to ensure the parents' [`GlobalTransform`]s
-/// have been computed. This makes computing leaf nodes at different levels of the hierarchy much
-/// more cache friendly, because data can be iterated over densely from the same archetype.
-pub fn compute_transform_leaves(
-    parents: Query<Ref<GlobalTransform>, With<Children>>,
-    mut leaves: Query<(Ref<Transform>, &mut GlobalTransform, &ChildOf), Without<Children>>,
-) {
-    leaves
-        .par_iter_mut()
-        .for_each(|(transform, mut global_transform, parent)| {
-            let Ok(parent_transform) = parents.get(parent.get()) else {
-                return;
-            };
-            if parent_transform.is_changed()
-                || transform.is_changed()
-                || global_transform.is_added()
-            {
-                *global_transform = parent_transform.mul_transform(*transform);
-            }
-        });
 }
 
 // TODO: This serial implementation isn't actually serial, it parallelizes across the roots.
@@ -195,7 +166,7 @@ mod serial {
         parent: &GlobalTransform,
         transform_query: &Query<
             (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
-            (With<ChildOf>, With<Children>),
+            With<ChildOf>,
         >,
         parent_query: &Query<(Entity, Ref<ChildOf>), With<GlobalTransform>>,
         entity: Entity,
@@ -273,7 +244,6 @@ mod serial {
 mod parallel {
     use crate::prelude::*;
     // TODO: this implementation could be used in no_std if there are equivalents of these.
-    use crate::systems::ChangedTransforms;
     use alloc::{sync::Arc, vec::Vec};
     use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -291,13 +261,12 @@ mod parallel {
     /// [`sync_simple_transforms`](super::sync_simple_transforms) and
     /// [`compute_transform_leaves`](super::compute_transform_leaves).
     pub fn propagate_parent_transforms(
-        changed_transforms: Res<ChangedTransforms>,
         mut queue: Local<WorkQueue>,
         mut orphaned: RemovedComponents<ChildOf>,
         mut orphans: Local<Vec<Entity>>,
         mut roots: Query<
             (Entity, Ref<Transform>, &mut GlobalTransform, &Children),
-            Without<ChildOf>,
+            (Without<ChildOf>, Changed<TransformTreeChanged>),
         >,
         nodes: NodeQuery,
     ) {
@@ -310,11 +279,6 @@ mod parallel {
         roots.par_iter_mut().for_each_init(
             || queue.local_queue.borrow_local_mut(),
             |outbox, (parent, transform, mut parent_transform, children)| {
-                // If the parent isn't in this resource, no transforms in the subtree have changed.
-                if !changed_transforms.contains(&parent) {
-                    return;
-                }
-
                 if transform.is_changed()
                     || parent_transform.is_added()
                     || orphans.binary_search(&parent).is_ok()
@@ -332,7 +296,6 @@ mod parallel {
                         parent_transform,
                         children,
                         &nodes,
-                        &changed_transforms,
                         outbox,
                         &queue,
                         // Need to revisit this single-max-depth by profiling more representative
@@ -350,25 +313,31 @@ mod parallel {
         // number of channel sends by avoiding sending partial batches.
         queue.send_batches();
 
+        if let Ok(rx) = queue.receiver.try_lock() {
+            if let Some(task) = rx.try_iter().next() {
+                // This is a bit silly, but the only way to see if there is any work is to grab a
+                // task. Peeking will remove the task even if you don't call `next`, resulting in
+                // dropping a task. What we do here is grab the first task if there is one, then
+                // immediately send it to the back of the queue.
+                queue.sender.send(task).ok();
+            } else {
+                return; // No work, don't bother spawning any tasks
+            }
+        }
+
         // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
         let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
-                .for_each(|_| {
-                    s.spawn(async { propagation_worker(&queue, &nodes, &changed_transforms) })
-                });
-            propagation_worker(&queue, &nodes, &changed_transforms);
+                .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
+            propagation_worker(&queue, &nodes);
         });
     }
 
     /// A parallel worker that will consume processed parent entities from the queue, and push
     /// children to the queue once it has propagated their [`GlobalTransform`].
     #[inline]
-    fn propagation_worker(
-        queue: &WorkQueue,
-        nodes: &NodeQuery,
-        changed_transforms: &ChangedTransforms,
-    ) {
+    fn propagation_worker(queue: &WorkQueue, nodes: &NodeQuery) {
         #[cfg(feature = "std")]
         let _span = bevy_log::info_span!("transform propagation worker").entered();
 
@@ -419,9 +388,8 @@ mod parallel {
                     propagate_descendants_unchecked(
                         parent,
                         p_global_transform,
-                        p_children,
+                        p_children.unwrap(), // All entities in the queue should have children
                         nodes,
-                        changed_transforms,
                         &mut outbox,
                         queue,
                         // Only affects performance. Trees deeper than this will still be fully
@@ -466,7 +434,6 @@ mod parallel {
         p_global_transform: Mut<GlobalTransform>,
         p_children: &Children,
         nodes: &NodeQuery,
-        changed_transforms: &ChangedTransforms,
         outbox: &mut Vec<Entity>,
         queue: &WorkQueue,
         max_depth: usize,
@@ -477,10 +444,6 @@ mod parallel {
 
         // See the optimization note at the end to understand why this loop is here.
         for depth in 1..=max_depth {
-            if !changed_transforms.contains(&parent) {
-                break;
-            }
-
             // Safety: traversing the entity tree from the roots, we assert that the childof and
             // children pointers match in both directions (see assert below) to ensure the hierarchy
             // does not have any cycles. Because the hierarchy does not have cycles, we know we are
@@ -508,7 +471,7 @@ mod parallel {
             };
 
             let mut last_child = None;
-            let new_children = children_iter.map(
+            let new_children = children_iter.filter_map(
                 |(child, (transform, mut global_transform), (children, child_of))| {
                     assert_eq!(child_of.get(), parent);
                     if p_global_transform.is_changed()
@@ -517,8 +480,11 @@ mod parallel {
                     {
                         *global_transform = p_global_transform.mul_transform(*transform);
                     }
-                    last_child = Some((child, global_transform, children));
-                    child
+                    children.map(|children| {
+                        // Only continue propagation if the entity has children.
+                        last_child = Some((child, global_transform, children));
+                        child
+                    })
                 },
             );
             outbox.extend(new_children);
@@ -551,8 +517,9 @@ mod parallel {
         (
             Entity,
             (Ref<'static, Transform>, Mut<'static, GlobalTransform>),
-            (Read<Children>, Read<ChildOf>),
+            (Option<Read<Children>>, Read<ChildOf>),
         ),
+        Changed<TransformTreeChanged>,
     >;
 
     /// A queue shared between threads for transform propagation.
