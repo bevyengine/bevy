@@ -252,13 +252,19 @@ mod tests {
         world.entity_mut(a).insert(Above(b));
         assert_eq!(a, world.get::<Below>(b).unwrap().0);
 
-        // remove below and above should be removed
+        // Verify removing target removes relationship
         world.entity_mut(b).remove::<Below>();
         assert!(world.get::<Above>(a).is_none());
 
-        // remove above and below should be removed
+        // Verify removing relationship removes target
         world.entity_mut(a).insert(Above(b));
         world.entity_mut(a).remove::<Above>();
         assert!(world.get::<Below>(b).is_none());
+
+        // Actually - a is above c now! Verify relationship was updated correctly
+        let c = world.spawn_empty().id();
+        world.entity_mut(a).insert(Above(c));
+        assert!(world.get::<Below>(b).is_none());
+        assert_eq!(a, world.get::<Below>(c).unwrap().0);
     }
 }
