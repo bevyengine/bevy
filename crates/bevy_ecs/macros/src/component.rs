@@ -297,7 +297,6 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                         || relationship.is_some_and(|relationship| relationship == *field)
                 })
                 .for_each(|(index, field)| {
-                    dbg!(field);
                     let field_member = ident_or_index(field.ident.as_ref(), index);
 
                     visit.push(quote!(this.#field_member.visit_entities(&mut func);));

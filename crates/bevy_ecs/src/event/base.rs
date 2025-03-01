@@ -17,17 +17,22 @@ use core::{
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
-///
+/// 
+/// Events must be thread-safe.
+/// 
+/// ## Derive
 /// This trait can be derived.
+/// Adding `auto_propegate` sets [`Self::AUTO_PROPAGATE`] to true.
+/// Adding `traversal = "X"` sets [`Self::Traversal`] to be of type "X".
 ///
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
 /// #[derive(Event)]
-/// #[event(auto_propagate, traversal = ChildOf)]
+/// #[event(auto_propagate)]
 /// struct MyEvent;
 /// ```
-/// Events must be thread-safe.
+/// 
 ///
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId
