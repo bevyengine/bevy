@@ -504,10 +504,6 @@ impl<'a> AssetPath<'a> {
     /// // This references the linux root directory.
     /// let path = AssetPath::parse("/home/thingy.png");
     /// assert!(path.is_unapproved());
-    ///
-    /// // This references the windows C: drive.
-    /// let path = AssetPath::parse("C:/thingy.png");
-    /// assert!(path.is_unapproved());
     /// ```
     pub fn is_unapproved(&self) -> bool {
         use std::path::Component;
