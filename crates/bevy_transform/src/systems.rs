@@ -95,7 +95,7 @@ mod serial {
     ///
     /// Third party plugins should ensure that this is used in concert with
     /// [`sync_simple_transforms`](super::sync_simple_transforms) and
-    /// [`compute_transform_leaves`](super::mark_dirty_trees).
+    /// [`mark_dirty_trees`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         mut root_query: Query<
             (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
@@ -265,7 +265,7 @@ mod parallel {
     ///
     /// Third party plugins should ensure that this is used in concert with
     /// [`sync_simple_transforms`](super::sync_simple_transforms) and
-    /// [`compute_transform_leaves`](super::compute_transform_leaves).
+    /// [`mark_dirty_trees`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         mut queue: Local<WorkQueue>,
         mut orphaned: RemovedComponents<ChildOf>,
@@ -455,21 +455,6 @@ mod parallel {
             // visiting disjoint entities in parallel, which is safe.
             #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
             let children_iter = unsafe {
-                // Performance note: iter_many tests every child to see if it meets the query. For
-                // leaf nodes, this unfortunately means we have the pay the price of checking every
-                // child, even if it is a leaf node and is skipped.
-                //
-                // To ensure this is still the fastest design, I tried removing the second pass
-                // (`compute_transform_leaves`) and instead simply doing that here. However, that
-                // proved to be much slower than two pass for a few reasons:
-                // - it's less cache friendly and is outright slower than the tight loop in the
-                //   second pass
-                // - it prevents parallelism, as all children must be iterated in series
-                //
-                // The only way I can see to make this faster when there are many leaf nodes is to
-                // speed up archetype checking to make the iterator skip leaf entities more quickly,
-                // or encoding the hierarchy level as a component. That, or use some kind of change
-                // detection to mark dirty subtrees when the transform is mutated.
                 nodes.iter_many_unique_unsafe(UniqueEntityIter::from_iterator_unchecked(
                     p_children.iter(),
                 ))
@@ -519,7 +504,7 @@ mod parallel {
     }
 
     /// Alias for a large, repeatedly used query. Queries for transform entities that have both a
-    /// parent and children, thus they are neither roots nor leaves.
+    /// parent and possibly children, thus they are not roots.
     type NodeQuery<'w, 's> = Query<
         'w,
         's,
