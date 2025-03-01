@@ -1,7 +1,7 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
 //! This is run in CI to ensure that this doesn't regress again.
 
-use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, window::WindowResolution};
+use bevy::{prelude::*, window::WindowResolution};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
@@ -34,16 +34,9 @@ fn main() {
             width: MAX_WIDTH,
             height: MAX_HEIGHT,
         })
-        .insert_resource(Phase::ContractingY)
+        .insert_resource(ContractingY)
         .add_systems(Startup, (setup_3d, setup_2d))
-        .add_systems(
-            Update,
-            (
-                change_window_size,
-                sync_dimensions,
-                bevy::window::close_on_esc,
-            ),
-        )
+        .add_systems(Update, (change_window_size, sync_dimensions))
         .run();
 }
 
@@ -72,28 +65,28 @@ fn change_window_size(
     let height = windows.height;
     let width = windows.width;
     match *phase {
-        Phase::ContractingY => {
+        ContractingY => {
             if height <= MIN_HEIGHT {
                 *phase = ContractingX;
             } else {
                 windows.height -= RESIZE_STEP;
             }
         }
-        Phase::ContractingX => {
+        ContractingX => {
             if width <= MIN_WIDTH {
                 *phase = ExpandingY;
             } else {
                 windows.width -= RESIZE_STEP;
             }
         }
-        Phase::ExpandingY => {
+        ExpandingY => {
             if height >= MAX_HEIGHT {
                 *phase = ExpandingX;
             } else {
                 windows.height += RESIZE_STEP;
             }
         }
-        Phase::ExpandingX => {
+        ExpandingX => {
             if width >= MAX_WIDTH {
                 *phase = ContractingY;
             } else {
@@ -103,9 +96,8 @@ fn change_window_size(
     }
 }
 
-fn sync_dimensions(dim: Res<Dimensions>, mut windows: Query<&mut Window>) {
+fn sync_dimensions(dim: Res<Dimensions>, mut window: Single<&mut Window>) {
     if dim.is_changed() {
-        let mut window = windows.single_mut();
         window.resolution.set(dim.width as f32, dim.height as f32);
     }
 }
@@ -117,58 +109,45 @@ fn setup_3d(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane {
-            size: 5.0,
-            subdivisions: 0,
-        })),
-        material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
-            intensity: 1500.0,
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 /// A simple 2d scene, taken from the `rect` example
 fn setup_2d(mut commands: Commands) {
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera2d,
+        Camera {
             // render the 2d camera after the 3d camera
             order: 1,
-            ..default()
-        },
-        camera_2d: Camera2d {
             // do not use a clear color
             clear_color: ClearColorConfig::None,
-        },
-        ..default()
-    });
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(50.0, 50.0)),
             ..default()
         },
-        ..default()
-    });
+    ));
+    commands.spawn(Sprite::from_color(
+        Color::srgb(0.25, 0.25, 0.75),
+        Vec2::new(50.0, 50.0),
+    ));
 }

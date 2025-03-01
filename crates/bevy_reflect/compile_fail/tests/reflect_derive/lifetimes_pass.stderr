@@ -1,0 +1,13 @@
+warning: field `value` is never read
+ --> tests/reflect_derive/lifetimes_pass.rs:8:5
+  |
+6 | struct Foo<'a: 'static> {
+  |        --- field in this struct
+7 |     #[reflect(ignore)]
+8 |     value: &'a str,
+  |     ^^^^^
+  |
+  = note: `#[warn(dead_code)]` on by default
+
+warning: 1 warning emitted
+

@@ -1,8 +1,9 @@
 #import bevy_pbr::{
     mesh_view_bindings,
     forward_io::VertexOutput,
-    utils::PI,
 }
+
+#import bevy_render::maths::PI
 
 #ifdef TONEMAP_IN_SHADER
 #import bevy_core_pipeline::tonemapping::tone_mapping

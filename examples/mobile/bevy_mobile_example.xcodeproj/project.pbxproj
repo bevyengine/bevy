@@ -14,6 +14,7 @@
 		55B7188F81C3C4183F81D3AE /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A39528EB2CCB182F5328223A /* libc++.tbd */; };
 		57CD6306253C7A940098CD4A /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57CD6305253C7A940098CD4A /* AudioToolbox.framework */; };
 		57CD630E253C80EC0098CD4A /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 57CD630A253C7F5F0098CD4A /* assets */; };
+		6ADF1AB92CCDA73A00AF5F8E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6ADF1AB82CCDA73A00AF5F8E /* QuartzCore.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -31,6 +32,7 @@
 		55EAC02897847195D2F44C15 /* bevy_mobile_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = bevy_mobile_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		57CD6305253C7A940098CD4A /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		57CD630A253C7F5F0098CD4A /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = ../../../assets; sourceTree = "<group>"; };
+		6ADF1AB82CCDA73A00AF5F8E /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		8EE7F1E3B0303533925D7E33 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		96A1E5B62F48B379829E8A0D /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		9F1B41978FA53999AA836D0F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
@@ -44,6 +46,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6ADF1AB92CCDA73A00AF5F8E /* QuartzCore.framework in Frameworks */,
 				442540D056ADB9AE61A0A590 /* Security.framework in Frameworks */,
 				134866208A035F8615C99114 /* Metal.framework in Frameworks */,
 				2604C99FAB5A8322EDCABB9F /* UIKit.framework in Frameworks */,
@@ -86,6 +89,7 @@
 		EB028409C2D0655412DA6E44 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				6ADF1AB82CCDA73A00AF5F8E /* QuartzCore.framework */,
 				57CD6305253C7A940098CD4A /* AudioToolbox.framework */,
 				A39528EB2CCB182F5328223A /* libc++.tbd */,
 				96A1E5B62F48B379829E8A0D /* Metal.framework */,
@@ -294,7 +298,7 @@
 					"-lbevy_mobile_example",
 					"-lc++abi",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bevyengine.example";
+				PRODUCT_BUNDLE_IDENTIFIER = org.bevyengine.example;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -402,7 +406,7 @@
 					"-lbevy_mobile_example",
 					"-lc++abi",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bevyengine.example";
+				PRODUCT_BUNDLE_IDENTIFIER = org.bevyengine.example;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};

@@ -3,19 +3,13 @@
 //! - Copy the code for the `SceneViewerPlugin` and add the plugin to your App.
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
-// This lint usually gives bad advice in the context of Bevy -- hiding complex queries behind
-// type aliases tends to obfuscate code while offering no improvement in code cleanliness.
-#![allow(clippy::type_complexity)]
-
 use bevy::{
-    asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
-    scene::InstanceId,
+    gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
 };
 
-use std::f32::consts::*;
-use std::fmt;
+use std::{f32::consts::*, fmt};
 
-use super::camera_controller_plugin::*;
+use super::camera_controller::*;
 
 #[derive(Resource)]
 pub struct SceneHandle {
@@ -77,14 +71,14 @@ impl Plugin for SceneViewerPlugin {
                 (
                     update_lights,
                     camera_tracker,
-                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::B)),
+                    toggle_bounding_boxes.run_if(input_just_pressed(KeyCode::KeyB)),
                 ),
             );
     }
 }
 
-fn toggle_bounding_boxes(mut config: ResMut<GizmoConfig>) {
-    config.aabb.draw_all ^= true;
+fn toggle_bounding_boxes(mut config: ResMut<GizmoConfigStore>) {
+    config.config_mut::<AabbGizmoConfigGroup>().1.draw_all ^= true;
 }
 
 fn scene_load_check(
@@ -96,7 +90,10 @@ fn scene_load_check(
 ) {
     match scene_handle.instance_id {
         None => {
-            if asset_server.load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
+            if asset_server
+                .load_state(&scene_handle.gltf_handle)
+                .is_loaded()
+            {
                 let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
                 if gltf.scenes.len() > 1 {
                     info!(
@@ -143,19 +140,20 @@ fn scene_load_check(
         Some(_) => {}
     }
 }
+
 fn update_lights(
-    key_input: Res<Input<KeyCode>>,
+    key_input: Res<ButtonInput<KeyCode>>,
     time: Res<Time>,
     mut query: Query<(&mut Transform, &mut DirectionalLight)>,
     mut animate_directional_light: Local<bool>,
 ) {
     for (_, mut light) in &mut query {
-        if key_input.just_pressed(KeyCode::U) {
+        if key_input.just_pressed(KeyCode::KeyU) {
             light.shadows_enabled = !light.shadows_enabled;
         }
     }
 
-    if key_input.just_pressed(KeyCode::L) {
+    if key_input.just_pressed(KeyCode::KeyL) {
         *animate_directional_light = !*animate_directional_light;
     }
     if *animate_directional_light {
@@ -163,7 +161,7 @@ fn update_lights(
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
-                time.elapsed_seconds() * PI / 15.0,
+                time.elapsed_secs() * PI / 15.0,
                 -FRAC_PI_4,
             );
         }
@@ -201,7 +199,7 @@ impl CameraTracker {
 
 fn camera_tracker(
     mut camera_tracker: ResMut<CameraTracker>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
         Query<(Entity, &mut Camera), (Added<Camera>, Without<CameraController>)>,
         Query<(Entity, &mut Camera), (Added<Camera>, With<CameraController>)>,
@@ -219,7 +217,7 @@ fn camera_tracker(
         camera.is_active = camera_tracker.track_camera(entity);
     }
 
-    if keyboard_input.just_pressed(KeyCode::C) {
+    if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
         if let Some(e) = camera_tracker.active_camera() {
             if let Ok(mut camera) = queries.p2().get_mut(e) {

@@ -1,4 +1,5 @@
-use bevy::{ecs::event::Events, prelude::*};
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
+use bevy::prelude::*;
 
 #[derive(Component, Default)]
 struct Enemy {
@@ -25,8 +26,8 @@ fn despawn_dead_enemies(
 ) {
     for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
-            commands.entity(entity).despawn_recursive();
-            dead_enemies.send(EnemyDied(enemy.score_value));
+            commands.entity(entity).despawn();
+            dead_enemies.write(EnemyDied(enemy.score_value));
         }
     }
 }
@@ -37,7 +38,7 @@ fn hurt_enemies(mut enemies: Query<&mut Enemy>) {
     }
 }
 
-fn spawn_enemy(mut commands: Commands, keyboard_input: Res<Input<KeyCode>>) {
+fn spawn_enemy(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         commands.spawn(Enemy {
             hit_points: 5,
@@ -62,7 +63,7 @@ fn did_hurt_enemy() {
 
     // Setup test entities
     let enemy_id = app
-        .world
+        .world_mut()
         .spawn(Enemy {
             hit_points: 5,
             score_value: 3,
@@ -73,8 +74,8 @@ fn did_hurt_enemy() {
     app.update();
 
     // Check resulting changes
-    assert!(app.world.get::<Enemy>(enemy_id).is_some());
-    assert_eq!(app.world.get::<Enemy>(enemy_id).unwrap().hit_points, 4);
+    assert!(app.world().get::<Enemy>(enemy_id).is_some());
+    assert_eq!(app.world().get::<Enemy>(enemy_id).unwrap().hit_points, 4);
 }
 
 #[test]
@@ -93,7 +94,7 @@ fn did_despawn_enemy() {
 
     // Setup test entities
     let enemy_id = app
-        .world
+        .world_mut()
         .spawn(Enemy {
             hit_points: 1,
             score_value: 1,
@@ -104,11 +105,11 @@ fn did_despawn_enemy() {
     app.update();
 
     // Check enemy was despawned
-    assert!(app.world.get::<Enemy>(enemy_id).is_none());
+    assert!(app.world().get::<Enemy>(enemy_id).is_none());
 
     // Get `EnemyDied` event reader
-    let enemy_died_events = app.world.resource::<Events<EnemyDied>>();
-    let mut enemy_died_reader = enemy_died_events.get_reader();
+    let enemy_died_events = app.world().resource::<Events<EnemyDied>>();
+    let mut enemy_died_reader = enemy_died_events.get_cursor();
     let enemy_died = enemy_died_reader.read(enemy_died_events).next().unwrap();
 
     // Check the event has been sent
@@ -124,7 +125,7 @@ fn spawn_enemy_using_input_resource() {
     app.add_systems(Update, spawn_enemy);
 
     // Setup test resource
-    let mut input = Input::<KeyCode>::default();
+    let mut input = ButtonInput::<KeyCode>::default();
     input.press(KeyCode::Space);
     app.insert_resource(input);
 
@@ -132,16 +133,18 @@ fn spawn_enemy_using_input_resource() {
     app.update();
 
     // Check resulting changes, one entity has been spawned with `Enemy` component
-    assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
+    assert_eq!(app.world_mut().query::<&Enemy>().iter(app.world()).len(), 1);
 
     // Clear the `just_pressed` status for all `KeyCode`s
-    app.world.resource_mut::<Input<KeyCode>>().clear();
+    app.world_mut()
+        .resource_mut::<ButtonInput<KeyCode>>()
+        .clear();
 
     // Run systems
     app.update();
 
     // Check resulting changes, no new entity has been spawned
-    assert_eq!(app.world.query::<&Enemy>().iter(&app.world).len(), 1);
+    assert_eq!(app.world_mut().query::<&Enemy>().iter(app.world()).len(), 1);
 }
 
 #[test]
@@ -159,7 +162,7 @@ fn update_score_on_event() {
     app.add_systems(Update, update_score);
 
     // Send an `EnemyDied` event
-    app.world
+    app.world_mut()
         .resource_mut::<Events<EnemyDied>>()
         .send(EnemyDied(3));
 
@@ -167,5 +170,5 @@ fn update_score_on_event() {
     app.update();
 
     // Check resulting changes
-    assert_eq!(app.world.resource::<Score>().0, 3);
+    assert_eq!(app.world().resource::<Score>().0, 3);
 }

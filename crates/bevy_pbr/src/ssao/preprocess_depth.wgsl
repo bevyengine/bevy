@@ -14,7 +14,8 @@
 @group(0) @binding(4) var preprocessed_depth_mip3: texture_storage_2d<r16float, write>;
 @group(0) @binding(5) var preprocessed_depth_mip4: texture_storage_2d<r16float, write>;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
-@group(1) @binding(1) var<uniform> view: View;
+@group(1) @binding(1) var linear_clamp_sampler: sampler;
+@group(1) @binding(2) var<uniform> view: View;
 
 
 // Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP

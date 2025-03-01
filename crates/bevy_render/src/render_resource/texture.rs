@@ -1,19 +1,28 @@
 use crate::define_atomic_id;
-use std::ops::Deref;
-
-use crate::render_resource::resource_macros::*;
+use crate::renderer::WgpuWrapper;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::resource::Resource;
+use core::ops::Deref;
 
 define_atomic_id!(TextureId);
-render_resource_wrapper!(ErasedTexture, wgpu::Texture);
 
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
 /// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+///
+/// Other options for storing GPU-accessible data are:
+/// * [`BufferVec`](crate::render_resource::BufferVec)
+/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
+/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
+/// * [`GpuArrayBuffer`](crate::render_resource::GpuArrayBuffer)
+/// * [`RawBufferVec`](crate::render_resource::RawBufferVec)
+/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
+/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
-    value: ErasedTexture,
+    value: WgpuWrapper<wgpu::Texture>,
 }
 
 impl Texture {
@@ -33,7 +42,7 @@ impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
             id: TextureId::new(),
-            value: ErasedTexture::new(value),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -48,23 +57,21 @@ impl Deref for Texture {
 }
 
 define_atomic_id!(TextureViewId);
-render_resource_wrapper!(ErasedTextureView, wgpu::TextureView);
-render_resource_wrapper!(ErasedSurfaceTexture, wgpu::SurfaceTexture);
 
 /// Describes a [`Texture`] with its associated metadata required by a pipeline or [`BindGroup`](super::BindGroup).
 #[derive(Clone, Debug)]
 pub struct TextureView {
     id: TextureViewId,
-    value: ErasedTextureView,
+    value: WgpuWrapper<wgpu::TextureView>,
 }
 
 pub struct SurfaceTexture {
-    value: ErasedSurfaceTexture,
+    value: WgpuWrapper<wgpu::SurfaceTexture>,
 }
 
 impl SurfaceTexture {
-    pub fn try_unwrap(self) -> Option<wgpu::SurfaceTexture> {
-        self.value.try_unwrap()
+    pub fn present(self) {
+        self.value.into_inner().present();
     }
 }
 
@@ -80,7 +87,7 @@ impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
             id: TextureViewId::new(),
-            value: ErasedTextureView::new(value),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -88,7 +95,7 @@ impl From<wgpu::TextureView> for TextureView {
 impl From<wgpu::SurfaceTexture> for SurfaceTexture {
     fn from(value: wgpu::SurfaceTexture) -> Self {
         SurfaceTexture {
-            value: ErasedSurfaceTexture::new(value),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -112,7 +119,6 @@ impl Deref for SurfaceTexture {
 }
 
 define_atomic_id!(SamplerId);
-render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
@@ -122,7 +128,7 @@ render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,
-    value: ErasedSampler,
+    value: WgpuWrapper<wgpu::Sampler>,
 }
 
 impl Sampler {
@@ -137,7 +143,7 @@ impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
             id: SamplerId::new(),
-            value: ErasedSampler::new(value),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -150,3 +156,11 @@ impl Deref for Sampler {
         &self.value
     }
 }
+
+/// A rendering resource for the default image sampler which is set during renderer
+/// initialization.
+///
+/// The [`ImagePlugin`](crate::texture::ImagePlugin) can be set during app initialization to change the default
+/// image sampler.
+#[derive(Resource, Debug, Clone, Deref, DerefMut)]
+pub struct DefaultImageSampler(pub(crate) Sampler);

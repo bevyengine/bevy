@@ -1,4 +1,5 @@
 /// An ergonomic abbreviation for [`Default::default()`] to make initializing structs easier.
+///
 /// This is especially helpful when combined with ["struct update syntax"](https://doc.rust-lang.org/book/ch05-01-defining-structs.html#creating-instances-from-other-instances-with-struct-update-syntax).
 /// ```
 /// use bevy_utils::default;
@@ -26,5 +27,5 @@
 /// ```
 #[inline]
 pub fn default<T: Default>() -> T {
-    std::default::Default::default()
+    Default::default()
 }

@@ -1,14 +1,14 @@
-use criterion::*;
-
 mod iter;
 mod send;
 
-criterion_group!(event_benches, send, iter);
+use criterion::{criterion_group, Criterion};
+
+criterion_group!(benches, send, iter);
 
 fn send(c: &mut Criterion) {
     let mut group = c.benchmark_group("events_send");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for count in [100, 1000, 10000, 50000] {
         group.bench_function(format!("size_4_events_{}", count), |b| {
             let mut bench = send::Benchmark::<4>::new(count);
@@ -32,8 +32,8 @@ fn send(c: &mut Criterion) {
 
 fn iter(c: &mut Criterion) {
     let mut group = c.benchmark_group("events_iter");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for count in [100, 1000, 10000, 50000] {
         group.bench_function(format!("size_4_events_{}", count), |b| {
             let mut bench = iter::Benchmark::<4>::new(count);

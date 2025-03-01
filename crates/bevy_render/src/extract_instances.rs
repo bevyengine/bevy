@@ -4,18 +4,18 @@
 //! This is essentially the same as the `extract_component` module, but
 //! higher-performance because it avoids the ECS overhead.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetId, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
-    query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
-    system::{lifetimeless::Read, Query, ResMut, Resource},
+    query::{QueryFilter, QueryItem, ReadOnlyQueryData},
+    resource::Resource,
+    system::{Query, ResMut},
 };
-use bevy_utils::EntityHashMap;
 
+use crate::sync_world::MainEntityHashMap;
 use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 
 /// Describes how to extract data needed for rendering from a component or
@@ -28,13 +28,13 @@ use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
 /// [`ExtractComponent`](crate::extract_component::ExtractComponent), but
 /// higher-performance because it avoids the ECS overhead.
 pub trait ExtractInstance: Send + Sync + Sized + 'static {
-    /// ECS [`WorldQuery`] to fetch the components to extract.
-    type Query: WorldQuery + ReadOnlyWorldQuery;
+    /// ECS [`ReadOnlyQueryData`] to fetch the components to extract.
+    type QueryData: ReadOnlyQueryData;
     /// Filters the entities with additional constraints.
-    type Filter: WorldQuery + ReadOnlyWorldQuery;
+    type QueryFilter: QueryFilter;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self>;
+    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self>;
 }
 
 /// This plugin extracts one or more components into the "render world" as
@@ -53,7 +53,7 @@ where
 
 /// Stores all extract instances of a type in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedInstances<EI>(EntityHashMap<Entity, EI>)
+pub struct ExtractedInstances<EI>(MainEntityHashMap<EI>)
 where
     EI: ExtractInstance;
 
@@ -94,7 +94,7 @@ where
     EI: ExtractInstance,
 {
     fn build(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.init_resource::<ExtractedInstances<EI>>();
             if self.only_extract_visible {
                 render_app.add_systems(ExtractSchedule, extract_visible::<EI>);
@@ -107,21 +107,21 @@ where
 
 fn extract_all<EI>(
     mut extracted_instances: ResMut<ExtractedInstances<EI>>,
-    query: Extract<Query<(Entity, EI::Query), EI::Filter>>,
+    query: Extract<Query<(Entity, EI::QueryData), EI::QueryFilter>>,
 ) where
     EI: ExtractInstance,
 {
     extracted_instances.clear();
     for (entity, other) in &query {
         if let Some(extract_instance) = EI::extract(other) {
-            extracted_instances.insert(entity, extract_instance);
+            extracted_instances.insert(entity.into(), extract_instance);
         }
     }
 }
 
 fn extract_visible<EI>(
     mut extracted_instances: ResMut<ExtractedInstances<EI>>,
-    query: Extract<Query<(Entity, &ViewVisibility, EI::Query), EI::Filter>>,
+    query: Extract<Query<(Entity, &ViewVisibility, EI::QueryData), EI::QueryFilter>>,
 ) where
     EI: ExtractInstance,
 {
@@ -129,20 +129,8 @@ fn extract_visible<EI>(
     for (entity, view_visibility, other) in &query {
         if view_visibility.get() {
             if let Some(extract_instance) = EI::extract(other) {
-                extracted_instances.insert(entity, extract_instance);
+                extracted_instances.insert(entity.into(), extract_instance);
             }
         }
-    }
-}
-
-impl<A> ExtractInstance for AssetId<A>
-where
-    A: Asset,
-{
-    type Query = Read<Handle<A>>;
-    type Filter = ();
-
-    fn extract(item: QueryItem<'_, Self::Query>) -> Option<Self> {
-        Some(item.id())
     }
 }

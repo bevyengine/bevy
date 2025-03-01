@@ -30,26 +30,26 @@ fn play_pitch(
 ) {
     for _ in events.read() {
         info!("playing pitch with frequency: {}", frequency.0);
-        commands.spawn(PitchBundle {
-            source: pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0))),
-            settings: PlaybackSettings::DESPAWN,
-        });
+        commands.spawn((
+            AudioPlayer(pitch_assets.add(Pitch::new(frequency.0, Duration::new(1, 0)))),
+            PlaybackSettings::DESPAWN,
+        ));
         info!("number of pitch assets: {}", pitch_assets.len());
     }
 }
 
 fn keyboard_input_system(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut frequency: ResMut<PitchFrequency>,
     mut events: EventWriter<PlayPitch>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Up) {
-        frequency.0 *= 2.0f32.powf(1.0 / 12.0);
+    if keyboard_input.just_pressed(KeyCode::ArrowUp) {
+        frequency.0 *= ops::powf(2.0f32, 1.0 / 12.0);
     }
-    if keyboard_input.just_pressed(KeyCode::Down) {
-        frequency.0 /= 2.0f32.powf(1.0 / 12.0);
+    if keyboard_input.just_pressed(KeyCode::ArrowDown) {
+        frequency.0 /= ops::powf(2.0f32, 1.0 / 12.0);
     }
     if keyboard_input.just_pressed(KeyCode::Space) {
-        events.send(PlayPitch);
+        events.write(PlayPitch);
     }
 }
