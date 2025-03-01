@@ -137,6 +137,8 @@ impl SpecializedRenderPipeline for LinearGradientPipeline {
                 VertexFormat::Float32x2,
                 // point
                 VertexFormat::Float32x2,
+                // start_point
+                VertexFormat::Float32x2,
                 // dir
                 VertexFormat::Float32x2,
                 // start_color
@@ -201,6 +203,8 @@ pub struct ExtractedLinearGradient {
     pub rect: Rect,
     pub clip: Option<Rect>,
     pub extracted_camera_entity: Entity,
+    pub g_start: Vec2,
+    pub g_dir: Vec2,
     pub start: f32,
     pub start_color: LinearRgba,
     pub end: f32,
@@ -240,6 +244,7 @@ pub fn extract_linear_gradients(
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut camera_mapper = camera_map.get_mapper();
+    //println!("extract gradients");
 
     for (entity, uinode, target, transform, inherited_visibility, clip, linear_gradient, stops) in
         &gradients_query
@@ -281,16 +286,20 @@ pub fn extract_linear_gradients(
         }
 
         for stop_pair in stops.0.windows(2) {
+            let start = stop_pair[0];
+            let end = stop_pair[1];
             extracted_linear_gradients
                 .items
                 .push(ExtractedLinearGradient {
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     stack_index: uinode.stack_index,
                     transform: transform.compute_matrix(),
-                    start: stop_pair[0].1,
-                    start_color: stop_pair[0].0.into(),
-                    end: stop_pair[1].1,
-                    end_color: stop_pair[0].0.into(),
+                    start: start.1,
+                    g_start: Vec2::ZERO,
+                    start_color: start.0.into(),
+                    g_dir: Vec2::Y,
+                    end: end.1,
+                    end_color: end.0.into(),
                     rect: Rect {
                         min: Vec2::ZERO,
                         max: uinode.size,
@@ -365,9 +374,10 @@ struct UiGradientVertex {
     flags: u32,
     radius: [f32; 4],
     border: [f32; 4],
+    g_start: [f32; 2],
     size: [f32; 2],
     point: [f32; 2],
-    dir: [f32; 2],
+    g_dir: [f32; 2],
     start_color: [f32; 4],
     start_len: f32,
     end_len: f32,
@@ -408,7 +418,8 @@ pub fn prepare_linear_gradient(
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 {
-                    item.batch_range_mut().end = 1;
+                    *item.batch_range_mut() = item_index as u32..item_index as u32 + 1;
+                    //println!("batch range = {:?}", item.batch_range());
                     let uinode_rect = gradient.rect;
 
                     let rect_size = uinode_rect.size().extend(1.0);
@@ -503,8 +514,9 @@ pub fn prepare_linear_gradient(
                                 gradient.border.bottom,
                             ],
                             size: rect_size.xy().into(),
-                            dir: [0., 1.],
-                            point: points[i].into(),
+                            g_start: gradient.g_start.into(),
+                            g_dir: gradient.g_dir.into(),
+                            point: ((uvs[i] - Vec2::new(0.5, 0.5)) * rect_size.xy()).into(),
                             start_color,
                             start_len: gradient.start,
                             end_len: gradient.end,

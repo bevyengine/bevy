@@ -23,6 +23,39 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
+
+    commands.spawn((
+        Node {
+            width: Val::Px(100.),
+            height: Val::Px(100.),
+            margin: UiRect::all(Val::Px(50.)),
+            ..default()
+        },
+        Outline {
+            width: Val::Px(1.),
+            offset: Val::Px(1.),
+            color: Color::WHITE,
+        },
+        LinearGradient { angle: 0. },
+        ColorStops(vec![
+            ColorStop {
+                color: RED.into(),
+                point: Val::Auto,
+            },
+            ColorStop {
+                color: GREEN.into(),
+                point: Val::Auto,
+            },
+            // ColorStop {
+            //     color: BLUE.into(),
+            //     point: Val::Auto,
+            // },
+        ]),
+    ));
+}
+
+fn setup_2(mut commands: Commands) {
+    commands.spawn(Camera2d);
     commands
         .spawn(Node {
             row_gap: Val::Px(5.),
@@ -40,15 +73,15 @@ fn setup(mut commands: Commands) {
                 ColorStops(vec![
                     ColorStop {
                         color: YELLOW.into(),
-                        stop: Val::ZERO,
+                        point: Val::ZERO,
                     },
                     ColorStop {
                         color: BLUE.into(),
-                        stop: Val::Px(100.),
+                        point: Val::Px(100.),
                     },
                     ColorStop {
                         color: GREEN.into(),
-                        stop: Val::Px(50.),
+                        point: Val::Px(50.),
                     },
                 ]),
             ));
@@ -63,16 +96,16 @@ fn setup(mut commands: Commands) {
                 ColorStops(vec![
                     ColorStop {
                         color: YELLOW.into(),
-                        stop: Val::Px(200.),
+                        point: Val::Px(200.),
                     },
-                    // ColorStop {
-                    //     color: BLUE.into(),
-                    //     stop: Val::Px(100.),
-                    // },
-                    // ColorStop {
-                    //     color: GREEN.into(),
-                    //     stop: Val::Px(50.),
-                    // },
+                    ColorStop {
+                        color: BLUE.into(),
+                        point: Val::Px(100.),
+                    },
+                    ColorStop {
+                        color: GREEN.into(),
+                        point: Val::Px(50.),
+                    },
                 ]),
             ));
 
@@ -86,15 +119,15 @@ fn setup(mut commands: Commands) {
                 ColorStops(vec![
                     ColorStop {
                         color: YELLOW.into(),
-                        stop: Val::Px(10.),
+                        point: Val::Px(10.),
                     },
                     ColorStop {
                         color: BLUE.into(),
-                        stop: Val::Px(20.),
+                        point: Val::Px(20.),
                     },
                     ColorStop {
                         color: GREEN.into(),
-                        stop: Val::Px(30.),
+                        point: Val::Px(30.),
                     },
                 ]),
             ));

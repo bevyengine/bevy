@@ -20,11 +20,12 @@ struct VertexOutput {
 
     // Position relative to the center of the rectangle.
     @location(5) point: vec2<f32>,
-    @location(6) @interpolate(flat) dir: vec2<f32>,
-    @location(7) @interpolate(flat) start_color: vec4<f32>,
-    @location(8) @interpolate(flat) start_len: f32,
-    @location(9) @interpolate(flat) end_len: f32,
-    @location(10) @interpolate(flat) end_color: vec4<f32>,
+    @location(6) @interpolate(flat) g_start: vec2<f32>,
+    @location(7) @interpolate(flat) dir: vec2<f32>,
+    @location(8) @interpolate(flat) start_color: vec4<f32>,
+    @location(9) @interpolate(flat) start_len: f32,
+    @location(10) @interpolate(flat) end_len: f32,
+    @location(11) @interpolate(flat) end_color: vec4<f32>,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -41,11 +42,12 @@ fn vertex(
     @location(4) border: vec4<f32>,
     @location(5) size: vec2<f32>,
     @location(6) point: vec2<f32>,
-    @location(7) @interpolate(flat) dir: vec2<f32>,
-    @location(8) @interpolate(flat) start_color: vec4<f32>,
-    @location(9) @interpolate(flat) start_len: f32,
-    @location(10) @interpolate(flat) end_len: f32,
-    @location(11) @interpolate(flat) end_color: vec4<f32>,
+    @location(7) @interpolate(flat) g_start: vec2<f32>,
+    @location(8) @interpolate(flat) dir: vec2<f32>,
+    @location(9) @interpolate(flat) start_color: vec4<f32>,
+    @location(10) @interpolate(flat) start_len: f32,
+    @location(11) @interpolate(flat) end_len: f32,
+    @location(12) @interpolate(flat) end_color: vec4<f32>,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.position = view.clip_from_world * vec4(vertex_position, 1.0);
@@ -63,9 +65,6 @@ fn vertex(
 
     return out;
 }
-
-@group(1) @binding(0) var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1) var sprite_sampler: sampler;
 
 // The returned value is the shortest distance from the given point to the boundary of the rounded 
 // box.
@@ -181,33 +180,81 @@ fn draw_background(in: VertexOutput, texture_color: vec4<f32>) -> vec4<f32> {
     return vec4(1., 1., 1., saturate(t));
 }
 
+// fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
+//     let texture_color = vec4(1.);
+
+//     var color: vec4<f32>;
+//     if enabled(in.flags, BORDER) {
+//         color = draw(in, texture_color);
+//     } else {
+//         color = draw_background(in, texture_color);
+//     }
+
+//     var d: f32;
+
+
+//     let gradient_distance = distance(in.point, in.dir * dot(in.point, in.dir));
+//     let t = (gradient_distance - in.start_len) / in.end_len - in.start_len;
+
+//     var gradient_color: vec4<f32>;
+
+//     if t <= 0.0 || 1.0 < t {
+//         gradient_color = vec4(0.0);
+//     } else {
+//         gradient_color = mix(in.start_color, in.end_color, t);
+//     }
+
+//     let alpha_out = mix(0.0, gradient_color.a, 1.0 - saturate(d));
+//     let color_out = vec4(gradient_color.rgb, alpha_out);
+
+//     return texture_color * color_out;
+// }
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let texture_color = vec4(1.);
+    // var color: vec4<f32>;
+    // var d: f32;
 
-    var color: vec4<f32>;
-    if enabled(in.flags, BORDER) {
-        color = draw(in, texture_color);
-    } else {
-        color = draw_background(in, texture_color);
+    // let g_start = -0.5 * in.size;
+    // let g_end = g_start + vec2(in.size.x, 0.0);
+    // let g_len = distance(g_start, g_end);
+
+    // let g_dir = normalize(g_end - g_start);
+    // let g_distance = distance(g_start, g_dir * dot(in.point, g_dir));
+
+    if in.point.x > 150. {
+        return vec4(1.);
     }
+    return vec4(0.);
 
-    var d: f32;
+    // return linear_gradient(
+    //     in.point,
+    //     in.g_start,
+    //     in.dir,
+    //     in.start_color,
+    //     in.start_len,
+    //     in.end_color,
+    //     in.end_len,
+    // );
+}
 
-
-    let gradient_distance = distance(in.point, in.dir * dot(in.point, in.dir));
-    let t = (gradient_distance - in.start_len) / in.end_len - in.start_len;
-
-    var gradient_color: vec4<f32>;
-
+fn linear_gradient(
+    point: vec2<f32>,
+    g_start: vec2<f32>,
+    g_dir: vec2<f32>,
+    start_color: vec4<f32>,
+    start_distance: f32,
+    end_color: vec4<f32>,
+    end_distance: f32,
+) -> vec4<f32> {
+    if distance(point, g_start) < 10. {
+        return vec4(1.);
+    }
+    let g_distance = dot(point - g_start, g_dir);
+    let t = (g_distance - start_distance) / (end_distance - start_distance);
     if t <= 0.0 || 1.0 < t {
-        gradient_color = vec4(0.0);
+        return vec4(0.0);
     } else {
-        gradient_color = mix(in.start_color, in.end_color, t);
+        return mix(start_color, end_color, t);
     }
-
-    let alpha_out = mix(0.0, gradient_color.a, 1.0 - saturate(d));
-    let color_out = vec4(gradient_color.rgb, alpha_out);
-
-    return texture_color * color_out;
 }
