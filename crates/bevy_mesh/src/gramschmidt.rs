@@ -105,6 +105,10 @@ pub(crate) fn generate_tangents_for_mesh(
 
             for i in 0..vertex_count {
                 let normal = Vec3A::from_array(normals[i]);
+                // Assume that the normal has not been pre-normalized
+                let normal = normal.normalize_or_zero();
+                // Although it is not mathematically necessary to normalize the accumulated
+                // tangent, doing so may provide better numerical stability in extreme cases.
                 let tangent = tangents[i].normalize();
                 // Gram-Schmidt orthogonalization
                 let tangent = (tangent - normal * normal.dot(tangent)).normalize();
