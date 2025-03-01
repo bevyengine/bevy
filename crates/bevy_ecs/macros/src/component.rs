@@ -13,6 +13,10 @@ use syn::{
     LitStr, Member, Meta, Path, Result, Token, Visibility,
 };
 
+pub const EVENT: &str = "event";
+pub const AUTO_PROPAGATE: &str = "auto_propagate";
+pub const TRAVERSAL: &str = "traversal";
+
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let mut auto_propagate = false;
@@ -24,13 +28,13 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
 
-    if let Some(attr) = ast.attrs.iter().find(|attr| attr.path().is_ident("event")) {
+    if let Some(attr) = ast.attrs.iter().find(|attr| attr.path().is_ident(EVENT)) {
         if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
-            Some(ident) if ident == "auto_propagate" => {
+            Some(ident) if ident == AUTO_PROPAGATE => {
                 auto_propagate = true;
                 Ok(())
             }
-            Some(ident) if ident == "traversal" => {
+            Some(ident) if ident == TRAVERSAL => {
                 traversal = meta.value()?.parse()?;
                 Ok(())
             }
@@ -68,8 +72,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         }
     })
 }
-
-const ENTITIES_ATTR: &str = "entities";
 
 pub fn derive_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -273,6 +275,8 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     })
 }
 
+const ENTITIES_ATTR: &str = "entities";
+
 fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
     match data {
         Data::Struct(DataStruct { fields, .. }) => {
@@ -420,6 +424,7 @@ pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
 pub const RELATIONSHIP_TARGET: &str = "relationship_target";
+pub const LINKED_SPAWN: &str = "linked_spawn";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";
@@ -612,7 +617,7 @@ impl Parse for RelationshipTarget {
 
         for meta in metas {
             match meta {
-                Meta::Path(path) if path.is_ident("linked_spawn") => linked_spawn = true,
+                Meta::Path(path) if path.is_ident(LINKED_SPAWN) => linked_spawn = true,
                 Meta::NameValue(nv) if nv.path.is_ident(RELATIONSHIP) => {
                     if let Expr::Path(ExprPath { path, .. }) = nv.value {
                         relationship = Some(path.require_ident()?.to_owned());
@@ -758,7 +763,7 @@ fn relationship_field<'a>(
             field
                 .attrs
                 .iter()
-                .any(|attr| attr.path().is_ident("relationship"))
+                .any(|attr| attr.path().is_ident(RELATIONSHIP))
         }).ok_or(syn::Error::new(
             span,
             format!("{derive} derive expected named structs with a single field or with a field annotated with #[relationship].")
