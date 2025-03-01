@@ -473,7 +473,6 @@ impl HookAttributeKind {
                 [
                     "Not supported in this position, please use one of the following:",
                     "- path to function",
-                    "- closure",
                     "- call to function yielding closure",
                 ]
                 .join("\n"),
