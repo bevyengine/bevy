@@ -1,0 +1,245 @@
+error[E0277]: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `PartialReflect` is not implemented for `TheirInner<T>`
+   |
+   = note: consider annotating `TheirInner<T>` with `#[derive(Reflect)]`
+   = help: the following other types implement trait `PartialReflect`:
+             &'static Location<'static>
+             &'static Path
+             &'static str
+             ()
+             (A, B)
+             (A, B, C)
+             (A, B, C, D)
+             (A, B, C, D, E)
+           and 90 others
+   = note: required for the cast from `&TheirInner<T>` to `&dyn PartialReflect`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `PartialReflect` is not implemented for `TheirInner<T>`
+   |
+   = note: consider annotating `TheirInner<T>` with `#[derive(Reflect)]`
+   = help: the following other types implement trait `PartialReflect`:
+             &'static Location<'static>
+             &'static Path
+             &'static str
+             ()
+             (A, B)
+             (A, B, C)
+             (A, B, C, D)
+             (A, B, C, D, E)
+           and 90 others
+   = note: required for the cast from `&mut TheirInner<T>` to `&mut (dyn PartialReflect + 'static)`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `TheirInner<T>` does not implement `PartialReflect` so cannot be introspected
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `PartialReflect` is not implemented for `TheirInner<T>`
+   |
+   = note: consider annotating `TheirInner<T>` with `#[derive(Reflect)]`
+   = help: the following other types implement trait `PartialReflect`:
+             &'static Location<'static>
+             &'static Path
+             &'static str
+             ()
+             (A, B)
+             (A, B, C)
+             (A, B, C, D)
+             (A, B, C, D, E)
+           and 90 others
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: `TheirInner<T>` does not implement `TypePath` so cannot provide dynamic type path information
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `TypePath` is not implemented for `TheirInner<T>`
+   |
+    = note: consider annotating `TheirInner<T>` with `#[derive(Reflect)]` or `#[derive(TypePath)]`
+    = help: the following other types implement trait `TypePath`:
+              &'static Location<'static>
+              &'static T
+              &'static mut T
+              ()
+              (P,)
+              (P1, P0)
+              (P1, P2, P0)
+              (P1, P2, P3, P0)
+            and 103 others
+    = note: required for `TheirInner<T>` to implement `DynamicTypePath`
+note: required by a bound in `clone_value`
+  --> BEVY_ROOT/bevy_reflect/src/reflect.rs:LL:CC
+   |
+LL | pub trait PartialReflect: DynamicTypePath + Send + Sync
+   |                           ^^^^^^^^^^^^^^^ required by this bound in `PartialReflect::clone_value`
+...
+LL |     fn clone_value(&self) -> Box<dyn PartialReflect>;
+   |        ----------- required by a bound in this associated function
+    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
+   |
+   = note: `?` operator cannot convert from `incorrect_inner_type::MyInner<T>` to `TheirInner<T>`
+   = note: expected struct `TheirInner<T>`
+              found struct `incorrect_inner_type::MyInner<T>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     -------------------------------------------------------
+   |     |
+   |     expected due to the type of this binding
+   |     in this procedural macro expansion
+...
+LL |         pub inner: MyInner<T>,
+   |                    ^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
+   |
+   = note: expected struct `TheirInner<T>`
+              found struct `incorrect_inner_type::MyInner<T>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |     |
+   |     expected `&TheirOuter<T>`, found `&TheirInner<T>`
+   |     arguments to this function are incorrect
+   |
+   = note: expected reference `&TheirOuter<T>`
+              found reference `&TheirInner<T>`
+note: associated function defined here
+  --> BEVY_ROOT/bevy_reflect/src/remote.rs:LL:CC
+   |
+LL |     fn as_wrapper(remote: &Self::Remote) -> &Self;
+   |        ^^^^^^^^^^
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |     |
+   |     expected `&mut TheirOuter<T>`, found `&mut TheirInner<T>`
+   |     arguments to this function are incorrect
+   |
+   = note: expected mutable reference `&mut TheirOuter<T>`
+              found mutable reference `&mut TheirInner<T>`
+note: associated function defined here
+  --> BEVY_ROOT/bevy_reflect/src/remote.rs:LL:CC
+   |
+LL |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+   |        ^^^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ------------------------------------------------------- in this procedural macro expansion
+...
+LL |         #[reflect(remote = MyOuter<T>)]
+   |                            ^^^^^^^
+   |                            |
+   |                            expected `TheirOuter<T>`, found `TheirInner<T>`
+   |                            expected due to this
+   |
+   = note: expected struct `TheirOuter<T>`
+              found struct `TheirInner<T>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |     |
+   |     expected `&TheirInner<bool>`, found `&TheirInner<T>`
+   |     arguments to this function are incorrect
+...
+LL |     struct MyOuter<T: FromReflect + GetTypeRegistration> {
+   |                    - found this type parameter
+   |
+   = note: expected reference `&TheirInner<bool>`
+              found reference `&TheirInner<T>`
+note: associated function defined here
+  --> BEVY_ROOT/bevy_reflect/src/remote.rs:LL:CC
+   |
+LL |     fn as_wrapper(remote: &Self::Remote) -> &Self;
+   |        ^^^^^^^^^^
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |     |
+   |     expected `&mut TheirInner<bool>`, found `&mut TheirInner<T>`
+   |     arguments to this function are incorrect
+...
+LL |     struct MyOuter<T: FromReflect + GetTypeRegistration> {
+   |                    - found this type parameter
+   |
+   = note: expected mutable reference `&mut TheirInner<bool>`
+              found mutable reference `&mut TheirInner<T>`
+note: associated function defined here
+  --> BEVY_ROOT/bevy_reflect/src/remote.rs:LL:CC
+   |
+LL |     fn as_wrapper_mut(remote: &mut Self::Remote) -> &mut Self;
+   |        ^^^^^^^^^^^^^^
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
+...
+LL |     struct MyOuter<T: FromReflect + GetTypeRegistration> {
+   |                    - expected this type parameter
+   |
+   = note: `?` operator cannot convert from `TheirInner<bool>` to `TheirInner<T>`
+   = note: expected struct `TheirInner<T>`
+              found struct `TheirInner<bool>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested_fail.rs:LL:CC
+   |
+LL |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     -------------------------------------------------------
+   |     |
+   |     expected due to the type of this binding
+   |     in this procedural macro expansion
+...
+LL |     struct MyOuter<T: FromReflect + GetTypeRegistration> {
+   |                    - expected this type parameter
+...
+LL |         pub inner: super::external_crate::TheirInner<bool>,
+   |                    ^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
+   |
+   = note: expected struct `TheirInner<T>`
+              found struct `TheirInner<bool>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 13 previous errors
+
+Some errors have detailed explanations: E0277, E0308.
+For more information about an error, try `rustc --explain E0277`.

@@ -1,13 +1,13 @@
 error[E0502]: cannot borrow `query` as immutable because it is also borrowed as mutable
-  --> tests/ui/system_state_iter_mut_overlap_safety.rs:18:13
+  --> tests/ui/system_state_iter_mut_overlap_safety.rs:LL:CC
    |
-15 |         let mut_vec = query.iter_mut().collect::<Vec<bevy_ecs::prelude::Mut<A>>>();
+LL |         let mut_vec = query.iter_mut().collect::<Vec<bevy_ecs::prelude::Mut<A>>>();
    |                       ----- mutable borrow occurs here
 ...
-18 |             query.iter().collect::<Vec<&A>>(),
+LL |             query.iter().collect::<Vec<&A>>(),
    |             ^^^^^ immutable borrow occurs here
 ...
-24 |             mut_vec.iter().map(|m| **m).collect::<Vec<A>>(),
+LL |             mut_vec.iter().map(|m| **m).collect::<Vec<A>>(),
    |             ------- mutable borrow later used here
 
 error: aborting due to 1 previous error

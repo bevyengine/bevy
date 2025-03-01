@@ -18,7 +18,7 @@ impl Prepare for CompileFailCommand {
 
         // Macro Compile Fail Tests
         // Run tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_macros_compile_fail_tests/README.md
+        // - See crates/bevy_derive/compile_fail/README.md
         commands.push(
             PreparedCommand::new::<Self>(
                 cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast}"),
@@ -29,7 +29,7 @@ impl Prepare for CompileFailCommand {
 
         // ECS Compile Fail Tests
         // Run UI tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_ecs_compile_fail_tests/README.md
+        // - See crates/bevy_ec/compile_fail/README.md
         commands.push(
             PreparedCommand::new::<Self>(
                 cmd!(sh, "cargo test --target-dir ../../../target {no_fail_fast}"),
@@ -47,6 +47,15 @@ impl Prepare for CompileFailCommand {
                 "Compiler errors of the Reflect compile fail tests seem to be different than expected! Check locally and compare rust versions.",
             )
             .with_subdir("crates/bevy_reflect/compile_fail"),
+        );
+
+        // Compile fail utils Compile Fail Tests
+        commands.push(
+            PreparedCommand::new::<Self>(
+                cmd!(sh, "cargo test --target-dir ../../target {no_fail_fast}"),
+                "Compiler errors of the Compile fail utils compile fail tests seem to be different than expected! Check locally and compare rust versions.",
+            )
+            .with_subdir("tools/compile_fail_utils")
         );
 
         commands

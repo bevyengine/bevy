@@ -39,6 +39,9 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-build-stable-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          # Compile fail tests need std sources for the errors to display correctly
+          components: rust-src
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Build & run tests
@@ -63,7 +66,7 @@ jobs:
           key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt, clippy, rust-src
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
         with:
@@ -123,6 +126,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+          # Compile fail tests need std sources for the errors to display correctly
+          components: rust-src
       - name: Install Linux dependencies
         uses: ./.github/actions/install-linux-deps
       - name: Check Compile
