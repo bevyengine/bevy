@@ -319,6 +319,25 @@ use thiserror::Error;
 /// }
 /// ```
 ///
+/// This also supports function calls that yield closures
+///
+/// ```
+/// # use bevy_ecs::component::{Component, HookContext};
+/// # use bevy_ecs::world::DeferredWorld;
+/// #
+/// #[derive(Component)]
+/// #[component(on_add = my_msg_hook("hello"))]
+/// #[component(on_despawn = my_msg_hook("yoink"))]
+/// struct ComponentA;
+///
+/// // a hook closure generating function
+/// fn my_msg_hook(message: &'static str) -> impl Fn(DeferredWorld, HookContext) {
+///     move |_world, _ctx| {
+///         println!("{message}");
+///     }
+/// }
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
