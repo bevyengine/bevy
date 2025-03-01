@@ -479,6 +479,35 @@ impl<'a> AssetPath<'a> {
         })
     }
 
+    /// Returns `true` if this [`AssetPath`] points to a file outside of 
+    /// its [asset source](crate::io::AssetSource)
+    /// 
+    /// ## Example
+    /// ```
+    /// # use bevy_asset::AssetPath;
+    /// // Inside the default AssetSource. Not OOB
+    /// let path = AssetPath::parse("thingy.png");
+    /// assert!( ! path.is_out_of_bounds());
+    ///
+    /// // Inside a different AssetSource. Not OOB
+    /// let path = AssetPath::parse("embedded://thingy.png");
+    /// assert!( ! path.is_out_of_bounds());
+    ///
+    /// // These target the parent directory. OOB
+    /// let path = AssetPath::parse("../thingy.png");
+    /// assert!(path.is_out_of_bounds());
+    /// 
+    /// let path = AssetPath::parse("folder/../../thingy.png");
+    /// assert!(path.is_out_of_bounds());
+    /// 
+    /// // This references the root directory (on linus). OOB
+    /// let path = AssetPath::parse("/home/thingy.png");
+    /// assert!(path.is_out_of_bounds());
+    /// 
+    /// // This references the windows C: drive. OOB
+    /// let path = AssetPath::parse("C:/thingy.png");
+    /// assert!(path.is_out_of_bounds());
+    /// ```
     pub fn is_out_of_bounds(&self) -> bool {
         use std::path::Component;
         let mut simplified = PathBuf::new();
