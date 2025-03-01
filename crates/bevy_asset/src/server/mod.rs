@@ -15,7 +15,7 @@ use crate::{
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
     CompleteErasedLoadedAsset, DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset,
-    OutOfBoundsMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
+    UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -67,7 +67,7 @@ pub(crate) struct AssetServerData {
     sources: AssetSources,
     mode: AssetServerMode,
     meta_check: AssetMetaCheck,
-    out_of_bounds_mode: OutOfBoundsMode,
+    unapproved_path_mode: UnapprovedPathMode,
 }
 
 /// The "asset mode" the server is currently in.
@@ -86,7 +86,7 @@ impl AssetServer {
         sources: AssetSources,
         mode: AssetServerMode,
         watching_for_changes: bool,
-        out_of_bounds_mode: OutOfBoundsMode,
+        out_of_bounds_mode: UnapprovedPathMode,
     ) -> Self {
         Self::new_with_loaders(
             sources,
@@ -105,7 +105,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
-        out_of_bounds_mode: OutOfBoundsMode,
+        out_of_bounds_mode: UnapprovedPathMode,
     ) -> Self {
         Self::new_with_loaders(
             sources,
@@ -123,7 +123,7 @@ impl AssetServer {
         mode: AssetServerMode,
         meta_check: AssetMetaCheck,
         watching_for_changes: bool,
-        out_of_bounds_mode: OutOfBoundsMode,
+        out_of_bounds_mode: UnapprovedPathMode,
     ) -> Self {
         let (asset_event_sender, asset_event_receiver) = crossbeam_channel::unbounded();
         let mut infos = AssetInfos::default();
@@ -137,7 +137,7 @@ impl AssetServer {
                 asset_event_receiver,
                 loaders,
                 infos: RwLock::new(infos),
-                out_of_bounds_mode,
+                unapproved_path_mode: out_of_bounds_mode,
             }),
         }
     }
@@ -324,11 +324,11 @@ impl AssetServer {
         self.load_with_meta_transform(path, None, (), false)
     }
 
-    /// Same as [`load`](AssetServer::load), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
-    /// is [`Deny`](OutOfBoundsMode::Deny).
+    /// Same as [`load`](AssetServer::load), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
-    /// See [`OutOfBoundsMode`].
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_override<'a, A: Asset>(&self, path: impl Into<AssetPath<'a>>) -> Handle<A> {
         self.load_with_meta_transform(path, None, (), true)
     }
@@ -357,11 +357,11 @@ impl AssetServer {
         self.load_with_meta_transform(path, None, guard, false)
     }
 
-    /// Same as [`load`](AssetServer::load_acquire), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
-    /// is [`Deny`](OutOfBoundsMode::Deny).
+    /// Same as [`load`](AssetServer::load_acquire), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
-    /// See [`OutOfBoundsMode`].
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_acquire_override<'a, A: Asset, G: Send + Sync + 'static>(
         &self,
         path: impl Into<AssetPath<'a>>,
@@ -387,11 +387,11 @@ impl AssetServer {
         )
     }
 
-    /// Same as [`load`](AssetServer::load_with_settings), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
-    /// is [`Deny`](OutOfBoundsMode::Deny).
+    /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
-    /// See [`OutOfBoundsMode`].
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_with_settings_override<'a, A: Asset, S: Settings>(
         &self,
         path: impl Into<AssetPath<'a>>,
@@ -429,11 +429,11 @@ impl AssetServer {
         )
     }
 
-    /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load out-of-bounds assets
-    /// if [`AssetPlugin::out_of_bounds_mode`](super::AssetPlugin::out_of_bounds_mode)
-    /// is [`Deny`](OutOfBoundsMode::Deny).
+    /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
+    /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
+    /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
-    /// See [`OutOfBoundsMode`].
+    /// See [`UnapprovedPathMode`] and [`AssetPath::is_unapproved`]
     pub fn load_acquire_with_settings_override<
         'a,
         A: Asset,
@@ -458,15 +458,15 @@ impl AssetServer {
         path: impl Into<AssetPath<'a>>,
         meta_transform: Option<MetaTransform>,
         guard: G,
-        override_out_of_bounds: bool,
+        override_unapproved: bool,
     ) -> Handle<A> {
         let path = path.into().into_owned();
 
-        if path.is_out_of_bounds() {
-            match (&self.data.out_of_bounds_mode, override_out_of_bounds) {
-                (OutOfBoundsMode::Allow, _) | (OutOfBoundsMode::Deny, true) => {}
-                (OutOfBoundsMode::Deny, false) | (OutOfBoundsMode::Forbid, _) => {
-                    panic!("Asset path {path} is out of bounds. See OutOfBoundsMode for details.")
+        if path.is_unapproved() {
+            match (&self.data.unapproved_path_mode, override_unapproved) {
+                (UnapprovedPathMode::Allow, _) | (UnapprovedPathMode::Deny, true) => {}
+                (UnapprovedPathMode::Deny, false) | (UnapprovedPathMode::Forbid, _) => {
+                    panic!("Asset path {path} is unapproved. See UnapprovedPathMode for details.")
                 }
             }
         }

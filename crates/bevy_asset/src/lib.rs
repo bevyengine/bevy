@@ -258,28 +258,31 @@ pub struct AssetPlugin {
     pub mode: AssetMode,
     /// How/If asset meta files should be checked.
     pub meta_check: AssetMetaCheck,
-
-    pub out_of_bounds_mode: OutOfBoundsMode,
+    /// How to handle load requests of files that are outside the approved directories.
+    ///
+    /// Approved directories are [`AssetPlugin::file_path`] and the directories of each
+    /// [`AssetSource`](io::AssetSource)
+    pub unapproved_path_mode: UnapprovedPathMode,
 }
 
-/// Determines how asset paths that go out of bounds are handled.
+/// Determines how to react to attempts to load assets not inside the approved folders.
 ///
-/// An out of bounds asset path is one that attempts to load a file that
-/// is not inside the default asset folder or another asset source. This usually
-/// means it is either an absolute address or it contains enough "../"s to
-/// exit the designated asset folder.
+/// Approved folders are [`AssetPlugin::file_path`] and the folder of each
+/// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
 ///
-/// The bevy team strongly discourages using [`Allow`](OutOfBoundsMode::Allow) if your
+/// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
 /// app will include scripts or modding support, as it could allow allow arbitrary file
 /// access for malicious code.
+/// 
+/// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
 #[derive(Clone, Default)]
-pub enum OutOfBoundsMode {
-    /// Out-of-bounds asset loading is allowed. This is
+pub enum UnapprovedPathMode {
+    /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Panics if any asset load is out-of-bounds, unless an override method is used, like
+    /// Panics if any asset load is unapproved, unless an override method is used, like
     /// [`AssetServer::load_override`]
     Deny,
-    /// Panics if any asset load is out-of-bounds.
+    /// Panics if any asset load is unapproved.
     #[default]
     Forbid,
 }
@@ -335,7 +338,7 @@ impl Default for AssetPlugin {
             processed_file_path: Self::DEFAULT_PROCESSED_FILE_PATH.to_string(),
             watch_for_changes_override: None,
             meta_check: AssetMetaCheck::default(),
-            out_of_bounds_mode: OutOfBoundsMode::default(),
+            unapproved_path_mode: UnapprovedPathMode::default(),
         }
     }
 }
@@ -376,7 +379,7 @@ impl Plugin for AssetPlugin {
                         AssetServerMode::Unprocessed,
                         self.meta_check.clone(),
                         watch,
-                        self.out_of_bounds_mode.clone(),
+                        self.unapproved_path_mode.clone(),
                     ));
                 }
                 AssetMode::Processed => {
@@ -393,7 +396,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
-                            self.out_of_bounds_mode.clone(),
+                            self.unapproved_path_mode.clone(),
                         ))
                         .insert_resource(processor)
                         .add_systems(bevy_app::Startup, AssetProcessor::start);
@@ -407,7 +410,7 @@ impl Plugin for AssetPlugin {
                             AssetServerMode::Processed,
                             AssetMetaCheck::Always,
                             watch,
-                            self.out_of_bounds_mode.clone(),
+                            self.unapproved_path_mode.clone(),
                         ));
                     }
                 }
@@ -667,7 +670,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState, OutOfBoundsMode,
+        AssetPlugin, AssetServer, Assets, DuplicateLabelAssetError, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -1885,7 +1888,7 @@ mod tests {
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 
-    fn out_of_bounds_setup(mode: OutOfBoundsMode) -> (App, GateOpener) {
+    fn out_of_bounds_setup(mode: UnapprovedPathMode) -> (App, GateOpener) {
         let dir = Dir::default();
         let a_path = "../a.cool.ron";
         let a_ron = r#"
@@ -1911,7 +1914,7 @@ mod tests {
             TaskPoolPlugin::default(),
             LogPlugin::default(),
             AssetPlugin {
-                out_of_bounds_mode: mode,
+                unapproved_path_mode: mode,
                 ..Default::default()
             },
         ));
@@ -1923,7 +1926,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn out_of_bounds_forbid_should_panic() {
-        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Forbid);
+        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Forbid);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1937,7 +1940,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn out_of_bounds_deny_should_panic() {
-        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
+        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1950,7 +1953,7 @@ mod tests {
 
     #[test]
     fn out_of_bounds_deny_should_finish() {
-        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Deny);
+        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Deny);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
@@ -1963,7 +1966,7 @@ mod tests {
 
     #[test]
     fn out_of_bounds_allow_should_finish() {
-        let (mut app, _gate) = out_of_bounds_setup(OutOfBoundsMode::Allow);
+        let (mut app, _gate) = out_of_bounds_setup(UnapprovedPathMode::Allow);
 
         fn uses_assets(_asset: ResMut<Assets<CoolText>>) {}
         fn load_assets(assets: Res<AssetServer>) {
