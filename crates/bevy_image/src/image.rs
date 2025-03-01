@@ -1054,7 +1054,8 @@ impl Image {
         offset.map(|start| &mut data[start..(start + len)])
     }
 
-    /// Returns an iterator over the image's pixels.
+    /// Returns an iterator over the image's pixels. The iteration order is x = 0 to width then
+    /// y = 0 to height then z = 0 to depth.
     ///
     /// An image with uninitialized data will return an empty iterator.
     pub fn pixels(&self) -> Pixels {
@@ -1066,7 +1067,8 @@ impl Image {
         }
     }
 
-    /// Returns a mutable iterator over the image's pixels.
+    /// Returns a mutable iterator over the image's pixels. The iteration order is x = 0 to width
+    /// then y = 0 to height then z = 0 to depth.
     ///
     /// An image with uninitialized data will return an empty iterator.
     ///
