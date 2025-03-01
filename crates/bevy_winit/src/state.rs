@@ -489,7 +489,9 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
         #[cfg(target_os = "windows")]
         {
-            if self.startup_forced_updates > 0 {
+            let winit_windows = self.world().non_send_resource::<WinitWindows>();
+            let headless = winit_windows.windows.is_empty();
+            if self.startup_forced_updates > 0 || headless {
                 self.redraw_requested(event_loop);
             }
         }
