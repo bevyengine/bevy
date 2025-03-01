@@ -1,6 +1,5 @@
 use crate::components::{GlobalTransform, Transform, TransformTreeChanged};
 use bevy_ecs::prelude::*;
-use derive_more::From;
 #[cfg(feature = "std")]
 pub use parallel::propagate_parent_transforms;
 #[cfg(not(feature = "std"))]
@@ -55,11 +54,13 @@ pub fn mark_dirty_trees(
     for entity in changed_transforms.iter().chain(orphaned.read()) {
         let mut next = entity;
         while let Ok((parent, mut tree)) = transforms.get_mut(next) {
-            if tree.is_changed() {
-                break; // Tree has already been processed
+            if tree.is_changed() && !tree.is_added() {
+                // If the component was changed, this part of the tree has already been processed.
+                // Ignore this if the change was caused by the component being added.
+                break;
             }
             tree.set_changed();
-            if let Some(parent) = parent.map(ChildOf::get) {
+            if let Some(parent) = parent.map(|p| p.parent) {
                 next = parent;
             } else {
                 break;
