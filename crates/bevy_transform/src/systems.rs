@@ -873,12 +873,10 @@ mod test {
 
         app.add_systems(
             Update,
-            (
-                mark_dirty_trees,
-                propagate_parent_transforms,
-                sync_simple_transforms,
-            )
-                .chain(),
+            // It is unsound for this unsafe system to encounter a cycle without panicking. This
+            // requirement only applies to systems with unsafe parallel traversal that result in
+            // aliased mutability during a cycle.
+            propagate_parent_transforms,
         );
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
