@@ -38,24 +38,6 @@ fn main() {
     // is great for writing tests and teaching abstract concepts!
     let mut world = World::new();
 
-    // an entity can only target one other entity
-    //
-    // an entity can only point to one entity
-    // an entity can be pointed to by many other entities
-    //
-    // an entity can be related to many other entities
-
-    let parent1 = world.spawn_empty().id();
-    // let parent2 = world.spawn_empty().id();
-
-    // current impl cannot do many to one relationships
-    // child of multiple parents
-    let child = world.spawn((ChildOf(parent1))).id();
-    let child2 = world.spawn((ChildOf(parent1))).id();
-
-    // try to get which entities the entity is a child of
-    println!("{:?}", world.get::<Children>(parent1));
-
     // We're going to spawn a few entities and relate them to each other in a complex way.
     // To start, Bob will target Alice, Charlie will target Bob,
     // and Alice will target Charlie. This creates a loop in the relationship graph.
