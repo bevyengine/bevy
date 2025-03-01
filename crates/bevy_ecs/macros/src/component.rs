@@ -20,7 +20,7 @@ pub const TRAVERSAL: &str = "traversal";
 pub fn derive_event(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let mut auto_propagate = false;
-    let mut traversal = quote!(());
+    let mut traversal: syn::Type = parse_quote!(());
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
     ast.generics
