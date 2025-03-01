@@ -234,4 +234,31 @@ mod tests {
         let collection = rel_target.collection();
         assert_eq!(collection, &a);
     }
+
+    #[test]
+    fn one_to_one_relationships() {
+        #[derive(Component)]
+        #[relationship(relationship_target = Below)]
+        struct Above(Entity);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Above)]
+        struct Below(Entity);
+
+        let mut world = World::new();
+        let a = world.spawn_empty().id();
+        let b = world.spawn_empty().id();
+
+        world.entity_mut(a).insert(Above(b));
+        assert_eq!(a, world.get::<Below>(b).unwrap().0);
+
+        // remove below and above should be removed
+        world.entity_mut(b).remove::<Below>();
+        assert!(world.get::<Above>(a).is_none());
+
+        // remove above and below should be removed
+        world.entity_mut(a).insert(Above(b));
+        world.entity_mut(a).remove::<Above>();
+        assert!(world.get::<Below>(b).is_none());
+    }
 }
