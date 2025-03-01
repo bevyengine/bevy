@@ -9,7 +9,7 @@ pub use serial::propagate_parent_transforms;
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
 ///
 /// Third party plugins should ensure that this is used in concert with
-/// [`propagate_parent_transforms`] and [`compute_transform_leaves`].
+/// [`propagate_parent_transforms`] and [`mark_dirty_trees`].
 pub fn sync_simple_transforms(
     mut query: ParamSet<(
         Query<
@@ -57,11 +57,12 @@ pub fn mark_dirty_trees(
         while let Ok((parent, mut tree)) = transforms.get_mut(next) {
             if tree.is_changed() {
                 break; // Tree has already been processed
-            } else {
-                tree.set_changed();
             }
+            tree.set_changed();
             if let Some(parent) = parent.map(ChildOf::get) {
                 next = parent;
+            } else {
+                break;
             };
         }
     }
@@ -409,12 +410,8 @@ mod parallel {
         }
     }
 
-    /// Propagate transforms from `parent` to its non-leaf `children`, pushing updated child
-    /// entities to the `outbox`. Propagation does not visit leaf nodes; instead, they are computed
-    /// in [`compute_transform_leaves`](super::compute_transform_leaves), which can optimize much
-    /// more efficiently.
-    ///
-    /// This function will continue propagating transforms to descendants in a depth-first
+    /// Propagate transforms from `parent` to its `children`, pushing updated child entities to the
+    /// `outbox`. This function will continue propagating transforms to descendants in a depth-first
     /// traversal, while simultaneously pushing unvisited branches to the outbox, for other threads
     /// to take when idle.
     ///
