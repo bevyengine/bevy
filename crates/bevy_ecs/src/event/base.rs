@@ -17,9 +17,9 @@ use core::{
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
 /// Events can also be "triggered" on a [`World`], which will then cause any [`Observer`] of that trigger to run.
-/// 
+///
 /// Events must be thread-safe.
-/// 
+///
 /// ## Derive
 /// This trait can be derived.
 /// Adding `auto_propagate` sets [`Self::AUTO_PROPAGATE`] to true.
@@ -32,7 +32,7 @@ use core::{
 /// #[event(auto_propagate)]
 /// struct MyEvent;
 /// ```
-/// 
+///
 ///
 /// [`World`]: crate::world::World
 /// [`ComponentId`]: crate::component::ComponentId
