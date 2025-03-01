@@ -283,27 +283,27 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
             let mut visit = Vec::with_capacity(fields.len());
             let mut visit_mut = Vec::with_capacity(fields.len());
 
-            let maybe_relationship = if is_relationship {
+            let relationship = if is_relationship {
                 relationship_field(fields, "VisitEntities", fields.span()).ok()
             } else {
                 None
             };
             fields
                 .iter()
-                .enumerate()
-                .filter(|(_, field)| {
+                .filter(|field| {
                     field.attrs.iter().any(|a| a.path().is_ident(ENTITIES_ATTR))
-                        || maybe_relationship
+                        || relationship
                             .as_ref()
                             .is_some_and(|relationship| relationship == field)
                 })
+                .enumerate()
                 .for_each(|(index, field)| {
                     let field_member = ident_or_index(field.ident.as_ref(), index);
 
                     visit.push(quote!(this.#field_member.visit_entities(&mut func);));
                     visit_mut.push(quote!(this.#field_member.visit_entities_mut(&mut func);));
                 });
-            if visit.is_empty() && visit_mut.is_empty() {
+            if visit.is_empty() {
                 return quote!();
             };
             quote!(
@@ -326,19 +326,9 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 let field_members = variant
                     .fields
                     .iter()
+                    .filter(|field| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES_ATTR)))
                     .enumerate()
-                    .filter_map(|(index, field)| {
-                        if field
-                            .attrs
-                            .iter()
-                            .any(|a| a.meta.path().is_ident(ENTITIES_ATTR))
-                        {
-                            let field_member = ident_or_index(field.ident.as_ref(), index);
-                            Some(field_member)
-                        } else {
-                            None
-                        }
-                    })
+                    .map(|(index, field)| ident_or_index(field.ident.as_ref(), index))
                     .collect::<Vec<_>>();
 
                 let ident = &variant.ident;
