@@ -95,7 +95,7 @@ mod serial {
     ///
     /// Third party plugins should ensure that this is used in concert with
     /// [`sync_simple_transforms`](super::sync_simple_transforms) and
-    /// [`compute_transform_leaves`](super::compute_transform_leaves).
+    /// [`compute_transform_leaves`](super::mark_dirty_trees).
     pub fn propagate_parent_transforms(
         mut root_query: Query<
             (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
@@ -389,8 +389,11 @@ mod parallel {
                 // the hierarchy, guaranteeing unique access.
                 #[expect(unsafe_code, reason = "Mutating disjoint entities in parallel")]
                 unsafe {
-                    let (_, (_, p_global_transform), (p_children, _)) =
+                    let (_, (_, p_global_transform, tree), (p_children, _)) =
                         nodes.get_unchecked(parent).unwrap();
+                    if !tree.is_changed() {
+                        continue;
+                    }
                     propagate_descendants_unchecked(
                         parent,
                         p_global_transform,
@@ -474,7 +477,11 @@ mod parallel {
 
             let mut last_child = None;
             let new_children = children_iter.filter_map(
-                |(child, (transform, mut global_transform), (children, child_of))| {
+                |(child, (transform, mut global_transform, tree), (children, child_of))| {
+                    if !tree.is_changed() && !p_global_transform.is_changed() {
+                        // Static scene optimization
+                        return None;
+                    }
                     assert_eq!(child_of.parent, parent);
                     if p_global_transform.is_changed()
                         || transform.is_changed()
@@ -518,10 +525,13 @@ mod parallel {
         's,
         (
             Entity,
-            (Ref<'static, Transform>, Mut<'static, GlobalTransform>),
+            (
+                Ref<'static, Transform>,
+                Mut<'static, GlobalTransform>,
+                Ref<'static, TransformTreeChanged>,
+            ),
             (Option<Read<Children>>, Read<ChildOf>),
         ),
-        Changed<TransformTreeChanged>,
     >;
 
     /// A queue shared between threads for transform propagation.
