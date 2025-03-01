@@ -138,6 +138,9 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn len(&self) -> usize {
+        if *self == Entity::PLACEHOLDER {
+            return 0;
+        }
         1
     }
 }
