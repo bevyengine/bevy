@@ -38,7 +38,8 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
                 traversal = meta.value()?.parse()?;
                 Ok(())
             }
-            _ => Err(meta.error("unsupported attribute")),
+            Some(ident) => Err(meta.error(format!("unsupported attribute: {}", ident))),
+            None => Err(meta.error("expected identifier")),
         }) {
             return e.to_compile_error().into();
         }
@@ -275,7 +276,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     })
 }
 
-const ENTITIES_ATTR: &str = "entities";
+const ENTITIES: &str = "entities";
 
 fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> TokenStream2 {
     match data {
@@ -290,14 +291,13 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
             };
             fields
                 .iter()
-                .filter(|field| {
-                    field.attrs.iter().any(|a| a.path().is_ident(ENTITIES_ATTR))
-                        || relationship
-                            .as_ref()
-                            .is_some_and(|relationship| relationship == field)
-                })
                 .enumerate()
+                .filter(|(_, field)| {
+                    field.attrs.iter().any(|a| a.path().is_ident(ENTITIES))
+                        || relationship.is_some_and(|relationship| relationship == *field)
+                })
                 .for_each(|(index, field)| {
+                    dbg!(field);
                     let field_member = ident_or_index(field.ident.as_ref(), index);
 
                     visit.push(quote!(this.#field_member.visit_entities(&mut func);));
@@ -326,8 +326,8 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 let field_members = variant
                     .fields
                     .iter()
-                    .filter(|field| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES_ATTR)))
                     .enumerate()
+                    .filter(|(_, field)| field.attrs.iter().any(|a| a.path().is_ident(ENTITIES)))
                     .map(|(index, field)| ident_or_index(field.ident.as_ref(), index))
                     .collect::<Vec<_>>();
 
@@ -349,7 +349,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 );
             }
 
-            if visit.is_empty() && visit_mut.is_empty() {
+            if visit.is_empty() {
                 return quote!();
             };
             quote!(
