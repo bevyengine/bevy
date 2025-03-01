@@ -303,12 +303,12 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 return quote!();
             };
             quote!(
-                fn visit_entities(this: &Self, mut func: impl FnMut(Entity)) {
+                fn visit_entities(this: &Self, mut func: impl FnMut(#bevy_ecs_path::entity::Entity)) {
                     use #bevy_ecs_path::entity::VisitEntities;
                     #(#visit)*
                 }
 
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut Entity)) {
+                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut #bevy_ecs_path::entity::Entity)) {
                     use #bevy_ecs_path::entity::VisitEntitiesMut;
                     #(#visit_mut)*
                 }
@@ -338,19 +338,19 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                     .collect::<Vec<_>>();
 
                 let ident = &variant.ident;
-                let field_names = field_members
+                let field_idents = field_members
                     .iter()
                     .map(|member| format_ident!("__self_{}", member))
                     .collect::<Vec<_>>();
 
                 visit.push(
-                    quote!(Self::#ident {#(#field_members: #field_names,)* ..} => {
-                        #(#field_names.visit_entities(func);)*
+                    quote!(Self::#ident {#(#field_members: #field_idents,)* ..} => {
+                        #(#field_idents.visit_entities(&mut func);)*
                     }),
                 );
                 visit_mut.push(
-                    quote!(Self::#ident {#(#field_members: #field_names,)* ..} => {
-                        #(#field_names.visit_entities_mut(func);)*
+                    quote!(Self::#ident {#(#field_members: #field_idents,)* ..} => {
+                        #(#field_idents.visit_entities_mut(&mut func);)*
                     }),
                 );
             }
@@ -359,7 +359,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                 return quote!();
             };
             quote!(
-                fn visit_entities(this: &Self, mut func: impl FnMut(Entity)) {
+                fn visit_entities(this: &Self, mut func: impl FnMut(#bevy_ecs_path::entity::Entity)) {
                     use #bevy_ecs_path::entity::VisitEntities;
                     match this {
                         #(#visit,)*
@@ -367,7 +367,7 @@ fn visit_entities(data: &Data, bevy_ecs_path: &Path, is_relationship: bool) -> T
                     }
                 }
 
-                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut Entity)) {
+                fn visit_entities_mut(this: &mut Self, mut func: impl FnMut(&mut #bevy_ecs_path::entity::Entity)) {
                     use #bevy_ecs_path::entity::VisitEntitiesMut;
                     match this {
                         #(#visit_mut,)*
