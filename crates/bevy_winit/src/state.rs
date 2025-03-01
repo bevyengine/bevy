@@ -435,8 +435,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
                 // https://github.com/bevyengine/bevy/issues/17488
                 #[cfg(target_os = "windows")]
                 {
-                    self.redraw_requested = true;
-                    self.redraw_requested(_event_loop);
+                    // Have the startup behavior run in about_to_wait, which prevents issues with
+                    // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
+                    if self.startup_forced_updates == 0 {
+                        self.redraw_requested = true;
+                        self.redraw_requested(_event_loop);
+                    }
                 }
             }
             _ => {}
@@ -480,6 +484,15 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
         //       The monitor sync logic likely belongs in monitor event handlers and not here.
         #[cfg(not(target_os = "windows"))]
         self.redraw_requested(event_loop);
+
+        // Have the startup behavior run in about_to_wait, which prevents issues with
+        // invisible window creation. https://github.com/bevyengine/bevy/issues/18027
+        #[cfg(target_os = "windows")]
+        {
+            if self.startup_forced_updates > 0 {
+                self.redraw_requested(event_loop);
+            }
+        }
     }
 
     fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
