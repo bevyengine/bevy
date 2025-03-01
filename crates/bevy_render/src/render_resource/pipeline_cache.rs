@@ -306,7 +306,28 @@ impl ShaderCache {
                             },
                         )?;
 
-                        ShaderSource::Naga(Cow::Owned(naga))
+                        #[cfg(feature = "coupled_naga")]
+                        {
+                            ShaderSource::Naga(Cow::Owned(naga))
+                        }
+
+                        #[cfg(not(feature = "coupled_naga"))]
+                        {
+                            let mut validator = naga::valid::Validator::new(
+                                naga::valid::ValidationFlags::empty(),
+                                self.composer.capabilities,
+                            );
+                            let module_info = validator.validate(&naga).unwrap();
+                            let wgsl = Cow::Owned(
+                                naga::back::wgsl::write_string(
+                                    &naga,
+                                    &module_info,
+                                    naga::back::wgsl::WriterFlags::empty(),
+                                )
+                                .unwrap(),
+                            );
+                            ShaderSource::Wgsl(wgsl)
+                        }
                     }
                 };
 

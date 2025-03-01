@@ -9,6 +9,14 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+default = ["coupled_naga"]
+
+# Bevy users should _always_ leave this feature on.
+#
+# Bevy/wgpu developers can turn this feature off to test a newer version of wgpu
+# without needing to also update naga_oil. Make sure to update both wgpu and wgpu-types.
+coupled_naga = ["wgpu/naga-ir"]
+
 # Texture formats (require more than just image support)
 basis-universal = ["bevy_image/basis-universal"]
 dds = ["bevy_image/dds"]
@@ -77,7 +85,6 @@ wgpu = { version = "24", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
-  "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "24", features = ["wgsl-in"] }
